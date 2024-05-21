@@ -396,3 +396,44 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# KERIAuth
+/.vs
+/*/obj/
+/*/bin/
+/*/node_modules/
+/*/tsconfig.tsbuildinfo
+/KeriAuth.SignifyExtension/wwwroot/KeriAuth.SignifyExtension.lib.module.d.ts
+/KeriAuth.SignifyExtension/wwwroot/KeriAuth.SignifyExtension.lib.module.js
+/KeriAuth.SignifyExtension/wwwroot/KeriAuth.SignifyExtension.lib.module.js.map
+/KeriAuth.SignifyExtension/wwwroot/scripts/*.js
+/KeriAuth.SignifyExtension/wwwroot/scripts/*.js.map
+/KeriAuth.SignifyExtension/wwwroot/scripts/*.d.ts
+/KeriAuth.SignifyExtension/scripts/SignifyTsInterop.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/CommonInterfaces.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/CommonInterfaces.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/interopHelper.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/interopHelper.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/IsolatedContentScript.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/IsolatedContentScript.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/MainContentScript.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/MainContentScript.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/moduleLoader.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/moduleLoader.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/registerInactivityEvents.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/registerInactivityEvents.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/service-worker.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/service-worker.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/signify_ts_shim.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/uiHelper.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/uiHelper.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/CommonInterfaces.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/interopHelper.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/IsolatedContentScript.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/MainContentScript.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/moduleLoader.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/registerInactivityEvents.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/service-worker.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/signify_ts_shim.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/signify_ts_shim.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/uiHelper.js.map
