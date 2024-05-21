@@ -1,0 +1,167 @@
+﻿@page "/Identifiers"
+@using KeriAuth.BrowserExtension.Models
+
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services
+
+@using System.Diagnostics
+@using static KeriAuth.BrowserExtension.AppConfig;
+@implements IDisposable;
+@inject IPreferencesService PreferencesService
+@inject IStorageService StorageService
+@inject IStateService StateService
+@inject NavigationManager NavManager
+@inject IJSRuntime js
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@inject ILogger<Identifiers> logger
+
+<!-- For KERI
+KERI Autonomous Identifiers (AIDs)
+
+Display Name: FooFoo
+
+Created Timestamp
+(Identicon) (Use SVG or PNG?) Prefix  (copy)  (provide/share QR code)
+
+Delegator Identifier Prefix
+DI  (copy)
+
+List of Signing Keys or Digests and Weights  (fractions) (copy)  (type Ed25519)
+
+List of Next Key Digests, threshold, weights (fractions) (copy)
+
+Key Event Log (?)
+
+List of Backers  (copy)
+Backer Address  (copy)
+
+
+
+-->
+
+<div id="Dids" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Profiles</MudText>
+            
+                <div class="mt-n2 mb-2">
+                    
+                        <MudText Typo="Typo.overline">Your wallet contains 11 Identifiers</MudText>
+                    
+                </div>
+                <!-- foreach goes here-->
+                
+                {
+            <MudCard>
+                <!-- Style="@cardClass(walletDid.Did.Identifier)"> -->
+                        <MudExpansionPanel Dense="true">
+                            <TitleContent>
+                                <div class="d-flex" style="align-items:center;">
+                                    <MudTooltip Text="Set DID as active" Delay="1000">
+                                <MudButton> <!-- OnClick="async () => await SetActiveDid(walletDid.Did.Identifier)"> --> 
+                                            <MudIcon ViewBox="0 0 100 100"  Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                        </MudButton>
+                                    </MudTooltip>
+                                    <div style="margin-left: 10px; margin-top: -22px" @onclick:stopPropagation="true">
+                                        
+                                        <div class="mt-2">
+                                            <Ellipsis IsDid="true" StringContent="12341234" IncludeCopyIcon="true"></Ellipsis>
+                                        </div>
+                                    </div>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <MudText Class="mt-2" Typo="Typo.overline">Created at: 12-12-2023</MudText>
+                                    
+
+                                <MudCardActions Class="d-flex justify-end">
+                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="true" Variant="Variant.Filled" Color="Color.Primary">Add additional key</MudButton>
+                                </MudCardActions>
+                            </ChildContent>
+                        </MudExpansionPanel>
+                    </MudCard>
+                }
+                @if (isAddingDid)
+                {
+                    <p><em>Generating DID...</em></p>
+                }
+            }
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingDid" OnClick="async () => await AddDid()" Variant="Variant.Filled" Color="Color.Primary">Add New DID</MudButton>
+    </MudStack>
+</div>
+
+@code {
+    private bool isAddingDid;
+    private string _resolveResult = String.Empty;
+    // private bool _resolveComplete = true; // ugly solution, but helps to force the rerender
+    private string activeDidIdentifier = "";
+
+    public void Dispose()
+    {
+        preferencesSubscription?.Dispose();
+    }
+
+    async void HandleNextFromPreferencesService(Preferences value)
+    {
+        await Task.Run(() => InitializeOrOnNextPrefs(value));
+    }
+
+    async void HandleErrorFromPreferencesService(Exception error)
+    {
+        await Task.Run(() => logger.LogInformation("Error from PreferencesService: " + error.Message));
+    }
+
+    async void HandleCompletedFromPreferencesService()
+    {
+        await Task.Run(() => logger.LogInformation("Completed from PreferencesService"));
+    }
+
+    IDisposable? preferencesSubscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitialized();
+        logger.LogInformation($"OnInitializedAsync");
+        preferencesSubscription = PreferencesService.Subscribe(
+           onNext: (Preferences value) => HandleNextFromPreferencesService(value),
+           onError: (Exception error) => HandleErrorFromPreferencesService(error),
+           onCompleted: () => HandleCompletedFromPreferencesService());
+        
+        var prefs = await PreferencesService.GetPreferences();
+        InitializeOrOnNextPrefs(prefs);
+    }
+
+    private async Task AddDid()
+    {
+        isAddingDid = true;
+        // Delay to allow UI to draw progress indicator
+        await Task.Delay(1000);
+        
+        isAddingDid = false;
+    }
+
+    void InitializeOrOnNextPrefs(Preferences prefs)
+    {
+        activeDidIdentifier = prefs.SelectedDidIdentifier;
+        this.StateHasChanged();
+    }
+
+    string cardClass(string rowIdentifier) =>
+        activeDidIdentifier == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid;" : "";
+
+    // Set ActiveDid based on value of activeDidIdentifier,
+    // retrieved from picker or via preferences
+    async Task SetActiveDid(string identifier)
+    {
+        var pref = await PreferencesService.GetPreferences();
+        pref.SelectedDidIdentifier = identifier;
+        await PreferencesService.SetPreferences(pref);
+        // Other actions will be reactive to subscribed updates of Preferences
+    }
+
+}

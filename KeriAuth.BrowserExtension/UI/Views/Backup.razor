@@ -1,0 +1,63 @@
+﻿@page "/Backup"
+@using KeriAuth.BrowserExtension.Services
+@inject IJSRuntime js
+// inject IWalletService walletService
+@inject IStorageService storageService
+@inject NavigationManager navManager
+@inject ILogger<Backup> Logger
+@using KeriAuth.BrowserExtension.Helper;
+@using static KeriAuth.BrowserExtension.Services.IStorageService;
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using MudBlazor
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+
+<div id="Backup" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Back Up Wallet</MudText>
+            <MudText Typo="Typo.body1">To back up the contents of the wallet, the wallet is stored in encrypted form as json-content. Be aware, that the backup contains all your DIDs, Verifiable Credentials, as well as your seed-phrase.</MudText>
+            <MudText Typo="Typo.body1">To import the data into the blocktrust wallet (e.g. on a different device), simply delete any existing wallet and import the json-content on startup. Then you will be asked to enter your password to decrypt the wallet.</MudText>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton OnClick="BackupWallet" Color="Color.Primary" Variant="Variant.Filled">Back Up</MudButton>
+    </MudStack>
+</div>
+
+<MudMessageBox @ref="mbox" Title="Copied to Clipboard">
+    <MessageContent>
+        Encrypted wallet content has been placed on the clipboard.  Save this as a file, then press Continue.
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary">Continue</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+@code {
+
+    private async Task BackupWallet()
+    {
+        var backupStringResult = await storageService.GetBackupItems();
+
+        if (backupStringResult.IsFailed)
+        {
+            throw new Exception("Failed to serialize wallet");
+        }
+        await js.InvokeVoidAsync("navigator.clipboard.writeText", backupStringResult.Value);
+
+        if (mbox is not null)
+        {
+            _ = await mbox.Show();
+        }
+        StateHasChanged();
+        // TODO P4 Clear the clipboard here?
+
+        // TODO P2 20230906-003 would be better to navigate back to prior page
+        navManager.NavigateTo(RouteToHome);
+    }
+
+    MudMessageBox? mbox { get; set; }
+
+}

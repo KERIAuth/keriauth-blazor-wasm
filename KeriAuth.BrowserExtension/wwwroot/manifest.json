@@ -1,0 +1,51 @@
+{
+  "action": {
+    "default_title": "KERI Auth",
+    "default_icon": {
+      "16": "images/16_keri_logo.png",
+      "48": "images/48_keri_logo.png",
+      "128": "images/128_keri_logo.png"
+    }
+  },
+  "author": "https://keriauth.com",
+  "background": {
+    "service_worker": "scripts/service-worker.js",
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'",
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals"
+  },
+  "default_locale": "en",
+  "description": "KERI Auth Browser Extension for authentication and authorization using KERI identifiers and credentials",
+  "icons": {
+    "512": "images/512_keri_logo.png"
+  },
+  "manifest_version": 3,
+  "name": "KERI Auth",
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "optional_permissions": [
+    "clipboardWrite"
+  ],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "short_name": "KERI Auth",
+  "version": "0.1.0",
+  "version_name": "0.1.0 Dev Build",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "framework/*",
+        "content/*",
+        "scripts/app.js"
+      ],
+      "matches": [ "<all_urls>" ]
+    }
+  ]
+}

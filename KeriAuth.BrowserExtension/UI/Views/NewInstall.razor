@@ -1,0 +1,50 @@
+﻿@page "/NewInstall"
+@inject IJSRuntime js
+@inject NavigationManager NavManager
+@inject ILogger<NewInstall> Logger
+@using static KeriAuth.BrowserExtension.AppConfig;
+
+
+<div id="NewInstall" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">New Install</MudText>
+            <MudText Typo="Typo.body1">
+                Thank you for installing the Blocktrust Wallet.
+                We're excited to have you on board!
+                <br/>
+                This release supports the following features:
+                <MudContainer>
+                <ul style="list-style-type:circle;">
+                    <li>Create a new wallet</li>
+                    <li>Back Up and Restore an existing wallet</li>
+                    <li>View your Decentralized Identifier (DID)</li>
+                    <li>Connect with and communicate with other "Identity Agents", such as Credential Issuing Platforms and other Identity Wallets</li>
+                    <li>Send and Receive text Chat message with users of other Identity Wallets and agents supporting Chat</li>
+                    <li>Receive credential offers and accept credentials (in JSON-JWT format) from an Issuer</li>
+                    <li>View your Verifiable Credentials</li>
+                    <li>Receive a Presentation Request from a Verifier, and Respond with a Verifiable Credential Presentation</li>
+                    <li>Send a Presentation Request as a Verifier, and Receive another's Verifiable Credential Presentation</li>
+                </ul>
+                </MudContainer>
+            </MudText>
+            <MudText Typo="Typo.body1">More details on these features can be found in the <a href="https://identitywallet.blocktrust.dev" target="_blank">Identity Wallet Documentation</a>.</MudText>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudButton OnClick="GetStarted" Color="Color.Primary" Variant="Variant.Filled">Let's Get Started</MudButton>
+    </MudStack>
+
+</div>
+
+@code {
+
+    private async Task GetStarted()
+    {
+        await Task.Delay(0); // suppress warning
+        NavManager.NavigateTo(RouteToHome);
+    }
+
+    MudMessageBox? mbox { get; set; }
+
+}

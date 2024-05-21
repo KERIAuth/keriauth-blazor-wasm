@@ -1,0 +1,211 @@
+﻿@page "/Start"
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static KeriAuth.BrowserExtension.AppConfig;
+@inject NavigationManager NavManager
+@inject IJSRuntime js
+@inject IPreferencesService PreferencesService
+<!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
+@inject ISnackbar Snackbar
+@inject IStorageService StorageService
+@inject IStateService StateService
+
+@inject IExtensionEnvironmentService ExtensionEnvironmentService
+@inject ILogger<Start> _logger
+@inherits Blazor.BrowserExtension.Pages.BasePage;
+
+<div id="Start" class="bt-body-page" style="height:calc(100vh - var(--bt-appbar-height)); display:flex; align-items:center; justify-content:center;">
+    @if (_isNoRedirect)
+    {
+        <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
+            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+            @if (_doesWalletExist)
+            {
+                <MudText>
+                    <span style="font-weight:bold">KERI Auth</span>
+                </MudText>
+                <MudForm @ref="_form" @bind-IsValid="@_success" @bind-Errors="@_errors">
+                    <MudTextField @ref="_pwField"
+                                  @onkeydown="@Enter"
+                                  T="string"
+                                  Label=""
+                                  Placeholder="Enter password"
+                                  AutoFocus="true"
+                                  Immediate="true"
+                                  Required="true"
+                                  RequiredError=""
+                                  InputType="InputType.Password"
+                                  autocomplete="off" />
+                </MudForm>
+                <MudButton Disabled="@(!_success)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Open wallet</MudButton>
+                <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
+            }
+            else
+            {
+                <MudText>
+                    <span style="font-weight:bold">KERI Auth</span>
+                </MudText>
+                <MudText>Authenticating with autonomous identities and authentic credentials</MudText>
+                <MudButton @ref="_createButton" Style="max-width:400px; align-self:center;" Class="mt-5" Variant="Variant.Filled" Color="Color.Primary" OnClick='() => NavManager.NavigateTo(RouteToCreate)' data-testid="createWallet">
+                    Get Started
+                </MudButton>
+                <MudButton Style="max-width:400px; align-self:center;" Class="mt-5" Variant="Variant.Filled" Color="Color.Primary" OnClick='async () => await UIHelper.Copy2Clipboard("temp Start.razor")' data-testid="createWallet222">
+                    Test CopyToClipboard
+                </MudButton>
+            }
+        </MudStack>
+    }
+</div>
+
+@code {
+    MudTextField<string>? _pwField;
+    MudButton? _createButton = default(global::MudBlazor.MudButton);
+    MudForm? _form;
+    private string _openWalletError = string.Empty;
+    private bool _success;
+    private string[] _errors = { };
+    private bool _doesWalletExist;
+    private bool _isNoRedirect; // helps prevent UI paint during when page is redirected, e.g. when already authenticated
+
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        if (isFirstRender)
+        {
+            if (!_doesWalletExist && _createButton is not null)
+            {
+                await _createButton.FocusAsync();
+            }
+        }
+
+        if (_createButton is not null)
+        {
+            await _createButton.FocusAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation($"OnInitializedAsync");
+        await base.OnInitializedAsync();
+        await StorageService.Initialize(WebExtensions);
+        await StateService.Initialize();
+
+        // Check if there's a reason on the URL (from service-worker), suggesting to navigate to a specific page
+        var namedValueCollection = System.Web.HttpUtility.ParseQueryString(new Uri(NavManager.Uri).Query);
+        var reason = namedValueCollection["reason"];
+        if (reason is not null)
+        {
+            _logger.LogInformation($"Start: reason == {reason}");
+            switch (reason)
+            {
+                case "install":
+                    NavManager.NavigateTo(RouteToNewInstall);
+                    return;
+                case "update":
+                    var priorVersion = namedValueCollection["priorVersion"];
+                    NavManager.NavigateTo($"{RouteToReleaseHistory}?reason={reason}&priorVersion={priorVersion}");
+                    return;
+                case "browser_update": // for non-chrome browsers
+                case "chrome_update":
+                case "shared_module_update":
+                default:
+                    break;
+            }
+        }
+
+        var currentAppState = StateService.GetState();
+        switch (currentAppState)
+        {
+            case IStateService.States.Unauthenticated:
+                _doesWalletExist = true;
+                _isNoRedirect = true;
+                // UI of current view will prompt user for password
+                break;
+
+            case IStateService.States.Authenticated:
+                // if ActiveDID is not set (which can happen after a restore from backup), then set it to the first DID
+
+                var prefs = await PreferencesService.GetPreferences();
+                if (string.IsNullOrEmpty(prefs.SelectedDidIdentifier))
+                {
+                    // Debug.Assert(WalletService.Wallet is not null);
+                    // prefs.SelectedDidIdentifier = WalletService.Wallet.WalletDids[0].Did.Identifier;
+                    // await PreferencesService.SetPreferences(prefs);
+                }
+                NavManager.NavigateTo(RouteToHome);
+                return;
+
+            case IStateService.States.Unconfigured:
+                _isNoRedirect = true;
+                // UI will prompt user to set password and confirm mnemonic seed phrase
+                break;
+
+            default:
+                throw new Exception($"Unexpected AppState {currentAppState}");
+        }
+    }
+
+    private IEnumerable<string> PasswordStrength(string pw)
+    {
+        if (string.IsNullOrWhiteSpace(pw))
+        {
+            yield return "Password is required!";
+            yield break;
+        }
+        if (pw.Length < 6)
+        {
+            yield return "Password must be at least of length 6";
+        }
+    }
+
+    private async Task OpenWalletWithPassword(string password)
+    {
+        await Task.Delay(0); // tmp hack to avoid warning
+        _openWalletError = String.Empty;
+
+        if (string.IsNullOrEmpty(password) || password.Length < 6)
+        {
+            Snackbar.Add("Invalid password. The password initially selected should have at least 6 characters", Severity.Error);
+            return;
+        }
+        // var result = await WalletService.LoadWallet(password);
+        // if (result.IsFailed)
+        // {
+        //     Snackbar.Add(WordBreaker.Break(result.Errors.First().Message), Severity.Error);
+        //     Debug.Assert(_pwField is not null);
+        //     await _pwField.SelectRangeAsync(0, password.Length);
+        // }
+        // else
+        // {
+        //     await WalletService.CreateQuickLogin(password);
+        //     NavManager.NavigateTo(RouteToHome);
+        // }
+    }
+
+    private async Task OpenWallet()
+    {
+        if (_pwField is not null)
+            await OpenWalletWithPassword(_pwField.Value);
+    }
+
+    private async Task Enter(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+        {
+            if (_pwField is not null)
+                await OpenWalletWithPassword(_pwField.Value);
+        }
+    }
+}

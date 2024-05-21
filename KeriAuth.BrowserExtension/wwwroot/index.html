@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title></title> <!-- intentionally blank -->
+    <base href="/" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="16x16" href="images/16_keri_logo.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="images/32_keri_logo.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="images/96_keri_logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="images/180_keri_logo.png" />
+
+    <!-- TODO P2 potential privacy leak with fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link href="css/site.css" rel="stylesheet" />
+</head>
+
+<body style="min-width:340px; width:100vw; min-height:600px; height:100vh; margin:0px; padding:0px; box-sizing:border-box; overflow-y:hidden; display:flex; align-items:center;">
+    <div id="app" style="min-height:inherit; width:inherit; margin:0px; padding:0px; box-sizing:border-box; overflow-y:hidden; display:flex;">
+        <div class="justify-center align-center"
+             style="margin-left:auto; margin-right:auto; width:340px; height:600px; background-image: url('images/example_bg.png'); background-size: contain; background-repeat:no-repeat; background-position:bottom; align-self:center;">
+            <div style="width:320px; display:flex; justify-content:center; padding-top:37px; padding-bottom:10px; margin-left:auto; margin-right:auto;">
+                <!-- <img src="images/keri-auth.svg" alt="KERI Auth logo" /> -->
+                <img style="display:block; margin:auto;" src="images/180_keri_logo.png" alt="logo" />
+            </div>
+            <div style="position: relative; font-family: 'Roboto'; text-align:center; font-size:18px; top:10px;">
+                <p><strong>KERI Auth</strong></p>
+            </div>
+            <div style="position: relative; font-family: 'Roboto'; text-align:center; font-size:18px; top:30px;">
+                <!-- TODO P2 Any changes to the following line should be coordinated with version and version_name values in manifest.json, the post-build steps in project file, and potentially Azure DevOps pipelines -->
+                <!-- <p>version 0.1.0</p> -->
+                <p>&nbsp;</p>
+                <p>loading &hellip;</p>
+            </div>
+        </div>
+    </div>
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="framework/blazor.webassembly.js"></script>
+    <script src="content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="content/BlazorIndexedDB/dexie.min.js"></script>
+    <script src="content/BlazorIndexedDB/blazorDB.js"></script>
+    <!--    <script src="content/JsBind.Net/JsBindNet.js"></script>
+        -->
+</body>
+</html>
+

@@ -1,0 +1,105 @@
+﻿@page "/Messages"
+@using KeriAuth.BrowserExtension.Services
+@inject NavigationManager NavManager
+@inject IJSRuntime js
+@inject ILogger<NewInstall> Logger
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+
+
+<div id="Messages" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Messages</MudText>
+            <div class="mt-n2 mb-2">
+                @{
+                    /* TODO P3 Show count of only those filtered in? */
+                }
+                @* <MudText Typo="Typo.overline">9999 <!--@WalletService.Wallet.WalletDids.Count--> Message(s)</MudText> *@
+            </div>
+            @{
+                /* TODO P3 following should not actually set SelectedValues until the selection(s) are completed. Make into a dialog?  */
+            }
+            <MudSelect T="string" Label="Show messages related to..." MultiSelection="true" SelectedValues="selectedMessageKinds" SelectedValuesChanged="async (c) => await SVC(c)" Value="selectedMessageKindsValue">
+                @foreach (var messageKind in messageKinds)
+                {
+                    <MudSelectItem T="string" Value="@messageKind">@messageKind</MudSelectItem>
+                }
+            </MudSelect>
+            @if (_isFetching)
+            {
+                <MudProgressCircular Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGrey.Lighten3};")" Indeterminate />
+            }
+            else
+            {
+               //
+            }
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton Disabled Variant="Variant.Filled" Color="Color.Primary" OnClick='@( async () => await GoBack(js))'>Prune</MudButton>
+     </MudStack>
+ </div>
+
+ @code {
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("OnInitializedAsync");
+        _isFetching = true;
+        StateHasChanged();
+        // Give time for the menu panel to collapse and spinner to start
+        await Task.Delay(1500);
+
+        // TODO P3 Retrieve from preference the last selected filter
+        var tmp = new HashSet<string>();
+        _ = tmp.Add("DID Operations");
+        selectedMessageKinds = tmp;
+    }
+    
+    private string selectedMessageKindsValue { get; set; } = "Nothing selected";
+
+    private bool _isFetching; // = true;
+
+    // TODO P3 Evolve this to a dictionary of messageKinds and coresponding enums
+    private string[] messageKinds =
+    {
+        "DID Operations",
+        "Credential Operations",
+        "Website Interactions",
+        "System Messages"
+    };
+
+    private HashSet<string> _selectedMessageKinds = new();
+
+    private IEnumerable<string> selectedMessageKinds
+    {
+        get { return _selectedMessageKinds; }
+        set
+        {
+            _selectedMessageKinds = value.ToHashSet<string>();
+        }
+    }
+
+    private async Task SVC(IEnumerable<string> c)
+    {
+        selectedMessageKinds = c;
+        // TODO P4 SelectedMessageKinds should be remembered in Preferences
+        await ReadMessages(selectedMessageKinds);
+    }
+
+    public async Task ReadMessages(IEnumerable<string> messageTypes)
+    {
+        await Task.Delay(0); // tmp hack to avoid warning
+        if (messageTypes is null)
+        {
+            throw new ArgumentNullException(nameof(messageTypes));
+        }
+
+        _isFetching = true;
+        //
+
+    }
+
+}

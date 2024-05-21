@@ -1,0 +1,154 @@
+﻿@page "/ManagePreferences"
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using System.Reactive.Linq
+@inject IStateService StateService
+@inject NavigationManager NavManager
+@inject IPreferencesService PreferencesService
+@using static KeriAuth.BrowserExtension.AppConfig;
+@inject IJSRuntime js
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@inject ILogger<ManagePreferences> logger
+
+<div id="Manage Preferences" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Preferences</MudText>
+            <MudStack>
+                <MudText Class="mt-3">Appearance Theme</MudText>
+                <MudStack Row="true" Style="margin-left:20px;">
+                    <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
+                    <MudSwitch Value="IsDarkTheme" ValueChanged="(a) => SetAndPersistIsDarkTheme(a)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
+                </MudStack>
+            </MudStack>
+            <MudStack Row="false">
+                <MudText Class="mt-3">Selected Profile: @(SelectedDidIdentifier)</MudText>
+                <MudText Class="mt-3">Menu Drawer Responsive Mode</MudText>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="(a) => SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
+                        {
+                            <MudSelectItem Value="@item">@item</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInPopup" ValueChanged="@(async(a) => await SetAndPersistDVIP(a))" Label="In Popup" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInPopup)))
+                        {
+                            <MudSelectItem Value="@item">@item</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+            </MudStack>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+    </MudStack>
+</div>
+
+@code
+{
+    enum DrawerVariantSupportedInTab
+    {
+        Persistent = MudBlazor.DrawerVariant.Persistent,
+        Temporary = MudBlazor.DrawerVariant.Temporary,
+        // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
+        // TODO P3 Responsive is not yet supported. See other TODOs in this file
+    }
+
+    enum DrawerVariantSupportedInPopup
+    {
+        Temporary = MudBlazor.DrawerVariant.Temporary,
+        // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
+        // Responsive or Persistent don't make sense to support here, given the limited width
+    }
+
+    bool IsDarkTheme { get; set; }
+
+    MudBlazor.DrawerVariant DrawerVariantInTab { get; set; }
+
+    string SelectedDidIdentifier { get; set; } = "unset";
+
+    MudBlazor.DrawerVariant DrawerVariantInPopup { get; set; }
+
+    async Task Persist()
+    {
+        var prefs = await PreferencesService.GetPreferences();
+        prefs.DrawerVariantInPopup = DrawerVariantInPopup;
+        prefs.DrawerVariantInTab = DrawerVariantInTab;
+        prefs.IsDarkTheme = IsDarkTheme;
+        // prefs.SelectedDidIdentifier unchanged
+        await PreferencesService.SetPreferences(prefs);
+    }
+
+    async Task SetAndPersistIsDarkTheme(bool? a)
+    {
+        if (a.HasValue)
+        {
+            IsDarkTheme = a.Value;
+            Prefs.IsDarkTheme = a.Value;
+            await Persist();
+        }
+    }
+
+    async Task SetAndPersistDVIT(DrawerVariant dv)
+    {
+        DrawerVariantInTab = dv;
+        Prefs.DrawerVariantInTab = dv;
+        await Persist();
+    }
+
+    async Task SetAndPersistDVIP(DrawerVariant dv)
+    {
+        DrawerVariantInPopup = dv;
+        Prefs.DrawerVariantInPopup = dv;
+        await Persist();
+    }
+
+    IDisposable? preferencesSubscription;
+
+    Preferences Prefs { get; set; } = new();
+
+    public void Dispose()
+    {
+        preferencesSubscription?.Dispose();
+    }
+
+    void HandleNextFromPreferencesService(Preferences value)
+    {
+        if (value is not null)
+        {
+            Prefs = value;
+            IsDarkTheme = value.IsDarkTheme;
+            DrawerVariantInPopup = value.DrawerVariantInPopup;
+            DrawerVariantInTab = value.DrawerVariantInTab;
+            SelectedDidIdentifier = value.SelectedDidIdentifier;
+            StateHasChanged();
+        }
+    }
+
+    void HandleErrorFromPreferencesService(Exception error)
+    {
+        logger.LogInformation("Error from PreferencesService: " + error.Message);
+    }
+
+    void HandleCompletedFromPreferencesService()
+    {
+        logger.LogInformation("Completed from PreferencesService");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+        var prefs = await PreferencesService.GetPreferences();
+        HandleNextFromPreferencesService(prefs);
+
+        preferencesSubscription = PreferencesService.Subscribe(
+            onNext: (Preferences value) => HandleNextFromPreferencesService(value),
+            onError: (Exception error) => HandleErrorFromPreferencesService(error),
+            onCompleted: () => HandleCompletedFromPreferencesService());
+    }
+}

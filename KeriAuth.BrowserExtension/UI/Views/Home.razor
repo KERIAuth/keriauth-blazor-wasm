@@ -1,0 +1,87 @@
+﻿@page "/Home"
+@using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.UI
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Models
+@using static KeriAuth.BrowserExtension.AppConfig;
+@inject NavigationManager NavManager
+@inject IStorageService StorageService
+@inject IExtensionEnvironmentService ExtensionEnvironmentService
+@inject IJSRuntime js
+@inject IStateService stateService
+@inject ILogger<Home> logger
+@using MudBlazor
+
+<div id="Home" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll" style="align-items:center; justify-content: center; display:flex; flex-direction:column;">
+            <!--
+            <MudStack class="d-flex mt-2 justify-center align-center" Style="width:240px">
+                <MudButton @onclick="async () => await stateService.Initialize()">Initialize</MudButton>
+                <MudButton @onclick="async () => await stateService.Configure()">Configure</MudButton>
+                <MudButton @onclick="async () => await stateService.Authenticate()">Authenticate</MudButton>
+                <MudButton @onclick="async () => await stateService.Unauthenticate()">Lock</MudButton>
+                -->
+            <!-- <p>Current State: @(MainLayout.CurrentState)</p>
+                -->
+            <MudStack AlignItems="AlignItems.Center">
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">8</MudText>
+                    <MudText Class="align-left" Style="width:200px">Identities</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">88</MudText>
+                    <MudText Class="align-left" Style="width:200px">Credentials</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
+                    <MudText Class="align-left" Style="width:200px">Registered Websites</MudText>
+                </MudStack>
+
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">8,888</MudText>
+                    <MudText Class="align-left" Style="width:200px">Pending Website Requests</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">88,888</MudText>
+                    <MudText Class="align-left" Style="width:200px">Notifications</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <div style="text-align:right; width:135px;">
+                        <MudIcon Class="align-right" Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
+                    </div>
+                    <MudText Class="align-left" Style="width:200px">KERI Agent Live</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <div style="text-align:right; width:135px;">
+                        <MudIcon Class="align-right" Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
+                    </div>
+                    <MudText Class="align-left" Style="width:200px">KERI Agent Ready</MudText>
+                </MudStack>
+            </MudStack>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation($"OnInitializedAsync");
+    }
+
+    private async Task CloseWallet()
+    {
+        // await WalletService.CloseWallet();
+        // Check if the wallet runs as a iframe
+        // if (ExtensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.Iframe)
+        // {
+        //     await WalletRequestService.SendCloseIframeMessageBackToActiveTabs(JsRuntime);
+        // }
+        // else
+        {
+            await Task.Delay(0); // tmp hack to avoid warning
+            NavManager.NavigateTo(RouteToStart);
+        }
+    }
+}
