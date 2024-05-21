@@ -1,13 +1,13 @@
 # KERI Auth Browser Extension
 
 ## Summary
-The primary goal of this extension is to provide a highly secure way to authentically "sign in" to certain websites. The browser extension under development will enable a user to interact with conforming websites, to *authenticate* with the user’s KERI identifier and to *authorize* with an ACDC credential they’ve been issued. 
-
 This extension removes a class of problems website owners have with managing usernames and passwords or relying on federated identity providers that risk leaking or correlating user usage patterns. 
+
+The primary goal of this extension is to provide a highly secure way to authentically "sign in" to certain websites. The browser extension under development will enable a user to interact with conforming websites, to *authenticate* with the user’s KERI identifier and to *authorize* with an ACDC credential they’ve been issued. 
 
 Its passwordless design enables the user to create and manage their own stable identifiers (KERI AIDs), signing keys, and credentials. It utilizes credentials issued by the website owners and/or other issuers they trust.
 
-The browser extension, implemented for Chromium browsers, uses the [signify-ts](https://github.com/weboftrust/signify-ts) component to connect with an instance of [KERIA](https://github.com/weboftrust/keria), a KERI cloud agent, which safely manages the user’s AIDs, associated keys, credentials, and other services. The user can choose whether they host a KERIA instance themselves or use one provided by a third party.
+The browser extension, implemented for Chromium browsers, uses the [WebOfTrust/signify-ts](https://github.com/weboftrust/signify-ts) component to connect with an instance of [KERIA](https://github.com/weboftrust/keria), a KERI cloud agent, which safely manages the user’s AIDs, associated keys, credentials, and other services. The user can choose whether they host a KERIA instance themselves or use one provided by a third party.
 
 ## Contents
 - [Architecture](#architecture) 
