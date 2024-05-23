@@ -498,7 +498,7 @@
             var postResult = await _signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!postResult.IsSuccess)
             {
-                var message = "The KERI Agent BootPort is not reachable at specified URL.";
+                var message =  $"The configured KERIA agent service is not reachable at {healthUriBuilder.Uri}";
                 _ops1LivenessCheck.SetCompletedWithError(message);
                 return;
             }
