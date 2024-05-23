@@ -30,9 +30,13 @@
         public const string RouteToHelp = "content/help.html";
         public const string RouteToLicenses = "content/licenses.html";
         public const string RouteToRelease = "content/release.html";
+		public const string RouteToGroups = "/Groups";
+		public const string RouteToNotifications = "Notifications";
+		public const string RouteToSchemas = "Schemas";
+		public const string RouteToManageAgents = "Agents";
 
-        // Idle Timeout
-        public const int IdleDebounceTimeSpanSecs = 5;
+		// Idle Timeout
+		public const int IdleDebounceTimeSpanSecs = 5;
 #if DEBUG
         public const int IdleTimeoutTimeSpanSecs = 300; // don't usually timeout in debug mode except when testing
 #else
