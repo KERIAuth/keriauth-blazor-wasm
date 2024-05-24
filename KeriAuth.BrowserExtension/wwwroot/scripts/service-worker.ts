@@ -180,40 +180,40 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
         console.log('WORKER: onMessage: ', message, ' from: ', messageOrigin);
 
 
-        //switch (message.name) {
-        //    case "getTabUrlResponse":
-        //        // Handle message from the script running in context of the page.
-        //        // With the page's URL, request permission if needed, so that permission is granted and remembered for future requests during the browser session
+        switch (message.name) {
+            case "getTabUrlResponse":
+                // Handle message from the script running in context of the page.
+                // With the page's URL, request permission if needed, so that permission is granted and remembered for future requests during the browser session
 
-        //        if (typeof message.sourceHostname !== 'string') {
-        //            console.log('WORKER: getTabUrlResponse: ignoring because of unexpected sourceHostname: ', message.sourceHostname);
-        //        }
-        //        else {
-        //            const origin = new URL(message.sourceHostname).origin + '/';
-        //            console.log('WORKER: getTabUrlResponse: origin: ', origin);
+                if (typeof message.sourceHostname !== 'string') {
+                    console.log('WORKER: getTabUrlResponse: ignoring because of unexpected sourceHostname: ', message.sourceHostname);
+                }
+                else {
+                    const origin = new URL(message.sourceHostname).origin + '/';
+                    console.log('WORKER: getTabUrlResponse: origin: ', origin);
 
-        //            // Check if we already have permission to the page origin
-        //            chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
-        //                console.log('WORKER: getTabUrlResponse: isOriginPermitted: ', isOriginPermitted);
-        //                if (!isOriginPermitted) {
-        //                    // Request permission from the user
-        //                    chrome.permissions.request({
-        //                        origins: [origin]
-        //                    }, (isGranted: boolean) => {
-        //                        if (isGranted) {
-        //                            console.log('WORKER: Permission granted for:', origin);
-        //                            reloadTabAndUsePopup();
-        //                        } else {
-        //                            console.log('WORKER: Permission denied for:', origin);
-        //                            // TODO if there is already an open tab of this name, reuse it.
-        //                            chrome.tabs.create({ url: "index.html" });
-        //                        }
-        //                    });
-        //                } else {
-        //                    reloadTabAndUsePopup();
-        //                }
-        //            });
-        //        }
+                    // Check if we already have permission to the page origin
+                    chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
+                        console.log('WORKER: getTabUrlResponse: isOriginPermitted: ', isOriginPermitted);
+                        if (!isOriginPermitted) {
+                            // Request permission from the user
+                            chrome.permissions.request({
+                                origins: [origin]
+                            }, (isGranted: boolean) => {
+                                if (isGranted) {
+                                    console.log('WORKER: Permission granted for:', origin);
+                                    reloadTabAndUsePopup();
+                                } else {
+                                    console.log('WORKER: Permission denied for:', origin);
+                                    // TODO if there is already an open tab of this name, reuse it.
+                                    chrome.tabs.create({ url: "index.html" });
+                                }
+                            });
+                        } else {
+                            reloadTabAndUsePopup();
+                        }
+                    });
+                }
         //    case "WALLET_REQUEST_MSG":
         //        if (!(message.walletRequest && message.sourceHostname && message.sourceOrigin && message.contentHash)) {
         //            return "invalid message"
@@ -238,10 +238,10 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
         //                }
         //            }
         //        );
-        //        break;
-        //    default:
-        //        break;
-        //}
+                break;
+            default:
+                break;
+        }
         return true; // Keeps the message channel open until `sendResponse` is invoked
     }
 });
