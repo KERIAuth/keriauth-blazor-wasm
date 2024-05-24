@@ -276,8 +276,8 @@
         Done5
     };
     private readonly OperationDisplay _ops1LivenessCheck = new OperationDisplay("Checking KERI Agent Liveness", "Live");
-    private readonly OperationDisplay _ops2HealthCheck = new OperationDisplay("Checking KERI Agent Health", "Health Checked");
-    private readonly OperationDisplay _ops4BootAndConnect = new OperationDisplay("Connecting or Booting KERIA Agent", "Connected to KERIA Agent");
+    private readonly OperationDisplay _ops2HealthCheck = new OperationDisplay("Checking KERI Agent Health", "Healthy");
+    private readonly OperationDisplay _ops4BootAndConnect = new OperationDisplay("Connecting or Booting KERIA Agent", "Connected");
     private readonly OperationDisplay _ops5CreatePersonalAid = new OperationDisplay("Creating Personal Identifier", "Created Personal Identifier");
     private readonly OperationDisplay _ops6ListAids = new OperationDisplay("Listing Identifiers", "Identifiers Listed");
     private readonly OperationDisplay _ops7ListCredentials = new OperationDisplay("Listing Credentials", "Credentials Listed");
@@ -455,7 +455,7 @@
         [Required]
         [StringLength(21, ErrorMessage = "The passcode must be exacly 21 characters long.", MinimumLength = 21)]
         [DataType(DataType.Password)]
-        [Display(Name = "Enter your passcode")]
+        /* [Display(Name = "Enter your passcode")] */
         public string Passcode { get; set; } = "";
     }
 
