@@ -95,12 +95,10 @@
 		<Content Remove="wwwroot\scripts\KeriaTest - Copy.js" />
 		<Content Remove="wwwroot\scripts\tmp - Copy.js" />
 		<Content Remove="wwwroot\_locales\en\messages.json" />
-		<None Remove="wwwroot\scripts\CommonInterfaces.d.ts" />
 		<None Remove="wwwroot\scripts\interopHelper.d.ts" />
 		<None Remove="wwwroot\scripts\interopHelper.ts" />
 		<None Remove="wwwroot\scripts\IsolatedContentScript.d.ts" />
 		<None Remove="wwwroot\scripts\IsolatedContentScript.ts" />
-		<None Remove="wwwroot\scripts\CommonInterfaces.ts" />
 		<None Remove="wwwroot\scripts\MainContentScript.d.ts" />
 		<None Remove="wwwroot\scripts\MainContentScript.ts" />
 		<None Remove="wwwroot\scripts\moduleLoader.d.ts" />
@@ -145,8 +143,8 @@
 		<TypeScriptCompile Update="wwwroot\KeriAuth.BrowserExtensionBrowserExtension.lib.module.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\CommonInterfaces.ts">
-			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		<TypeScriptCompile Update="wwwroot\scripts\CommonInterfaces.d.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\IsolatedContentScript.ts">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
@@ -219,7 +217,6 @@
 	  <None Remove="wwwroot\scripts\uiHelper.d.ts" />
 	</ItemGroup>
 	<ItemGroup>
-	  <TypeScriptCompile Remove="wwwroot\scripts\CommonInterfaces.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\interopHelper.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\IsolatedContentScript.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\MainContentScript.d.ts" />
@@ -250,8 +247,4 @@
 	<ItemGroup>
 	  <None Remove="wwwroot\scripts\interopHelper.d.ts" />
 	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\CommonInterfaces.d.ts" />
-	</ItemGroup>
-	
 </Project>

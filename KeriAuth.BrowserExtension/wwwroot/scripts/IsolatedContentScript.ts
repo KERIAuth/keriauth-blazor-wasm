@@ -1,4 +1,8 @@
-﻿// This Isolated ContentScript is inserted into pages in response to a user clicking on the extension action button,
+﻿/// <reference path="./CommonInterfaces.d.ts" />
+
+import { IMessage } from "./CommonInterfaces";
+
+// This Isolated ContentScript is inserted into pages in response to a user clicking on the extension action button,
 // And dependent on specified URL patterns in the manifest.json file.
 // The purpose of the IsolatedContentScript is primarily to shuttle messages from a dApp's
 // web pages to/from the extension service worker.
@@ -7,8 +11,6 @@
 
 // TODO P3 should use declarative events API, for performance reasons, since they will be evaluated in the browser, not javascript.
 // See https://developer.chrome.com/docs/extensions/reference/events/
-
-import { IMessage } from './CommonInterfaces.js';
 
 // Listen to messages from the web page
 window.addEventListener(
@@ -20,7 +22,7 @@ window.addEventListener(
             console.log("invalid origin")
             return;
         }
-        let message: IMessage = event.data
+        let message: IMessage  = event.data
         if (message != null && message != undefined) {
             // console.log('IsolatedContentScript received:');
             // console.log(message)

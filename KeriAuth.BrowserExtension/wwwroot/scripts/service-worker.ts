@@ -313,7 +313,7 @@ async function RegisterContentScripts() {
                         matches: ["https://*/*", "http://*/*"],
                         js: ['/scripts/MainContentScript.js'],
                         runAt: 'document_start',
-                        world: 'MAIN'
+                        world: 'MAIN',
                     },
                     {
                         id: 'BlocktrustIsolatedContentScript',

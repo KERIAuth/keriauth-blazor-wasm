@@ -1,11 +1,13 @@
-﻿//// KeriAuth.BrowserExtension - IntegratedScript.js
-//// This script is injected into web pages and runs in the Web Page Context.
-//// It sends messages to the extension's IsolatedContentScript
-///  via the window.postMessage API and it receives message via window message events.
+﻿/// <reference path="./CommonInterfaces.d.ts" />
 
-//// TODO P3 Function names should be in a namespace (or a { } block to avoid creating global variables)? more unique, plus methods should include a version parameter for future-proofing of dApp page integrations
+import { IMessage, IWalletRequest } from "./CommonInterfaces";
 
-import { IMessage, IWalletRequest } from './CommonInterfaces.js';
+// KeriAuth.BrowserExtension - IntegratedScript.js
+// This script is injected into web pages and runs in the Web Page Context.
+// It sends messages to the extension's IsolatedContentScript
+//  via the window.postMessage API and it receives message via window message events.
+
+// TODO P3 Function names should be in a namespace (or a { } block to avoid creating global variables)? more unique, plus methods should include a version parameter for future-proofing of dApp page integrations
 
 let walletRequestCallback;
 //let credentialProofRequestCallback;
