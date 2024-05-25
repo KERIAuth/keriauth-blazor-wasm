@@ -21,14 +21,21 @@ Console.WriteLine("Program: started");
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
+// Load configuration from appsettings.json
+builder.Configuration.AddJsonFile("./appsettings.json", optional: false, reloadOnChange: true);
 builder.Logging.AddConfiguration(
     builder.Configuration.GetSection("Logging")
 );
 // See appsettings.json for Logging settings, although level may be overridden below
-builder.Services.AddLogging(configure =>
-{
-    configure.SetMinimumLevel(LogLevel.Information);
-});
+//builder.Services.AddLogging(configure =>
+//{
+//    configure.SetMinimumLevel(LogLevel.Information);
+//});
+
+
+
+
+
 
 builder.UseBrowserExtension(browserExtension =>
 {
@@ -50,10 +57,13 @@ if (builder.HostEnvironment.BaseAddress.Contains("chrome-extension"))
     {
         var jsRuntime = serviceProvider.GetRequiredService<IJSRuntime>();
         var hostEnvironment = serviceProvider.GetRequiredService<IWebAssemblyHostEnvironment>();
-        //var iLoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        // var iLoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
         //Debug.Assert(iLoggerFactory is not null);
-
-        return new StorageService(jsRuntime, hostEnvironment, null, null);
+        // var logger = iLoggerFactory.CreateLogger<Program>();
+        // logger.LogInformation("Program: Initialize: BrowserExtension: ChromeExtension xxxxxxxxxx");
+        // var programLogger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        var storageLogger = serviceProvider.GetRequiredService<ILogger<StorageService>>();
+        return new StorageService(jsRuntime, hostEnvironment, null, null, storageLogger);
     });
 }
 else // WASM hosted, e.g. in developer's Kestrel ASPNetCore or IISExpress
@@ -66,7 +76,9 @@ else // WASM hosted, e.g. in developer's Kestrel ASPNetCore or IISExpress
         var hostEnvironment = serviceProvider.GetRequiredService<IWebAssemblyHostEnvironment>();
         var localStorage = serviceProvider.GetRequiredService<ILocalStorageService>();
         var sessionStorage = serviceProvider.GetRequiredService<ISessionStorageService>();
-        return new StorageService(jsRuntime, hostEnvironment, localStorage, sessionStorage);
+        // var iLoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var storageLogger = serviceProvider.GetRequiredService<ILogger<StorageService>>();
+        return new StorageService(jsRuntime, hostEnvironment, localStorage, sessionStorage, storageLogger);
     });
 }
 
@@ -80,27 +92,26 @@ builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
 
 var host = builder.Build();
 
-// Get an ILogger instance for logging during startup
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("WASM host built");
 
 // Import JS modules for use in C# classes
 Debug.Assert(OperatingSystem.IsBrowser());
 try
 {
-    logger.LogInformation("Importing JS modules...");
     // Adding imports of modules here for use via [JSImport] attributes in C# classes
     List<(string, string)> imports = [
         // ("signify-ts", "/node_modules/signify-ts"),
         ("signify_ts_shim", "/scripts/signify_ts_shim.js"),
         ("registerInactivityEvents", "/scripts/registerInactivityEvents.js"),
-        ("uiHelper", "/scripts/uiHelper.js")
+        ("uiHelper", "/scripts/uiHelper.js"),
+        ("storageHelper", "/scripts/storageHelper.js")
     ];
     foreach (var (moduleName, modulePath) in imports)
     {
         logger.LogInformation("Importing {moduleName}", moduleName);
         await JSHost.ImportAsync(moduleName, modulePath);
     }
-    logger.LogInformation("Imported.");
 }
 catch (Microsoft.JSInterop.JSException e)
 {
@@ -119,4 +130,5 @@ catch (Exception e)
 }
 
 logger.LogInformation("Running WASM Host...");
+
 await host.RunAsync();

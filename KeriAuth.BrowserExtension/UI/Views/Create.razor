@@ -38,7 +38,7 @@
                 }
                 <MudStack Class="bt-create-card-top-centered">
                     <MudImage Width="190" Fluid="true" Style="margin-right:40px;" Src="/images/lock2.png"></MudImage>
-                    <MudText>Create a new, strong password to protect your ??????</MudText>
+                    <MudText>Create a new, strong password to protect your configuration</MudText>
                     @{
                         /* TODO should add back @bind-IsValid="@_isStrongPassword"  */
                     }
@@ -396,7 +396,7 @@
             case CardKind.Done5:
                 // go to initial authentication
                 // confirm and store config in wallet.
-                NavManager.NavigateTo(RouteToStart);
+                NavManager.NavigateTo(RouteToHome);
                 break;
             default:
                 throw new Exception($"Invalid card {Card}");

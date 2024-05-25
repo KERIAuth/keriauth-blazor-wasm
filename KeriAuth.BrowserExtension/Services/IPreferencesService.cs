@@ -7,5 +7,7 @@ public interface IPreferencesService : IObservable<Preferences>
     Task<Preferences> GetPreferences();
 
     Task SetPreferences(Preferences preferences);
-   
+
+    void Initialize();
+
 }

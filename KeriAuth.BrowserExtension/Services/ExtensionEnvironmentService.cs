@@ -3,7 +3,7 @@
 using Microsoft.AspNetCore.WebUtilities;
 using Models;
 
-public class ExtensionEnvironmentService : IExtensionEnvironmentService
+public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> logger) : IExtensionEnvironmentService
 {
     /// <summary>
     /// The current environment this instance of the wallet in running under

@@ -99,8 +99,10 @@
     {
         Logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
+
         await StorageService.Initialize(WebExtensions);
         await StateService.Initialize();
+        PreferencesService.Initialize();
 
         // Check if there's a reason on the URL (from service-worker), suggesting to navigate to a specific page
         var namedValueCollection = System.Web.HttpUtility.ParseQueryString(new Uri(NavManager.Uri).Query);

@@ -5,13 +5,9 @@ using System.Threading;
 using KeriAuth.BrowserExtension.Services;
 using Microsoft.Extensions.Logging;
 
-public class AlarmService : IAlarmService
+public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
 {
-    public readonly ILogger<AlarmService> logger;
-    public AlarmService()
-    {
-        logger = new Logger<AlarmService>(new LoggerFactory()); // TODO: insert via DI
-    }
+    // public readonly ILogger<AlarmService> logger = logger;
 
     private class Alarm(TimeSpan duration, Action callback)
     {

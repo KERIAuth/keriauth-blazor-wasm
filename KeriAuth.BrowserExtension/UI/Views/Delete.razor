@@ -8,6 +8,7 @@
 @inject IDialogService DialogService
 @inject ILogger<Delete> Logger
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using static KeriAuth.BrowserExtension.Helper.UIHelper
 
 <div id="Delete" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -49,9 +50,12 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
+            // TODO P1: delete wallet or clear storage
             // await WalletService.DeleteWallet();
             // restart app
-            await js.InvokeVoidAsync("eval", $"window.location.href='{RouteToIndex}'");
+            // TODO P1: fix the restart without an eval
+            RestartBlazorApp(RouteToIndex);
+            // await js.InvokeVoidAsync("eval", $"window.location.href='{RouteToIndex}'");
         } else
         {
             NavManager.NavigateTo(RouteToHome);

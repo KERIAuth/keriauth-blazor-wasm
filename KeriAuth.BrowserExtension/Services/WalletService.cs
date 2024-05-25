@@ -5,7 +5,7 @@ using FluentResults;
 using System.Diagnostics;
 using System.Text.Json;
 
-public class WalletService(IStorageService storageService) : IWalletService
+public class WalletService(IStorageService storageService, ILogger<WalletService> logger) : IWalletService
 {
     // TODO user System.Security.Cryptography AesGcm.
     // private readonly IAesService _aesEncryptionService;
@@ -14,7 +14,6 @@ public class WalletService(IStorageService storageService) : IWalletService
     // private const string PasswordSeed = "WalletPasswordSeed";
     // private const string QuickLoginPassword = "W8Rm12v2izJJ3d";
     private bool _isStoringWallet;
-    // private readonly ILogger<WalletService> logger = new Logger<WalletService>(new LoggerFactory()); // TODO: insert via DI
 
     private Wallet? _wallet;
 

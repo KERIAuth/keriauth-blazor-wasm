@@ -1,5 +1,5 @@
 /// <reference types="chrome" />
-// uiUtnils.ts
+// uiHelper.ts
 
 const UIHelper = () => {
 
@@ -65,12 +65,17 @@ const UIHelper = () => {
         );
     }
 
+    const restartBlazorApp = (routeToIndex: string): void => {
+        window.location.href = routeToIndex;
+    };
+
     return {
         bt_scrollToItem,
         closeCurrentTab,
         newTabAndClosePopup,
         createTab,
         copy2Clipboard,
+        restartBlazorApp
     };
 }
 export const Utils = UIHelper();

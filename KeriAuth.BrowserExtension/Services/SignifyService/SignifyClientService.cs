@@ -42,7 +42,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 return Result.Fail<bool>("Passcode must be 21 characters long");
             }
             await Task.Delay(0);
-            // logger.LogInformation("Connect...");
+            logger.LogInformation("Connect...");
 
             try
             {
@@ -54,7 +54,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         var res = await BootAndConnect(agentUrl, bootUrl, passcode);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
-                        // logger.LogInformation("SignifyClientService: Connect: {@Details}", res);
+                        logger.LogInformation("SignifyClientService: Connect: {@Details}", res);
                         // TODO fix
                         return true.ToResult();
                     }
@@ -64,7 +64,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         //var res = await Signify_ts_shim.Connect(agentUrl, bootUrl, passcode);
                         //Debug.Assert(res is not null);
                         //// Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
-                        //logger.LogInformation("SignifyClientService: Connect: {@Details}", res);
+                        // logger.LogInformation("SignifyClientService: Connect: {@Details}", res);
                         //// TODO fix
                         //return true.ToResult<bool>();
                     }
@@ -131,7 +131,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 var res = await CreateAID(aidName);
                 Debug.Assert(res is not null);
                 // TODO verify res and parse what we need
-                // logger.LogInformation("CreatePersonAid: res: {res}", res);
+                logger.LogInformation("CreatePersonAid: res: {res}", res);
                 // return Result.Ok<Models.Identifier>(new Models.Identifier());
                 return Result.Ok(res);
             }

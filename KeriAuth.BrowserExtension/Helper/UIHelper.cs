@@ -9,7 +9,7 @@ namespace KeriAuth.BrowserExtension.Helper
 {
     // Maintainers: need to keep the imported method and property names aligned with UIHelper.ts
     [SupportedOSPlatform("browser")]
-    public partial class UIHelper
+    public static partial class UIHelper
     {
         [JSImport("Utils.bt_scrollToItem", "uiHelper")]
         internal static partial string Bt_scrollToItem(string elementId);
@@ -25,5 +25,8 @@ namespace KeriAuth.BrowserExtension.Helper
 
         [JSImport("Utils.copy2Clipboard", "uiHelper")]
         internal static partial Task Copy2Clipboard(string text);
+
+        [JSImport("Utils.restartBlazorApp", "uiHelper")]
+        internal static partial void RestartBlazorApp(string urlString);
     }
 }

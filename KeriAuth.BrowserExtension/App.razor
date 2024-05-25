@@ -9,7 +9,9 @@
 @inject IExtensionEnvironmentService ExtensionEnvironmentService
 @inject NavigationManager NavManager
 @inject IJSRuntime js
-@inject ILogger<App> Logger
+@inject ILogger<App> logger
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
@@ -28,10 +30,12 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        Logger.LogInformation($"OnInitializedAsync");
+        logger.LogInformation($"OnInitializedAsync App.razor");
 
         var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
         ExtensionEnvironmentService.Initialize(uri);
+
+        // see service initializations in Start.razor
 
         return;
     }

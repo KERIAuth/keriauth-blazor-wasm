@@ -24,6 +24,7 @@
 @inject ISnackbar Snackbar
 @inject IAlarmService TimerService
 @inject ILogger<MainLayout> _logger
+@inject IStateService stateService
 
 <MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@isDarkTheme" />
 <MudDialogProvider />
@@ -354,10 +355,11 @@
     public class ManifestData
     {
         public string Version { get; set; } = "0.0.0";
-        public string Version_name { get; set; } = "unset vn";
+        public string Version_name { get; set; } = "unset verson name";
     }
 
-    static List<string> ViewsNotRequiringAuth = new() { RouteToStart, RouteToDelete, RouteToRestore, RouteToCreate, RouteToNewInstall, RouteToReleaseHistory };
+    // TODO P2: need to revisit this list, especially RouteToManagePrefs
+    static List<string> ViewsNotRequiringAuth = new() { RouteToStart, RouteToDelete, RouteToRestore, RouteToCreate, RouteToNewInstall, RouteToReleaseHistory, RouteToManagePrefs };
 
     private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;
@@ -371,6 +373,7 @@
         // that requires authentication, then redirect to Index
         // TODO P3 this is slow for every page load to check disk:
         isAuthenticated = await stateService.IsAuthenticated();
+        // isAuthenticated = true; // TODO P0 remove this line
         if (!isAuthenticated)
         {
             var ap = new Uri(NavManager.Uri).AbsolutePath;

@@ -125,6 +125,7 @@
             DrawerVariantInPopup = value.DrawerVariantInPopup;
             DrawerVariantInTab = value.DrawerVariantInTab;
             SelectedDidIdentifier = value.SelectedDidIdentifier;
+            logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme); // TODO P3: remove
             StateHasChanged();
         }
     }

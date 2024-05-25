@@ -18,24 +18,25 @@ using System.Diagnostics;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Components;
 
 public partial class StorageService : IStorageService, IObservable<Preferences>
 {
     private readonly bool _isBlazorWasmApp;
     private readonly bool _isUsingStorageApi;
-    private readonly IJSRuntime? JsRuntime;  // TODO P2 in Playwright project, does this JsRuntime need to be null?  If not, then why is it nullable?
+    private readonly IJSRuntime jsRuntime;  // TODO P2 in Playwright project, does this JsRuntime need to be null?  If not, then why is it nullable?
     private readonly ILocalStorageService? blazoredLocalStorage;
     private readonly ISessionStorageService? blazoredSessionStorage;
-    private readonly ILogger<StorageService> _logger;
-
+    private readonly ILogger<StorageService> logger;
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
 
-    public StorageService(IJSRuntime? jsRuntime, IWebAssemblyHostEnvironment? hostEnvironment, ILocalStorageService? blazoredLocalStorage, ISessionStorageService? blazoredSessionStorage)
+    public StorageService(IJSRuntime jsRuntime, IWebAssemblyHostEnvironment? hostEnvironment, ILocalStorageService? blazoredLocalStorage, ISessionStorageService? blazoredSessionStorage, ILogger<StorageService> logger)
     {
-        this.JsRuntime = jsRuntime;
+        this.jsRuntime = jsRuntime;
         this.blazoredLocalStorage = blazoredLocalStorage;
         this.blazoredSessionStorage = blazoredSessionStorage; // TODO P1 this is an experiment and decrypted wallet should not be stored in browser session storage !!!
-        _logger = new Logger<StorageService>(new LoggerFactory()); // TODO: insert via DI
+        this.logger = logger;
+        this.logger.LogInformation("StorageService: constructor");
 
         // a null hostEnvironment might be used for test environment
         if (hostEnvironment is not null && hostEnvironment.BaseAddress.Contains("chrome-extension"))
@@ -62,18 +63,31 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
     public delegate bool CallbackDelegate(object request, string something);
 
+    private DotNetObjectReference<StorageChangeHandler>? _dotNetObjectRef;
+
+    public void Dispose()
+    {
+        _dotNetObjectRef?.Dispose();
+    }   
+
     public async Task<Task> Initialize(IWebExtensionsApi webExtensionsApi)
     {
+        logger.LogInformation("Initialize");
         // This just needs to be done once after the services start up,
         try
         {
             if (_isUsingStorageApi)
             {
+                logger.LogInformation("Using StorageApi");
                 CallbackDelegate callbackDelegate = Callback; // TODO consider the following? ...  = (object request, string _) => Callback(request, _); to make this type-explicit.
                 await webExtensionsApi.Storage.OnChanged.AddListener(callbackDelegate);
             }
             else
             {
+                _dotNetObjectRef = DotNetObjectReference.Create(new StorageChangeHandler());
+                Debug.Assert(jsRuntime is not null);
+                logger.LogInformation("Registering handler for storage change event");
+
                 // TODO P2 Known issue that multiple brower tabs do not synchronize...
                 // There is a bug or design limitation in Blazored.LocalStorage v4.3.0 (as of Dec 1, 2022),
                 // where the .Changed event does not fire when localStorage is changed from another tab.
@@ -84,9 +98,9 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         catch (Exception e)
         {
-            _logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
+            logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
         }
-        // logger.LogInformation("Registered handler for storage change event");
+        logger.LogInformation("Registered handler for storage change event");
         return Task.CompletedTask;
     }
 
@@ -104,8 +118,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     {
         if (_isUsingStorageApi)
         {
-            Debug.Assert(JsRuntime is not null);
-            await JsRuntime.InvokeVoidAsync("chrome.storage.local.clear");
+            Debug.Assert(jsRuntime is not null);
+            await jsRuntime.InvokeVoidAsync("chrome.storage.local.clear");
         }
         else
         {
@@ -121,8 +135,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         var tName = typeof(T).Name.ToUpperInvariant();
         if (_isUsingStorageApi)
         {
-            Debug.Assert(JsRuntime is not null);
-            await JsRuntime.InvokeVoidAsync("chrome.storage.local.remove", tName);
+            Debug.Assert(jsRuntime is not null);
+            await jsRuntime.InvokeVoidAsync("chrome.storage.local.remove", tName);
         }
         else
         {
@@ -156,8 +170,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                 try
                 {
                     // xxConsole.WriteLine($"Getting item of type {typeof(T).Name} from chrome.storage.local");
-                    Debug.Assert(JsRuntime is not null);
-                    jsonDocument = await JsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", tName);
+                    Debug.Assert(jsRuntime is not null);
+                    jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", tName);
                     // xxConsole.WriteLine($"Got {jsonDocument.ToJsonString()}");
 
                 }
@@ -245,8 +259,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         catch (Exception e)
         {
-            _logger.LogError("Failed to get item: {e}", e.Message);
-            // xxConsole.WriteLine($"Failed to get item: {e.Message}");
+            // _logger.LogError("Failed to get item: {e}", e.Message);
+            Console.WriteLine($"Failed to get item: {e.Message}");
             return Result.Fail($"Failed to get item: {e.Message}");
         }
     }
@@ -281,9 +295,9 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             {
                 if (_isUsingStorageApi)
                 {
-                    Debug.Assert(JsRuntime is not null);
-                    object obj = await JsRuntime!.InvokeAsync<object>("JSON.parse", $"{{ \"{tName}\": {jsonString} }}");
-                    await JsRuntime!.InvokeVoidAsync("chrome.storage.local.set", obj);
+                    Debug.Assert(jsRuntime is not null);
+                    object obj = await jsRuntime!.InvokeAsync<object>("JSON.parse", $"{{ \"{tName}\": {jsonString} }}");
+                    await jsRuntime!.InvokeVoidAsync("chrome.storage.local.set", obj);
                 }
                 else
                 {
@@ -300,7 +314,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         catch (Exception e)
         {
-            _logger.LogError("Failed to set item: {e}", e.Message);
+            // _logger.LogError("Failed to set item: {e}", e.Message);
+            Console.WriteLine($"Failed to set item: {e.Message}");
             return Result.Fail($"Failed to set item: {e.Message}");
         }
     }
@@ -441,8 +456,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             JsonDocument jsonDocument;
             try
             {
-                Debug.Assert(JsRuntime is not null);
-                jsonDocument = await JsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", null);
+                Debug.Assert(jsRuntime is not null);
+                jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", null);
             }
             catch (JsonException ex)
             {

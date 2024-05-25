@@ -85,7 +85,6 @@
 		<TypeScriptCompile Remove="wwwroot\dist\**" />
 		<Content Remove="Services\SignifyService\package-lock.json" />
 		<Content Remove="Services\SignifyService\package.json" />
-		<Content Remove="wwwroot\appsettings.json" />
 		<Content Remove="wwwroot\content\release.html" />
 		<Content Remove="wwwroot\css\site.css" />
 		<Content Remove="wwwroot\images\keri-auth.svg" />
@@ -95,6 +94,7 @@
 		<Content Remove="wwwroot\scripts\KeriaTest - Copy.js" />
 		<Content Remove="wwwroot\scripts\tmp - Copy.js" />
 		<Content Remove="wwwroot\_locales\en\messages.json" />
+		<None Remove="Properties\launchSettings.json" />
 		<None Remove="wwwroot\scripts\interopHelper.d.ts" />
 		<None Remove="wwwroot\scripts\interopHelper.ts" />
 		<None Remove="wwwroot\scripts\IsolatedContentScript.d.ts" />
@@ -224,6 +224,7 @@
 	  <TypeScriptCompile Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\service-worker.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\signify_ts_shim.d.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\storageHelper.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\uiHelper.d.ts" />
 	</ItemGroup>
 	<ItemGroup>
@@ -246,5 +247,13 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <None Remove="wwwroot\scripts\interopHelper.d.ts" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="wwwroot\appsettings.json" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Page Include="Properties\launchSettings.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Page>
 	</ItemGroup>
 </Project>

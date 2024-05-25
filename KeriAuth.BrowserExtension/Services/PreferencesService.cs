@@ -5,11 +5,17 @@ using Stateless;
 using static KeriAuth.BrowserExtension.Services.IStateService;
 
 
-public class PreferencesService(IStorageService storageService) : IPreferencesService, IObservable<Preferences>
+public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>
 {
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
     private readonly IStorageService storageService = storageService;
-    private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
+    // private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
+    private IDisposable? stateSubscription;
+
+    public void Initialize()
+    {
+        stateSubscription = storageService.Subscribe(this); // TODO consider using parameters for onNext, etc.
+    }
 
     public async Task<Preferences> GetPreferences()
     {
@@ -28,9 +34,25 @@ public class PreferencesService(IStorageService storageService) : IPreferencesSe
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get preferences");
+            logger.LogError(ex, "Failed to get preferences");
             return new Preferences();
         }
+    }
+
+    void IObserver<Preferences>.OnCompleted() // invoked as an observer<Preferences> of StorageService
+    {
+        throw new NotImplementedException();
+    }
+
+    void IObserver<Preferences>.OnError(Exception error) // invoked as an observer<Preferences> of StorageService
+    {
+        throw new NotImplementedException();
+    }
+
+    void IObserver<Preferences>.OnNext(Preferences value) // invoked as an observer<Preferences> of StorageService
+    {
+        logger.LogInformation("Preferences updated: {value}", value.ToString());
+        // throw new NotImplementedException();
     }
 
     public async Task SetPreferences(Preferences preferences)
@@ -41,7 +63,7 @@ public class PreferencesService(IStorageService storageService) : IPreferencesSe
         return;
     }
 
-    IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver)
+    IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver) // invoked as an observable<Preferences> of ManagePreference or other // TODO consider using parameters for onNext, etc.
     {
         if (!preferencesObservers.Contains(preferencesObserver))
         {
@@ -50,7 +72,7 @@ public class PreferencesService(IStorageService storageService) : IPreferencesSe
         return new Unsubscriber(preferencesObservers, preferencesObserver);
     }
 
-    private class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable
+    private class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable // invoked as an observable<Preferences> of ManagePreference or other
     {
         private readonly List<IObserver<Preferences>> _preferencesObservers = observers;
         private readonly IObserver<Preferences> _preferencesObserver = observer;
