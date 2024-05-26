@@ -12,6 +12,7 @@
 @inject ILogger<App> logger
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
+@inject IStateService stateService
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
@@ -32,10 +33,12 @@
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync App.razor");
 
+        // Initialize services as needed
         var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
         ExtensionEnvironmentService.Initialize(uri);
-
-        // see service initializations in Start.razor
+        await storageService.Initialize();
+        await stateService.Initialize();
+        preferencesService.Initialize();
 
         return;
     }

@@ -70,12 +70,6 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         _dotNetObjectRef?.Dispose();
     }
 
-
-
-    
-
-
-
     public async Task<Task> Initialize()
     {
         logger.LogInformation("Initialize");
