@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "NoLaunchSettings": {
+      "commandName": "Project",
+      "launchBrowser": false
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": "",
+      "launchBrowser": false
+    }
+  }
+}
