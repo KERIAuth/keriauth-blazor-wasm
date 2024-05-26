@@ -7,7 +7,7 @@ using WebExtensions.Net;
 namespace KeriAuth.BrowserExtension.Services;
 public interface IStorageService : IObservable<Preferences>
 {
-    Task<Task> Initialize(IWebExtensionsApi webExtensionsApi);
+    Task<Task> Initialize();
 
     /// <summary>
     /// Clear every entry in the storage to reset everything

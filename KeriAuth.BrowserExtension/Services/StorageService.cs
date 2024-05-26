@@ -76,7 +76,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
 
 
-    public async Task<Task> Initialize(IWebExtensionsApi webExtensionsApi)
+    public async Task<Task> Initialize()
     {
         logger.LogInformation("Initialize");
         // This just needs to be done once after the services start up,

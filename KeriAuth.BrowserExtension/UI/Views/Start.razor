@@ -100,7 +100,7 @@
         Logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
 
-        await StorageService.Initialize(WebExtensions);
+        await StorageService.Initialize();
         await StateService.Initialize();
         PreferencesService.Initialize();
 
