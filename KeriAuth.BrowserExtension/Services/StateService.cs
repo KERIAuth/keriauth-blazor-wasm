@@ -46,16 +46,8 @@ public class StateService : IStateService
 
     public async Task<bool> IsAuthenticated()
     {
-        await Task.Delay(0); // hack
-        // TODO EE!
-        // Confirm prior authentication hasn't timed out
-        //if ((await _walletService.CheckQuickLogin()).IsSuccess)
-        //    return false;
-        //else
-        //{
-        // TODO P2 consider refreshing the timestamp in WalletLogin now if currently Authenticated
+        await Task.Delay(0);
         return _stateMachine.IsInState(States.Authenticated);
-        //}
     }
 
     public async Task Authenticate()
@@ -89,7 +81,7 @@ public class StateService : IStateService
 
     async Task IStateService.Configure()
     {
-        await _stateMachine.FireAsync(Triggers.ToUnconfigured);
+        await _stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 
     async Task IStateService.TimeOut()
@@ -109,6 +101,7 @@ public class StateService : IStateService
             var appState = new AppState(t.Destination);
             await _storageService.SetItem(appState);
         }
+        _logger.LogInformation("Transitioned from {oldState} to {newState}", t.Source, t.Destination);
         await NotifyObservers();
     }
 

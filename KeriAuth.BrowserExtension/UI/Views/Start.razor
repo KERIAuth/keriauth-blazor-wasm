@@ -154,6 +154,10 @@
                 // UI will prompt user to set password and confirm mnemonic seed phrase
                 break;
 
+            case IStateService.States.Initializing:
+                _logger.LogWarning($"Unexpected AppState {currentAppState}");
+                break;
+
             default:
                 throw new Exception($"Unexpected AppState {currentAppState}");
         }

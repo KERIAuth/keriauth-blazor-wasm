@@ -1,13 +1,14 @@
-﻿export class StorageEvents {
-    static addStorageChangeListener(dotNetObject: any): void {
-        chrome.storage.onChanged.addListener((changes, areaName) => {
-            dotNetObject.invokeMethodAsync('OnStorageChanged', changes, areaName);
-        });
-    }
-}
+﻿/// <reference types="chrome" />
 
-
-// TODO update signature so that callback function name (e.g. OnStorageChanged) is passed in
-export function addStorageChangeListener(dotNetObject: any) {
-    StorageEvents.addStorageChangeListener(dotNetObject);
-}
+export const addStorageChangeListener = (dotNetObject: any): void => {
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local') {
+            // Convert changes to a plain object for serialization
+            const changesObj: { [key: string]: { oldValue: any, newValue: any } } = {};
+            for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
+                changesObj[key] = { oldValue, newValue };
+            }
+            dotNetObject.invokeMethodAsync('NotifyStorageChanged', changesObj, 'local');
+        }
+    });
+};

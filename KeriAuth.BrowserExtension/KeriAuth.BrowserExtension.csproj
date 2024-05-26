@@ -124,6 +124,9 @@
 		<Content Update="wwwroot\scripts\signify_ts_shim.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
+		<Content Update="wwwroot\scripts\storageHelper.js">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
 		<Content Update="wwwroot\sounds\beep.mp3">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
@@ -224,7 +227,6 @@
 	  <TypeScriptCompile Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\service-worker.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\signify_ts_shim.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\storageHelper.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\uiHelper.d.ts" />
 	</ItemGroup>
 	<ItemGroup>
@@ -255,5 +257,8 @@
 	  <Page Include="Properties\launchSettings.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Page>
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="wwwroot\scripts\storageHelper.ts" />
 	</ItemGroup>
 </Project>

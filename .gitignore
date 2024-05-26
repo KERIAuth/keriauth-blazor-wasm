@@ -437,3 +437,6 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/signify_ts_shim.d.ts
 /KeriAuth.BrowserExtension/wwwroot/scripts/signify_ts_shim.js.map
 /KeriAuth.BrowserExtension/wwwroot/scripts/uiHelper.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.js.map

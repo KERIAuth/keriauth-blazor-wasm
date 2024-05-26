@@ -535,6 +535,8 @@
                 _ops4BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
                 return;
             }
+            await StateService.Configure();
+            await StateService.Authenticate(); // TODO EE! temporary locaion here, to enable testing
             _ops4BootAndConnect.SetCompletedWithoutErrors();
 
 

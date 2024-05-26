@@ -1,24 +1,22 @@
-﻿namespace KeriAuth.BrowserExtension.Services; 
+﻿namespace KeriAuth.BrowserExtension.Services;
 
 using Blazored.LocalStorage;
 using Blazored.SessionStorage;
-using KeriAuth.BrowserExtension.Helper;
 using FluentResults;
+using KeriAuth.BrowserExtension.Helper;
+using KeriAuth.BrowserExtension.Models;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
+using System;
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using WebExtensions.Net;
 using static KeriAuth.BrowserExtension.Services.IStorageService;
 using JsonSerializer = System.Text.Json.JsonSerializer;
-using KeriAuth.BrowserExtension.Models;
-using System;
-using System.Diagnostics;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Components;
 
 public partial class StorageService : IStorageService, IObservable<Preferences>
 {
@@ -37,6 +35,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         this.blazoredSessionStorage = blazoredSessionStorage; // TODO P1 this is an experiment and decrypted wallet should not be stored in browser session storage !!!
         this.logger = logger;
         this.logger.LogInformation("StorageService: constructor");
+        _dotNetObjectRef = DotNetObjectReference.Create(this);
 
         // a null hostEnvironment might be used for test environment
         if (hostEnvironment is not null && hostEnvironment.BaseAddress.Contains("chrome-extension"))
@@ -63,12 +62,19 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
     public delegate bool CallbackDelegate(object request, string something);
 
-    private DotNetObjectReference<StorageChangeHandler>? _dotNetObjectRef;
+    private DotNetObjectReference<StorageService>? _dotNetObjectRef;
+    public event Action<Dictionary<string, (object oldValue, object newValue)>> OnStorageChanged;
 
     public void Dispose()
     {
         _dotNetObjectRef?.Dispose();
-    }   
+    }
+
+
+
+    
+
+
 
     public async Task<Task> Initialize(IWebExtensionsApi webExtensionsApi)
     {
@@ -79,12 +85,15 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             if (_isUsingStorageApi)
             {
                 logger.LogInformation("Using StorageApi");
-                CallbackDelegate callbackDelegate = Callback; // TODO consider the following? ...  = (object request, string _) => Callback(request, _); to make this type-explicit.
-                await webExtensionsApi.Storage.OnChanged.AddListener(callbackDelegate);
+
+                Debug.Assert(jsRuntime is not null);
+                logger.LogInformation("Registering handler for storage change event");
+                
+                IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/storageHelper.js");
+                await _module.InvokeVoidAsync("addStorageChangeListener", _dotNetObjectRef);
             }
             else
             {
-                _dotNetObjectRef = DotNetObjectReference.Create(new StorageChangeHandler());
                 Debug.Assert(jsRuntime is not null);
                 logger.LogInformation("Registering handler for storage change event");
 
@@ -98,9 +107,10 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         catch (Exception e)
         {
-            logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
+            // logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
+            throw new Exception("Error adding addStorageChangeListener", e);
         }
-        logger.LogInformation("Registered handler for storage change event");
+        logger.LogInformation("Added addStorageChangeListener");
         return Task.CompletedTask;
     }
 
@@ -151,7 +161,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     {
         try
         {
-            // xxConsole.WriteLine($"Getting item of type {typeof(T).Name}");
+            logger.LogInformation("Getting item of type {name}", typeof(T).Name);
 
             T? nullValue = default;
             var tName = typeof(T).Name.ToUpperInvariant();
@@ -169,11 +179,9 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                 JsonDocument jsonDocument;
                 try
                 {
-                    // xxConsole.WriteLine($"Getting item of type {typeof(T).Name} from chrome.storage.local");
                     Debug.Assert(jsRuntime is not null);
                     jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", tName);
-                    // xxConsole.WriteLine($"Got {jsonDocument.ToJsonString()}");
-
+                    logger.LogInformation("Got {doc}", jsonDocument.ToJsonString());
                 }
                 catch (Exception ex)
                 {
@@ -507,5 +515,21 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                 return Result.Fail($"Unable to parse get items from storage: {ex.Message}");
             }
         }
+    }
+        
+    [JSInvokable]
+    public void NotifyStorageChanged(Dictionary<string, Dictionary<string, JsonElement>> changes, string areaname)
+    {
+        var convertedChanges = changes.ToDictionary(
+            kvp => kvp.Key,
+            kvp => (
+                oldValue: kvp.Value.ContainsKey("oldValue") ? (object)kvp.Value["oldValue"].ToString() : null,
+                newValue: kvp.Value.ContainsKey("newValue") ? (object)kvp.Value["newValue"].ToString() : null
+            )
+        );
+
+        logger.LogInformation("Storage changed: {changes}", convertedChanges);
+
+        // OnStorageChanged?.Invoke(convertedChanges);
     }
 }

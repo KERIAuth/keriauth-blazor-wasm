@@ -1,21 +1,10 @@
 ﻿using FluentResults;
-using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig;
-using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
-using KeriAuth.BrowserExtension.Models;
-using State = KeriAuth.BrowserExtension.Services.SignifyService.Models.State;
-using Group = KeriAuth.BrowserExtension.Services.SignifyService.Models.Group;
-using System.Text.RegularExpressions;
-using WebExtensions.Net.Tabs;
-using Microsoft.Extensions.Logging;
-using Microsoft.Win32;
-using System.Reactive;
-using static KeriAuth.BrowserExtension.UI.Views.Create;
-using System.Linq.Expressions;
-using System.Runtime.InteropServices.JavaScript;
-using System.Diagnostics;
-using System.Runtime.Versioning;
-using WebExtensions.Net.Windows;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
+using System.Diagnostics;
+using System.Runtime.InteropServices.JavaScript;
+using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
+using Group = KeriAuth.BrowserExtension.Services.SignifyService.Models.Group;
+using State = KeriAuth.BrowserExtension.Services.SignifyService.Models.State;
 
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService
@@ -54,7 +43,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         var res = await BootAndConnect(agentUrl, bootUrl, passcode);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
-                        logger.LogInformation("SignifyClientService: Connect: {@Details}", res);
+                        logger.LogInformation("Connect: {connectResults}", res);
                         // TODO fix
                         return true.ToResult();
                     }
