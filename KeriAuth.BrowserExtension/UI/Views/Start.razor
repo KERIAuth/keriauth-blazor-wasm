@@ -16,14 +16,13 @@
 @using static KeriAuth.BrowserExtension.AppConfig;
 @inject NavigationManager NavManager
 @inject IJSRuntime js
-@inject IPreferencesService PreferencesService
+@inject IPreferencesService preferencesService
 <!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
 @inject ISnackbar Snackbar
-@inject IStorageService StorageService
-@inject IStateService StateService
-
-@inject IExtensionEnvironmentService ExtensionEnvironmentService
-@inject ILogger<Start> _logger
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<Start> logger
 @inherits Blazor.BrowserExtension.Pages.BasePage;
 
 <div id="Start" class="bt-body-page" style="height:calc(100vh - var(--bt-appbar-height)); display:flex; align-items:center; justify-content:center;">
@@ -105,7 +104,7 @@
         var reason = namedValueCollection["reason"];
         if (reason is not null)
         {
-            _logger.LogInformation($"Start: reason == {reason}");
+            logger.LogInformation($"Start: reason == {reason}");
             switch (reason)
             {
                 case "install":
@@ -123,7 +122,7 @@
             }
         }
 
-        var currentAppState = StateService.GetState();
+        var currentAppState = stateService.GetState();
         switch (currentAppState)
         {
             case IStateService.States.Unauthenticated:
@@ -135,7 +134,7 @@
             case IStateService.States.Authenticated:
                 // if ActiveDID is not set (which can happen after a restore from backup), then set it to the first DID
 
-                var prefs = await PreferencesService.GetPreferences();
+                var prefs = await preferencesService.GetPreferences();
                 if (string.IsNullOrEmpty(prefs.SelectedDidIdentifier))
                 {
                     // Debug.Assert(WalletService.Wallet is not null);
@@ -151,7 +150,7 @@
                 break;
 
             case IStateService.States.Initializing:
-                _logger.LogWarning($"Unexpected AppState {currentAppState}");
+                logger.LogWarning($"Unexpected AppState {currentAppState}");
                 break;
 
             default:
@@ -182,6 +181,7 @@
             Snackbar.Add("Invalid password. The password initially selected should have at least 6 characters", Severity.Error);
             return;
         }
+        // TODO: Implement WalletService.LoadWallet
         // var result = await WalletService.LoadWallet(password);
         // if (result.IsFailed)
         // {
@@ -192,7 +192,8 @@
         // else
         // {
         //     await WalletService.CreateQuickLogin(password);
-        //     NavManager.NavigateTo(RouteToHome);
+        await stateService.Authenticate();
+        NavManager.NavigateTo(RouteToHome);
         // }
     }
 
