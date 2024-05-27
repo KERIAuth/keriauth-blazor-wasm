@@ -54,30 +54,25 @@ Backer Address  (copy)
                  foreach (WalletDid walletDid in WalletService.Wallet.WalletDids)
             -->
             @{
-                // var walletDid = new WalletDid();
-                var tmpIdentifier = "0x7A697A697A697A697A697A697A697A697A697A697A697A697A697A697A697A69";
-                var tmpIdenticon = Identicon.MakeIdenticon(tmpIdentifier);
-                <MudCard Style="@cardClass(tmpIdentifier)">
-
+                var cachedAid = new CachedAid("0x7A697A697A697A697A697A697A697A697A697A697A697A697A697A697A697A69", "freddy1", "localhost");
+                <MudCard Style="@cardClass(cachedAid.Alias)">
                     <MudExpansionPanel Dense="true">
                         <TitleContent>
                             <div class="d-flex" style="align-items:center;">
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">
-                                    <MudButton OnClick="async () => await SetActiveAid(tmpIdentifier)">
-                                        <MudIcon ViewBox="0 0 100 100" Icon="@tmpIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                     </MudButton>
                                 </MudTooltip>
                                 <div style="margin-left: 10px; margin-top: -22px" @onclick:stopPropagation="true">
                                     <div class="mt-2">
-                                        <Ellipsis IsDid="true" StringContent="@tmpIdentifier" IncludeCopyIcon="true"></Ellipsis>
+                                        <Ellipsis IsDid="true" StringContent="@cachedAid.Prefix" IncludeCopyIcon="true"></Ellipsis>
                                     </div>
                                 </div>
                             </div>
                         </TitleContent>
                         <ChildContent>
-                            <MudText Class="mt-2" Typo="Typo.overline">Created at: 12-12-2023</MudText>
-
-
+                            <MudText Class="mt-2" Typo="Typo.overline">Cached at: @cachedAid.CachedUtc.ToLongDateString()</MudText>
                             <MudCardActions Class="d-flex justify-end">
                                 <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="true" Variant="Variant.Filled" Color="Color.Primary">Add additional key</MudButton>
                             </MudCardActions>
@@ -94,7 +89,7 @@ Backer Address  (copy)
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingAid" OnClick="async () => await AddDid()" Variant="Variant.Filled" Color="Color.Primary">Add New DID</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingAid" OnClick="async () => await AddDid()" Variant="Variant.Filled" Color="Color.Primary">Create New Identifier</MudButton>
     </MudStack>
 </div>
 
