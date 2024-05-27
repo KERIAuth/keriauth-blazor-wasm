@@ -5,6 +5,7 @@
 @using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
 @using System.ComponentModel.DataAnnotations
 @using System.Linq;
+@using System.Text;
 @using KeriAuth.BrowserExtension
 @using KeriAuth.BrowserExtension.UI.Components
 @using KeriAuth.BrowserExtension.Helper
@@ -14,11 +15,13 @@
 @using KeriAuth.BrowserExtension.Services.SignifyService.Models
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using System.Security.Cryptography;
 @inject HttpClient Http
 @inject NavigationManager NavManager
 @inject IJSRuntime js
 @inject IStateService StateService
 @inject IWalletService _walletService
+@inject IStorageService storageService
 @inject ISignifyClientService _signifyClientService
 @inject ISnackbar _Snackbar
 @inject ILogger<Create> logger
@@ -91,7 +94,7 @@
                         </div>
                         <MudDivider />
                         <MudStack class="d-flex mt-5 justify-center" Style="align-items:center;">
-                            <MudCheckBox @bind-Value="_tosAgree" data-testid="tosCheckbox">I agree to the above Terms of Use and Privacy Policy</MudCheckBox>
+                            <MudCheckBox @bind-Value="_isTermsAgreed" data-testid="tosCheckbox">I agree to the above Terms of Use and Privacy Policy</MudCheckBox>
                         </MudStack>
                     </MudStack>
                 </MudStack>
@@ -99,7 +102,7 @@
             <MudStack Row="true" class="bt-button-tray">
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
                 <MudSpacer></MudSpacer>
-                <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_tosAgree)" OnClick="async () => await NextPage()" Class="justify-end" data-testid="next">Next</MudButton>
+                <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_isTermsAgreed)" OnClick="async () => await NextPage()" Class="justify-end" data-testid="next">Next</MudButton>
             </MudStack>
             break;
         case CardKind.ConfigureKeriaConnection3:
@@ -107,9 +110,14 @@
                 <MudStack>
                     <MudText Typo="Typo.h6">Configure your KERIA agent service connection</MudText>
                     <MudStack Class="bt-create-card-top-scrollable">
-                        <MudTextField Label="Enter URL"
-                                      @bind-Value="@urlModel.Url"
-                                      For="@(() => urlModel.Url)"
+                        <MudTextField Label="Enter Agent URL"
+                                      @bind-Value="@urlModel.AdminUrl"
+                                      For="@(() => urlModel.AdminUrl)"
+                                      Immediate="true"
+                                      OnBlur="@HandleOnBlur" />
+                        <MudTextField Label="Enter Boot URL"
+                                      @bind-Value="@urlModel.BootUrl"
+                                      For="@(() => urlModel.BootUrl)"
                                       Immediate="true"
                                       OnBlur="@HandleOnBlur" />
                         <MudTextField Label="Enter passcode"
@@ -118,7 +126,7 @@
                                       For="@(() => passcodeModel.Passcode)"
                                       Immediate="true"
                                       OnBlur="@HandleOnBlur" />
-                        <MudButton OnClick="@(async () => await HandleClick())" Disabled="@(!IsValidURL)" Color="Color.Primary">Check URL</MudButton>
+                        <MudButton OnClick="@(async () => await HandleClick())" Disabled="@(!IsValidURLs)" Color="Color.Primary">Connect to KERIA agent service</MudButton>
                         <MudStack Class="mt-5">
                             <OperationDisplayComponent ops="@_ops1LivenessCheck"></OperationDisplayComponent>
                             <OperationDisplayComponent ops="@_ops2HealthCheck"></OperationDisplayComponent>
@@ -282,7 +290,7 @@
     private readonly OperationDisplay _ops6ListAids = new OperationDisplay("Listing Identifiers", "Identifiers Listed");
     private readonly OperationDisplay _ops7ListCredentials = new OperationDisplay("Listing Credentials", "Credentials Listed");
 
-    private CardKind Card { get; set; } = CardKind.SetAndConfirmPassword1;
+    private CardKind Card { get; set; } = CardKind.TermsAndPrivacy2;
     private bool _isStrongPassword = true; // TODO P1
     private string[] _errors = { };
     private List<string> _mnemonic = new List<string>();
@@ -293,7 +301,7 @@
     // private Random _random = new Random();
     // private int _firstWordNumber = 0;
     // private int _secondWordNumber = 0;
-    private bool _tosAgree;
+    private bool _isTermsAgreed;
     // private string _firstWordNumberLabelText = string.Empty;
     // private string _firstWordNumberHelperText = string.Empty;
     // private string _secondWordNumberLabelText = string.Empty;
@@ -305,6 +313,8 @@
     private MarkupString releaseMarkup = new("Placeholder for Release Notes");
     private MarkupString termsMarkup = new("Placeholder for Terms of Use");
     private MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
+    private int termsMarkupHash;
+    private int privacyMarkupHash;
 
     protected override async Task OnInitializedAsync()
     {
@@ -315,6 +325,20 @@
         releaseMarkup = new MarkupString(await Http.GetStringAsync(_releaseUrlPath));
         termsMarkup = new MarkupString(await Http.GetStringAsync(_termsUrlPath));
         privacyMarkup = new MarkupString(await Http.GetStringAsync(_privacyUrlPath));
+        termsMarkupHash = GetNumberFromHash(termsMarkup.Value);
+        privacyMarkupHash = GetNumberFromHash(privacyMarkup.Value);
+    }
+
+    // TODO move to utilities
+    public static int GetNumberFromHash(string input)
+    {
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+            int hashInt = BitConverter.ToInt32(hashBytes, 0);
+            hashInt = Math.Abs(hashInt);
+            return hashInt;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -339,6 +363,7 @@
         }
     }
 
+    /*
     // private void OnWordValue1Changed(string s)
     // {
     //     if (s is null)
@@ -362,6 +387,7 @@
     //         _wordvalue2 = s;
     //     }
     // }
+    */
 
     private async Task NewPasswordKeyDown(KeyboardEventArgs e)
     {
@@ -384,6 +410,13 @@
                 Card = CardKind.TermsAndPrivacy2;
                 break;
             case CardKind.TermsAndPrivacy2:
+                var onboardState = new OnboardState(DateTime.UtcNow, termsMarkupHash, DateTime.UtcNow, privacyMarkupHash, true);
+                var res = await storageService.SetItem<OnboardState>(onboardState);
+                if (res.IsFailed)
+                {
+                    logger.LogError("Failed to store onboard state");
+                    return;
+                }
                 // TODO P2 record acceptance of terms and privacy, as List<(DateTime agreed, Hash docHash)> tuple in wallet for terms and for privacy
                 Card = CardKind.ConfigureKeriaConnection3;
                 break;
@@ -446,8 +479,12 @@
     public class UrlModel
     {
         [Required]
-        [Url(ErrorMessage = "Enter KERI Agent URL")]
-        public string Url { get; set; } = AppConfig.DefaultKeriaUrl;
+        [Url(ErrorMessage = "Enter KERIA Admin URL")]
+        public string AdminUrl { get; set; } = AppConfig.DefaultKeriaAdminUrl;
+
+        [Required]
+        [Url(ErrorMessage = "Enter KERIA Boot URL")]
+        public string BootUrl { get; set; } = AppConfig.DefaultKeriaBootUrl;
     }
 
     public class PasscodeModel
@@ -459,20 +496,33 @@
         public string Passcode { get; set; } = "";
     }
 
-    private UrlModel urlModel = new UrlModel() { Url = AppConfig.DefaultKeriaUrl };
+    private UrlModel urlModel = new UrlModel()
+        {
+            AdminUrl = AppConfig.DefaultKeriaAdminUrl,
+            BootUrl = AppConfig.DefaultKeriaBootUrl
+        };
 
     private PasscodeModel passcodeModel = new PasscodeModel();
 
-    private bool IsValidURL
+    private bool IsValidURLs
     {
-        get =>
-        !(string.IsNullOrWhiteSpace(urlModel.Url) || !Uri.IsWellFormedUriString(urlModel.Url, UriKind.Absolute));
+        get
+        {
+            if (string.IsNullOrWhiteSpace(urlModel.AdminUrl)
+                || !Uri.IsWellFormedUriString(urlModel.AdminUrl, UriKind.Absolute)
+                || string.IsNullOrWhiteSpace(urlModel.BootUrl)
+                || !Uri.IsWellFormedUriString(urlModel.BootUrl, UriKind.Absolute))
+            {
+                return false;
+            }
+            return true;
+        }
     }
 
     private bool IsKeriaConfigured
     {
         get =>
-        IsValidURL;
+        IsValidURLs;
     }
 
     private void HandleOnBlur()
@@ -489,16 +539,16 @@
         // TODO EE! reset all operations
         // _ops1LivenessCheck.Reset();
 
-        if (IsValidURL)
+        if (IsValidURLs)
         {
             // check if AdminPort is reachable
             _ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
-            UriBuilder healthUriBuilder = new($"{urlModel.Url}:{BootPort}/health");
+            UriBuilder healthUriBuilder = new($"{urlModel.BootUrl}/health");
             var postResult = await _signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!postResult.IsSuccess)
             {
-                var message =  $"The configured KERIA agent service is not reachable at {healthUriBuilder.Uri}";
+                var message = $"The configured KERIA agent service is not reachable at {healthUriBuilder.Uri}";
                 _ops1LivenessCheck.SetCompletedWithError(message);
                 return;
             }
@@ -510,7 +560,7 @@
             StateHasChanged();
             // TODO move this into service code
             var httpClientService2 = new HttpClientService(new HttpClient());
-            var postResult2 = await httpClientService2.GetJsonAsync<String>($"{urlModel.Url}:{BootPort}/health");
+            var postResult2 = await httpClientService2.GetJsonAsync<String>($"{urlModel.BootUrl}/health");
             if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 _ops2HealthCheck.SetCompletedWithError(postResult2.Reasons.First().Message);
@@ -529,7 +579,7 @@
             _ops4BootAndConnect.SetIsRunning();
             StateHasChanged();
             // TODO EE! take this from the form and store it in the wallet
-            var clientRes = await _signifyClientService.Connect($"{urlModel.Url}:{AdminPort}", passcodeModel.Passcode, $"{urlModel.Url}:{BootPort}", true);
+            var clientRes = await _signifyClientService.Connect($"{urlModel.AdminUrl}", passcodeModel.Passcode, $"{urlModel.BootUrl}", true);
             if (clientRes.IsFailed)
             {
                 _ops4BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
@@ -540,7 +590,7 @@
 
             _ops5CreatePersonalAid.SetIsRunning();
             StateHasChanged();
-            var aidRes = await _signifyClientService.CreatePersonAid("Ed_" + DateTime.Now.TimeOfDay.TotalSeconds);
+            var aidRes = await _signifyClientService.CreatePersonAid("Freddy as CFO of XYX Corp " + DateTime.Now.TimeOfDay.TotalSeconds);
             if (aidRes.IsFailed)
             {
                 _ops5CreatePersonalAid.SetCompletedWithError(aidRes.Reasons.First().Message);

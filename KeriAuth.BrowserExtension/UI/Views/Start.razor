@@ -65,6 +65,9 @@
                 </MudButton>
             }
         </MudStack>
+    } else
+    {
+        <MudText>Redirect expected...</MudText>
     }
 </div>
 
@@ -77,6 +80,7 @@
     private string[] _errors = { };
     private bool _doesWalletExist;
     private bool _isNoRedirect; // helps prevent UI paint during when page is redirected, e.g. when already authenticated
+    private OnboardState? onboardState;
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
@@ -122,42 +126,61 @@
             }
         }
 
-        var currentAppState = stateService.GetState();
-        switch (currentAppState)
+        var x = await storageService.GetItem<OnboardState>();
+        if (x.IsFailed)
         {
-            case IStateService.States.Unauthenticated:
-                _doesWalletExist = true;
-                _isNoRedirect = true;
-                // UI of current view will prompt user for password
-                break;
+            onboardState = new OnboardState(DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);
+            await storageService.SetItem<OnboardState>(onboardState);
+        } else {
+            onboardState = x.Value;
+        }
 
-            case IStateService.States.Authenticated:
-                // if ActiveAid is not set (which can happen after a restore from backup), then set it to the first DID
+        Debug.Assert(onboardState is not null);
+        if (!onboardState.IsInstallOnboarded)
+        {
+            _isNoRedirect = true;
+            return;
+        }
+        else
+        {
+            var currentAppState = stateService.GetState();
+            switch (currentAppState)
+            {
+                case IStateService.States.Unauthenticated:
+                    _doesWalletExist = true;
+                    _isNoRedirect = true;
+                    // UI of current view will prompt user for password
+                    break;
 
-                var prefs = await preferencesService.GetPreferences();
-                if (string.IsNullOrEmpty(prefs.SelectedAid))
-                {
-                    // Debug.Assert(WalletService.Wallet is not null);
-                    // prefs.SelectedAid = WalletService.Wallet.WalletDids[0].Did.Identifier;
-                    // await PreferencesService.SetPreferences(prefs);
-                }
-                NavManager.NavigateTo(RouteToHome);
-                return;
+                case IStateService.States.Authenticated:
+                    // if ActiveAid is not set (which can happen after a restore from backup), then set it to the first DID
 
-            case IStateService.States.Unconfigured:
-                _isNoRedirect = true;
-                // UI will prompt user to set password and confirm mnemonic seed phrase
-                break;
+                    var prefs = await preferencesService.GetPreferences();
+                    if (string.IsNullOrEmpty(prefs.SelectedAid))
+                    {
+                        // Debug.Assert(WalletService.Wallet is not null);
+                        // prefs.SelectedAid = WalletService.Wallet.WalletDids[0].Did.Identifier;
+                        // await PreferencesService.SetPreferences(prefs);
+                    }
+                    NavManager.NavigateTo(RouteToHome);
+                    return;
 
-            case IStateService.States.Initializing:
-                logger.LogWarning($"Unexpected AppState {currentAppState}");
-                break;
+                case IStateService.States.Unconfigured:
+                    _isNoRedirect = true;
+                    // UI will prompt user to set password and confirm mnemonic seed phrase
+                    break;
 
-            default:
-                throw new Exception($"Unexpected AppState {currentAppState}");
+                case IStateService.States.Initializing:
+                    logger.LogWarning($"Unexpected AppState {currentAppState}");
+                    break;
+
+                default:
+                    throw new Exception($"Unexpected AppState {currentAppState}");
+            }
         }
     }
 
+    // TODO move to helper
     private IEnumerable<string> PasswordStrength(string pw)
     {
         if (string.IsNullOrWhiteSpace(pw))

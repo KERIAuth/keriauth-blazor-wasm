@@ -4,6 +4,8 @@ namespace KeriAuth.BrowserExtension.Models
 
     public class Preferences
     {
+        // TODO: create a constructor and make setters private
+
         [JsonPropertyName("iDT")]
         public bool IsDarkTheme { get; set; } = false;
 
