@@ -105,7 +105,7 @@
         case CardKind.ConfigureKeriaConnection3:
             <div id="@Card" class="d-flex gap-3 bt-main">
                 <MudStack>
-                    <MudText Typo="Typo.h6">Configure your KERI Agent Connection</MudText>
+                    <MudText Typo="Typo.h6">Configure your KERIA agent service connection</MudText>
                     <MudStack Class="bt-create-card-top-scrollable">
                         <MudTextField Label="Enter URL"
                                       @bind-Value="@urlModel.Url"
@@ -535,8 +535,6 @@
                 _ops4BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
                 return;
             }
-            await StateService.Configure();
-            await StateService.Authenticate(); // TODO EE! temporary locaion here, to enable testing
             _ops4BootAndConnect.SetCompletedWithoutErrors();
 
 
@@ -564,18 +562,18 @@
             // logger.LogInformation("Identifiers: {identifiers}", identifiers);
             // identifiers.ToList().ForEach(i => logger.LogInformation($"Identifiers: {i}"));
             _ops6ListAids.SetCompletedWithoutErrors();
-            return;
 
 
             _ops7ListCredentials.SetIsRunning();
             StateHasChanged();
-            await Task.Delay(2000);
             _ops7ListCredentials.SetCompletedWithoutErrors();
             if (!_ops7ListCredentials.CompletedSuccessfully)
             {
                 return;
             }
         }
+        await StateService.Configure();
+        await StateService.Authenticate(); // TODO EE! temporary locaion here, to enable testing
         StateHasChanged();
 
     }
