@@ -27,7 +27,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
                 // If preferences don't yet exist in storage, return the defaults
                 return new Preferences();
             }
-            else // IsSuccess
+            else
             {
                 return preferencesResult.Value;
             }
@@ -52,14 +52,18 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     void IObserver<Preferences>.OnNext(Preferences value) // invoked as an observer<Preferences> of StorageService
     {
         logger.LogInformation("Preferences updated: {value}", value.ToString());
-        // throw new NotImplementedException();
+        foreach (var observer in preferencesObservers) { 
+            observer.OnNext(value);
+        }
     }
 
     public async Task SetPreferences(Preferences preferences)
     {
         await storageService.SetItem<Preferences>(preferences);
-        foreach (var observer in preferencesObservers)
-            observer.OnNext(preferences);
+        // See IObserver<Preferences>.OnNext(Preferences value) for pushing updates to overservers
+        //
+        //foreach (var observer in preferencesObservers)
+        //    observer.OnNext(preferences);
         return;
     }
 

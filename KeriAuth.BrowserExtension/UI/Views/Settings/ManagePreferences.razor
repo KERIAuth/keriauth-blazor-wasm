@@ -18,7 +18,7 @@
                 <MudText Class="mt-3">Appearance Theme</MudText>
                 <MudStack Row="true" Style="margin-left:20px;">
                     <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
-                    <MudSwitch Value="IsDarkTheme" ValueChanged="(a) => SetAndPersistIsDarkTheme(a)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (a) => await SetAndPersistIsDarkTheme(a)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
                     <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
                 </MudStack>
             </MudStack>
@@ -26,7 +26,7 @@
                 <MudText Class="mt-3">Selected Profile: @(SelectedDidIdentifier)</MudText>
                 <MudText Class="mt-3">Menu Drawer Responsive Mode</MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
-                    <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="(a) => SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                    <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
                         {
                             <MudSelectItem Value="@item">@item</MudSelectItem>
@@ -75,7 +75,7 @@
 
     async Task Persist()
     {
-        var prefs = await PreferencesService.GetPreferences();
+        // var prefs = await PreferencesService.GetPreferences();
         prefs.DrawerVariantInPopup = DrawerVariantInPopup;
         prefs.DrawerVariantInTab = DrawerVariantInTab;
         prefs.IsDarkTheme = IsDarkTheme;
@@ -88,7 +88,6 @@
         if (a.HasValue)
         {
             IsDarkTheme = a.Value;
-            Prefs.IsDarkTheme = a.Value;
             await Persist();
         }
     }
@@ -96,20 +95,18 @@
     async Task SetAndPersistDVIT(DrawerVariant dv)
     {
         DrawerVariantInTab = dv;
-        Prefs.DrawerVariantInTab = dv;
         await Persist();
     }
 
     async Task SetAndPersistDVIP(DrawerVariant dv)
     {
         DrawerVariantInPopup = dv;
-        Prefs.DrawerVariantInPopup = dv;
         await Persist();
     }
 
     IDisposable? preferencesSubscription;
 
-    Preferences Prefs { get; set; } = new();
+    Preferences prefs { get; set; } = new();
 
     public void Dispose()
     {
@@ -120,12 +117,12 @@
     {
         if (value is not null)
         {
-            Prefs = value;
+            prefs = value;
             IsDarkTheme = value.IsDarkTheme;
             DrawerVariantInPopup = value.DrawerVariantInPopup;
             DrawerVariantInTab = value.DrawerVariantInTab;
             SelectedDidIdentifier = value.SelectedDidIdentifier;
-            logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme); // TODO P3: remove
+            logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
             StateHasChanged();
         }
     }

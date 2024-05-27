@@ -27,12 +27,6 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
         }
     }
 
-    //private async Task SetAndSaveWallet(Wallet value)
-    //{
-    //    await SaveWallet(value!);
-    //    _wallet = value;
-    //}
-
     /// <inheritdoc />
     public async Task SaveWallet(Wallet wallet)
     {

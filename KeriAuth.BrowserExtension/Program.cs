@@ -1,6 +1,4 @@
 using BlazorDB;
-using Blazored.LocalStorage;
-using Blazored.SessionStorage;
 using KeriAuth.BrowserExtension;
 using KeriAuth.BrowserExtension.Services;
 using KeriAuth.BrowserExtension.Services.SignifyService;
@@ -18,70 +16,20 @@ using System.Runtime.InteropServices.JavaScript;
 
 // Intentionally using Console.WriteLine herein since ILogger isn't yet easy to inject
 Console.WriteLine("Program: started");
-
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-
-// Load configuration from appsettings.json
 builder.Configuration.AddJsonFile("./appsettings.json", optional: false, reloadOnChange: true);
 builder.Logging.AddConfiguration(
     builder.Configuration.GetSection("Logging")
 );
-// See appsettings.json for Logging settings, although level may be overridden below
-//builder.Services.AddLogging(configure =>
-//{
-//    configure.SetMinimumLevel(LogLevel.Information);
-//});
-
-
-
-
-
-
 builder.UseBrowserExtension(browserExtension =>
 {
-    builder.RootComponents.Add<KeriAuth.BrowserExtension.App>("#app");
+    builder.RootComponents.Add<App>("#app");
     builder.RootComponents.Add<HeadOutlet>("head::after");
 });
-
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddMudServices();
-
-// construct storage service dependent on whether we are running in a browser extension or not
-// TODO.  Also consider creating helpers:
-// isBrowserWASM = System.OperatingSystem.IsBrowser()
-// approx...  isExtension = JSInterop.RunAsync<Bool>("if (chrome.extension)")
-if (builder.HostEnvironment.BaseAddress.Contains("chrome-extension"))
-{
-    builder.Services.AddSingleton<IStorageService>(serviceProvider =>
-    {
-        var jsRuntime = serviceProvider.GetRequiredService<IJSRuntime>();
-        var hostEnvironment = serviceProvider.GetRequiredService<IWebAssemblyHostEnvironment>();
-        // var iLoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-        //Debug.Assert(iLoggerFactory is not null);
-        // var logger = iLoggerFactory.CreateLogger<Program>();
-        // logger.LogInformation("Program: Initialize: BrowserExtension: ChromeExtension xxxxxxxxxx");
-        // var programLogger = serviceProvider.GetRequiredService<ILogger<Program>>();
-        var storageLogger = serviceProvider.GetRequiredService<ILogger<StorageService>>();
-        return new StorageService(jsRuntime, hostEnvironment, null, null, storageLogger);
-    });
-}
-else // WASM hosted, e.g. in developer's Kestrel ASPNetCore or IISExpress
-{
-    builder.Services.AddBlazoredLocalStorageAsSingleton();
-    builder.Services.AddBlazoredSessionStorageAsSingleton();
-    builder.Services.AddSingleton<IStorageService>(serviceProvider =>
-    {
-        var jsRuntime = serviceProvider.GetRequiredService<IJSRuntime>();
-        var hostEnvironment = serviceProvider.GetRequiredService<IWebAssemblyHostEnvironment>();
-        var localStorage = serviceProvider.GetRequiredService<ILocalStorageService>();
-        var sessionStorage = serviceProvider.GetRequiredService<ISessionStorageService>();
-        // var iLoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-        var storageLogger = serviceProvider.GetRequiredService<ILogger<StorageService>>();
-        return new StorageService(jsRuntime, hostEnvironment, localStorage, sessionStorage, storageLogger);
-    });
-}
-
+builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironmentService>();
 builder.Services.AddSingleton<IWalletService, WalletService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
