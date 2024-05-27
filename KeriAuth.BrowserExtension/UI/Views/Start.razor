@@ -132,13 +132,13 @@
                 break;
 
             case IStateService.States.Authenticated:
-                // if ActiveDID is not set (which can happen after a restore from backup), then set it to the first DID
+                // if ActiveAid is not set (which can happen after a restore from backup), then set it to the first DID
 
                 var prefs = await preferencesService.GetPreferences();
-                if (string.IsNullOrEmpty(prefs.SelectedDidIdentifier))
+                if (string.IsNullOrEmpty(prefs.SelectedAid))
                 {
                     // Debug.Assert(WalletService.Wallet is not null);
-                    // prefs.SelectedDidIdentifier = WalletService.Wallet.WalletDids[0].Did.Identifier;
+                    // prefs.SelectedAid = WalletService.Wallet.WalletDids[0].Did.Identifier;
                     // await PreferencesService.SetPreferences(prefs);
                 }
                 NavManager.NavigateTo(RouteToHome);

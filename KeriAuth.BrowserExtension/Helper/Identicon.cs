@@ -1,26 +1,28 @@
 ﻿namespace KeriAuth.BrowserExtension.Helper;
 
 using Jdenticon;
+using System.Diagnostics;
 using System.Text;
 
-public class DidIdenticon
+
+public class Identicon
 {
-    public static string MakeIdenticon(string? value)
+    public static string MakeIdenticon(string value)
     {
         if (String.IsNullOrWhiteSpace(value))
         {
             return "";
         }
-        // Custom identicon style
 
         // https://jdenticon.com/icon-designer.html?config=000000ff0141640026641e5a
         // Create a vibrant background color hue, with optimal saturation and billiance.
-
         // Derive a deterministic hue value between [0, 1] from a hash of the provide string
-        // float hue = Math.Abs(BitConverter.ToInt32(NBitcoin.Crypto.Hashes.SHA512(Encoding.ASCII.GetBytes(value)))) % 100 / 100f;
-        float hue = 100f;
+        value = "hello world";
+        byte[] hashBytes = HashGenerator.ComputeHash(value, "SHA1");
+        int hashInt = Math.Abs(BitConverter.ToInt32(hashBytes, 0));
+        float hue = hashInt % 100 / 100f;
 
-        Identicon.DefaultStyle = new IdenticonStyle
+        Jdenticon.Identicon.DefaultStyle = new IdenticonStyle
         {
             BackColor = Jdenticon.Rendering.Color.FromHsl(hue, 1f, 0.5f),
             ColorLightness = Range.Create(0f, 1f),
@@ -28,7 +30,8 @@ public class DidIdenticon
             ColorSaturation = 1.00f,
             GrayscaleSaturation = 0.00f
         };
-        var icon = Identicon.FromValue(value, size: 100);
+        var icon = Jdenticon.Identicon.FromValue(value, size: 100);
+        Debug.Assert(icon is not null);
         return icon.ToSvg(false);
     }
 }

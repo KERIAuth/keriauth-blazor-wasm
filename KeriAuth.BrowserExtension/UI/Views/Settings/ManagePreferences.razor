@@ -23,7 +23,7 @@
                 </MudStack>
             </MudStack>
             <MudStack Row="false">
-                <MudText Class="mt-3">Selected Profile: @(SelectedDidIdentifier)</MudText>
+                <MudText Class="mt-3">Selected Identifier: @(SelectedAid)</MudText>
                 <MudText Class="mt-3">Menu Drawer Responsive Mode</MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
                     <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
@@ -69,17 +69,16 @@
 
     MudBlazor.DrawerVariant DrawerVariantInTab { get; set; }
 
-    string SelectedDidIdentifier { get; set; } = "unset";
+    string SelectedAid { get; set; } = "unset";
 
     MudBlazor.DrawerVariant DrawerVariantInPopup { get; set; }
 
     async Task Persist()
     {
-        // var prefs = await PreferencesService.GetPreferences();
         prefs.DrawerVariantInPopup = DrawerVariantInPopup;
         prefs.DrawerVariantInTab = DrawerVariantInTab;
         prefs.IsDarkTheme = IsDarkTheme;
-        // prefs.SelectedDidIdentifier unchanged
+        // prefs.SelectedAid unchanged
         await PreferencesService.SetPreferences(prefs);
     }
 
@@ -121,7 +120,7 @@
             IsDarkTheme = value.IsDarkTheme;
             DrawerVariantInPopup = value.DrawerVariantInPopup;
             DrawerVariantInTab = value.DrawerVariantInTab;
-            SelectedDidIdentifier = value.SelectedDidIdentifier;
+            SelectedAid = value.SelectedAid;
             logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
             StateHasChanged();
         }

@@ -63,7 +63,7 @@
                     /* // if (WalletService.Wallet is not null)
                     { */
                 }
-                <MudList Clickable="true" @bind-SelectedValue="activeDidIdentifier" Class="bt-sad-4;" Style="padding: 0px">
+                <MudList Clickable="true" @bind-SelectedValue="activeAid" Class="bt-sad-4;" Style="padding: 0px">
                     @{
                         /* foreach (WalletDid walletDid in WalletService.Wallet!.WalletDids)
                         {
@@ -91,7 +91,7 @@
                 </MudList>
                 <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end" Style="padding-right:8px;">
                     <MudSpacer></MudSpacer>
-                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href=@RouteToIdentifiers>Manage Profiles</MudButton>
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href=@RouteToIdentifiers>Manage Identifiers</MudButton>
                 </MudStack>
                 }
             </div>
@@ -104,7 +104,7 @@
         <!--  background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">  -->
         <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@isMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@drawerMode" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
-                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.PeopleAlt" IconColor="Color.Surface">Identifiers</MudNavLink>
+                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToGroups Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href=@RouteToNotifications Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">Notifications</MudNavLink>
@@ -318,12 +318,12 @@
     {
         get
         {
-            return stateService.GetState() != IStateService.States.Authenticated || string.IsNullOrEmpty((string)activeDidIdentifier);
+            return stateService.GetState() != IStateService.States.Authenticated || string.IsNullOrEmpty((string)activeAid);
         }
     }
     bool isInPopup;
     bool hasNewMessages;
-    object activeDidIdentifier { get; set; } = "unselectedDid";
+    object activeAid { get; set; } = "unselectedDid";
     string activeDidIdenticon { get; set; } = "";
     string activeDidName { get; set; } = "";
     string activeDidTooltip { get; set; } = "";
@@ -607,7 +607,7 @@
         isDarkTheme = prefs.IsDarkTheme;
         // TODO P4 set the background-image depending on isDarkTheme.
 
-        activeDidIdentifier = (object)prefs.SelectedDidIdentifier;
+        activeAid = (object)prefs.SelectedAid;
 
         // set drawerMode based on environment and preferences
         var oldDrawerMode = drawerMode;
@@ -655,7 +655,7 @@
 
         // updated the profile identicon if needed
         /*
-        if (string.IsNullOrEmpty((string)activeDidIdentifier))
+        if (string.IsNullOrEmpty((string)activeAid))
         // IsIdenticonHidden = true;
     ;
     else
@@ -680,7 +680,7 @@
     {
         // if (WalletService.Wallet is not null)
         // {
-        //     var result = WalletService.SetActiveDidByIdentifier((string)activeDidIdentifier);
+        //     var result = WalletService.SetActiveDidByIdentifier((string)activeAid);
         //     if (result.IsSuccess)
         //     {
         //         var res = WalletService.GetActiveWalletDid();
@@ -727,13 +727,13 @@
         NavManager.NavigateTo(RouteToStart);
     }
 
-    // Set ActiveDid based on value of activeDidIdentifier,
+    // Set ActiveDid based on value of activeAid,
     // retrieved from picker or via preferences
     async Task SetActiveDid()
     {
         isProfilePanelOpen = false;
         var pref = await PreferencesService.GetPreferences();
-        pref.SelectedDidIdentifier = (string)activeDidIdentifier;
+        pref.SelectedAid = (string)activeAid;
         await PreferencesService.SetPreferences(pref);
         // Other actions will be reactive. See IObserver<Preferences>
     }
@@ -773,7 +773,7 @@
     }
 
     string cardClass(string rowIdentifier) =>
-    (string)activeDidIdentifier == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid; background: var(--mud-palette-surface); " : "background: var(--mud-palette-surface);";
+    (string)activeAid == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid; background: var(--mud-palette-surface); " : "background: var(--mud-palette-surface);";
 
     public static IStateService.States CurrentState { get; set; } = IStateService.States.Unknown;
 

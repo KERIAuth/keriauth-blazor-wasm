@@ -1,4 +1,5 @@
 ﻿@page "/Identifiers"
+@using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 
 @using KeriAuth.BrowserExtension.UI.Components
@@ -42,64 +43,66 @@ Backer Address  (copy)
 <div id="Dids" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Profiles</MudText>
-            
-                <div class="mt-n2 mb-2">
-                    
-                        <MudText Typo="Typo.overline">Your wallet contains 11 Identifiers</MudText>
-                    
-                </div>
-                <!-- foreach goes here-->
-                
-                {
-            <MudCard>
-                <!-- Style="@cardClass(walletDid.Did.Identifier)"> -->
-                        <MudExpansionPanel Dense="true">
-                            <TitleContent>
-                                <div class="d-flex" style="align-items:center;">
-                                    <MudTooltip Text="Set DID as active" Delay="1000">
-                                <MudButton> <!-- OnClick="async () => await SetActiveDid(walletDid.Did.Identifier)"> --> 
-                                            <MudIcon ViewBox="0 0 100 100"  Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                        </MudButton>
-                                    </MudTooltip>
-                                    <div style="margin-left: 10px; margin-top: -22px" @onclick:stopPropagation="true">
-                                        
-                                        <div class="mt-2">
-                                            <Ellipsis IsDid="true" StringContent="12341234" IncludeCopyIcon="true"></Ellipsis>
-                                        </div>
+            <MudText Typo="Typo.h6">Identifiers</MudText>
+
+            <div class="mt-n2 mb-2">
+
+                <MudText Typo="Typo.overline">Your connected KERIA agent service contains 11 identifiers</MudText>
+
+            </div>
+            <!-- foreach goes here, similar to
+                 foreach (WalletDid walletDid in WalletService.Wallet.WalletDids)
+            -->
+            @{
+                // var walletDid = new WalletDid();
+                var tmpIdentifier = "0x7A697A697A697A697A697A697A697A697A697A697A697A697A697A697A697A69";
+                var tmpIdenticon = Identicon.MakeIdenticon(tmpIdentifier);
+                <MudCard Style="@cardClass(tmpIdentifier)">
+
+                    <MudExpansionPanel Dense="true">
+                        <TitleContent>
+                            <div class="d-flex" style="align-items:center;">
+                                <MudTooltip Text="Set Identifier as active" Delay="1000">
+                                    <MudButton OnClick="async () => await SetActiveAid(tmpIdentifier)">
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@tmpIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    </MudButton>
+                                </MudTooltip>
+                                <div style="margin-left: 10px; margin-top: -22px" @onclick:stopPropagation="true">
+                                    <div class="mt-2">
+                                        <Ellipsis IsDid="true" StringContent="@tmpIdentifier" IncludeCopyIcon="true"></Ellipsis>
                                     </div>
                                 </div>
-                            </TitleContent>
-                            <ChildContent>
-                                <MudText Class="mt-2" Typo="Typo.overline">Created at: 12-12-2023</MudText>
-                                    
+                            </div>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudText Class="mt-2" Typo="Typo.overline">Created at: 12-12-2023</MudText>
 
-                                <MudCardActions Class="d-flex justify-end">
-                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="true" Variant="Variant.Filled" Color="Color.Primary">Add additional key</MudButton>
-                                </MudCardActions>
-                            </ChildContent>
-                        </MudExpansionPanel>
-                    </MudCard>
-                }
-                @if (isAddingDid)
-                {
-                    <p><em>Generating DID...</em></p>
-                }
+
+                            <MudCardActions Class="d-flex justify-end">
+                                <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="true" Variant="Variant.Filled" Color="Color.Primary">Add additional key</MudButton>
+                            </MudCardActions>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudCard>
+            }
+            @if (isAddingAid)
+            {
+                <p><em>Generating Identifier...</em></p>
             }
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingDid" OnClick="async () => await AddDid()" Variant="Variant.Filled" Color="Color.Primary">Add New DID</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingAid" OnClick="async () => await AddDid()" Variant="Variant.Filled" Color="Color.Primary">Add New DID</MudButton>
     </MudStack>
 </div>
 
 @code {
-    private bool isAddingDid;
+    private bool isAddingAid;
     private string _resolveResult = String.Empty;
     // private bool _resolveComplete = true; // ugly solution, but helps to force the rerender
-    private string activeDidIdentifier = "";
+    private string activeAid = "";
 
     public void Dispose()
     {
@@ -131,35 +134,35 @@ Backer Address  (copy)
            onNext: (Preferences value) => HandleNextFromPreferencesService(value),
            onError: (Exception error) => HandleErrorFromPreferencesService(error),
            onCompleted: () => HandleCompletedFromPreferencesService());
-        
+
         var prefs = await PreferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
     }
 
     private async Task AddDid()
     {
-        isAddingDid = true;
+        isAddingAid = true;
         // Delay to allow UI to draw progress indicator
         await Task.Delay(1000);
-        
-        isAddingDid = false;
+
+        isAddingAid = false;
     }
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
-        activeDidIdentifier = prefs.SelectedDidIdentifier;
+        activeAid = prefs.SelectedAid;
         this.StateHasChanged();
     }
 
     string cardClass(string rowIdentifier) =>
-        activeDidIdentifier == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid;" : "";
+        activeAid == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid;" : "";
 
     // Set ActiveDid based on value of activeDidIdentifier,
     // retrieved from picker or via preferences
-    async Task SetActiveDid(string identifier)
+    async Task SetActiveAid(string identifier)
     {
         var pref = await PreferencesService.GetPreferences();
-        pref.SelectedDidIdentifier = identifier;
+        pref.SelectedAid = identifier;
         await PreferencesService.SetPreferences(pref);
         // Other actions will be reactive to subscribed updates of Preferences
     }

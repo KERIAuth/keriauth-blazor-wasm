@@ -7,8 +7,8 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("iDT")]
         public bool IsDarkTheme { get; set; } = false;
 
-        [JsonPropertyName("sDid")]
-        public string SelectedDidIdentifier { get; set; } = "";
+        [JsonPropertyName("sAid")]
+        public string SelectedAid { get; set; } = "";
 
         [JsonPropertyName("iOIDC")]
         public bool IsOptedIntoDataCollection { get; set; } = false;
@@ -18,5 +18,8 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("dvit")]
         public MudBlazor.DrawerVariant DrawerVariantInTab { get; set; } = MudBlazor.DrawerVariant.Temporary;
+
+        [JsonPropertyName("dviw")]
+        public string SelectedKeriaAlias { get; set; } = "";
     }
 }
