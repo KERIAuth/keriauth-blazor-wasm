@@ -268,12 +268,8 @@
     MudTextField<string> _confirmPasswordField = new();
     MudForm? _confirmPasswordForm;
     MudButton? _nextButton = default(global::MudBlazor.MudButton);
-    // private bool _isDidComm = true;
-    // private bool _isVerifier = true;
-    // private bool _isHolder = true;
-    // private bool _isIssuer = false;
-    // private bool _isOptedIn = false;
-    // private bool _isKeriaConfigured = false;
+
+
     private enum CardKind
     {
         // These are expected to be ordered, as used by PreviousPage()
@@ -626,5 +622,30 @@
         await StateService.Authenticate(); // TODO EE! temporary locaion here, to enable testing
         StateHasChanged();
 
+    }
+
+    private bool IsNewRelease()
+    {
+        return false;
+    }
+
+    private bool IsTermsAgreedCurrent()
+    {
+        return false;
+    }
+
+    private bool IsConfigured()
+    {
+        return false;
+    }
+
+    private bool IsUnlocked()
+    {
+        return false;
+    }
+
+    private bool IsConnected()
+    {
+        return false;
     }
 }

@@ -2,6 +2,7 @@
 @page "/"
 @inherits IndexPage
 @inject IJSRuntime js;
+@inject ILogger<IndexPage> logger;
 
 <h1> </h1>
 
@@ -9,5 +10,6 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
+        logger.LogWarning("OnInitialized");
     }
 }
