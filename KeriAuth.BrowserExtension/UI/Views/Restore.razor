@@ -13,7 +13,7 @@
 @inject IStateService stateService
 @inject IStorageService storageService
 @inject IJSRuntime js
-@inject ILogger<Restore> Logger
+@inject ILogger<Restore> logger
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 
 <div id="Restore" class="bt-body-page">
@@ -66,6 +66,7 @@
         }
     }
 
+    // TODO move to AppConfig.cs ?
     private static Dictionary<string, Type> typeLookup = new()
     {
         { "WALLETENCRYPTED", typeof(WalletEncrypted) },
@@ -90,7 +91,7 @@
             Debug.Assert(json.Value is not null);
             var jsonDocument = JsonDocument.Parse(json.Value);
             var rootElement = jsonDocument.RootElement;
-            Logger.LogInformation($"Found {rootElement.ValueKind}");
+            logger.LogInformation($"Found {rootElement.ValueKind}");
             if (rootElement.ValueKind != JsonValueKind.Object)
             {
                 throw new Exception("Expected object");
@@ -104,7 +105,7 @@
             {
                 var key = keyValuePair.Key;
                 var value = keyValuePair.Value;
-                Logger.LogInformation($"Found {key}");
+                logger.LogInformation($"Found {key}");
 
                 // Any special handling for properties that need to be updated?
 
@@ -113,13 +114,13 @@
                     case "BACKUP":
                         var backup = JsonSerializer.Deserialize<BackupVersion>(value.GetRawText());
                         Debug.Assert(backup is not null);
-                        Logger.LogInformation($"Backup details: {backup.VersionName} {backup.Version} {backup.DateTime}");
+                        logger.LogInformation($"Backup details: {backup.VersionName} {backup.Version} {backup.DateTime}");
                         // remove this so it isn't restored
                         rootElementDictionary.Remove(key);
                         break;
                     case "APPSTATE":
                     case "WALLETLOGIN":
-                        Logger.LogInformation($"Found and ignoring {key}");
+                        logger.LogInformation($"Found and ignoring {key}");
                         rootElementDictionary.Remove(key);
                         break;
                     default:
@@ -146,7 +147,7 @@
             await storageService.Clear();
             foreach (var property in jsonDocument2.RootElement.EnumerateObject())
             {
-                Logger.LogInformation($"Restoring {property.Name}");
+                logger.LogInformation($"Restoring {property.Name}");
                 // TODO P2 DRY this up.  Instantiating the classes here is a code smell.
                 var key = property.Name.ToUpperInvariant();
                 var value = property.Value.GetRawText();
