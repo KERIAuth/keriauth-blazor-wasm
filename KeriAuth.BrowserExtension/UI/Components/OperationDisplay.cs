@@ -37,6 +37,14 @@
             this.ErrorMessage = error;
         }
 
+        public void Reset()
+        {
+            this.CompletedSuccessfully = false;
+            this.IsPending = true;
+            this.IsRunning = false;
+            this.ErrorMessage = String.Empty;
+        }
+
         public string Label { get; private set; } = String.Empty;
         public string SuccessLabel { get; init; } = String.Empty;
         public bool CompletedSuccessfully { get; private set; }

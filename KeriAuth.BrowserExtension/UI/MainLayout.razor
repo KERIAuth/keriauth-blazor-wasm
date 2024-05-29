@@ -50,8 +50,8 @@
             </div>
             <!-- Identicon: -->
             <div hidden="@IsIdenticonHidden" style="align-self:center; height: 35px; margin-right: -8px;">
-                <MudTooltip Text="@activeDidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
-                    <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@activeDidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                <MudTooltip Text="@activeAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
+                    <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@activeAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                 </MudTooltip>
             </div>
 
@@ -69,7 +69,7 @@
                         {
                         */
                     }
-                    <MudListItem Value="12341234" OnClick="async () => await SetActiveDid()" Style="cardClass(walletDid.Did.Identifier)" Class="bt-sad-5">
+                    <MudListItem Value="12341234" OnClick="async () => await SetActiveAid()" Style="cardClass(walletDid.Did.Identifier)" Class="bt-sad-5">
                         <MudStack Row="true">
                             <MudIcon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                             <div class="bt-sad-2">
@@ -135,7 +135,6 @@
                     <MudNavLink Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
                     <MudNavLink Href=@RouteToRelease Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Current Release Notes</MudNavLink>
                     <MudNavLink Href=@RouteToReleaseHistory Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release History</MudNavLink>
-                    <MudNavLink Href=@RouteToNewInstall Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">New Install Welcome</MudNavLink>
                     <MudNavLink Href=@RouteToTerms Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms of Use</MudNavLink>
                     <MudNavLink Href=@RouteToPrivacy Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy Policy</MudNavLink>
                     <MudNavLink Href=@RouteToLicenses Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
@@ -187,15 +186,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                            See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                    See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                            @@media (min-width: 960px) {
-                                                                                                                                            .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                            margin-left: 0;
-                                                                                                                                            width: inherit;
-                                                                                                                                            }
-                                                                                                                                            }
-                                                                                                                                            */
+                                                                                                                                                    @@media (min-width: 960px) {
+                                                                                                                                                    .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                    margin-left: 0;
+                                                                                                                                                    width: inherit;
+                                                                                                                                                    }
+                                                                                                                                                    }
+                                                                                                                                                    */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -324,9 +323,9 @@
     bool isInPopup;
     bool hasNewMessages;
     object activeAid { get; set; } = "unselectedDid";
-    string activeDidIdenticon { get; set; } = "";
-    string activeDidName { get; set; } = "";
-    string activeDidTooltip { get; set; } = "";
+    string activeAidIdenticon { get; set; } = "";
+    string activeAidName { get; set; } = "";
+    string activeAidTooltip { get; set; } = "";
     string version = "0.0.0";
     string version_name = "unset 33";
     string mainContentStyle = " left:0; ";
@@ -370,64 +369,18 @@
         _logger.LogInformation("MainLayout OnParametersSetAsync");
 
         // If not currently authenticated and are now on a page
-        // that requires authentication, then redirect to Index
-        // TODO P3 this is slow for every page load to check disk:
+        // that requires authentication, then redirect to Start
         isAuthenticated = await stateService.IsAuthenticated();
-        // isAuthenticated = true; // TODO P0 remove this line
         if (!isAuthenticated)
         {
             var ap = new Uri(NavManager.Uri).AbsolutePath;
-            //             IsIdenticonHidden = true;
-
-            // Allow navigation to certain pages without authentication
             if (ViewsNotRequiringAuth.Contains(ap))
             {
                 return;
             }
-            // Otherwise, redirect to Start view to authenticate
             else
             {
                 NavManager.NavigateTo(RouteToStart);
-            }
-        }
-        else
-        {
-            // When authenticated do additional checks
-
-            // TODO P3 Performance: this is a slow check for having every page load read disk.  Consider caching the result or event handler for preferences.
-            var prefs = await PreferencesService.GetPreferences();
-            InitializeOrOnNextPrefs(prefs);
-
-            // Check pending WalletRequests when running as an extension.  Since we are inside of OnParameters.... this gets evaluated only on a view navigation
-            if (isInExtension)
-            {
-                // TODO P3 Performance: move this logic into WalletService, and then simply redirect to /WalletRequests if there are any
-                // TODO P3 Performance: This should also be refactored to be reactive (event driven) instead of polling on every page update
-                // var walletRawRequests = await StorageService.GetItem<WalletRequests>();
-                // Parsing was successful, we also found requests
-                // if (walletRawRequests.IsSuccess && walletRawRequests.Value is not null)
-                // {
-                //     WalletService.WalletRequests = new List<IWalletRequest>();
-                //     WalletService.InvalidWalletRequests = new List<string>();
-
-                //     var walletRequests = WalletRequestService.ParseWalletRequests(walletRawRequests.Value);
-
-                //     use LINQ to sort walletRequests by datetime
-                //     walletRequests = walletRequests.OrderBy(p => p.Value.Timestamp).Reverse().ToList();
-                //     if (walletRequests.Count > 0)
-                //     {
-                //         TODO P2 Hack to just look at the latest WalletRequest
-                //         var walletRequest = walletRequests[0];
-                //         foreach (var walletRequest in walletRequests)
-                //         {
-                //             if (walletRequest.IsSuccess)
-                //             {
-                //                 ...
-
-                //             }
-                //         }
-                //     }
-                // }
             }
         }
     }
@@ -508,25 +461,16 @@
 
     async Task HandleNextFromStateService(IStateService.States updatedState)
     {
-        // TODO uncomment the following:
         await Task.Delay(0);
-        // await JSRuntime.InvokeVoidAsync("ResetInactivityTimer");
-        CurrentState = updatedState;
-        StateHasChanged();
-
         switch (CurrentState, updatedState)
         {
             case (IStateService.States.Authenticated, IStateService.States.Unauthenticated):
-                // Now in Unauthenticated, finish the locking of app
-                // IsIdenticonHidden = true;
-                NavManager.NavigateTo(RouteToStart);
-                return;
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
-                // TODO: if taking too long on the Start configuration flow, should the flow really be restarted?
-                // IsIdenticonHidden = true;
                 NavManager.NavigateTo(RouteToStart);
                 return;
             case (_, _):
+                CurrentState = updatedState;
+                StateHasChanged();
                 break;
         }
     }
@@ -602,15 +546,10 @@
         await PreferencesService.SetPreferences(prefs);
     }
 
-    void InitializeOrOnNextPrefs(Preferences prefs)
+    void UpdateDrawerMode(DrawerVariant oldDrawerMode, Preferences prefs)
     {
-        isDarkTheme = prefs.IsDarkTheme;
-        // TODO P4 set the background-image depending on isDarkTheme.
-
-        activeAid = (object)prefs.SelectedAid;
-
         // set drawerMode based on environment and preferences
-        var oldDrawerMode = drawerMode;
+        // TODO move this drawerMode code
         switch (ExtensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.Iframe:
@@ -627,6 +566,7 @@
         // if the drawer mode has changed, update the UI to reasonable drawer state
         if (oldDrawerMode != drawerMode)
         {
+            // TODO this might be better if dependant on (oldDrawerMode, drawerMode, isMenuDrawerOpen)
             switch (drawerMode)
             {
                 case DrawerVariant.Mini:
@@ -643,40 +583,26 @@
                     break;
             }
         }
-
         // TODO persiste the isMenuDrawerOpen state in preferences if Persistence drawer mode is selected. Depends on ExtensionEnvironment.
         // For now, just assume the following:
         if (drawerMode == DrawerVariant.Persistent && ExtensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.None)
         {
             isMenuDrawerOpen = true;
         }
+    }
 
-        UpdateMainContentStyle();
-
-        // updated the profile identicon if needed
-        /*
-        if (string.IsNullOrEmpty((string)activeAid))
-        // IsIdenticonHidden = true;
-    ;
-    else
+    void InitializeOrOnNextPrefs(Preferences prefs)
     {
-    if (isAuthenticated)
-        {
-        ;
-        //IsIdenticonHidden = false;
-        }
-        else
-        {
-        ;
-        //IsIdenticonHidden = true;
-    }
-    }
-    */
-        updateActiveDid();
+        isDarkTheme = prefs.IsDarkTheme;
+        // TODO P4 set the background-image depending on isDarkTheme.
+        activeAid = (object)prefs.SelectedAid;
+        UpdateDrawerMode(drawerMode, prefs);
+        UpdateMainContentStyle();
+        UpdateActiveAid();
         StateHasChanged();
     }
 
-    void updateActiveDid()
+    void UpdateActiveAid()
     {
         // if (WalletService.Wallet is not null)
         // {
@@ -699,9 +625,9 @@
         //         _logger.LogInformation("updateActiveDid Failed");
         //     }
         // }
-        activeDidIdenticon = "";
-        activeDidName = "";
-        activeDidTooltip = "";
+        activeAidIdenticon = "";
+        activeAidName = "";
+        activeAidTooltip = "";
         return;
     }
 
@@ -718,19 +644,13 @@
 
     async Task Lock()
     {
-        // TODO P2 assure state is persisted and close all app or extension tabs.
-        // Wouldn't it be better if the navigation be reactive to the change in state?  Such is needed for inactivity timeout anyway.
-        // Also, when starting up an application that was recently closed, should it be unlocked? No. Clarify and implement those requirements.
         await stateService.Unauthenticate();
-        // IsIdenticonHidden = true;
-        StateHasChanged();
-        NavManager.NavigateTo(RouteToStart);
+        // subscription to stateService will handle the rest
     }
 
-    // Set ActiveDid based on value of activeAid,
-    // retrieved from picker or via preferences
-    async Task SetActiveDid()
+    async Task SetActiveAid()
     {
+        // TODO should be more reactive?
         isProfilePanelOpen = false;
         var pref = await PreferencesService.GetPreferences();
         pref.SelectedAid = (string)activeAid;
@@ -765,11 +685,6 @@
         // TODO P3 Chat: hasNewMessages should be responsive to existence of unread messages, not this click
         hasNewMessages = false;
         NavManager.NavigateTo(RouteToChat);
-    }
-
-    private void GoToStart()
-    {
-        NavManager.NavigateTo(RouteToStart);
     }
 
     string cardClass(string rowIdentifier) =>
