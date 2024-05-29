@@ -4,13 +4,13 @@ using System.Text.Json.Serialization;
 namespace KeriAuth.BrowserExtension.Models
 {
     [method: JsonConstructor]
-    public class WalletCleartext(Preferences preferencesConfig, KeriaConfiguration KeriaConfigs, List<Identifier> identifiers, List<Credential> credentials, List<Website> websites, List<WebsiteInteractionThread> websiteInteractions)
+    public class WalletCleartext(Preferences preferencesConfig, KeriaConnectConfig KeriaConfigs, List<Identifier> identifiers, List<Credential> credentials, List<Website> websites, List<WebsiteInteractionThread> websiteInteractions)
     {
         [JsonPropertyName("prefs")]
         public Preferences Prefs { get; } = preferencesConfig;
 
         [JsonPropertyName("keria")]
-        public KeriaConfiguration KeriaConfig { get; } = KeriaConfigs;
+        public KeriaConnectConfig KeriaConfig { get; } = KeriaConfigs;
 
         [JsonPropertyName("ids")]
         public List<Identifier> Identifiers { get; } = identifiers;

@@ -45,6 +45,7 @@ namespace KeriAuth.BrowserExtension
         public const int IdleTimeoutTimeSpanSecs = 300;  // 300s = 5m
 #endif
         public static int IdleTimeoutTimeSpanMins => (int)Math.Round( (Double)(IdleTimeoutTimeSpanSecs / 60), MidpointRounding.AwayFromZero);
+        public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
     }
