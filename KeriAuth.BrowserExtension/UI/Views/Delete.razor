@@ -50,12 +50,8 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            // TODO P1: delete wallet or clear storage
-            // await WalletService.DeleteWallet();
-            // restart app
-            // TODO P1: fix the restart without an eval
+            await storageService.Clear();
             RestartBlazorApp(RouteToIndex);
-            // await js.InvokeVoidAsync("eval", $"window.location.href='{RouteToIndex}'");
         } else
         {
             navManager.NavigateTo(RouteToHome);

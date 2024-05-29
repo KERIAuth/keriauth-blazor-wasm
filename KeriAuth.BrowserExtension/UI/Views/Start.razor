@@ -463,9 +463,6 @@
                     throw new Exception($"Unexpected AppState {currentAppState}");
             }
         }
-
-
-
     }
 
     // TODO move to helper
@@ -769,6 +766,19 @@
                 return;
             }
             ops3BootAndConnect.SetCompletedWithoutErrors();
+
+            // now that we have a connection, we can save the connection details
+            var passwordHash = GetNumberFromHash(passcodeModel.Passcode);
+            var keriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, urlModel.AdminUrl, urlModel.BootUrl, passwordHash.ToString());
+            var res = await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
+            if (res.IsFailed)
+            {
+                logger.LogError("Failed to store connection details");
+                logger.LogError(res.Reasons.First().Message);
+                ops3BootAndConnect.SetCompletedWithError(res.Reasons.First().Message);
+                StateHasChanged();
+                return;
+            }
 
             ops4ListAids.SetIsRunning();
             StateHasChanged();
