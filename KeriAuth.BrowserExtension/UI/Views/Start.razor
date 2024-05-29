@@ -5,6 +5,15 @@
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.UIHelper;
+@using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
+
 @using FluentResults
 @using JsBind.Net
 @using JsBind.Net.Configurations
@@ -16,37 +25,23 @@
 @using WebExtensions.Net.Runtime
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using JsonSerializer = System.Text.Json.JsonSerializer
-@using static KeriAuth.BrowserExtension.AppConfig;
 @using static System.Net.WebRequestMethods;
-@using static KeriAuth.BrowserExtension.Helper.UIHelper;
-@using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
 @using System.ComponentModel.DataAnnotations
 @using System.Linq;
 @using System.Text;
-@using KeriAuth.BrowserExtension
-@using KeriAuth.BrowserExtension.UI.Components
-@using KeriAuth.BrowserExtension.Services.SignifyService
-@using KeriAuth.BrowserExtension.Services.SignifyService.Models
-@using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @using System.Security.Cryptography;
 
-@inject NavigationManager NavManager
-@inject IJSRuntime js
 @inject IPreferencesService preferencesService
 <!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
-@inject ISnackbar Snackbar
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject ILogger<Start> logger
-@inject HttpClient Http
-@inject NavigationManager NavManager
+@inject HttpClient http
+@inject NavigationManager navManager
 @inject IJSRuntime js
-@inject IStateService StateService
-@inject IWalletService _walletService
-@inject IStorageService storageService
-@inject ISignifyClientService _signifyClientService
-@inject ISnackbar _Snackbar
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
 
 <div id="Start" class="bt-body-page">
     <!-- style="height:calc(100vh - var(--bt-appbar-height)); display:flex; align-items:center; justify-content:center;"> new OnboardState(DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);  -->
@@ -84,7 +79,7 @@
             <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
                 -->
             <MudSpacer></MudSpacer>
-            <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await NextSection(nameof(IsFreshInstall)))" Class="justify-end" data-testid="next">Next</MudButton>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await NextSection(nameof(IsFreshInstall)))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
 
     }
@@ -102,7 +97,7 @@
             <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
                 -->
             <MudSpacer></MudSpacer>
-            <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNewRelease))" Class="justify-end" data-testid="next">Next</MudButton>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNewRelease))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
 
     }
@@ -139,7 +134,7 @@
             <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
             -->
             <MudSpacer></MudSpacer>
-            <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_isTermsAgreed)" OnClick="async () => await NextSection(nameof(IsTermsAgreementNeeded))" Class="justify-end" data-testid="next">Next</MudButton>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_isTermsAgreed)" OnClick="async () => await NextSection(nameof(IsTermsAgreementNeeded))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
     }
     else if (IsNotConfigured)
@@ -178,7 +173,7 @@
         <MudStack Row="true" class="bt-button-tray">
             <!-- Intentionally no back button here -->
             <MudSpacer />
-            <MudButton @ref="_nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConfigured))" Class="justify-start" data-testid="next">Next</MudButton>
+            <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConfigured))" Class="justify-start" data-testid="next">Next</MudButton>
         </MudStack>
     }
     else if (IsLocked)
@@ -211,7 +206,7 @@
             <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
                 -->
             <MudSpacer></MudSpacer>
-            <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsLocked))" Class="justify-end" data-testid="next">Next</MudButton>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsLocked))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
     }
     else if (IsNotConnected)
@@ -226,7 +221,7 @@
             <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
                 -->
             <MudSpacer></MudSpacer>
-            <MudButton @ref="_nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConnected))" Class="justify-end" data-testid="next">Next</MudButton>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConnected))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
     }
     else
@@ -332,6 +327,7 @@
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
+        await Task.Delay(0);
         // Set focus here if needed
     }
 
@@ -342,15 +338,15 @@
 
         // _walletExists = false; // TODO EE! await WalletService.CheckIfWalletExists();
         // _isKeriaConfigured = true;  // TODO EE!
-        releaseMarkup = new MarkupString(await Http.GetStringAsync(_releaseUrlPath));
-        termsMarkup = new MarkupString(await Http.GetStringAsync(_termsUrlPath));
-        privacyMarkup = new MarkupString(await Http.GetStringAsync(_privacyUrlPath));
+        releaseMarkup = new MarkupString(await http.GetStringAsync(_releaseUrlPath));
+        termsMarkup = new MarkupString(await http.GetStringAsync(_termsUrlPath));
+        privacyMarkup = new MarkupString(await http.GetStringAsync(_privacyUrlPath));
         termsMarkupHash = GetNumberFromHash(termsMarkup.Value);
         privacyMarkupHash = GetNumberFromHash(privacyMarkup.Value);
 
 
         // Check if there's a reason on the URL (from service-worker), suggesting to navigate to a specific page
-        var namedValueCollection = System.Web.HttpUtility.ParseQueryString(new Uri(NavManager.Uri).Query);
+        var namedValueCollection = System.Web.HttpUtility.ParseQueryString(new Uri(navManager.Uri).Query);
         var reason = namedValueCollection["reason"];
         if (reason is not null)
         {
@@ -362,7 +358,7 @@
                     return;
                 case "update":
                     var priorVersion = namedValueCollection["priorVersion"];
-                    NavManager.NavigateTo($"{RouteToReleaseHistory}?reason={reason}&priorVersion={priorVersion}");
+                    navManager.NavigateTo($"{RouteToReleaseHistory}?reason={reason}&priorVersion={priorVersion}");
                     return;
                 case "browser_update": // for non-chrome browsers
                 case "chrome_update":
@@ -409,9 +405,9 @@
                     {
                         // Debug.Assert(WalletService.Wallet is not null);
                         // prefs.SelectedAid = WalletService.Wallet.WalletDids[0].Did.Identifier;
-                        // await PreferencesService.SetPreferences(prefs);
+                        // await preferencesService.SetPreferences(prefs);
                     }
-                    NavManager.NavigateTo(RouteToHome);
+                    navManager.NavigateTo(RouteToHome);
                     return;
 
                 case IStateService.States.Unconfigured:
@@ -450,14 +446,14 @@
 
         if (string.IsNullOrEmpty(password) || password.Length < 6)
         {
-            Snackbar.Add("Invalid password. The password initially selected should have at least 6 characters", Severity.Error);
+            snackbar.Add("Invalid password. The password initially selected should have at least 6 characters", Severity.Error);
             return;
         }
         // TODO: Implement WalletService.LoadWallet
         // var result = await WalletService.LoadWallet(password);
         // if (result.IsFailed)
         // {
-        //     Snackbar.Add(WordBreaker.Break(result.Errors.First().Message), Severity.Error);
+        //     snackbar.Add(WordBreaker.Break(result.Errors.First().Message), Severity.Error);
         //     Debug.Assert(_pwField is not null);
         //     await _pwField.SelectRangeAsync(0, password.Length);
         // }
@@ -465,7 +461,7 @@
         // {
         //     await WalletService.CreateQuickLogin(password);
         await stateService.Authenticate();
-        NavManager.NavigateTo(RouteToHome);
+        navManager.NavigateTo(RouteToHome);
         // }
     }
 
@@ -485,10 +481,10 @@
     }
     /* ********************************************************************************************* */
 
-    MudTextField<string> _newPasswordField = new();
-    MudTextField<string> _confirmPasswordField = new();
-    MudForm? _confirmPasswordForm;
-    MudButton? _nextButton = default(global::MudBlazor.MudButton);
+    MudTextField<string> newPasswordField = new();
+    MudTextField<string> confirmPasswordField = new();
+    MudForm? confirmPasswordForm;
+    MudButton? nextButton = default(global::MudBlazor.MudButton);
 
 
     private enum CardKind
@@ -505,8 +501,8 @@
     private readonly OperationDisplay _ops3BootAndConnect = new OperationDisplay("Connecting or Booting KERIA Agent", "Connected");
     private readonly OperationDisplay _ops4ListAids = new OperationDisplay("Getting your Identifiers", "Identifiers Retrieved");
     private readonly OperationDisplay _ops5CreatePersonalAid = new OperationDisplay("Creating Personal Identifier", "Created Personal Identifier");
-    private bool _isStrongPassword = true; // TODO P1
-    private List<string> _mnemonic = new List<string>();
+    private bool isStrongPassword = true; // TODO P1
+    private List<string> mnemonic = new List<string>();
     private int ProgressValue { get; set; }
     // private string _wordvalue1 = string.Empty;
     // private string _wordvalue2 = string.Empty;
@@ -580,7 +576,7 @@
     private async Task ConfirmPasswordKeyDown(KeyboardEventArgs e)
     {
         if (e.Code == "Enter" || e.Code == "NumpadEnter")
-            if (_confirmPasswordForm!.IsValid)
+            if (confirmPasswordForm!.IsValid)
                 await NextSection("??");
     }
 
@@ -592,12 +588,12 @@
             case nameof(IsFreshInstall):
                 // TODO record fresh install view
                 IsFreshInstall = false;
-                NavManager.NavigateTo(RouteToStart);
+                navManager.NavigateTo(RouteToStart);
                 break;
             case nameof(IsNewRelease):
                 // TODO record viewing NewRelease
                 IsNewRelease = false;
-                NavManager.NavigateTo(RouteToStart);
+                navManager.NavigateTo(RouteToStart);
                 break;
 
             case nameof(IsTermsAgreementNeeded):
@@ -611,27 +607,27 @@
                 // TODO P2 record acceptance of terms and privacy, as List<(DateTime agreed, Hash docHash)> tuple in wallet for terms and for privacy
 
                 IsTermsAgreementNeeded = false;
-                NavManager.NavigateTo(RouteToStart);
+                navManager.NavigateTo(RouteToStart);
 
 
                 break;
             case nameof(IsNotConfigured):
                 // TODO record viewing NotConfigured
                 IsNotConfigured = false;
-                NavManager.NavigateTo(RouteToStart);
+                navManager.NavigateTo(RouteToStart);
                 break;
 
 
             case nameof(IsLocked):
                 // TODO record viewing Locked
                 IsLocked = false;
-                NavManager.NavigateTo(RouteToStart);
+                navManager.NavigateTo(RouteToStart);
                 break;
 
             case nameof(IsNotConnected):
                 // TODO record viewing NotConnected
                 IsNotConnected = false;
-                NavManager.NavigateTo(RouteToStart);
+                navManager.NavigateTo(RouteToStart);
                 break;
 
 
@@ -648,7 +644,7 @@
             yield return "Password is required!";
             yield break;
         }
-        if (pw != _newPasswordField.Text)
+        if (pw != newPasswordField.Text)
         {
             yield return "Passwords must match";
         }
@@ -656,8 +652,8 @@
 
     private async Task SaveInitialWallet()
     {
-        Debug.Assert(_walletService.Wallet is not null);
-        await _walletService.SaveWallet(new Wallet(_newPasswordField.Text, DateTime.UtcNow));
+        // Debug.Assert(walletService.Wallet is not null);
+        // await walletService.SaveWallet(new Wallet(_newPasswordField.Text, DateTime.UtcNow));
     }
 
     public class UrlModel
@@ -745,7 +741,7 @@
             _ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
             UriBuilder healthUriBuilder = new($"{urlModel.BootUrl}/health");
-            var postResult = await _signifyClientService.HealthCheck(healthUriBuilder.Uri);
+            var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!postResult.IsSuccess)
             {
                 var message = $"The configured KERIA agent service is not reachable at {healthUriBuilder.Uri}";
@@ -780,7 +776,7 @@
             _ops3BootAndConnect.SetIsRunning();
             StateHasChanged();
             // TODO EE! take this from the form and store it in the wallet
-            var clientRes = await _signifyClientService.Connect($"{urlModel.AdminUrl}", passcodeModel.Passcode, $"{urlModel.BootUrl}", true);
+            var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", passcodeModel.Passcode, $"{urlModel.BootUrl}", true);
             if (clientRes.IsFailed)
             {
                 _ops3BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
@@ -791,7 +787,7 @@
 
             _ops4ListAids.SetIsRunning();
             StateHasChanged();
-            var identifiersRes = await _signifyClientService.GetIdentifiers();
+            var identifiersRes = await signifyClientService.GetIdentifiers();
             if (identifiersRes.IsFailed)
             {
                 _ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
@@ -808,7 +804,7 @@
             {
                 _ops5CreatePersonalAid.SetIsRunning();
                 StateHasChanged();
-                var aidRes = await _signifyClientService.CreatePersonAid("Freddy as CFO of XYX Corp " + DateTime.Now.TimeOfDay.TotalSeconds);
+                var aidRes = await signifyClientService.CreatePersonAid("Freddy as CFO of XYX Corp " + DateTime.Now.TimeOfDay.TotalSeconds);
                 if (aidRes.IsFailed)
                 {
                     _ops5CreatePersonalAid.SetCompletedWithError(aidRes.Reasons.First().Message);
@@ -827,8 +823,8 @@
             }
             // Success from testing the connection at this point
             // TODO EE! store the connection details and hash of the password in storage
-            await StateService.Configure();
-            await StateService.Authenticate(); // TODO EE! temporary location here, to enable testing
+            await stateService.Configure();
+            await stateService.Authenticate(); // TODO EE! temporary location here, to enable testing
             // TODO EE! reactive effects of stateservice should disable the Connect button and enable the Next button??
         }
         return;

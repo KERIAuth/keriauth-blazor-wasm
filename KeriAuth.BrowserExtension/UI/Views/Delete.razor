@@ -1,12 +1,12 @@
 ﻿@page "/Delete"
 @using KeriAuth.BrowserExtension.Services
 @inject IJSRuntime js
-@inject NavigationManager NavManager
-@inject IStorageService StorageService
-@inject IStateService StateService
+@inject NavigationManager navManager
+@inject IStorageService storageService
+@inject IStateService stateService
 @using static KeriAuth.BrowserExtension.AppConfig;
-@inject IDialogService DialogService
-@inject ILogger<Delete> Logger
+@inject IDialogService dialogService
+@inject ILogger<Delete> logger
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @using static KeriAuth.BrowserExtension.Helper.UIHelper
 
@@ -36,7 +36,7 @@
         bool isRemoveConfirmed;
 
         // show a dialog to confirm deletion
-        var result = await DialogService.ShowMessageBox(
+        var result = await dialogService.ShowMessageBox(
             "Delete Wallet",
             $"Are you sure you want to delete all your wallet contents?",
             yesText: "Yes, Delete",
@@ -58,7 +58,7 @@
             // await js.InvokeVoidAsync("eval", $"window.location.href='{RouteToIndex}'");
         } else
         {
-            NavManager.NavigateTo(RouteToHome);
+            navManager.NavigateTo(RouteToHome);
         }
     }
 }

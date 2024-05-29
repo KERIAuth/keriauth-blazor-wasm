@@ -6,8 +6,8 @@
 @using System.Runtime.InteropServices.JavaScript;
 @using KeriAuth.BrowserExtension.Services.SignifyService
 <!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
-@inject IExtensionEnvironmentService ExtensionEnvironmentService
-@inject NavigationManager NavManager
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<App> logger
 @inject IPreferencesService preferencesService
@@ -34,8 +34,8 @@
         logger.LogInformation($"OnInitializedAsync App.razor");
 
         // Initialize services as needed
-        var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
-        ExtensionEnvironmentService.Initialize(uri);
+        var uri = navManager.ToAbsoluteUri(navManager.Uri);
+        extensionEnvironmentService.Initialize(uri);
         await storageService.Initialize();
         await stateService.Initialize();
         preferencesService.Initialize();

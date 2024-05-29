@@ -6,19 +6,19 @@ using static KeriAuth.BrowserExtension.Services.IStateService;
 
 public class StateService : IStateService
 {
-    private readonly StateMachine<States, Triggers> _stateMachine;
-    private readonly IStorageService _storageService;
-    private readonly IWalletService _walletService;
+    private readonly StateMachine<States, Triggers> stateMachine;
+    private readonly IStorageService storageService;
+    private readonly IWalletService walletService;
     private readonly List<IObserver<States>> stateObservers = [];
-    private readonly ILogger<StateService> _logger;
+    private readonly ILogger<StateService> logger;
 
     public StateService(IStorageService storageService, IWalletService walletService, ILogger<StateService> logger)
     {
-        _storageService = storageService;
-        _stateMachine = new(States.Uninitialized);
+        this.storageService = storageService;
+        this.stateMachine = new(States.Uninitialized);
         ConfigureStateMachine();
-        _walletService = walletService;
-        _logger = logger;
+        this.walletService = walletService;
+        this.logger = logger;
     }
 
     private enum Triggers
@@ -31,35 +31,35 @@ public class StateService : IStateService
 
     public States GetState()
     {
-        return _stateMachine.State;
+        return stateMachine.State;
     }
 
     public States GetCurrentState()
     {
-        return _stateMachine.State;
+        return stateMachine.State;
     }
 
     public async Task Initialize()
     {
-        await _stateMachine.FireAsync(Triggers.ToInitializing);
+        await stateMachine.FireAsync(Triggers.ToInitializing);
     }
 
     public async Task<bool> IsAuthenticated()
     {
         await Task.Delay(0);
-        return _stateMachine.IsInState(States.Authenticated);
+        return stateMachine.IsInState(States.Authenticated);
     }
 
     public async Task Authenticate()
     {
-        await _stateMachine.FireAsync(Triggers.ToAuthenticated);
+        await stateMachine.FireAsync(Triggers.ToAuthenticated);
     }
 
     public async Task Unauthenticate()
     {
         // "log out"
-        await _stateMachine.FireAsync(Triggers.ToUnauthenticated);
-        // await _walletService.CloseWallet();
+        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+        // await walletService.CloseWallet();
     }
 
     IDisposable IObservable<States>.Subscribe(IObserver<States> stateObserver)
@@ -74,19 +74,19 @@ public class StateService : IStateService
     public async Task NotifyObservers()
     {
         foreach (var observer in stateObservers)
-            observer.OnNext(_stateMachine.State);
+            observer.OnNext(stateMachine.State);
         await Task.Delay(0); // hack
         return;
     }
 
     async Task IStateService.Configure()
     {
-        await _stateMachine.FireAsync(Triggers.ToUnauthenticated);
+        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 
     async Task IStateService.TimeOut()
     {
-        await _stateMachine.FireAsync(Triggers.ToUnauthenticated);
+        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 
     private async Task OnTransitioned(StateMachine<States, Triggers>.Transition t)
@@ -99,38 +99,38 @@ public class StateService : IStateService
         if (t.Source != States.Uninitialized && t.Source != States.Initializing)
         {
             var appState = new AppState(t.Destination);
-            await _storageService.SetItem(appState);
+            await storageService.SetItem(appState);
         }
-        _logger.LogInformation("Transitioned from {oldState} to {newState}", t.Source, t.Destination);
+        logger.LogInformation("Transitioned from {oldState} to {newState}", t.Source, t.Destination);
         await NotifyObservers();
     }
 
     private void ConfigureStateMachine()
     {
-        _stateMachine.OnTransitionCompletedAsync(async (t) => await OnTransitioned(t));
+        stateMachine.OnTransitionCompletedAsync(async (t) => await OnTransitioned(t));
 
-        _stateMachine.Configure(States.Uninitialized)
+        stateMachine.Configure(States.Uninitialized)
             // Intentionally no OnEntry actions here
             .Permit(Triggers.ToInitializing, States.Initializing);
 
-        _stateMachine.Configure(States.Initializing)
+        stateMachine.Configure(States.Initializing)
             .OnEntryAsync(async () => await OnEntryInitializing())
             .Ignore(Triggers.ToInitializing)
             .Permit(Triggers.ToUnconfigured, States.Unconfigured)
             .Permit(Triggers.ToUnauthenticated, States.Unauthenticated);
 
-        _stateMachine.Configure(States.Unconfigured)
+        stateMachine.Configure(States.Unconfigured)
             .OnEntryAsync(async () => await OnEntryUnconfigured())
             .Permit(Triggers.ToUnauthenticated, States.Unauthenticated)
             .Permit(Triggers.ToInitializing, States.Initializing);
 
-        _stateMachine.Configure(States.Unauthenticated)
+        stateMachine.Configure(States.Unauthenticated)
             .OnEntryAsync(async () => await OnEntryUnauthenticated())
             .PermitReentry(Triggers.ToUnauthenticated)
             .Permit(Triggers.ToAuthenticated, States.Authenticated)
             .Permit(Triggers.ToInitializing, States.Initializing);
 
-        _stateMachine.Configure(States.Authenticated)
+        stateMachine.Configure(States.Authenticated)
             .OnEntryAsync(async () => await OnEntryAuthenticated())
             .Permit(Triggers.ToInitializing, States.Initializing)
             .Permit(Triggers.ToUnauthenticated, States.Unauthenticated);
@@ -149,14 +149,14 @@ public class StateService : IStateService
     private static async Task OnEntryUnauthenticated()
     {
         await Task.Delay(0); // hack
-        //var quickLoginResult = await _walletService.CheckQuickLogin();
+        //var quickLoginResult = await walletService.CheckQuickLogin();
         //if (quickLoginResult.IsSuccess)
         //{
         //    var password = quickLoginResult.Value;
-        //    var loadWalletResult = await _walletService.LoadWallet(password);
+        //    var loadWalletResult = await walletService.LoadWallet(password);
         //    if (loadWalletResult.IsSuccess)
         //    {
-        //        await _stateMachine.FireAsync(Triggers.ToAuthenticated);
+        //        await stateMachine.FireAsync(Triggers.ToAuthenticated);
         //        return;
         //    }
         //}
@@ -168,33 +168,33 @@ public class StateService : IStateService
         try
         {
             // WalletService must be initialized by now
-            var isWalletExists = await _walletService.CheckIfWalletExists();
+            var isWalletExists = await walletService.CheckIfWalletExists();
             if (!isWalletExists)
             {
-                await _stateMachine.FireAsync(Triggers.ToUnconfigured);
+                await stateMachine.FireAsync(Triggers.ToUnconfigured);
                 return;
             }
             else
             {
-                var appStateResult = await _storageService.GetItem<AppState>();
+                var appStateResult = await storageService.GetItem<AppState>();
                 if (appStateResult is not null
                     && appStateResult.Value is not null
                     && appStateResult.IsSuccess
                     && appStateResult.Value.CurrentState != States.Unconfigured)
                 {
-                    await _stateMachine.FireAsync(Triggers.ToUnauthenticated);
+                    await stateMachine.FireAsync(Triggers.ToUnauthenticated);
                     return;
                 }
                 else
                 {
                     if (isWalletExists)
                     {
-                        await _stateMachine.FireAsync(Triggers.ToUnauthenticated);
+                        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
                         return;
                     }
                     else
                     {
-                        await _stateMachine.FireAsync(Triggers.ToUnconfigured);
+                        await stateMachine.FireAsync(Triggers.ToUnconfigured);
                         return;
                     }
                 }
@@ -202,7 +202,7 @@ public class StateService : IStateService
         }
         catch (Exception e)
         {
-            _logger.LogError("Problem with OnEntry RetrievingFromStorage: {e}", e);
+            logger.LogError("Problem with OnEntry RetrievingFromStorage: {e}", e);
         }
         return;
     }

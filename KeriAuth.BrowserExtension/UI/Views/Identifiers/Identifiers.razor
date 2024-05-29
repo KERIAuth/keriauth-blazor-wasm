@@ -8,10 +8,10 @@
 @using System.Diagnostics
 @using static KeriAuth.BrowserExtension.AppConfig;
 @implements IDisposable;
-@inject IPreferencesService PreferencesService
-@inject IStorageService StorageService
-@inject IStateService StateService
-@inject NavigationManager NavManager
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject NavigationManager navManager
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @inject ILogger<Identifiers> logger
@@ -125,12 +125,12 @@ Backer Address  (copy)
     {
         base.OnInitialized();
         logger.LogInformation($"OnInitializedAsync");
-        preferencesSubscription = PreferencesService.Subscribe(
+        preferencesSubscription = preferencesService.Subscribe(
            onNext: (Preferences value) => HandleNextFromPreferencesService(value),
            onError: (Exception error) => HandleErrorFromPreferencesService(error),
            onCompleted: () => HandleCompletedFromPreferencesService());
 
-        var prefs = await PreferencesService.GetPreferences();
+        var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
     }
 
@@ -156,9 +156,9 @@ Backer Address  (copy)
     // retrieved from picker or via preferences
     async Task SetActiveAid(string identifier)
     {
-        var pref = await PreferencesService.GetPreferences();
+        var pref = await preferencesService.GetPreferences();
         pref.SelectedAid = identifier;
-        await PreferencesService.SetPreferences(pref);
+        await preferencesService.SetPreferences(pref);
         // Other actions will be reactive to subscribed updates of Preferences
     }
 

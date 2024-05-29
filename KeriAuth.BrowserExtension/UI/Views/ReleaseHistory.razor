@@ -1,8 +1,8 @@
 ﻿@page "/ReleaseHistory"
 @using KeriAuth.BrowserExtension.Services
 @inject IJSRuntime js
-@inject NavigationManager NavManager
-@inject ILogger<ReleaseHistory> Logger
+@inject NavigationManager navManager
+@inject ILogger<ReleaseHistory> logger
 @using static KeriAuth.BrowserExtension.AppConfig;
 
 <div id="Backup" class="bt-body-page">
@@ -36,6 +36,6 @@
     private async Task GetStarted()
     {
         await Task.Delay(0); // suppress warning
-        NavManager.NavigateTo(RouteToHome);
+        navManager.NavigateTo(RouteToHome);
     }
 }

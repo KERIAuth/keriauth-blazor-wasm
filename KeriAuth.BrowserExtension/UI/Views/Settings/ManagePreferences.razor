@@ -2,9 +2,9 @@
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.Services
 @using System.Reactive.Linq
-@inject IStateService StateService
-@inject NavigationManager NavManager
-@inject IPreferencesService PreferencesService
+@inject IStateService stateService
+@inject NavigationManager navManager
+@inject IPreferencesService preferencesService
 @using static KeriAuth.BrowserExtension.AppConfig;
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
@@ -79,7 +79,7 @@
         prefs.DrawerVariantInTab = DrawerVariantInTab;
         prefs.IsDarkTheme = IsDarkTheme;
         // prefs.SelectedAid unchanged
-        await PreferencesService.SetPreferences(prefs);
+        await preferencesService.SetPreferences(prefs);
     }
 
     async Task SetAndPersistIsDarkTheme(bool? a)
@@ -140,10 +140,10 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
-        var prefs = await PreferencesService.GetPreferences();
+        var prefs = await preferencesService.GetPreferences();
         HandleNextFromPreferencesService(prefs);
 
-        preferencesSubscription = PreferencesService.Subscribe(
+        preferencesSubscription = preferencesService.Subscribe(
             onNext: (Preferences value) => HandleNextFromPreferencesService(value),
             onError: (Exception error) => HandleErrorFromPreferencesService(error),
             onCompleted: () => HandleCompletedFromPreferencesService());

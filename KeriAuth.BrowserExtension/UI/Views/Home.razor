@@ -4,9 +4,9 @@
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Models
 @using static KeriAuth.BrowserExtension.AppConfig;
-@inject NavigationManager NavManager
-@inject IStorageService StorageService
-@inject IExtensionEnvironmentService ExtensionEnvironmentService
+@inject NavigationManager navManager
+@inject IStorageService storageService
+@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IJSRuntime js
 @inject IStateService stateService
 @inject ILogger<Home> logger
@@ -83,14 +83,14 @@
     {
         // await WalletService.CloseWallet();
         // Check if the wallet runs as a iframe
-        // if (ExtensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.Iframe)
+        // if (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.Iframe)
         // {
         //     await WalletRequestService.SendCloseIframeMessageBackToActiveTabs(JsRuntime);
         // }
         // else
         {
             await Task.Delay(0); // tmp hack to avoid warning
-            NavManager.NavigateTo(RouteToStart);
+            navManager.NavigateTo(RouteToStart);
         }
     }
 }

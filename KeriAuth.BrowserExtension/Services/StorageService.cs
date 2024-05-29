@@ -169,7 +169,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         catch (Exception e)
         {
-            // _logger.LogError("Failed to get item: {e}", e.Message);
+            // logger.LogError("Failed to get item: {e}", e.Message);
             Console.WriteLine($"Failed to get item: {e.Message}");
             return Result.Fail($"Failed to get item: {e.Message}");
         }
@@ -216,7 +216,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         catch (Exception e)
         {
-            // _logger.LogError("Failed to set item: {e}", e.Message);
+            // logger.LogError("Failed to set item: {e}", e.Message);
             Console.WriteLine($"Failed to set item: {e.Message}");
             return Result.Fail($"Failed to set item: {e.Message}");
         }

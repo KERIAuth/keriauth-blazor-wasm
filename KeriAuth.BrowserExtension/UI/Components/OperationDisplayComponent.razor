@@ -1,7 +1,7 @@
 ﻿@using System.Diagnostics
 @using System.Diagnostics.CodeAnalysis;
 
-@inject NavigationManager NavManager
+@inject NavigationManager navManager
 
 <MudStack Row="true" Class="mb-2">
 	@{
@@ -28,7 +28,7 @@
 @if (!ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully && !string.IsNullOrWhiteSpace(ops.ErrorMessage))
 {
 	<MudAlert NoIcon="true" Severity="Severity.Error" ShowCloseIcon>@ops.ErrorMessage</MudAlert>
-	<MudLink Class="mt-2" OnClick='() => NavManager.NavigateTo("/Start")'>Refresh</MudLink>
+	<MudLink Class="mt-2" OnClick='() => navManager.NavigateTo("/Start")'>Refresh</MudLink>
 }
 @code {
 	[Parameter]

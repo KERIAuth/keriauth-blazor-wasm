@@ -39,14 +39,14 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
         //}
 
         //await _journalService.Write(new SystemLogEntry(nameof(WalletService), SystemLogEntryType.WalletEncrypted));
-        //await _storageService.SetItem(walletEncrypted.Value);
+        //await storageService.SetItem(walletEncrypted.Value);
     }
 
     /// <inheritdoc />
     public async Task<Result> LoadWallet(string walletPassword)
     {
         await Task.Delay(0); // hack
-        //var walletEncrypted = await _storageService.GetItem<WalletEncrypted>();
+        //var walletEncrypted = await storageService.GetItem<WalletEncrypted>();
         //if (walletEncrypted.IsFailed)
         //{
         //    //TODO P3 provide better error handling for LoadWallet fail
@@ -75,7 +75,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
         await Task.Delay(0); // hack
         // TODO EE!
         //TODO P2 possible improvement: don't load the complete wallet, but just check if the key is present
-        //var walletEncrypted = await _storageService.GetItem<WalletEncrypted>();
+        //var walletEncrypted = await storageService.GetItem<WalletEncrypted>();
         //if (walletEncrypted.IsFailed)
         //{
         //    // a error occured. This should never happen
@@ -103,14 +103,14 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
         //Debug.Assert(normalizedKey.Value is not null);
         //var encryptedQuickLoginString = _aesEncryptionService.Encrypt(quickLoginString, normalizedKey.Value); // the privateKey has to have a length of 32 bytes
         //var walletLogin = new WalletLogin(encryptedQuickLoginString);
-        //await _storageService.SetItem(walletLogin);
+        //await storageService.SetItem(walletLogin);
     }
 
     /// <inheritdoc />
     public async Task<Result<string>> CheckQuickLogin()
     {
         await Task.Delay(0); // hack
-        //var walletLogin = await _storageService.GetItem<WalletLogin>();
+        //var walletLogin = await storageService.GetItem<WalletLogin>();
         //if (walletLogin.IsFailed)
         //{
         //    // an error occured, that should never happen
@@ -143,7 +143,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
         //    return Result.Fail($"QuickLogin timed out since {parsedDateTime}");
         //}
         //// TODO P3 refresh the QuickLogin dateTime here if older than a minute?
-        //// await _walletService.CreateQuickLogin(password);
+        //// await walletService.CreateQuickLogin(password);
 
         ////_messageRetrievalService.StartTimer();
         //return Result.Ok(split[2]);
@@ -156,7 +156,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
     public async Task DeleteWallet()
     {
         //_messageRetrievalService.StopTimer();
-        await _storageService.Clear();
+        await storageService.Clear();
         _wallet = null;
         _isStoringWallet = false;
     }
@@ -165,7 +165,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
     public async Task CloseWallet()
     {
         //_messageRetrievalService.StopTimer();
-        //await _storageService.RemoveItem<WalletLogin>();
+        //await storageService.RemoveItem<WalletLogin>();
         //await _journalService.Write(new SystemLogEntry(nameof(WalletService), SystemLogEntryType.WalletClosed));
         _wallet = null;
         _isStoringWallet = false;
@@ -226,7 +226,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
 
     public async Task<Result<string>> Backup()
     {
-        //var walletEncrypted = await _storageService.GetItem<WalletEncrypted>();
+        //var walletEncrypted = await storageService.GetItem<WalletEncrypted>();
         //if (walletEncrypted.IsFailed)
         //{
         //    return Result.Fail("Error. Unable to find encrypted wallet");
@@ -240,7 +240,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
 
     public async Task<Result> Restore(WalletEncrypted walletEncrypted)
     {
-        await _storageService.SetItem(walletEncrypted);
+        await storageService.SetItem(walletEncrypted);
         return Result.Ok();
     }
 }

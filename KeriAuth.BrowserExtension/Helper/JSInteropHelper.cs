@@ -94,7 +94,7 @@ namespace KeriAuth.BrowserExtension.Helper
         //}
         //
         // C#:
-        // @inject IJSRuntime JSRuntime
+        // @inject IJSRuntime js
         //protected override async Task OnInitializedAsync()
         //{
         //    var jsInteropHelper = new JSInteropHelper(JSRuntime);
