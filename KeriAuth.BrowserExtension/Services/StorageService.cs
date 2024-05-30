@@ -40,7 +40,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     public async Task<Task> Initialize()
     {
         logger.LogInformation("Initialize");
-        // This just needs to be done once after the services start up,
+        // This just needs to be done once after the service start up,
         try
         {
             logger.LogInformation("Using StorageApi");
