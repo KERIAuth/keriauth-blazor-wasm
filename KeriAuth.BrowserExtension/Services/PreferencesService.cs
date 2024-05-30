@@ -1,8 +1,6 @@
 ﻿
 namespace KeriAuth.BrowserExtension.Services;
 using KeriAuth.BrowserExtension.Models;
-using Stateless;
-using static KeriAuth.BrowserExtension.Services.IStateService;
 
 
 public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>
@@ -52,7 +50,8 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     void IObserver<Preferences>.OnNext(Preferences value) // invoked as an observer<Preferences> of StorageService
     {
         logger.LogInformation("Preferences updated: {value}", value.ToString());
-        foreach (var observer in preferencesObservers) { 
+        foreach (var observer in preferencesObservers)
+        {
             observer.OnNext(value);
         }
     }

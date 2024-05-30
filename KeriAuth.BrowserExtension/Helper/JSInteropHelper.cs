@@ -1,11 +1,8 @@
 ﻿using FluentResults;
 using Microsoft.JSInterop;
-using System;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KeriAuth.BrowserExtension.Helper
 {

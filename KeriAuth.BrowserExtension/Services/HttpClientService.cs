@@ -1,15 +1,10 @@
-﻿using FluentAssertions;
-using FluentResults;
+﻿using FluentResults;
 using Polly;
 using Polly.Retry;
 using Polly.Timeout;
-using System;
 using System.Diagnostics;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace KeriAuth.BrowserExtension.Services
 {

@@ -1,12 +1,7 @@
-﻿using Notification = KeriAuth.BrowserExtension.Services.SignifyService.Models.Notification;
-using FluentResults;
+﻿using FluentResults;
 // using KeriAuth.BrowserExtension.Models;
-using System.Reactive;
-using System.Text.RegularExpressions;
-using System.Net.Http.Headers;
-using WebExtensions.Net.Tabs;
-using KeriAuth.BrowserExtension.Models;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
+using Notification = KeriAuth.BrowserExtension.Services.SignifyService.Models.Notification;
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService
 {

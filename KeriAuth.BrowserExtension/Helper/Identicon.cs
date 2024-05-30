@@ -2,7 +2,6 @@
 
 using Jdenticon;
 using System.Diagnostics;
-using System.Text;
 
 
 public class Identicon

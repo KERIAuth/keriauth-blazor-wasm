@@ -5,9 +5,10 @@ using System.Text.Json.Serialization;
 public class CachedAid
 {
     // implement this class with the JsonProperty attributes and JsonConstructor attribute for: Prefix, AID, Alias, and Identicon
-    
+
     [JsonConstructor]
-    public CachedAid(string prefix, string alias, string keriaclientidentifier) {
+    public CachedAid(string prefix, string alias, string keriaclientidentifier)
+    {
         // set the properties
         Prefix = prefix;
         Alias = alias;
@@ -17,13 +18,13 @@ public class CachedAid
 
     [JsonPropertyName("prefix")]
     public string Prefix { get; init; }
-    
+
     [JsonPropertyName("alias")]
     public string Alias { get; init; }
-    
+
     [JsonPropertyName("identicon")]
     public string Identicon { get; init; }
-    
+
     [JsonPropertyName("keriaclientidentifier")]
     public string KeriaClientIdentifier { get; init; }
 

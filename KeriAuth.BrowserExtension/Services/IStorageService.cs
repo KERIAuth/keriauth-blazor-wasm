@@ -1,8 +1,6 @@
 ﻿
-using KeriAuth.BrowserExtension.Models;
 using FluentResults;
-using System.Text.Json;
-using WebExtensions.Net;
+using KeriAuth.BrowserExtension.Models;
 
 namespace KeriAuth.BrowserExtension.Services;
 public interface IStorageService : IObservable<Preferences>

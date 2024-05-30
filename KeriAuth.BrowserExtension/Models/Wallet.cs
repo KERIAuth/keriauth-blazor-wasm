@@ -17,7 +17,7 @@ public class Wallet
         // WalletKeySecrets = walletKeySecrets;
     }
 
-    public Wallet(string currentClearTextPassword )
+    public Wallet(string currentClearTextPassword)
     {
         if (string.IsNullOrEmpty(currentClearTextPassword) || currentClearTextPassword.Length < 4)
         {
@@ -30,5 +30,5 @@ public class Wallet
         CurrentClearTextPassword = currentClearTextPassword;
     }
 
-    
+
 }

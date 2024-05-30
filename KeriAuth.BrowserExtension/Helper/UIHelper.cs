@@ -1,9 +1,5 @@
-﻿using MudBlazor;
-using System;
-using System.Runtime.InteropServices.JavaScript;
+﻿using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
-using System.Text.Json;
-using System.Xml.Linq;
 
 namespace KeriAuth.BrowserExtension.Helper
 {

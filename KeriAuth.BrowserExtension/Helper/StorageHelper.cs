@@ -1,10 +1,5 @@
-﻿using KeriAuth.BrowserExtension.Services;
-using Microsoft.JSInterop;
-using System.Runtime.InteropServices.JavaScript;
-using System.Runtime.Versioning;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace KeriAuth.BrowserExtension.Helper;
 

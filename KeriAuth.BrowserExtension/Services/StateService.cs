@@ -1,4 +1,4 @@
-﻿namespace KeriAuth.BrowserExtension.Services; 
+﻿namespace KeriAuth.BrowserExtension.Services;
 using KeriAuth.BrowserExtension.Models;
 using Stateless;
 using static KeriAuth.BrowserExtension.Services.IStateService;

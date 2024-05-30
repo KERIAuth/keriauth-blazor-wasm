@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace KeriAuth.BrowserExtension
+﻿namespace KeriAuth.BrowserExtension
 {
     public static class AppConfig
     {
@@ -32,19 +30,19 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToHelp = "content/help.html";
         public const string RouteToLicenses = "content/licenses.html";
         public const string RouteToRelease = "content/release.html";
-		public const string RouteToGroups = "/Groups";
-		public const string RouteToNotifications = "Notifications";
-		public const string RouteToSchemas = "Schemas";
-		public const string RouteToManageAgents = "Agents";
+        public const string RouteToGroups = "/Groups";
+        public const string RouteToNotifications = "Notifications";
+        public const string RouteToSchemas = "Schemas";
+        public const string RouteToManageAgents = "Agents";
 
-		// Idle Timeout
-		public const int IdleDebounceTimeSpanSecs = 5;
+        // Idle Timeout
+        public const int IdleDebounceTimeSpanSecs = 5;
 #if DEBUG
         public const int IdleTimeoutTimeSpanSecs = 300; // don't usually timeout in debug mode except when testing
 #else
         public const int IdleTimeoutTimeSpanSecs = 300;  // 300s = 5m
 #endif
-        public static int IdleTimeoutTimeSpanMins => (int)Math.Round( (Double)(IdleTimeoutTimeSpanSecs / 60), MidpointRounding.AwayFromZero);
+        public static int IdleTimeoutTimeSpanMins => (int)Math.Round((Double)(IdleTimeoutTimeSpanSecs / 60), MidpointRounding.AwayFromZero);
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";

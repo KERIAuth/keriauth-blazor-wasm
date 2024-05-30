@@ -1,9 +1,8 @@
 ﻿namespace KeriAuth.BrowserExtension.Services;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using KeriAuth.BrowserExtension.Services;
-using Microsoft.Extensions.Logging;
 
 public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
 {

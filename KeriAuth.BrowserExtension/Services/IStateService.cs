@@ -1,6 +1,5 @@
 ﻿namespace KeriAuth.BrowserExtension.Services;
 
-using KeriAuth.BrowserExtension.Models;
 using static KeriAuth.BrowserExtension.Services.IStateService;
 
 public interface IStateService : IObservable<States>

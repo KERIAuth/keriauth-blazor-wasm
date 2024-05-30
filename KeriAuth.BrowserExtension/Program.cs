@@ -1,14 +1,9 @@
-using BlazorDB;
 using KeriAuth.BrowserExtension;
 using KeriAuth.BrowserExtension.Services;
 using KeriAuth.BrowserExtension.Services.SignifyService;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.JSInterop;
 using MudBlazor.Services;
-using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
 

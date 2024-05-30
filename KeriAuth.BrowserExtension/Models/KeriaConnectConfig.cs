@@ -1,7 +1,4 @@
-﻿using FluentResults;
-using KeriAuth.BrowserExtension.UI.Views.Credentials;
-using KeriAuth.BrowserExtension.UI.Views.Identifiers;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace KeriAuth.BrowserExtension.Models
 {

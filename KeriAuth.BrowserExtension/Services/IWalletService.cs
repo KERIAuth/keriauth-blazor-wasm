@@ -1,7 +1,7 @@
 ﻿namespace KeriAuth.BrowserExtension.Services;
 
-using KeriAuth.BrowserExtension.Models;
 using FluentResults;
+using KeriAuth.BrowserExtension.Models;
 
 
 public interface IWalletService
@@ -24,7 +24,7 @@ public interface IWalletService
     /// <param name="walletPassword"></param>
     /// <returns></returns>
     public Task<Result> LoadWallet(string walletPassword);
-        
+
     /// <summary>
     /// Deletes everything in storage
     /// </summary>

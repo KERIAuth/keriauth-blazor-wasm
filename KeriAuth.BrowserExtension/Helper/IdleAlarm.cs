@@ -1,5 +1,4 @@
-﻿using System;
-using KeriAuth.BrowserExtension.Services;
+﻿using KeriAuth.BrowserExtension.Services;
 
 namespace KeriAuth.BrowserExtension.Helper;
 
@@ -27,5 +26,5 @@ public class IdleAlarm
     public void Stop()
     {
         _timer.StopAlarm(_timerName);
-    }   
+    }
 }

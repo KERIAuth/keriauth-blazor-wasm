@@ -3,16 +3,13 @@
 using FluentResults;
 using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Models;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using System;
 using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using WebExtensions.Net;
 using static KeriAuth.BrowserExtension.Services.IStorageService;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 

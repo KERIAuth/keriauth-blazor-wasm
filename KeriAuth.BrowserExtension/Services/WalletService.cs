@@ -1,9 +1,7 @@
 ﻿namespace KeriAuth.BrowserExtension.Services;
 
-using KeriAuth.BrowserExtension.Models;
 using FluentResults;
-using System.Diagnostics;
-using System.Text.Json;
+using KeriAuth.BrowserExtension.Models;
 
 public class WalletService(IStorageService storageService, ILogger<WalletService> logger) : IWalletService
 {
@@ -149,7 +147,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
         //return Result.Ok(split[2]);
 
         return Result.Ok("temporary");
-        
+
     }
 
     /// <inheritdoc />
