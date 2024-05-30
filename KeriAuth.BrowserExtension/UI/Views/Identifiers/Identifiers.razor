@@ -15,6 +15,7 @@
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @inject ILogger<Identifiers> logger
+@inject IdentifiersService identifiersService;
 
 <!-- For KERI
 KERI Autonomous Identifiers (AIDs)
@@ -67,7 +68,7 @@ Backer Address  (copy)
                                 <MudText Typo="Typo.h6">@cachedAid.Alias</MudText>
                                 <div style="margin-left: 10px; margin-top: -22px" @onclick:stopPropagation="true">
                                     <div class="mt-2">
-                                        <Ellipsis IsDid="true" StringContent="@cachedAid.Prefix" IncludeCopyIcon="true"></Ellipsis>
+                                        <Ellipsis StringContent="@cachedAid.Prefix" IncludeCopyIcon="true"></Ellipsis>
                                     </div>
                                 </div>
                             </div>
@@ -137,9 +138,16 @@ Backer Address  (copy)
         InitializeOrOnNextPrefs(prefs);
 
 
-        cachedAids.Add(new CachedAid("12341324123412341234132412341234", "Johnny as Founder at J Foundation", "localhost"));
+        cachedAids.Add(new CachedAid("0123456789abcdefghij", "Johnny as Founder at J Foundation", "localhost"));
         cachedAids.Add(new CachedAid("qwerqwerqwerqwerqwerqwerqwerqwer", "J Foundation on X", "localhost"));
         cachedAids.Add(new CachedAid("ertywertwertwertwertwertwertwert", "J. Suhr as Partner at Suhr Consortium", "localhost"));
+
+        var res = await identifiersService.GetIdentifierService("11111");
+        logger.LogInformation($"GetIdentifierService: {res}");
+        if(res != null)
+        {
+            cachedAids.Add(res.Value.Test());
+        };
     }
 
     private async Task AddDid()

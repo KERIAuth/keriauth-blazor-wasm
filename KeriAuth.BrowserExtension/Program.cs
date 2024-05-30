@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IStateService, StateService>();
 builder.Services.AddSingleton<IAlarmService, AlarmService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
+builder.Services.AddSingleton<IdentifiersService>();
 
 var host = builder.Build();
 
