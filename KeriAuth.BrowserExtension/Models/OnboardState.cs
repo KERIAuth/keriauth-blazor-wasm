@@ -5,14 +5,22 @@ namespace KeriAuth.BrowserExtension.Models
     public class OnboardState
     {
         [JsonConstructor]
-        public OnboardState(DateTime tosAgreedUtc, int tosAgreedHash, DateTime privacyAgreedUtc, int privacyAgreedHash, bool isInstallOnboarded)
+        public OnboardState(bool hasAcknowledgedInstall, bool hasAcknowledgedNewVersion, DateTime tosAgreedUtc, int tosAgreedHash, DateTime privacyAgreedUtc, int privacyAgreedHash, bool isInstallOnboarded)
         {
+            HasAcknowledgedInstall = hasAcknowledgedInstall;
+            HasAcknowledgedNewVersion = hasAcknowledgedNewVersion;
             TosAgreedUtc = tosAgreedUtc;
             TosAgreedHash = tosAgreedHash;
             PrivacyAgreedUtc = privacyAgreedUtc;
             PrivacyAgreedHash = privacyAgreedHash;
             IsInstallOnboarded = isInstallOnboarded;
         }
+
+        [JsonPropertyName("hasAcknowledgedInstall")]
+        public bool HasAcknowledgedInstall { get; init; }
+
+        [JsonPropertyName("hasAcknowledgedNewVersion")]
+        public bool HasAcknowledgedNewVersion { get; init; }
 
         [JsonPropertyName("tosAgreedUtc")]
         public DateTime TosAgreedUtc { get; init; }

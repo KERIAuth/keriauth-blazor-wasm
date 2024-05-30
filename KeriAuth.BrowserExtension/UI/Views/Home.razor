@@ -27,7 +27,9 @@
             <MudStack AlignItems="AlignItems.Center">
                 <MudStack Row>
                     <MudText Style="width:135px; text-align:right;">8</MudText>
-                    <MudText Class="align-left" Style="width:200px">Identifiers</MudText>
+                    <MudText Class="align-left" Style="width:200px">
+                        <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)"> Identifiers</MudLink>
+                    </MudText>
                 </MudStack>
                 <MudStack Row>
                     <MudText Style="width:135px; text-align:right;">88</MudText>

@@ -47,181 +47,169 @@
     @if (IsFreshInstall)
     {
                                     <div id=@nameof(IsFreshInstall) class="d-flex gap-3 bt-main">
-                                        <MudStack>
-                                            <MudText Typo="Typo.body1">
-                                                Thank you for installing KERI Auth.
-                                                We're excited to have you on board!
-                                                <br />
-                                                This release supports the following features:
-                                                <MudContainer>
-                                                    <ul style="list-style-type:circle;">
-                                                        <li>TBD</li>
-                                                        <li>TBD</li>
-                                                        <!--
-                                                        <li>Create a new wallet</li>
-                                                        <li>Back Up and Restore an existing wallet</li>
-                                                        <li>View your Decentralized Identifier (DID)</li>
-                                                        <li>Connect with and communicate with other "Identity Agents", such as Credential Issuing Platforms and other Identity Wallets</li>
-                                                        <li>Send and Receive text Chat message with users of other Identity Wallets and agents supporting Chat</li>
-                                                        <li>Receive credential offers and accept credentials (in JSON-JWT format) from an Issuer</li>
-                                                        <li>View your Verifiable Credentials</li>
-                                                        <li>Receive a Presentation Request from a Verifier, and Respond with a Verifiable Credential Presentation</li>
-                                                        <li>Send a Presentation Request as a Verifier, and Receive another's Verifiable Credential Presentation</li>
-                                                        -->
-        </ul>
-        </MudContainer>
-        </MudText>
-        <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
-        </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-            -->
-        <MudSpacer></MudSpacer>
-        <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await NextSection(nameof(IsFreshInstall)))" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
+                                                                                                    <MudStack>
+                                                                                                        <MudText Typo="Typo.body1">
+                                                                                                            Thank you for installing KERI Auth.
+                                                                                                            We're excited to have you on board!
+                                                                                                            <br />
+                                                                                                            This release supports the following features:
+                                                                                                            </MudText>
+                                                                                                            <MudContainer>
+                                                                                                                <ul style="list-style-type:circle;">
+                                                                                                                    <li>TBD</li>
+                                                                                                                    <li>TBD</li>
+                                                                                                                    </ul>
+                                                            </MudContainer>
+                                                            <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
+                                                            </MudStack>
+                                                        </div>
+                                                        <MudStack Row="true" class="bt-button-tray">
+            <MudSpacer></MudSpacer>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await NextSection(nameof(IsFreshInstall)))" Class="justify-end" data-testid="next">Next</MudButton>
+            </MudStack>
     }
     else if (IsNewRelease)
     {
-    <div id=@nameof(IsNewRelease) class="d-flex gap-3 bt-main">
-        <MudStack>
-            <MudText Typo="Typo.h6">Updated Release</MudText>
-            <MudText Typo="Typo.body1">
-                The version of software has been updated.
-            </MudText>
-            <MudText>For release history, see </MudText>
-            <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHistory)">release history</MudButton>
-        </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-            -->
+            <div id=@nameof(IsNewRelease) class="d-flex gap-3 bt-main">
+                <MudStack>
+                    <MudText Typo="Typo.h6">Updated Release</MudText>
+                    <MudText Typo="Typo.body1">
+                        The version of software has been updated.
+                    </MudText>
+                    <MudText>For release history, see </MudText>
+                    <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHistory)">release history</MudButton>
+                </MudStack>
+            </div>
+            <MudStack Row="true" class="bt-button-tray">
+                <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+                    -->
         <MudSpacer></MudSpacer>
         <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNewRelease))" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
+        </MudStack>
     }
     else if (IsTermsAgreementNeeded)
     {
-    <div id=@nameof(IsTermsAgreementNeeded) class="d-flex gap-3 bt-main">
-        <MudStack>
-            <MudText Typo="Typo.h6">Review and agree to Terms of Use and Privacy Policy</MudText>
-            <MudStack Class="bt-create-card-top-scrollable">
-                <div id="bt-terms-and-privacy">
-                    <MudStack Class="d-flex">
-                        <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
+        <div id=@nameof(IsTermsAgreementNeeded) class="d-flex gap-3 bt-main">
+            <MudStack>
+                <MudText Typo="Typo.h6">Review and agree to Terms of Use and Privacy Policy</MudText>
+                <MudStack Class="bt-create-card-top-scrollable">
+                    <div id="bt-terms-and-privacy">
+                        <MudStack Class="d-flex">
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
                             @(releaseMarkup)
-                    </MudStack>
-                    <MudDivider></MudDivider>
-                    <MudStack Class="d-flex">
-                        <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
+                        </MudStack>
+                        <MudDivider></MudDivider>
+                        <MudStack Class="d-flex">
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
                             @(termsMarkup)
-                    </MudStack>
-                    <MudDivider></MudDivider>
-                    <MudStack Class="d-flex">
-                        <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
+                        </MudStack>
+                        <MudDivider></MudDivider>
+                        <MudStack Class="d-flex">
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
                             @(privacyMarkup)
+                        </MudStack>
+                    </div>
+                    <MudDivider />
+                    <MudStack class="d-flex mt-5 justify-center" Style="align-items:center;">
+                        <MudCheckBox @bind-Value="isTermsAgreed" data-testid="tosCheckbox">I agree to the above Terms of Use and Privacy Policy</MudCheckBox>
                     </MudStack>
-                </div>
-                <MudDivider />
-                <MudStack class="d-flex mt-5 justify-center" Style="align-items:center;">
-                    <MudCheckBox @bind-Value="isTermsAgreed" data-testid="tosCheckbox">I agree to the above Terms of Use and Privacy Policy</MudCheckBox>
                 </MudStack>
             </MudStack>
+        </div>
+        <MudStack Row="true" class="bt-button-tray">
+            <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+            -->
+            <MudSpacer></MudSpacer>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!isTermsAgreed)" OnClick="async () => await NextSection(nameof(IsTermsAgreementNeeded))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-        -->
-        <MudSpacer></MudSpacer>
-        <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!isTermsAgreed)" OnClick="async () => await NextSection(nameof(IsTermsAgreementNeeded))" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
     }
     else if (IsNotConfigured)
     {
-    <div id=@nameof(IsNotConfigured) class="d-flex gap-3 bt-main">
-        <MudStack>
-            <MudText Typo="Typo.h6">Configure and connect to your KERIA agent service</MudText>
-            <MudStack Class="bt-create-card-top-scrollable">
-                <MudTextField Label="Agent URL"
-                              @bind-Value="@urlModel.AdminUrl"
-                              For="@(() => urlModel.AdminUrl)"
-                              Immediate="true"
-                              OnBlur="@HandleOnBlur" />
-                <MudTextField Label="Boot URL"
-                              @bind-Value="@urlModel.BootUrl"
-                              For="@(() => urlModel.BootUrl)"
-                              Immediate="true"
-                              OnBlur="@HandleOnBlur" />
-                <MudTextField Label="Your passcode"
-                              InputType="InputType.Password"
-                              @bind-Value="@passcodeModel.Passcode"
-                              For="@(() => passcodeModel.Passcode)"
-                              Immediate="true"
-                              OnBlur="@HandleOnBlur" />
-                <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await TestConnect())" Disabled="@(!IsValidURLsAndPasscode)" Color="Color.Primary">Connect</MudButton>
-                <MudStack Class="mt-5">
-                    <OperationDisplayComponent ops="@ops1LivenessCheck"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops2HealthCheck"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops3BootAndConnect"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+        <div id=@nameof(IsNotConfigured) class="d-flex gap-3 bt-main">
+            <MudStack>
+                <MudText Typo="Typo.h6">Configure and connect to your KERIA agent service</MudText>
+                <MudStack Class="bt-create-card-top-scrollable">
+                    <MudTextField Label="Agent URL"
+                                  @bind-Value="@urlModel.AdminUrl"
+                                  For="@(() => urlModel.AdminUrl)"
+                                  Immediate="true"
+                                  OnBlur="@HandleOnBlur" />
+                    <MudTextField Label="Boot URL"
+                                  @bind-Value="@urlModel.BootUrl"
+                                  For="@(() => urlModel.BootUrl)"
+                                  Immediate="true"
+                                  OnBlur="@HandleOnBlur" />
+                    <MudTextField Label="Your passcode"
+                                  InputType="InputType.Password"
+                                  @bind-Value="@passcodeModel.Passcode"
+                                  For="@(() => passcodeModel.Passcode)"
+                                  Immediate="true"
+                                  OnBlur="@HandleOnBlur" />
+                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await ConnectToKeria())" Disabled="@(!IsValidURLsAndPasscode || !IsNotConfigured)" Color="Color.Primary">Connect</MudButton>
+                    <MudStack Class="mt-5">
+                        <OperationDisplayComponent ops="@ops1LivenessCheck"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops2HealthCheck"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops3BootAndConnect"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                    </MudStack>
                 </MudStack>
             </MudStack>
+        </div>
+        <MudStack Row="true" class="bt-button-tray">
+            <!-- Intentionally no back button here -->
+            <MudSpacer />
+            <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConfigured))" Class="justify-start" data-testid="next">Next</MudButton>
         </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- Intentionally no back button here -->
-        <MudSpacer />
-        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConfigured))" Class="justify-start" data-testid="next">Next</MudButton>
-    </MudStack>
     }
     else if (IsLocked)
     {
-    <div id=@nameof(IsLocked) class="d-flex gap-3 bt-main" style="justify-content:center;">
-        <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
-            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-            <MudText>
-                <span style="font-weight:bold">KERI Auth</span>
-            </MudText>
-            <MudText>Authenticating with<br />autonomous identities and authentic credentials</MudText>
-            <MudForm @ref="form" @bind-IsValid="@isSuccess" @bind-Errors="@errors">
-                <MudTextField @ref="pwField"
-                              @onkeydown="@Enter"
-                              T="string"
-                              Label=""
-                              Placeholder="Enter password"
-                              AutoFocus="true"
-                              Immediate="true"
-                              Required="true"
-                              RequiredError=""
-                              InputType="InputType.Password"
-                              autocomplete="off" />
-            </MudForm>
-            <MudButton Disabled="@(!isSuccess)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Open wallet</MudButton>
-            <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
+        <div id=@nameof(IsLocked) class="d-flex gap-3 bt-main" style="justify-content:center;">
+            <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
+                <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+                <MudText>
+                    <span style="font-weight:bold">KERI Auth</span>
+                </MudText>
+                <MudText>Authenticating with<br />autonomous identifiers and authentic credentials</MudText>
+                <MudForm @ref="form" @bind-IsValid="@isSuccess" @bind-Errors="@errors">
+                    <MudTextField @ref="pwField"
+                                  @onkeydown="@Enter"
+                                  T="string"
+                                  Label=""
+                                  Placeholder="Enter passphrase"
+                                  AutoFocus="true"
+                                  Immediate="true"
+                                  Required="true"
+                                  RequiredError=""
+                                  InputType="InputType.Password"
+                                  autocomplete="off" />
+                </MudForm>
+                <MudButton Disabled="@(!isSuccess)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+                <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
+            </MudStack>
+        </div>
+        <MudStack Row="true" class="bt-button-tray">
+            <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+                -->
+            <MudSpacer></MudSpacer>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsLocked))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-            -->
-        <MudSpacer></MudSpacer>
-        <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsLocked))" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
     }
     else if (IsNotConnected)
     {
-    <div id=@nameof(IsNotConnected) class="d-flex gap-3 bt-main">
-        <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
-            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-            <MudText>Connecting to KERIA agent service...</MudText>
+        <div id=@nameof(IsNotConnected) class="d-flex gap-3 bt-main">
+            <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
+                <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+                <MudText>Connecting to KERIA agent service...</MudText>
+                <MudText>TODO - not yet implemented</MudText>
+            </MudStack>
+        </div>
+        <MudStack Row="true" class="bt-button-tray">
+            <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+                -->
+            <MudSpacer></MudSpacer>
+            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsConnected))" Class="justify-end" data-testid="next">Next</MudButton>
         </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-            -->
-        <MudSpacer></MudSpacer>
-        <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConnected))" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
     }
     else
     {
@@ -309,7 +297,7 @@
     private bool isSuccess;
     private string[] errors = { };
     private bool doesWalletExist;
-    private OnboardState onboardState = new OnboardState(DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);
+    private static OnboardState onboardState = new OnboardState(false, false, DateTime.MinValue, 0, DateTime.MinValue, 0, false);
     private MudTextField<string> newPasswordField = new();
     private MudTextField<string> confirmPasswordField = new();
     private MudForm? confirmPasswordForm;
@@ -324,19 +312,21 @@
     private const string releaseUrlPath = "content/release.html";
     private const string termsUrlPath = "content/terms.html";
     private const string privacyUrlPath = "content/privacy.html";
-    private MarkupString releaseMarkup = new("Placeholder for Release Notes");
-    private MarkupString termsMarkup = new("Placeholder for Terms of Use");
-    private MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
-    private int termsMarkupHash;
-    private int privacyMarkupHash;
-    private bool IsFreshInstall { get; set; } = true;
-    private bool IsNewRelease { get; set; } = true;
-    private bool IsTermsAgreementNeeded { get; set; } = true;
-    private bool IsNotConfigured { get; set; } = true;
-    private bool IsLocked { get; set; } = true;
-    private bool IsNotConnected { get; set; } = true;
-    KeriaConnectConfig keriaConnectConfig;
+    private static MarkupString releaseMarkup = new("Placeholder for Release Notes");
+    private static MarkupString termsMarkup = new("Placeholder for Terms of Use");
+    private static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
+    private static int termsMarkupHash;
+    private static int privacyMarkupHash;
+    private static bool IsFreshInstall => !onboardState.HasAcknowledgedInstall;
+    private static bool IsNewRelease => !onboardState.HasAcknowledgedNewVersion;
+    private static bool IsTermsAgreementNeeded => onboardState.PrivacyAgreedHash == 0 || onboardState.TosAgreedHash == 0;
+    private static bool IsNotConfigured => !keriaConnectConfig.IsConfigured();
+    private static bool IsNotConnected { get; set; } = true;
+    private static bool IsConnected { get; set; } // TODO hack temporarily used for flow navigation
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, "");
+    private static KeriaConnectConfig keriaConnectConfig = defaultKeriaConnectConfig;
+    private static bool IsLocked;
+
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
@@ -376,12 +366,10 @@
             {
                 case "install":
                     logger.LogError("reason install not yet handled");
-                    IsFreshInstall = true;
                     // TODO store in onboard state?
                     return;
                 case "update":
                     var priorVersion = namedValueCollection["priorVersion"];
-                    IsNewRelease = true;
                     // TODO store in onboard state?
                     return;
                 case "browser_update": // for non-chrome browsers
@@ -398,7 +386,7 @@
         var res = await storageService.GetItem<OnboardState>();
         if (res.IsFailed)
         {
-            onboardState = new OnboardState(DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);
+            // onboardState = new OnboardState(false, false, DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);
             await storageService.SetItem<OnboardState>(onboardState);
         }
         else
@@ -411,19 +399,16 @@
         var res2 = await storageService.GetItem<KeriaConnectConfig>();
         if (res2.IsFailed || res2.Value is null)
         {
-            var defaultKCC = defaultKeriaConnectConfig;
-            await storageService.SetItem<KeriaConnectConfig>(defaultKCC);
-            keriaConnectConfig = defaultKCC;
+            await storageService.SetItem<KeriaConnectConfig>(defaultKeriaConnectConfig);
+            keriaConnectConfig = defaultKeriaConnectConfig;
         }
         else
         {
             keriaConnectConfig = res2.Value;
+            // logger.LogError($"keriaConnectConfig.PassphraseHash is {keriaConnectConfig.PassphraseHash}");
         }
-        IsNotConfigured = !keriaConnectConfig.IsConfigured();
 
-        // IsNotConnected =
-        // IsLocked = stateService.GetState() == IStateService.States.Unauthenticated;
-
+        // Check if the user has already agreed to the Terms of Use and Privacy Policy
         if (!onboardState.IsInstallOnboarded)
         {
             return;
@@ -435,12 +420,13 @@
             {
                 case IStateService.States.Unauthenticated:
                     doesWalletExist = true;
+                    IsLocked = true;
                     // UI of current view will prompt user for password
                     break;
 
                 case IStateService.States.Authenticated:
                     // if ActiveAid is not set (which can happen after a restore from backup), then set it to the first DID
-
+                    IsLocked = false;
                     var prefs = await preferencesService.GetPreferences();
                     if (string.IsNullOrEmpty(prefs.SelectedAid))
                     {
@@ -453,10 +439,12 @@
 
                 case IStateService.States.Unconfigured:
                     // UI will prompt user to set password and confirm mnemonic seed phrase
+                    IsLocked = true;
                     break;
 
                 case IStateService.States.Initializing:
                     logger.LogWarning($"Unexpected AppState {currentAppState}");
+                    IsLocked = true;
                     break;
 
                 default:
@@ -465,44 +453,42 @@
         }
     }
 
-    // TODO move to helper
-    private IEnumerable<string> PasswordStrength(string pw)
-    {
-        if (string.IsNullOrWhiteSpace(pw))
-        {
-            yield return "Password is required!";
-            yield break;
-        }
-        if (pw.Length < 6)
-        {
-            yield return "Password must be at least of length 6";
-        }
-    }
-
     private async Task OpenWalletWithPassword(string password)
     {
-        await Task.Delay(0); // tmp hack to avoid warning
+        // TODO temp hack
+        var currentState = stateService.GetState();
+        if (currentState != IStateService.States.Unauthenticated)
+        {
+            logger.LogWarning($"TODO Hack: Unexpected AppState {currentState}");
+            await stateService.Initialize();
+            await stateService.Configure();
+        }
+
         openWalletError = String.Empty;
 
-        if (string.IsNullOrEmpty(password) || password.Length < 6)
+        if (string.IsNullOrEmpty(password) || password.Length != 21)
         {
-            snackbar.Add("Invalid password. The password initially selected should have at least 6 characters", Severity.Error);
+            snackbar.Add("Invalid passphrase. Should be 21 characters.", Severity.Error);
             return;
         }
-        // TODO: Implement WalletService.LoadWallet
-        // var result = await WalletService.LoadWallet(password);
-        // if (result.IsFailed)
-        // {
-        //     snackbar.Add(WordBreaker.Break(result.Errors.First().Message), Severity.Error);
-        //     Debug.Assert(_pwField is not null);
-        //     await _pwField.SelectRangeAsync(0, password.Length);
-        // }
-        // else
-        // {
-        //     await WalletService.CreateQuickLogin(password);
-        await stateService.Authenticate();
-        navManager.NavigateTo(RouteToHome);
-        // }
+        if (keriaConnectConfig.PassphraseHash == null)
+        {
+            snackbar.Add("No passphrase hash found", Severity.Error);
+            return;
+        }
+        if (GetNumberFromHash(password) == int.Parse(keriaConnectConfig.PassphraseHash))
+        {
+            await stateService.Authenticate();
+            IsLocked = false;
+            navManager.NavigateTo(RouteToHome);
+            return;
+        }
+        else
+        {
+            openWalletError = "Invalid passphrase";
+            snackbar.Add("Invalid passphrase", Severity.Error);
+            return;
+        }
     }
 
     private async Task OpenWallet()
@@ -532,32 +518,6 @@
         }
     }
 
-    /*
-    // private void OnWordValue1Changed(string s)
-    // {
-    //     if (s is null)
-    //     {
-    //         _wordvalue1 = string.Empty;
-    //     }
-    //     else
-    //     {
-    //         _wordvalue1 = s;
-    //     }
-    // }
-
-    // private void OnWordValue2Changed(string s)
-    // {
-    //     if (s is null)
-    //     {
-    //         _wordvalue2 = string.Empty;
-    //     }
-    //     else
-    //     {
-    //         _wordvalue2 = s;
-    //     }
-    // }
-    */
-
     private async Task NewPasswordKeyDown(KeyboardEventArgs e)
     {
         if (e.Code == "Enter" || e.Code == "NumpadEnter")
@@ -578,41 +538,59 @@
         switch (fromCondition)
         {
             case nameof(IsFreshInstall):
-                // TODO record fresh install view
-                IsFreshInstall = false;
+                onboardState = onboardState = new OnboardState(
+                    true,
+                    onboardState.HasAcknowledgedNewVersion,
+                    onboardState.TosAgreedUtc,
+                    onboardState.TosAgreedHash,
+                    onboardState.PrivacyAgreedUtc,
+                    onboardState.PrivacyAgreedHash,
+                    onboardState.IsInstallOnboarded);
+                _ = await storageService.SetItem<OnboardState>(onboardState);
                 navManager.NavigateTo(RouteToStart);
                 break;
             case nameof(IsNewRelease):
-                // TODO record viewing NewRelease
-                IsNewRelease = false;
+                onboardState = onboardState = new OnboardState(
+                    onboardState.HasAcknowledgedInstall,
+                    true,
+                    onboardState.TosAgreedUtc,
+                    onboardState.TosAgreedHash,
+                    onboardState.PrivacyAgreedUtc,
+                    onboardState.PrivacyAgreedHash,
+                    onboardState.IsInstallOnboarded);
+                _ = await storageService.SetItem<OnboardState>(onboardState);
                 navManager.NavigateTo(RouteToStart);
                 break;
             case nameof(IsTermsAgreementNeeded):
-                var onboardState = new OnboardState(DateTime.UtcNow, termsMarkupHash, DateTime.UtcNow, privacyMarkupHash, true);
-                var res = await storageService.SetItem<OnboardState>(onboardState);
-                if (res.IsFailed)
-                {
-                    logger.LogError("Failed to store onboard state");
-                    return;
-                }
-                // TODO P2 record acceptance of terms and privacy, as List<(DateTime agreed, Hash docHash)> tuple in wallet for terms and for privacy
-                IsTermsAgreementNeeded = false;
+                onboardState = new OnboardState(
+                    onboardState.HasAcknowledgedInstall,
+                    onboardState.HasAcknowledgedNewVersion,
+                    DateTime.UtcNow,
+                    termsMarkupHash,
+                    DateTime.UtcNow,
+                    privacyMarkupHash,
+                    true);
+                _ = await storageService.SetItem<OnboardState>(onboardState);
                 navManager.NavigateTo(RouteToStart);
                 break;
             case nameof(IsNotConfigured):
-                // TODO record viewing NotConfigured
-                IsNotConfigured = false;
+                // state will have been stored during connection checking
                 navManager.NavigateTo(RouteToStart);
                 break;
             case nameof(IsLocked):
-                // TODO record viewing Locked
-                IsLocked = false;
+                // updated via StateService state
                 navManager.NavigateTo(RouteToStart);
                 break;
             case nameof(IsNotConnected):
                 // TODO record viewing NotConnected
                 IsNotConnected = false;
                 navManager.NavigateTo(RouteToStart);
+                break;
+            case nameof(IsConnected):
+                // TODO state should be affected earlier
+                await stateService.Initialize();
+                await stateService.Configure();
+                navManager.NavigateTo(RouteToHome);
                 break;
             default:
                 throw new Exception($"Next from unknown section");
@@ -698,11 +676,7 @@
         }
     }
 
-    private bool IsKeriaConfigured
-    {
-        get =>
-        IsValidURLs;
-    }
+    private static bool IsKeriaConfigured => keriaConnectConfig.IsConfigured();
 
     private void HandleOnBlur()
     {
@@ -710,7 +684,7 @@
         // You can check for validity here if needed
     }
 
-    private async Task TestConnect()
+    private async Task ConnectToKeria()
     {
         ops1LivenessCheck.Reset();
         ops2HealthCheck.Reset();
@@ -757,7 +731,6 @@
             // See client.ts create_agent.ts and other Integration scrips here: https://github.com/WebOfTrust/signify-integration/tree/main/scripts
             ops3BootAndConnect.SetIsRunning();
             StateHasChanged();
-            // TODO EE! take this from the form and store it in the wallet
             var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", passcodeModel.Passcode, $"{urlModel.BootUrl}", true);
             if (clientRes.IsFailed)
             {
@@ -766,10 +739,9 @@
                 return;
             }
             ops3BootAndConnect.SetCompletedWithoutErrors();
-
             // now that we have a connection, we can save the connection details
             var passwordHash = GetNumberFromHash(passcodeModel.Passcode);
-            var keriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, urlModel.AdminUrl, urlModel.BootUrl, passwordHash.ToString());
+            keriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, urlModel.AdminUrl, urlModel.BootUrl, passwordHash.ToString());
             var res = await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
             if (res.IsFailed)
             {
@@ -779,6 +751,8 @@
                 StateHasChanged();
                 return;
             }
+            await stateService.Configure();
+            StateHasChanged();
 
             ops4ListAids.SetIsRunning();
             StateHasChanged();

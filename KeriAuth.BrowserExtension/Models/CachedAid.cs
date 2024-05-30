@@ -11,7 +11,7 @@ public class CachedAid
         // set the properties
         Prefix = prefix;
         Alias = alias;
-        Identicon = Helper.Identicon.MakeIdenticon(alias);
+        Identicon = Helper.Identicon.MakeIdenticon(prefix);
         KeriaClientIdentifier = keriaclientidentifier;
     }
 

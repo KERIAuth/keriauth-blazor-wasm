@@ -35,9 +35,10 @@
     <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
         <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleMenuDrawer" Style="padding-left: 5px;" data-testid="menuHamburger" />
-            <div style="display: block; height: 100%; max-width: 400px; max-height: 35px; overflow: hidden; margin: auto auto; text-align: center;" onclick="GoToStart">
-                <img style="display:block; margin:auto;" src="https://placehold.co/150x35/000000/FFFFFF/svg?text=Logo%201" />
-            </div>
+            <MudButton Href="@RouteToStart" Style="padding: 0; border: none; background: none; ">
+                <img src="images/512_keri_logo.png" alt="Icon" style="width: 24px; height: 24px;" />
+                <MudText Style="margin-left:7px; font-size:larger; color:hsl(274deg 78% 75%)">KERI Auth</MudText>
+            </MudButton>
 
             <MudSpacer />
             <div style="align-items: center; display: flex; Background:Transparent">
@@ -598,11 +599,11 @@
         activeAid = (object)prefs.SelectedAid;
         UpdateDrawerMode(drawerMode, prefs);
         UpdateMainContentStyle();
-        UpdateActiveAid();
+        UpdateActiveAid(prefs.SelectedAid);
         StateHasChanged();
     }
 
-    void UpdateActiveAid()
+    void UpdateActiveAid(string activeAid)
     {
         // if (WalletService.Wallet is not null)
         // {
@@ -625,9 +626,9 @@
         //         logger.LogInformation("updateActiveDid Failed");
         //     }
         // }
-        activeAidIdenticon = "";
-        activeAidName = "";
-        activeAidTooltip = "";
+        activeAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
+        activeAidName = "TBD1";
+        activeAidTooltip = "TBD2";
         return;
     }
 

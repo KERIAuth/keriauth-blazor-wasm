@@ -53,8 +53,8 @@ Backer Address  (copy)
             <!-- foreach goes here, similar to
                  foreach (WalletDid walletDid in WalletService.Wallet.WalletDids)
             -->
-            @{
-                var cachedAid = new CachedAid("0x7A697A697A697A697A697A697A697A697A697A697A697A697A697A697A697A69", "freddy1", "localhost");
+            @foreach (CachedAid cachedAid in cachedAids)
+            {
                 <MudCard Style="@cardClass(cachedAid.Alias)">
                     <MudExpansionPanel Dense="true">
                         <TitleContent>
@@ -64,6 +64,7 @@ Backer Address  (copy)
                                         <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                     </MudButton>
                                 </MudTooltip>
+                                <MudText Typo="Typo.h6">@cachedAid.Alias</MudText>
                                 <div style="margin-left: 10px; margin-top: -22px" @onclick:stopPropagation="true">
                                     <div class="mt-2">
                                         <Ellipsis IsDid="true" StringContent="@cachedAid.Prefix" IncludeCopyIcon="true"></Ellipsis>
@@ -121,6 +122,8 @@ Backer Address  (copy)
 
     IDisposable? preferencesSubscription;
 
+    List<CachedAid> cachedAids = new List<CachedAid>();
+
     protected override async Task OnInitializedAsync()
     {
         base.OnInitialized();
@@ -132,6 +135,11 @@ Backer Address  (copy)
 
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
+
+
+        cachedAids.Add(new CachedAid("12341324123412341234132412341234", "Johnny as Founder at J Foundation", "localhost"));
+        cachedAids.Add(new CachedAid("qwerqwerqwerqwerqwerqwerqwerqwer", "J Foundation on X", "localhost"));
+        cachedAids.Add(new CachedAid("ertywertwertwertwertwertwertwert", "J. Suhr as Partner at Suhr Consortium", "localhost"));
     }
 
     private async Task AddDid()

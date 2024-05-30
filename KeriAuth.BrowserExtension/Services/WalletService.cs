@@ -10,7 +10,7 @@ public class WalletService(IStorageService storageService, ILogger<WalletService
     // TODO user System.Security.Cryptography AesGcm.
     // private readonly IAesService _aesEncryptionService;
     // private readonly ISha256Service _sha256Service;
-    private readonly IStorageService _storageService = storageService;
+    private readonly IStorageService storageService = storageService;
     // private const string PasswordSeed = "WalletPasswordSeed";
     // private const string QuickLoginPassword = "W8Rm12v2izJJ3d";
     private bool _isStoringWallet;

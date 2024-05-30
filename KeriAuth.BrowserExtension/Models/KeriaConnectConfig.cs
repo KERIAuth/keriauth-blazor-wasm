@@ -18,7 +18,7 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("keriaConnectAlias")]
         public string KeriaConnectAlias { get; init; }
-        
+
         [JsonPropertyName("adminUrl")]
         public string AdminUrl { get; init; }
 
@@ -30,14 +30,18 @@ namespace KeriAuth.BrowserExtension.Models
 
         public bool IsConfigured()
         {
-            if (string.IsNullOrEmpty(KeriaConnectAlias) 
-                || string.IsNullOrWhiteSpace(AdminUrl) 
-                || Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)
-                      && (adminUriResult.Scheme == Uri.UriSchemeHttp || adminUriResult.Scheme == Uri.UriSchemeHttps)
-                || string.IsNullOrWhiteSpace(BootUrl)
-                || Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? bootUriResult)
-                      && (bootUriResult.Scheme == Uri.UriSchemeHttp || bootUriResult.Scheme == Uri.UriSchemeHttps)
-                || string.IsNullOrWhiteSpace(PassphraseHash))
+
+            if (string.IsNullOrEmpty(KeriaConnectAlias)
+                || string.IsNullOrWhiteSpace(PassphraseHash)
+                || PassphraseHash == "0"
+                || PassphraseHash == ""
+                || string.IsNullOrEmpty(AdminUrl)
+                || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)
+                      && (adminUriResult.Scheme == Uri.UriSchemeHttp || adminUriResult.Scheme == Uri.UriSchemeHttps))
+                || string.IsNullOrEmpty(BootUrl)
+                || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? bootUriResult)
+                      && (bootUriResult.Scheme == Uri.UriSchemeHttp || bootUriResult.Scheme == Uri.UriSchemeHttps))
+                )
             {
                 return false;
             }
