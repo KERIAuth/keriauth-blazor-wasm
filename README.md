@@ -3,11 +3,11 @@
 ## Summary
 This extension removes a class of problems website owners have with managing usernames and passwords or relying on federated identity providers that risk leaking or correlating user usage patterns. 
 
-The primary goal of this extension is to provide a highly secure way to authentically "sign in" to certain websites. The browser extension under development will enable a user to interact with conforming websites, to *authenticate* with the user’s KERI identifier and to *authorize* with an ACDC credential they’ve been issued. 
+The primary goal of this extension is to provide a highly secure way to authentically "sign in" to certain websites. The browser extension under development will enable a user to interact with conforming websites, to *authenticate* with the userâ€™s KERI identifier and to *authorize* with an ACDC credential theyâ€™ve been issued. 
 
 Its passwordless design enables the user to create and manage their own stable identifiers (KERI AIDs), signing keys, and credentials. It utilizes credentials issued by the website owners and/or other issuers they trust.
 
-The browser extension, implemented for Chromium browsers, uses the [WebOfTrust/signify-ts](https://github.com/weboftrust/signify-ts) component to connect with an instance of [KERIA](https://github.com/weboftrust/keria), a KERI cloud agent, which safely manages the user’s AIDs, associated keys, credentials, and other services. The user can choose whether they host a KERIA instance themselves or use one provided by a third party.
+The browser extension, implemented for Chromium browsers, uses the [WebOfTrust/signify-ts](https://github.com/weboftrust/signify-ts) component to connect with an instance of [KERIA](https://github.com/weboftrust/keria), a KERI cloud agent, which safely manages the userâ€™s AIDs, associated keys, credentials, and other services. The user can choose whether they host a KERIA instance themselves or use one provided by a third party.
 
 ## Contents
 - [Architecture](#architecture) 
@@ -44,7 +44,7 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 ### Browser Extension Action Icon/Button
 * Action button and its context menu appear after install in the upper-right corner of the browser.
 * Action Icon or its overlay text may change depending on state or awaiting notifications.
-* Used to indicate the user’s intent and permission to interact with the current browser page.
+* Used to indicate the userâ€™s intent and permission to interact with the current browser page.
 
 ### Service-worker
 * Runs background tasks.
@@ -54,7 +54,7 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 * Communicates with KERIA agent via signify-ts library.
 
 ### Content Script Context
-* With the user’s permission this script is injected into the active web page after the user initiates the action.
+* With the userâ€™s permission this script is injected into the active web page after the user initiates the action.
 * Handles messages to/from the website via a JavaScript API that the web page also implements.
 * Handles messages to/from the service-worker.
 
@@ -142,11 +142,11 @@ Join the project's community on [Discord](https://discord.gg/Va79ag9RCw).
 
 ## References
 ### Articles
-[Sign and Verify with Signify & Keria](https://medium.com/finema/keri-tutorial-sign-and-verify-with-signify-keria-833dabfd356b)
-[Introduction to KERI](https://medium.com/finema/the-hitchhikers-guide-to-keri-part-1-51371f655bba)
-[Introduction to ACDC](https://medium.com/finema/the-hitchhikers-guide-to-acdc-part-1-4b3b3b3b3b3b)
+* [Sign and Verify with Signify & Keria](https://medium.com/finema/keri-tutorial-sign-and-verify-with-signify-keria-833dabfd356b)
+* [Introduction to KERI](https://medium.com/finema/the-hitchhikers-guide-to-keri-part-1-51371f655bba)
+* [Introduction to ACDC](https://medium.com/finema/the-hitchhikers-guide-to-acdc-part-1-4b3b3b3b3b3b)
 ### Repositories
-[WebOfTrust/signify-ts](https://github.com/WebOfTrust/signify-ts)
-[WebOfTrust/signify-browser-extension](https://github.com/WebOfTrust/signify-browser-extension)
-[cardano-foundation/cf-identity-wallet](https://github.com/cardano-foundation/cf-identity-wallet)
-[cardano-foundation/cf-poc-tunnel](https://github.com/cardano-foundation/cf-poc-tunnel)
+* [WebOfTrust/signify-ts](https://github.com/WebOfTrust/signify-ts)
+* [WebOfTrust/signify-browser-extension](https://github.com/WebOfTrust/signify-browser-extension)
+* [cardano-foundation/cf-identity-wallet](https://github.com/cardano-foundation/cf-identity-wallet)
+* [cardano-foundation/cf-poc-tunnel](https://github.com/cardano-foundation/cf-poc-tunnel)
