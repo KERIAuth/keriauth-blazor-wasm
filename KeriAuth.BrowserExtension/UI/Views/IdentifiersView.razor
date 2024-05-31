@@ -44,16 +44,7 @@ Backer Address  (copy)
 <div id="Dids" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Identifiers</MudText>
-
-            <div class="mt-n2 mb-2">
-
-                <MudText Typo="Typo.overline">Your connected KERIA agent service contains 11 identifiers</MudText>
-
-            </div>
-            <!-- foreach goes here, similar to
-                 foreach (WalletDid walletDid in WalletService.Wallet.WalletDids)
-            -->
+            <MudText Typo="Typo.h6">Identifiers (@cachedAids.Count)</MudText>
             @foreach (CachedAid cachedAid in cachedAids)
             {
                 <MudCard Style="@cardClass(activeAid, cachedAid.Alias)">

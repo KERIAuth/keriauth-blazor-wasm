@@ -316,7 +316,7 @@
     bool hasNewMessages;
     object activeAid { get; set; } = "unselectedDid";
     string activeAidIdenticon { get; set; } = "";
-    string activeAidName { get; set; } = "";
+    // string activeAidName { get; set; } = "";
     string activeAidTooltip { get; set; } = "";
     string version = "0.0.0";
     string version_name = "unset 33";
@@ -443,8 +443,7 @@
 
     async Task HandleNextFromPreferencesService(Preferences value)
     {
-        InitializeOrOnNextPrefs(value);
-        await Task.Delay(0); // hack
+        await InitializeOrOnNextPrefs(value);
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)
@@ -524,7 +523,7 @@
 
         CurrentState = stateService.GetState();
 
-        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+        await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
         StateHasChanged(); // Necessary?
 
@@ -591,18 +590,18 @@
         }
     }
 
-    void InitializeOrOnNextPrefs(Preferences prefs)
+    async Task InitializeOrOnNextPrefs(Preferences prefs)
     {
         isDarkTheme = prefs.IsDarkTheme;
         // TODO P4 set the background-image depending on isDarkTheme.
         activeAid = (object)prefs.SelectedAid;
         UpdateDrawerMode(drawerMode, prefs);
         UpdateMainContentStyle();
-        UpdateActiveAid(prefs.SelectedAid);
+        await UpdateActiveAid(prefs.SelectedAid);
         StateHasChanged();
     }
 
-    void UpdateActiveAid(string activeAid)
+    async Task UpdateActiveAid(string activeAid)
     {
         // if (WalletService.Wallet is not null)
         // {
@@ -626,8 +625,13 @@
         //     }
         // }
         activeAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
-        activeAidName = "TBD1";
-        activeAidTooltip = "TBD2";
+        var result = await identifiersService.GetIdentifierService(activeAid);
+        if (result.IsSuccess)
+        {
+            activeAidTooltip = result.Value.cachedAid.Alias;
+            return;
+        }
+        // TODO throw error?
         return;
     }
 

@@ -1,7 +1,6 @@
 ﻿@page "/Start"
 
 @inherits Blazor.BrowserExtension.Pages.BasePage;
-
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.Services
@@ -141,8 +140,8 @@
                                   OnBlur="@HandleOnBlur" />
                     <MudTextField Label="Your passcode"
                                   InputType="InputType.Password"
-                                  @bind-Value="@passcodeModel.Passcode"
-                                  For="@(() => passcodeModel.Passcode)"
+                                  @bind-Value="@configuredPasscodeModel.Passcode"
+                                  For="@(() => configuredPasscodeModel.Passcode)"
                                   Immediate="true"
                                   OnBlur="@HandleOnBlur" />
                     <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await ConnectToKeria())" Disabled="@(!IsValidURLsAndPasscode || !IsNotConfigured)" Color="Color.Primary">Connect</MudButton>
@@ -172,17 +171,13 @@
                 </MudText>
                 <MudText>Authenticating with<br />autonomous identifiers and authentic credentials</MudText>
                 <MudForm @ref="form" @bind-IsValid="@isSuccess" @bind-Errors="@errors">
-                    <MudTextField @ref="pwField"
+                    <MudTextField Label="Enter passcode"
                                   @onkeydown="@Enter"
-                                  T="string"
-                                  Label=""
-                                  Placeholder="Enter passphrase"
-                                  AutoFocus="true"
-                                  Immediate="true"
-                                  Required="true"
-                                  RequiredError=""
                                   InputType="InputType.Password"
-                                  autocomplete="off" />
+                                  @bind-Value="@unlockPasscodeModel.Passcode"
+                                  For="@(() => unlockPasscodeModel.Passcode)"
+                                  Immediate="true"
+                                  OnBlur="@HandleOnBlur" />
                 </MudForm>
                 <MudButton Disabled="@(!isSuccess)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
                 <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
@@ -290,7 +285,6 @@
 </style>
 
 @code {
-    MudTextField<string>? pwField;
     MudButton? createButton = default(global::MudBlazor.MudButton);
     MudForm? form;
     private string openWalletError = string.Empty;
@@ -326,7 +320,6 @@
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, "");
     private static KeriaConnectConfig keriaConnectConfig = defaultKeriaConnectConfig;
     private static bool IsLocked;
-
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
@@ -493,16 +486,15 @@
 
     private async Task OpenWallet()
     {
-        if (pwField is not null)
-            await OpenWalletWithPassword(pwField.Value);
+        if (unlockPasscodeModel.Passcode is not null)
+            await OpenWalletWithPassword(unlockPasscodeModel.Passcode);
     }
 
     private async Task Enter(KeyboardEventArgs e)
     {
         if (e.Code == "Enter" || e.Code == "NumpadEnter")
         {
-            if (pwField is not null)
-                await OpenWalletWithPassword(pwField.Value);
+            await OpenWallet();
         }
     }
 
@@ -518,18 +510,18 @@
         }
     }
 
-    private async Task NewPasswordKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Code == "Enter" || e.Code == "NumpadEnter")
-            await Task.Delay(0); // TODO P3 should this be to activate next field?
-    }
+    // private async Task NewPasswordKeyDown(KeyboardEventArgs e)
+    // {
+    //     if (e.Code == "Enter" || e.Code == "NumpadEnter")
+    //         await Task.Delay(0); TODO P3 should this be to activate next field?
+    // }
 
-    private async Task ConfirmPasswordKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Code == "Enter" || e.Code == "NumpadEnter")
-            if (confirmPasswordForm!.IsValid)
-                await NextSection("??");
-    }
+    // private async Task ConfirmPasswordKeyDown(KeyboardEventArgs e)
+    // {
+    //     if (e.Code == "Enter" || e.Code == "NumpadEnter")
+    //         if (confirmPasswordForm!.IsValid)
+    //             await NextSection("??");
+    // }
 
     private async Task NextSection(string fromCondition)
     {
@@ -643,7 +635,8 @@
             BootUrl = AppConfig.DefaultKeriaBootUrl
         };
 
-    private PasscodeModel passcodeModel = new PasscodeModel();
+    private PasscodeModel unlockPasscodeModel = new PasscodeModel();
+    private PasscodeModel configuredPasscodeModel = new PasscodeModel();
 
     private bool IsValidURLs
     {
@@ -668,7 +661,7 @@
             {
                 return false;
             }
-            if (string.IsNullOrWhiteSpace(passcodeModel.Passcode) || passcodeModel.Passcode.Length != 21)
+            if (string.IsNullOrWhiteSpace(configuredPasscodeModel.Passcode) || configuredPasscodeModel.Passcode.Length != 21)
             {
                 return false;
             }
@@ -731,7 +724,7 @@
             // See client.ts create_agent.ts and other Integration scrips here: https://github.com/WebOfTrust/signify-integration/tree/main/scripts
             ops3BootAndConnect.SetIsRunning();
             StateHasChanged();
-            var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", passcodeModel.Passcode, $"{urlModel.BootUrl}", true);
+            var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", true);
             if (clientRes.IsFailed)
             {
                 ops3BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
@@ -740,7 +733,7 @@
             }
             ops3BootAndConnect.SetCompletedWithoutErrors();
             // now that we have a connection, we can save the connection details
-            var passwordHash = GetNumberFromHash(passcodeModel.Passcode);
+            var passwordHash = GetNumberFromHash(configuredPasscodeModel.Passcode);
             keriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, urlModel.AdminUrl, urlModel.BootUrl, passwordHash.ToString());
             var res = await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
             if (res.IsFailed)
