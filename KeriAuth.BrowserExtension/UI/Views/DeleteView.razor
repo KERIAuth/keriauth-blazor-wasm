@@ -13,12 +13,11 @@
 <div id="Delete" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Delete Wallet</MudText>
+            <MudText Typo="Typo.h6">Delete Local Configurations</MudText>
             <MudStack class="d-flex mt-2 justify-center">
-                <MudText>Are you sure you want to delete your wallet? </MudText>
+                <MudText>Are you sure you want to delete your local configurations? </MudText>
                 <MudText>
-                    If you want to recover your wallet later, first be sure you have an up-to-date backup (json-content file) and password, and then you'll be able to restore your entire wallet.
-                    However, with only your seed phrase you previously wrote down, you'll be able to only recover your public-private key pairs and perhaps your DIDs, but not your credentials and chat messages.
+                    If in the future you want to reconnect to your KERIA Agent Service to access your identifiers, credentials, and other information there, make sure you have its URLs and your passphrase safely recorded.
                 </MudText>
             </MudStack>
         </div>
@@ -38,7 +37,7 @@
         // show a dialog to confirm deletion
         var result = await dialogService.ShowMessageBox(
             "Delete Wallet",
-            $"Are you sure you want to delete all your wallet contents?",
+            $"Are you sure you want to delete your local configuration?",
             yesText: "Yes, Delete",
             cancelText: "Cancel",
              options: new DialogOptions()

@@ -119,9 +119,7 @@
                         */
                     }
                     <MudNavLink OnClick="async () => await Lock()" Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
-                    <MudNavLink Href=@RouteToBackup Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Save" IconColor="Color.Surface">Back Up</MudNavLink>
-                    <MudNavLink Href=@RouteToRestore Icon="@Icons.Material.Filled.Restore" IconColor="Color.Surface">Restore from Backup</MudNavLink>
-                    <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Wallet&hellip;</MudNavLink>
+                    <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Configuration&hellip;</MudNavLink>
                 </MudNavGroup>
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
                     <MudNavLink Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>

@@ -1,6 +1,6 @@
 ﻿@page "/Start"
 
-@inherits Blazor.BrowserExtension.Pages.BasePage;
+@inherits Blazor.BrowserExtension.Pages.BasePage
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.Services
@@ -285,23 +285,23 @@
 </style>
 
 @code {
-    MudButton? createButton = default(global::MudBlazor.MudButton);
+    // MudButton? createButton = default(global::MudBlazor.MudButton);
     MudForm? form;
     private string openWalletError = string.Empty;
     private bool isSuccess;
     private string[] errors = { };
-    private bool doesWalletExist;
+    // private bool doesWalletExist;
     private static OnboardState onboardState = new OnboardState(false, false, DateTime.MinValue, 0, DateTime.MinValue, 0, false);
     private MudTextField<string> newPasswordField = new();
     private MudTextField<string> confirmPasswordField = new();
-    private MudForm? confirmPasswordForm;
+    // private MudForm? confirmPasswordForm;
     private MudButton? nextButton = default(global::MudBlazor.MudButton);
     private readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERIA liveness", "Live");
     private readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERIA health", "Healthy");
     private readonly OperationDisplay ops3BootAndConnect = new OperationDisplay("Reconnecting to or establishing new connection", "Connected");
     private readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Identifiers retrieved");
     private readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created personal identifier");
-    private bool isStrongPassword = true; // TODO P1
+    // private bool isStrongPassword = true; // TODO P1
     private bool isTermsAgreed;
     private const string releaseUrlPath = "content/release.html";
     private const string termsUrlPath = "content/terms.html";
@@ -412,7 +412,7 @@
             switch (currentAppState)
             {
                 case IStateService.States.Unauthenticated:
-                    doesWalletExist = true;
+                    // doesWalletExist = true;
                     IsLocked = true;
                     // UI of current view will prompt user for password
                     break;
@@ -757,12 +757,12 @@
                 return;
             }
             var identifiers = identifiersRes.Value;
-            // logger.LogInformation("Identifiers: {identifiers}", identifiers);
+            logger.LogWarning("Identifiers: {identifiers}", identifiers.ToString());
             // identifiers.ToList().ForEach(i => logger.LogInformation($"Identifiers: {i}"));
             ops4ListAids.SetCompletedWithoutErrors();
             StateHasChanged();
 
-            if (identifiers.Length == 0)
+            if (identifiers.Aids.Count == 0)
             {
                 ops5CreatePersonalAid.SetIsRunning();
                 StateHasChanged();

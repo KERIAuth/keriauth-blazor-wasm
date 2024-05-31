@@ -1,9 +1,10 @@
 ﻿@page "/Identifiers"
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
-
 @using KeriAuth.BrowserExtension.UI.Components
 @using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
 
 @using System.Diagnostics
 @using static KeriAuth.BrowserExtension.AppConfig;
@@ -16,6 +17,7 @@
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @inject ILogger<IdentifiersView> logger
 @inject IdentifiersService identifiersService;
+@inject ISignifyClientService signifyClientService;
 
 <!-- For KERI
 KERI Autonomous Identifiers (AIDs)
@@ -119,20 +121,28 @@ Backer Address  (copy)
     protected override async Task OnInitializedAsync()
     {
         base.OnInitialized();
+        await Task.Delay(0);
         logger.LogInformation($"OnInitializedAsync");
         preferencesSubscription = preferencesService.Subscribe(
            onNext: (Preferences value) => HandleNextFromPreferencesService(value),
            onError: (Exception error) => HandleErrorFromPreferencesService(error),
            onCompleted: () => HandleCompletedFromPreferencesService());
-
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        base.OnParametersSet();
+        logger.LogInformation($"OnParametersSetAsync");
+        
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
 
-        var res = await identifiersService.GetIdentifierHeadlines();//   .GetIdentifierService("11111");
-        if(res != null)
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res != null)
         {
+            logger.LogWarning("GetIdentifierHeadlines: {1}", res.Value.Count);
             foreach (var item in res.Value)
             {
+                // logger.LogWarning("adding aid {1}", item.Prefix);
                 cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
             }
         };

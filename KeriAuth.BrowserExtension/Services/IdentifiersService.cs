@@ -1,35 +1,23 @@
 ﻿using FluentResults;
 using KeriAuth.BrowserExtension.Models;
+using KeriAuth.BrowserExtension.Services.SignifyService.Models;
+using KeriAuth.BrowserExtension.Services.SignifyService;
 using Microsoft.Extensions.Logging;
 
 namespace KeriAuth.BrowserExtension.Services
 {
     public class IdentifiersService
     {
-        private readonly ILogger logger;
+        private readonly ILogger<IdentifiersService> logger;
         private readonly IStorageService storageService;
         private readonly Dictionary<string, IdentifierService> identifierServices = [];
+        private readonly ISignifyClientService signifyClientService;
 
-        public IdentifiersService(ILogger<IdentifiersService> logger, IStorageService storageService)
+        public IdentifiersService(ILogger<IdentifiersService> logger, IStorageService storageService, ISignifyClientService signifyClientService)
         {
             this.logger = logger;
             this.storageService = storageService;
-
-            // samples
-            Guid keriConnectionGuid = new();
-            List<(string aid, string alias)> sampleAidAliases = [
-                ("0123456789001234567890", "Joe as Member of Jordan School Board"),
-                ("asdfghjkzxcvasdfghjkzxcv", "Joe as CFO at XYZ Inc"),
-                ("zxcvbnmzxcvbnmzxcvbnmzxcvbnm", "XYZ Inc on X"),
-                ("1234asdfzxcv1234asdfzxcv1234", "YoJoe on Discord")
-                ];
-            foreach (var saa in sampleAidAliases)
-            {
-                {
-                    var identifierService = new IdentifierService(saa.aid, saa.alias, keriConnectionGuid, logger, storageService);
-                    identifierServices.Add(saa.aid, identifierService);
-                }
-            }
+            this.signifyClientService = signifyClientService;
         }
 
         public Task<Result<IdentifierService>> GetIdentifierService(string prefix)
@@ -42,18 +30,30 @@ namespace KeriAuth.BrowserExtension.Services
             return Task.FromResult(Result.Ok(identifierService));
         }
 
-        public Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
+        public async Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
         {
-            var headlines = new List<IdentifierHeadline>();
-            foreach (var identifierKey in identifierServices.Keys)
+            logger.LogWarning("GetIdentifierHeadlines: Getting identifiers");
+            var res2 = await signifyClientService.GetIdentifiers();
+            if (res2 is null || res2.IsFailed)
             {
-                IdentifierService? identifierService = identifierServices[identifierKey];
-                if (identifierService is not null)
-                {
-                    headlines.Add(new IdentifierHeadline(identifierKey, identifierService.cachedAid.Alias, Guid.NewGuid()));
-                }
+                var msg = res2!.Errors.First().Message;
+                logger.LogError("GetIdentifierHeadlines: Failed to get identifiers: {msg}", msg);
+                return Result.Fail<List<IdentifierHeadline>>(msg);
             }
-            return Task.FromResult(Result.Ok(headlines));
+            if (res2.Value is not null && res2.IsSuccess)
+            {
+                logger.LogWarning("GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count());
+                var headlines = new List<IdentifierHeadline>();
+                
+                foreach (Aid item in res2.Value.Aids)
+                {
+                    // TODO ??  set the current identifierService in the Headlin?
+                    var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), logger, storageService);
+                    headlines.Add(new IdentifierHeadline(item.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));
+                }
+                return Result.Ok(headlines);
+            }
+            return Result.Fail<List<IdentifierHeadline>>("Failed to get identifiers");
         }
     }
 }

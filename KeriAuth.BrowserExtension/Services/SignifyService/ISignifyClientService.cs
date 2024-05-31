@@ -21,7 +21,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         Task<Result<HttpResponseMessage>> SaveOldPasscode(string passcode);
         Task<Result<HttpResponseMessage>> DeletePasscode();
         Task<Result<HttpResponseMessage>> Rotate(string nbran, string[] aids);
-        Task<Result<string>> GetIdentifiers();
+        Task<Result<Identifiers>> GetIdentifiers();
         Task<Result<IList<Oobi>>> GetOobis();
         Task<Result<IList<Operation>>> GetOperations();
         Task<Result<IList<KeyEvent>>> GetKeyEvents();

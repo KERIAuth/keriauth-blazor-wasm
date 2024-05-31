@@ -2,6 +2,7 @@
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
+using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
 using Group = KeriAuth.BrowserExtension.Services.SignifyService.Models.Group;
 using State = KeriAuth.BrowserExtension.Services.SignifyService.Models.State;
@@ -176,25 +177,30 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return Task.FromResult(Result.Fail<IList<Group>>("Not implemented"));
         }
 
-        public async Task<Result<string>> GetIdentifiers()
+        public async Task<Result<Identifiers>> GetIdentifiers()
         {
             try
             {
-                var res = await GetAIDs();
-                Debug.Assert(res is not null);
-                // TODO EE! verify res and parse what we need and store them
-                // logger.LogInformation("GetIdentifiers: {ids}", res);
-                return Result.Ok(res);
+                var jsonString = await GetAIDs();
+                if (jsonString is null) { 
+                    return Result.Fail<Identifiers>("GetAIDs returned null");
+                }
+                var identifiers = JsonSerializer.Deserialize<Identifiers>(jsonString);
+                if (identifiers is null)
+                {
+                    return Result.Fail<Identifiers>("Failed to deserialize Identifiers");
+                }
+                return Result.Ok(identifiers);
             }
             catch (JSException e)
             {
                 logger.LogWarning("GetIdentifiers: JSException: {e}", e);
-                return Result.Fail<string>("SignifyClientService: CreatePersonAid: Exception: " + e);
+                return Result.Fail<Identifiers>("SignifyClientService: CreatePersonAid: Exception: " + e);
             }
             catch (Exception e)
             {
                 logger.LogWarning("GetIdentifiers: Exception: {e}", e);
-                return Result.Fail<string>("SignifyClientService: GetIdentifiers: Exception: " + e);
+                return Result.Fail<Identifiers>("SignifyClientService: GetIdentifiers: Exception: " + e);
             }
         }
 
