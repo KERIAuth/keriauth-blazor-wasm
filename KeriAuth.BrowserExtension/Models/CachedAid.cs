@@ -7,13 +7,13 @@ public class CachedAid
     // implement this class with the JsonProperty attributes and JsonConstructor attribute for: Prefix, AID, Alias, and Identicon
 
     [JsonConstructor]
-    public CachedAid(string prefix, string alias, string keriaclientidentifier)
+    public CachedAid(string prefix, string alias, Guid keriaConnectionId)
     {
         // set the properties
         Prefix = prefix;
         Alias = alias;
         Identicon = Helper.Identicon.MakeIdenticon(prefix);
-        KeriaClientIdentifier = keriaclientidentifier;
+        KeriaConnectionId = keriaConnectionId;
     }
 
     [JsonPropertyName("prefix")]
@@ -26,7 +26,7 @@ public class CachedAid
     public string Identicon { get; init; }
 
     [JsonPropertyName("keriaclientidentifier")]
-    public string KeriaClientIdentifier { get; init; }
+    public Guid KeriaConnectionId { get; init; }
 
     [JsonPropertyName("cachedUtc")]
     public DateTime CachedUtc { get; init; } = DateTime.UtcNow;

@@ -1,4 +1,5 @@
 ﻿using FluentResults;
+using KeriAuth.BrowserExtension.Models;
 using Microsoft.Extensions.Logging;
 
 namespace KeriAuth.BrowserExtension.Services
@@ -14,14 +15,20 @@ namespace KeriAuth.BrowserExtension.Services
             this.logger = logger;
             this.storageService = storageService;
 
-            // TODO remove
-            // var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-
-            var prefixes = new string[] { "11111", "22222", "33", "44444" };
-            foreach (string prefix in prefixes)             {
-                identifierServices.Add(prefix,
-                    new IdentifierService(prefix, logger, storageService)
-                    );
+            // samples
+            Guid keriConnectionGuid = new();
+            List<(string aid, string alias)> sampleAidAliases = [
+                ("0123456789001234567890", "Joe as Member of Jordan School Board"),
+                ("asdfghjkzxcvasdfghjkzxcv", "Joe as CFO at XYZ Inc"),
+                ("zxcvbnmzxcvbnmzxcvbnmzxcvbnm", "XYZ Inc on X"),
+                ("1234asdfzxcv1234asdfzxcv1234", "YoJoe on Discord")
+                ];
+            foreach (var saa in sampleAidAliases)
+            {
+                {
+                    var identifierService = new IdentifierService(saa.aid, saa.alias, keriConnectionGuid, logger, storageService);
+                    identifierServices.Add(saa.aid, identifierService);
+                }
             }
         }
 
@@ -33,6 +40,20 @@ namespace KeriAuth.BrowserExtension.Services
                 return Task.FromResult(Result.Fail<IdentifierService>("Identifier service not found"));
             }
             return Task.FromResult(Result.Ok(identifierService));
+        }
+
+        public Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
+        {
+            var headlines = new List<IdentifierHeadline>();
+            foreach (var identifierKey in identifierServices.Keys)
+            {
+                IdentifierService? identifierService = identifierServices[identifierKey];
+                if (identifierService is not null)
+                {
+                    headlines.Add(new IdentifierHeadline(identifierKey, identifierService.cachedAid.Alias, Guid.NewGuid()));
+                }
+            }
+            return Task.FromResult(Result.Ok(headlines));
         }
     }
 }

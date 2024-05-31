@@ -6,7 +6,8 @@
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Services.SignifyService
 @using KeriAuth.BrowserExtension.UI.Components
-@using FluentResults
+@using KeriAuth.BrowserExtension.UI.Views
+@using FluentResults;
 @using System.Diagnostics;
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using System.Reactive.Linq
@@ -25,6 +26,7 @@
 @inject IAlarmService timerService
 @inject ILogger<MainLayout> logger
 @inject IStateService stateService
+@inject IdentifiersService identifiersService
 
 <MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@isDarkTheme" />
 <MudDialogProvider />
@@ -57,44 +59,33 @@
             </div>
 
         </MudStack>
-        <!-- The Profile overlay. Overlays entire page -->
+        <!-- The AID selector overlay covers entire page -->
         <MudOverlay DarkBackground LightBackground @bind-Visible="@isProfilePanelOpen" OnClick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
-                @{
-                    /* // if (WalletService.Wallet is not null)
-                    { */
-                }
                 <MudList Clickable="true" @bind-SelectedValue="activeAid" Class="bt-sad-4;" Style="padding: 0px">
-                    @{
-                        /* foreach (WalletDid walletDid in WalletService.Wallet!.WalletDids)
-                        {
-                        */
-                    }
-                    <MudListItem Value="12341234" OnClick="async () => await SetActiveAid()" Style="cardClass(walletDid.Did.Identifier)" Class="bt-sad-5">
-                        <MudStack Row="true">
-                            <MudIcon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                            <div class="bt-sad-2">
-                                <MudStack>
-                                    <MudText Typo="Typo.subtitle2">walletDid.Name</MudText>
-                                    <MudTooltip Text="Copy to clipboard" Delay="1000" Placement="Placement.Left">
-                                        <MudText Typo="Typo.body2" Style="margin-left: -8px; margin-top: -12px;">
-                                            <Ellipsis StringContent="walletDid.Did.ToString()" IncludeCopyIcon="true"></Ellipsis>
-                                        </MudText>
-                                    </MudTooltip>
-                                </MudStack>
-                            </div>
-                        </MudStack>
-                        @* <div class="d-flex bt-sad-1"> *@
-                        @* </div> *@
-                    </MudListItem>
-                    <MudDivider DividerType="DividerType.Inset" />
+                    @foreach (var identifierHeadline in identifiersHeadlines) {
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersView.cardClass((string)activeAid, identifierHeadline.Prefix)" Class="bt-sad-5">
+                            <MudStack Row="true">
+                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <div class="bt-sad-2">
+                                    <MudStack>
+                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                        <MudTooltip Text="Copy to clipboard" Delay="1000" Placement="Placement.Left">
+                                            <MudText Typo="Typo.body2" Style="margin-left: -8px; margin-top: -12px;">
+                                                <Ellipsis StringContent="@identifierHeadline.Prefix" IncludeCopyIcon="true"></Ellipsis>
+                                            </MudText>
+                                        </MudTooltip>
+                                    </MudStack>
+                                </div>
+                            </MudStack>
+                        </MudListItem>
+                        <MudDivider DividerType="DividerType.Inset" />
                     }
                 </MudList>
                 <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end" Style="padding-right:8px;">
                     <MudSpacer></MudSpacer>
                     <MudButton Color="Color.Primary" Variant="Variant.Filled" Href=@RouteToIdentifiers>Manage Identifiers</MudButton>
                 </MudStack>
-                }
             </div>
         </MudOverlay>
     </MudAppBar>
@@ -187,15 +178,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                                    See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                        See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                                    @@media (min-width: 960px) {
-                                                                                                                                                    .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                                    margin-left: 0;
-                                                                                                                                                    width: inherit;
-                                                                                                                                                    }
-                                                                                                                                                    }
-                                                                                                                                                    */
+                                                                                                                                                        @@media (min-width: 960px) {
+                                                                                                                                                        .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                        margin-left: 0;
+                                                                                                                                                        width: inherit;
+                                                                                                                                                        }
+                                                                                                                                                        }
+                                                                                                                                                        */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -408,7 +399,15 @@
             idleAlarm = new IdleAlarm(timerService, async () => await OnIdleHandler());
             await js.InvokeVoidAsync("window.registerInactivityTimerResetEvents", DotNetObjectReference.Create(this));
         }
+
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res.IsSuccess)
+        {
+            identifiersHeadlines = res.Value;
+        }
     }
+
+    List<IdentifierHeadline> identifiersHeadlines = [];
 
     // Compute the Left position for MainContent depending on the type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
@@ -687,9 +686,6 @@
         hasNewMessages = false;
         navManager.NavigateTo(RouteToChat);
     }
-
-    string cardClass(string rowIdentifier) =>
-    (string)activeAid == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid; background: var(--mud-palette-surface); " : "background: var(--mud-palette-surface);";
 
     public static IStateService.States CurrentState { get; set; } = IStateService.States.Unknown;
 

@@ -14,7 +14,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
-@inject ILogger<Identifiers> logger
+@inject ILogger<IdentifiersView> logger
 @inject IdentifiersService identifiersService;
 
 <!-- For KERI
@@ -56,10 +56,10 @@ Backer Address  (copy)
             -->
             @foreach (CachedAid cachedAid in cachedAids)
             {
-                <MudCard Style="@cardClass(cachedAid.Alias)">
+                <MudCard Style="@cardClass(activeAid, cachedAid.Alias)">
                     <MudExpansionPanel Dense="true">
                         <TitleContent>
-                            <div class="d-flex" style="align-items:center;">
+                            <div class="d-flex" style="align-items:center; @cardClass((string)activeAid, cachedAid.Prefix)">
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">
                                     <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
                                         <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
@@ -137,16 +137,13 @@ Backer Address  (copy)
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
 
-
-        cachedAids.Add(new CachedAid("0123456789abcdefghij", "Johnny as Founder at J Foundation", "localhost"));
-        cachedAids.Add(new CachedAid("qwerqwerqwerqwerqwerqwerqwerqwer", "J Foundation on X", "localhost"));
-        cachedAids.Add(new CachedAid("ertywertwertwertwertwertwertwert", "J. Suhr as Partner at Suhr Consortium", "localhost"));
-
-        var res = await identifiersService.GetIdentifierService("11111");
-        logger.LogInformation($"GetIdentifierService: {res}");
+        var res = await identifiersService.GetIdentifierHeadlines();//   .GetIdentifierService("11111");
         if(res != null)
         {
-            cachedAids.Add(res.Value.Test());
+            foreach (var item in res.Value)
+            {
+                cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
+            }
         };
     }
 
@@ -165,8 +162,8 @@ Backer Address  (copy)
         this.StateHasChanged();
     }
 
-    string cardClass(string rowIdentifier) =>
-        activeAid == rowIdentifier ? "border:#4a7b93; border-width:2px; border-style:solid;" : "";
+    public static string cardClass(string activeAid2, string rowIdentifier) =>
+        (string)activeAid2 == rowIdentifier ? "border-left: 4px solid var(--mud-palette-text-primary);" : "";
 
     // Set ActiveDid based on value of activeDidIdentifier,
     // retrieved from picker or via preferences
