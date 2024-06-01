@@ -3,7 +3,7 @@ using System.Runtime.Versioning;
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService
 {
-    // keep the imported method and property names aligned with Signify_ts_shim.ts
+    // keep the imported method and property names aligned with signify_ts_shim.ts
     [SupportedOSPlatform("browser")]
     public partial class Signify_ts_shim
     {

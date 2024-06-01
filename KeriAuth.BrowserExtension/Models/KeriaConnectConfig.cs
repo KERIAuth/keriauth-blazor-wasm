@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using KeriAuth.BrowserExtension.Services;
+using System.Text.Json.Serialization;
 
 namespace KeriAuth.BrowserExtension.Models
 {
@@ -10,7 +11,7 @@ namespace KeriAuth.BrowserExtension.Models
             KeriaConnectAlias = keriaConnectAlias;
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
-            PassphraseHash = passphraseHash;
+            PasscodeHash = passphraseHash;
         }
 
         [JsonPropertyName("keriaConnectAlias")]
@@ -23,15 +24,21 @@ namespace KeriAuth.BrowserExtension.Models
         public string BootUrl { get; init; }
 
         [JsonPropertyName("ph")]
-        public string? PassphraseHash { get; init; }
+        public string? PasscodeHash { get; init; }
 
-        public bool IsConfigured()
+        public bool IsConfigured(IStateService.States currentAppState)
         {
-
+            if ( currentAppState == IStateService.States.AuthenticatedConnected 
+                || currentAppState == IStateService.States.AuthenticatedDisconnected
+                || currentAppState == IStateService.States.Unauthenticated
+                )
+            {
+                return true;
+            }
             if (string.IsNullOrEmpty(KeriaConnectAlias)
-                || string.IsNullOrWhiteSpace(PassphraseHash)
-                || PassphraseHash == "0"
-                || PassphraseHash == ""
+                || string.IsNullOrWhiteSpace(PasscodeHash)
+                || PasscodeHash == "0"
+                || PasscodeHash == ""
                 || string.IsNullOrEmpty(AdminUrl)
                 || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)
                       && (adminUriResult.Scheme == Uri.UriSchemeHttp || adminUriResult.Scheme == Uri.UriSchemeHttps))

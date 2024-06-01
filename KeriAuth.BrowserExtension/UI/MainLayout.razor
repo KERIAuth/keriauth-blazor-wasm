@@ -63,13 +63,14 @@
         <MudOverlay DarkBackground LightBackground @bind-Visible="@isProfilePanelOpen" OnClick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
                 <MudList Clickable="true" @bind-SelectedValue="activeAid" Class="bt-sad-4;" Style="padding: 0px">
-                    @foreach (var identifierHeadline in identifiersHeadlines) {
+                    @foreach (var identifierHeadline in identifiersHeadlines)
+                    {
                         <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersView.cardClass((string)activeAid, identifierHeadline.Prefix)" Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2">
                                     <MudStack>
-                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                        <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
                                         <MudTooltip Text="Copy to clipboard" Delay="1000" Placement="Placement.Left">
                                             <MudText Typo="Typo.body2" Style="margin-left: -8px; margin-top: -12px;">
                                                 <Ellipsis StringContent="@identifierHeadline.Prefix" IncludeCopyIcon="true"></Ellipsis>
@@ -176,15 +177,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                                        See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                            See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                                        @@media (min-width: 960px) {
-                                                                                                                                                        .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                                        margin-left: 0;
-                                                                                                                                                        width: inherit;
-                                                                                                                                                        }
-                                                                                                                                                        }
-                                                                                                                                                        */
+                                                                                                                                                            @@media (min-width: 960px) {
+                                                                                                                                                            .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                            margin-left: 0;
+                                                                                                                                                            width: inherit;
+                                                                                                                                                            }
+                                                                                                                                                            }
+                                                                                                                                                            */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -307,7 +308,7 @@
     {
         get
         {
-            return stateService.GetState() != IStateService.States.Authenticated || string.IsNullOrEmpty((string)activeAid);
+            return stateService.GetState() != IStateService.States.AuthenticatedDisconnected || string.IsNullOrEmpty((string)activeAid);
         }
     }
     bool isInPopup;
@@ -398,10 +399,22 @@
             await js.InvokeVoidAsync("window.registerInactivityTimerResetEvents", DotNetObjectReference.Create(this));
         }
 
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res.IsSuccess)
+        if (stateService.GetState() == IStateService.States.AuthenticatedDisconnected)
         {
-            identifiersHeadlines = res.Value;
+            // await UpdateIdenticon();
+            var res = await identifiersService.GetIdentifierHeadlines();
+            if (res.IsSuccess)
+            {
+                identifiersHeadlines = res.Value;
+            }
+            else
+            {
+                identifiersHeadlines = [];
+            }
+        }
+        else
+        {
+            identifiersHeadlines = [];
         }
     }
 
@@ -461,7 +474,7 @@
         await Task.Delay(0);
         switch (CurrentState, updatedState)
         {
-            case (IStateService.States.Authenticated, IStateService.States.Unauthenticated):
+            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 navManager.NavigateTo(RouteToStart);
                 return;

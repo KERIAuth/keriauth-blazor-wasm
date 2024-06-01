@@ -28,12 +28,12 @@
     "http://*/*"
   ],
   "optional_permissions": [
-    "clipboardWrite"
   ],
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "clipboardWrite"
   ],
   "short_name": "KERI Auth",
   "version": "0.1.0",

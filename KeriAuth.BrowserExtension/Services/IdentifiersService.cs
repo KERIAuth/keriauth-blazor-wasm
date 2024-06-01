@@ -32,7 +32,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
         {
-            logger.LogWarning("GetIdentifierHeadlines: Getting identifiers");
+            logger.LogInformation("GetIdentifierHeadlines: Getting identifiers");
             var res2 = await signifyClientService.GetIdentifiers();
             if (res2 is null || res2.IsFailed)
             {
@@ -42,12 +42,12 @@ namespace KeriAuth.BrowserExtension.Services
             }
             if (res2.Value is not null && res2.IsSuccess)
             {
-                logger.LogWarning("GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count());
+                logger.LogWarning("GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count);
                 var headlines = new List<IdentifierHeadline>();
                 
                 foreach (Aid item in res2.Value.Aids)
                 {
-                    // TODO ??  set the current identifierService in the Headlin?
+                    // TODO ??  set the current identifierService in the Headline?
                     var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), logger, storageService);
                     headlines.Add(new IdentifierHeadline(item.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));
                 }

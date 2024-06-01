@@ -70,19 +70,24 @@ const getState = async () => {
     return await _client?.state();
 };
 
-export const connect = async (agentUrl: string, passcode: string) => {
+export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
+    _client = null;
+    await ready();
+    console.log(`signify_ts_shim: connect: creating client...`);
+    _client = new SignifyClient(agentUrl, passcode, Tier.low, "");
+
     try {
-        await ready();
-        _client = new SignifyClient(agentUrl, passcode, Tier.low);
         await _client.connect();
-        //const state = await getState();
-        // await userService.setControllerId(state?.controller?.state?.i);
-        //setTimeoutAlarm();
-    } catch (error) {
-        console.error(error);
-        _client = null;
-        return { error };
+        console.info("signify_ts_shim: client connected");
+    } catch {
+        console.error("signify_ts_shim: client could not connect");
     }
+
+    const state = await getState();
+    console.log(`signify_ts_shim: connect: connected`);
+    console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO throw exception?
+
+    return objectToJson(_client);
 };
 
 // Type guard to verify if an object is a SignifyClient or something close to it

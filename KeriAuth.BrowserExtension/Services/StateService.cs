@@ -25,7 +25,8 @@ public class StateService : IStateService
     {
         ToInitializing,
         ToUnconfigured,
-        ToAuthenticated,
+        ToAuthenticatedDisconnected,
+        ToAuthenticatedConnected,
         ToUnauthenticated,
     }
 
@@ -47,12 +48,12 @@ public class StateService : IStateService
     public async Task<bool> IsAuthenticated()
     {
         await Task.Delay(0);
-        return stateMachine.IsInState(States.Authenticated);
+        return stateMachine.IsInState(States.AuthenticatedDisconnected);
     }
 
     public async Task Authenticate()
     {
-        await stateMachine.FireAsync(Triggers.ToAuthenticated);
+        await stateMachine.FireAsync(Triggers.ToAuthenticatedDisconnected);
     }
 
     public async Task Unauthenticate()
@@ -60,6 +61,11 @@ public class StateService : IStateService
         // "log out"
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
         // await walletService.CloseWallet();
+    }
+
+    public async Task ConfirmConnected()
+    {
+        await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
     }
 
     IDisposable IObservable<States>.Subscribe(IObserver<States> stateObserver)
@@ -127,13 +133,17 @@ public class StateService : IStateService
         stateMachine.Configure(States.Unauthenticated)
             .OnEntryAsync(async () => await OnEntryUnauthenticated())
             .PermitReentry(Triggers.ToUnauthenticated)
-            .Permit(Triggers.ToAuthenticated, States.Authenticated)
+            .Permit(Triggers.ToAuthenticatedDisconnected, States.AuthenticatedDisconnected)
             .Permit(Triggers.ToInitializing, States.Initializing);
 
-        stateMachine.Configure(States.Authenticated)
-            .OnEntryAsync(async () => await OnEntryAuthenticated())
+        stateMachine.Configure(States.AuthenticatedDisconnected)
+            .OnEntryAsync(async () => await OnEntryAuthenticatedDisconnected())
             .Permit(Triggers.ToInitializing, States.Initializing)
-            .Permit(Triggers.ToUnauthenticated, States.Unauthenticated);
+            .Permit(Triggers.ToUnauthenticated, States.Unauthenticated)
+            .Permit(Triggers.ToAuthenticatedConnected, States.AuthenticatedConnected);
+
+        stateMachine.Configure(States.AuthenticatedConnected)
+            .OnEntryAsync(async () => await OnEntryAuthenticatedConnected());
     }
 
     private static async Task OnEntryUnconfigured()
@@ -141,7 +151,13 @@ public class StateService : IStateService
         await Task.Delay(0);
     }
 
-    private static async Task OnEntryAuthenticated()
+    private static async Task OnEntryAuthenticatedDisconnected()
+    {
+        await Task.Delay(0);
+    }
+
+
+    private static async Task OnEntryAuthenticatedConnected()
     {
         await Task.Delay(0);
     }

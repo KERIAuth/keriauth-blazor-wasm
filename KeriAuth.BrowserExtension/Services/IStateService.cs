@@ -11,7 +11,8 @@ public interface IStateService : IObservable<States>
         Initializing,
         Unconfigured,
         Unauthenticated,
-        Authenticated
+        AuthenticatedDisconnected,
+        AuthenticatedConnected
     }
 
     public States GetState();
@@ -26,5 +27,7 @@ public interface IStateService : IObservable<States>
 
     public Task TimeOut();
 
+    public Task ConfirmConnected();
+    
     public Task<bool> IsAuthenticated();
 }

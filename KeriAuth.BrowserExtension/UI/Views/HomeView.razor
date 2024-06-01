@@ -10,6 +10,7 @@
 @inject IJSRuntime js
 @inject IStateService stateService
 @inject ILogger<HomeView> logger
+@inject IdentifiersService identifiersService
 @using MudBlazor
 
 <div id="Home" class="bt-body-page">
@@ -26,48 +27,51 @@
                 -->
             <MudStack AlignItems="AlignItems.Center">
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">8</MudText>
+                    <div style="text-align:right; width:135px;">
+                        Connected | Not Connected | Not Ready
+                        <MudIcon Class="align-right" Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
+                    </div>
+                    <MudText Class="align-left" Style="width:200px">KERIA Agent Service</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">@identifiersCount</MudText>
                     <MudText Class="align-left" Style="width:200px">
                         <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)"> Identifiers</MudLink>
                     </MudText>
                 </MudStack>
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">88</MudText>
+                    <MudText Style="width:135px; text-align:right;">Identicon, Alias, Manage</MudText>
+                    <MudText Class="align-left" Style="width:200px">Selected Identifier</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;"></MudText>
+                    <MudText Class="align-left" Style="width:200px">Identifier Details:</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
                     <MudText Class="align-left" Style="width:200px">Credentials</MudText>
                 </MudStack>
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">3</MudText>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
                     <MudText Class="align-left" Style="width:200px">Groups</MudText>
                 </MudStack>
 
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">4</MudText>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
                     <MudText Class="align-left" Style="width:200px">Registered Websites</MudText>
                 </MudStack>
 
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">0</MudText>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
                     <MudText Class="align-left" Style="width:200px">Pending Website Requests</MudText>
                 </MudStack>
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">0</MudText>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
                     <MudText Class="align-left" Style="width:200px">Pending KERIA Agent Service Requests</MudText>
                 </MudStack>
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">88,888</MudText>
+                    <MudText Style="width:135px; text-align:right;">888</MudText>
                     <MudText Class="align-left" Style="width:200px">Notifications</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <div style="text-align:right; width:135px;">
-                        <MudIcon Class="align-right" Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                    </div>
-                    <MudText Class="align-left" Style="width:200px">KERIA Agent Service Live</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <div style="text-align:right; width:135px;">
-                        <MudIcon Class="align-right" Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                    </div>
-                    <MudText Class="align-left" Style="width:200px">KERIA Agent Service Ready</MudText>
                 </MudStack>
             </MudStack>
         </div>
@@ -79,7 +83,15 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
+
+        var x = await identifiersService.GetIdentifierHeadlines();
+        if (x is not null && x.IsSuccess)
+        {
+            identifiersCount = x.Value.Count();
+        }
     }
+
+    private int identifiersCount = 0;
 
     private async Task CloseWallet()
     {

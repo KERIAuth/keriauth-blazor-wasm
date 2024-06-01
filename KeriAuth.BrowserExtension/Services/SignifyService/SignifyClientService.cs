@@ -50,25 +50,24 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                     }
                     else
                     {
-                        throw new NotImplementedException();
-                        //var res = await Signify_ts_shim.Connect(agentUrl, bootUrl, passcode);
-                        //Debug.Assert(res is not null);
-                        //// Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
-                        // logger.LogInformation("SignifyClientService: Connect: {@Details}", res);
-                        //// TODO fix
-                        //return true.ToResult<bool>();
+                        var res = await Signify_ts_shim.Connect(agentUrl, passcode);
+                        Debug.Assert(res is not null);
+                        // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
+                        logger.LogInformation("Connect: {connectResults}", res);
+                        // TODO fix
+                        return true.ToResult();
                     }
                 }
                 else return false.ToResult();
             }
             catch (JSException e)
             {
-                logger.LogWarning("SignifyClientService: Connect: JSException: {e}", e);
+                logger.LogWarning("Connect: JSException: {e}", e);
                 return Result.Fail<bool>("SignifyClientService: Connect: Exception: " + e);
             }
             catch (Exception e)
             {
-                logger.LogWarning("SignifyClientService: Connect: Exception: {e}", e);
+                logger.LogWarning("Connect: Exception: {e}", e);
                 return Result.Fail<bool>("SignifyClientService: Connect: Exception: " + e);
             }
         }
@@ -111,7 +110,8 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
 
         public Task<Result<bool>> Connect()
         {
-            return Task.FromResult(Result.Fail<bool>("Not implemented"));
+            throw new NotImplementedException();
+            // return Task.FromResult(Result.Fail<bool>("Not implemented"));
         }
 
         public async Task<Result<string>> CreatePersonAid(string aidName)
