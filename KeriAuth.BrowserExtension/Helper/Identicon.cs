@@ -14,15 +14,15 @@ public class Identicon
         }
 
         // https://jdenticon.com/icon-designer.html?config=000000ff0141640026641e5a
+
         // Create a vibrant background color hue, with optimal saturation and billiance.
         // Derive a deterministic hue value between [0, 1] from a hash of the provide string
-        byte[] hashBytes = HashGenerator.ComputeHash(value, "SHA1");
-        int hashInt = Math.Abs(BitConverter.ToInt32(hashBytes, 0));
-        float hue = hashInt % 100 / 100f;
+        int hashInt = Math.Abs(BitConverter.ToInt32(HashGenerator.ComputeHash(value, "SHA1"), 0));
+        float backColorHue = hashInt % 100 / 100f;
 
         Jdenticon.Identicon.DefaultStyle = new IdenticonStyle
         {
-            BackColor = Jdenticon.Rendering.Color.FromHsl(hue, 1f, 0.5f),
+            BackColor = Jdenticon.Rendering.Color.FromHsl(backColorHue, 1f, 0.5f),
             ColorLightness = Range.Create(0f, 1f),
             GrayscaleLightness = Range.Create(0f, 1f),
             ColorSaturation = 1.00f,
