@@ -42,7 +42,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
             if (res2.Value is not null && res2.IsSuccess)
             {
-                logger.LogWarning("GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count);
+                logger.LogInformation("GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count);
                 var headlines = new List<IdentifierHeadline>();
                 
                 foreach (Aid item in res2.Value.Aids)

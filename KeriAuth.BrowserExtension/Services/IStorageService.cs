@@ -21,7 +21,7 @@ public interface IStorageService : IObservable<Preferences>
     Task RemoveItem<T>();
 
     /// <summary>
-    /// Load a specific object from the storage e.g. the EncryptedWallet
+    /// Load a specific object from the storage, where the key is the class name
     /// </summary>
     /// <typeparam name="T">Class which was stored</typeparam>
     /// <returns>A new instance of that class filled with the content from the storage</returns>
