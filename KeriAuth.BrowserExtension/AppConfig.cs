@@ -12,8 +12,6 @@
         public const string RouteToContacts = "/Contacts";
         public const string RouteToStart = "/Start";
         public const string RouteToDelete = "/Delete";
-        public const string RouteToRestore = "/Restore";
-        public const string RouteToCreate = "/Create";
         public const string RouteToChat = "/Chat";
         public const string RouteToNewInstall = "/NewInstall";
         public const string RouteToReleaseHistory = "/ReleaseHistory";
@@ -34,6 +32,13 @@
         public const string RouteToNotifications = "Notifications";
         public const string RouteToSchemas = "Schemas";
         public const string RouteToManageAgents = "Agents";
+        public const string RouteToWelcomeView = "/Welcome";
+        public const string RouteToNewReleaseView = "NewRelease";
+        public const string RouteToTermsView = "Terms";
+        public const string RouteToConfigureView = "Configure";
+        public const string RouteToUnlockView = "Unlock";
+        public const string RouteToConnectingView = "Connecting";
+
 
         // Idle Timeout
         public const int IdleDebounceTimeSpanSecs = 5;

@@ -177,15 +177,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                                            See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                                    See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                                            @@media (min-width: 960px) {
-                                                                                                                                                            .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                                            margin-left: 0;
-                                                                                                                                                            width: inherit;
-                                                                                                                                                            }
-                                                                                                                                                            }
-                                                                                                                                                            */
+                                                                                                                                                                    @@media (min-width: 960px) {
+                                                                                                                                                                    .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                                    margin-left: 0;
+                                                                                                                                                                    width: inherit;
+                                                                                                                                                                    }
+                                                                                                                                                                    }
+                                                                                                                                                                    */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -348,8 +348,17 @@
         public string Version_name { get; set; } = "unset verson name";
     }
 
-    // TODO P2: need to revisit this list, especially RouteToManagePrefs
-    static List<string> ViewsNotRequiringAuth = new() { RouteToStart, RouteToDelete, RouteToRestore, RouteToCreate, RouteToNewInstall, RouteToReleaseHistory, RouteToManagePrefs };
+    static List<string> ViewsNotRequiringAuth = new() {
+        RouteToStart,
+        RouteToDelete,
+        RouteToNewInstall,
+        RouteToReleaseHistory,
+        RouteToWelcomeView,
+        RouteToNewReleaseView,
+        RouteToTermsView,
+        RouteToConfigureView,
+        RouteToUnlockView
+    };
 
     private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;

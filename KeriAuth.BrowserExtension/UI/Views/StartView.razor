@@ -29,7 +29,6 @@
 @using System.Security.Cryptography;
 
 @inject IPreferencesService preferencesService
-<!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IExtensionEnvironmentService extensionEnvironmentService
@@ -40,7 +39,7 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
-<div id="Start" class="bt-body-page">
+<div id="@this.GetType().Name" class="bt-body-page">
     <!-- This Start view will be re-navigated during user's configuration and authentication flows, so the structure of the if/else-if constructs will make more sense with that understanding  ->
     @if (!isInitialStateFetched)
     {

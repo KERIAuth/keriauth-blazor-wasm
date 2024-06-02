@@ -5,7 +5,7 @@
 @inject ILogger<ReleaseHistoryView> logger
 @using static KeriAuth.BrowserExtension.AppConfig;
 
-<div id="Backup" class="bt-body-page">
+<div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Release History</MudText>
