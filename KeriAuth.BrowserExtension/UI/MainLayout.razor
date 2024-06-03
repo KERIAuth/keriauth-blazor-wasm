@@ -380,6 +380,7 @@
             }
             else
             {
+                logger.LogInformation("Navigating to Start because not authenticated");
                 navManager.NavigateTo(RouteToStart);
             }
         }

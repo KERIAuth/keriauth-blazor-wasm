@@ -139,7 +139,7 @@ Backer Address  (copy)
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res != null)
         {
-            logger.LogWarning("GetIdentifierHeadlines: {1}", res.Value.Count);
+            logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
             foreach (var item in res.Value)
             {
                 // logger.LogWarning("adding aid {1}", item.Prefix);

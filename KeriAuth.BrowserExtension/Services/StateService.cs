@@ -46,7 +46,7 @@ public class StateService : IStateService
     public async Task<bool> IsAuthenticated()
     {
         await Task.Delay(0);
-        return stateMachine.IsInState(States.AuthenticatedDisconnected);
+        return stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
     }
 
     public async Task Authenticate()
@@ -141,7 +141,9 @@ public class StateService : IStateService
             .Permit(Triggers.ToAuthenticatedConnected, States.AuthenticatedConnected);
 
         stateMachine.Configure(States.AuthenticatedConnected)
-            .OnEntryAsync(async () => await OnEntryAuthenticatedConnected());
+            .OnEntryAsync(async () => await OnEntryAuthenticatedConnected())
+            .Permit(Triggers.ToInitializing, States.Initializing)
+            .Permit(Triggers.ToUnauthenticated, States.Unauthenticated);
     }
 
     private async Task OnEntryUnconfigured()

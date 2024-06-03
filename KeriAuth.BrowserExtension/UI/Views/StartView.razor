@@ -118,11 +118,6 @@
 </style>
 
 @code {
-    private OnboardState? onboardState;
-    private MudTextField<string> newPasswordField = new();
-    private MudTextField<string> confirmPasswordField = new();
-    private bool isInitialStateFetched { get; set; }
-
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
@@ -141,6 +136,7 @@
 
         // Get the onboardState from storage and route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
+        OnboardState? onboardState;
         if (res.IsFailed || res.Value is null)
         {
             onboardState = new OnboardState();
