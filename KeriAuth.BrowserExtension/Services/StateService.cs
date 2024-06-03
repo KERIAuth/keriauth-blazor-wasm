@@ -49,9 +49,16 @@ public class StateService : IStateService
         return stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
     }
 
-    public async Task Authenticate()
+    public async Task Authenticate(bool isConnected)
     {
-        await stateMachine.FireAsync(Triggers.ToAuthenticatedDisconnected);
+        if (isConnected)
+        {
+            await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
+        }
+        else
+        {
+            await stateMachine.FireAsync(Triggers.ToAuthenticatedDisconnected);
+        }
     }
 
     public async Task Unauthenticate()

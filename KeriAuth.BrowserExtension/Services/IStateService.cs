@@ -21,7 +21,7 @@ public interface IStateService : IObservable<States>
 
     public Task Configure();
 
-    public Task Authenticate();
+    public Task Authenticate(bool isConnected);
 
     public Task Unauthenticate();
 

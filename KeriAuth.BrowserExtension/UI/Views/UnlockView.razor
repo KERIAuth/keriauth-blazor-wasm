@@ -131,7 +131,7 @@
         }
         if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
         {
-            await stateService.Authenticate();
+            await stateService.Authenticate(false);
             IsLocked = false;
             var isConnected = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             if (isConnected.IsFailed)

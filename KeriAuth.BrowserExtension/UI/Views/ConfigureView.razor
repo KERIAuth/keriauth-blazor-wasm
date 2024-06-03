@@ -315,7 +315,7 @@
                 return;
             }
             await stateService.Configure();
-            await stateService.Authenticate(); // TODO EE! temporary location here, to enable testing
+            await stateService.Authenticate(true); // TODO EE! temporary location here, to enable testing
             // TODO EE! reactive effects of stateservice should disable the Connect button and enable the Next button??
             // navManager.NavigateTo("Home");
         }
