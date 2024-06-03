@@ -118,7 +118,6 @@
 </style>
 
 @code {
-    private bool isSuccess;
     private OnboardState? onboardState;
     private MudTextField<string> newPasswordField = new();
     private MudTextField<string> confirmPasswordField = new();
@@ -133,7 +132,7 @@
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
 
-    private static KeriaConnectConfig? keriaConnectConfig;
+    private KeriaConnectConfig? keriaConnectConfig;
 
     protected override async Task OnParametersSetAsync()
     {

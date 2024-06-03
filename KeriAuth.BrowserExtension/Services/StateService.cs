@@ -8,16 +8,14 @@ public class StateService : IStateService
 {
     private readonly StateMachine<States, Triggers> stateMachine;
     private readonly IStorageService storageService;
-    private readonly IWalletService walletService;
     private readonly List<IObserver<States>> stateObservers = [];
     private readonly ILogger<StateService> logger;
 
-    public StateService(IStorageService storageService, IWalletService walletService, ILogger<StateService> logger)
+    public StateService(IStorageService storageService, ILogger<StateService> logger)
     {
         this.storageService = storageService;
         this.stateMachine = new(States.Uninitialized);
         ConfigureStateMachine();
-        this.walletService = walletService;
         this.logger = logger;
     }
 
@@ -146,23 +144,23 @@ public class StateService : IStateService
             .OnEntryAsync(async () => await OnEntryAuthenticatedConnected());
     }
 
-    private static async Task OnEntryUnconfigured()
+    private async Task OnEntryUnconfigured()
     {
         await Task.Delay(0);
     }
 
-    private static async Task OnEntryAuthenticatedDisconnected()
+    private async Task OnEntryAuthenticatedDisconnected()
     {
         await Task.Delay(0);
     }
 
 
-    private static async Task OnEntryAuthenticatedConnected()
+    private async Task OnEntryAuthenticatedConnected()
     {
         await Task.Delay(0);
     }
 
-    private static async Task OnEntryUnauthenticated()
+    private async Task OnEntryUnauthenticated()
     {
         await Task.Delay(0); // hack
         //var quickLoginResult = await walletService.CheckQuickLogin();
@@ -183,37 +181,19 @@ public class StateService : IStateService
     {
         try
         {
-            // WalletService must be initialized by now
-            var isWalletExists = await walletService.CheckIfWalletExists();
-            if (!isWalletExists)
+            var appStateResult = await storageService.GetItem<AppState>();
+            if (appStateResult is not null
+                && appStateResult.Value is not null
+                && appStateResult.IsSuccess
+                && appStateResult.Value.CurrentState != States.Unconfigured)
             {
-                await stateMachine.FireAsync(Triggers.ToUnconfigured);
+                await stateMachine.FireAsync(Triggers.ToUnauthenticated);
                 return;
             }
             else
             {
-                var appStateResult = await storageService.GetItem<AppState>();
-                if (appStateResult is not null
-                    && appStateResult.Value is not null
-                    && appStateResult.IsSuccess
-                    && appStateResult.Value.CurrentState != States.Unconfigured)
-                {
-                    await stateMachine.FireAsync(Triggers.ToUnauthenticated);
-                    return;
-                }
-                else
-                {
-                    if (isWalletExists)
-                    {
-                        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
-                        return;
-                    }
-                    else
-                    {
-                        await stateMachine.FireAsync(Triggers.ToUnconfigured);
-                        return;
-                    }
-                }
+                await stateMachine.FireAsync(Triggers.ToUnconfigured);
+                return;
             }
         }
         catch (Exception e)

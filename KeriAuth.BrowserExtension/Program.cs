@@ -26,7 +26,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddMudServices();
 builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironmentService>();
-builder.Services.AddSingleton<IWalletService, WalletService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddSingleton<IStateService, StateService>();
 builder.Services.AddSingleton<IAlarmService, AlarmService>();

@@ -144,7 +144,7 @@
     }
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
-    private static KeriaConnectConfig? keriaConnectConfig;
+    private KeriaConnectConfig? keriaConnectConfig;
 
     private bool IsKeriaConfigured()
     {
@@ -171,7 +171,7 @@
         // You can check for validity here if needed
     }
 
-    private static bool UseExistingPasscode { get; set; } = true;
+    private bool UseExistingPasscode { get; set; } = true;
 
     private PasscodeModel configuredPasscodeModel = new PasscodeModel();
 
