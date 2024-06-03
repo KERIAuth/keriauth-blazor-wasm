@@ -2,10 +2,10 @@
 
 namespace KeriAuth.BrowserExtension.Models
 {
-    public class OnboardState
+    public record OnboardState
     {
         [JsonConstructor]
-        public OnboardState(bool hasAcknowledgedInstall, bool hasAcknowledgedNewVersion, DateTime tosAgreedUtc, int tosAgreedHash, DateTime privacyAgreedUtc, int privacyAgreedHash, bool isInstallOnboarded)
+        public OnboardState(bool hasAcknowledgedInstall = false, bool hasAcknowledgedNewVersion = false, DateTime? tosAgreedUtc = null, int tosAgreedHash = 0, DateTime? privacyAgreedUtc = null, int privacyAgreedHash = 0)
         {
             HasAcknowledgedInstall = hasAcknowledgedInstall;
             HasAcknowledgedNewVersion = hasAcknowledgedNewVersion;
@@ -13,7 +13,6 @@ namespace KeriAuth.BrowserExtension.Models
             TosAgreedHash = tosAgreedHash;
             PrivacyAgreedUtc = privacyAgreedUtc;
             PrivacyAgreedHash = privacyAgreedHash;
-            IsInstallOnboarded = isInstallOnboarded;
         }
 
         [JsonPropertyName("hasAcknowledgedInstall")]
@@ -23,18 +22,30 @@ namespace KeriAuth.BrowserExtension.Models
         public bool HasAcknowledgedNewVersion { get; init; }
 
         [JsonPropertyName("tosAgreedUtc")]
-        public DateTime TosAgreedUtc { get; init; }
+        public DateTime? TosAgreedUtc { get; init; }
 
         [JsonPropertyName("tosAgreedHash")]
         public int TosAgreedHash { get; init; }
 
         [JsonPropertyName("privacyAgreedUtc")]
-        public DateTime PrivacyAgreedUtc { get; init; }
+        public DateTime? PrivacyAgreedUtc { get; init; }
 
         [JsonPropertyName("privacyAgreedHash")]
         public int PrivacyAgreedHash { get; init; }
-
-        [JsonPropertyName("isOnboarded")]
-        public bool IsInstallOnboarded { get; init; }
+        
+        public bool IsInstallOnboarded()
+        {
+            if (!HasAcknowledgedInstall
+                || !HasAcknowledgedNewVersion
+                || TosAgreedUtc is null
+                || TosAgreedHash == 0
+                || PrivacyAgreedUtc is null
+                || PrivacyAgreedHash == 0
+            )
+            {
+                return false;
+            }
+            return true;
+        }
     }
 }

@@ -1,0 +1,130 @@
+﻿@page "/Terms"
+
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.UIHelper;
+@using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
+@using static KeriAuth.BrowserExtension.Helper.GetNumberFromHash;
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<TermsView> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+
+<div id="@this.GetType().Name" class="bt-body-page">
+
+
+    <div class="d-flex gap-3 bt-main">
+        <MudStack>
+            <MudText Typo="Typo.h6">Review and agree to Terms of Use and Privacy Policy</MudText>
+            <MudStack Class="bt-create-card-top-scrollable">
+                <div id="bt-terms-and-privacy">
+                    <MudStack Class="d-flex">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
+                        @(releaseMarkup)
+                    </MudStack>
+                    <MudDivider></MudDivider>
+                    <MudStack Class="d-flex">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
+                        @(termsMarkup)
+                    </MudStack>
+                    <MudDivider></MudDivider>
+                    <MudStack Class="d-flex">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
+                        @(privacyMarkup)
+                    </MudStack>
+                </div>
+                <MudDivider />
+                <MudStack class="d-flex mt-5 justify-center" Style="align-items:center;">
+                    <MudCheckBox @bind-Value="isTermsAgreed" data-testid="tosCheckbox">I agree to the above Terms of Use and Privacy Policy</MudCheckBox>
+                </MudStack>
+            </MudStack>
+        </MudStack>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        -->
+        <MudSpacer></MudSpacer>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!isTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
+    </MudStack>
+
+</div>
+
+@code {
+    private const string releaseUrlPath = "content/release.html";
+    private const string termsUrlPath = "content/terms.html";
+    private const string privacyUrlPath = "content/privacy.html";
+    private static MarkupString releaseMarkup = new("Placeholder for Release Notes");
+    private static MarkupString termsMarkup = new("Placeholder for Terms of Use");
+    private static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
+    private bool isTermsAgreed;
+    private static int termsMarkupHash;
+    private static int privacyMarkupHash;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+
+        releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
+        termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
+        privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
+        termsMarkupHash = HashInt(termsMarkup.Value);
+        privacyMarkupHash = HashInt(privacyMarkup.Value);
+
+        var res = await storageService.GetItem<OnboardState>();
+        if (res.IsFailed)
+        {
+            throw new InvalidOperationException("Failed to get OnboardState");
+        }
+        onboardState = res.Value;
+    }
+
+    private OnboardState? onboardState;
+
+    private async Task OnTermsAgreed()
+    {
+        if (onboardState is null)
+        {
+            throw new InvalidOperationException("OnboardState is null");
+        }
+        var newOnboardState = onboardState with
+            {
+                TosAgreedHash = termsMarkupHash,
+                TosAgreedUtc = DateTime.UtcNow,
+                PrivacyAgreedHash = privacyMarkupHash,
+                PrivacyAgreedUtc = DateTime.UtcNow,
+            };
+        _ = await storageService.SetItem<OnboardState>(newOnboardState);
+        navManager.NavigateTo(RouteToStart);
+    }
+}

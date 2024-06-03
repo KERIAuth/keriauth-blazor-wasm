@@ -3,38 +3,31 @@ using System.Text.Json.Serialization;
 
 namespace KeriAuth.BrowserExtension.Models
 {
-    public class KeriaConnectConfig
+    public record KeriaConnectConfig
     {
         [JsonConstructor]
-        public KeriaConnectConfig(string keriaConnectAlias, string adminUrl, string bootUrl, int passphraseHash)
+        public KeriaConnectConfig(string? keriaConnectAlias = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0 )
         {
             KeriaConnectAlias = keriaConnectAlias;
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
-            PasscodeHash = passphraseHash;
+            PasscodeHash = passcodeHash;
         }
 
-        [JsonPropertyName("keriaConnectAlias")]
-        public string KeriaConnectAlias { get; init; }
-
         [JsonPropertyName("adminUrl")]
-        public string AdminUrl { get; init; }
+        public string? AdminUrl { get; init; }
 
         [JsonPropertyName("bootUrl")]
-        public string BootUrl { get; init; }
+        public string? BootUrl { get; init; }
 
-        [JsonPropertyName("ph")]
+        [JsonPropertyName("keriaConnectAlias")]
+        public string? KeriaConnectAlias { get; init; }
+
+        [JsonPropertyName("passcodeHash")]
         public int PasscodeHash { get; init; }
 
-        public bool IsConfigured(IStateService.States currentAppState)
+        public bool IsConfigured()
         {
-            if ( currentAppState == IStateService.States.AuthenticatedConnected 
-                || currentAppState == IStateService.States.AuthenticatedDisconnected
-                || currentAppState == IStateService.States.Unauthenticated
-                )
-            {
-                return true;
-            }
             if (string.IsNullOrEmpty(KeriaConnectAlias)
                 || PasscodeHash == 0
                 || string.IsNullOrEmpty(AdminUrl)

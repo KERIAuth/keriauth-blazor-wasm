@@ -29,15 +29,15 @@
         public const string RouteToLicenses = "content/licenses.html";
         public const string RouteToRelease = "content/release.html";
         public const string RouteToGroups = "/Groups";
-        public const string RouteToNotifications = "Notifications";
-        public const string RouteToSchemas = "Schemas";
-        public const string RouteToManageAgents = "Agents";
+        public const string RouteToNotifications = "/Notifications";
+        public const string RouteToSchemas = "/Schemas";
+        public const string RouteToManageAgents = "/Agents";
         public const string RouteToWelcomeView = "/Welcome";
-        public const string RouteToNewReleaseView = "NewRelease";
-        public const string RouteToTermsView = "Terms";
-        public const string RouteToConfigureView = "Configure";
-        public const string RouteToUnlockView = "Unlock";
-        public const string RouteToConnectingView = "Connecting";
+        public const string RouteToNewReleaseView = "/NewRelease";
+        public const string RouteToTermsView = "/Terms";
+        public const string RouteToConfigureView = "/Configure";
+        public const string RouteToUnlockView = "/Unlock";
+        public const string RouteToConnectingView = "/Connecting";
 
 
         // Idle Timeout

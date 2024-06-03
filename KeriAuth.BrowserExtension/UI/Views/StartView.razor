@@ -40,239 +40,11 @@
 @inject ISnackbar snackbar
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <!-- This Start view will be re-navigated during user's configuration and authentication flows, so the structure of the if/else-if constructs will make more sense with that understanding  ->
-    @if (!isInitialStateFetched)
-    {
-                    <div class="d-flex gap-3 bt-main">
-                            <MudStack>
-                                <MudText Typo="Typo.h6">Loading...</MudText>
-                            </MudStack>
-                    </div>
-    }
-    else
-    {
-        if (IsFreshInstall)
-        {
-                                                                                                                                                                                        <div id=@nameof(IsFreshInstall) class="d-flex gap-3 bt-main">
-                                                                                                                                                                                                                                                        <MudStack>
-                                                                                                                                                                                                                                                            <MudText Typo="Typo.body1">
-                                                                                                                                                                                                                                                                Thank you for installing KERI Auth.
-                                                                                                                                                                                                                                                                We're excited to have you on board!
-                                                                                                                                                                                                                                                                <br />
-                                                                                                                                                                                                                                                                This release supports the following features:
-                                                                                                                                                                                                                                                                </MudText>
-                                                                                                                                                                                                                                                                <MudContainer>
-                                                                                                                                                                                                                                                                    <ul style="list-style-type:circle;">
-                                                                                                                                                                                                                                                                        <li>TBD</li>
-                                                                                                                                                                                                                                                                        <li>TBD</li>
-                                                                                                                                                                                                                                                                        </ul>
-                                                                                                                                                                                                                </MudContainer>
-                                                                                                                                                                                                                <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
-                                                                                                                                                                                                                </MudStack>
-                                                                                                                                                                                                            </div>
-                                                                                                                                                                                                            <MudStack Row="true" class="bt-button-tray">
-                                                                                                                                                                <MudSpacer></MudSpacer>
-                                                                                                                                                                <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await NextSection(nameof(IsFreshInstall)))" Class="justify-end" data-testid="next">Next</MudButton>
-                                                                                                                                                                </MudStack>
-        }
-        else if (IsNewRelease)
-        {
-                                                                                                                                                                <div id=@nameof(IsNewRelease) class="d-flex gap-3 bt-main">
-                                                                                                                                                                    <MudStack>
-                                                                                                                                                                        <MudText Typo="Typo.h6">Updated Release</MudText>
-                                                                                                                                                                        <MudText Typo="Typo.body1">
-                                                                                                                                                                            The version of software has been updated.
-                                                                                                                                                                        </MudText>
-                                                                                                                                                                        <MudText>For release history, see </MudText>
-                                                                                                                                                                        <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHistory)">release history</MudButton>
-                                                                                                                                                                    </MudStack>
-                                                                                                                                                                </div>
-                                                                                                                                                                <MudStack Row="true" class="bt-button-tray">
-                                                                                                                                                                    <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-                                                                                                                                                                        -->
-            <MudSpacer></MudSpacer>
-            <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNewRelease))" Class="justify-end" data-testid="next">Next</MudButton>
-            </MudStack>
-        }
-        else if (IsTermsAgreementNeeded)
-        {
-            <div id=@nameof(IsTermsAgreementNeeded) class="d-flex gap-3 bt-main">
-                <MudStack>
-                    <MudText Typo="Typo.h6">Review and agree to Terms of Use and Privacy Policy</MudText>
-                    <MudStack Class="bt-create-card-top-scrollable">
-                        <div id="bt-terms-and-privacy">
-                            <MudStack Class="d-flex">
-                                <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
-                                @(releaseMarkup)
-                            </MudStack>
-                            <MudDivider></MudDivider>
-                            <MudStack Class="d-flex">
-                                <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
-                                @(termsMarkup)
-                            </MudStack>
-                            <MudDivider></MudDivider>
-                            <MudStack Class="d-flex">
-                                <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
-                                @(privacyMarkup)
-                            </MudStack>
-                        </div>
-                        <MudDivider />
-                        <MudStack class="d-flex mt-5 justify-center" Style="align-items:center;">
-                            <MudCheckBox @bind-Value="isTermsAgreed" data-testid="tosCheckbox">I agree to the above Terms of Use and Privacy Policy</MudCheckBox>
-                        </MudStack>
-                    </MudStack>
-                </MudStack>
-            </div>
-            <MudStack Row="true" class="bt-button-tray">
-                <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-                -->
-                <MudSpacer></MudSpacer>
-                <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!isTermsAgreed)" OnClick="async () => await NextSection(nameof(IsTermsAgreementNeeded))" Class="justify-end" data-testid="next">Next</MudButton>
-            </MudStack>
-        }
-        else if (IsNotConfigured())
-        {
-            <div id=@nameof(IsNotConfigured) class="d-flex gap-3 bt-main">
-                <MudStack>
-                    <MudText Typo="Typo.h6">Configure and connect to your KERIA agent service</MudText>
-                    <MudStack Class="bt-create-card-top-scrollable">
-                        <MudTextField Label="Agent URL"
-                                      @bind-Value="@urlModel.AdminUrl"
-                                      For="@(() => urlModel.AdminUrl)"
-                                      Immediate="true"
-                                      OnBlur="@HandleOnBlur" />
-                        <MudTextField Label="Boot URL"
-                                      @bind-Value="@urlModel.BootUrl"
-                                      For="@(() => urlModel.BootUrl)"
-                                      Immediate="true"
-                                      OnBlur="@HandleOnBlur" />
-                        <MudText>Passcode</MudText>
-                        <MudRadioGroup T="Boolean" @bind-Value="UseExistingPasscode">
-                            <MudRadio Value="false">
-                                Create a new random one
-                            </MudRadio>
-                            <MudRadio Value="true">
-                                Use existing
-                            </MudRadio>
-                        </MudRadioGroup>
-                        @if (UseExistingPasscode)
-                        {
-                            <MudTextField Label="Your passcode"
-                                          InputType="InputType.Password"
-                                          @bind-Value="@configuredPasscodeModel.Passcode"
-                                          For="@(() => configuredPasscodeModel.Passcode)"
-                                          Immediate="true"
-                                          OnBlur="@HandleOnBlur" />
-                            <!-- TODO consider adding a Loading Button while connecting. See https://mudblazor.com/components/button#loading-button -->
-                            <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await StoreHashAndConnect())" Disabled="@(!IsValidNewInfo || IsKeriaConfigured )" Color="Color.Primary">Connect</MudButton>
-                        }
-                        else
-                        {
-                            <MudTextField Label="Generated random passcode"
-                                          InputType="InputType.Password"
-                                          @bind-Value="@RandomPasscode"
-                                          ReadOnly="true"
-                                          Immediate="true" />
-                            <!-- TODO implmement Reveal and CopyToClipboard -->
-                            <MudCheckBox @bind-Value="isPasscodeCopyConfirmed">I have copied and stored this passcode in a secure place</MudCheckBox>
-                            @if (isPasscodeCopyConfirmed)
-                            {
-                                <MudTextField Label="Confirm your passcode"
-                                              InputType="InputType.Password"
-                                              @bind-Value="@configuredPasscodeModel.Passcode"
-                                              For="@(() => configuredPasscodeModel.Passcode)"
-                                              Immediate="true"
-                                              OnBlur="@HandleOnBlur" />
-                                @if (@configuredPasscodeModel.Passcode.Length != 21)
-                                {
-                                    <MudText></MudText>
-                                }
-                                else if (@configuredPasscodeModel.Passcode != RandomPasscode)
-                                {
-                                    <MudText Color="Color.Error">Passcode does not match</MudText>
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                                    <MudTextField Label="Alias for your initial identifier"
-                                                  InputType="InputType.Text"
-                                                  @bind-Value="@InitialAlias"
-                                                  spellcheck="false"
-                                                  Immediate="true"
-                                                  HelperText="e.g. <Your name> as <Role name> at <Organization>" />
-                                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await StoreHashAndConnect())" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary"><MudText>Connect and Create Initial Identifier</MudText></MudButton>
-                                }
-                            }
-                        }
-
-                        <MudStack Class="mt-5">
-                            <OperationDisplayComponent ops="@ops1LivenessCheck"></OperationDisplayComponent>
-                            <OperationDisplayComponent ops="@ops2HealthCheck"></OperationDisplayComponent>
-                            <OperationDisplayComponent ops="@ops3BootAndConnect"></OperationDisplayComponent>
-                            <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                            <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
-                        </MudStack>
-                    </MudStack>
-                </MudStack>
-            </div>
-            <MudStack Row="true" class="bt-button-tray">
-                <!-- Intentionally no back button here -->
-                <MudSpacer />
-                <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConfigured))" Class="justify-start" data-testid="next">Next</MudButton>
-            </MudStack>
-        }
-        else if (IsLocked)
-        {
-            <div id=@nameof(IsLocked) class="d-flex gap-3 bt-main" style="justify-content:center;">
-                <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
-                    <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-                    <MudText>
-                        <span style="font-weight:bold">KERI Auth</span>
-                    </MudText>
-                    <MudText Style="font-style:italic">with<br />autonomous identifiers<br />and<br />authentic credentials</MudText>
-                    <MudForm @ref="form" @bind-IsValid="@isSuccess" @bind-Errors="@errors">
-                        <MudTextField Label="Enter passcode"
-                                      @onkeydown="@Enter"
-                                      InputType="InputType.Password"
-                                      @bind-Value="@unlockPasscodeModel.Passcode"
-                                      For="@(() => unlockPasscodeModel.Passcode)"
-                                      Immediate="true"
-                                      OnBlur="@HandleOnBlur" />
-                    </MudForm>
-                    <MudButton Disabled="@(!isSuccess)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-                    <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
-                </MudStack>
-            </div>
-            <MudStack Row="true" class="bt-button-tray">
-                <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-                    -->
-                <MudSpacer></MudSpacer>
-                <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsLocked))" Class="justify-end" data-testid="next">Next</MudButton>
-            </MudStack>
-        }
-        else if (IsNotConnected)
-        {
-            <div id=@nameof(IsNotConnected) class="d-flex gap-3 bt-main">
-                <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
-                    <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-                    <MudText>Connecting to KERIA agent service...</MudText>
-                    <MudText>TODO - not yet implemented</MudText>
-                </MudStack>
-            </div>
-            <MudStack Row="true" class="bt-button-tray">
-                <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-                    -->
-                <MudSpacer></MudSpacer>
-                <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await NextSection(nameof(IsNotConfigured))" Class="justify-end" data-testid="next">Next</MudButton>
-            </MudStack>
-        }
-        else
-        {
-            logger.LogWarning($"Unexpected configuration state");
-        }
-    }
+    <div class="d-flex gap-3 bt-main" style="justify-content:center;">
+        // TODO what user message is really needed here?
+        <p>Fetching states ...</p>
+    </div>
 </div>
-
 <style>
 
     /* for a MudStack */
@@ -346,593 +118,105 @@
 </style>
 
 @code {
-    // MudButton? createButton = default(global::MudBlazor.MudButton);
-    MudForm? form;
-    private string openWalletError = string.Empty;
     private bool isSuccess;
-    private string[] errors = { };
-    // private bool doesWalletExist;
-    private static OnboardState? onboardState;
+    private OnboardState? onboardState;
     private MudTextField<string> newPasswordField = new();
     private MudTextField<string> confirmPasswordField = new();
-    // private MudForm? confirmPasswordForm;
-    private MudButton? nextButton = default(global::MudBlazor.MudButton);
-    private readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERIA liveness", "Live");
-    private readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERIA health", "Healthy");
-    private readonly OperationDisplay ops3BootAndConnect = new OperationDisplay("Reconnecting to or establishing new connection", "Connected");
-    private readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Identifiers retrieved");
-    private readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created personal identifier");
-    // private bool isStrongPassword = true; // TODO P1
-    private bool isTermsAgreed;
-    private const string releaseUrlPath = "content/release.html";
-    private const string termsUrlPath = "content/terms.html";
-    private const string privacyUrlPath = "content/privacy.html";
-    private static MarkupString releaseMarkup = new("Placeholder for Release Notes");
-    private static MarkupString termsMarkup = new("Placeholder for Terms of Use");
-    private static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
-    private static int termsMarkupHash;
-    private static int privacyMarkupHash;
-    private static bool IsFreshInstall => !onboardState.HasAcknowledgedInstall;
-    private static bool IsNewRelease => !onboardState.HasAcknowledgedNewVersion;
-    private static bool IsTermsAgreementNeeded => onboardState.PrivacyAgreedHash == 0 || onboardState.TosAgreedHash == 0;
-    private static bool IsNotConnected { get; set; } = true;
-    private static bool IsConnected { get; set; } // TODO hack temporarily used for flow navigation
-    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
-    private static KeriaConnectConfig? keriaConnectConfig;
-    private static bool IsLocked;
-    private static bool UseExistingPasscode { get; set; } = true;
-    private static string InitialAlias { get; set; } = "";
-    private string RandomPasscode { get; set; } = "";
-    private bool isPasscodeCopyConfirmed;
-    private static bool isInitialStateFetched { get; set; }
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
-
-    {
-        await Task.Delay(0);
-        // Set focus here if needed
-    }
-
-    private bool IsNotConfigured()
-    {
-        if (keriaConnectConfig is null)
-            return true;
-        if (!keriaConnectConfig.IsConfigured(stateService.GetState()))
-            return true;
-        return false;
-    }
+    private bool isInitialStateFetched { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
-
-        // _walletExists = false; // TODO EE! await WalletService.CheckIfWalletExists();
-        // _isKeriaConfigured = true;  // TODO EE!
-        releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
-        termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
-        privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
-        termsMarkupHash = GetNumberFromHash(termsMarkup.Value);
-        privacyMarkupHash = GetNumberFromHash(privacyMarkup.Value);
-
-        // See also OnParametersSetAsync for additional initialization
-        RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
-        await Copy2Clipboard(RandomPasscode);  // TODO P1 should be later in flow
-
-        await FetchStates();
+        // See also OnParametersSetAsync for additional initialization occuring on every navigation to this view
     }
 
-    private async Task FetchStates()
-    {
-        isInitialStateFetched = false;
-        var res = await storageService.GetItem<OnboardState>();
-        if (res.IsFailed || res.Value is null)
-        {
-            onboardState = new OnboardState(false, false, DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);
-            await storageService.SetItem<OnboardState>(onboardState);
-        }
-        else
-        {
-            onboardState = res.Value;
-        }
+    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
 
-        var res2 = await storageService.GetItem<KeriaConnectConfig>();
-        if (res2.IsFailed || res2.Value is null)
-        {
-            keriaConnectConfig = defaultKeriaConnectConfig;
-            await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
-            logger.LogError($"keriaConnectConfig.PasscodeHash is defaulted to {keriaConnectConfig.PasscodeHash}");
-        }
-        else
-        {
-            keriaConnectConfig = res2.Value;
-            logger.LogError($"keriaConnectConfig.PasscodeHash is {keriaConnectConfig.PasscodeHash}");
-        }
-
-        isInitialStateFetched = true;
-    }
-
-
-
-
-
-
+    private static KeriaConnectConfig? keriaConnectConfig;
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
 
-        // Check if there's a reason on the URL (from service-worker), suggesting to navigate to a specific page
-        // TODO does this logic need to go into Index.razor or App.razor where this url is available?
-        var namedValueCollection = System.Web.HttpUtility.ParseQueryString(new Uri(navManager.Uri).Query);
-        var reason = namedValueCollection["reason"];
-        if (reason is not null)
-        {
-            logger.LogInformation($"Start: reason == {reason}");
-            switch (reason)
-            {
-                case "install":
-                    logger.LogError("reason install not yet handled");
-                    // TODO store in onboard state?
-                    return;
-                case "update":
-                    var priorVersion = namedValueCollection["priorVersion"];
-                    // TODO store in onboard state?
-                    return;
-                case "browser_update": // for non-chrome browsers
-                case "chrome_update":
-                case "shared_module_update":
-                default:
-                    break;
-            }
-        }
-
-        // On initial and subsequent navigations to this Start view, retrieve state from storage
-        // and set the appropriate local state
-        // TODO consider alternate design of reactive subscription to state changes
+        // Get the onboardState from storage and route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
         if (res.IsFailed || res.Value is null)
         {
-            onboardState = new OnboardState(false, false, DateTime.UtcNow, 0, DateTime.UtcNow, 0, false);
+            onboardState = new OnboardState();
             await storageService.SetItem<OnboardState>(onboardState);
         }
         else
         {
             onboardState = res.Value;
         }
+        if (!onboardState.IsInstallOnboarded())
+        {
+            if (!onboardState.HasAcknowledgedInstall)
+            {
+                navManager.NavigateTo(RouteToWelcomeView);
+                return;
+            }
 
-        // Check if the user has already configured KERIA connection
+            if (!onboardState.HasAcknowledgedNewVersion)
+            {
+                navManager.NavigateTo(RouteToNewReleaseView);
+                return;
+            }
+
+            if (onboardState.PrivacyAgreedHash == 0 || onboardState.TosAgreedHash == 0)
+            {
+                navManager.NavigateTo(RouteToTermsView);
+                return;
+            }
+        }
+
+        // Not that we know install is onboarded, get the configState from storage and route to ConfigureView if needed
         var res2 = await storageService.GetItem<KeriaConnectConfig>();
+        logger.LogWarning(res2.ToString()); ///////////)
         if (res2.IsFailed || res2.Value is null)
         {
             keriaConnectConfig = defaultKeriaConnectConfig;
             await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
-            logger.LogError($"keriaConnectConfig.PasscodeHash is defaulted to {keriaConnectConfig.PasscodeHash}");
         }
         else
         {
             keriaConnectConfig = res2.Value;
-            logger.LogError($"keriaConnectConfig.PasscodeHash is {keriaConnectConfig.PasscodeHash}");
         }
-
-        // Check if the user has already agreed to the Terms of Use and Privacy Policy
-        if (!onboardState.IsInstallOnboarded)
+        if (!keriaConnectConfig.IsConfigured())
         {
+            logger.LogWarning(keriaConnectConfig.ToString()); ///////////
+            navManager.NavigateTo(RouteToConfigureView);
             return;
         }
-        else
+
+        // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate view
+        var currentAppState = stateService.GetState();
+
+        logger.LogInformation($"currentAppState: {currentAppState}");
+        switch (currentAppState)
         {
-            var currentAppState = stateService.GetState();
-            logger.LogInformation("currentAppState: {0}", currentAppState);
-            switch (currentAppState)
-            {
-                case IStateService.States.Unauthenticated:
-                    // doesWalletExist = true;
-                    IsLocked = true;
-                    // UI of current view will prompt user for password
-                    break;
+            case IStateService.States.Unconfigured:
+                // TODO hack to get the app into a known state
+                await stateService.Configure();
+                navManager.NavigateTo(RouteToUnlockView);
+                return; // intentional return here versus break?
 
-                case IStateService.States.AuthenticatedDisconnected:
-
-                    IsLocked = false;
-                    var prefs = await preferencesService.GetPreferences();
-                    if (string.IsNullOrEmpty(prefs.SelectedAid))
-                    {
-                        logger.LogError("SelectedAid is not set in preferences");
-                        // Debug.Assert(WalletService.Wallet is not null);
-                        // prefs.SelectedAid = WalletService.Wallet.WalletDids[0].Did.Identifier;
-                        // await preferencesService.SetPreferences(prefs);
-                    }
-                    navManager.NavigateTo(RouteToStart); // Will end up in IsNotConnected flow
-                    break; ;
-
-                case IStateService.States.AuthenticatedConnected:
-                    navManager.NavigateTo(RouteToHome);
-                    break;
-
-                case IStateService.States.Unconfigured:
-                    // UI will prompt user to set password and confirm mnemonic seed phrase
-                    IsLocked = true;
-                    break;
-
-                case IStateService.States.Initializing:
-                    logger.LogWarning($"Unexpected AppState {currentAppState}");
-                    IsLocked = true;
-                    break;
-
-                default:
-                    throw new Exception($"Unexpected AppState {currentAppState}");
-            }
-        }
-    }
-
-    private async Task OpenWalletWithPassword(string password)
-    {
-        logger.LogError("OpenWalletWithPassword");
-        var currentState = stateService.GetState();
-        if (currentState != IStateService.States.Unauthenticated)
-        {
-            logger.LogWarning($"TODO Hack: Unexpected AppState {currentState}");
-            await stateService.Initialize();
-            await stateService.Configure();
-        }
-
-        openWalletError = String.Empty;
-
-        if (string.IsNullOrEmpty(password) || password.Length != 21)
-        {
-            snackbar.Add("Invalid passcode. Should be 21 characters.", Severity.Error);
-            return;
-        }
-        if (keriaConnectConfig is null || keriaConnectConfig.PasscodeHash == 0)
-        {
-            snackbar.Add("No passcode hash found", Severity.Error);
-            logger.LogError("No passcode hash found");
-            return;
-        }
-        if (GetNumberFromHash(password) == keriaConnectConfig.PasscodeHash)
-        {
-            await stateService.Authenticate();
-            IsLocked = false;
-            var isConnected = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
-            if (isConnected.IsFailed)
-            {
-                openWalletError = "Failed to connect to KERIA agent service";
-                snackbar.Add(openWalletError, Severity.Error);
-                logger.LogError(openWalletError);
+            case IStateService.States.Unauthenticated:
+                navManager.NavigateTo(RouteToUnlockView);
                 return;
-            }
-            await stateService.ConfirmConnected();
-            navManager.NavigateTo(RouteToHome);
-            return;
-        }
-        else
-        {
-            openWalletError = "Invalid passcode";
-            snackbar.Add(openWalletError, Severity.Error);
-            return;
-        }
-    }
 
-    private async Task OpenWallet()
-    {
-        if (unlockPasscodeModel.Passcode is not null)
-            await OpenWalletWithPassword(unlockPasscodeModel.Passcode);
-    }
+            case IStateService.States.AuthenticatedDisconnected:
+                navManager.NavigateTo(RouteToConnectingView);
+                return;
 
-    private async Task Enter(KeyboardEventArgs e)
-    {
-        if (e.Code == "Enter" || e.Code == "NumpadEnter")
-        {
-            await OpenWallet();
-        }
-    }
-
-    // TODO move to utilities
-    private static int GetNumberFromHash(string input)
-    {
-        using (SHA256 sha256 = SHA256.Create())
-        {
-            byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
-            int hashInt = BitConverter.ToInt32(hashBytes, 0);
-            hashInt = Math.Abs(hashInt);
-            return hashInt;
-        }
-    }
-
-    // private async Task NewPasswordKeyDown(KeyboardEventArgs e)
-    // {
-    //     if (e.Code == "Enter" || e.Code == "NumpadEnter")
-    //         await Task.Delay(0); TODO P3 should this be to activate next field?
-    // }
-
-    // private async Task ConfirmPasswordKeyDown(KeyboardEventArgs e)
-    // {
-    //     if (e.Code == "Enter" || e.Code == "NumpadEnter")
-    //         if (confirmPasswordForm!.IsValid)
-    //             await NextSection("??");
-    // }
-
-    private async Task NextSection(string fromCondition)
-    {
-        await Task.Delay(0);
-        logger.LogInformation($"handling NextSection {fromCondition}");
-        switch (fromCondition)
-        {
-            case nameof(IsFreshInstall):
-                onboardState = onboardState = new OnboardState(
-                    true,
-                    onboardState.HasAcknowledgedNewVersion,
-                    onboardState.TosAgreedUtc,
-                    onboardState.TosAgreedHash,
-                    onboardState.PrivacyAgreedUtc,
-                    onboardState.PrivacyAgreedHash,
-                    onboardState.IsInstallOnboarded);
-                _ = await storageService.SetItem<OnboardState>(onboardState);
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case nameof(IsNewRelease):
-                onboardState = onboardState = new OnboardState(
-                    onboardState.HasAcknowledgedInstall,
-                    true,
-                    onboardState.TosAgreedUtc,
-                    onboardState.TosAgreedHash,
-                    onboardState.PrivacyAgreedUtc,
-                    onboardState.PrivacyAgreedHash,
-                    onboardState.IsInstallOnboarded);
-                _ = await storageService.SetItem<OnboardState>(onboardState);
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case nameof(IsTermsAgreementNeeded):
-                onboardState = new OnboardState(
-                    onboardState.HasAcknowledgedInstall,
-                    onboardState.HasAcknowledgedNewVersion,
-                    DateTime.UtcNow,
-                    termsMarkupHash,
-                    DateTime.UtcNow,
-                    privacyMarkupHash,
-                    true);
-                _ = await storageService.SetItem<OnboardState>(onboardState);
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case nameof(IsNotConfigured):
-                // state will have been stored during connection checking
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case nameof(IsLocked):
-                // updates such as authenticated will have occured via StateService state
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case nameof(IsNotConnected):
-                // TODO record viewing NotConnected
-                IsNotConnected = true;
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case nameof(IsConnected):
-                // TODO state should be affected earlier
-                // await stateService.Initialize();
-                await stateService.ConfirmConnected();
+            case IStateService.States.AuthenticatedConnected:
                 navManager.NavigateTo(RouteToHome);
-                break;
+                return;
+
             default:
-                throw new Exception($"Next from unknown section");
+                throw new Exception($"Unexpected AppState {currentAppState}");
         }
-    }
-
-    private IEnumerable<string> PasswordMatch(string pw)
-    {
-        if (string.IsNullOrWhiteSpace(pw))
-        {
-            yield return "Password is required!";
-            yield break;
-        }
-        if (pw != newPasswordField.Text)
-        {
-            yield return "Passwords must match";
-        }
-    }
-
-    private async Task SaveInitialWallet()
-    {
-        await Task.Delay(0);
-        // Debug.Assert(walletService.Wallet is not null);
-        // await walletService.SaveWallet(new Wallet(_newPasswordField.Text, DateTime.UtcNow));
-    }
-
-    private class UrlModel
-    {
-        [Required]
-        [Url(ErrorMessage = "Enter KERIA Admin URL")]
-        public string AdminUrl { get; set; } = AppConfig.DefaultKeriaAdminUrl;
-
-        [Required]
-        [Url(ErrorMessage = "Enter KERIA Boot URL")]
-        public string BootUrl { get; set; } = AppConfig.DefaultKeriaBootUrl;
-    }
-
-    private class PasscodeModel
-    {
-        [Required]
-        [StringLength(21, ErrorMessage = "Passcode must be 21 characters long", MinimumLength = 21)]
-        [DataType(DataType.Password)]
-        /* [Display(Name = "Enter your passcode")] */
-        public string Passcode { get; set; } = "";
-    }
-
-    private UrlModel urlModel = new UrlModel()
-        {
-            AdminUrl = AppConfig.DefaultKeriaAdminUrl,
-            BootUrl = AppConfig.DefaultKeriaBootUrl
-        };
-
-    private PasscodeModel unlockPasscodeModel = new PasscodeModel();
-    private PasscodeModel configuredPasscodeModel = new PasscodeModel();
-
-    private bool IsValidURLs
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(urlModel.AdminUrl)
-                || !Uri.IsWellFormedUriString(urlModel.AdminUrl, UriKind.Absolute)
-                || string.IsNullOrWhiteSpace(urlModel.BootUrl)
-                || !Uri.IsWellFormedUriString(urlModel.BootUrl, UriKind.Absolute))
-            {
-                return false;
-            }
-            return true;
-        }
-    }
-
-    private bool IsValidNewInfo
-    {
-        get
-        {
-            if (!IsValidURLs)
-            {
-                return false;
-            }
-            if (string.IsNullOrWhiteSpace(configuredPasscodeModel.Passcode))
-            {
-                return false;
-            }
-            if (configuredPasscodeModel.Passcode.Length != 21)
-            {
-                return false;
-            }
-            if (!UseExistingPasscode && (string.IsNullOrEmpty(InitialAlias) || RandomPasscode != configuredPasscodeModel.Passcode || !isPasscodeCopyConfirmed))
-            {
-                return false;
-            }
-            return true;
-        }
-    }
-
-    private bool IsKeriaConfigured => keriaConnectConfig.IsConfigured(stateService.GetState());
-
-    private void HandleOnBlur()
-    {
-        // This method will be triggered when the text field loses focus
-        // You can check for validity here if needed
-    }
-
-    private async Task StoreHashAndConnect()
-    {
-        // Since user has confirmed the passcode, we can now hash it and store it
-        var tmpHash = GetNumberFromHash(configuredPasscodeModel.Passcode);
-        keriaConnectConfig = new KeriaConnectConfig("custom", urlModel.AdminUrl, urlModel.BootUrl, tmpHash);
-        var res = await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
-        if (res.IsFailed)
-        {
-            logger.LogError("Failed to store connection details");
-            logger.LogError(res.Reasons.First().Message);
-            return;
-        }
-
-        await ConnectToKeria();
-    }
-
-    private async Task ConnectToKeria()
-    {
-        ops1LivenessCheck.Reset();
-        ops2HealthCheck.Reset();
-        ops3BootAndConnect.Reset();
-        ops5CreatePersonalAid.Reset();
-        ops4ListAids.Reset();
-        if (IsValidURLs) // TODO could to a more thorough check of other conditions. See what enables the button(s)
-        {
-            // check if AdminPort is reachable
-            ops1LivenessCheck.SetIsRunning();
-            StateHasChanged();
-            UriBuilder healthUriBuilder = new($"{urlModel.BootUrl}/health");
-            var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
-            if (!postResult.IsSuccess)
-            {
-                var message = $"KERIA agent service is not reachable";
-                logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
-                ops1LivenessCheck.SetCompletedWithError(message);
-                return;
-            }
-            ops1LivenessCheck.SetCompletedWithoutErrors();
-            StateHasChanged();
-
-            // check if KERIA is reporting as healthy
-            ops2HealthCheck.SetIsRunning();
-            StateHasChanged();
-            // TODO move this into service code
-            var httpClientService2 = new HttpClientService(new HttpClient());
-            var postResult2 = await httpClientService2.GetJsonAsync<String>($"{urlModel.BootUrl}/health");
-            if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
-            {
-                ops2HealthCheck.SetCompletedWithError(postResult2.Reasons.First().Message);
-                StateHasChanged();
-                return;
-            }
-            ops2HealthCheck.SetCompletedWithoutErrors();
-            if (!ops2HealthCheck.CompletedSuccessfully)
-            {
-                StateHasChanged();
-                // return;
-            }
-
-            // Create a new KERIA client
-            // See client.ts create_agent.ts and other Integration scrips here: https://github.com/WebOfTrust/signify-integration/tree/main/scripts
-            ops3BootAndConnect.SetIsRunning();
-            StateHasChanged();
-            var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", true);
-            if (clientRes.IsFailed)
-            {
-                ops3BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
-                StateHasChanged();
-                return;
-            }
-            ops3BootAndConnect.SetCompletedWithoutErrors();
-            // now that we have a connection....
-            await stateService.Configure();
-            StateHasChanged();
-
-            ops4ListAids.SetIsRunning();
-            StateHasChanged();
-            var identifiersRes = await signifyClientService.GetIdentifiers();
-            if (identifiersRes.IsFailed)
-            {
-                ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
-                StateHasChanged();
-                return;
-            }
-            var identifiers = identifiersRes.Value;
-            // logger.LogWarning("Identifiers: {identifiers}", identifiers.ToString());
-            // identifiers.ToList().ForEach(i => logger.LogInformation($"Identifiers: {i}"));
-            ops4ListAids.SetCompletedWithoutErrors();
-            StateHasChanged();
-
-            if (identifiers.Aids.Count == 0)
-            {
-                ops5CreatePersonalAid.SetIsRunning();
-                StateHasChanged();
-                var aidRes = await signifyClientService.CreatePersonAid(InitialAlias);
-                if (aidRes.IsFailed)
-                {
-                    ops5CreatePersonalAid.SetCompletedWithError(aidRes.Reasons.First().Message);
-                    StateHasChanged();
-                    return;
-                }
-                // logger.LogInformation("Identifier: {aid}", aidRes.Value);
-                ops5CreatePersonalAid.SetCompletedWithoutErrors();
-                StateHasChanged();
-            }
-            else
-            {
-                // don't need to create another AID
-                ops5CreatePersonalAid.SetCompletedWithoutErrors(); // ("One or more identifier(s) already exist");
-                StateHasChanged();
-            }
-            // Success from testing the connection at this point
-            // TODO EE! store the connection details and hash of the password in storage
-            await stateService.Configure();
-            await stateService.Authenticate(); // TODO EE! temporary location here, to enable testing
-                                               // TODO EE! reactive effects of stateservice should disable the Connect button and enable the Next button??
-            navManager.NavigateTo("Home");
-        }
-        return;
     }
 }

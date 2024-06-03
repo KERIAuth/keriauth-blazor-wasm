@@ -93,18 +93,4 @@
 
     private int identifiersCount = 0;
 
-    private async Task CloseWallet()
-    {
-        // await WalletService.CloseWallet();
-        // Check if the wallet runs as a iframe
-        // if (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.Iframe)
-        // {
-        //     await WalletRequestService.SendCloseIframeMessageBackToActiveTabs(JsRuntime);
-        // }
-        // else
-        {
-            await Task.Delay(0); // tmp hack to avoid warning
-            navManager.NavigateTo(RouteToStart);
-        }
-    }
 }

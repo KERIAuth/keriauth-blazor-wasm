@@ -1,0 +1,155 @@
+﻿@page "/Unlock"
+
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.UIHelper;
+@using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<UnlockView> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+
+<div id="@this.GetType().Name" class="bt-body-page">
+
+    <div class="d-flex gap-3 bt-main" style="justify-content:center;">
+        <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
+            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+            <MudText>
+                <span style="font-weight:bold">KERI Auth</span>
+            </MudText>
+            <MudText Style="font-style:italic">with<br />autonomous identifiers<br />and<br />authentic credentials</MudText>
+            <MudForm @ref="form" @bind-IsValid="@isSuccess" @bind-Errors="@errors">
+                <MudTextField Label="Enter passcode"
+                              InputType="InputType.Password"
+                              @bind-Value="@unlockPasscodeModel.Passcode"
+                              For="@(() => unlockPasscodeModel.Passcode)"
+                              Immediate="true" />
+            </MudForm>
+            <MudButton Disabled="@(!isSuccess)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+            <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
+        </MudStack>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer></MudSpacer>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="IsLocked" OnClick="@(() => navManager.NavigateTo(RouteToStart))" Class="justify-end" data-testid="next">Next</MudButton>
+    </MudStack>
+
+
+</div>
+
+@code {
+    private bool IsLocked = true;
+    private bool isSuccess;
+    MudForm? form;
+    private string[] errors = { };
+    private PasscodeModel unlockPasscodeModel = new PasscodeModel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+        var res = await storageService.GetItem<KeriaConnectConfig>();
+        if (res.IsFailed || res.Value is null)
+        {
+            throw new Exception("Failed to get KeriaConnectConfig");
+        }
+        keriaConnectConfig = res.Value;
+    }
+
+    private async Task OpenWallet()
+    {
+        if (unlockPasscodeModel.Passcode is not null)
+            await OpenWalletWithPassword(unlockPasscodeModel.Passcode);
+    }
+
+    // TODO DRY with ConfigureView
+    private class PasscodeModel
+    {
+        [Required]
+        [StringLength(21, ErrorMessage = "Passcode must be 21 characters long", MinimumLength = 21)]
+        [DataType(DataType.Password)]
+        /* [Display(Name = "Enter your passcode")] */
+        public string Passcode { get; set; } = "";
+    }
+
+    private string openWalletError = string.Empty;
+    private KeriaConnectConfig? keriaConnectConfig;
+    private async Task OpenWalletWithPassword(string password)
+    {
+        logger.LogError("OpenWalletWithPassword");
+        var currentState = stateService.GetState();
+        if (currentState != IStateService.States.Unauthenticated)
+        {
+            logger.LogWarning($"TODO Hack: Unexpected AppState {currentState}");
+            await stateService.Initialize();
+            await stateService.Configure();
+        }
+
+        openWalletError = String.Empty;
+
+        if (string.IsNullOrEmpty(password) || password.Length != 21)
+        {
+            snackbar.Add("Invalid passcode. Should be 21 characters.", Severity.Error);
+            return;
+        }
+        if (keriaConnectConfig is null 
+            || !keriaConnectConfig.IsConfigured()
+            || keriaConnectConfig.AdminUrl is null
+        )
+        {
+            throw new InvalidOperationException("KeriaConnectConfig not configured");
+        }
+        if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
+        {
+            await stateService.Authenticate();
+            IsLocked = false;
+            var isConnected = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
+            if (isConnected.IsFailed)
+            {
+                openWalletError = "Failed to connect to KERIA agent service";
+                snackbar.Add(openWalletError, Severity.Error);
+                logger.LogError(openWalletError);
+                return;
+            }
+            await stateService.ConfirmConnected();
+            navManager.NavigateTo(RouteToHome);
+            return;
+        }
+        else
+        {
+            openWalletError = "Invalid passcode";
+            snackbar.Add(openWalletError, Severity.Error);
+            return;
+        }
+    }
+}

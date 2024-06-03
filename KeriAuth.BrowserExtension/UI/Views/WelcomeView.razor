@@ -1,0 +1,87 @@
+﻿@page "/Welcome"
+
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.UIHelper;
+@using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<WelcomeView> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <MudStack>
+            <MudText Typo="Typo.body1">
+                Thank you for installing KERI Auth.
+                We're excited to have you on board!
+                <br />
+                This release supports the following features:
+            </MudText>
+            <MudContainer>
+                <ul style="list-style-type:circle;">
+                    <li>TBD</li>
+                    <li>TBD</li>
+                </ul>
+            </MudContainer>
+            <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
+        </MudStack>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer></MudSpacer>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
+    </MudStack>
+</div>
+
+@code {
+    private async Task AcknowledgeWelcome()
+    {
+        var res = await storageService.GetItem<OnboardState>();
+        if (res.IsFailed || res.Value is null)
+        {
+            throw new Exception("OnboardState not found");
+        }
+        var onboardState = res.Value;
+        onboardState = onboardState with { HasAcknowledgedInstall = true };
+        await storageService.SetItem(onboardState);
+
+        navManager.NavigateTo(RouteToStart);
+        return;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+    }
+}
