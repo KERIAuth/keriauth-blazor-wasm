@@ -33,24 +33,24 @@ export const bootAndConnect = async (
 ): Promise<string> => {
     _client = null;
     await ready();
-    console.log(`signify_ts_shim: bootAndConnect: creating client...`);
+    console.debug(`signify_ts_shim: bootAndConnect: creating client...`);
     _client = new SignifyClient(agentUrl, passcode.padEnd(21, '_'), Tier.low, bootUrl);
 
     try {
         await _client.connect();
-        console.info("signify_ts_shim: client connected");
+        console.debug("signify_ts_shim: client connected");
     } catch {
         const res = await _client.boot();
         if (!res.ok) throw new Error();
         await _client.connect();
-        console.info("signify_ts_shim: client booted and connected");
+        console.debug("signify_ts_shim: client booted and connected");
     }
     console.log('signify_ts_shim: client', {
         agent: _client.agent?.pre,
         controller: _client.controller.pre
     });
     const state = await getState();
-    console.log(`signify_ts_shim: bootAndConnect: connected`);
+    console.debug(`signify_ts_shim: bootAndConnect: connected`);
     console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO throw exception?
 
     return objectToJson(_client);
@@ -73,18 +73,18 @@ const getState = async () => {
 export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
     _client = null;
     await ready();
-    console.log(`signify_ts_shim: connect: creating client...`);
+    console.debug(`signify_ts_shim: connect: creating client...`);
     _client = new SignifyClient(agentUrl, passcode, Tier.low, "");
 
     try {
         await _client.connect();
-        console.info("signify_ts_shim: client connected");
+        console.debug("signify_ts_shim: client connected");
     } catch {
         console.error("signify_ts_shim: client could not connect");
     }
 
     const state = await getState();
-    console.log(`signify_ts_shim: connect: connected`);
+    console.debug(`signify_ts_shim: connect: connected`);
     console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO throw exception?
 
     return objectToJson(_client);
@@ -129,6 +129,6 @@ export const getAIDs = async () => {
     const managedIdentifiers = await client.identifiers().list();
     // TODO: unclear what should be returned and its type
     let identifierJson: string = JSON.stringify(managedIdentifiers);
-    console.log("signify_ts_shim: getAIDs: ", managedIdentifiers);
+    console.debug("signify_ts_shim: getAIDs: ", managedIdentifiers);
     return identifierJson;
 }     

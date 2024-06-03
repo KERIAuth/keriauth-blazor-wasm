@@ -32,7 +32,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
         {
-            logger.LogInformation("GetIdentifierHeadlines: Getting identifiers");
+            logger.Log(ServiceLogLevel,"GetIdentifierHeadlines: Getting identifiers");
             var res2 = await signifyClientService.GetIdentifiers();
             if (res2 is null || res2.IsFailed)
             {
@@ -42,7 +42,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
             if (res2.Value is not null && res2.IsSuccess)
             {
-                logger.LogInformation("GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count);
+                logger.Log(ServiceLogLevel, "GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count);
                 var headlines = new List<IdentifierHeadline>();
                 
                 foreach (Aid item in res2.Value.Aids)
@@ -55,5 +55,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
             return Result.Fail<List<IdentifierHeadline>>("Failed to get identifiers");
         }
+
+        public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
     }
 }

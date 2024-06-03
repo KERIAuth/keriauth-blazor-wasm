@@ -23,9 +23,11 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     {
         this.jsRuntime = jsRuntime;
         this.logger = logger;
-        this.logger.LogInformation("StorageService: constructor");
+        logger.Log(ServiceLogLevel,"StorageService: constructor");
         _dotNetObjectRef = DotNetObjectReference.Create(this);
     }
+
+    public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
 
     public delegate bool CallbackDelegate(object request, string something);
 
@@ -39,14 +41,14 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
     public async Task<Task> Initialize()
     {
-        logger.LogInformation("Initialize");
+        logger.Log(ServiceLogLevel, "Initialize");
         // This just needs to be done once after the service start up,
         try
         {
-            logger.LogInformation("Using StorageApi");
+            logger.Log(ServiceLogLevel, "Using StorageApi");
 
             Debug.Assert(jsRuntime is not null);
-            logger.LogInformation("Registering handler for storage change event");
+            logger.Log(ServiceLogLevel, "Registering handler for storage change event");
 
             // Set up to listen for storage changes.  Could alternately have implemented this in the background script and/or https://github.com/mingyaulee/WebExtensions.Net
             // TODO investigate using https://github.com/mingyaulee/WebExtensions.Net
@@ -58,7 +60,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             // logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
             throw new Exception("Error adding addStorageChangeListener", e);
         }
-        logger.LogInformation("Added addStorageChangeListener");
+        logger.Log(ServiceLogLevel, "Added addStorageChangeListener");
         return Task.CompletedTask;
     }
 
@@ -89,7 +91,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     {
         try
         {
-            logger.LogInformation("Getting item of type {name}", typeof(T).Name);
+            logger.Log(ServiceLogLevel, "Getting item of type {name}", typeof(T).Name);
 
             T? nullValue = default;
             var tName = typeof(T).Name.ToUpperInvariant();
@@ -107,7 +109,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             {
                 Debug.Assert(jsRuntime is not null);
                 jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", tName);
-                logger.LogInformation("Got {doc}", jsonDocument.ToJsonString());
+                logger.Log(ServiceLogLevel, "Got {doc}", jsonDocument.ToJsonString());
             }
             catch (Exception ex)
             {
@@ -232,7 +234,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         // When data has changed, so notifications and downstream effects might be needed
 
         // TODO P3 should there be try-catch blocks here, e.g. in case parsing fails?
-        logger.LogInformation("In Callback");
+        logger.Log(ServiceLogLevel, "In Callback");
         var options = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = false,
@@ -266,7 +268,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         }
         else if (key.Equals(nameof(Preferences), StringComparison.OrdinalIgnoreCase))
         {
-            logger.LogInformation("In Callback ... Preferences");
+            logger.Log(ServiceLogLevel, "In Callback ... Preferences");
             JsonNode? newJsonNode = null;
             if (value is not null)
             {
@@ -289,7 +291,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
             if (preferencesObservers is not null && newPreferences is not null)
             {
-                logger.LogInformation("Preferences updated: {value}", newPreferences.ToString());
+                logger.Log(ServiceLogLevel, "Preferences updated: {value}", newPreferences.ToString());
                 foreach (var observer in preferencesObservers)
                 {
                     observer.OnNext(newPreferences);
@@ -377,7 +379,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             )
         );
 
-        logger.LogInformation("Storage changed: {changes}", convertedChanges);
+        logger.Log(ServiceLogLevel, "Storage changed: {changes}", convertedChanges);
 
         switch (areaname)
         {
