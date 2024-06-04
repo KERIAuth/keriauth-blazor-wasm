@@ -421,8 +421,8 @@
             (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth});",
             (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
             (true, DrawerVariant.Persistent) => $"left: {openWidth}; width:calc(100vw - {openWidth}); padding-right: {openWidth};",
-            (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw);",
             (true, _) => $"left: 0; width:calc(100vw);",
+            (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw);",
             (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});",
         };
         StateHasChanged();
@@ -440,14 +440,14 @@
 
     async Task HandleErrorFromPreferencesService(Exception error)
     {
+        await Task.Delay(0);
         logger.LogError("Error from PreferencesService: " + error.Message);
-        await Task.Delay(0); // hack
     }
 
     async Task HandleCompletedFromPreferencesService()
     {
+        await Task.Delay(0);
         logger.LogInformation("Completed from PreferencesService");
-        await Task.Delay(0); // hack
     }
 
     async Task HandleNextFromStateService(IStateService.States updatedState)
@@ -457,8 +457,10 @@
         {
             case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
-                navManager.NavigateTo(RouteToStart);
                 CurrentState = updatedState;
+                isAuthenticated = false;  // TODO change isAuthenticated into a method that checks the CurrentState, versus imperative approach
+                StateHasChanged();
+                navManager.NavigateTo(RouteToStart);
                 return;
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
@@ -473,14 +475,14 @@
 
     async Task HandleErrorFromStateService(Exception error)
     {
+        await Task.Delay(0);
         logger.LogError("Error from stateService: " + error.Message);
-        await Task.Delay(0); // hack
     }
 
     async Task HandleCompletedFromStateService()
     {
+        await Task.Delay(0);
         logger.LogInformation("Completed from stateService");
-        await Task.Delay(0); // hack
     }
 
     protected override async Task OnInitializedAsync()
@@ -604,35 +606,20 @@
 
     async Task UpdateActiveAid(string activeAid)
     {
+        await Task.Delay(0);
         if (string.IsNullOrEmpty(activeAid))
         {
             activeAidIdenticon = "";
             activeAidTooltip = "";
             return;
         }
-
         activeAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
-
-
         var headline = identifiersHeadlines.Find(x => x.Prefix == activeAid);
         if (headline is not null)
         {
             activeAidTooltip = headline.Alias;
             return;
         }
-
-
-
-        // var result = await identifiersService.GetIdentifierService(activeAid);
-        // if (result.IsSuccess)
-        // {
-        //     activeAidTooltip = result.Value.cachedAid.Alias;
-        //     return;
-        // }
-        // else
-        // {
-        //     throw new Exception("UpdateActiveAid: Could not get IdentifierService for " + activeAid);
-        // }
     }
 
     async Task OpenTabAndClosePopUp()
@@ -649,7 +636,7 @@
     async Task Lock()
     {
         await stateService.Unauthenticate();
-        // subscription to stateService will handle the rest
+        // Other actions will be reactive. See IObserver<StateService>
     }
 
     async Task SetActiveAid()

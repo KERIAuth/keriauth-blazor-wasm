@@ -40,7 +40,6 @@
 @inject ISnackbar snackbar
 
 <div id="@this.GetType().Name" class="bt-body-page">
-
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack class="d-flex justify-center pa-3" Style="text-align:center;">
             <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
@@ -57,7 +56,8 @@
                               For="@(() => unlockPasscodeModel.Passcode)"
                               Immediate="true" />
             </MudForm>
-            <MudButton Disabled="@(!isValid)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+            <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
+            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
             <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
         </MudStack>
     </div>
@@ -65,8 +65,6 @@
         <MudSpacer></MudSpacer>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="IsLocked" OnClick="@(() => navManager.NavigateTo(RouteToStart))" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
-
-
 </div>
 
 @code {
@@ -81,12 +79,19 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
+
+        // Get the KeriaConnectConfig
         var res = await storageService.GetItem<KeriaConnectConfig>();
         if (res.IsFailed || res.Value is null)
         {
             throw new Exception("Failed to get KeriaConnectConfig");
         }
         keriaConnectConfig = res.Value;
+
+        // Although we should already be unauthenticated, ensure we are, e.g. in case of a refresh or navigating back
+        if (stateService.GetState() != IStateService.States.Unauthenticated)
+            await stateService.Unauthenticate();
+
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -168,6 +173,7 @@
         {
             openWalletError = "Invalid passcode";
             snackbar.Add(openWalletError, Severity.Error);
+            await passcodeField.SelectAsync();
             return;
         }
     }
