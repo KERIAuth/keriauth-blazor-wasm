@@ -139,6 +139,7 @@ public class StateService : IStateService
             .OnEntryAsync(async () => await OnEntryUnauthenticated())
             .PermitReentry(Triggers.ToUnauthenticated)
             .Permit(Triggers.ToAuthenticatedDisconnected, States.AuthenticatedDisconnected)
+            .Permit(Triggers.ToAuthenticatedConnected, States.AuthenticatedConnected)
             .Permit(Triggers.ToInitializing, States.Initializing);
 
         stateMachine.Configure(States.AuthenticatedDisconnected)

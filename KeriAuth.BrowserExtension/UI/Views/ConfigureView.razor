@@ -283,6 +283,12 @@
                     StateHasChanged();
                     return false;
                 }
+
+                // set the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
+                var prefs = await preferencesService.GetPreferences();
+                prefs = prefs with { SelectedAid = aidRes.Value };
+                await preferencesService.SetPreferences(prefs);
+
                 // logger.LogInformation("Identifier: {aid}", aidRes.Value);
                 ops5CreatePersonalAid.SetCompletedWithoutErrors();
                 StateHasChanged();
