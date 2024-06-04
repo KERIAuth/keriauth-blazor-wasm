@@ -612,18 +612,27 @@
         }
 
         activeAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
-        var result = await identifiersService.GetIdentifierService(activeAid);
-        if (result.IsSuccess)
+
+
+        var headline = identifiersHeadlines.Find(x => x.Prefix == activeAid);
+        if (headline is not null)
         {
-            activeAidTooltip = result.Value.cachedAid.Alias;
+            activeAidTooltip = headline.Alias;
             return;
         }
-        else
-        {
-            // TODO throw error?
-            activeAidTooltip = "Unknown";
-        }
-        return;
+
+
+
+        // var result = await identifiersService.GetIdentifierService(activeAid);
+        // if (result.IsSuccess)
+        // {
+        //     activeAidTooltip = result.Value.cachedAid.Alias;
+        //     return;
+        // }
+        // else
+        // {
+        //     throw new Exception("UpdateActiveAid: Could not get IdentifierService for " + activeAid);
+        // }
     }
 
     async Task OpenTabAndClosePopUp()

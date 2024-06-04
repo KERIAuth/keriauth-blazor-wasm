@@ -4,6 +4,7 @@
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Models
 @using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.Identicon;
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IExtensionEnvironmentService extensionEnvironmentService
@@ -11,67 +12,96 @@
 @inject IStateService stateService
 @inject ILogger<HomeView> logger
 @inject IdentifiersService identifiersService
+@inject IPreferencesService preferencesService
 @using MudBlazor
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll" style="align-items:center; justify-content: center; display:flex; flex-direction:column;">
-            <!--
-            <MudStack class="d-flex mt-2 justify-center align-center" Style="width:240px">
-                <MudButton @onclick="async () => await stateService.Initialize()">Initialize</MudButton>
-                <MudButton @onclick="async () => await stateService.Configure()">Configure</MudButton>
-                <MudButton @onclick="async () => await stateService.Authenticate()">Authenticate</MudButton>
-                <MudButton @onclick="async () => await stateService.Unauthenticate()">Lock</MudButton>
-                -->
-            <!-- <p>Current State: @(MainLayout.CurrentState)</p>
-                -->
+            <MudText Typo="Typo.h6">Dashboard</MudText>
             <MudStack AlignItems="AlignItems.Center">
                 <MudStack Row>
-                    <div style="text-align:right; width:135px;">
-                        Connected | Not Connected | Not Ready
-                        <MudIcon Class="align-right" Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
+                    <MudText Style="width:200px; text-align:right;">KERIA Agent Service</MudText>
+                    <div style="text-align:left; width:135px; display:flex;">
+                        @switch (stateService.GetState())
+                        {
+                            case IStateService.States.AuthenticatedConnected:
+                                <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
+                                <MudText Typo="Typo.body2">Connected</MudText>
+                                break;
+                            case IStateService.States.AuthenticatedDisconnected:
+                                <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
+                                <MudText Typo="Typo.body2">Disconnected</MudText>
+                                break;
+                            default:
+                                <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
+                                <MudText Typo="Typo.body2">Disconnected - Other</MudText>
+                                break;
+                        }
                     </div>
-                    <MudText Class="align-left" Style="width:200px">KERIA Agent Service</MudText>
                 </MudStack>
+
                 <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">@identifiersCount</MudText>
-                    <MudText Class="align-left" Style="width:200px">
-                        <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)"> Identifiers</MudLink>
+                    <MudText Style="width:200px; text-align:right;">
+                        <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
                     </MudText>
-                </MudStack>
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">Identicon, Alias, Manage</MudText>
-                    <MudText Class="align-left" Style="width:200px">Selected Identifier</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;"></MudText>
-                    <MudText Class="align-left" Style="width:200px">Identifier Details:</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">888</MudText>
-                    <MudText Class="align-left" Style="width:200px">Credentials</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">888</MudText>
-                    <MudText Class="align-left" Style="width:200px">Groups</MudText>
+                    <MudText Style="width:135px; text-align:left;">@identifiersCount</MudText>
                 </MudStack>
 
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">888</MudText>
-                    <MudText Class="align-left" Style="width:200px">Registered Websites</MudText>
-                </MudStack>
+                <MudStack Style="background: var(--mud-palette-action-default-hover);">
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Selected Identifier</MudLink>
+                        </MudText>
+                        <MudIcon Icon=@selectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                        <MudText>@selectedAlias</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Credentials Received</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Credentials Issued</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Groups</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Registered Websites</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">Pending Requests:</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">From Websites</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">From KERIA Agent Service</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Notifications</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                    </MudStack>
 
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">888</MudText>
-                    <MudText Class="align-left" Style="width:200px">Pending Website Requests</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">888</MudText>
-                    <MudText Class="align-left" Style="width:200px">Pending KERIA Agent Service Requests</MudText>
-                </MudStack>
-                <MudStack Row>
-                    <MudText Style="width:135px; text-align:right;">888</MudText>
-                    <MudText Class="align-left" Style="width:200px">Notifications</MudText>
                 </MudStack>
             </MudStack>
         </div>
@@ -84,13 +114,61 @@
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
 
-        var x = await identifiersService.GetIdentifierHeadlines();
-        if (x is not null && x.IsSuccess)
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res is not null && res.IsSuccess)
         {
-            identifiersCount = x.Value.Count();
+            identifiersCount = res.Value.Count();
         }
+
+        preferencesService.Subscribe<Preferences>( 
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
+            onCompleted: async () => await HandleCompletedFromPreferencesService()
+        );
+
+        var preferences = await preferencesService.GetPreferences();
+        await InitialOrNextPreference(preferences);
     }
 
     private int identifiersCount = 0;
 
+    private async Task HandleNextFromPreferencesService(Preferences value)
+    {
+        await InitialOrNextPreference(value);
+    }
+    private async Task HandleErrorFromPreferencesService(Exception error)
+    {
+        await Task.Delay(0);
+        logger.LogError("HandleErrorFromPreferencesService");
+    }
+    private async Task HandleCompletedFromPreferencesService()
+    {
+        await Task.Delay(0);
+        logger.LogError("HandleCompletedFromPreferencesService");
+    }
+
+    private string selectedAid = "";
+    private string selectedAlias = "";
+    private string selectedIdenticon = "";
+
+    private async Task InitialOrNextPreference(Preferences value)
+    {
+        selectedAid = value.SelectedAid;
+        selectedAlias = "";
+        selectedIdenticon = "";
+        var res = await identifiersService.GetIdentifierHeadlines(); // TODO needed to pupulate the cache, to enable GetIdentifierService ?
+        if (res is not null && res.IsSuccess)
+        {
+            var headline = res.Value.Where<IdentifierHeadline>((h) => h.Prefix == selectedAid).First();
+            if (headline is not null)
+            {
+                selectedAlias = headline.Alias;
+                selectedIdenticon = MakeIdenticon(selectedAid);
+            }
+        } else
+        {
+            logger.LogError("InitialOrNextPreference: failed to get IdentifierHeadlines");
+        }
+        StateHasChanged();
+    }
 }

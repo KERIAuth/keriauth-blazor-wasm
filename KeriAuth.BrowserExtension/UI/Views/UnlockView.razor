@@ -48,14 +48,16 @@
                 <span style="font-weight:bold">KERI Auth</span>
             </MudText>
             <MudText Style="font-style:italic">with<br />autonomous identifiers<br />and<br />authentic credentials</MudText>
-            <MudForm @ref="form" @bind-IsValid="@isSuccess" @bind-Errors="@errors">
+            <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors">
                 <MudTextField Label="Enter passcode"
+                    @ref="passcodeField"
+                    OnKeyDown="@HandleKeyDown"
                               InputType="InputType.Password"
                               @bind-Value="@unlockPasscodeModel.Passcode"
                               For="@(() => unlockPasscodeModel.Passcode)"
                               Immediate="true" />
             </MudForm>
-            <MudButton Disabled="@(!isSuccess)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+            <MudButton Disabled="@(!isValid)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
             <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
         </MudStack>
     </div>
@@ -69,10 +71,11 @@
 
 @code {
     private bool IsLocked = true;
-    private bool isSuccess;
+    private bool isValid;
     MudForm? form;
     private string[] errors = { };
     private PasscodeModel unlockPasscodeModel = new PasscodeModel();
+    private MudTextField<string> passcodeField;
 
     protected override async Task OnInitializedAsync()
     {
@@ -84,6 +87,22 @@
             throw new Exception("Failed to get KeriaConnectConfig");
         }
         keriaConnectConfig = res.Value;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await passcodeField.FocusAsync();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await OpenWallet();
+        }
     }
 
     private async Task OpenWallet()
