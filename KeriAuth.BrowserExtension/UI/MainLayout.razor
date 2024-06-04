@@ -56,12 +56,16 @@
                 @if (IsAuthenticated)
                 {
                     <MudTooltip Text="Connected to KERIA" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
-                            <MudIcon Icon="@Icons.Material.Filled.CompareArrows" @onclick="async () => await RefreshConnect()" />
-                            <!--
-                                    <MudIcon <at> onclick="async () => await RefreshConnect()" ViewBox="0 0 100 100" Icon="<at>Icons.Material.Filled.CompareArrows" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                            -->
-                        </MudPaper>
+                        @if(CurrentState == IStateService.States.AuthenticatedDisconnected) {
+                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
+                                <MudIcon Icon="@Icons.Material.Filled.CompareArrows" @onclick="async () => await RefreshConnect()" />
+                            </MudPaper>
+                        }
+                        else {
+                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
+                                <MudIcon Icon="@Icons.Material.Filled.CompareArrows" @onclick="async () => await RefreshConnect()" />
+                            </MudPaper>
+                        }
                     </MudTooltip>
                 }
             </div>
