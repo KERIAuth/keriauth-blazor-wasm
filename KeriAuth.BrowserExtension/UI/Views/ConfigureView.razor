@@ -295,7 +295,11 @@
             }
             else
             {
-                // don't need to create another AID
+                // don't need to create another AID, but still need to pick a default one
+                var prefs = await preferencesService.GetPreferences();
+                prefs = prefs with { SelectedAid = identifiers.Aids.First().Prefix };
+                await preferencesService.SetPreferences(prefs);
+
                 ops5CreatePersonalAid.SetCompletedWithoutErrors(); // ("One or more identifier(s) already exist");
                 StateHasChanged();
             }
