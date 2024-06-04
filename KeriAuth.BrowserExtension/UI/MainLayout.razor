@@ -33,6 +33,7 @@
 
 <MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
 
+    <!-- APP BAR -->
     <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
         <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleMenuDrawer" Style="padding-left: 5px;" data-testid="menuHamburger" />
@@ -50,11 +51,29 @@
                     </MudTooltip>
                 }
             </div>
-            <!-- Identicon: -->
-            <div hidden="@IsIdenticonHidden" style="align-self:center; height: 35px; margin-right: -8px;">
-                <MudTooltip Text="@activeAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
-                    <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@activeAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                </MudTooltip>
+            <!-- KERIA Connected Indicator -->
+            <div style="align-self:center; height: 35px; margin-right: -8px;">
+                @if (IsAuthenticated)
+                {
+                    <MudTooltip Text="Connected to KERIA" Arrow="true" Placement="Placement.Left" Delay="1000">
+                        <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
+                            <MudIcon Icon="@Icons.Material.Filled.CompareArrows" @onclick="async () => await RefreshConnect()" />
+                            <!--
+                                    <MudIcon <at> onclick="async () => await RefreshConnect()" ViewBox="0 0 100 100" Icon="<at>Icons.Material.Filled.CompareArrows" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                            -->
+                        </MudPaper>
+                    </MudTooltip>
+                }
+            </div>
+
+            <!-- Current Identifier Identicon -->
+            <div style="align-self:center; height: 35px; margin-right: -8px;">
+                @if (!IsIdenticonHidden)
+                {
+                    <MudTooltip Text="@activeAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
+                        <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@activeAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                    </MudTooltip>
+                }
             </div>
 
         </MudStack>
@@ -82,6 +101,9 @@
             </div>
         </MudOverlay>
     </MudAppBar>
+
+
+    <!-- DRAWER AND MAIN CONTENT -->
     @{
         /* TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting */
     }
@@ -89,13 +111,13 @@
         <!--  background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">  -->
         <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@isMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@drawerMode" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
-                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
-                <MudNavLink Href=@RouteToGroups Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
-                <MudNavLink Href=@RouteToCredentials Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                <MudNavLink Href=@RouteToNotifications Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">Notifications</MudNavLink>
-                <MudNavLink Href=@RouteToContacts Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
-                <MudNavLink Href=@RouteToSchemas Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Schema" IconColor="Color.Surface">Schemas</MudNavLink>
-                <MudNavLink Href=@RouteToContacts Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuContacts">Websites</MudNavLink>
+                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
+                <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
+                <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
+                <MudNavLink Href=@RouteToNotifications Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">Notifications</MudNavLink>
+                <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
+                <MudNavLink Href=@RouteToSchemas Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Schema" IconColor="Color.Surface">Schemas</MudNavLink>
+                <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuContacts">Websites</MudNavLink>
                 @if (isInPopup)
                 {
                     <MudNavLink OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
@@ -104,14 +126,14 @@
                     @{
                         /* TODO P3 convert to a "navigate(url)" type of method, so tooltip of URL doesn't show in browser?' */
                     }
-                    <MudNavLink Href=@RouteToManagePrefs Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Agent Services</MudNavLink>
+                    <MudNavLink Href=@RouteToManagePrefs Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
+                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Agent Services</MudNavLink>
                     @{
                         /*
                         <MudNavLink Disabled="true" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Keys</MudNavLink>
                         */
                     }
-                    <MudNavLink OnClick="async () => await Lock()" Disabled="@(!isAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                    <MudNavLink OnClick="async () => await Lock()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Configuration&hellip;</MudNavLink>
                 </MudNavGroup>
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
@@ -125,6 +147,8 @@
                 </MudNavGroup>
             </MudNavMenu>
         </MudDrawer>
+
+        <!-- MAIN CONTENT -->
         <MudMainContent Class="bt-main-content" Style="@mainContentStyle">
             <MudContainer MaxWidth="MaxWidth.Large" Style="height:inherit; min-height:inherit; padding-left:0; padding-right:0;">
                 @Body
@@ -169,15 +193,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                                                                                See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                                                                            See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                                                                                @@media (min-width: 960px) {
-                                                                                                                                                                                                .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                                                                                margin-left: 0;
-                                                                                                                                                                                                width: inherit;
-                                                                                                                                                                                                }
-                                                                                                                                                                                                }
-                                                                                                                                                                                                */
+                                                                                                                                                                                                            @@media (min-width: 960px) {
+                                                                                                                                                                                                            .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                                                                            margin-left: 0;
+                                                                                                                                                                                                            width: inherit;
+                                                                                                                                                                                                            }
+                                                                                                                                                                                                            }
+                                                                                                                                                                                                            */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -191,8 +215,8 @@
     .bt-sad-2 {
         margin-left: 12px;
         min-width: 100%;
-        display:flex;
-        align-items:center;
+        display: flex;
+        align-items: center;
     }
 
     .bt-sad-3 {
@@ -206,8 +230,8 @@
     .bt-sad-5 {
         padding-left: 8px;
         padding-right: 8px;
-        padding-top:0;
-        padding-top:0;
+        padding-top: 0;
+        padding-top: 0;
     }
 
     .bt-sad-6 {
@@ -315,7 +339,7 @@
     string version = "0.0.0";
     string version_name = "unset 33";
     string mainContentStyle = " left:0; ";
-    bool isAuthenticated { get; set; }
+    bool IsAuthenticated => stateService.IsAuthenticated();
     MudBlazor.MudDrawer mudDrawerRef = new();
     DrawerVariant drawerMode;
     IdleAlarm? idleAlarm;
@@ -358,6 +382,11 @@
     private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;
 
+    private async Task RefreshConnect()
+    {
+        throw new NotImplementedException();
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
@@ -365,8 +394,8 @@
 
         // If not currently authenticated and are now on a page
         // that requires authentication, then redirect to Start
-        isAuthenticated = await stateService.IsAuthenticated();
-        if (!isAuthenticated)
+        // isAuthenticated = await stateService.IsAuthenticated();
+        if (!IsAuthenticated)
         {
             var ap = new Uri(navManager.Uri).AbsolutePath;
             if (ViewsNotRequiringAuth.Contains(ap))
@@ -458,13 +487,13 @@
             case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 CurrentState = updatedState;
-                isAuthenticated = false;  // TODO change isAuthenticated into a method that checks the CurrentState, versus imperative approach
+                // isAuthenticated = false;  // TODO change isAuthenticated into a method that checks the CurrentState, versus imperative approach
                 StateHasChanged();
                 navManager.NavigateTo(RouteToStart);
                 return;
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
-                isAuthenticated = true;
+                // isAuthenticated = true;
                 break;
             case (_, _):
                 break;
@@ -636,6 +665,7 @@
     async Task Lock()
     {
         await stateService.Unauthenticate();
+        navManager.NavigateTo(RouteToStart);
         // Other actions will be reactive. See IObserver<StateService>
     }
 

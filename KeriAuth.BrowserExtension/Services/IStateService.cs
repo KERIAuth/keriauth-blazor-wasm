@@ -29,5 +29,5 @@ public interface IStateService : IObservable<States>
 
     public Task ConfirmConnected();
     
-    public Task<bool> IsAuthenticated();
+    public bool IsAuthenticated();
 }

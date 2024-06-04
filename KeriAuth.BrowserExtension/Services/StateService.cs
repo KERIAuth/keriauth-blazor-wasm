@@ -43,9 +43,8 @@ public class StateService : IStateService
         await stateMachine.FireAsync(Triggers.ToInitializing);
     }
 
-    public async Task<bool> IsAuthenticated()
+    public bool IsAuthenticated()
     {
-        await Task.Delay(0);
         return stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
     }
 
