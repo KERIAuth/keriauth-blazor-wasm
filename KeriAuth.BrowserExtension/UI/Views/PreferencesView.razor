@@ -75,10 +75,13 @@
 
     async Task Persist()
     {
-        prefs.DrawerVariantInPopup = DrawerVariantInPopup;
-        prefs.DrawerVariantInTab = DrawerVariantInTab;
-        prefs.IsDarkTheme = IsDarkTheme;
-        // prefs.SelectedAid unchanged
+        prefs = prefs with
+        {
+            DrawerVariantInPopup = DrawerVariantInPopup,
+            DrawerVariantInTab = DrawerVariantInTab,
+            IsDarkTheme = IsDarkTheme,
+            SelectedAid = SelectedAid 
+        };
         await preferencesService.SetPreferences(prefs);
     }
 
@@ -114,8 +117,6 @@
 
     void HandleNextFromPreferencesService(Preferences value)
     {
-        if (value is not null)
-        {
             prefs = value;
             IsDarkTheme = value.IsDarkTheme;
             DrawerVariantInPopup = value.DrawerVariantInPopup;
@@ -123,7 +124,6 @@
             SelectedAid = value.SelectedAid;
             logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
             StateHasChanged();
-        }
     }
 
     void HandleErrorFromPreferencesService(Exception error)

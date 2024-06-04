@@ -32,7 +32,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
         {
-            logger.Log(ServiceLogLevel,"GetIdentifierHeadlines: Getting identifiers");
+            logger.Log(ServiceLogLevel, "GetIdentifierHeadlines: Getting identifiers");
             var res2 = await signifyClientService.GetIdentifiers();
             if (res2 is null || res2.IsFailed)
             {
@@ -44,7 +44,7 @@ namespace KeriAuth.BrowserExtension.Services
             {
                 logger.Log(ServiceLogLevel, "GetIdentifierHeadlines: {aids}", res2.Value.Aids.Count);
                 var headlines = new List<IdentifierHeadline>();
-                
+
                 foreach (Aid item in res2.Value.Aids)
                 {
                     // TODO ??  set the current identifierService in the Headline?
@@ -57,5 +57,17 @@ namespace KeriAuth.BrowserExtension.Services
         }
 
         public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
+
+        public async Task<Result<string>> Add(string alias)
+        {
+            var res = await signifyClientService.CreatePersonAid(alias);
+            if (res.IsFailed || res.Value is null)
+            {
+                logger.LogError("Failed to create person aid: {res}", res.Errors.First().Message);
+                return Result.Fail(res.Errors.First().Message);
+            }
+            else
+                return Result.Ok(res.Value);
+        }
     }
 }

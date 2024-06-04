@@ -20,7 +20,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         try
         {
             var preferencesResult = await storageService.GetItem<Preferences>();
-            if (preferencesResult is null || preferencesResult.IsFailed || preferencesResult.Value is null)
+            if (preferencesResult is null || preferencesResult.IsFailed)
             {
                 // If preferences don't yet exist in storage, return the defaults
                 return new Preferences();

@@ -18,6 +18,7 @@
 @inject ILogger<IdentifiersView> logger
 @inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;
+@inject IDialogService dialogService
 
 <!-- For KERI
 KERI Autonomous Identifiers (AIDs)
@@ -84,7 +85,7 @@ Backer Address  (copy)
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingAid" OnClick="async () => await AddDid()" Variant="Variant.Filled" Color="Color.Primary">Create New Identifier</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
     </MudStack>
 </div>
 
@@ -132,14 +133,20 @@ Backer Address  (copy)
     {
         base.OnParametersSet();
         logger.LogInformation($"OnParametersSetAsync");
-        
+
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
 
+        await GetHeadlines();
+    }
+
+    private async Task GetHeadlines()
+    {
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res != null)
         {
             logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
+            cachedAids.Clear();
             foreach (var item in res.Value)
             {
                 // logger.LogWarning("adding aid {1}", item.Prefix);
@@ -148,12 +155,42 @@ Backer Address  (copy)
         };
     }
 
-    private async Task AddDid()
+    private async Task AddIdentifier()
     {
-        isAddingAid = true;
-        // Delay to allow UI to draw progress indicator
-        await Task.Delay(1000);
+        bool isAddConfirmed;
+        string alias2 = $"Fred as CFO of UBanc {DateTime.UtcNow}";
 
+        var result = await dialogService.ShowMessageBox(
+            "Add Identifier",
+            "Supply the alias for new identifier, e.g. 'Fred as CFO of UBank'",
+            yesText: "Create",
+            cancelText: "Cancel",
+             options: new DialogOptions()
+                 {
+                     CloseOnEscapeKey = true,
+                 }
+         );
+        isAddConfirmed = result.GetValueOrDefault();
+        if (isAddConfirmed)
+        {
+            isAddingAid = true;
+            var res = await identifiersService.Add(alias2);
+            if (res != null)
+            {
+                logger.LogInformation("AddIdentifier: {1}", res.Value);
+                await GetHeadlines();
+                var prefs = await preferencesService.GetPreferences();
+                await preferencesService.SetPreferences(prefs with { SelectedAid = res.Value });
+            }
+            else
+            {
+                logger.LogError("AddIdentifier failed");
+            }
+        }
+        else
+        {
+            navManager.NavigateTo(RouteToHome);
+        }
         isAddingAid = false;
     }
 
@@ -170,9 +207,9 @@ Backer Address  (copy)
     // retrieved from picker or via preferences
     async Task SetActiveAid(string identifier)
     {
-        var pref = await preferencesService.GetPreferences();
-        pref.SelectedAid = identifier;
-        await preferencesService.SetPreferences(pref);
+        var prefs2 = await preferencesService.GetPreferences();
+        prefs2 = prefs2 with { SelectedAid = identifier };
+        await preferencesService.SetPreferences(prefs2);
         // Other actions will be reactive to subscribed updates of Preferences
     }
 

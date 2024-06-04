@@ -23,7 +23,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     {
         this.jsRuntime = jsRuntime;
         this.logger = logger;
-        logger.Log(ServiceLogLevel,"StorageService: constructor");
+        logger.Log(ServiceLogLevel, "StorageService: constructor");
         _dotNetObjectRef = DotNetObjectReference.Create(this);
     }
 
@@ -276,20 +276,21 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                 newJsonNode = value["newValue"];
             }
             // xxConsole.WriteLine($"newJsonNode preferences is: {newJsonNode}");
-            Preferences? newPreferences = null;
+            Preferences newPreferences;
             if (newJsonNode is not null)
             {
-                newPreferences = JsonSerializer.Deserialize<Preferences>(newJsonNode.ToJsonString(), options);
-                Debug.Assert(newPreferences is not null);
+                Preferences? maybeNewPrefs = JsonSerializer.Deserialize<Preferences>(newJsonNode.ToJsonString(), options);
+                Debug.Assert(maybeNewPrefs is not null);
+                newPreferences = (Preferences)maybeNewPrefs;
                 // xxConsole.WriteLine($"new value for Preferences IsDarkTheme: {newPreferences.IsDarkTheme}");
             }
             else
             {
-                // logger.LogInformation("new value for Preferences: null");
+                return false; // logger.LogInformation("new value for Preferences: null");
             }
             // xxConsole.WriteLine($"There are {preferencesObservers.Count} preferencesObservers");
-
-            if (preferencesObservers is not null && newPreferences is not null)
+            
+            if (preferencesObservers is not null)
             {
                 logger.Log(ServiceLogLevel, "Preferences updated: {value}", newPreferences.ToString());
                 foreach (var observer in preferencesObservers)
@@ -398,13 +399,9 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                         }
                         var preferences = res.Value;
 
-                        // logger.LogWarning("Sending preferences to observer 222");
-                        if (preferences is not null)
+                        foreach (var observer in preferencesObservers)
                         {
-                            foreach (var observer in preferencesObservers)
-                            {
-                                observer.OnNext(preferences);
-                            }
+                            observer.OnNext(preferences);
                         }
                     }
                     // TODO ALSO handle notifying subscribers for other keys

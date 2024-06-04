@@ -169,7 +169,7 @@
 
         // Not that we know install is onboarded, get the configState from storage and route to ConfigureView if needed
         var res2 = await storageService.GetItem<KeriaConnectConfig>();
-        logger.LogWarning(res2.ToString()); ///////////)
+        // logger.LogWarning(res2.ToString()); ///////////)
         if (res2.IsFailed || res2.Value is null)
         {
             keriaConnectConfig = defaultKeriaConnectConfig;
@@ -181,7 +181,7 @@
         }
         if (!keriaConnectConfig.IsConfigured())
         {
-            logger.LogWarning(keriaConnectConfig.ToString()); ///////////
+            // logger.LogWarning(keriaConnectConfig.ToString()); ///////////
             navManager.NavigateTo(RouteToConfigureView);
             return;
         }
