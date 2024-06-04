@@ -177,15 +177,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                                                        See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                                                See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                                                        @@media (min-width: 960px) {
-                                                                                                                                                                        .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                                                        margin-left: 0;
-                                                                                                                                                                        width: inherit;
-                                                                                                                                                                        }
-                                                                                                                                                                        }
-                                                                                                                                                                        */
+                                                                                                                                                                                @@media (min-width: 960px) {
+                                                                                                                                                                                .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                                                margin-left: 0;
+                                                                                                                                                                                width: inherit;
+                                                                                                                                                                                }
+                                                                                                                                                                                }
+                                                                                                                                                                                */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -308,7 +308,7 @@
     {
         get
         {
-            return stateService.GetState() != IStateService.States.AuthenticatedDisconnected || string.IsNullOrEmpty((string)activeAid);
+            return string.IsNullOrEmpty((string)activeAid);
         }
     }
     bool isInPopup;
@@ -391,25 +391,8 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
-        if (firstRender)
-        {
-            logger.LogInformation("OnAfterRenderAsync firstRender=true");
 
-            preferencesSubscription = preferencesService.Subscribe(
-                onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-                onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
-                onCompleted: async () => await HandleCompletedFromPreferencesService());
-
-            stateSubscription = stateService.Subscribe(
-                onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
-                onError: async (Exception error) => await HandleErrorFromStateService(error),
-                onCompleted: async () => await HandleCompletedFromStateService());
-
-            idleAlarm = new IdleAlarm(timerService, async () => await OnIdleHandler());
-            await js.InvokeVoidAsync("window.registerInactivityTimerResetEvents", DotNetObjectReference.Create(this));
-        }
-
-        if (stateService.GetState() == IStateService.States.AuthenticatedDisconnected)
+        if (stateService.GetState() == IStateService.States.AuthenticatedDisconnected || stateService.GetState() == IStateService.States.AuthenticatedConnected)
         {
             // await UpdateIdenticon();
             var res = await identifiersService.GetIdentifierHeadlines();
@@ -542,11 +525,20 @@
             version_name = manifestData.Version_name;
         }
 
-        CurrentState = stateService.GetState();
-
+        preferencesSubscription = preferencesService.Subscribe(
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
+            onCompleted: async () => await HandleCompletedFromPreferencesService());
         await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
-        // StateHasChanged(); // Necessary?
+        stateSubscription = stateService.Subscribe(
+            onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
+            onError: async (Exception error) => await HandleErrorFromStateService(error),
+            onCompleted: async () => await HandleCompletedFromStateService());
+        CurrentState = stateService.GetState();
+
+        idleAlarm = new IdleAlarm(timerService, async () => await OnIdleHandler());
+        await js.InvokeVoidAsync("window.registerInactivityTimerResetEvents", DotNetObjectReference.Create(this));
 
         return;
     }
@@ -612,33 +604,13 @@
         activeAid = (object)prefs.SelectedAid;
         UpdateDrawerMode(drawerMode, prefs);
         UpdateMainContentStyle();
+        logger.LogWarning("setting ActiveAid to {aid}", prefs.SelectedAid);
         await UpdateActiveAid(prefs.SelectedAid);
         StateHasChanged();
     }
 
     async Task UpdateActiveAid(string activeAid)
     {
-        // if (WalletService.Wallet is not null)
-        // {
-        //     var result = WalletService.SetActiveDidByIdentifier((string)activeAid);
-        //     if (result.IsSuccess)
-        //     {
-        //         var res = WalletService.GetActiveWalletDid();
-        //         if (res.IsSuccess)
-        //         {
-        //             var did = res.Value;
-        //             activeDidIdenticon = did.Identicon;
-        //             activeDidName = did.Name;
-        //             activeDidTooltip = string.Concat(activeDidName, " ", did.Did.ToString().Remove(18), "...");
-        //             IsIdenticonHidden = false;
-        //             return;
-        //         }
-        //     }
-        //     else
-        //     {
-        //         logger.LogInformation("updateActiveDid Failed");
-        //     }
-        // }
         activeAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
         var result = await identifiersService.GetIdentifierService(activeAid);
         if (result.IsSuccess)
@@ -646,7 +618,11 @@
             activeAidTooltip = result.Value.cachedAid.Alias;
             return;
         }
-        // TODO throw error?
+        else
+        {
+            // TODO throw error?
+            activeAidTooltip = "Unknown";
+        }
         return;
     }
 
