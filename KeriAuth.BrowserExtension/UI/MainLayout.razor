@@ -427,6 +427,7 @@
             if (res.IsSuccess)
             {
                 identifiersHeadlines = res.Value;
+                identifiersHeadlines = identifiersHeadlines.OrderBy(a => a.Alias).ToList();
                 return;
             }
         }

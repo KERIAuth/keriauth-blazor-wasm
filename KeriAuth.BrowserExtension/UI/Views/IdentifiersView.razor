@@ -41,8 +41,6 @@ Key Event Log (?)
 List of Backers  (copy)
 Backer Address  (copy)
 
-
-
 -->
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -93,7 +91,6 @@ Backer Address  (copy)
 @code {
     private bool isAddingAid;
     private string _resolveResult = String.Empty;
-    // private bool _resolveComplete = true; // ugly solution, but helps to force the rerender
     private string activeAid = "";
 
     public void Dispose()
@@ -130,14 +127,13 @@ Backer Address  (copy)
            onError: (Exception error) => HandleErrorFromPreferencesService(error),
            onCompleted: () => HandleCompletedFromPreferencesService());
     }
+
     protected override async Task OnParametersSetAsync()
     {
         base.OnParametersSet();
         logger.LogInformation($"OnParametersSetAsync");
-
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
-
         await GetHeadlines();
     }
 
@@ -153,13 +149,12 @@ Backer Address  (copy)
                 // logger.LogWarning("adding aid {1}", item.Prefix);
                 cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
             }
+            cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();  
         };
     }
-    // private string DialogResult { get; set;  } = "unknown";
 
     private async Task AddIdentifier()
     {
-
         var parameters = new DialogParameters();
         var options = new DialogOptions
             {
@@ -169,12 +164,9 @@ Backer Address  (copy)
                 DisableBackdropClick = true,
                 CloseButton = true,
                 Position = DialogPosition.Center,
-
             };
-
         var dialog = dialogService.Show<AddIdentifierDialog>("Add Identifier", parameters, options);
         var result = await dialog.Result;
-
         if (result.Canceled)
         {
             DialogResult = "Dialog was cancelled";
