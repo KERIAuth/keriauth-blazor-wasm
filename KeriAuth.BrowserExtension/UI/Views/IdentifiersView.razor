@@ -140,6 +140,7 @@ Backer Address  (copy)
 
     private async Task GetHeadlines()
     {
+        logger.LogWarning("TEMP5");
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res != null)
         {

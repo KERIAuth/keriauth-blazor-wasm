@@ -26,6 +26,7 @@
 @inject ILogger<MainLayout> logger
 @inject IStateService stateService
 @inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
 
 <MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@isDarkTheme" />
 <MudDialogProvider />
@@ -56,14 +57,16 @@
                 @if (IsAuthenticated)
                 {
                     <MudTooltip Text="Connected to KERIA" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        @if(CurrentState == IStateService.States.AuthenticatedDisconnected) {
+                        @if (CurrentState == IStateService.States.AuthenticatedDisconnected)
+                        {
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
-                                <MudIcon Icon="@Icons.Material.Filled.CompareArrows" @onclick="async () => await RefreshConnect()" />
+                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
                         }
-                        else {
+                        else
+                        {
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
-                                <MudIcon Icon="@Icons.Material.Filled.CompareArrows" @onclick="async () => await RefreshConnect()" />
+                                <MudIcon Icon="@Icons.Material.Filled.Link" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
                         }
                     </MudTooltip>
@@ -197,15 +200,15 @@
     }
 
     /* Known false warning in VS of CSS002 issue.
-                                                                                                                                                                                                            See https://github.com/dotnet/razor/issues/7349 */
+                                                                                                                                                                                                                See https://github.com/dotnet/razor/issues/7349 */
     /*
-                                                                                                                                                                                                            @@media (min-width: 960px) {
-                                                                                                                                                                                                            .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-                                                                                                                                                                                                            margin-left: 0;
-                                                                                                                                                                                                            width: inherit;
-                                                                                                                                                                                                            }
-                                                                                                                                                                                                            }
-                                                                                                                                                                                                            */
+                                                                                                                                                                                                                @@media (min-width: 960px) {
+                                                                                                                                                                                                                .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
+                                                                                                                                                                                                                margin-left: 0;
+                                                                                                                                                                                                                width: inherit;
+                                                                                                                                                                                                                }
+                                                                                                                                                                                                                }
+                                                                                                                                                                                                                */
 
     .mud-typography {
         overflow-wrap: break-word;
@@ -335,7 +338,7 @@
             return (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
         }
     }
-    bool IsInPopup {get; set;}
+    bool IsInPopup { get; set; }
     bool HasNewMessages { get; set; }
     object ActiveAid { get; set; } = "";
     string ActiveAidIdenticon { get; set; } = "";
@@ -421,17 +424,26 @@
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (stateService.GetState() == IStateService.States.AuthenticatedDisconnected || stateService.GetState() == IStateService.States.AuthenticatedConnected)
+        switch (stateService.GetState())
         {
-            var res = await identifiersService.GetIdentifierHeadlines();
-            if (res.IsSuccess)
-            {
-                IdentifiersHeadlines = res.Value;
-                IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
-                return;
-            }
+            case IStateService.States.AuthenticatedDisconnected:
+                logger.LogWarning("TEMP22");
+                IdentifiersHeadlines = [];
+                break;
+            case IStateService.States.AuthenticatedConnected:
+                logger.LogWarning("TEMP1");
+                var res = await identifiersService.GetIdentifierHeadlines();
+                if (res.IsSuccess)
+                {
+                    IdentifiersHeadlines = res.Value;
+                    IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
+                    return;
+                }
+                break;
+            default:
+                IdentifiersHeadlines = [];
+                break;
         }
-        IdentifiersHeadlines = [];
     }
 
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];

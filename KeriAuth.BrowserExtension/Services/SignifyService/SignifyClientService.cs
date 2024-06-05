@@ -25,16 +25,21 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return postResult.IsSuccess ? Result.Ok() : Result.Fail(postResult.Reasons.First().Message);
         }
 
-        public async Task<Result<bool>> Connect(string agentUrl, string passcode, string? bootUrl, bool isBootForced = true)
+        public async Task<Result<bool>> Connect(string agentUrl, string passcode, string? bootUrl, bool isBootForced = true, TimeSpan? timeout = null)
         {
             Debug.Assert(bootUrl is not null);
             if (passcode.Length != 21)
             {
-                return Result.Fail<bool>("Passcode must be 21 characters long");
+                return Result.Fail<bool>("Passcode must be 21 characters");
             }
             await Task.Delay(0);
             logger.LogInformation("Connect...");
 
+            TimeSpan timeout2;
+            if (timeout is null)
+                timeout2 = (TimeSpan)TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            else
+                timeout2 = (TimeSpan)timeout;
             try
             {
                 // simple example of using https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/call-javascript-from-dotnet?view=aspnetcore-8.0
@@ -42,21 +47,33 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     if (isBootForced)
                     {
-                        var res = await BootAndConnect(agentUrl, bootUrl, passcode);
+                        var res = await TimeoutHelper.WithTimeout<string>(ct => BootAndConnect(agentUrl, bootUrl, passcode), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
                         logger.LogInformation("Connect: {connectResults}", res);
-                        // TODO fix
-                        return true.ToResult();
+                        if (res is null || res.IsFailed)
+                        {
+                            return Result.Fail<bool>("Connect failed: " + res.Errors.First().Message);
+                        }
+                        else
+                        {
+                            return Result.Ok(true);
+                        }
                     }
                     else
                     {
-                        var res = await Signify_ts_shim.Connect(agentUrl, passcode);
+                        var res = await TimeoutHelper.WithTimeout<string>(ct => Signify_ts_shim.Connect(agentUrl, passcode), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
                         logger.LogInformation("Connect: {connectResults}", res);
-                        // TODO fix
-                        return true.ToResult();
+                        if (res is null || res.IsFailed)
+                        {
+                            return Result.Fail<bool>("Connect failed: " + res.Errors.First().Message);
+                        }
+                        else
+                        {
+                            return Result.Ok(true);
+                        }
                     }
                 }
                 else return false.ToResult();

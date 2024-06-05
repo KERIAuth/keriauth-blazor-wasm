@@ -49,8 +49,8 @@
             <MudText Style="font-style:italic">with<br />autonomous identifiers<br />and<br />authentic credentials</MudText>
             <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors">
                 <MudTextField Label="Enter passcode"
-                    @ref="passcodeField"
-                    OnKeyDown="@HandleKeyDown"
+                              @ref="passcodeField"
+                              OnKeyDown="@HandleKeyDown"
                               InputType="InputType.Password"
                               @bind-Value="@unlockPasscodeModel.Passcode"
                               For="@(() => unlockPasscodeModel.Passcode)"
@@ -113,14 +113,14 @@
     private async Task OpenWallet()
     {
         if (unlockPasscodeModel.Passcode is not null)
-            await OpenWalletWithPassword(unlockPasscodeModel.Passcode);
+            await OpenWalletWithPasscode(unlockPasscodeModel.Passcode);
     }
 
     // TODO DRY with ConfigureView
     private class PasscodeModel
     {
         [Required]
-        [StringLength(21, ErrorMessage = "Passcode must be 21 characters long", MinimumLength = 21)]
+        [StringLength(21, ErrorMessage = "Passcode must be 21 characters", MinimumLength = 21)]
         [DataType(DataType.Password)]
         /* [Display(Name = "Enter your passcode")] */
         public string Passcode { get; set; } = "";
@@ -128,9 +128,9 @@
 
     private string openWalletError = string.Empty;
     private KeriaConnectConfig? keriaConnectConfig;
-    private async Task OpenWalletWithPassword(string password)
+    private async Task OpenWalletWithPasscode(string password)
     {
-        logger.LogError("OpenWalletWithPassword");
+        // logger.LogInformation("OpenWalletWithPassword");
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
         {
@@ -146,7 +146,7 @@
             snackbar.Add("Invalid passcode. Should be 21 characters.", Severity.Error);
             return;
         }
-        if (keriaConnectConfig is null 
+        if (keriaConnectConfig is null
             || !keriaConnectConfig.IsConfigured()
             || keriaConnectConfig.AdminUrl is null
         )
@@ -157,15 +157,21 @@
         {
             await stateService.Authenticate(false);
             IsLocked = false;
-            var isConnected = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
-            if (isConnected.IsFailed)
+            var res = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
+            logger.LogWarning("res: " + res);
+            if (res is null || res.IsFailed)
             {
-                openWalletError = "Failed to connect to KERIA agent service";
+                logger.LogWarning("TEMP7");
+                openWalletError = "Could not connect to KERIA agent service";
                 snackbar.Add(openWalletError, Severity.Error);
                 logger.LogError(openWalletError);
-                return;
             }
-            await stateService.ConfirmConnected();
+            else
+            {
+                logger.LogWarning("TEMP8");
+                logger.LogInformation("Connected to KERIA agent service");
+                await stateService.ConfirmConnected();
+            }
             navManager.NavigateTo(RouteToHome);
             return;
         }
