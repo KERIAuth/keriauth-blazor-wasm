@@ -73,7 +73,7 @@
     MudForm? form;
     private string[] errors = { };
     private PasscodeModel unlockPasscodeModel = new PasscodeModel();
-    private MudTextField<string> passcodeField;
+    private MudTextField<string>? passcodeField;
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,7 +98,7 @@
     {
         if (firstRender)
         {
-            await passcodeField.FocusAsync();
+            await passcodeField!.FocusAsync();
         }
     }
 
@@ -173,7 +173,7 @@
         {
             openWalletError = "Invalid passcode";
             snackbar.Add(openWalletError, Severity.Error);
-            await passcodeField.SelectAsync();
+            await passcodeField!.SelectAsync();
             return;
         }
     }

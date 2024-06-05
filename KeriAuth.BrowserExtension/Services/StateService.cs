@@ -3,7 +3,6 @@ using KeriAuth.BrowserExtension.Models;
 using Stateless;
 using static KeriAuth.BrowserExtension.Services.IStateService;
 
-
 public class StateService : IStateService
 {
     private readonly StateMachine<States, Triggers> stateMachine;
@@ -158,37 +157,24 @@ public class StateService : IStateService
             .Permit(Triggers.ToInitializing, States.Initializing);
     }
 
-    private async Task OnEntryUnconfigured()
+    private static async Task OnEntryUnconfigured()
     {
         await Task.Delay(0);
     }
 
-    private async Task OnEntryAuthenticatedDisconnected()
+    private static async Task OnEntryAuthenticatedDisconnected()
     {
         await Task.Delay(0);
     }
 
-
-    private async Task OnEntryAuthenticatedConnected()
+    private static async Task OnEntryAuthenticatedConnected()
     {
         await Task.Delay(0);
     }
 
-    private async Task OnEntryUnauthenticated()
+    private static async Task OnEntryUnauthenticated()
     {
-        await Task.Delay(0); // hack
-        //var quickLoginResult = await walletService.CheckQuickLogin();
-        //if (quickLoginResult.IsSuccess)
-        //{
-        //    var password = quickLoginResult.Value;
-        //    var loadWalletResult = await walletService.LoadWallet(password);
-        //    if (loadWalletResult.IsSuccess)
-        //    {
-        //        await stateMachine.FireAsync(Triggers.ToAuthenticated);
-        //        return;
-        //    }
-        //}
-        return;
+        await Task.Delay(0);
     }
 
     private async Task OnEntryInitializing()

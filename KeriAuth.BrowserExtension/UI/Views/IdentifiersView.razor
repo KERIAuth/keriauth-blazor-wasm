@@ -5,9 +5,9 @@
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Services.SignifyService
 @using KeriAuth.BrowserExtension.Services.SignifyService.Models
-
-@using System.Diagnostics
 @using static KeriAuth.BrowserExtension.AppConfig;
+@using System.Diagnostics
+
 @implements IDisposable;
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
@@ -155,27 +155,36 @@ Backer Address  (copy)
             }
         };
     }
+    // private string DialogResult { get; set;  } = "unknown";
 
     private async Task AddIdentifier()
     {
-        bool isAddConfirmed;
-        string alias2 = $"Fred as CFO of UBanc {DateTime.UtcNow}";
 
-        var result = await dialogService.ShowMessageBox(
-            "Add Identifier",
-            "Supply the alias for new identifier, e.g. 'Fred as CFO of UBank'",
-            yesText: "Create",
-            cancelText: "Cancel",
-             options: new DialogOptions()
-                 {
-                     CloseOnEscapeKey = true,
-                 }
-         );
-        isAddConfirmed = result.GetValueOrDefault();
-        if (isAddConfirmed)
+        var parameters = new DialogParameters();
+        var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                DisableBackdropClick = true,
+                CloseButton = true,
+                Position = DialogPosition.Center,
+
+            };
+
+        var dialog = dialogService.Show<AddIdentifierDialog>("Add Identifier", parameters, options);
+        var result = await dialog.Result;
+
+        if (result.Canceled)
         {
+            DialogResult = "Dialog was cancelled";
+        }
+        else
+        {
+            DialogResult = $"Dialog result: {result.Data}";
+            logger.LogInformation("AddIdentifier: {1}", result.Data);
             isAddingAid = true;
-            var res = await identifiersService.Add(alias2);
+            var res = await identifiersService.Add((string)result.Data);
             if (res.IsFailed || res.Value is null)
             {
                 logger.LogError("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
@@ -188,10 +197,6 @@ Backer Address  (copy)
                 var prefs = await preferencesService.GetPreferences();
                 await preferencesService.SetPreferences(prefs with { SelectedAid = res.Value });
             }
-        }
-        else
-        {
-            navManager.NavigateTo(RouteToHome);
         }
         isAddingAid = false;
     }
@@ -215,4 +220,5 @@ Backer Address  (copy)
         // Other actions will be reactive to subscribed updates of Preferences
     }
 
+    private string DialogResult { get; set; } = "unknown";
 }
