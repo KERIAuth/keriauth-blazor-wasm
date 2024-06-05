@@ -1,12 +1,11 @@
-﻿using KeriAuth.BrowserExtension.Services;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace KeriAuth.BrowserExtension.Models
 {
     public record KeriaConnectConfig
     {
         [JsonConstructor]
-        public KeriaConnectConfig(string? keriaConnectAlias = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0 )
+        public KeriaConnectConfig(string? keriaConnectAlias = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0)
         {
             KeriaConnectAlias = keriaConnectAlias;
             AdminUrl = adminUrl;

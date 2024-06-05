@@ -28,6 +28,6 @@ public interface IStateService : IObservable<States>
     public Task TimeOut();
 
     public Task ConfirmConnected();
-    
+
     public bool IsAuthenticated();
 }

@@ -289,7 +289,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                 return false; // logger.LogInformation("new value for Preferences: null");
             }
             // xxConsole.WriteLine($"There are {preferencesObservers.Count} preferencesObservers");
-            
+
             if (preferencesObservers is not null)
             {
                 logger.Log(ServiceLogLevel, "Preferences updated: {value}", newPreferences.ToString());

@@ -82,7 +82,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         public async Task<Result<string>> RunCreateAid(string aidName, TimeSpan? timeout = null)
         {
             TimeSpan timeout2;
-            if (timeout is null) 
+            if (timeout is null)
                 timeout2 = (TimeSpan)TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
             else
                 timeout2 = (TimeSpan)timeout;
@@ -93,9 +93,12 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     logger.LogInformation("RunCreateAid: {res}", res.Value);
                     var jsonString = res.Value;
-                    if (jsonString is null) { 
+                    if (jsonString is null)
+                    {
                         return Result.Fail<string>("CreateAID returned null");
-                    } else {
+                    }
+                    else
+                    {
                         return Result.Ok(jsonString);
                     }
                 }
@@ -163,7 +166,8 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             try
             {
                 var jsonString = await GetAIDs();
-                if (jsonString is null) { 
+                if (jsonString is null)
+                {
                     return Result.Fail<Identifiers>("GetAIDs returned null");
                 }
                 var identifiers = JsonSerializer.Deserialize<Identifiers>(jsonString);

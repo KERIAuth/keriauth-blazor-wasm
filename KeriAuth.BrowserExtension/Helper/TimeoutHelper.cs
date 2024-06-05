@@ -1,7 +1,4 @@
 ﻿using FluentResults;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace KeriAuth.BrowserExtension.Helper;
 

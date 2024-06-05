@@ -1,8 +1,7 @@
 ﻿using FluentResults;
 using KeriAuth.BrowserExtension.Models;
-using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using KeriAuth.BrowserExtension.Services.SignifyService;
-using Microsoft.Extensions.Logging;
+using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 
 namespace KeriAuth.BrowserExtension.Services
 {

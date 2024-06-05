@@ -32,7 +32,7 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("privacyAgreedHash")]
         public int PrivacyAgreedHash { get; init; }
-        
+
         public bool IsInstallOnboarded()
         {
             if (!HasAcknowledgedInstall
