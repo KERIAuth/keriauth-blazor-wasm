@@ -400,7 +400,6 @@
 
         // If not currently authenticated and are now on a page
         // that requires authentication, then redirect to Start
-        // isAuthenticated = await stateService.IsAuthenticated();
         if (!IsAuthenticated)
         {
             var ap = new Uri(navManager.Uri).AbsolutePath;
@@ -494,14 +493,11 @@
             case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 CurrentState = updatedState;
-                // isAuthenticated = false;  // TODO change isAuthenticated into a method that checks the CurrentState, versus imperative approach
                 StateHasChanged();
                 navManager.NavigateTo(RouteToStart);
-                return;
+                return; // intentionally not break
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
-                // isAuthenticated = true;
-                break;
             case (_, _):
                 break;
         }
@@ -717,6 +713,7 @@
         navManager.NavigateTo(RouteToChat);
     }
 
+    // TODO why not make this always get the current state from stateService?
     public static IStateService.States CurrentState { get; set; } = IStateService.States.Unknown;
 
     MudTheme MyCustomTheme = new MudTheme()
