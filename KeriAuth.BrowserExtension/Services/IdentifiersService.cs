@@ -60,7 +60,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task<Result<string>> Add(string alias)
         {
-            var res = await signifyClientService.CreatePersonAid(alias);
+            var res = await signifyClientService.RunCreateAid(alias);
             if (res.IsFailed || res.Value is null)
             {
                 logger.LogError("Failed to create person aid: {res}", res.Errors.First().Message);

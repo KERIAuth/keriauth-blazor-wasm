@@ -11,7 +11,8 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         Task<Result<bool>> Connect(string url, string passcode, string? boot_url = null, bool isBootForced = false);
         // Task<Result<ClientState>> BootAndConnect(Uri url, String BootPort, string passcode);
         // Task<Result> BootPort(string url);
-        Task<Result<string>> CreatePersonAid(string name);
+        Task<Result<string>> RunCreateAid(string name, TimeSpan? timeout = null);
+
         // Task<Result<State>> Boot(string url);
         Task<Result<State>> GetState();
         Task<Result<bool>> Connect();

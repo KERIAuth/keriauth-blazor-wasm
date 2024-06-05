@@ -51,6 +51,7 @@
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
+        public const int SignifyTimeoutMs = 6000;
     }
 }
 

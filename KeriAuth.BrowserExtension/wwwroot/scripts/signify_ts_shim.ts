@@ -103,13 +103,13 @@ function isClient(obj: any): obj is SignifyClient {
 // see also https://github.com/WebOfTrust/signify-ts/blob/fddaff20f808b9ccfed517b3a38bef3276f99261/examples/integration-scripts/utils/test-setup.ts
 export async function createAID(
     name: string
-): Promise<string>{
+): Promise<string> {
     try {
         validateClient();
-        // TODO:
-        // assert isClient(_client);
+        // TODO P3 consider adding a check for the client's state to ensure it is connected
+        // await _client.connect();
+        // console.debug("signify_ts_shim: client connected");
         const client: SignifyClient = _client!;
-        // TODO: could assure client it is connected here.
         const res: EventResult = await client.identifiers().create(name);
         const op2 = await res.op();
         let id: string = op2.response.i;

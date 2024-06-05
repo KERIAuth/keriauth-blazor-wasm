@@ -276,7 +276,7 @@
             {
                 ops5CreatePersonalAid.SetIsRunning();
                 StateHasChanged();
-                var aidRes = await signifyClientService.CreatePersonAid(InitialAlias);
+                var aidRes = await signifyClientService.RunCreateAid(InitialAlias);
                 if (aidRes.IsFailed)
                 {
                     ops5CreatePersonalAid.SetCompletedWithError(aidRes.Reasons.First().Message);

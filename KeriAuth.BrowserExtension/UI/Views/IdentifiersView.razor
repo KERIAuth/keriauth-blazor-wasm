@@ -19,6 +19,7 @@
 @inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
+@inject ISnackbar snackbar
 
 <!-- For KERI
 KERI Autonomous Identifiers (AIDs)
@@ -175,16 +176,17 @@ Backer Address  (copy)
         {
             isAddingAid = true;
             var res = await identifiersService.Add(alias2);
-            if (res != null)
+            if (res.IsFailed || res.Value is null)
+            {
+                logger.LogError("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
+                snackbar.Add("Failed to add identifier", Severity.Error);
+            }
+            else
             {
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetHeadlines();
                 var prefs = await preferencesService.GetPreferences();
                 await preferencesService.SetPreferences(prefs with { SelectedAid = res.Value });
-            }
-            else
-            {
-                logger.LogError("AddIdentifier failed");
             }
         }
         else

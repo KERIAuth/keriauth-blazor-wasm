@@ -1,4 +1,5 @@
 ﻿using FluentResults;
+using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
@@ -72,70 +73,50 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             }
         }
 
-        //public async Task<Result<ClientState>> BootAndConnect(Uri url, String BootPort, string passcode)
-        //{
-        //    Debug.Assert(url is not null);
-        //    try
-        //    {
-        //        string agentUrl = url.ToString()!;
-        //        var ClientRes = await Signify_ts_shim.BootAndConnect(agentUrl, $"{url}:{BootPort}/boot", "passcode");
-        //        if (ClientRes is not null)
-        //        {
-        //            var details = new
-        //            {
-        //                BootAndConnectResults = ClientRes,
-        //                Tmp = "tmp"
-        //            };
-        //            Console.WriteLine("SignifyClientService BootAndConnect ClientRes 11: {@details} ", details);
-        //            logger.LogInformation("SignifyClientService BootAndConnect ClientRes: {@Details}", details);
-        //            // TODO EE!: parse what we need from ClientRes json
-        //            return Result.Ok<ClientState>(new ClientState());
-        //        }
-        //        else
-        //        {
-        //            return Result.Fail<ClientState>("SignifyClientService: BootAndConnect: ClientRes is null");
-        //        }
-        //    }
-        //    catch (JSException e)
-        //    {
-        //        logger.LogInformation("SignifyClientService: BootAndConnect: JSException: {e}", e);
-        //        return Result.Fail<ClientState>("SignifyClientService: BootAndConnect: Exception: " + e);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        logger.LogInformation("SignifyClientService: BootAndConnect: Exception: {e}", e);
-        //        return Result.Fail<ClientState>("SignifyClientService: BootAndConnect: Exception: " + e);
-        //    }
-        //}
-
         public Task<Result<bool>> Connect()
         {
             throw new NotImplementedException();
             // return Task.FromResult(Result.Fail<bool>("Not implemented"));
         }
 
-        public async Task<Result<string>> CreatePersonAid(string aidName)
+        public async Task<Result<string>> RunCreateAid(string aidName, TimeSpan? timeout = null)
         {
+            TimeSpan timeout2;
+            if (timeout is null) 
+                timeout2 = (TimeSpan)TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            else
+                timeout2 = (TimeSpan)timeout;
             try
             {
-                var res = await CreateAID(aidName);
-                Debug.Assert(res is not null);
-                // TODO verify res and parse what we need
-                logger.LogInformation("CreatePersonAid: res: {res}", res);
-                // return Result.Ok<Models.Identifier>(new Models.Identifier());
-                return Result.Ok(res);
+                var res = await TimeoutHelper.WithTimeout<string>(ct => CreateAID(aidName), timeout2);
+                if (res.IsSuccess)
+                {
+                    logger.LogInformation("RunCreateAid: {res}", res.Value);
+                    var jsonString = res.Value;
+                    if (jsonString is null) { 
+                        return Result.Fail<string>("CreateAID returned null");
+                    } else {
+                        return Result.Ok(jsonString);
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("RunCreateAid: {res}", res.Errors);
+                    return Result.Fail<string>(res.Errors.First().Message);
+                }
             }
             catch (JSException e)
             {
-                logger.LogWarning("CreatePersonAid: JSException: {e}", e);
+                logger.LogWarning("RunCreateAid: JSException: {e}", e);
                 return Result.Fail<string>("SignifyClientService: CreatePersonAid: Exception: " + e);
             }
             catch (Exception e)
             {
-                logger.LogWarning("CreatePersonAid: Exception: {e}", e);
+                logger.LogWarning("RunCreateAid: Exception: {e}", e);
                 return Result.Fail<string>("SignifyClientService: CreatePersonAid: Exception: " + e);
             }
         }
+
 
         public Task<Result<HttpResponseMessage>> DeletePasscode()
         {
