@@ -179,7 +179,7 @@ Backer Address  (copy)
             IsAddingAid = true;
             StateHasChanged();
             var res = await identifiersService.Add((string)result.Data);
-            await Task.Delay(200000);  // Simulate delay to show and test spinner
+            await Task.Delay(1000);  // Simulate delay to show and test spinner. Can remove later.
             if (res.IsFailed || res.Value is null)
             {
                 logger.LogError("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
