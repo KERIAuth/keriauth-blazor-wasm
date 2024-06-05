@@ -44,7 +44,7 @@
 
             <MudSpacer />
             <div style="align-items: center; display: flex; Background:Transparent">
-                @if (hasNewMessages)
+                @if (HasNewMessages)
                 {
                     <MudTooltip Text="Notifications" Delay="1000">
                         <MudIconButton OnClick="GoToChat" Icon="@Icons.Material.Filled.Message" Color="Color.Inherit" />
@@ -74,20 +74,20 @@
             <div style="align-self:center; height: 35px; margin-right: -8px;">
                 @if (!IsIdenticonHidden)
                 {
-                    <MudTooltip Text="@activeAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@activeAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                    <MudTooltip Text="@ActiveAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
+                        <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@ActiveAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                     </MudTooltip>
                 }
             </div>
 
         </MudStack>
         <!-- The AID selector overlay covers entire page -->
-        <MudOverlay DarkBackground LightBackground @bind-Visible="@isProfilePanelOpen" OnClick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
+        <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" OnClick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
-                <MudList Clickable="true" @bind-SelectedValue="activeAid" Class="bt-sad-4;" Style="padding: 0px">
-                    @foreach (var identifierHeadline in identifiersHeadlines)
+                <MudList Clickable="true" @bind-SelectedValue="ActiveAid" Class="bt-sad-4;" Style="padding: 0px">
+                    @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
-                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersView.cardClass((string)activeAid, identifierHeadline.Prefix)" Class="bt-sad-5">
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersView.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -113,7 +113,7 @@
     }
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex;">
         <!--  background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">  -->
-        <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@isMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@drawerMode" OpenMiniOnHover="true">
+        <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@DrawerMode" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
@@ -122,7 +122,7 @@
                 <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
                 <MudNavLink Href=@RouteToSchemas Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Schema" IconColor="Color.Surface">Schemas</MudNavLink>
                 <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuContacts">Websites</MudNavLink>
-                @if (isInPopup)
+                @if (IsInPopup)
                 {
                     <MudNavLink OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
                 }
@@ -153,7 +153,7 @@
         </MudDrawer>
 
         <!-- MAIN CONTENT -->
-        <MudMainContent Class="bt-main-content" Style="@mainContentStyle">
+        <MudMainContent Class="bt-main-content" Style="@MainContentStyle">
             <MudContainer MaxWidth="MaxWidth.Large" Style="height:inherit; min-height:inherit; padding-left:0; padding-right:0;">
                 @Body
             </MudContainer>
@@ -324,28 +324,28 @@
 </style>
 
 @code {
-    bool isMenuDrawerOpen;
-    bool isProfilePanelOpen;
+    bool IsMenuDrawerOpen { get; set; }
+    bool IsProfilePanelOpen { get; set; }
     bool isDarkTheme;
     bool isInExtension;
     bool IsIdenticonHidden
     {
         get
         {
-            return (string.IsNullOrEmpty((string)activeAid) || stateService.GetState() == IStateService.States.Unauthenticated);
+            return (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
         }
     }
-    bool isInPopup;
-    bool hasNewMessages;
-    object activeAid { get; set; } = "";
-    string activeAidIdenticon { get; set; } = "";
-    string activeAidTooltip { get; set; } = "";
+    bool IsInPopup {get; set;}
+    bool HasNewMessages { get; set; }
+    object ActiveAid { get; set; } = "";
+    string ActiveAidIdenticon { get; set; } = "";
+    string ActiveAidTooltip { get; set; } = "";
     string version = "0.0.0";
     string version_name = "unset 33";
-    string mainContentStyle = " left:0; ";
+    string MainContentStyle { get; set; } = " left:0; ";
     bool IsAuthenticated => stateService.IsAuthenticated();
     MudBlazor.MudDrawer mudDrawerRef = new();
-    DrawerVariant drawerMode;
+    DrawerVariant DrawerMode { get; set; }
     IdleAlarm? idleAlarm;
 
     // TODO: Implement instead the newer [JSExport] attribute? See https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/import-export-interop?view=aspnetcore-8.0
@@ -388,8 +388,9 @@
 
     private async Task RefreshConnect()
     {
+        // TODO not yet implemented
+        snackbar.Add("Refreshing connection...", Severity.Info);
         await Task.Delay(0);
-        throw new NotImplementedException();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -426,15 +427,15 @@
             var res = await identifiersService.GetIdentifierHeadlines();
             if (res.IsSuccess)
             {
-                identifiersHeadlines = res.Value;
-                identifiersHeadlines = identifiersHeadlines.OrderBy(a => a.Alias).ToList();
+                IdentifiersHeadlines = res.Value;
+                IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
                 return;
             }
         }
-        identifiersHeadlines = [];
+        IdentifiersHeadlines = [];
     }
 
-    List<IdentifierHeadline> identifiersHeadlines = [];
+    List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
 
     // Compute the Left position for MainContent depending on the type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
@@ -451,7 +452,7 @@
 
         // logger.LogInformation("MainLayout: UpdateMainContentStyle: isMenuDrawerOpen:" + isMenuDrawerOpen + " mudDrawerRef.Variant=" + mudDrawerRef.Variant);
 
-        mainContentStyle = (isMenuDrawerOpen, mudDrawerRef.Variant) switch
+        MainContentStyle = (IsMenuDrawerOpen, mudDrawerRef.Variant) switch
         {
             (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth});",
             (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
@@ -532,12 +533,12 @@
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.ActionPopup:
-                isInPopup = true;
+                IsInPopup = true;
                 break;
             case ExtensionEnvironment.None:
                 break;
             case ExtensionEnvironment.Popup:
-                isInPopup = true;
+                IsInPopup = true;
                 break;
             case ExtensionEnvironment.Iframe:
             case ExtensionEnvironment.Extension:
@@ -590,28 +591,28 @@
             case ExtensionEnvironment.Iframe:
             case ExtensionEnvironment.Popup:
             case ExtensionEnvironment.ActionPopup:
-                drawerMode = prefs.DrawerVariantInPopup;
+                DrawerMode = prefs.DrawerVariantInPopup;
                 break;
             case ExtensionEnvironment.None:
             case ExtensionEnvironment.Extension:
             default:
-                drawerMode = prefs.DrawerVariantInTab;
+                DrawerMode = prefs.DrawerVariantInTab;
                 break;
         }
         // if the drawer mode has changed, update the UI to reasonable drawer state
-        if (oldDrawerMode != drawerMode)
+        if (oldDrawerMode != DrawerMode)
         {
             // TODO this might be better if dependant on (oldDrawerMode, drawerMode, isMenuDrawerOpen)
-            switch (drawerMode)
+            switch (DrawerMode)
             {
                 case DrawerVariant.Mini:
-                    isMenuDrawerOpen = false;
+                    IsMenuDrawerOpen = false;
                     break;
                 case DrawerVariant.Temporary:
-                    isMenuDrawerOpen = true;
+                    IsMenuDrawerOpen = true;
                     break;
                 case DrawerVariant.Responsive:
-                    isMenuDrawerOpen = false;
+                    IsMenuDrawerOpen = false;
                     break;
                 case DrawerVariant.Persistent:
                 default:
@@ -620,21 +621,21 @@
         }
         // TODO persiste the isMenuDrawerOpen state in preferences if Persistence drawer mode is selected. Depends on ExtensionEnvironment.
         // For now, just assume the following:
-        if (drawerMode == DrawerVariant.Persistent && extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.None)
+        if (DrawerMode == DrawerVariant.Persistent && extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.None)
         {
-            isMenuDrawerOpen = true;
+            IsMenuDrawerOpen = true;
         }
     }
 
     async Task InitializeOrOnNextPrefs(Preferences prefs)
     {
-        logger.LogWarning("received prefs: " + JsonSerializer.Serialize(prefs));
+        // logger.LogInformation("received prefs: " + JsonSerializer.Serialize(prefs));
         isDarkTheme = prefs.IsDarkTheme;
         // TODO P4 set the background-image depending on isDarkTheme.
-        activeAid = (object)prefs.SelectedAid;
-        UpdateDrawerMode(drawerMode, prefs);
+        ActiveAid = (object)prefs.SelectedAid;
+        UpdateDrawerMode(DrawerMode, prefs);
         UpdateMainContentStyle();
-        logger.LogWarning("setting ActiveAid to {aid}", prefs.SelectedAid);
+        // logger.LogInformation("setting ActiveAid to {aid}", prefs.SelectedAid);
         await UpdateActiveAid(prefs.SelectedAid);
         StateHasChanged();
     }
@@ -644,15 +645,15 @@
         await Task.Delay(0);
         if (string.IsNullOrEmpty(activeAid))
         {
-            activeAidIdenticon = "";
-            activeAidTooltip = "";
+            ActiveAidIdenticon = "";
+            ActiveAidTooltip = "";
             return;
         }
-        activeAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
-        var headline = identifiersHeadlines.Find(x => x.Prefix == activeAid);
+        ActiveAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
+        var headline = IdentifiersHeadlines.Find(x => x.Prefix == activeAid);
         if (headline is not null)
         {
-            activeAidTooltip = headline.Alias;
+            ActiveAidTooltip = headline.Alias;
             return;
         }
     }
@@ -672,20 +673,19 @@
     {
         await stateService.Unauthenticate();
         navManager.NavigateTo(RouteToStart);
-        // Other actions will be reactive. See IObserver<StateService>
+        // Other side-effects will be reactive. See IObserver<StateService>
     }
 
     async Task SetActiveAid()
     {
-        // TODO should be more reactive?
-        isProfilePanelOpen = false;
+        IsProfilePanelOpen = false;
         var pref = await preferencesService.GetPreferences();
         pref = pref with
             {
-                SelectedAid = (string)activeAid
+                SelectedAid = (string)ActiveAid
             };
         await preferencesService.SetPreferences(pref);
-        // Other actions will be reactive. See IObserver<Preferences>
+        // Other side-effects will be reactive. See IObserver<Preferences>
     }
 
     private void ClickToggleProfilePanel(MouseEventArgs args)
@@ -695,25 +695,25 @@
 
     void ToggleProfilePanel()
     {
-        isProfilePanelOpen = !isProfilePanelOpen;
+        IsProfilePanelOpen = !IsProfilePanelOpen;
     }
 
     void OpenMenuDrawer()
     {
-        isMenuDrawerOpen = true;
+        IsMenuDrawerOpen = true;
         UpdateMainContentStyle();
     }
 
     void ToggleMenuDrawer()
     {
-        isMenuDrawerOpen = !isMenuDrawerOpen;
+        IsMenuDrawerOpen = !IsMenuDrawerOpen;
         UpdateMainContentStyle();
     }
 
     private void GoToChat()
     {
         // TODO P3 Chat: hasNewMessages should be responsive to existence of unread messages, not this click
-        hasNewMessages = false;
+        HasNewMessages = false;
         navManager.NavigateTo(RouteToChat);
     }
 
