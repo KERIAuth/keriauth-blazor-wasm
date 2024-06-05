@@ -53,8 +53,8 @@
                         <MudText Style="width:200px; text-align:right;">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Selected Identifier</MudLink>
                         </MudText>
-                        <MudIcon Icon=@selectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                        <MudText>@selectedAlias</MudText>
+                        <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                        <MudText>@SelectedAlias</MudText>
                     </MudStack>
                     <MudStack Row>
                         <MudText Style="width:200px; text-align:right;">
@@ -147,23 +147,23 @@
         logger.LogError("HandleCompletedFromPreferencesService");
     }
 
-    private string selectedAid = "";
-    private string selectedAlias = "";
-    private string selectedIdenticon = "";
+    private string SelectedAid { get; set; } = "";
+    private string SelectedAlias { get; set; } = "";
+    private string SelectedIdenticon { get; set; } = "";
 
     private async Task InitialOrNextPreference(Preferences value)
     {
-        selectedAid = value.SelectedAid;
-        selectedAlias = "";
-        selectedIdenticon = "";
+        SelectedAid = value.SelectedAid;
+        SelectedAlias = "";
+        SelectedIdenticon = "";
         var res = await identifiersService.GetIdentifierHeadlines(); // TODO needed to pupulate the cache, to enable GetIdentifierService ?
         if (res is not null && res.IsSuccess)
         {
-            var headline = res.Value.Where<IdentifierHeadline>((h) => h.Prefix == selectedAid).First();
+            var headline = res.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedAid).First();
             if (headline is not null)
             {
-                selectedAlias = headline.Alias;
-                selectedIdenticon = MakeIdenticon(selectedAid);
+                SelectedAlias = headline.Alias;
+                SelectedIdenticon = MakeIdenticon(SelectedAid);
             }
         } else
         {
