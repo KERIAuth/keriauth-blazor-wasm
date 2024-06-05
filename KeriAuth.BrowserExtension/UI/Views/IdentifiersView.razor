@@ -49,10 +49,10 @@ Backer Address  (copy)
             <MudText Typo="Typo.h6">Identifiers (@cachedAids.Count)</MudText>
             @foreach (CachedAid cachedAid in cachedAids)
             {
-                <MudCard Style="@cardClass(activeAid, cachedAid.Alias)">
+                <MudCard Style="@cardClass(ActiveAid, cachedAid.Alias)">
                     <MudExpansionPanel Dense="true">
                         <TitleContent>
-                            <div class="d-flex" style="align-items:center; @cardClass((string)activeAid, cachedAid.Prefix)">
+                            <div class="d-flex" style="align-items:center; @cardClass((string)ActiveAid, cachedAid.Prefix)">
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">
                                     <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
                                         <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
@@ -75,23 +75,24 @@ Backer Address  (copy)
                     </MudExpansionPanel>
                 </MudCard>
             }
-            @if (isAddingAid)
+            @if (IsAddingAid)
             {
-                <p><em>Generating Identifier...</em></p>
+                <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
+                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+                </div>
             }
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@isAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
     </MudStack>
 </div>
 
 @code {
-    private bool isAddingAid;
-    private string _resolveResult = String.Empty;
-    private string activeAid = "";
+    private bool IsAddingAid { get; set; }
+    private string ActiveAid { get; set; } = string.Empty;
 
     public void Dispose()
     {
@@ -149,7 +150,7 @@ Backer Address  (copy)
                 // logger.LogWarning("adding aid {1}", item.Prefix);
                 cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
             }
-            cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();  
+            cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();
         };
     }
 
@@ -175,8 +176,10 @@ Backer Address  (copy)
         {
             DialogResult = $"Dialog result: {result.Data}";
             logger.LogInformation("AddIdentifier: {1}", result.Data);
-            isAddingAid = true;
+            IsAddingAid = true;
+            StateHasChanged();
             var res = await identifiersService.Add((string)result.Data);
+            await Task.Delay(200000);  // Simulate delay to show and test spinner
             if (res.IsFailed || res.Value is null)
             {
                 logger.LogError("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
@@ -190,12 +193,13 @@ Backer Address  (copy)
                 await preferencesService.SetPreferences(prefs with { SelectedAid = res.Value });
             }
         }
-        isAddingAid = false;
+        IsAddingAid = false;
+        StateHasChanged();
     }
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
-        activeAid = prefs.SelectedAid;
+        ActiveAid = prefs.SelectedAid;
         this.StateHasChanged();
     }
 
@@ -209,7 +213,7 @@ Backer Address  (copy)
         var prefs2 = await preferencesService.GetPreferences();
         prefs2 = prefs2 with { SelectedAid = identifier };
         await preferencesService.SetPreferences(prefs2);
-        // Other actions will be reactive to subscribed updates of Preferences
+        // Other side-effects will be reactive to subscribed updates of Preferences
     }
 
     private string DialogResult { get; set; } = "unknown";
