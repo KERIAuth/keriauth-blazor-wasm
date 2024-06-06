@@ -34,7 +34,7 @@
                 </div>
             </div>
             </MudText>
-            <MudText>Display Name: Alias</MudText>
+            <MudText>Alias: @Alias</MudText>
             <MudTooltip Text="Set Identifier as active" Delay="1000">
                 <MudButton OnClick="async () => await SetActiveAid(Prefix)">
                     <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
@@ -122,9 +122,12 @@
             Prefix = prefs.SelectedAid;
         }
         Identicon = Helper.Identicon.MakeIdenticon(Prefix);
-
-        // var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), new Logger<IdentifierService>(), storageService);
+        await GetHeadlines();
+        Alias = cachedAids.FirstOrDefault(a => a.Prefix == Prefix)?.Alias;
+        // var identifierService = new IdentifierService(Prefix, item.Name, Guid.NewGuid(), new Logger<IdentifierService>(), storageService);
     }
+
+    private string Alias { get; set; } = string.Empty;
 
     private async Task GetHeadlines()
     {
