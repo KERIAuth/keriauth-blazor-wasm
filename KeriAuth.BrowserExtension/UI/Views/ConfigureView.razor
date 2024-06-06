@@ -42,8 +42,18 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <MudStack>
-            <MudText Typo="Typo.h6">Configure and connect to your KERIA agent service</MudText>
+            <MudText Typo="Typo.h6">Configure</MudText>
             <MudStack Class="bt-create-card-top-scrollable">
+                <MudText Typo="Typo.h6">KERIA Agent Service</MudText>
+
+                <MudSelect T="Preset" Label="Select from preset" @bind-Value="@PresetChoice">
+                    @foreach (var preset in presetAgents)
+                    {
+                        <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
+                    }
+                </MudSelect>
+
+
                 <MudTextField Label="Agent URL"
                               @bind-Value="@urlModel.AdminUrl"
                               For="@(() => urlModel.AdminUrl)"
@@ -54,8 +64,8 @@
                               For="@(() => urlModel.BootUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudText>Passcode</MudText>
-                <MudRadioGroup T="Boolean" @bind-Value="UseExistingPasscode">
+                <MudText Typo="Typo.h6">Account Passcode</MudText>
+                <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetUseExistingPasscodeAsync(v)">
                     <MudRadio Value="false">
                         Create a new random one
                     </MudRadio>
@@ -112,13 +122,17 @@
                         }
                     }
                 }
-                <MudStack Class="mt-5">
-                    <OperationDisplayComponent ops="@ops1LivenessCheck"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops2HealthCheck"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops3BootAndConnect"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
-                </MudStack>
+                @if (IsProcessing)
+                {
+                    <MudText Typo="Typo.h6">Connecting...</MudText>
+                    <MudStack Class="mt-5">
+                        <OperationDisplayComponent ops="@ops1LivenessCheck"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops2HealthCheck"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops3BootAndConnect"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                    </MudStack>
+                }
             </MudStack>
         </MudStack>
     </div>
@@ -138,10 +152,23 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
-
-        RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
-        await Copy2Clipboard(RandomPasscode);  // TODO P1 should be later in flow
+        // TODO EE!
+        // await SetUseExistingPasscodeAsync(false);
     }
+
+    // private void SetUrls()
+    // {
+    //     if (PresetChoice.ProviderName == "localhost")
+    //     {
+    //         urlModel.AdminUrl = AppConfig.DefaultKeriaAdminUrl;
+    //         urlModel.BootUrl = AppConfig.DefaultKeriaBootUrl;
+    //     }
+    //     else
+    //     {
+    //         urlModel.AdminUrl = "";
+    //         urlModel.BootUrl = "";
+    //     }
+    // }
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
     private KeriaConnectConfig? keriaConnectConfig;
@@ -151,6 +178,55 @@
         if (keriaConnectConfig is null)
             return false;
         return keriaConnectConfig.IsConfigured();
+    }
+    private Preset _presetChoice;
+    private Preset PresetChoice
+    {
+        get
+        {
+            return _presetChoice;
+        }
+        set
+        {
+            _presetChoice = value;
+            urlModel.AdminUrl = value.AgentUrl;
+            urlModel.BootUrl = value.BootUrl;
+        }
+    }
+    private static List<Preset> presetAgents = new List<Preset>
+    {
+        new Preset("localhost", AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl),
+        new Preset("Roots ID", "https://keria-dev.rootsid.cloud/admin", "https://keria-dev.rootsid.cloud"),
+        new Preset("Custom", "", "")
+    };
+
+    struct Preset
+    {
+        public string ProviderName { get; init; }
+        public string AgentUrl { get; init; }  // TODO here and in the UI is it Agent or Admin?
+        public string BootUrl { get; init; }
+
+        public Preset(string provider, string adminUrl, string bootUrl)
+        {
+            ProviderName = provider;
+            AgentUrl = adminUrl;
+            BootUrl = bootUrl;
+        }
+    }
+
+    private bool UseExistingPasscode { get; set; }
+    private bool IsProcessing { get; set; }
+
+    private async Task SetUseExistingPasscodeAsync(bool value)
+    {
+        logger.LogInformation("SetUseExistingPasscodeAsync");
+        UseExistingPasscode = value;
+        RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
+        // clear in case radio is toggled after passcode is copied, entered
+        configuredPasscodeModel.Passcode = "";
+        isPasscodeCopyConfirmed = false;
+        StateHasChanged();
+        await Copy2Clipboard(RandomPasscode);
     }
 
     private readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERIA liveness", "Live");
@@ -170,8 +246,6 @@
         // This method will be triggered when the text field loses focus
         // You can check for validity here if needed
     }
-
-    private bool UseExistingPasscode { get; set; } = true;
 
     private PasscodeModel configuredPasscodeModel = new PasscodeModel();
 
@@ -312,6 +386,7 @@
     private async Task StoreHashAndConnect()
     {
         // Since user has confirmed the passcode, we can now hash it and store it once the connection is successful
+        IsProcessing = true;
         var isConnected = await ConnectToKeria();
         if (isConnected)
         {
@@ -326,11 +401,10 @@
             }
             await stateService.Configure();
             await stateService.Authenticate(true); // TODO EE! temporary location here, to enable testing
-            // TODO EE! reactive effects of stateservice should disable the Connect button and enable the Next button??
-            // navManager.NavigateTo("Home");
+                                                   // TODO EE! reactive effects of stateservice should disable the Connect button and enable the Next button??
+                                                   // navManager.NavigateTo("Home");
         }
         // TODO EE! else show error message
-
     }
 
     private bool IsValidURLs
