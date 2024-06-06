@@ -15,7 +15,7 @@
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Preferences</MudText>
             <MudStack>
-                <MudText Class="mt-3">Appearance Theme</MudText>
+                <MudText Class="mt-3">Theme</MudText>
                 <MudStack Row="true" Style="margin-left:20px;">
                     <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
                     <MudSwitch Value="IsDarkTheme" ValueChanged="async (a) => await SetAndPersistIsDarkTheme(a)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
@@ -23,8 +23,7 @@
                 </MudStack>
             </MudStack>
             <MudStack Row="false">
-                <MudText Class="mt-3">Selected Identifier: @(SelectedAid)</MudText>
-                <MudText Class="mt-3">Menu Drawer Responsive Mode</MudText>
+                <MudText Class="mt-3">Menu Mode</MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
                     <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
@@ -32,12 +31,14 @@
                             <MudSelectItem Value="@item">@item</MudSelectItem>
                         }
                     </MudSelect>
+                    @{/*
                     <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInPopup" ValueChanged="@(async(a) => await SetAndPersistDVIP(a))" Label="In Popup" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInPopup)))
                         {
                             <MudSelectItem Value="@item">@item</MudSelectItem>
                         }
                     </MudSelect>
+                    */}
                 </MudStack>
             </MudStack>
         </div>
@@ -69,8 +70,6 @@
 
     MudBlazor.DrawerVariant DrawerVariantInTab { get; set; }
 
-    string SelectedAid { get; set; } = "unset";
-
     MudBlazor.DrawerVariant DrawerVariantInPopup { get; set; }
 
     async Task Persist()
@@ -80,7 +79,6 @@
             DrawerVariantInPopup = DrawerVariantInPopup,
             DrawerVariantInTab = DrawerVariantInTab,
             IsDarkTheme = IsDarkTheme,
-            SelectedAid = SelectedAid 
         };
         await preferencesService.SetPreferences(prefs);
     }
@@ -121,7 +119,6 @@
             IsDarkTheme = value.IsDarkTheme;
             DrawerVariantInPopup = value.DrawerVariantInPopup;
             DrawerVariantInTab = value.DrawerVariantInTab;
-            SelectedAid = value.SelectedAid;
             logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
             StateHasChanged();
     }
