@@ -22,7 +22,7 @@
 @inject IStorageService storageService
 @inject IPreferencesService preferencesService
 @inject ISnackbar snackbar
-@inject IAlarmService timerService
+@inject IAlarmService alarmService
 @inject ILogger<MainLayout> logger
 @inject IStateService stateService
 @inject IdentifiersService identifiersService
@@ -576,7 +576,7 @@
             onCompleted: async () => await HandleCompletedFromStateService());
         CurrentState = stateService.GetState();
 
-        idleAlarm = new IdleAlarm(timerService, async () => await OnIdleHandler());
+        idleAlarm = new IdleAlarm(alarmService, async () => await OnIdleHandler());
         await js.InvokeVoidAsync("window.registerInactivityTimerResetEvents", DotNetObjectReference.Create(this));
 
         return;

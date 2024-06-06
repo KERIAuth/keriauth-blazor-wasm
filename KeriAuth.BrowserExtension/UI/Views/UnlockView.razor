@@ -157,6 +157,7 @@
         {
             await stateService.Authenticate(false);
             IsLocked = false;
+            // TODO: Start showing a spinner here?
             var res = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             logger.LogWarning("res: " + res);
             if (res is null || res.IsFailed)
@@ -172,6 +173,7 @@
                 logger.LogInformation("Connected to KERIA agent service");
                 await stateService.ConfirmConnected();
             }
+            // Stop showing spinner
             navManager.NavigateTo(RouteToHome);
             return;
         }
