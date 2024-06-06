@@ -132,3 +132,13 @@ export const getAIDs = async () => {
     console.debug("signify_ts_shim: getAIDs: ", managedIdentifiers);
     return identifierJson;
 }     
+
+
+export const getAID = async (id: string) => {
+    validateClient();
+    const client: SignifyClient = _client!;
+    const managedIdentifier = await client.identifiers().get(id);
+    let identifierJson: string = JSON.stringify(managedIdentifier);
+    console.debug("signify_ts_shim: getAID: ", managedIdentifier);
+    return identifierJson;
+}

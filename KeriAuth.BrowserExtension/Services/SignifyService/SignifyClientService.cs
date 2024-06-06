@@ -137,7 +137,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             }
         }
 
-
         public Task<Result<HttpResponseMessage>> DeletePasscode()
         {
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
@@ -190,14 +189,14 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 var identifiers = JsonSerializer.Deserialize<Identifiers>(jsonString);
                 if (identifiers is null)
                 {
-                    return Result.Fail<Identifiers>("Failed to deserialize Identifiers");
+                    return Result.Fail<Identifiers>("SignifyClientService: GetIdentifiers: Failed to deserialize Identifiers");
                 }
                 return Result.Ok(identifiers);
             }
             catch (JSException e)
             {
                 logger.LogWarning("GetIdentifiers: JSException: {e}", e);
-                return Result.Fail<Identifiers>("SignifyClientService: CreatePersonAid: Exception: " + e);
+                return Result.Fail<Identifiers>("SignifyClientService: GetIdentifiers: Exception: " + e);
             }
             catch (Exception e)
             {
@@ -205,6 +204,36 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 return Result.Fail<Identifiers>("SignifyClientService: GetIdentifiers: Exception: " + e);
             }
         }
+
+
+        public async Task<Result<Aid>> GetIdentifier(string prefix)
+        {
+            try
+            {
+                var jsonString = await GetAID(prefix);
+                if (jsonString is null)
+                {
+                    return Result.Fail<Aid>("GetAID returned null");
+                }
+                var aid = JsonSerializer.Deserialize<Aid>(jsonString);
+                if (aid is null)
+                {
+                    return Result.Fail<Aid>("Failed to deserialize Identifier");
+                }
+                return Result.Ok(aid);
+            }
+            catch (JSException e)
+            {
+                logger.LogWarning("GetIdentifiers: JSException: {e}", e);
+                return Result.Fail<Aid>("SignifyClientService: GetIdentifier: Exception: " + e);
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning("GetIdentifiers: Exception: {e}", e);
+                return Result.Fail<Aid>("SignifyClientService: GetIdentifier: Exception: " + e);
+            }
+        }
+
 
         public Task<Result<IList<Ipex>>> GetIpex()
         {

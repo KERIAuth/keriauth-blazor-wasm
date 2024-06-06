@@ -4,7 +4,7 @@
     {
         // Routes
         public const string RouteToIdentifiers = "/Identifiers";
-        public const string RouteToIdentifier = "/Identifier";  // Add parameter
+        public const string RouteToIdentifier = "/Identifier";  // with optional parameter
         public const string RouteToCredentials = "/Credentials";
         public const string RouteToCredential = "/Credential";  // Add parameter
         public const string RouteToWebsites = "/Websites";

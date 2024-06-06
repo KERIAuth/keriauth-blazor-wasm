@@ -1,4 +1,5 @@
-﻿@page "/Identifiers"
+﻿@page "/Identifier/{prefix?}"
+
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.UI.Components
@@ -7,6 +8,7 @@
 @using KeriAuth.BrowserExtension.Services.SignifyService.Models
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using System.Diagnostics
+@using System.Text.Json
 
 @implements IDisposable;
 @inject IPreferencesService preferencesService
@@ -15,7 +17,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
-@inject ILogger<IdentifiersView> logger
+@inject ILogger<IdentifierPage> logger
 @inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
@@ -24,23 +26,30 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Identifiers (@cachedAids.Count)</MudText>
-            @foreach (CachedAid cachedAid in cachedAids)
-            {
-                <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier)">
-                    <MudCard Class="py-1 my-1" Style="@cardClass((string)ActiveAid, cachedAid.Alias)">
-                        <div class="d-flex" style="align-items:center; @cardClass((string)ActiveAid, cachedAid.Prefix)">
-                            <MudTooltip Text="Set Identifier as active" Delay="1000">
-                                <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
-                                    <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                </MudButton>
-                            </MudTooltip>
-                            <MudText Typo="Typo.h6">@cachedAid.Alias</MudText>
-                        </div>
-                    </MudCard>
-                </MudLink>
-            }
-            @if (IsAddingAid)
+            <MudText Typo="Typo.h6">Identifier</MudText>
+            <MudText>Prefix: 
+            <div style="margin-left:">
+                <div class="mt-2">
+                    <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                </div>
+            </div>
+            </MudText>
+            <MudText>Display Name: Alias</MudText>
+            <MudTooltip Text="Set Identifier as active" Delay="1000">
+                <MudButton OnClick="async () => await SetActiveAid(Prefix)">
+                    <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                </MudButton>
+            </MudTooltip>
+            <MudText>Delegates:</MudText>
+            <MudText>Delegatee of:</MudText>
+            <MudText>Key State:</MudText>
+            <MudText>Signing Key(s): List of Signing Keys or Digests and Weights  (fractions) (copy)  (type Ed25519)</MudText>
+            <MudText>Key Type:</MudText>
+            <MudText>List of Next Key Digests, threshold, weights (fractions) (copy)</MudText>
+            <MudText>Witnesses:</MudText>
+            <MudText>Key Event Log:</MudText>
+
+            @if (IsWaiting)
             {
                 <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
                     <MudProgressCircular Color="Color.Default" Indeterminate="true" />
@@ -51,13 +60,19 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
+        <!-- 
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsWaiting" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
+        -->
     </MudStack>
 </div>
 
 @code {
-    private bool IsAddingAid { get; set; }
+    [Parameter]
+    public string? Prefix { get; set; }
+
+    private bool IsWaiting { get; set; }
     private string ActiveAid { get; set; } = string.Empty;
+    private string Identicon { get; set; } = string.Empty;
 
     public void Dispose()
     {
@@ -98,9 +113,17 @@
     {
         base.OnParametersSet();
         logger.LogInformation($"OnParametersSetAsync");
+
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
-        await GetHeadlines();
+        logger.LogInformation(JsonSerializer.Serialize(prefs));
+        if (string.IsNullOrEmpty(Prefix))
+        {
+            Prefix = prefs.SelectedAid;
+        }
+        Identicon = Helper.Identicon.MakeIdenticon(Prefix);
+
+        // var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), new Logger<IdentifierService>(), storageService);
     }
 
     private async Task GetHeadlines()
@@ -120,48 +143,7 @@
         };
     }
 
-    private async Task AddIdentifier()
-    {
-        var parameters = new DialogParameters();
-        var options = new DialogOptions
-            {
-                CloseOnEscapeKey = true,
-                MaxWidth = MaxWidth.Small,
-                FullWidth = true,
-                DisableBackdropClick = true,
-                CloseButton = true,
-                Position = DialogPosition.Center,
-            };
-        var dialog = dialogService.Show<AddIdentifierDialog>("Add Identifier", parameters, options);
-        var result = await dialog.Result;
-        if (result.Canceled)
-        {
-            DialogResult = "Dialog was cancelled";
-        }
-        else
-        {
-            DialogResult = $"Dialog result: {result.Data}";
-            logger.LogInformation("AddIdentifier: {1}", result.Data);
-            IsAddingAid = true;
-            StateHasChanged();
-            var res = await identifiersService.Add((string)result.Data);
-            await Task.Delay(1000);  // Simulate delay to show and test spinner. Can remove later.
-            if (res.IsFailed || res.Value is null)
-            {
-                logger.LogError("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
-                snackbar.Add("Failed to add identifier", Severity.Error);
-            }
-            else
-            {
-                logger.LogInformation("AddIdentifier: {1}", res.Value);
-                await GetHeadlines();
-                var prefs = await preferencesService.GetPreferences();
-                await preferencesService.SetPreferences(prefs with { SelectedAid = res.Value });
-            }
-        }
-        IsAddingAid = false;
-        StateHasChanged();
-    }
+    
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
