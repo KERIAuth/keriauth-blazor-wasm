@@ -159,17 +159,16 @@
             IsLocked = false;
             // TODO: Start showing a spinner here?
             var res = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
-            logger.LogWarning("res: " + res);
+            logger.LogInformation("res: " + res);
             if (res is null || res.IsFailed)
             {
-                logger.LogWarning("TEMP7");
+                logger.LogInformation("TEMP7");
                 openWalletError = "Could not connect to KERIA agent service";
                 snackbar.Add(openWalletError, Severity.Error);
                 logger.LogError(openWalletError);
             }
             else
             {
-                logger.LogWarning("TEMP8");
                 logger.LogInformation("Connected to KERIA agent service");
                 await stateService.ConfirmConnected();
             }

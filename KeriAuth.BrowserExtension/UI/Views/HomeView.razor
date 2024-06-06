@@ -113,8 +113,6 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
-
-        logger.LogWarning("TEMP2");
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res is not null && res.IsSuccess)
         {
@@ -154,10 +152,10 @@
 
     private async Task InitialOrNextPreference(Preferences value)
     {
+        logger.LogInformation("InitialOrNextPreference");
         SelectedAid = value.SelectedAid;
         SelectedAlias = "";
         SelectedIdenticon = "";
-        logger.LogWarning("TEMP3");
         var res = await identifiersService.GetIdentifierHeadlines(); // TODO needed to populate the cache, to enable GetIdentifierService ?
         if (res is not null && res.IsSuccess)
         {

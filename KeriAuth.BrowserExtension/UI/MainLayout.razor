@@ -427,11 +427,11 @@
         switch (stateService.GetState())
         {
             case IStateService.States.AuthenticatedDisconnected:
-                logger.LogWarning("TEMP22");
+                logger.LogInformation("TEMP22");
                 IdentifiersHeadlines = [];
                 break;
             case IStateService.States.AuthenticatedConnected:
-                logger.LogWarning("TEMP1");
+                logger.LogInformation("TEMP1");
                 var res = await identifiersService.GetIdentifierHeadlines();
                 if (res.IsSuccess)
                 {
