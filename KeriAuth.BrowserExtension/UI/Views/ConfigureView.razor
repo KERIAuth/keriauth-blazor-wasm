@@ -41,18 +41,16 @@
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
-        <MudStack Style="min-width: 350px">
+        <MudStack Style="min-width: 340px; max-width:100%">
             <MudText Typo="Typo.h6">Configure</MudText>
             <MudStack Class="bt-create-card-top-scrollable">
                 <MudText Typo="Typo.h6">KERIA Agent Service</MudText>
-
                 <MudSelect T="Preset" Label="Preset" @bind-Value="@PresetChoice">
                     @foreach (var preset in presetAgents)
                     {
                         <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
                     }
                 </MudSelect>
-
                 <MudTextField Label="Agent URL"
                               @bind-Value="@urlModel.AdminUrl"
                               For="@(() => urlModel.AdminUrl)"
@@ -91,7 +89,7 @@
                                   ReadOnly="true"
                                   Immediate="true" />
                     <!-- TODO implmement Reveal and CopyToClipboard -->
-                    <MudCheckBox @bind-Value="isPasscodeCopyConfirmed">I have copied and stored this passcode in a secure place</MudCheckBox>
+                    <MudCheckBox @bind-Value="isPasscodeCopyConfirmed" Style="overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
                     @if (isPasscodeCopyConfirmed)
                     {
                         <MudTextField Label="Confirm your passcode"
