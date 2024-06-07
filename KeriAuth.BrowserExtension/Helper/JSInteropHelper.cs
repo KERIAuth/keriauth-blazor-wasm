@@ -13,7 +13,7 @@ namespace KeriAuth.BrowserExtension.Helper
 #if DEBUG
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(22222000);
 #else
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(5000);
+        private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(5000);
 #endif
 
         private readonly IJSRuntime _jsRuntime = jsRuntime;
