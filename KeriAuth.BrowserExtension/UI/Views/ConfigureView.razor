@@ -64,7 +64,7 @@
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
                 <MudText Typo="Typo.h6">KERIA Account</MudText>
-                <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetUseExistingPasscode(v)">
+                <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
                     </MudRadio>
@@ -203,10 +203,10 @@
     private bool UseExistingPasscode { get; set; } = true;
     private bool IsProcessing { get; set; }
 
-    private async Task SetUseExistingPasscode(bool value)
+    private async Task SetIsNewAccount(bool isNewAccount)
     {
         logger.LogInformation("SetUseExistingPasscodeAsync");
-        UseExistingPasscode = !value;
+        UseExistingPasscode = !isNewAccount;
         RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
         // clear in case radio is toggled after passcode is copied, entered
         configuredPasscodeModel.Passcode = "";
