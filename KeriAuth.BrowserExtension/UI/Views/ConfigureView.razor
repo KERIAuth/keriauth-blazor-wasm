@@ -41,12 +41,12 @@
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
-        <MudStack>
+        <MudStack Style="min-width: 350px">
             <MudText Typo="Typo.h6">Configure</MudText>
             <MudStack Class="bt-create-card-top-scrollable">
                 <MudText Typo="Typo.h6">KERIA Agent Service</MudText>
 
-                <MudSelect T="Preset" Label="Select from preset" @bind-Value="@PresetChoice">
+                <MudSelect T="Preset" Label="Preset" @bind-Value="@PresetChoice">
                     @foreach (var preset in presetAgents)
                     {
                         <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
@@ -58,18 +58,18 @@
                               For="@(() => urlModel.AdminUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudTextField Label="Boot URL (optional if you already have an account)"
+                <MudTextField Label="Boot URL (optional if you have account)"
                               @bind-Value="@urlModel.BootUrl"
                               For="@(() => urlModel.BootUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
                 <MudText Typo="Typo.h6">KERIA Account</MudText>
-                <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetUseExistingPasscodeAsync(v)">
+                <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetUseExistingPasscode(v)">
                     <MudRadio Value="false">
-                        Create new
+                        Use existing
                     </MudRadio>
                     <MudRadio Value="true">
-                        Use existing
+                        Create new
                     </MudRadio>
                 </MudRadioGroup>
                 @if (UseExistingPasscode)
@@ -200,13 +200,13 @@
         }
     }
 
-    private bool UseExistingPasscode { get; set; }
+    private bool UseExistingPasscode { get; set; } = true;
     private bool IsProcessing { get; set; }
 
-    private async Task SetUseExistingPasscodeAsync(bool value)
+    private async Task SetUseExistingPasscode(bool value)
     {
         logger.LogInformation("SetUseExistingPasscodeAsync");
-        UseExistingPasscode = value;
+        UseExistingPasscode = !value;
         RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
         // clear in case radio is toggled after passcode is copied, entered
         configuredPasscodeModel.Passcode = "";
