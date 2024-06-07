@@ -53,21 +53,20 @@
                     }
                 </MudSelect>
 
-
                 <MudTextField Label="Agent URL"
                               @bind-Value="@urlModel.AdminUrl"
                               For="@(() => urlModel.AdminUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudTextField Label="Boot URL"
+                <MudTextField Label="Boot URL (optional if you already have an account)"
                               @bind-Value="@urlModel.BootUrl"
                               For="@(() => urlModel.BootUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudText Typo="Typo.h6">Account Passcode</MudText>
+                <MudText Typo="Typo.h6">KERIA Account</MudText>
                 <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetUseExistingPasscodeAsync(v)">
                     <MudRadio Value="false">
-                        Create a new random one
+                        Create new
                     </MudRadio>
                     <MudRadio Value="true">
                         Use existing
@@ -156,20 +155,6 @@
         // await SetUseExistingPasscodeAsync(false);
     }
 
-    // private void SetUrls()
-    // {
-    //     if (PresetChoice.ProviderName == "localhost")
-    //     {
-    //         urlModel.AdminUrl = AppConfig.DefaultKeriaAdminUrl;
-    //         urlModel.BootUrl = AppConfig.DefaultKeriaBootUrl;
-    //     }
-    //     else
-    //     {
-    //         urlModel.AdminUrl = "";
-    //         urlModel.BootUrl = "";
-    //     }
-    // }
-
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
     private KeriaConnectConfig? keriaConnectConfig;
 
@@ -179,7 +164,7 @@
             return false;
         return keriaConnectConfig.IsConfigured();
     }
-    private Preset _presetChoice;
+    private Preset _presetChoice = presetAgents[0];
     private Preset PresetChoice
     {
         get
@@ -193,6 +178,7 @@
             urlModel.BootUrl = value.BootUrl;
         }
     }
+
     private static List<Preset> presetAgents = new List<Preset>
     {
         new Preset("localhost", AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl),
@@ -424,10 +410,13 @@
 
     private class UrlModel
     {
+        // TODO add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
+
         [Required]
         [Url(ErrorMessage = "Enter KERIA Admin URL")]
         public string AdminUrl { get; set; } = AppConfig.DefaultKeriaAdminUrl;
 
+        // TODO should be optional or nullableSCrqAIjxIWIoFCe2zpRMq
         [Required]
         [Url(ErrorMessage = "Enter KERIA Boot URL")]
         public string BootUrl { get; set; } = AppConfig.DefaultKeriaBootUrl;
