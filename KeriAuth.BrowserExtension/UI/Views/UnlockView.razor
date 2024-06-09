@@ -163,13 +163,13 @@
             if (res is null || res.IsFailed)
             {
                 logger.LogInformation("TEMP7");
-                openWalletError = "Could not connect to KERIA agent service";
+                openWalletError = "Could not connect to KERI Agent";
                 snackbar.Add(openWalletError, Severity.Error);
                 logger.LogError(openWalletError);
             }
             else
             {
-                logger.LogInformation("Connected to KERIA agent service");
+                logger.LogInformation("Connected to KERI Agent");
                 await stateService.ConfirmConnected();
             }
             // Stop showing spinner
@@ -178,7 +178,7 @@
         }
         else
         {
-            openWalletError = "Invalid passcode";
+            openWalletError = "KERI Auth was not configured with this passcode on this browser profile.";
             snackbar.Add(openWalletError, Severity.Error);
             await passcodeField!.SelectAsync();
             return;

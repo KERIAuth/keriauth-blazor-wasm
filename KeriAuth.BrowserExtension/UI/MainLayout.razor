@@ -56,7 +56,7 @@
             <div style="align-self:center; height: 35px; margin-right: -8px;">
                 @if (IsAuthenticated)
                 {
-                    <MudTooltip Text="Connected to KERIA" Arrow="true" Placement="Placement.Left" Delay="1000">
+                    <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
                         @if (CurrentState == IStateService.States.AuthenticatedDisconnected)
                         {
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
@@ -134,7 +134,7 @@
                         /* TODO P3 convert to a "navigate(url)" type of method, so tooltip of URL doesn't show in browser?' */
                     }
                     <MudNavLink Href=@RouteToManagePrefs Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Agent Services</MudNavLink>
+                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     @{
                         /*
                         <MudNavLink Disabled="true" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Keys</MudNavLink>
