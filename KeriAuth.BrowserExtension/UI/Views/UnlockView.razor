@@ -46,9 +46,9 @@
             <MudText>
                 <span style="font-weight:bold">KERI Auth</span>
             </MudText>
-            <MudText Style="font-style:italic">with<br />autonomous identifiers<br />and<br />authentic credentials</MudText>
+            <MudText Style="font-style:italic">autonomous and authentic</MudText>
             <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors">
-                <MudTextField Label="Enter passcode"
+                <MudTextField Label="Passcode"
                               @ref="passcodeField"
                               OnKeyDown="@HandleKeyDown"
                               InputType="InputType.Password"
@@ -58,7 +58,7 @@
             </MudForm>
             <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
             <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity.</MudText>
+            <MudText>Wallet locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
