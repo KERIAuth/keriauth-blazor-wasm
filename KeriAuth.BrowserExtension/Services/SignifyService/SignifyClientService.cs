@@ -51,14 +51,15 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
                         logger.LogInformation("Connect: {connectResults}", res);
-                        if (res is null || res.IsFailed)
+                        if (res is null)
                         {
-                            return Result.Fail<bool>("Connect failed: " + res.Errors.First().Message);
+                            return Result.Fail("Connect failed with null");
                         }
-                        else
+                        if (res.IsFailed)
                         {
-                            return Result.Ok(true);
+                            return Result.Fail("Connect failed: " + res.Errors.First().Message);
                         }
+                        return Result.Ok(true);
                     }
                     else
                     {
@@ -66,14 +67,15 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
                         logger.LogInformation("Connect: {connectResults}", res);
-                        if (res is null || res.IsFailed)
+                        if (res is null)
                         {
-                            return Result.Fail<bool>("Connect failed: " + res.Errors.First().Message);
+                            return Result.Fail("Connect failed with null");
                         }
-                        else
+                        if (res.IsFailed)
                         {
-                            return Result.Ok(true);
+                            return Result.Fail("Connect failed: " + res.Errors.First().Message);
                         }
+                        return Result.Ok(true);
                     }
                 }
                 else return false.ToResult();

@@ -18,19 +18,19 @@
 </MudDialog>
 
 @code {
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
-    private string InputText { get; set; }
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    private string? InputText { get; set; }
     private static string prompt = @"Enter a unique alias, e.g.,";
     private static string prompt2 = @"<Your Name> as <Role> at <Organization>";
 
     private void Submit()
     {
-        MudDialog.Close(DialogResult.Ok(InputText));
+        MudDialog?.Close(DialogResult.Ok(InputText));
     }
 
     private void Cancel()
     {
-        MudDialog.Cancel();
+        MudDialog?.Cancel();
     }
 }
 

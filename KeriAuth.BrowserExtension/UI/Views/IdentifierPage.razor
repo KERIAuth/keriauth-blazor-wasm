@@ -31,173 +31,176 @@
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Identifier</MudText>
-            <MudStack Row Class="pb-3">
-                <MudTooltip Text="Set Identifier as active" Delay="1000">
-                    <MudButton OnClick="async () => await SetActiveAid(Prefix)">
-                        <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                    </MudButton>
-                </MudTooltip>
-                <MudStack Style="width:100%;">
-                    <MudStack Row>
-                        <MudTooltip Text="Alias" Delay="1000">
-                            <MudText>@Alias</MudText>
-                        </MudTooltip>
-                        <MudSpacer />
-                        <MudButton StartIcon="@Icons.Material.Filled.Edit" Disabled="@IsWaiting" OnClick="async () => await Task.Delay(0)" Variant="Variant.Text" Color="Color.Primary" Class="pa-0"></MudButton>
-                    </MudStack>
-                    <MudTooltip Text="Autonomous Identifier (AID) Prefix" Delay="1000">
-                        <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                    </MudTooltip>
-                </MudStack>
-            </MudStack>
-
-            <MudExpansionPanels MultiExpansion>
-                <MudExpansionPanel Class="my-3">
-                    <TitleContent>
-                        <MudText>
-                            Delegatee for Identifiers (2)
-                        </MudText>
-                    </TitleContent>
-                    <ChildContent>
-                        <MudStack>
-                            <MudText>As a delegatee, you have delegated authority from 2 delegator identities</MudText>
-                            @{
-                        /*
-                    <MudTable>
-                    <HeaderContent>
-                    <MudTh>Alias</MudTh>
-                    <MudTh>Identicon</MudTh>
-                    <MudTh>Prefix</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                    <MudTd>Delegator</MudTd>
-                    <MudTd>Delegator Alias</MudTd>
-                    <MudTd>
-                    <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                    </MudTd>
-                    <MudTd>
-                    <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                    </MudTd>
-                    <MudTd>
-                    <Ellipsis StringContent="0x1234123411" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                    </MudTd>
-                    </RowTemplate>
-                    </MudTable>
-                                */
-                            }
-                        </MudStack>
-                    </ChildContent>
-                </MudExpansionPanel>
-                <MudExpansionPanel Class="my-3">
-                    <TitleContent>
-                        <MudText>Key State</MudText>
-                    </TitleContent>
-                    <ChildContent>
-                        <MudText>Signing control is transferable</MudText>
-                        <MudExpansionPanel>
-                            <TitleContent>
-                                <MudText>Signing Keys (@Elements.Count())</MudText>
-                            </TitleContent>
-                            <ChildContent>
-                                <MudText>Threshold = 4</MudText>
-                                <MudTable Items="@Elements">
-                                    <HeaderContent>
-                                        <MudTh>Group</MudTh>
-                                        <MudTh>Group Threshold</MudTh>
-                                        <MudTh>Weight</MudTh>
-                                        <MudTh>Public Key Hash Icon</MudTh>
-                                        <MudTh>Public Key</MudTh>
-                                    </HeaderContent>
-                                    <RowTemplate>
-                                        <MudTd>@context.Group</MudTd>
-                                        <MudTd>@context.GroupThreshold</MudTd>
-                                        <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
-                                        <MudTd>
-                                            @{
-                                                /* TODO could we know in advance what the aid would be? */
-                                            }
-                                            <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                        </MudTd>
-                                        <MudTd>
-                                            <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                                        </MudTd>
-                                    </RowTemplate>
-                                </MudTable>
-                            </ChildContent>
-                        </MudExpansionPanel>
-
-                        <MudExpansionPanel>
-                            <TitleContent>
-                                <MudText>Key Update Authorities (@Elements2.Count())</MudText>
-                            </TitleContent>
-                            <ChildContent>
-                                <MudText>Total Threshold = 4</MudText>
-                                <MudTable Items="@Elements2">
-                                    <HeaderContent>
-                                        <MudTh>Group</MudTh>
-                                        <MudTh>Group Threshold</MudTh>
-                                        <MudTh>Weight</MudTh>
-                                        <MudTh>Public Key Hash Icon</MudTh>
-                                        <MudTh>Public Key Hash</MudTh>
-                                    </HeaderContent>
-                                    <RowTemplate>
-                                        <MudTd>@context.Group</MudTd>
-                                        <MudTd>@context.GroupThreshold</MudTd>
-                                        <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
-                                        <MudTd>
-                                            <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                        </MudTd>
-                                        <MudTd>
-                                            <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                                        </MudTd>
-                                    </RowTemplate>
-                                </MudTable>
-                            </ChildContent>
-                        </MudExpansionPanel>
-                        <MudExpansionPanel>
-                            <TitleContent>
-                                <MudText>Witnesses (3)</MudText>
-                            </TitleContent>
-                        </MudExpansionPanel>
-                        <MudExpansionPanel>
-                            <TitleContent>
-                                <MudText>Delegatees (1)</MudText>
-                            </TitleContent>
-                            <ChildContent>
-                                <MudText>As a delegator, you have delegated authority to 1 delegatee identities</MudText>
-                            </ChildContent>
-                        </MudExpansionPanel>
-                    </ChildContent>
-                </MudExpansionPanel>
-
-                <MudExpansionPanel Class="my-3">
-                    <TitleContent>
-                        <MudText>Key Events (@KeyEvents.Count())</MudText>
-                    </TitleContent>
-                    <ChildContent>
-                        <MudTable Items="@KeyEvents.Reverse()">
-                            <HeaderContent>
-                                <MudTh>Sequence</MudTh>
-                                <MudTh>Event Type</MudTh>
-                                <MudTh>DateTime</MudTh>
-                                <MudTh>Details</MudTh>
-                            </HeaderContent>
-                            <RowTemplate>
-                                <MudTd>@context.Seq</MudTd>
-                                <MudTd>@context.EventType</MudTd>
-                                <MudTd>@context.DateTime</MudTd>
-                                <MudTd><MudLink Href="">&hellip;</MudLink></MudTd>
-                            </RowTemplate>
-                        </MudTable>
-                    </ChildContent>
-                </MudExpansionPanel>
-            </MudExpansionPanels>
-
-            @if (IsWaiting)
+            @if (!string.IsNullOrEmpty(Prefix))
             {
-                <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
-                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-                </div>
+                <MudStack Row Class="pb-3">
+                    <MudTooltip Text="Set Identifier as active" Delay="1000">
+                        <MudButton OnClick="async () => await SetActiveAid(Prefix)">
+                            <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                        </MudButton>
+                    </MudTooltip>
+                    <MudStack Style="width:100%;">
+                        <MudStack Row>
+                            <MudTooltip Text="Alias" Delay="1000">
+                                <MudText>@Alias</MudText>
+                            </MudTooltip>
+                            <MudSpacer />
+                            <MudButton StartIcon="@Icons.Material.Filled.Edit" Disabled="@IsWaiting" OnClick="async () => await Task.Delay(0)" Variant="Variant.Text" Color="Color.Primary" Class="pa-0"></MudButton>
+                        </MudStack>
+                        <MudTooltip Text="Autonomous Identifier (AID) Prefix" Delay="1000">
+                            <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                        </MudTooltip>
+                    </MudStack>
+                </MudStack>
+
+                <MudExpansionPanels MultiExpansion>
+                    <MudExpansionPanel Class="my-3">
+                        <TitleContent>
+                            <MudText>
+                                Delegatee for Identifiers (2)
+                            </MudText>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudStack>
+                                <MudText>As a delegatee, 2 delegator identities delegated authority to you</MudText>
+                                @{
+                                    /*
+                                    <MudTable>
+                                    <HeaderContent>
+                                    <MudTh>Alias</MudTh>
+                                    <MudTh>Identicon</MudTh>
+                                    <MudTh>Prefix</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                    <MudTd>Delegator</MudTd>
+                                    <MudTd>Delegator Alias</MudTd>
+                                    <MudTd>
+                                    <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    </MudTd>
+                                    <MudTd>
+                                    <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                    </MudTd>
+                                    <MudTd>
+                                    <Ellipsis StringContent="0x1234123411" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                    </MudTd>
+                                    </RowTemplate>
+                                    </MudTable>
+                                    */
+                                }
+                            </MudStack>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                    <MudExpansionPanel Class="my-3">
+                        <TitleContent>
+                            <MudText>Key State</MudText>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudText>Signing control is transferable</MudText>
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <MudText>Signing Keys (@Elements.Count())</MudText>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudText>Threshold = 4</MudText>
+                                    <MudTable Items="@Elements">
+                                        <HeaderContent>
+                                            <MudTh>Group</MudTh>
+                                            <MudTh>Group Threshold</MudTh>
+                                            <MudTh>Weight</MudTh>
+                                            <MudTh>Public Key Hash Icon</MudTh>
+                                            <MudTh>Public Key</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>@context.Group</MudTd>
+                                            <MudTd>@context.GroupThreshold</MudTd>
+                                            <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
+                                            <MudTd>
+                                                @{
+                                                    /* TODO could we know in advance what the aid would be? */
+                                                }
+                                                <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                            </MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </ChildContent>
+                            </MudExpansionPanel>
+
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <MudText>Key Update Authorities (@Elements2.Count())</MudText>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudText>Total Threshold = 4</MudText>
+                                    <MudTable Items="@Elements2">
+                                        <HeaderContent>
+                                            <MudTh>Group</MudTh>
+                                            <MudTh>Group Threshold</MudTh>
+                                            <MudTh>Weight</MudTh>
+                                            <MudTh>Public Key Hash Icon</MudTh>
+                                            <MudTh>Public Key Hash</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>@context.Group</MudTd>
+                                            <MudTd>@context.GroupThreshold</MudTd>
+                                            <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
+                                            <MudTd>
+                                                <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                            </MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <MudText>Witnesses (3)</MudText>
+                                </TitleContent>
+                            </MudExpansionPanel>
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <MudText>Delegatees (1)</MudText>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudText>As a delegator, you delegated authority to 1 delegatee identities</MudText>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        </ChildContent>
+                    </MudExpansionPanel>
+
+                    <MudExpansionPanel Class="my-3">
+                        <TitleContent>
+                            <MudText>Key Events (@KeyEvents.Count())</MudText>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudTable Items="@KeyEvents.Reverse()">
+                                <HeaderContent>
+                                    <MudTh>Sequence</MudTh>
+                                    <MudTh>Event Type</MudTh>
+                                    <MudTh>DateTime</MudTh>
+                                    <MudTh>Details</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>@context.Seq</MudTd>
+                                    <MudTd>@context.EventType</MudTd>
+                                    <MudTd>@context.DateTime</MudTd>
+                                    <MudTd><MudLink Href="">&hellip;</MudLink></MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+
+                @if (IsWaiting)
+                {
+                    <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
+                        <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+                    </div>
+                }
             }
         </div>
     </div>
@@ -273,9 +276,9 @@
     private record KeyEvent
     {
         public int Seq { get; init; }
-        public string EventType { get; init; }
+        public string EventType { get; init; } = "";
         public DateTime DateTime { get; init; }
-        public string Details { get; init; }
+        public string Details { get; init; } = "";
     }
 
     async Task UpdateKeyState()
@@ -283,7 +286,6 @@
         await Task.Delay(0);
         snackbar.Add("Not implemented", Severity.Error);
     }
-
 
     async void HandleCompletedFromPreferencesService()
     {
@@ -319,7 +321,11 @@
         }
         Identicon = Helper.Identicon.MakeIdenticon(Prefix);
         await GetHeadlines();
-        Alias = cachedAids.FirstOrDefault(a => a.Prefix == Prefix)?.Alias;
+        var AliasOrNothing = cachedAids.FirstOrDefault(a => a.Prefix == Prefix)?.Alias;
+        if (AliasOrNothing is not null)
+        {
+            Alias = AliasOrNothing;
+        }
         // var identifierService = new IdentifierService(Prefix, item.Name, Guid.NewGuid(), new Logger<IdentifierService>(), storageService);
     }
 
@@ -341,8 +347,6 @@
             cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();
         };
     }
-
-
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
