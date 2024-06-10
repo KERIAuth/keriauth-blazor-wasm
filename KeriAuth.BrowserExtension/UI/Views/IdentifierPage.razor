@@ -31,23 +31,20 @@
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Identifier</MudText>
-            <MudText>
+            <MudStack Row>
                 <MudTooltip Text="Set Identifier as active" Delay="1000">
                     <MudButton OnClick="async () => await SetActiveAid(Prefix)">
                         <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                     </MudButton>
                 </MudTooltip>
-                <div>
+                <MudStack>
                     <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                </div>
-            </MudText>
-            <MudStack Row>
-
-            </MudStack>
-            <MudStack Row>
-                <MudText>Alias: @Alias</MudText>
-                <MudSpacer />
-                <MudButton StartIcon="@Icons.Material.Filled.Update" Disabled="@IsWaiting" OnClick="async () => await Task.Delay(0)" Variant="Variant.Filled" Color="Color.Primary">Update Alias</MudButton>
+                    <MudStack Row>
+                        <MudText>Alias: @Alias</MudText>
+                        <MudSpacer />
+                        <MudButton StartIcon="@Icons.Material.Filled.Update" Disabled="@IsWaiting" OnClick="async () => await Task.Delay(0)" Variant="Variant.Filled" Color="Color.Primary">Update Alias</MudButton>
+                    </MudStack>
+                </MudStack>
             </MudStack>
 
             <MudExpansionPanels MultiExpansion>
@@ -55,7 +52,7 @@
                     <TitleContent>
                         <MudStack Row>
                             <MudText>
-                                Delegates (
+                                Delegatee for Identifiers (
                             </MudText>
                             <MudLink>2 active</MudLink>
                             <MudLink>0 pending</MudLink>
@@ -67,27 +64,12 @@
                 </MudExpansionPanel>
                 <MudExpansionPanel>
                     <TitleContent>
-                        <MudStack Row>
-                            <MudText>
-                                Delegatee (
-                            </MudText>
-                            <MudLink Href="">1 active</MudLink>
-                            <MudLink Href="">2 pending</MudLink>
-                            <MudText>)</MudText>
-                        </MudStack>
-                    </TitleContent>
-                    <ChildContent>
-                    </ChildContent>
-                </MudExpansionPanel>
-
-                <MudExpansionPanel>
-                    <TitleContent>
-                        <MudText>Key State (rotatable, 3 signers, 2 available next signers, 4 witnesses, 1 delegatee)</MudText>
+                        <MudText>Key State (transferable, 3 signers, 2 available next signers, 4 witnesses, 1 delegatee)</MudText>
                     </TitleContent>
                     <ChildContent>
                         <MudExpansionPanel>
                             <TitleContent>
-                                <MudText>Signers (5)</MudText>
+                                <MudText>Current Signers (5)</MudText>
                             </TitleContent>
                             <ChildContent>
                                 <MudText>Total Threshold = 4</MudText>
@@ -104,7 +86,9 @@
                                         <MudTd>@context.GroupThreshold</MudTd>
                                         <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
                                         <MudTd>
-                                            @{/* TODO could we know in advance what the aid would be? */}
+                                            @{
+                                                /* TODO could we know in advance what the aid would be? */
+                                            }
                                             <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                         </MudTd>
                                         <MudTd>
@@ -117,7 +101,7 @@
 
                         <MudExpansionPanel>
                             <TitleContent>
-                                <MudText>Available Pre-Rotated Signers</MudText>
+                                <MudText>Candidate Next Signers</MudText>
                             </TitleContent>
                             <ChildContent>
                                 <MudText>Total Threshold = 4</MudText>
@@ -156,11 +140,6 @@
                     </ChildContent>
                 </MudExpansionPanel>
 
-
-
-
-
-
                 <MudExpansionPanel>
                     <TitleContent>
                         <MudText>Key Event Log</MudText>
@@ -171,39 +150,17 @@
                                 <MudTh>Sequence</MudTh>
                                 <MudTh>Event Type</MudTh>
                                 <MudTh>DateTime</MudTh>
+                                <MudTh>Details</MudTh>
                             </HeaderContent>
                             <RowTemplate>
-                                <MudExpansionPanel>
-                                    <TitleContent>
-                                        <MudTd>@context.Seq</MudTd>
-                                        <MudTd>@context.EventType</MudTd>
-                                        <MudTd>@context.DateTime</MudTd>
-                                    </TitleContent>
-                                    <ChildContent>
-                                        <MudText>@context.Details</MudText>
-                                    </ChildContent>
-                                </MudExpansionPanel>
+                                <MudTd>@context.Seq</MudTd>
+                                <MudTd>@context.EventType</MudTd>
+                                <MudTd>@context.DateTime</MudTd>
+                                <MudTd><MudLink Href="">&hellip;</MudLink></MudTd>
                             </RowTemplate>
                         </MudTable>
                     </ChildContent>
                 </MudExpansionPanel>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             </MudExpansionPanels>
 
@@ -261,7 +218,7 @@
     private IEnumerable<Element> Elements = new List<Element>()
     {
         new Element() { Group = 1, GroupThreshold = 3, Weight = 2, Identicon = MakeIdenticon("asdf"), PubKey = "0x1234123411" },
-        new Element() { Group = 1, GroupThreshold = 3, Weight = 1, Identicon = MakeIdenticon("asdf"), PubKey = "0x1234123411" },
+        new Element() { Group = 1, GroupThreshold = 3, Weight = 1, Identicon = MakeIdenticon("asdf3"), PubKey = "0x1234123411" },
         new Element() { Group = 1, GroupThreshold = 3, Weight = 1, Identicon = MakeIdenticon("asdf0x123412345"), PubKey = "0x1234123422" },
         new Element() { Group = 2, GroupThreshold = 1, Weight = 1, Identicon = MakeIdenticon("asdx1234653x3"), PubKey = "0x1234123433" },
         new Element() { Group = 2, GroupThreshold = 1, Weight = 1, Identicon = MakeIdenticon("asdx1234653sx3"), PubKey = "0x1234123444" }
