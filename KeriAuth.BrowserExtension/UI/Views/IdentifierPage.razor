@@ -104,23 +104,23 @@
                                     <MudText>Threshold = 4</MudText>
                                     <MudTable Items="@Elements">
                                         <HeaderContent>
-                                            <MudTh>Group</MudTh>
-                                            <MudTh>Group Threshold</MudTh>
-                                            <MudTh>Weight</MudTh>
-                                            <MudTh>Public Key Hash Icon</MudTh>
-                                            <MudTh>Public Key</MudTh>
+                                            <MudTh Class="py-0 my-0">Group</MudTh>
+                                            <MudTh  Class="py-0 my-0">Group Threshold</MudTh>
+                                            <MudTh Class="py-0 my-0">Weight</MudTh>
+                                            <MudTh Class="py-0 my-0">Public Key Hash Icon</MudTh>
+                                            <MudTh Class="py-0 my-0">Public Key</MudTh>
                                         </HeaderContent>
                                         <RowTemplate>
-                                            <MudTd>@context.Group</MudTd>
-                                            <MudTd>@context.GroupThreshold</MudTd>
-                                            <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
-                                            <MudTd>
+                                            <MudTd Class="py-0 my-0">@context.Group</MudTd>
+                                            <MudTd Class="py-0 my-0">@context.GroupThreshold</MudTd>
+                                            <MudTd Class="py-0 my-0">@context.Weight / @context.GroupThreshold</MudTd>
+                                            <MudTd Class="py-0 my-0">
                                                 @{
                                                     /* TODO could we know in advance what the aid would be? */
                                                 }
                                                 <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                             </MudTd>
-                                            <MudTd>
+                                            <MudTd  Class="py-0 my-0">
                                                 <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
                                             </MudTd>
                                         </RowTemplate>
@@ -136,20 +136,20 @@
                                     <MudText>Total Threshold = 4</MudText>
                                     <MudTable Items="@Elements2">
                                         <HeaderContent>
-                                            <MudTh>Group</MudTh>
-                                            <MudTh>Group Threshold</MudTh>
-                                            <MudTh>Weight</MudTh>
-                                            <MudTh>Public Key Hash Icon</MudTh>
-                                            <MudTh>Public Key Hash</MudTh>
+                                            <MudTh Class="py-0 my-0">Group</MudTh>
+                                            <MudTh Class="py-0 my-0">Group Threshold</MudTh>
+                                            <MudTh Class="py-0 my-0">Weight</MudTh>
+                                            <MudTh Class="py-0 my-0">Public Key Hash Icon</MudTh>
+                                            <MudTh Class="py-0 my-0">Public Key Hash</MudTh>
                                         </HeaderContent>
                                         <RowTemplate>
-                                            <MudTd>@context.Group</MudTd>
-                                            <MudTd>@context.GroupThreshold</MudTd>
-                                            <MudTd>@context.Weight / @context.GroupThreshold</MudTd>
-                                            <MudTd>
+                                            <MudTd Class="py-0 my-0">@context.Group</MudTd>
+                                            <MudTd Class="py-0 my-0">@context.GroupThreshold</MudTd>
+                                            <MudTd Class="py-0 my-0">@context.Weight / @context.GroupThreshold</MudTd>
+                                            <MudTd Class="py-0 my-0">
                                                 <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                             </MudTd>
-                                            <MudTd>
+                                            <MudTd Class="py-0 my-0">
                                                 <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
                                             </MudTd>
                                         </RowTemplate>
@@ -179,16 +179,16 @@
                         <ChildContent>
                             <MudTable Items="@KeyEvents.Reverse()">
                                 <HeaderContent>
-                                    <MudTh>Sequence</MudTh>
-                                    <MudTh>Event Type</MudTh>
-                                    <MudTh>DateTime</MudTh>
-                                    <MudTh>Details</MudTh>
+                                    <MudTh Class="py-0 my-0">Sequence</MudTh>
+                                    <MudTh Class="py-0 my-0">Event Type</MudTh>
+                                    <MudTh Class="py-0 my-0">DateTime</MudTh>
+                                    <MudTh Class="py-0 my-0">Details</MudTh>
                                 </HeaderContent>
                                 <RowTemplate>
-                                    <MudTd>@context.Seq</MudTd>
-                                    <MudTd>@context.EventType</MudTd>
-                                    <MudTd>@context.DateTime</MudTd>
-                                    <MudTd><MudLink Href="">&hellip;</MudLink></MudTd>
+                                    <MudTd Class="py-0 my-0">@context.Seq</MudTd>
+                                    <MudTd Class="py-0 my-0">@context.EventType</MudTd>
+                                    <MudTd Class="py-0 my-0">@context.DateTime</MudTd>
+                                    <MudTd Class="py-0 my-0"><MudLink Href="">&hellip;</MudLink></MudTd>
                                 </RowTemplate>
                             </MudTable>
                         </ChildContent>
