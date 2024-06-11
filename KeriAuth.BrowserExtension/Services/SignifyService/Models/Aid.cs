@@ -26,14 +26,13 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
 
         [JsonPropertyName("windexes")]
         public List<int> Windexes { get; init; }
-
-
-
-
-
-
-
     }
+    // See protocol.md here:  https://github.com/WebOfTrust/keria/blob/main/docs/protocol.md
+    // Includes Delegated signing authority
+    // See also routes here: https://github.com/WebOfTrust/kapi/blob/main/kapi.md
+    // and API-spec here: https://github.com/WebOfTrust/kapi/blob/main/docs/api-spec.yaml
+
+
     /*  Example returned from signify_ts_shim.ts getAID(name) method:
         {
     "name": "gleif",
