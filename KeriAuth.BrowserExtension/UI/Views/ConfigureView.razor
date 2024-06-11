@@ -267,7 +267,8 @@
         ops4ListAids.Reset();
         if (IsValidURLs) // TODO EE! should to a more thorough check of other conditions. See what enables the button(s)
         {
-            // check if AdminPort is reachable
+            // TODO since BootUrl is optional, we should check if AdminUrl is reachable
+            // check if BootUrl is reachable.
             ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
             UriBuilder healthUriBuilder = new($"{urlModel.BootUrl}/health");
@@ -282,6 +283,7 @@
             ops1LivenessCheck.SetCompletedWithoutErrors();
             StateHasChanged();
 
+            // TODO since BootUrl is optional, we should check if AdminUrl is reachable
             // check if KERIA is reporting as healthy
             ops2HealthCheck.SetIsRunning();
             StateHasChanged();
@@ -304,7 +306,7 @@
             // See client.ts create_agent.ts and other Integration scrips here: https://github.com/WebOfTrust/signify-integration/tree/main/scripts
             ops3BootAndConnect.SetIsRunning();
             StateHasChanged();
-            var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", true);
+            var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", !UseExistingPasscode);
             if (clientRes.IsFailed)
             {
                 ops3BootAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
@@ -362,6 +364,7 @@
                 ops5CreatePersonalAid.SetCompletedWithoutErrors(); // ("One or more identifier(s) already exist");
                 StateHasChanged();
             }
+
             // Success from testing the connection at this point
             return true;
         }
@@ -427,7 +430,6 @@
         [Required]
         [StringLength(21, ErrorMessage = "Passcode must be 21 characters long", MinimumLength = 21)]
         [DataType(DataType.Password)]
-        /* [Display(Name = "Enter your passcode")] */
         public string Passcode { get; set; } = "";
     }
 }

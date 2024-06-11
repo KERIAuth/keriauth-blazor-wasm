@@ -37,3 +37,5 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
         public bool Transferable { get; init; }
     }
 }
+
+

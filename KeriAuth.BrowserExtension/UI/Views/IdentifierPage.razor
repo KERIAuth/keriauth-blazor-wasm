@@ -42,7 +42,7 @@
                     <MudStack Style="width:100%;">
                         <MudStack Row>
                             <MudTooltip Text="Alias" Delay="1000">
-                                <MudText>@Alias</MudText>
+                                <MudText Style="font-weight:bold">@Alias</MudText>
                             </MudTooltip>
                             <MudSpacer />
                             <MudButton StartIcon="@Icons.Material.Filled.Edit" Disabled="@IsWaiting" OnClick="async () => await Task.Delay(0)" Variant="Variant.Text" Color="Color.Primary" Class="pa-0"></MudButton>
@@ -62,7 +62,7 @@
                         </TitleContent>
                         <ChildContent>
                             <MudStack>
-                                <MudText>As a delegatee, 2 delegator identities delegated authority to you</MudText>
+                                <MudText>2 identities delegated signing authority to you.</MudText>
                                 @{
                                     /*
                                     <MudTable>
@@ -95,7 +95,14 @@
                             <MudText>Key State</MudText>
                         </TitleContent>
                         <ChildContent>
-                            <MudText>Signing control is transferable</MudText>
+                            @if (IsTransferrable)
+                            {
+                                <MudText>Signing control is transferable</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Signing control is not transferable</MudText>
+                            }
                             <MudExpansionPanel>
                                 <TitleContent>
                                     <MudText>Signing Keys (@Elements.Count())</MudText>
@@ -105,7 +112,7 @@
                                     <MudTable Items="@Elements">
                                         <HeaderContent>
                                             <MudTh Class="py-0 my-0">Group</MudTh>
-                                            <MudTh  Class="py-0 my-0">Group Threshold</MudTh>
+                                            <MudTh Class="py-0 my-0">Group Threshold</MudTh>
                                             <MudTh Class="py-0 my-0">Weight</MudTh>
                                             <MudTh Class="py-0 my-0">Public Key Hash Icon</MudTh>
                                             <MudTh Class="py-0 my-0">Public Key</MudTh>
@@ -120,11 +127,26 @@
                                                 }
                                                 <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                             </MudTd>
-                                            <MudTd  Class="py-0 my-0">
+                                            <MudTd Class="py-0 my-0">
                                                 <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
                                             </MudTd>
                                         </RowTemplate>
                                     </MudTable>
+                                </ChildContent>
+                            </MudExpansionPanel>
+
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <MudText>Delegatees (1)</MudText>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudText>You delegated signing authority to 1 delegatee(s).</MudText>
+                                    @foreach (var item in new List<string>(){"1111", "2222"})
+                                    {
+                                        <MudText>@item</MudText>
+                                    }
+                                    <MudButton StartIcon="@Icons.Material.Filled.PersonRemove" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Revoke Delegatee</MudButton>
+                                    <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Add Delegatee</MudButton>
                                 </ChildContent>
                             </MudExpansionPanel>
 
@@ -141,6 +163,7 @@
                                             <MudTh Class="py-0 my-0">Weight</MudTh>
                                             <MudTh Class="py-0 my-0">Public Key Hash Icon</MudTh>
                                             <MudTh Class="py-0 my-0">Public Key Hash</MudTh>
+                                            <MudTh Class="py-0 my-0">Actions</MudTh>
                                         </HeaderContent>
                                         <RowTemplate>
                                             <MudTd Class="py-0 my-0">@context.Group</MudTd>
@@ -151,6 +174,13 @@
                                             </MudTd>
                                             <MudTd Class="py-0 my-0">
                                                 <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                            </MudTd>
+                                            <MudTd Class="py-0 my-0">
+                                                @if (@context.PubKey == @Elements2.First().PubKey)
+                                                {
+                                                    // TODO: remove hack that shows action only on first row as an example
+                                                    <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Initiate Update</MudButton>
+                                                }
                                             </MudTd>
                                         </RowTemplate>
                                     </MudTable>
@@ -163,10 +193,10 @@
                             </MudExpansionPanel>
                             <MudExpansionPanel>
                                 <TitleContent>
-                                    <MudText>Delegatees (1)</MudText>
+                                    <MudText>More...</MudText>
                                 </TitleContent>
                                 <ChildContent>
-                                    <MudText>As a delegator, you delegated authority to 1 delegatee identities</MudText>
+                                    <MudText>Oobis, Endroles, Members, Registries, Contacts, Credentials, Exchanges, Multisig, Ipex, ... See http://localhost:3901/spec.yaml</MudText>
                                 </ChildContent>
                             </MudExpansionPanel>
                         </ChildContent>
@@ -207,7 +237,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Update" Disabled="@IsWaiting" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Update Keystate</MudButton>
         <!--
         <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsWaiting" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
         -->
@@ -326,9 +355,20 @@
         {
             Alias = AliasOrNothing;
         }
-        // var identifierService = new IdentifierService(Prefix, item.Name, Guid.NewGuid(), new Logger<IdentifierService>(), storageService);
+        var MaybeAidRes = await signifyClientService.GetIdentifier(Alias);
+        if (MaybeAidRes is null || MaybeAidRes.IsFailed)
+        {
+            logger.LogWarning("GetIdentifier failed: {1}", MaybeAidRes?.Errors.ToArray().ToString() ?? "unknown error");
+        }
+        else
+        {
+            // intentionaly overwrite Prefix with the one from the response
+            Prefix = MaybeAidRes.Value.Prefix;
+            IsTransferrable = MaybeAidRes.Value.Transferable;
+        }
     }
 
+    private bool IsTransferrable { get; set; }
     private string Alias { get; set; } = string.Empty;
 
     private async Task GetHeadlines()

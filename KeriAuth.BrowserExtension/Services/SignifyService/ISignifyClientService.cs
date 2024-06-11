@@ -37,5 +37,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         Task<Result<IList<Escrow>>> GetEscrows();
         Task<Result<IList<Models.Group>>> GetGroups();
         Task<Result<IList<Exchange>>> GetExchanges();
+        Task<Result<Aid>> GetIdentifier(string name);
     }
 }

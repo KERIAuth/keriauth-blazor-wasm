@@ -20,6 +20,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         internal static partial Task<string> GetAIDs();
 
         [JSImport("getAID", "signify_ts_shim")]
-        internal static partial Task<string> GetAID(string prefix);
+        internal static partial Task<string> GetAID(string name);
     }
 }

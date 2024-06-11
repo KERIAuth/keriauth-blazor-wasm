@@ -1,4 +1,8 @@
 ﻿using KeriAuth.BrowserExtension.Models;
+using FluentResults;
+using KeriAuth.BrowserExtension.Services.SignifyService.Models;
+using KeriAuth.BrowserExtension.Services.SignifyService;
+using System.Text.Json;
 
 namespace KeriAuth.BrowserExtension.Services
 {
@@ -32,5 +36,16 @@ namespace KeriAuth.BrowserExtension.Services
             // logger.LogWarning("IdentifierService: Test() called");
             return cachedAid;
         }
+
+        //public async Task<Result<string>> GetAID(string name)
+        //{
+        //    var json = await Signify_ts_shim.GetAID(name);
+        //    if (json is null)
+        //    {
+        //        logger.LogError("Failed to get AID for prefix: {name}", name);
+        //        return Result.Fail<string>("Failed to get AID for prefix: {name}");
+        //    }
+        //    return Result.Ok(json);
+        //}
     }
 }

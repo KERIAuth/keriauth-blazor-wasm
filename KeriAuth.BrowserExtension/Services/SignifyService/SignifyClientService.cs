@@ -208,11 +208,11 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         }
 
 
-        public async Task<Result<Aid>> GetIdentifier(string prefix)
+        public async Task<Result<Aid>> GetIdentifier(string name)
         {
             try
             {
-                var jsonString = await GetAID(prefix);
+                var jsonString = await GetAID(name);
                 if (jsonString is null)
                 {
                     return Result.Fail<Aid>("GetAID returned null");
