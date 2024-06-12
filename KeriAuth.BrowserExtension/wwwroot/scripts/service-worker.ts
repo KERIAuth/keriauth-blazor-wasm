@@ -23,22 +23,13 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
     let urlString = "";
     switch (installDetails.reason) {
         case "install":
-            // TODO P2: an alternate coding to the below is something like:
-            //import * as _ from "/content/Blazor.BrowserExtension/lib/browser-polyfill.min.js";
-            // ...
-            //browser.runtime.onInstalled.addListener(() => {
-            //    const indexPageUrl = browser.runtime.getURL("index.html");
-            //    browser.tabs.create({
-            //        url: indexPageUrl
-
-
             // TODO P2 Update Onboarding UI
-            urlString = `${location.origin}/index.html`; // ?reason=${installDetails.reason}`;
+            urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}`;
             Utils.createTab(urlString);
             break;
         case "update":
             // TODO P3 Allow the index page to know whether the version of the cache is not the new manifest's version?
-            urlString = `${location.origin}/index.html`; // ?reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
+            urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
             Utils.createTab(urlString);
             break;
         case "chrome_update":
@@ -58,6 +49,8 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     // Note since the extension is a browser action, it needs to be able to access the current tab's URL, but with activeTab permission and not tabs permission
     // In addition, the default_action cannot be defined in manifest.json. See https://developer.chrome.com/docs/extensions/reference/action/#default_popup
     //
+    // will not fire if the action has a popup
+    //
     // When the user clicks this extension's action button, this starts a sequence of events. One typical sequence is below, which ends with the popup being opened.
     // 1. This handler is invoked
     // 2. A script is run in the context of the current page, which sends a message to this background script with the page's URL
@@ -66,6 +59,10 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     // 5. This background script opens the popup
 
     console.log("WORKER: clicked on action button while on tab: ", tab.url);
+
+    // reset the popup to the nothing state, so that the popup is not opened (unless set below) when the action button is clicked
+    chrome.action.setPopup({ popup: "" });
+
     if (tab.id !== undefined && tab.url !== undefined && tab.url.startsWith("http")) {
         // Execute script in context of the current tab, to get its URL
         try {
@@ -77,17 +74,22 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
                 if (chrome.runtime.lastError) {
                     console.warn(`WORKER: onClicked: executeScript result: ${chrome.runtime.lastError.message}`);
                     // bring up the popup window anyway
-                    usePopup();
+                    console.warn(`WORKER: onClicked: executeScript result: ${injectionResult}`);
+                    // usePopup();
+                    chrome.action.setPopup({ popup: "./index.html&envirnoment=ActionPopup" });
+                    chrome.action.openPopup()
+                        .then(() => console.log("WORKER: openPopup succeeded"))
+                        .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
                     return;
                 }
             });
         } catch (err) {
             console.warn(`WORKER: onClicked: executeScript dropped: ${err}`);
         }
-        return;
+        // return;
     } else {
-        // Since we are not on an http* page, just bring up the popup window
-        usePopup();
+        // Since we are not on an http* page, do nothing
+        console.warn("WORKER: action.onClicked: tab is not an http* page. Ignoring.");
     }
 });
 
@@ -121,7 +123,7 @@ function createPopupWindow() {
     // for the screen or attempted to be placed off the screen.
     const popupWindowCreateData = Object.freeze({
         type: "popup",
-        url: chrome.runtime.getURL("/index.html?environment=popup"),
+        url: chrome.runtime.getURL("/index.html?environment=BrowserPopup"),
         height: 638,
         width: 390,
         top: 100,
@@ -206,7 +208,7 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
                                 } else {
                                     console.log('WORKER: Permission denied for:', origin);
                                     // TODO if there is already an open tab of this name, reuse it.
-                                    chrome.tabs.create({ url: "index.html" });
+                                    chrome.tabs.create({ url: "./index.html?environment=tab" });
                                 }
                             });
                         } else {
@@ -256,7 +258,11 @@ function reloadTabAndUsePopup() {
             if (typeof tab.id === 'number') {
                 // TODO P2 Below is a hack to get the active page to reload, this time with the injected content scripts. It should be done in a more elegant way.
                 chrome.tabs.reload(tab.id).then(() => {
-                    usePopup();
+                    chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
+                    chrome.action.openPopup()
+                        .then(() => console.log("WORKER: openPopup 1111 succeeded"))
+                        .catch((err) => console.warn(`WORKER: openPopup 1111 dropped: ${err}`));
+                    // usePopup();
                 });
             }
         }

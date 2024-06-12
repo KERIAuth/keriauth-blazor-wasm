@@ -17,10 +17,7 @@ const UIHelper = () => {
     }
 
     const newTabAndClosePopup = (): void => {
-        const currentTab: Window = window;
-        // const location: Location = currentTab.location;
-        createTab("/index.html");
-        currentTab.close(); // TODO: assure this is called only for a popup window
+        createTab("/index.html?envirnoment=tab");
     }
 
     const createTab = (urlString: string): void => {

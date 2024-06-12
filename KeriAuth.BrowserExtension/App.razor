@@ -20,7 +20,7 @@
     </Found>
     <NotFound>
         <PageTitle>Loading application assembly...</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
+        <LayoutView>
             <h1>Page not found</h1>
             <p role="alert">Sorry, there's nothing at this address.</p>
         </LayoutView>
@@ -31,11 +31,11 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        logger.LogInformation($"OnInitializedAsync App.razor");
+        logger.LogInformation($"OnInitializedAsync");
 
         // Initialize services as needed
         var uri = navManager.ToAbsoluteUri(navManager.Uri);
-        extensionEnvironmentService.Initialize(uri);
+        extensionEnvironmentService.Initialize(uri, "unknown"); // See chrome.runtime.getContexts
         await storageService.Initialize();
         await stateService.Initialize();
         preferencesService.Initialize();

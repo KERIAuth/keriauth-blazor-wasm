@@ -18,48 +18,41 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     public Uri? ExtensionIframeLocation { get; private set; }
 
     /// <inheritdoc />
-    public void Initialize(Uri uri)
+    public void Initialize(Uri uri, string contextType)
     {
-        logger.LogDebug("Initialize with uri {uri}", uri);
+        logger.LogWarning("Initialize with uri {uri}", uri);
         var query = uri.Query;
         if (uri.AbsoluteUri.Contains("chrome-extension"))
         {
-            ExtensionEnvironment = ExtensionEnvironment.Extension;  // may be updated below
-        }
-        else
-        {
-            ExtensionEnvironment = ExtensionEnvironment.None;
-        }
-
-        if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment))
-        {
-            // await JSRuntime.InvokeVoidAsync("alert", environment);
-            if (environment.FirstOrDefault()!.Equals(ExtensionEnvironment.Iframe.ToString(), StringComparison.InvariantCultureIgnoreCase))
+            if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment))
             {
-                ExtensionEnvironment = ExtensionEnvironment.Iframe;
-            }
-            else if (environment.FirstOrDefault()!.Equals(ExtensionEnvironment.Popup.ToString(), StringComparison.InvariantCultureIgnoreCase))
-            {
-                ExtensionEnvironment = ExtensionEnvironment.Popup;
-            }
-            else if (environment.FirstOrDefault()!.Equals(ExtensionEnvironment.ActionPopup.ToString(), StringComparison.InvariantCultureIgnoreCase))
-            {
-                ExtensionEnvironment = ExtensionEnvironment.ActionPopup;
+                if (Enum.TryParse(environment.FirstOrDefault(), true, out ExtensionEnvironment extensionEnvironment))
+                {
+                    ExtensionEnvironment = extensionEnvironment;
+                    // used?
+                    if (ExtensionEnvironment == ExtensionEnvironment.Iframe)
+                    {
+                        if (QueryHelpers.ParseQuery(query).TryGetValue("location", out var location))
+                        {
+                            ExtensionIframeLocation = new Uri(location!);
+                        }
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("environment '{environment}' is not a valid ExtensionEnvironment", environment);
+                    ExtensionEnvironment = ExtensionEnvironment.Unknown;
+                }
             }
             else
             {
-                // TODO P3 what about the case if BrowserExtensionMode.ContentScript ?
-                throw new NotSupportedException($"The environment '{environment}' is not supported");
+                logger.LogWarning("No environment query parameter found");
+                ExtensionEnvironment = ExtensionEnvironment.Unknown;
             }
-        }
-
-        // xxConsole.WriteLine($"ExtensionEnvironmentService: Set ExtensionEnvironment to {ExtensionEnvironment}");
-        if (ExtensionEnvironment == ExtensionEnvironment.Iframe)
+            logger.LogInformation("ExtensionEnvironment: {ExtensionEnvironment}", ExtensionEnvironment);
+        } else
         {
-            if (QueryHelpers.ParseQuery(query).TryGetValue("location", out var location))
-            {
-                ExtensionIframeLocation = new Uri(location!);
-            }
+            logger.LogError("Not running in a browser extension");
         }
     }
 }

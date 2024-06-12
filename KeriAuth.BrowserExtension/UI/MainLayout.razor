@@ -28,7 +28,7 @@
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
 
-<MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@isDarkTheme" />
+<MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@IsDarkTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
 
@@ -110,7 +110,7 @@
     </MudAppBar>
 
 
-    <!-- DRAWER AND MAIN CONTENT -->
+    <!-- MENU DRAWER AND MAIN CONTENT -->
     @{
         /* TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting */
     }
@@ -329,8 +329,7 @@
 @code {
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
-    bool isDarkTheme;
-    bool isInExtension;
+    bool IsDarkTheme {get; set;}
     bool IsIdenticonHidden
     {
         get
@@ -534,10 +533,8 @@
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        // TODO P3 why not derive this from ExtensionEnvironmentService?
-        isInExtension = storageService.GetAppHostingKind() == IStorageService.AppHostingKind.BlazorWasmExtension;
-
         // Set properties affecting UI layout depending on the hosting environment
+        logger.LogWarning("OnInitializedAsync env {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.ActionPopup:
@@ -545,7 +542,7 @@
                 break;
             case ExtensionEnvironment.None:
                 break;
-            case ExtensionEnvironment.Popup:
+            case ExtensionEnvironment.BrowserPopup:
                 IsInPopup = true;
                 break;
             case ExtensionEnvironment.Iframe:
@@ -586,7 +583,7 @@
     {
         var prefs = await preferencesService.GetPreferences();
         prefs = prefs with { IsDarkTheme = !prefs.IsDarkTheme };
-        isDarkTheme = prefs.IsDarkTheme;
+        IsDarkTheme = prefs.IsDarkTheme;
         await preferencesService.SetPreferences(prefs);
     }
 
@@ -597,7 +594,7 @@
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.Iframe:
-            case ExtensionEnvironment.Popup:
+            case ExtensionEnvironment.BrowserPopup:
             case ExtensionEnvironment.ActionPopup:
                 DrawerMode = prefs.DrawerVariantInPopup;
                 break;
@@ -638,7 +635,7 @@
     async Task InitializeOrOnNextPrefs(Preferences prefs)
     {
         // logger.LogInformation("received prefs: " + JsonSerializer.Serialize(prefs));
-        isDarkTheme = prefs.IsDarkTheme;
+        IsDarkTheme = prefs.IsDarkTheme;
         // TODO P4 set the background-image depending on isDarkTheme.
         ActiveAid = (object)prefs.SelectedAid;
         UpdateDrawerMode(DrawerMode, prefs);
@@ -668,12 +665,8 @@
 
     async Task OpenTabAndClosePopUp()
     {
-        if (utilModule is null)
-        {
-            logger.LogError("OpenTabAndClosePopUp: utilModule is null!");
-            return;
-        }
         await UIHelper.NewTabAndClosePopup();
+        await Task.Delay(8000);  // TODO this will go out of scope when the popup closes.  This is a temporary workaround.
         return;
     }
 

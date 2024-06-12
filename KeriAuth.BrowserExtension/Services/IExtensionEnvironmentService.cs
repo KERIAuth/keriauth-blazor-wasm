@@ -20,5 +20,5 @@ public interface IExtensionEnvironmentService
     /// Determines the current extension hosting environment (iframe, popup, extension, none) from the URL
     /// </summary>
     /// <param name="uri"></param>
-    public void Initialize(Uri uri);
+    public void Initialize(Uri uri, string contextType);
 }
