@@ -125,10 +125,7 @@
                 <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
                 <MudNavLink Href=@RouteToSchemas Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Schema" IconColor="Color.Surface">Schemas</MudNavLink>
                 <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuContacts">Websites</MudNavLink>
-                @if (IsInPopup)
-                {
-                    <MudNavLink OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
-                }
+                <MudNavLink Disabled=@(!IsInPopup) OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface">
                     @{
                         /* TODO P3 convert to a "navigate(url)" type of method, so tooltip of URL doesn't show in browser?' */
