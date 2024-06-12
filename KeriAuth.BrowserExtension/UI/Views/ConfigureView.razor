@@ -45,7 +45,7 @@
         <MudStack Style="min-width: 340px; max-width:100%">
             <MudText Typo="Typo.h6">Configure</MudText>
             <MudStack Class="bt-create-card-top-scrollable">
-                <MudText Typo="Typo.h6">KERI Agent</MudText>
+                <MudText Typo="Typo.h6">KERI Agent Service</MudText>
                 <MudSelect T="Preset" Label="Preset" @bind-Value="@PresetChoice">
                     @foreach (var preset in presetAgents)
                     {
@@ -57,12 +57,12 @@
                               For="@(() => urlModel.AdminUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudTextField Label="Boot URL (optional if you have account)"
+                <MudTextField Label="Boot URL (optional if you already have account)"
                               @bind-Value="@urlModel.BootUrl"
                               For="@(() => urlModel.BootUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudText Typo="Typo.h6">Account</MudText>
+                <MudText Typo="Typo.h6">KERI Agent Account</MudText>
                 <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
@@ -214,8 +214,8 @@
         await Copy2Clipboard(RandomPasscode);
     }
 
-    private readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERI Agent liveness", "Live");
-    private readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERI Agent health", "Healthy");
+    private readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERI Agent Service liveness", "Live");
+    private readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERI Agent Service health", "Healthy");
     private readonly OperationDisplay ops3BootAndConnect = new OperationDisplay("Reconnecting to or establishing new connection", "Connected");
     private readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Identifiers retrieved");
     private readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created personal identifier");
