@@ -159,6 +159,7 @@ function getTabUrlAndContinue(tabId: number) {
     }
 }
 
+// TODO still used, with use of chrome.runtime.onConnect instead?
 chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, sendResponse: (response: string) => void) => {
     console.log('WORKER: runtime.onMessage.');
 
@@ -248,6 +249,7 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
     }
 });
 
+// TODO reload of tab should not be required
 function reloadTabAndUsePopup() {
     console.log('WORKER: reloadTabAndPopup acting on current tab');
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -269,6 +271,7 @@ function reloadTabAndUsePopup() {
     })
 }
 
+// TODO obsolete?
 async function SetWalletRequest(result: any, message: IMessage) {
     let key = message.contentHash;
     var listOfWalletRequests = [] as any[]
@@ -302,6 +305,7 @@ function focusWindow(windowId: number): void {
     chrome.windows.update(windowId, { focused: true });
 }
 
+// TODO obsolete?
 // Get the current items in the storage under the key "WALLETREQUESTS"
 async function GetWalletRequests() {
     var result = await chrome.storage.local.get("WALLETREQUESTS");
@@ -348,5 +352,77 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
 // chrome.action.setBadgeText({ text: "3" });
 // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
 // });
+
+//chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
+//    console.assert(port.name === "connect-to-service");
+
+//    port.onMessage.addListener((request: any) => {
+//        console.log("WORKER: from CS:");
+//        console.log(request);
+//        if (request.greeting === "hello") {
+//            console.log("WORKER: from CS:", String(request.greeting));
+//            port.postMessage({ farewell: "goodbye" });
+//        } 
+//    });
+
+//    port.onDisconnect.addListener(() => {
+//        console.log("WORKER: Port disconnected");
+//    });
+//});
+
+
+// Object to store connection info
+const connections: { [key: number]: { port: chrome.runtime.Port, url?: string } } = {};
+
+// TODO old?
+// Handle requests for the current tab ID
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log("WORKER: onMessage: ???? :");
+    console.log(request);
+    if (request.action === "getTabId" && sender.tab) {
+        sendResponse({ tabId: sender.tab.id });
+    }
+    return true;
+});
+
+// Listen for connections from content scripts
+chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
+    const tabId = parseInt(port.name.split('-').pop()!, 10);
+
+    // Store the connection info
+    connections[tabId] = { port: port };
+
+    // Listen for messages from the content script
+    port.onMessage.addListener((request: any) => {
+        console.log("WORKER: from CS:", request);
+        if (request.greeting === "hello") {
+            // Store the tab URL
+            connections[tabId].url = request.url;
+
+            // Send a response back through the port
+            port.postMessage({ farewell: "goodbye", tabId: tabId, url: request.url });
+        }
+    });
+
+    // Clean up when the port is disconnected
+    port.onDisconnect.addListener(() => {
+        delete connections[tabId];
+    });
+});
+
+// Listen for tab updates to maintain connection info
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    // console.log("WORKER: tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
+    //
+    // TODO if the url changes to another domain, then the connection should be closed
+    //if (connections[tabId] && changeInfo.url) {
+    //    connections[tabId].url = changeInfo.url;
+    //}
+});
+
+// Clean up when a tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    delete connections[tabId];
+});
 
 export { };

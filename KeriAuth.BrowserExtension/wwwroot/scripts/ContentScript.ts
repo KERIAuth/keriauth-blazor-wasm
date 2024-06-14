@@ -73,6 +73,8 @@ interface SignifyAutoSigninMessage extends BaseMessage {
     rurl: string;
 }
 
+const port = chrome.runtime.connect({ name: `connect-to-service` });
+
 // Union type for all possible messages that can be sent to the web page
 type PageMessage = SignifyExtensionMessage | SignifySignature1Message | SignifySignature2Message | SignifyAutoSigninMessage;
 
@@ -84,8 +86,7 @@ window.addEventListener(
         if (event.source !== window) {
             return;
         }
-        console.log("KERI Auth cs received from page: " + event.data.type);
-        console.log(event.data); // as object
+        console.log("KERI_Auth_CS from page: ", event.data);
 
         switch (event.data.type) {
             case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
@@ -97,7 +98,7 @@ window.addEventListener(
             case PAGE_EVENT_TYPE.FETCH_RESOURCE:
             case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
             default:
-                // TODO forward to extension
+                port.postMessage({ type: event.data.type, data: event.data });
                 return;
         }
     }
@@ -111,7 +112,7 @@ chrome.runtime.onMessage.addListener(async function (
 ) {
     if (sender.id === chrome.runtime.id) {
         console.log(
-            "KERI Auth cs received from extension: " +
+            "KERI_Auth_CS from extension **onMessage**: " +
             message.type +
             ":" +
             message.subtype
@@ -121,7 +122,7 @@ chrome.runtime.onMessage.addListener(async function (
 });
 
 function advertise(): void {
-    console.log("KERI Auth content script advertised its extensionId: " + chrome.runtime.id);
+    console.log("KERI_Auth_CS to page: extensionId: " + chrome.runtime.id);
     window.postMessage(
         {
             type: "signify-extension",
@@ -133,7 +134,21 @@ function advertise(): void {
     );
 }
 
-
 // Delay in order for polaris-web module to be loaded and ready to receive the message.
 // TODO find a more deterministic approach vs delay?
 setTimeout(advertise, 1000);
+
+//// Establish a connection with the service worker
+//var myTabId: number = 0;
+//chrome.runtime.sendMessage({ action: "getTabId" }, (tabId: number) => {
+//    myTabId = tabId;
+//});
+
+    
+// Send a message to the service worker, example
+port.postMessage({ greeting: "hello" });
+
+// Listen for messages from the service worker
+port.onMessage.addListener((message: any) => {
+    console.log("KERI_Auth_CS from extension:", message);
+});
