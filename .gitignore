@@ -440,3 +440,4 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.d.ts
 /KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/ContentScript.js
