@@ -37,7 +37,8 @@
     "wwwroot/KeriAuth.BrowserExtension.lib.module.ts"
   ],
   "exclude": [
-    "wwwroot/scripts/signify_ts_shim.ts",  // should not be built with tsc, but with tsbuild. See package.json.
+    "wwwroot/scripts/signify_ts_shim.ts", // should not be built with tsc, but with tsbuild. See package.json.
+    "wwwroot/scripts/ContentScript.ts", // should not be built with tsc, but with tsbuild. See package.json.
     "node_modules",
     "bin",
     "obj",

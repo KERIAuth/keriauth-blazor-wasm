@@ -314,25 +314,10 @@ async function RegisterContentScripts() {
         await (chrome.scripting as any).unregisterContentScripts(async function () {
             try {
                 await chrome.scripting.registerContentScripts([
-                    //{
-                    //    id: 'BlocktrustMainContentScript',
-                    //    matches: ["https://*/*", "http://*/*"],
-                    //    js: ['/scripts/MainContentScript.js'],
-                    //    runAt: 'document_start',
-                    //    world: 'MAIN',
-                    //},
-                    //{
-                    //    id: 'BlocktrustIsolatedContentScript',
-                    //    matches: ["https://*/*", "http://*/*"],
-                    //    "js": ["/scripts/IsolatedContentScript.js"],
-                    //    "runAt": "document_start",
-                    //    world: "ISOLATED",
-                    //    allFrames: true
-                    //},
                     {
-                        id: 'BlocktrustIsolatedContentScript2',
+                        id: 'KeriAuthContentScript',
                         matches: ["https://*/*", "http://*/*"],
-                        "js": ["/scripts/tmpcontentscript.js"],
+                        "js": ["/scripts/ContentScript.js"],
                         "runAt": "document_start",
                         world: "ISOLATED",
                         allFrames: true
