@@ -216,30 +216,30 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
                         }
                     });
                 }
-        //    case "WALLET_REQUEST_MSG":
-        //        if (!(message.walletRequest && message.sourceHostname && message.sourceOrigin && message.contentHash)) {
-        //            return "invalid message"
-        //        }
-        //        if (message.sourceOrigin != messageOrigin) {
-        //            return "invalid origin";
-        //        }
+                //    case "WALLET_REQUEST_MSG":
+                //        if (!(message.walletRequest && message.sourceHostname && message.sourceOrigin && message.contentHash)) {
+                //            return "invalid message"
+                //        }
+                //        if (message.sourceOrigin != messageOrigin) {
+                //            return "invalid origin";
+                //        }
 
-        //        // Adding the current windowId
-        //        if (sender.tab !== undefined) {
-        //            message.windowId = sender.tab.windowId;
-        //        } else {
-        //            message.windowId = 0;
-        //        }
+                //        // Adding the current windowId
+                //        if (sender.tab !== undefined) {
+                //            message.windowId = sender.tab.windowId;
+                //        } else {
+                //            message.windowId = 0;
+                //        }
 
-        //        // Bring up notifcation in a new window
-        //        // be aware of async handling insinde the processing of messages https://stackoverflow.com/questions/53024819/chrome-extension-sendresponse-not-waiting-for-async-function/
-        //        GetWalletRequests().then(r => SetWalletRequest(r, message)).then(
-        //            async () => {
-        //                if (message.walletRequest && !message.iframeMode) {
-        //                    usePopup();
-        //                }
-        //            }
-        //        );
+                //        // Bring up notifcation in a new window
+                //        // be aware of async handling insinde the processing of messages https://stackoverflow.com/questions/53024819/chrome-extension-sendresponse-not-waiting-for-async-function/
+                //        GetWalletRequests().then(r => SetWalletRequest(r, message)).then(
+                //            async () => {
+                //                if (message.walletRequest && !message.iframeMode) {
+                //                    usePopup();
+                //                }
+                //            }
+                //        );
                 break;
             default:
                 break;
@@ -314,17 +314,25 @@ async function RegisterContentScripts() {
         await (chrome.scripting as any).unregisterContentScripts(async function () {
             try {
                 await chrome.scripting.registerContentScripts([
+                    //{
+                    //    id: 'BlocktrustMainContentScript',
+                    //    matches: ["https://*/*", "http://*/*"],
+                    //    js: ['/scripts/MainContentScript.js'],
+                    //    runAt: 'document_start',
+                    //    world: 'MAIN',
+                    //},
+                    //{
+                    //    id: 'BlocktrustIsolatedContentScript',
+                    //    matches: ["https://*/*", "http://*/*"],
+                    //    "js": ["/scripts/IsolatedContentScript.js"],
+                    //    "runAt": "document_start",
+                    //    world: "ISOLATED",
+                    //    allFrames: true
+                    //},
                     {
-                        id: 'BlocktrustMainContentScript',
+                        id: 'BlocktrustIsolatedContentScript2',
                         matches: ["https://*/*", "http://*/*"],
-                        js: ['/scripts/MainContentScript.js'],
-                        runAt: 'document_start',
-                        world: 'MAIN',
-                    },
-                    {
-                        id: 'BlocktrustIsolatedContentScript',
-                        matches: ["https://*/*", "http://*/*"],
-                        "js": ["/scripts/IsolatedContentScript.js"],
+                        "js": ["/scripts/tmpcontentscript.js"],
                         "runAt": "document_start",
                         world: "ISOLATED",
                         allFrames: true

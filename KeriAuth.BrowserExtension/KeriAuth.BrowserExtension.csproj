@@ -91,14 +91,13 @@
 		<Content Remove="wwwroot\scripts\app.js" />
 		<Content Remove="wwwroot\scripts\KeriaTest - Copy.js" />
 		<Content Remove="wwwroot\scripts\tmp - Copy.js" />
+		<Content Remove="wwwroot\scripts\tmpcontentscript.js" />
 		<Content Remove="wwwroot\_locales\en\messages.json" />
 		<None Remove="Properties\launchSettings.json" />
 		<None Remove="wwwroot\scripts\interopHelper.d.ts" />
 		<None Remove="wwwroot\scripts\interopHelper.ts" />
 		<None Remove="wwwroot\scripts\IsolatedContentScript.d.ts" />
 		<None Remove="wwwroot\scripts\IsolatedContentScript.ts" />
-		<None Remove="wwwroot\scripts\MainContentScript.d.ts" />
-		<None Remove="wwwroot\scripts\MainContentScript.ts" />
 		<None Remove="wwwroot\scripts\moduleLoader.d.ts" />
 		<None Remove="wwwroot\scripts\moduleLoader.ts" />
 		<None Remove="wwwroot\scripts\node_imports.ts" />
@@ -148,9 +147,6 @@
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\IsolatedContentScript.ts">
-			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\MainContentScript.ts">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\registerInactivityEvents.ts">
@@ -220,7 +216,6 @@
 	<ItemGroup>
 	  <TypeScriptCompile Remove="wwwroot\scripts\interopHelper.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\IsolatedContentScript.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\MainContentScript.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\moduleLoader.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\service-worker.d.ts" />
@@ -238,9 +233,6 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <None Remove="wwwroot\scripts\moduleLoader.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\MainContentScript.d.ts" />
 	</ItemGroup>
 	<ItemGroup>
 	  <None Remove="wwwroot\scripts\IsolatedContentScript.d.ts" />

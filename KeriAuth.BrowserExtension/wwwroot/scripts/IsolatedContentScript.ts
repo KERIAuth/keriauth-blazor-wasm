@@ -12,6 +12,18 @@ import { IMessage } from "./CommonInterfaces";
 // TODO P3 should use declarative events API, for performance reasons, since they will be evaluated in the browser, not javascript.
 // See https://developer.chrome.com/docs/extensions/reference/events/
 
+
+// Advertize extensionId to web page
+window.postMessage(
+    {
+        type: "signify-extension",
+        data: {
+            extensionId: chrome.runtime.id // getExtId(),
+        },
+    },
+    "*"
+);
+
 // Listen to messages from the web page
 window.addEventListener(
     "message",
