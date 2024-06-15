@@ -9,8 +9,22 @@
 // https://www.oreilly.com/library/view/building-progressive-web/9781491961643/ch04.html
 
 import MessageSender = chrome.runtime.MessageSender;
-import { IMessage,  } from './CommonInterfaces.js';
+// import { IMessage  } from '../commonjs/CommonInterfaces.js';
+
+// TODO should be referenced from the CommonInterfaces.ts file
+export interface IMessage {
+    name: string,
+    sourceHostname: string;
+    sourceOrigin: string;
+    windowId: number;
+}
+
+
 import { Utils } from "./uiHelper.js";
+
+
+
+
 
 // The following handlers trigger in order:
 // runtime.onInstalled, this.activating, this.activated, and then others
@@ -161,6 +175,8 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
 
     if (message.name === 'getTabId') {
         console.log('WORKER: from CS: getTabId: ', sender.tab?.id);
+        // send the tabId back to the content script.
+        // TODO EE! should be in a proper message type
         sendResponse( String(sender.tab?.id) );
         return true;
     }
@@ -287,7 +303,7 @@ async function RegisterContentScripts() {
                     {
                         id: 'KeriAuthContentScript',
                         matches: ["https://*/*", "http://*/*"],
-                        "js": ["/scripts/ContentScript.js"],
+                        "js": ["/scripts/commonjs/ContentScript.js"],
                         "runAt": "document_start",
                         world: "ISOLATED",
                         allFrames: true
@@ -344,10 +360,9 @@ const connections: { [key: number]: { port: chrome.runtime.Port, url?: string } 
 
 // Listen for connections from content scripts
 chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
-    const tabId = parseInt(port.name);
-        console.error("WORKER: Invalid tab ID: ", port);
-
     // Store the connection info
+    // TODO verify that the port name is a number
+    var tabId = Number(port.name);
     connections[tabId] = { port: port };
     console.log("WORKER: connections: ", connections);
 

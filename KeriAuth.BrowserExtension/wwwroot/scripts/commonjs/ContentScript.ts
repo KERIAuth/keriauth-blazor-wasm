@@ -28,22 +28,26 @@ interface IExCsMsg {
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
-enum PAGE_EVENT_TYPE {
-    SELECT_IDENTIFIER = "select-identifier",
-    SELECT_CREDENTIAL = "select-credential",
-    SELECT_ID_CRED = "select-aid-or-credential",
-    SELECT_AUTO_SIGNIN = "select-auto-signin",
-    NONE = "none",
-    VENDOR_INFO = "vendor-info",
-    FETCH_RESOURCE = "fetch-resource",
-    AUTO_SIGNIN_SIG = "auto-signin-sig",
-}
-enum PAGE_POST_TYPE {
-    SIGNIFY_EXT = "signify-extension",
-    SELECT_AUTO_SIGNIN = "select-auto-signin",
-    SIGNIFY_SIGNATURE1 = "signify-signature",
-    SIGNIFY_SIGNATURE2 = "signify-signature",
-}
+// this "const" structure is intentionally used versus an enum, because of CommonJS module system in use
+
+const PAGE_EVENT_TYPE = Object.freeze({
+    SELECT_IDENTIFIER: "select-identifier",
+    SELECT_CREDENTIAL: "select-credential",
+    SELECT_ID_CRED: "select-aid-or-credential",
+    SELECT_AUTO_SIGNIN: "select-auto-signin",
+    NONE: "none",
+    VENDOR_INFO: "vendor-info",
+    FETCH_RESOURCE: "fetch-resource",
+    AUTO_SIGNIN_SIG: "auto-signin-sig",
+})
+
+const PAGE_POST_TYPE = Object.freeze({
+    SIGNIFY_EXT: "signify-extension",
+    SELECT_AUTO_SIGNIN: "select-auto-signin",
+    SIGNIFY_SIGNATURE1: "signify-signature",
+    SIGNIFY_SIGNATURE2: "signify-signature",
+})
+
 
 // Define types for message events and chrome message
 interface ChromeMessage {
@@ -60,7 +64,7 @@ interface EventData {
 // interfaces for the messages posted to the web page
 interface BaseMessage {
     version: string;
-    type: PAGE_POST_TYPE;
+    // type: typeof PAGE_POST_TYPE;
 }
 
 interface SignifyExtensionMessage extends BaseMessage {
@@ -104,7 +108,8 @@ var mm: IMessage = {
 
 chrome.runtime.sendMessage(mm, (response) => {
     console.log("KERI_Auth_CS to extension: tabId: ", response);
-    // myTabId = tabId;
+    // TODO error or confirm response can be converted to a number
+    myTabId = Number(response);
 });
 
 console.log("tabId: ", myTabId);

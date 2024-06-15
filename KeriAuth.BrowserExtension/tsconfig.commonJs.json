@@ -7,6 +7,6 @@
     "removeComments": true
   },
   "include": [
-    "wwwroot/scripts/ContentScript.ts"
+    "wwwroot/scripts/commonjs/*.ts"
   ]
 }

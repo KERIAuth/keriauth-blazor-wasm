@@ -12,7 +12,7 @@ import {
     randomPasscode,
     EventResult,
     Identifier,
-} from "signify-ts";
+} from "@signify-ts";
 
 export const PASSCODE_TIMEOUT = 5;
 
@@ -34,7 +34,7 @@ export const bootAndConnect = async (
     _client = null;
     await ready();
     console.debug(`signify_ts_shim: bootAndConnect: creating client...`);
-    _client = new SignifyClient(agentUrl, passcode.padEnd(21, '_'), Tier.low, bootUrl);
+    _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
 
     try {
         await _client.connect();
