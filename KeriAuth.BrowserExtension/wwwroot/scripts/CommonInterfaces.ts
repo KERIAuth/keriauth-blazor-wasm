@@ -1,4 +1,4 @@
-﻿
+﻿// TODO these are replicated in ContentScript.ts and should be imported from there. However, this leads to typescript config issues that need to also be resolved.
 export interface IMessage {
     name: string,
     sourceHostname: string;

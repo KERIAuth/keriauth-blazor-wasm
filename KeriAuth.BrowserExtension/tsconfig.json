@@ -38,7 +38,6 @@
   ],
   "exclude": [
     "wwwroot/scripts/signify_ts_shim.ts",
-    "wwwroot/scripts/CommonInterfaces.ts",
     "wwwroot/scripts/ContentScript.ts",
     "node_modules",
     "bin",

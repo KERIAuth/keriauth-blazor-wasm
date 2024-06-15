@@ -3,27 +3,26 @@
 // This ContentScript is inserted into pages after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension service-worker.
 
-import { IMessage, IBaseMsg, ICsSwMsg, IExCsMsg } from "./CommonInterfaces";
+// import { IMessage, IBaseMsg, ICsSwMsg, IExCsMsg } from "./CommonInterfaces";
+// TODO these are replicated from CommonInterfaces.ts, should be imported from there. However, this leads to typescript config issues that need to also be resolved.
+interface IMessage {
+    name: string,
+    sourceHostname: string;
+    sourceOrigin: string;
+    windowId: number;
+}
 
+interface IBaseMsg {
+    name: string,
+}
 
-//interface IMessage {
-//    name: string,
-//    sourceHostname: string;
-//    sourceOrigin: string;
-//    windowId: number;
-//}
+interface ICsSwMsg {
+    name: string,
+}
 
-//interface IBaseMsg {
-//    name: string,
-//}
-
-//interface ICsSwMsg {
-//    name: string,
-//}
-
-//interface IExCsMsg {
-//    name: string,
-//}
+interface IExCsMsg {
+    name: string,
+}
 
 
 
