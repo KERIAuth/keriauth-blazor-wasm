@@ -24,38 +24,41 @@ const PAGE_POST_TYPE = Object.freeze({
     SIGNIFY_SIGNATURE1: "signify-signature",
     SIGNIFY_SIGNATURE2: "signify-signature",
 });
-var myTabId = 0;
-var mm = {
+var tabId = 0;
+var msg = {
     name: "getTabId",
     sourceHostname: "",
     sourceOrigin: "",
     windowId: 0,
 };
-chrome.runtime.sendMessage(mm, (response) => {
-    console.log("KERI_Auth_CS to extension: tabId: ", response);
-    myTabId = Number(response);
-});
-console.log("tabId: ", myTabId);
-const port = chrome.runtime.connect({ name: String(myTabId) });
-window.addEventListener("message", (event) => __awaiter(void 0, void 0, void 0, function* () {
-    if (event.source !== window) {
-        return;
-    }
-    console.log("KERI_Auth_CS from page: ", event.data);
-    switch (event.data.type) {
-        case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-        case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-        case PAGE_EVENT_TYPE.SELECT_ID_CRED:
-        case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
-        case PAGE_EVENT_TYPE.NONE:
-        case PAGE_EVENT_TYPE.VENDOR_INFO:
-        case PAGE_EVENT_TYPE.FETCH_RESOURCE:
-        case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
-        default:
-            port.postMessage({ type: event.data.type, data: event.data });
+var port;
+chrome.runtime.sendMessage(msg, (response) => {
+    tabId = Number(response);
+    console.log("KERI_Auth_CS to extension: tabId: ", tabId);
+    port = Object.freeze(chrome.runtime.connect({ name: String(tabId) }));
+    port.onMessage.addListener((message) => {
+        console.log("KERI_Auth_CS from extension:", message);
+    });
+    window.addEventListener("message", (event) => __awaiter(void 0, void 0, void 0, function* () {
+        if (event.source !== window) {
             return;
-    }
-}));
+        }
+        console.log("KERI_Auth_CS from page: ", event.data);
+        switch (event.data.type) {
+            case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
+            case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
+            case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+            case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
+            case PAGE_EVENT_TYPE.NONE:
+            case PAGE_EVENT_TYPE.VENDOR_INFO:
+            case PAGE_EVENT_TYPE.FETCH_RESOURCE:
+            case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
+            default:
+                port.postMessage({ type: event.data.type, data: event.data });
+                return;
+        }
+    }));
+});
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return __awaiter(this, void 0, void 0, function* () {
         if (sender.id === chrome.runtime.id) {
@@ -77,7 +80,3 @@ function advertiseToPage() {
     }, "*");
 }
 setTimeout(advertiseToPage, 1000);
-port.postMessage({ greeting: "hello" });
-port.onMessage.addListener((message) => {
-    console.log("KERI_Auth_CS from extension:", message);
-});

@@ -275,7 +275,7 @@
             var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!postResult.IsSuccess)
             {
-                var message = $"KERIA agent service is not reachable";
+                var message = $"KERIA service is not reachable";
                 logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
                 ops1LivenessCheck.SetCompletedWithError(message);
                 return false;

@@ -96,52 +96,54 @@ interface SignifyAutoSigninMessage extends BaseMessage {
 // Union type for all possible messages that can be sent to the web page
 // type PageMessage = SignifyExtensionMessage | SignifySignature1Message | SignifySignature2Message | SignifyAutoSigninMessage;
 
-
-// get the tabId of the page, to be used for unique identification of port
-var myTabId: number = 0;
-var mm: IMessage = {
+// Connect to the extension service worker via a port with the tabId as its name.
+// First, get the tabId from the extension service worker
+var tabId: number = 0;
+var msg: IMessage = {
     name: "getTabId",
     sourceHostname: "",
     sourceOrigin: "",
     windowId: 0,
 };
-
-chrome.runtime.sendMessage(mm, (response) => {
-    console.log("KERI_Auth_CS to extension: tabId: ", response);
+var port: chrome.runtime.Port;
+chrome.runtime.sendMessage(msg, (response) => {
+    // Now we have the response from the extension service worker containing the page's tabId
     // TODO error or confirm response can be converted to a number
-    myTabId = Number(response);
-});
+    tabId = Number(response);
+    console.log("KERI_Auth_CS to extension: tabId: ", tabId);
+    port = Object.freeze(chrome.runtime.connect({ name: String(tabId) }));
 
-console.log("tabId: ", myTabId);
+    // Listen for and handle messages from the service worker
+    port.onMessage.addListener((message: any) => {
+        console.log("KERI_Auth_CS from extension:", message);
+    });
 
-const port = chrome.runtime.connect({ name: String(myTabId) });
-
-
-// Handle messages from web page
-window.addEventListener(
-    "message",
-    async (event: MessageEvent<EventData>) => {
-        // Accept messages only from same window
-        if (event.source !== window) {
-            return;
-        }
-        console.log("KERI_Auth_CS from page: ", event.data);
-
-        switch (event.data.type) {
-            case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-            case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-            case PAGE_EVENT_TYPE.SELECT_ID_CRED:
-            case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
-            case PAGE_EVENT_TYPE.NONE:
-            case PAGE_EVENT_TYPE.VENDOR_INFO:
-            case PAGE_EVENT_TYPE.FETCH_RESOURCE:
-            case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
-            default:
-                port.postMessage({ type: event.data.type, data: event.data });
+    // Handle messages from web page, most of which will be forwarded to the extension service worker via the port
+    window.addEventListener(
+        "message",
+        async (event: MessageEvent<EventData>) => {
+            // Accept messages only from same window
+            if (event.source !== window) {
                 return;
+            }
+            console.log("KERI_Auth_CS from page: ", event.data);
+
+            switch (event.data.type) {
+                case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
+                case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
+                case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+                case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
+                case PAGE_EVENT_TYPE.NONE:
+                case PAGE_EVENT_TYPE.VENDOR_INFO:
+                case PAGE_EVENT_TYPE.FETCH_RESOURCE:
+                case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
+                default:
+                    port.postMessage({ type: event.data.type, data: event.data });
+                    return;
+            }
         }
-    }
-);
+    );
+});
 
 // Handle messages from extension
 chrome.runtime.onMessage.addListener(async function (
@@ -177,10 +179,3 @@ function advertiseToPage(): void {
 // TODO find a more deterministic approach vs delay?
 setTimeout(advertiseToPage, 1000);
 
-// Send a message to the service worker, example
-port.postMessage({ greeting: "hello" });
-
-// Listen for messages from the service worker
-port.onMessage.addListener((message: any) => {
-    console.log("KERI_Auth_CS from extension:", message);
-});

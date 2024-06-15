@@ -1,3 +1,11 @@
 {
-  "not used":  "this is not used by the project, it is here for reference only"
+  "not used": "this should not used by the project, it is here for reference only",
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": true
+  },
+  "include": [],
+  "exclude": [ "**/*" ]
 }

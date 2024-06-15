@@ -356,27 +356,26 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
 // Object to store connection info
 const connections: { [key: number]: { port: chrome.runtime.Port, url?: string } } = {};
 
-
-
-// Listen for connections from content scripts
+// Listen for port connections from content scripts
 chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     // Store the connection info
     // TODO verify that the port name is a number
     var tabId = Number(port.name);
+    // store the port in the connections object
     connections[tabId] = { port: port };
     console.log("WORKER: connections: ", connections);
 
-    // Listen for messages from the content script
-    port.onMessage.addListener((request: any) => {
-        console.log("WORKER: from CS:", request);
-        if (request.greeting === "hello") {
-            // Store the tab URL
-            connections[tabId].url = request.url;
+    //// Listen for messages from the content script
+    //port.onMessage.addListener((request: any) => {
+    //    console.log("WORKER: from CS:", request);
+    //    if (request.greeting === "hello") {
+    //        // Store the tab URL
+    //        connections[tabId].url = request.url;
 
-            // Send a response back through the port
-            port.postMessage({ farewell: "goodbye", tabId: tabId, url: request.url });
-        }
-    });
+    //        // Send a response back through the port
+    //        port.postMessage({ farewell: "goodbye" });
+    //    }
+    //});
 
     // Clean up when the port is disconnected
     port.onDisconnect.addListener(() => {
