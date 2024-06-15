@@ -2,16 +2,17 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "es6",
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "resolveJsonModule": true,
+
+
+
+
     "strict": true,
-    "types": ["chrome"]
+    "types": [ "chrome" ],
+    "removeComments": true
+
   },
   "include": [
+    "wwwroot/scripts/CommonInterfaces.ts",
     "wwwroot/scripts/ContentScript.ts"
   ]
 }

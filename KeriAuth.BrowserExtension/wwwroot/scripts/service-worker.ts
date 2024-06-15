@@ -9,7 +9,7 @@
 // https://www.oreilly.com/library/view/building-progressive-web/9781491961643/ch04.html
 
 import MessageSender = chrome.runtime.MessageSender;
-import { IMessage, IWalletRequest } from './CommonInterfaces.js';
+import { IMessage,  } from './CommonInterfaces.js';
 import { Utils } from "./uiHelper.js";
 
 // The following handlers trigger in order:
@@ -144,13 +144,9 @@ function getTabUrlAndContinue(tabId: number) {
         // Note this will be executed in the page's context, not the extension context
         let responseMessage: IMessage = {
             name: "getTabUrlResponse",
-            walletRequest: { type: "", content: {}, iframeMode: false },
             sourceHostname: window.location.href,
             sourceOrigin: "",
-            contentHash: "",
-            timestamp: 0,
-            windowId: tabId, // not really a windowId, but a tabId
-            iframeMode: false
+            windowId: tabId // not really a windowId, but a tabId
         };
         // Send the message with URL back to the extension service-worker
         chrome.runtime.sendMessage(responseMessage);
@@ -159,9 +155,15 @@ function getTabUrlAndContinue(tabId: number) {
     }
 }
 
-// TODO still used, with use of chrome.runtime.onConnect instead?
+
 chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, sendResponse: (response: string) => void) => {
-    console.log('WORKER: runtime.onMessage.');
+    console.log('WORKER: runtime.onMessage: ', message, " sender: ", sender);
+
+    if (message.name === 'getTabId') {
+        console.log('WORKER: from CS: getTabId: ', sender.tab?.id);
+        sendResponse( String(sender.tab?.id) );
+        return true;
+    }
 
     // Check for conformance of message to IMessage, and ignore if not
     if (message == undefined
@@ -271,45 +273,9 @@ function reloadTabAndUsePopup() {
     })
 }
 
-// TODO obsolete?
-async function SetWalletRequest(result: any, message: IMessage) {
-    let key = message.contentHash;
-    var listOfWalletRequests = [] as any[]
-    if (result != undefined) {
-        listOfWalletRequests = result["RequestList"];
-    }
-    let messageExistsInStorage = false;
-    for (var i = 0; i < listOfWalletRequests.length; i++) {
-        if (message.contentHash === listOfWalletRequests[i]["contentHash"]) {
-            console.log("WORKER: Message already stored in the service-worker. The new message is ignored");
-            messageExistsInStorage = true;
-        }
-    }
-    if (!messageExistsInStorage) {
-        listOfWalletRequests.push({
-            'type': message.walletRequest.type,
-            'content': message.walletRequest.content,
-            'sourceHostname': message.sourceHostname,
-            'sourceOrigin': message.sourceOrigin,
-            'timestamp': message.timestamp,
-            'contentHash': message.contentHash,
-            'windowId': message.windowId
-        });
-        await chrome.storage.local.set({ "WALLETREQUESTS": { "RequestList": listOfWalletRequests } });
-    }
-    return true;
-}
-
 // bring the window to focus.  requires windows permission in the manifest ?
 function focusWindow(windowId: number): void {
     chrome.windows.update(windowId, { focused: true });
-}
-
-// TODO obsolete?
-// Get the current items in the storage under the key "WALLETREQUESTS"
-async function GetWalletRequests() {
-    var result = await chrome.storage.local.get("WALLETREQUESTS");
-    return result["WALLETREQUESTS"];
 }
 
 async function RegisterContentScripts() {
@@ -374,23 +340,16 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
 // Object to store connection info
 const connections: { [key: number]: { port: chrome.runtime.Port, url?: string } } = {};
 
-// TODO old?
-// Handle requests for the current tab ID
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("WORKER: onMessage: ???? :");
-    console.log(request);
-    if (request.action === "getTabId" && sender.tab) {
-        sendResponse({ tabId: sender.tab.id });
-    }
-    return true;
-});
+
 
 // Listen for connections from content scripts
 chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
-    const tabId = parseInt(port.name.split('-').pop()!, 10);
+    const tabId = parseInt(port.name);
+        console.error("WORKER: Invalid tab ID: ", port);
 
     // Store the connection info
     connections[tabId] = { port: port };
+    console.log("WORKER: connections: ", connections);
 
     // Listen for messages from the content script
     port.onMessage.addListener((request: any) => {

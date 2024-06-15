@@ -140,10 +140,10 @@
 		<TypeScriptCompile Update="wwwroot\KeriAuth.BrowserExtensionBrowserExtension.lib.module.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\CommonInterfaces.d.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		<TypeScriptCompile Update="wwwroot\scripts\CommonInterfaces.ts">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\ContentScript.ts">
+			<TypeScriptCompile Update="wwwroot\scripts\ContentScript.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\registerInactivityEvents.ts">

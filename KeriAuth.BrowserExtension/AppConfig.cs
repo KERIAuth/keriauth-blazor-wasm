@@ -16,8 +16,6 @@
         public const string RouteToNewInstall = "/NewInstall";
         public const string RouteToReleaseHistory = "/ReleaseHistory";
         public const string RouteToHome = "/Home";
-        public const string RouteToWalletRequests = "/WalletRequests";
-        public const string RouteToWalletRequestsWithId = "/WalletRequests/{id}";
         public const string RouteToIndex = "/index.html";
         public const string RouteToManagePrefs = "/ManagePreferences";
         public const string RouteToManageMediators = "/Mediators";
