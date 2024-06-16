@@ -19,12 +19,7 @@ export interface IMessage {
     windowId: number;
 }
 
-
 import { Utils } from "./uiHelper.js";
-
-
-
-
 
 // The following handlers trigger in order:
 // runtime.onInstalled, this.activating, this.activated, and then others
@@ -72,40 +67,57 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     // 4. This background script injects the ContentScripts into the current page
     // 5. This background script opens the popup
 
-    console.log("WORKER: clicked on action button while on tab: ", tab.url);
+    console.log("WORKER: clicked on action button while on tab: ", tab);
 
     // reset the popup to the nothing state, so that the popup is not opened (unless set below) when the action button is clicked
+    
     chrome.action.setPopup({ popup: "" });
 
     if (tab.id !== undefined && tab.url !== undefined && tab.url.startsWith("http")) {
-        // Execute script in context of the current tab, to get its URL
-        try {
-            chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: getTabUrlAndContinue,
-                args: [tab.id]
-            }, (injectionResult) => {
-                if (chrome.runtime.lastError) {
-                    console.warn(`WORKER: onClicked: executeScript result: ${chrome.runtime.lastError.message}`);
-                    // bring up the popup window anyway
-                    console.warn(`WORKER: onClicked: executeScript result: ${injectionResult}`);
-                    // usePopup();
-                    chrome.action.setPopup({ popup: "./index.html&envirnoment=ActionPopup" });
-                    chrome.action.openPopup()
-                        .then(() => console.log("WORKER: openPopup succeeded"))
-                        .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
-                    return;
-                }
-            });
-        } catch (err) {
-            console.warn(`WORKER: onClicked: executeScript dropped: ${err}`);
-        }
-        // return;
-    } else {
-        // Since we are not on an http* page, do nothing
-        console.warn("WORKER: action.onClicked: tab is not an http* page. Ignoring.");
+        /*
+        chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" })
+            .then(() => chrome.action.openPopup()  // TODO only available to policy installed extensions??
+                .then(() => console.log("WORKER: opened popup"))
+                .catch((err) => console.warn(`WORKER: could not openPopup`))
+            )
+            .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
+        chrome.action.setPopup({ popup: "" });
+        return;
+        */
     }
+    else {
+        createPopupWindow();
+        return;
+    }
+    
 });
+
+function popup(tabId2: number) {
+    console.log("WORKER: popup: tabId: ", String(tabId2));
+    try {
+        chrome.scripting.executeScript({
+            target: { tabId: tabId2 },
+            func: getTabUrlAndContinue,
+            args: [tabId2]
+        }, (injectionResult) => {
+            if (chrome.runtime.lastError) {
+                console.warn(`WORKER: onClicked: executeScript result: ${chrome.runtime.lastError.message}`);
+                // bring up the popup window anyway
+                console.warn(`WORKER: onClicked: executeScript result: ${injectionResult}`);
+                // usePopup();
+                chrome.action.setPopup({ popup: "./index.html&envirnoment=ActionPopup" });
+                chrome.action.openPopup()
+                    .then(() => console.log("WORKER: openPopup succeeded"))
+                    .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
+                return;
+            } else {
+                console.warn(`WORKER: onClicked: executeScript result: ${injectionResult}`);
+            }
+        });
+    } catch (err) {
+        console.warn(`WORKER: onClicked: executeScript dropped: ${err}`);
+    }
+}
 
 let popupWindow: chrome.windows.Window | null = null;
 
@@ -153,7 +165,7 @@ function createPopupWindow() {
     });
 }
 
-function getTabUrlAndContinue(tabId: number) {
+function getTabUrlAndContinue(tabId: number): chrome.scripting.InjectionResult<string> {
     try {
         // Note this will be executed in the page's context, not the extension context
         let responseMessage: IMessage = {
@@ -164,8 +176,18 @@ function getTabUrlAndContinue(tabId: number) {
         };
         // Send the message with URL back to the extension service-worker
         chrome.runtime.sendMessage(responseMessage);
+        return {
+            result: String(window.location.href),
+            documentId: "",
+            frameId: 0,
+        };
     } catch (err) {
         console.warn(`WORKER: getTabUrlAndContinue dropped: ${err}`);
+        return {
+            result: "failure",
+            documentId: "",
+            frameId: 0,
+        }
     }
 }
 
@@ -177,7 +199,7 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
         console.log('WORKER: from CS: getTabId: ', sender.tab?.id);
         // send the tabId back to the content script.
         // TODO EE! should be in a proper message type
-        sendResponse( String(sender.tab?.id) );
+        sendResponse(String(sender.tab?.id));
         return true;
     }
 
@@ -327,12 +349,20 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
     });
 }
 
+function handleSelectIdentifier(msg: IMessage, port: chrome.runtime.Port) {
+    // TODO P3 Implement the logic for handling the message
+    console.log("WORKER: handleSelectIdentifier: ", msg);
+    // TODO EE should check if a popup is already open, and if so, bring it into focus.
+    // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
+    chrome.action.setBadgeText({ text: "3", tabId: Number(port.name) });
+    chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: Number(port.name) });
+    // popup(msg.windowId);
+};
+
 // TODO P3 experiment with a counter of waiting actions, network/node status, and/or Locked state
 // Could also put a lock icon, see: https://developer.chrome.com/docs/extensions/reference/action/#method-setIcon
 // BadgeText should be different per tab, since extension actions can have different states for each tab. if tabId is omitted, the setting is treated as a global.
 // See https://developer.chrome.com/docs/extensions/reference/action/#per-tab-state
-// chrome.action.setBadgeText({ text: "3" });
-// chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
 // });
 
 //chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
@@ -356,6 +386,18 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
 // Object to store connection info
 const connections: { [key: number]: { port: chrome.runtime.Port, url?: string } } = {};
 
+const CsExMsgType = Object.freeze({
+    SELECT_IDENTIFIER: "select-identifier",
+    SELECT_CREDENTIAL: "select-credential",
+    SELECT_ID_CRED: "select-aid-or-credential",
+    SELECT_AUTO_SIGNIN: "select-auto-signin",
+    NONE: "none",
+    VENDOR_INFO: "vendor-info",
+    FETCH_RESOURCE: "fetch-resource",
+    AUTO_SIGNIN_SIG: "auto-signin-sig",
+})
+
+
 // Listen for port connections from content scripts
 chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     // Store the connection info
@@ -365,23 +407,39 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     connections[tabId] = { port: port };
     console.log("WORKER: connections: ", connections);
 
-    //// Listen for messages from the content script
-    //port.onMessage.addListener((request: any) => {
-    //    console.log("WORKER: from CS:", request);
-    //    if (request.greeting === "hello") {
-    //        // Store the tab URL
-    //        connections[tabId].url = request.url;
-
-    //        // Send a response back through the port
-    //        port.postMessage({ farewell: "goodbye" });
-    //    }
-    //});
+    // Listen for and handle messages from the content script
+    port.onMessage.addListener((request: IMessage) => {
+        console.log("WORKER: from CS:", request);
+        // assure tab is still connected        
+        if (connections[tabId]) {
+            switch (request.name) {
+                case CsExMsgType.SELECT_IDENTIFIER:
+                    handleSelectIdentifier(request, connections[tabId].port);
+                    break;
+                case "signify-extension":
+                    break;
+                case CsExMsgType.AUTO_SIGNIN_SIG:
+                case CsExMsgType.FETCH_RESOURCE:
+                case CsExMsgType.VENDOR_INFO:
+                case CsExMsgType.NONE:
+                case CsExMsgType.SELECT_AUTO_SIGNIN:
+                case CsExMsgType.SELECT_CREDENTIAL:
+                case CsExMsgType.SELECT_ID_CRED:
+                default:
+                    console.warn("WORKER: request not yet implemented");
+            }
+        } else {
+            console.log("WORKER: Port no longer connected");
+        }
+    });
 
     // Clean up when the port is disconnected
     port.onDisconnect.addListener(() => {
         delete connections[tabId];
     });
 });
+
+
 
 // Listen for tab updates to maintain connection info
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {

@@ -6,25 +6,16 @@
 // import { IMessage, IBaseMsg, ICsSwMsg, IExCsMsg } from "./CommonInterfaces";
 // TODO these are replicated from CommonInterfaces.ts, should be imported from there. However, this leads to typescript config issues that need to also be resolved.
 interface IMessage {
-    name: string,
-    sourceHostname: string;
-    sourceOrigin: string;
-    windowId: number;
+    name: string
 }
 
-interface IBaseMsg {
-    name: string,
+interface ICsSwMsg extends IMessage {
+    name2: string,
 }
 
-interface ICsSwMsg {
-    name: string,
+interface IExCsMsg extends IMessage {
+    name3: string,
 }
-
-interface IExCsMsg {
-    name: string,
-}
-
-
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
@@ -44,10 +35,9 @@ const PAGE_EVENT_TYPE = Object.freeze({
 const PAGE_POST_TYPE = Object.freeze({
     SIGNIFY_EXT: "signify-extension",
     SELECT_AUTO_SIGNIN: "select-auto-signin",
-    SIGNIFY_SIGNATURE1: "signify-signature",
+    SIGNIFY_SIGNATURE: "signify-signature",
     SIGNIFY_SIGNATURE2: "signify-signature",
 })
-
 
 // Define types for message events and chrome message
 interface ChromeMessage {
@@ -74,17 +64,11 @@ interface SignifyExtensionMessage extends BaseMessage {
     };
 }
 
-interface SignifySignature1Message extends BaseMessage {
-    type: typeof PAGE_POST_TYPE.SIGNIFY_SIGNATURE1;
+interface SignifySignatureMessage extends BaseMessage {
+    type: typeof PAGE_POST_TYPE.SIGNIFY_SIGNATURE;
     data: any;
     requestId: string;
     rurl: string;
-}
-
-interface SignifySignature2Message extends BaseMessage {
-    type: typeof PAGE_POST_TYPE.SIGNIFY_SIGNATURE2;
-    requestId: string;
-    data: any;
 }
 
 interface SignifyAutoSigninMessage extends BaseMessage {
@@ -94,16 +78,13 @@ interface SignifyAutoSigninMessage extends BaseMessage {
 }
 
 // Union type for all possible messages that can be sent to the web page
-// type PageMessage = SignifyExtensionMessage | SignifySignature1Message | SignifySignature2Message | SignifyAutoSigninMessage;
+type PageMessage = SignifyExtensionMessage | SignifySignatureMessage | SignifyAutoSigninMessage;
 
 // Connect to the extension service worker via a port with the tabId as its name.
 // First, get the tabId from the extension service worker
 var tabId: number = 0;
 var msg: IMessage = {
     name: "getTabId",
-    sourceHostname: "",
-    sourceOrigin: "",
-    windowId: 0,
 };
 var port: chrome.runtime.Port;
 chrome.runtime.sendMessage(msg, (response) => {
@@ -138,7 +119,11 @@ chrome.runtime.sendMessage(msg, (response) => {
                 case PAGE_EVENT_TYPE.FETCH_RESOURCE:
                 case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
                 default:
-                    port.postMessage({ type: event.data.type, data: event.data });
+                    var msg: IMessage = {
+                        name: String(event.data.type)
+                    };
+                    console.log("KERI_Auth_CS to extension: ", msg);
+                    port.postMessage(msg);
                     return;
             }
         }

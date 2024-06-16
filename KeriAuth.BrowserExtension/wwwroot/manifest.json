@@ -5,7 +5,8 @@
       "16": "images/16_keri_logo.png",
       "48": "images/48_keri_logo.png",
       "128": "images/128_keri_logo.png"
-    }
+    },
+    "default_popup": "index.html?environment=ActionPopup"
   },
   "author": "https://keriauth.com",
   "background": {

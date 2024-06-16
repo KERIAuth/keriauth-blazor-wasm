@@ -441,3 +441,8 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/storageHelper.js.map
 /KeriAuth.BrowserExtension/wwwroot/scripts/ContentScript.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/commonjs/ContentScript.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/service-worker.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/service-worker.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/signify_ts_shim.js
+/KeriAuth.BrowserExtension/tsconfig.es6.tsbuildinfo
