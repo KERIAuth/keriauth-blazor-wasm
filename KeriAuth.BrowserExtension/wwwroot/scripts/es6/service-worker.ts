@@ -70,28 +70,25 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     console.log("WORKER: clicked on action button while on tab: ", tab);
 
     // reset the popup to the nothing state, so that the popup is not opened (unless set below) when the action button is clicked
-    
     chrome.action.setPopup({ popup: "" });
 
     if (tab.id !== undefined && tab.url !== undefined && tab.url.startsWith("http")) {
-        /*
         chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" })
-            .then(() => chrome.action.openPopup()  // TODO only available to policy installed extensions??
+            .then(() => chrome.action.openPopup()
                 .then(() => console.log("WORKER: opened popup"))
                 .catch((err) => console.warn(`WORKER: could not openPopup`))
             )
             .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
         chrome.action.setPopup({ popup: "" });
         return;
-        */
     }
     else {
         createPopupWindow();
         return;
     }
-    
 });
 
+// Unused?
 function popup(tabId2: number) {
     console.log("WORKER: popup: tabId: ", String(tabId2));
     try {
@@ -122,8 +119,8 @@ function popup(tabId2: number) {
 let popupWindow: chrome.windows.Window | null = null;
 
 // If a popup window is already open, then bring it into focus; otherwise, create a new one
-function usePopup() {
-    console.log("WORKER: usePopup");
+function usePopupWindow() {
+    console.log("WORKER: usePopupWindow");
     if (popupWindow && popupWindow.id) {
         isWindowOpen(popupWindow.id).then((isOpen) => {
             if (isOpen && popupWindow && typeof popupWindow.id === 'number') {
@@ -245,7 +242,7 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
                             }, (isGranted: boolean) => {
                                 if (isGranted) {
                                     console.log('WORKER: Permission granted for:', origin);
-                                    reloadTabAndUsePopup();
+                                    useActionPopup();
                                 } else {
                                     console.log('WORKER: Permission denied for:', origin);
                                     // TODO if there is already an open tab of this name, reuse it.
@@ -253,7 +250,7 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
                                 }
                             });
                         } else {
-                            reloadTabAndUsePopup();
+                            useActionPopup();
                         }
                     });
                 }
@@ -289,24 +286,40 @@ chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, 
     }
 });
 
-// TODO reload of tab should not be required
-function reloadTabAndUsePopup() {
-    console.log('WORKER: reloadTabAndPopup acting on current tab');
+function useActionPopup() {
+    console.log('WORKER: useActionPopup acting on current tab');
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        console.log('WORKER: reloadTabAndPopup tabs: ', tabs);
+        console.log('WORKER: useActionPopup tabs: ', tabs);
         let tab = tabs[0];
         if (typeof tab?.url === 'string') {
-            console.log("WORKER: reloadTabAndPopup tab url: ", tab.url);
+            console.log("WORKER: useActionPopup tab url: ", tab.url);
             if (typeof tab.id === 'number') {
-                // TODO P2 Below is a hack to get the active page to reload, this time with the injected content scripts. It should be done in a more elegant way.
-                chrome.tabs.reload(tab.id).then(() => {
-                    chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
-                    chrome.action.openPopup()
-                        .then(() => console.log("WORKER: openPopup 1111 succeeded"))
-                        .catch((err) => console.warn(`WORKER: openPopup 1111 dropped: ${err}`));
-                    // usePopup();
-                });
+                //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
+                //isActionPopupUrlSet()
+                //    .then(isOpen => {
+                //        if (!isOpen) {
+                chrome.action.openPopup()
+                    .then(() => console.log("WORKER: useActionPopup succeeded"))
+                    .catch((err) => {
+                        console.warn(`WORKER: useActionPopup dropped. Was already open?: ${err}`);
+                        //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
+                        //chrome.action.openPopup().then(() =>
+                        //    console.log("WORKER: useActionPopup re-opened"))
+                        //    .catch((err) => console.warn("WORKER: useActionPopup re-open dropped: ", err));
+                    });
+                //    } else {
+                //        console.log('WORKER: useActionPopup: Popup is already open.');
+                //    }
+                //})
+                //.catch(error => {
+                //    console.error('WORKER: useActionPopup: Error checking popup status:', error);
+                //});
             }
+            else {
+                console.warn("WORKER: useActionPopup: unexpected tab");
+            }
+        } else {
+            console.warn("WORKER: useActionPopup: unexpected tab or url");
         }
     })
 }
@@ -356,32 +369,23 @@ function handleSelectIdentifier(msg: IMessage, port: chrome.runtime.Port) {
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     chrome.action.setBadgeText({ text: "3", tabId: Number(port.name) });
     chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: Number(port.name) });
-    popup(Number(port.name));
+    useActionPopup();
+    // popup(Number(port.name));
 };
 
-// TODO P3 experiment with a counter of waiting actions, network/node status, and/or Locked state
-// Could also put a lock icon, see: https://developer.chrome.com/docs/extensions/reference/action/#method-setIcon
-// BadgeText should be different per tab, since extension actions can have different states for each tab. if tabId is omitted, the setting is treated as a global.
-// See https://developer.chrome.com/docs/extensions/reference/action/#per-tab-state
-// });
-
-//chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
-//    console.assert(port.name === "connect-to-service");
-
-//    port.onMessage.addListener((request: any) => {
-//        console.log("WORKER: from CS:");
-//        console.log(request);
-//        if (request.greeting === "hello") {
-//            console.log("WORKER: from CS:", String(request.greeting));
-//            port.postMessage({ farewell: "goodbye" });
-//        } 
-//    });
-
-//    port.onDisconnect.addListener(() => {
-//        console.log("WORKER: Port disconnected");
-//    });
-//});
-
+// Function to check if the actionPopup is already open
+function isActionPopupUrlSet(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        chrome.action.getPopup({}, (popupUrl) => {
+            console.warn("WORKER: isActionPopupOpen: popupUrl: ", popupUrl);
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+            } else {
+                resolve(!!popupUrl);
+            }
+        });
+    });
+}
 
 // Object to store connection info
 const connections: { [key: number]: { port: chrome.runtime.Port, url?: string } } = {};
@@ -396,7 +400,6 @@ const CsExMsgType = Object.freeze({
     FETCH_RESOURCE: "fetch-resource",
     AUTO_SIGNIN_SIG: "auto-signin-sig",
 })
-
 
 // Listen for port connections from content scripts
 chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
@@ -433,13 +436,11 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
         }
     });
 
-    // Clean up when the port is disconnected
+    // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
     port.onDisconnect.addListener(() => {
         delete connections[tabId];
     });
 });
-
-
 
 // Listen for tab updates to maintain connection info
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -453,6 +454,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Clean up when a tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
+    console.log("WORKER: tabs.onRemoved: tabId: ", tabId)
     delete connections[tabId];
 });
 
