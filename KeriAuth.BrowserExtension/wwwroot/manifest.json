@@ -23,7 +23,7 @@
     "512": "images/512_keri_logo.png"
   },
   "manifest_version": 3,
-  "minimum_chrome_version": "118",
+  "minimum_chrome_version": "127",
   "name": "KERI Auth",
   "optional_host_permissions": [
     "https://*/*",

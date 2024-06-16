@@ -100,18 +100,18 @@ function popup(tabId2: number) {
             func: getTabUrlAndContinue,
             args: [tabId2]
         }, (injectionResult) => {
-            if (chrome.runtime.lastError) {
-                console.warn(`WORKER: onClicked: executeScript result: ${chrome.runtime.lastError.message}`);
-                // bring up the popup window anyway
-                console.warn(`WORKER: onClicked: executeScript result: ${injectionResult}`);
-                // usePopup();
-                chrome.action.setPopup({ popup: "./index.html&envirnoment=ActionPopup" });
+            if (injectionResult === undefined) {
+                if (chrome.runtime.lastError) {
+                    console.warn(`WORKER: onClicked: executeScript result:`, chrome.runtime.lastError.message);
+                } else {
+                    console.warn(`WORKER: onClicked: executeScript result: failed for unknown reasons`);
+                }
+            } else {
+                console.log(`WORKER: onClicked: executeScript result:`, injectionResult);
+                chrome.action.setPopup({ popup: "./index.html?envirnoment=ActionPopup" }); // todo pass some reason, e.g. to prompt for AID. reset the popup URL later!
                 chrome.action.openPopup()
                     .then(() => console.log("WORKER: openPopup succeeded"))
                     .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
-                return;
-            } else {
-                console.warn(`WORKER: onClicked: executeScript result: ${injectionResult}`);
             }
         });
     } catch (err) {
@@ -356,7 +356,7 @@ function handleSelectIdentifier(msg: IMessage, port: chrome.runtime.Port) {
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     chrome.action.setBadgeText({ text: "3", tabId: Number(port.name) });
     chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: Number(port.name) });
-    // popup(msg.windowId);
+    popup(Number(port.name));
 };
 
 // TODO P3 experiment with a counter of waiting actions, network/node status, and/or Locked state
