@@ -19,6 +19,14 @@ export interface IMessage {
     windowId: number;
 }
 
+interface ICsSwMsg extends IMessage {
+    name2: string,
+}
+
+interface IExCsMsg extends IMessage {
+    name3: string,
+}
+
 import { Utils } from "./uiHelper.js";
 
 // The following handlers trigger in order:
@@ -37,6 +45,7 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
             Utils.createTab(urlString);
             break;
         case "update":
+            // this could also result from user hitting Reload on the Extensions page
             // TODO P3 Allow the index page to know whether the version of the cache is not the new manifest's version?
             urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
             Utils.createTab(urlString);
@@ -69,17 +78,53 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
 
     console.log("WORKER: clicked on action button while on tab: ", tab);
 
-    // reset the popup to the nothing state, so that the popup is not opened (unless set below) when the action button is clicked
-    chrome.action.setPopup({ popup: "" });
+
+
+
+
 
     if (tab.id !== undefined && tab.url !== undefined && tab.url.startsWith("http")) {
-        chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" })
-            .then(() => chrome.action.openPopup()
-                .then(() => console.log("WORKER: opened popup"))
-                .catch((err) => console.warn(`WORKER: could not openPopup`))
-            )
+        chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tab.id })
+            .then(() => {
+                chrome.action.openPopup()
+                    .then(() => {
+                        console.log("WORKER: user clicked on action button");
+                        if (typeof tab.url !== 'string') {
+                            chrome.action.setPopup({ popup: "", tabId: tab.id })
+                                .then(() => { return; })
+                        }
+                        const origin = new URL(tab.url!).origin + '/';
+                        console.log('WORKER: origin: ', origin);
+                        chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
+                            console.log('WORKER: isOriginPermitted: ', isOriginPermitted);
+                            if (!isOriginPermitted) {
+                                // Request permission from the user
+                                chrome.permissions.request({
+                                    origins: [origin]
+                                }, (isGranted: boolean) => {
+                                    if (isGranted) {
+                                        console.log('WORKER: Permission granted for:', origin);
+                                        // useActionPopup();
+                                    } else {
+                                        console.log('WORKER: Permission denied for:', origin);
+                                        // TODO if there is already an open tab of this name, reuse it.
+                                        // chrome.tabs.create({ url: "./index.html?environment=tab" });
+                                    }
+                                });
+                            } else {
+                                // useActionPopup();
+                            }
+                        });
+                        // in any case, send the tabId back to the content script.
+                        // send the tabId back to the content script.
+                        // TODO EE! should be in a proper message type with type "tabId"?
+                        // sendResponse(String(sender.tab?.id));
+                    })
+                    .catch((err) => console.warn(`WORKER: could not openPopup`, tab, err))
+            })
             .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
-        chrome.action.setPopup({ popup: "" });
+        // clear the popup url so that subsequent clicks on popup will be handled by this onClicked listener
+        chrome.action.setPopup({ popup: "", tabId: tab.id });
         return;
     }
     else {
@@ -91,29 +136,25 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
 // Unused?
 function popup(tabId2: number) {
     console.log("WORKER: popup: tabId: ", String(tabId2));
-    try {
-        chrome.scripting.executeScript({
-            target: { tabId: tabId2 },
-            func: getTabUrlAndContinue,
-            args: [tabId2]
-        }, (injectionResult) => {
-            if (injectionResult === undefined) {
-                if (chrome.runtime.lastError) {
-                    console.warn(`WORKER: onClicked: executeScript result:`, chrome.runtime.lastError.message);
-                } else {
-                    console.warn(`WORKER: onClicked: executeScript result: failed for unknown reasons`);
-                }
+    chrome.scripting.executeScript({
+        target: { tabId: tabId2 },
+        func: getTabUrlAndContinue,
+        args: [tabId2]
+    }, (injectionResult) => {
+        if (injectionResult === undefined) {
+            if (chrome.runtime.lastError) {
+                console.warn(`WORKER: onClicked: executeScript result:`, chrome.runtime.lastError.message);
             } else {
-                console.log(`WORKER: onClicked: executeScript result:`, injectionResult);
-                chrome.action.setPopup({ popup: "./index.html?envirnoment=ActionPopup" }); // todo pass some reason, e.g. to prompt for AID. reset the popup URL later!
-                chrome.action.openPopup()
-                    .then(() => console.log("WORKER: openPopup succeeded"))
-                    .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
+                console.warn(`WORKER: onClicked: executeScript result: failed for unknown reasons`);
             }
-        });
-    } catch (err) {
-        console.warn(`WORKER: onClicked: executeScript dropped: ${err}`);
-    }
+        } else {
+            console.log(`WORKER: onClicked: executeScript result:`, injectionResult);
+            chrome.action.setPopup({ popup: "./index.html?envirnoment=ActionPopup", tabId: tabId2 }); // todo pass some reason, e.g. to prompt for AID. reset the popup URL later!
+            chrome.action.openPopup()
+                .then(() => console.log("WORKER: openPopup succeeded"))
+                .catch((err) => console.warn(`WORKER: openPopup dropped: ${err}`));
+        }
+    });
 }
 
 let popupWindow: chrome.windows.Window | null = null;
@@ -162,8 +203,14 @@ function createPopupWindow() {
     });
 }
 
+// obsolete?
 function getTabUrlAndContinue(tabId: number): chrome.scripting.InjectionResult<string> {
     try {
+        //console.log("getTabUrlAndContinue: getContexts...");
+        //chrome.runtime.getContexts({}, ((a) => {
+        //    console.log("getTabUrlAndContinue: ", a);
+        //}));
+
         // Note this will be executed in the page's context, not the extension context
         let responseMessage: IMessage = {
             name: "getTabUrlResponse",
@@ -188,103 +235,19 @@ function getTabUrlAndContinue(tabId: number): chrome.scripting.InjectionResult<s
     }
 }
 
+// listen to non-port messages from the content script
+//chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, sendResponse: (response: string) => void) => {
+//    console.log('WORKER: runtime.onMessage: ', message, " sender: ", sender);
 
-chrome.runtime.onMessage.addListener((message: IMessage, sender: MessageSender, sendResponse: (response: string) => void) => {
-    console.log('WORKER: runtime.onMessage: ', message, " sender: ", sender);
-
-    if (message.name === 'getTabId') {
-        console.log('WORKER: from CS: getTabId: ', sender.tab?.id);
-        // send the tabId back to the content script.
-        // TODO EE! should be in a proper message type
-        sendResponse(String(sender.tab?.id));
-        return true;
-    }
-
-    // Check for conformance of message to IMessage, and ignore if not
-    if (message == undefined
-        || typeof message.name !== 'string'
-        // || typeof message.walletRequest !== 'object'
-        // || typeof message.sourceHostname !== 'string'
-        // || typeof message.sourceOrigin !== 'string'
-        // || typeof message.contentHash !== 'string'
-        // || typeof message.timestamp !== 'number'
-        // || typeof message.windowId !== 'number'
-        // || typeof message.iframeMode !== 'boolean'
-    ) {
-        console.log('WORKER: onMessage handler ignoring nonconformant message: ', message);
-    }
-    else {
-        let messageOrigin: string | undefined = sender.origin;
-
-        // tmp
-        console.log('WORKER: onMessage: ', message, ' from: ', messageOrigin);
-
-
-        switch (message.name) {
-            case "getTabUrlResponse":
-                // Handle message from the script running in context of the page.
-                // With the page's URL, request permission if needed, so that permission is granted and remembered for future requests during the browser session
-
-                if (typeof message.sourceHostname !== 'string') {
-                    console.log('WORKER: getTabUrlResponse: ignoring because of unexpected sourceHostname: ', message.sourceHostname);
-                }
-                else {
-                    const origin = new URL(message.sourceHostname).origin + '/';
-                    console.log('WORKER: getTabUrlResponse: origin: ', origin);
-
-                    // Check if we already have permission to the page origin
-                    chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
-                        console.log('WORKER: getTabUrlResponse: isOriginPermitted: ', isOriginPermitted);
-                        if (!isOriginPermitted) {
-                            // Request permission from the user
-                            chrome.permissions.request({
-                                origins: [origin]
-                            }, (isGranted: boolean) => {
-                                if (isGranted) {
-                                    console.log('WORKER: Permission granted for:', origin);
-                                    useActionPopup();
-                                } else {
-                                    console.log('WORKER: Permission denied for:', origin);
-                                    // TODO if there is already an open tab of this name, reuse it.
-                                    chrome.tabs.create({ url: "./index.html?environment=tab" });
-                                }
-                            });
-                        } else {
-                            useActionPopup();
-                        }
-                    });
-                }
-                //    case "WALLET_REQUEST_MSG":
-                //        if (!(message.walletRequest && message.sourceHostname && message.sourceOrigin && message.contentHash)) {
-                //            return "invalid message"
-                //        }
-                //        if (message.sourceOrigin != messageOrigin) {
-                //            return "invalid origin";
-                //        }
-
-                //        // Adding the current windowId
-                //        if (sender.tab !== undefined) {
-                //            message.windowId = sender.tab.windowId;
-                //        } else {
-                //            message.windowId = 0;
-                //        }
-
-                //        // Bring up notifcation in a new window
-                //        // be aware of async handling insinde the processing of messages https://stackoverflow.com/questions/53024819/chrome-extension-sendresponse-not-waiting-for-async-function/
-                //        GetWalletRequests().then(r => SetWalletRequest(r, message)).then(
-                //            async () => {
-                //                if (message.walletRequest && !message.iframeMode) {
-                //                    usePopup();
-                //                }
-                //            }
-                //        );
-                break;
-            default:
-                break;
-        }
-        return true; // Keeps the message channel open until `sendResponse` is invoked
-    }
-});
+//    if (sender.tab && sender.tab.id && message.name === 'getTabId') {
+//        console.log(`WORKER: from CS: getTabId: Sender's tabId:`, sender.tab.id);
+//        return sender.tab.id.toString();
+//    }
+//    else {
+//        console.error('WORKER: runtime.onMessage: unexpected message: ', message);
+//        return "ignored unexpected message";
+//    }
+//});
 
 function useActionPopup() {
     console.log('WORKER: useActionPopup acting on current tab');
@@ -302,7 +265,7 @@ function useActionPopup() {
                     .then(() => console.log("WORKER: useActionPopup succeeded"))
                     .catch((err) => {
                         console.warn(`WORKER: useActionPopup dropped. Was already open?: ${err}`);
-                        //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
+                        //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
                         //chrome.action.openPopup().then(() =>
                         //    console.log("WORKER: useActionPopup re-opened"))
                         //    .catch((err) => console.warn("WORKER: useActionPopup re-open dropped: ", err));
@@ -406,47 +369,67 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     // Store the connection info
     // TODO verify that the port name is a number
     var tabId = Number(port.name);
+    const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     // store the port in the connections object
     connections[tabId] = { port: port };
     console.log("WORKER: connections: ", connections);
 
-    // Listen for and handle messages from the content script
-    port.onMessage.addListener((request: IMessage) => {
-        console.log("WORKER: from CS:", request);
-        // assure tab is still connected        
-        if (connections[tabId]) {
-            switch (request.name) {
-                case CsExMsgType.SELECT_IDENTIFIER:
-                    handleSelectIdentifier(request, connections[tabId].port);
-                    break;
-                case "signify-extension":
-                    break;
-                case CsExMsgType.AUTO_SIGNIN_SIG:
-                case CsExMsgType.FETCH_RESOURCE:
-                case CsExMsgType.VENDOR_INFO:
-                case CsExMsgType.NONE:
-                case CsExMsgType.SELECT_AUTO_SIGNIN:
-                case CsExMsgType.SELECT_CREDENTIAL:
-                case CsExMsgType.SELECT_ID_CRED:
-                default:
-                    console.warn("WORKER: request not yet implemented");
-            }
-        } else {
-            console.log("WORKER: Port no longer connected");
-        }
-    });
+    if (portNamePattern.test(port.name)) {
+        console.log(`WORKER: Connected to ${port.name}`);
 
-    // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
-    port.onDisconnect.addListener(() => {
-        delete connections[tabId];
-    });
+        port.onMessage.addListener((message: IMessage) => {
+            console.log('WORKER: Received message from content script:', message);
+
+
+
+
+
+
+
+
+            console.log("WORKER: from CS:", message);
+            // assure tab is still connected        
+            if (connections[tabId]) {
+                switch (message.name) {
+                    case "Hello from content script!":
+                        // Respond to the content script
+                        var response: IExCsMsg = { name: 'Hello from service worker', name3: 'hell O', sourceHostname: message.sourceHostname, sourceOrigin: message.sourceOrigin, windowId: message.windowId };
+                        port.postMessage(response);
+                        break;
+                    case CsExMsgType.SELECT_IDENTIFIER:
+                        handleSelectIdentifier(message, connections[tabId].port);
+                        break;
+                    case "signify-extension":
+                        break;
+                    case CsExMsgType.AUTO_SIGNIN_SIG:
+                    case CsExMsgType.FETCH_RESOURCE:
+                    case CsExMsgType.VENDOR_INFO:
+                    case CsExMsgType.NONE:
+                    case CsExMsgType.SELECT_AUTO_SIGNIN:
+                    case CsExMsgType.SELECT_CREDENTIAL:
+                    case CsExMsgType.SELECT_ID_CRED:
+                    default:
+                        console.warn("WORKER: request not yet implemented");
+                }
+            } else {
+                console.log("WORKER: Port no longer connected");
+            }
+        });
+        // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
+        port.onDisconnect.addListener(() => {
+            delete connections[tabId];
+        });
+
+    } else {
+        console.error('Invalid port name:', port.name);
+    }
 });
 
 // Listen for tab updates to maintain connection info
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // console.log("WORKER: tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
+    console.log("WORKER: tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
     //
-    // TODO if the url changes to another domain, then the connection should be closed
+    // TODO if the url changes to another domain, then the connection should be closed?
     //if (connections[tabId] && changeInfo.url) {
     //    connections[tabId].url = changeInfo.url;
     //}

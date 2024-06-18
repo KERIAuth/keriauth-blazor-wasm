@@ -80,84 +80,96 @@ interface SignifyAutoSigninMessage extends BaseMessage {
 // Union type for all possible messages that can be sent to the web page
 type PageMessage = SignifyExtensionMessage | SignifySignatureMessage | SignifyAutoSigninMessage;
 
-// Connect with the extension service worker via a port, using the tabId as the port name.
-// First, get the tabId from the extension service worker
-var tabId: number = 0;
-var msg: IMessage = {
-    name: "getTabId",
-};
-var port: chrome.runtime.Port;
-console.log("KERI_Auth_CS to extension:", msg);
-chrome.runtime.sendMessage(msg, (response) => {
-    // Now we have the response from the extension service worker containing the page's tabId
-    // TODO error or confirm response can be converted to a number
-    tabId = Number(response);
-    console.log("KERI_Auth_CS from extension: tabId:", tabId);
-    port = Object.freeze(chrome.runtime.connect({ name: String(tabId) }));
+// Generate a unique and unguessable identifier for the port name for communications between the content script and the extension
+function generateUniqueIdentifier(): string {
+    const array = new Uint32Array(4);
+    window.crypto.getRandomValues(array);
+    return Array.from(array, dec => ('00000000' + dec.toString(16)).slice(-8)).join('-');
+}
 
-    // Listen for and handle messages from the service worker
-    port.onMessage.addListener((message: any) => {
-        console.log("KERI_Auth_CS from extension:", message);
-        // TODO confirm type of message and handle accordingly
-        console.warn("KERI_Auth_CS from extension: message handlers not yet implemented");
-    });
+// Create the unique port name using the generated identifier
+const uniquePortName: string = generateUniqueIdentifier();
 
-    // Handle messages from web page, most of which will be forwarded to the extension service worker via the port
-    window.addEventListener(
-        "message",
-        async (event: MessageEvent<EventData>) => {
-            // Accept messages only from same window
-            if (event.source !== window) {
-                return;
-            }
-            console.log("KERI_Auth_CS from page:", event.data);
-
-            switch (event.data.type) {
-                case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-                case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-                case PAGE_EVENT_TYPE.SELECT_ID_CRED:
-                case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
-                case PAGE_EVENT_TYPE.NONE:
-                case PAGE_EVENT_TYPE.VENDOR_INFO:
-                case PAGE_EVENT_TYPE.FETCH_RESOURCE:
-                case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
-                default:
-                    // TODO implement real message types, with in-out mappings.
-                    var msg: IMessage = {
-                        name: String(event.data.type)
-                    };
-                    console.log("KERI_Auth_CS to extension:", msg);
-                    port.postMessage(msg);
-                    return;
-            }
-        }
-    );
-});
-
-// Handle non-port messages from extension to content script
-chrome.runtime.onMessage.addListener(async function (
-    message: ChromeMessage,
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response?: any) => void) {
-    if (sender.id === chrome.runtime.id) {
-        console.warn("KERI_Auth_CS from extension: is this onMessage handler needed?");
-        console.log("KERI_Auth_CS from extension **onMessage**:", message);
-    }
-});
+const port = chrome.runtime.connect({ name: uniquePortName });
 
 function advertiseToPage(): void {
-    console.log("KERI_Auth_CS to page: extensionId:", chrome.runtime.id);
-    window.postMessage(
-        {
-            type: "signify-extension",
-            data: {
-                extensionId: String(chrome.runtime.id)
-            },
+    const advertizeMsg = {
+        type: "signify-extension",
+        data: {
+            extensionId: String(chrome.runtime.id)
         },
+    };
+    console.log("KERI_Auth_CS to page: advertise", advertizeMsg);
+    window.postMessage(
+        advertizeMsg,
         "*"
     );
 }
 
-// Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
-// TODO find a more deterministic approach vs delay?
-setTimeout(advertiseToPage, 1000);
+document.addEventListener('DOMContentLoaded', (event) => {
+    console.log("KERI_Auth_CS: DOMContentLoaded event:", event);
+    // ensure your content script responds to changes in the page even if it was injected after the page load.
+
+    // Send a message to the service worker
+    const helloMsg: ICsSwMsg = { name: "Hello from content script!", name2: "tmp" };
+    console.log("KERI_Auth_CS: to SW:", helloMsg);
+    port.postMessage(helloMsg);
+
+    // register to receive and handle messages from the extension
+    port.onMessage.addListener((message: IExCsMsg) => {
+        // TODO move this into its own function for readability
+        // Handle messages from the extension
+        console.log("KERI_Auth_CS from extension:", message);
+        // TODO confirm type of message and handle accordingly
+        console.warn("KERI_Auth_CS from extension: message handlers not yet implemented");
+
+        switch (message.name) {
+            case "Hello from service worker!":
+            default:
+                console.log("KERI_Auth_CS from extension: default:", message);
+                // Register to handle messages from web page, most of which will be forwarded to the extension service worker via the port
+                window.addEventListener(
+                    "message",
+                    async (event: MessageEvent<EventData>) => {
+                        // Accept messages only from same window
+                        if (event.source !== window) {
+                            return;
+                        }
+                        console.log("KERI_Auth_CS from page:", event.data);
+
+                        switch (event.data.type) {
+                            case "signify-extension":
+                                var msg: ICsSwMsg = {
+                                    name: "PageReady",
+                                    name2: "tmp"
+                                };
+                                console.log("KERI_Auth_CS to extension:", msg);
+                                port.postMessage(msg);
+                                break;
+                            case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
+                            case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
+                            case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+                            case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
+                            case PAGE_EVENT_TYPE.NONE:
+                            case PAGE_EVENT_TYPE.VENDOR_INFO:
+                            case PAGE_EVENT_TYPE.FETCH_RESOURCE:
+                            case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
+                            default:
+                                // TODO implement real message types, with in-out mappings.
+                                var msg2: IMessage = {
+                                    name: String(event.data.type)
+                                };
+                                console.log("KERI_Auth_CS to extension:", msg2);
+                                port.postMessage(msg2);
+                                break;
+                        }
+                    }
+                );
+        }
+    });
+
+    // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
+    // TODO find a more deterministic approach vs delay?
+    // setTimeout(advertiseToPage, 1000);
+    advertiseToPage();
+});

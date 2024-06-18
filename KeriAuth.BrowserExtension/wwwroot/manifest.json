@@ -6,7 +6,7 @@
       "48": "images/48_keri_logo.png",
       "128": "images/128_keri_logo.png"
     },
-    "default_popup": "index.html?environment=ActionPopup"
+    "comment: no default_popup": "service-worker will respond to action.onClicked"
   },
   "author": "https://keriauth.com",
   "background": {
