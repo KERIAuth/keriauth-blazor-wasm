@@ -4,8 +4,9 @@
     "target": "es5",
     "module": "commonjs",
     "strict": true,
-    "noEmit": true
+    "noEmit": true,
+    "removeComments": true
   },
-  "include": [],
+  "include": [ "none"],
   "exclude": [ "**/*" ]
 }

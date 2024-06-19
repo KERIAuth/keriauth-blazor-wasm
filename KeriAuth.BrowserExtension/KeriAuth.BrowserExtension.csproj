@@ -117,15 +117,6 @@
 		<None Update="wwwroot\KeriAuth.BrowserExtension.lib.module.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<Content Update="wwwroot\scripts\commonjs\ContentScript.js">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\esbuild\signify_ts_shim.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\storageHelper.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
 		<Content Update="wwwroot\sounds\beep.mp3">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>

@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "es6",
+    "esModuleInterop": true,
+    "module": "es6",
+    "removeComments": true,
     "strict": true,
-    "types": [ "chrome" ],
-    "removeComments": true
+    "target": "es6",
+    "types": [ "chrome" ]
   },
   "include": [
     "wwwroot/scripts/commonjs/*.ts"
-  ]
+  ],
+  "lib": []
 }

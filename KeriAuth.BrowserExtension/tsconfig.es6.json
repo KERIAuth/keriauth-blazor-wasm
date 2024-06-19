@@ -16,12 +16,14 @@
     "moduleResolution": "node",
     "noEmit": false,
     "noFallthroughCasesInSwitch": true,
+    "outDir": ".",
     "paths": {
       "*": [ "./node_modules/*" ],
-      "@signify-ts/*":  ["./node_modules/signify-ts/dist/*"]
+      "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ]
     },
-    "removeComments": false,
+    "removeComments": true,
     "resolveJsonModule": true,
+    "rootDir": ".",
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
@@ -29,8 +31,10 @@
     "types": [ "vite/client", "node", "chrome" ]
   },
   "include": [
-    "wwwroot/scripts/es6/*.ts"
+    "wwwroot/scripts/es6/*.ts",
+    "wwwroot/scripts/commonjs/*.ts"
   ],
   "exclude": [
-  ]
+  ],
+  "lib": []
 }
