@@ -15,7 +15,7 @@ interface EventData {
     [key: string]: any;
 }
 
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType } from "../es6/ExCsInterfaces.js";
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType, IExCsMsg, ICsSwMsg } from "../es6/ExCsInterfaces.js";
 
 
 // signify-brower-extension compliant page message types
