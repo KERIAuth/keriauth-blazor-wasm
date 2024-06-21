@@ -155,7 +155,7 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
 
     if (tab.id && Number(tab.id) != 0 && tab.url !== undefined && tab.url.startsWith("http")) {
         // TODO create a helper for creating the popupDetails(tab). DRY
-        var tabId = Number(tab.id);
+        const tabId = Number(tab.id);
         // chrome.action.getPopup({ tabId: tabId }, (popupUrl) => { console.log("WORKER: getPopup: ", popupUrl) });
         // chrome.action.setPopup({ popup: "index.html?environment=ActionPopup" }) //  tabId: tabId,
         //    .then(() => {
@@ -166,7 +166,7 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
                         //    chrome.action.setPopup({ popup: "", tabId: tab.id })
                         //        .then(() => { return; })
                         //}
-                        var origin = new URL(tab.url!).origin + '/';
+                        const origin = new URL(tab.url!).origin + '/';
                         console.log('WORKER: origin: ', origin);
                         chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
                             console.log('WORKER: isOriginPermitted: ', isOriginPermitted);
@@ -352,12 +352,12 @@ function isActionPopupUrlSet(): Promise<boolean> {
 }
 
 // Object to store connection info
-var connections: { [tabIdKey: number]: { port: chrome.runtime.Port } } = {};
+const connections: { [tabIdKey: number]: { port: chrome.runtime.Port } } = {};
 
 // Listen for port connections from content scripts
 chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
     console.log("WORKER: onConnect port: ", port);
-    var tabId = Number(port.name);
+    const tabId = Number(port.name);
     const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     // store the port for this tab in the connections object. For added security, could confirm we haven't previously stored a port for this tabId
     connections[tabId] = { port: port };
@@ -377,7 +377,7 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
                         handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[tabId].port);
                         break;
                     case CsSwMsgType.SIGNIFY_EXTENSION:
-                        var response: IExCsMsgHello = {
+                        const response: IExCsMsgHello = {
                             type: ExCsMsgType.HELLO
                             // TODO does the Content Script need to know the tabId?
                             // windowId: Number(message.windowId)

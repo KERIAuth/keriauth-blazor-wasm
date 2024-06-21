@@ -112,7 +112,7 @@ export async function createAID(
         const client: SignifyClient = _client!;
         const res: EventResult = await client.identifiers().create(name);
         const op2 = await res.op();
-        let id: string = op2.response.i;
+        const id: string = op2.response.i;
         console.log("signify_ts_shim: createAID id: " + id);
         return id;
         // TODO expand to also return the OOBI.  See test-setup.ts
@@ -128,7 +128,7 @@ export const getAIDs = async () => {
     const client: SignifyClient = _client!;
     const managedIdentifiers = await client.identifiers().list();
     // TODO: unclear what should be returned and its type
-    let identifierJson: string = JSON.stringify(managedIdentifiers);
+    const identifierJson: string = JSON.stringify(managedIdentifiers);
     console.debug("signify_ts_shim: getAIDs: ", managedIdentifiers);
     return identifierJson;
 }     
@@ -137,7 +137,7 @@ export const getAID = async (name: string) => {
     validateClient();
     const client: SignifyClient = _client!;
     const managedIdentifier = await client.identifiers().get(name);
-    let identifierJson: string = JSON.stringify(managedIdentifier);
+    const identifierJson: string = JSON.stringify(managedIdentifier);
     console.debug("signify_ts_shim: getAID: ", managedIdentifier);
     // console.warn("signify_ts_shim: getAID: ", managedIdentifier);
     return identifierJson;

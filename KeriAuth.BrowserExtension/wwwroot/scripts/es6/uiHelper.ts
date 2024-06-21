@@ -5,7 +5,7 @@ const UIHelper = () => {
 
     // Scroll to an element on the page
     const bt_scrollToItem = (elementId: string): void => {
-        var elem = document.getElementById(elementId);
+        const elem = document.getElementById(elementId);
         if (elem) {
             elem.scrollIntoView();
             window.location.hash = elementId;
@@ -22,10 +22,10 @@ const UIHelper = () => {
 
     const createTab = (urlString: string): void => {
         console.log("UIHelper: creating extension tab: " + urlString);
-        var createProperties = { url: urlString } as chrome.tabs.CreateProperties;
         if (typeof (chrome.tabs) == 'undefined') {
             console.error('UIHelper: chrome.tabs is not available');
         } else {
+            const createProperties = { url: urlString } as chrome.tabs.CreateProperties;
             chrome.tabs.create(createProperties);
         }
     }

@@ -127,7 +127,7 @@ function generateUniqueIdentifier(): string {
 }
 
 // Create the unique port name for communications between the content script and the extension
-var uniquePortName: string = generateUniqueIdentifier();
+const uniquePortName: string = generateUniqueIdentifier();
 
 function advertiseToPage(): void {
     const advertizeMsg = {
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     console.log("KERI_Auth_CS: DOMContentLoaded event:", event);
 
     console.log("KERI_Auth_CS: DOMContentLoaded connecting to :", uniquePortName);
-    var port = chrome.runtime.connect(/* TODO extensionId: string , */  { name: uniquePortName });
+    const port = chrome.runtime.connect(/* TODO extensionId: string , */  { name: uniquePortName });
     console.log("KERI_Auth_CS: DOMContentLoaded connected:", port);
 
     // register to receive and handle messages from the extension, and then from the page
@@ -172,14 +172,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
                             switch (event.data.type) {
                                 case "signify-extension":
                                     // Note, this notification to SW is haneled earlier in the code, in the advertiseToPage function
-                                    //var msg: ICsSwMsg = {
+                                    //const msg: ICsSwMsg = {
                                     //    type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
                                     //};
                                     //console.log("KERI_Auth_CS to extension:", msg);
                                     //port.postMessage(msg);
                                     break;
                                 case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-                                    var msg2: ICsSwMsg = {
+                                    const msg2: ICsSwMsg = {
                                         type: CsSwMsgType.SELECT_IDENTIFIER
                                     };
                                     console.log("KERI_Auth_CS to extension:", msg2);
@@ -213,6 +213,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
     // TODO find a more deterministic approach vs delay?
-    setTimeout(advertiseToPage, 2000);
+    setTimeout(advertiseToPage, 500);
     // advertiseToPage();
 });
