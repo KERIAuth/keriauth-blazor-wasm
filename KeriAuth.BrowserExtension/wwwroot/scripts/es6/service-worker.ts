@@ -1,8 +1,7 @@
 ﻿/// <reference types="chrome" />
 /* <reference types="serviceworker" />
 */
-const version = "0.0.1"; // Increment this version number for every update needing cache invalidation
-console.log(`WORKER: service-worker.ts version ${version}`);
+
 // TODO Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
 // import * as _ from "/content/Blazor.BrowserExtension/lib/browser-polyfill.min.js";
 
@@ -12,58 +11,7 @@ console.log(`WORKER: service-worker.ts version ${version}`);
 
 import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
-
-//
-// Common definitions for this content script and the extension service-worker.
-// Note these are manually repeated here and in the ContentScript,
-// because of the CommonJS module system that must be used for this ContentScript.
-// A fix would be to use a separate CommonInterface.ts file and a bundler to build the content script, but that is not yet implemented.
-//
-
-// Message types from CS to SW
-type CsSwMsg = ICsSwMsgSelectIdentifier | ICsSwMsgSelectCredential;
-interface ICsSwMsg {
-    type: string
-}
-
-enum CsSwMsgType {
-    SELECT_IDENTIFIER = "select-identifier",
-    SELECT_CREDENTIAL = "select-credential",
-    SIGNIFY_EXTENSION = "signify-extension",
-    SELECT_ID_CRED = "select-aid-or-credential",
-    SELECT_AUTO_SIGNIN = "select-auto-signin",
-    NONE = "none",
-    VENDOR_INFO = "vendor-info",
-    FETCH_RESOURCE = "fetch-resource",
-    AUTO_SIGNIN_SIG = "auto-signin-sig",
-    DOMCONTENTLOADED = "document-loaded"
-}
-
-interface ICsSwMsgSelectIdentifier extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_IDENTIFIER
-}
-
-interface ICsSwMsgHello extends ICsSwMsg {
-    type: CsSwMsgType.DOMCONTENTLOADED
-}
-
-interface ICsSwMsgSelectCredential extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_CREDENTIAL
-    data: any
-}
-
-// Message types from Extension to CS
-interface IExCsMsg {
-    type: string
-}
-
-enum ExCsMsgType {
-    HELLO = "hello"
-}
-
-interface IExCsMsgHello extends IExCsMsg {
-    type: ExCsMsgType.HELLO
-}
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType } from "./ExCsInterfaces.js";
 
 // The following handlers trigger in order:
 // runtime.onInstalled, this.activating, this.activated, and then others

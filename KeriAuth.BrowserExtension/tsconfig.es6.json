@@ -31,8 +31,7 @@
     "types": [ "vite/client", "node", "chrome" ]
   },
   "include": [
-    "wwwroot/scripts/es6/*.ts",
-    "wwwroot/scripts/commonjs/*.ts"
+    "wwwroot/scripts/es6/*.ts"
   ],
   "exclude": [
   ],
