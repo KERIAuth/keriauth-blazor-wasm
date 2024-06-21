@@ -171,11 +171,12 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
                             switch (event.data.type) {
                                 case "signify-extension":
-                                    var msg: ICsSwMsg = {
-                                        type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
-                                    };
-                                    console.log("KERI_Auth_CS to extension:", msg);
-                                    port.postMessage(msg);
+                                    // Note, this notification to SW is haneled earlier in the code, in the advertiseToPage function
+                                    //var msg: ICsSwMsg = {
+                                    //    type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
+                                    //};
+                                    //console.log("KERI_Auth_CS to extension:", msg);
+                                    //port.postMessage(msg);
                                     break;
                                 case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
                                     var msg2: ICsSwMsg = {

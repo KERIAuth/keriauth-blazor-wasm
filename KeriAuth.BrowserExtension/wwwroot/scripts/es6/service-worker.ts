@@ -373,15 +373,6 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
             // assure tab is still connected        
             if (connections[tabId]) {
                 switch (message.type) {
-                    case CsSwMsgType.DOMCONTENTLOADED:
-                        // Respond to the content script
-                        var response: IExCsMsgHello = {
-                            type: ExCsMsgType.HELLO
-                            // TODO does the Content Script need to know the tabId?
-                            // windowId: Number(message.windowId)
-                        };
-                        port.postMessage(response);
-                        break;
                     case CsSwMsgType.SELECT_IDENTIFIER:
                         handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[tabId].port);
                         break;
@@ -393,8 +384,6 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
                         };
                         port.postMessage(response);
                         break;
-
-
                     case CsSwMsgType.AUTO_SIGNIN_SIG:
                     case CsSwMsgType.FETCH_RESOURCE:
                     case CsSwMsgType.VENDOR_INFO:
@@ -402,8 +391,9 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
                     case CsSwMsgType.SELECT_AUTO_SIGNIN:
                     case CsSwMsgType.SELECT_CREDENTIAL:
                     case CsSwMsgType.SELECT_ID_CRED:
+                    case CsSwMsgType.DOMCONTENTLOADED:
                     default:
-                        console.warn("WORKER: from CS: message type not yet handled: ", message.type);
+                        console.warn("WORKER: from CS: message type not yet handled: ", message);
                 }
             } else {
                 console.log("WORKER: Port no longer connected");
