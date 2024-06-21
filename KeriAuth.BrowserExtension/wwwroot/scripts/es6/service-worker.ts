@@ -123,15 +123,15 @@ self.addEventListener('activate', (event) => {
 
 // Handle network requests and serving cached responses
 // self.addEventListener('fetch', (event) => {
-    // way to noisy for now to echo every fetch
-    // console.log('WORKER: Fetch event for ', event);
-    // Handle network requests and serving cached responses
-    //. event.request.url);
-    //event.respondWith(
-    //    caches.match(event.request).then((response) => {
-    //        return response || fetch(event.request);
-    //    })
-    //);
+// way to noisy for now to echo every fetch
+// console.log('WORKER: Fetch event for ', event);
+// Handle network requests and serving cached responses
+//. event.request.url);
+//event.respondWith(
+//    caches.match(event.request).then((response) => {
+//        return response || fetch(event.request);
+//    })
+//);
 // });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -159,35 +159,35 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
         // chrome.action.getPopup({ tabId: tabId }, (popupUrl) => { console.log("WORKER: getPopup: ", popupUrl) });
         // chrome.action.setPopup({ popup: "index.html?environment=ActionPopup" }) //  tabId: tabId,
         //    .then(() => {
-                //chrome.action.openPopup()
-                //    .then(() => {
-                        //console.log("WORKER: user clicked on action button");
-                        //if (typeof tab.url !== 'string') {
-                        //    chrome.action.setPopup({ popup: "", tabId: tab.id })
-                        //        .then(() => { return; })
-                        //}
-                        const origin = new URL(tab.url!).origin + '/';
-                        console.log('WORKER: origin: ', origin);
-                        chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
-                            console.log('WORKER: isOriginPermitted: ', isOriginPermitted);
-                            if (!isOriginPermitted) {
-                                // Request permission from the user
-                                chrome.permissions.request({
-                                    origins: [origin]
-                                }, (isGranted: boolean) => {
-                                    if (isGranted) {
-                                        console.log('WORKER: Permission granted for:', origin);
-                                        useActionPopup(tabId);
-                                    } else {
-                                        console.log('WORKER: Permission denied for:', origin);
-                                    }
-                                });
-                            } else {
-                                useActionPopup(tabId);
-                            }
-                        });
-                 //   })
-                 //   .catch((err) => console.warn(`WORKER: could not openPopup`, { tabId: tabId, tab: tab, err: err }))
+        //chrome.action.openPopup()
+        //    .then(() => {
+        //console.log("WORKER: user clicked on action button");
+        //if (typeof tab.url !== 'string') {
+        //    chrome.action.setPopup({ popup: "", tabId: tab.id })
+        //        .then(() => { return; })
+        //}
+        const origin = new URL(tab.url!).origin + '/';
+        console.log('WORKER: origin: ', origin);
+        chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
+            console.log('WORKER: isOriginPermitted: ', isOriginPermitted);
+            if (!isOriginPermitted) {
+                // Request permission from the user
+                chrome.permissions.request({
+                    origins: [origin]
+                }, (isGranted: boolean) => {
+                    if (isGranted) {
+                        console.log('WORKER: Permission granted for:', origin);
+                        useActionPopup(tabId);
+                    } else {
+                        console.log('WORKER: Permission denied for:', origin);
+                    }
+                });
+            } else {
+                useActionPopup(tabId);
+            }
+        });
+        //   })
+        //   .catch((err) => console.warn(`WORKER: could not openPopup`, { tabId: tabId, tab: tab, err: err }))
         //    })
         //    .catch((err) => console.warn(`WORKER: openPopup dropped`, err));
         // clear the popup url so that subsequent clicks on popup will be handled by this onClicked listener
@@ -262,24 +262,24 @@ function useActionPopup(tabId: number) {
     //            //isActionPopupUrlSet()
     //            //    .then(isOpen => {
     //            //        if (!isOpen) {
-                chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
-                chrome.action.openPopup()
-                    .then(() => console.log("WORKER: useActionPopup succeeded"))
-                    .catch((err) => {
-                        console.warn(`WORKER: useActionPopup dropped. Was already open?`, err);
-                        //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
-                        //chrome.action.openPopup().then(() =>
-                        //    console.log("WORKER: useActionPopup re-opened"))
-                        //    .catch((err) => console.warn("WORKER: useActionPopup re-open dropped: ", err));
-                    });
+    chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
+    chrome.action.openPopup()
+        .then(() => console.log("WORKER: useActionPopup succeeded"))
+        .catch((err) => {
+            console.warn(`WORKER: useActionPopup dropped. Was already open?`, err);
+            //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
+            //chrome.action.openPopup().then(() =>
+            //    console.log("WORKER: useActionPopup re-opened"))
+            //    .catch((err) => console.warn("WORKER: useActionPopup re-open dropped: ", err));
+        });
 
-            //}
-            //else {
-            //    console.warn("WORKER: useActionPopup: unexpected tab");
-            //}
-        //} else {
-        //    console.warn("WORKER: useActionPopup: unexpected tab or url");
-        //}
+    //}
+    //else {
+    //    console.warn("WORKER: useActionPopup: unexpected tab");
+    //}
+    //} else {
+    //    console.warn("WORKER: useActionPopup: unexpected tab or url");
+    //}
     //})
 }
 

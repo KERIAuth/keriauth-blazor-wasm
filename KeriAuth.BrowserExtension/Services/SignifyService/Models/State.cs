@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
+﻿namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
 {
     public class State
     {

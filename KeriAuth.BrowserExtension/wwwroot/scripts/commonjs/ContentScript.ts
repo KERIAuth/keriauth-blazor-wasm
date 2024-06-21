@@ -201,8 +201,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
                 );
                 break;
             default:
-                    console.error("KERI_Auth_CS from extension: handler not yet implemented for:", message);
-                    break;
+                console.error("KERI_Auth_CS from extension: handler not yet implemented for:", message);
+                break;
         }
     });
 

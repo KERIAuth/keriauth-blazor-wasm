@@ -50,7 +50,8 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
                 ExtensionEnvironment = ExtensionEnvironment.Unknown;
             }
             logger.LogInformation("ExtensionEnvironment: {ExtensionEnvironment}", ExtensionEnvironment);
-        } else
+        }
+        else
         {
             logger.LogError("Not running in a browser extension");
         }

@@ -1,8 +1,4 @@
 ﻿using KeriAuth.BrowserExtension.Models;
-using FluentResults;
-using KeriAuth.BrowserExtension.Services.SignifyService.Models;
-using KeriAuth.BrowserExtension.Services.SignifyService;
-using System.Text.Json;
 
 namespace KeriAuth.BrowserExtension.Services
 {
