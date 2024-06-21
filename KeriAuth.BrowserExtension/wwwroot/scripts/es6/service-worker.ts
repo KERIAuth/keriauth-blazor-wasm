@@ -58,15 +58,11 @@ interface IExCsMsg {
 }
 
 enum ExCsMsgType {
-    HELLO = "hello",
-    BBB = "bbb",
+    HELLO = "hello"
 }
 
 interface IExCsMsgHello extends IExCsMsg {
     type: ExCsMsgType.HELLO
-}
-interface IExCsMsgBbb extends IExCsMsg {
-    type: ExCsMsgType.BBB
 }
 
 
@@ -356,22 +352,22 @@ function isActionPopupUrlSet(): Promise<boolean> {
 }
 
 // Object to store connection info
-const connections: { [tabIdKey: number]: { port: chrome.runtime.Port } } = {};
+var connections: { [tabIdKey: number]: { port: chrome.runtime.Port } } = {};
 
 // Listen for port connections from content scripts
 chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
-    console.log("WORKER: onConnect: ");
-    console.log("WORKER: port: ", port);
+    console.log("WORKER: onConnect port: ", port);
     var tabId = Number(port.name);
     const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     // store the port for this tab in the connections object. For added security, could confirm we haven't previously stored a port for this tabId
     connections[tabId] = { port: port };
-    console.log("WORKER: connections: ", connections);
+    console.log("WORKER: connections: ", { connections });
 
     if (portNamePattern.test(port.name)) {
         console.log(`WORKER: Connected to ${port.name}`);
 
         // Listen for and handle messages from the content script
+        console.log("WORKER: Adding onMessage listener for port");
         port.onMessage.addListener((message: any) => {
             console.log("WORKER: from CS:", message);
             // assure tab is still connected        
@@ -381,7 +377,7 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
                         // Respond to the content script
                         var response: IExCsMsgHello = {
                             type: ExCsMsgType.HELLO
-                            // TODO does the Content Script need to now the tabId?
+                            // TODO does the Content Script need to know the tabId?
                             // windowId: Number(message.windowId)
                         };
                         port.postMessage(response);
@@ -390,6 +386,15 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
                         handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[tabId].port);
                         break;
                     case CsSwMsgType.SIGNIFY_EXTENSION:
+                        var response: IExCsMsgHello = {
+                            type: ExCsMsgType.HELLO
+                            // TODO does the Content Script need to know the tabId?
+                            // windowId: Number(message.windowId)
+                        };
+                        port.postMessage(response);
+                        break;
+
+
                     case CsSwMsgType.AUTO_SIGNIN_SIG:
                     case CsSwMsgType.FETCH_RESOURCE:
                     case CsSwMsgType.VENDOR_INFO:
@@ -398,7 +403,7 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
                     case CsSwMsgType.SELECT_CREDENTIAL:
                     case CsSwMsgType.SELECT_ID_CRED:
                     default:
-                        console.warn("WORKER: from CS: message type handler not yet implemented");
+                        console.warn("WORKER: from CS: message type not yet handled: ", message.type);
                 }
             } else {
                 console.log("WORKER: Port no longer connected");
