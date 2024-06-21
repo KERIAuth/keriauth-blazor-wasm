@@ -10,6 +10,7 @@ namespace KeriAuth.BrowserExtension.Models
             this.Alias = alias;
             this.Prefix = prefix;
             this.Identicon = Helper.Identicon.MakeIdenticon(prefix);
+            _ = keriaConfigId;
         }
 
         [JsonPropertyName("prefix")]

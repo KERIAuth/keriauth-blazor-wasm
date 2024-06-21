@@ -2,30 +2,24 @@
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
 {
-    public class Aid
+    [method: JsonConstructor]
+    public class Aid(string name, string prefix, Salty salty)
     {
-        [JsonConstructor]
-        public Aid(string name, string prefix, Salty salty)
-        {
-            Name = name;
-            Prefix = prefix;
-            Salty = salty;
-        }
         [JsonPropertyName("name")]
-        public string Name { get; init; }
+        public string Name { get; init; } = name;
         [JsonPropertyName("prefix")]
-        public string Prefix { get; init; }
+        public string Prefix { get; init; } = prefix;
         [JsonPropertyName("salty")]
-        public Salty Salty { get; init; }
+        public Salty Salty { get; init; } = salty;
 
         [JsonPropertyName("transferable")]
         public bool Transferable { get; init; }
 
         [JsonPropertyName("state")]
-        public State State { get; init; }
+        public State? State { get; init; }
 
         [JsonPropertyName("windexes")]
-        public List<int> Windexes { get; init; }
+        public List<int>? Windexes { get; init; }
     }
     // See protocol.md here:  https://github.com/WebOfTrust/keria/blob/main/docs/protocol.md
     // Includes Delegated signing authority

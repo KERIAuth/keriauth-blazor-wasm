@@ -5,19 +5,9 @@ using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 
 namespace KeriAuth.BrowserExtension.Services
 {
-    public class IdentifiersService
+    public class IdentifiersService(ILogger<IdentifiersService> logger, IStorageService storageService, ISignifyClientService signifyClientService)
     {
-        private readonly ILogger<IdentifiersService> logger;
-        private readonly IStorageService storageService;
         private readonly Dictionary<string, IdentifierService> identifierServices = [];
-        private readonly ISignifyClientService signifyClientService;
-
-        public IdentifiersService(ILogger<IdentifiersService> logger, IStorageService storageService, ISignifyClientService signifyClientService)
-        {
-            this.logger = logger;
-            this.storageService = storageService;
-            this.signifyClientService = signifyClientService;
-        }
 
         public Task<Result<IdentifierService>> GetIdentifierService(string prefix)
         {

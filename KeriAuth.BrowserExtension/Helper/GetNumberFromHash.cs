@@ -7,13 +7,10 @@ namespace KeriAuth.BrowserExtension.Helper
     {
         public static int HashInt(string input)
         {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
-                int hashInt = BitConverter.ToInt32(hashBytes, 0);
-                hashInt = Math.Abs(hashInt);
-                return hashInt;
-            }
+            byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+            int hashInt = BitConverter.ToInt32(hashBytes, 0);
+            hashInt = Math.Abs(hashInt);
+            return hashInt;
         }
     }
 }

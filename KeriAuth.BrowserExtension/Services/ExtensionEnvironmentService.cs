@@ -40,7 +40,7 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
                 }
                 else
                 {
-                    logger.LogWarning("environment '{environment}' is not a valid ExtensionEnvironment", environment);
+                    logger.LogWarning("Environment is not a valid ExtensionEnvironment");
                     ExtensionEnvironment = ExtensionEnvironment.Unknown;
                 }
             }

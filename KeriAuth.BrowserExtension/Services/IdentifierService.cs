@@ -6,9 +6,9 @@ namespace KeriAuth.BrowserExtension.Services
     {
         public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifiersService> logger, IStorageService storageService)
         {
-            this.prefix = prefix;
-            this.logger = logger;
-            this.storageService = storageService;
+            _ = prefix;
+            _ = storageService;
+            _ = logger;
             this.alias = alias;
             this.keriaConnectionGuid = keriaConnectionGuid;
             cachedAid = new CachedAid(prefix, alias, keriaConnectionGuid);
@@ -20,12 +20,9 @@ namespace KeriAuth.BrowserExtension.Services
 
 
         public readonly CachedAid cachedAid;
-        private readonly string prefix;
+        // private readonly string prefix;
         public readonly string alias;
         public readonly Guid keriaConnectionGuid;
-
-        private readonly ILogger<IdentifiersService> logger;
-        private readonly IStorageService storageService;
 
         public CachedAid Test()
         {
