@@ -15,60 +15,14 @@ interface EventData {
     [key: string]: any;
 }
 
-// Common definitions for this content script and the extension service-worker.
-// Note these are manually repeated here and in the ContentScript,
-// because of the CommonJS module system that must be used for this ContentScript.
-// A fix would be to use a separate CommonInterface.ts file and a bundler to build the content script, but that is not yet implemented.
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType } from "../es6/ExCsInterfaces.js";
 
-// Message types from CS to SW
-type CsSwMsg = ICsSwMsgSelectIdentifier | ICsSwMsgSelectCredential;
-interface ICsSwMsg {
-    type: string
-}
-
-enum CsSwMsgType {
-    SELECT_IDENTIFIER = "select-identifier",
-    SELECT_CREDENTIAL = "select-credential",
-    SIGNIFY_EXTENSION = "signify-extension",
-    SELECT_ID_CRED = "select-aid-or-credential",
-    SELECT_AUTO_SIGNIN = "select-auto-signin",
-    NONE = "none",
-    VENDOR_INFO = "vendor-info",
-    FETCH_RESOURCE = "fetch-resource",
-    AUTO_SIGNIN_SIG = "auto-signin-sig",
-    DOMCONTENTLOADED = "document-loaded"
-}
-
-interface ICsSwMsgSelectIdentifier extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_IDENTIFIER
-}
-
-interface ICsSwMsgHello extends ICsSwMsg {
-    type: CsSwMsgType.DOMCONTENTLOADED
-}
-
-interface ICsSwMsgSelectCredential extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_CREDENTIAL
-    data: any
-}
-
-// Message types from Extension to CS
-interface IExCsMsg {
-    type: ExCsMsgType
-}
-
-enum ExCsMsgType {
-    HELLO = "hello"
-}
-
-interface IExCsMsgHello extends IExCsMsg {
-    type: ExCsMsgType.HELLO
-}
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
 // this "const" structure is intentionally used versus an enum, because of CommonJS module system in use
 
+// page to CS
 const PAGE_EVENT_TYPE = Object.freeze({
     SELECT_IDENTIFIER: "select-identifier",
     SELECT_CREDENTIAL: "select-credential",
@@ -80,6 +34,7 @@ const PAGE_EVENT_TYPE = Object.freeze({
     AUTO_SIGNIN_SIG: "auto-signin-sig",
 })
 
+// CS to page
 const PAGE_POST_TYPE = Object.freeze({
     SIGNIFY_EXT: "signify-extension",
     SELECT_AUTO_SIGNIN: "select-auto-signin",

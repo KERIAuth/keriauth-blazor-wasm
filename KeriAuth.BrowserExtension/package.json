@@ -4,10 +4,9 @@
   "description": "KERI Auth Browser Extension",
   "main": "index.js",
   "scripts": {
-    "build:commonjs": "tsc --project tsconfig.commonjs.json",
     "build:es6": "tsc --project tsconfig.es6.json",
     "bundle:esbuild": "node build.js",
-    "build": "npm run build:commonjs && npm run build:es6 && npm run bundle:esbuild"
+    "build": "npm run build:es6 && npm run bundle:esbuild"
   },
   "license": "Apache-2.0",
   "dependencies": {

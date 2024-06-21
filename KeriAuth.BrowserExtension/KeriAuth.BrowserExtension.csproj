@@ -136,9 +136,6 @@
 		<TypeScriptCompile Update="wwwroot\KeriAuth.BrowserExtensionBrowserExtension.lib.module.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\commonjs\ContentScript.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\es6\ExCsInterfaces.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
@@ -149,6 +146,9 @@
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\es6\uiHelper.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</TypeScriptCompile>
+		<TypeScriptCompile Update="wwwroot\scripts\esbuild\ContentScript.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 	</ItemGroup>
@@ -178,9 +178,6 @@
 			</Code>
 		</Task>
 	</UsingTask>
-	<Target Name="CompileTypeScriptCommon" AfterTargets="Build">
-		<Exec Command="tsc --project tsconfig.commonJs.json" />
-	</Target>
 	<!-- Compute a VersionName Specific and friendly build identifier with date and build flavor -->
 	<Target Name="ComputeVersionName" AfterTargets="Build">
 		<CreateProperty Value="Dev $(Configuration)-build $([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss'))Z">

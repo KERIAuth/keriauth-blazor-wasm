@@ -233,32 +233,6 @@ function focusWindow(windowId: number): void {
     chrome.windows.update(windowId, { focused: true });
 }
 
-// The following was moved back into the manifest.json file
-//async function RegisterContentScripts() {
-//    console.log("WORKER: Registering ContentScripts...")
-//    try {
-//        await (chrome.scripting as any).unregisterContentScripts(async function () {
-//            try {
-//                await chrome.scripting.registerContentScripts([
-//                    {
-//                        id: 'KeriAuthContentScript',
-//                        matches: ["https://*/*", "http://*/*"],
-//                        "js": ["/scripts/commonjs/ContentScript.js"],
-//                        "runAt": "document_start",
-//                        world: "ISOLATED",
-//                        allFrames: true
-//                    }
-//                ]);
-//            } catch (err) {
-//                console.warn(`WORKER: ContentScripts registration dropped: ${err}`);
-//            }
-//        })
-//        console.log("WORKER: ContentScripts registered")
-//    } catch (err) {
-//        console.warn(`WORKER: ContentScripts registration dropped: ${err}`);
-//    }
-//};
-
 async function isWindowOpen(windowId: number): Promise<boolean> {
     return new Promise((resolve) => {
         chrome.tabs.query({ windowId }, (tabs) => {

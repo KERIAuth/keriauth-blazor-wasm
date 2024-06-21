@@ -20,7 +20,7 @@
         "http://*/*"
       ],
       "js": [
-        "scripts/commonjs/ContentScript.js"
+        "scripts/esbuild/ContentScript.js"
       ],
       "run_at": "document_start",
       "type": "module"
