@@ -477,3 +477,4 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/service-worker.js.map
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/ExCsInterfaces.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/ExCsInterfaces.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/ContentScript.js
