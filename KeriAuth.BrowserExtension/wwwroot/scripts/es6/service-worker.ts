@@ -65,8 +65,6 @@ interface IExCsMsgHello extends IExCsMsg {
     type: ExCsMsgType.HELLO
 }
 
-
-
 // The following handlers trigger in order:
 // runtime.onInstalled, this.activating, this.activated, and then others
 // See runtime events here: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
@@ -76,7 +74,6 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
     console.log(`WORKER: onInstalled details:`, installDetails);
     // Pre-cache files or perform other installation tasks
     // await RegisterContentScripts();
-    // TODO consider moving the following to the onStartup or activate handler
     let urlString = "";
     switch (installDetails.reason) {
         case "install":
@@ -352,37 +349,36 @@ function isActionPopupUrlSet(): Promise<boolean> {
 }
 
 // Object to store connection info
-const connections: { [tabIdKey: number]: { port: chrome.runtime.Port } } = {};
+const connections: { [key: string]: { port: chrome.runtime.Port } } = {};
 
 // Listen for port connections from content scripts
-chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
-    console.log("WORKER: onConnect port: ", port);
-    const tabId = Number(port.name);
-    const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
-    // store the port for this tab in the connections object. For added security, could confirm we haven't previously stored a port for this tabId
-    connections[tabId] = { port: port };
+chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
+    console.log("WORKER: onConnect port: ", connectedPort);
+    let connectionId = connectedPort.name;
+    console.log("WORKER: connections before update: ", { connections });
+    // store the port for this tab in the connections object. Assume 1:1
+    connections[connectionId] = { port: connectedPort };
     console.log("WORKER: connections: ", { connections });
 
-    if (portNamePattern.test(port.name)) {
-        console.log(`WORKER: Connected to ${port.name}`);
+    const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
+    if (portNamePattern.test(connectedPort.name)) {
+        console.log(`WORKER: Connected to ${connectedPort.name}`);
 
         // Listen for and handle messages from the content script
         console.log("WORKER: Adding onMessage listener for port");
-        port.onMessage.addListener((message: any) => {
-            console.log("WORKER: from CS:", message);
+        connectedPort.onMessage.addListener((message: any) => {
+            console.log("WORKER: from CS: message, port", message, connectedPort);
             // assure tab is still connected        
-            if (connections[tabId]) {
+            if (connections[connectionId]) {
                 switch (message.type) {
                     case CsSwMsgType.SELECT_IDENTIFIER:
-                        handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[tabId].port);
+                        handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[connectionId].port);
                         break;
                     case CsSwMsgType.SIGNIFY_EXTENSION:
                         const response: IExCsMsgHello = {
                             type: ExCsMsgType.HELLO
-                            // TODO does the Content Script need to know the tabId?
-                            // windowId: Number(message.windowId)
                         };
-                        port.postMessage(response);
+                        connectedPort.postMessage(response);
                         break;
                     case CsSwMsgType.AUTO_SIGNIN_SIG:
                     case CsSwMsgType.FETCH_RESOURCE:
@@ -400,12 +396,12 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
             }
         });
         // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
-        port.onDisconnect.addListener(() => {
-            delete connections[tabId];
+        connectedPort.onDisconnect.addListener(() => {
+            delete connections[connectionId];
         });
 
     } else {
-        console.error('Invalid port name:', port.name);
+        console.error('Invalid port name:', connectedPort.name);
     }
 });
 
@@ -414,13 +410,13 @@ chrome.runtime.onConnect.addListener(async (port: chrome.runtime.Port) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // console.log("WORKER: tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
     //
-    // TODO if the url changes to another domain, then the connection should be closed?
+    // if the url changes to another domain, then the connection should be closed?
     //if (connections[tabId] && changeInfo.url) {
     //    connections[tabId].url = changeInfo.url;
     //}
 });
 
-// Clean up connections list when a tab is closed
+// Remove connection from list when a tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (connections[tabId]) {
         console.log("WORKER: tabs.onRemoved: tabId: ", tabId)
