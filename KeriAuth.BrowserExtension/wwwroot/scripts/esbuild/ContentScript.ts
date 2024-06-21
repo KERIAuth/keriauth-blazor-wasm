@@ -91,7 +91,7 @@ function advertiseToPage(): void {
             extensionId: String(chrome.runtime.id)
         },
     };
-    console.log("KERI_Auth_CS to page: advertise", advertizeMsg);
+    console.log("KeriAuthCs to page: advertise", advertizeMsg);
     window.postMessage(
         advertizeMsg,
         "*"
@@ -100,17 +100,17 @@ function advertiseToPage(): void {
 
 // ensure your content script responds to changes in the page even if it was injected after the page load.
 document.addEventListener('DOMContentLoaded', (event) => {
-    console.log("KERI_Auth_CS: DOMContentLoaded event:", event);
+    console.log("KeriAuthCs DOMContentLoaded event:", event);
 
-    console.log("KERI_Auth_CS: DOMContentLoaded connecting to :", uniquePortName);
+    console.log("KeriAuthCs DOMContentLoaded connecting to :", uniquePortName);
     const port = chrome.runtime.connect(/* TODO extensionId: string , */  { name: uniquePortName });
-    console.log("KERI_Auth_CS: DOMContentLoaded connected:", port);
+    console.log("KeriAuthCs DOMContentLoaded connected:", port);
 
     // register to receive and handle messages from the extension, and then from the page
     port.onMessage.addListener((message: IExCsMsg) => {
         // TODO move this into its own function for readability
         // Handle messages from the extension
-        console.log("KERI_Auth_CS from extension:", message);
+        console.log("KeriAuthCs from extension:", message);
         switch (message.type) {
             case ExCsMsgType.HELLO:
 
@@ -120,9 +120,9 @@ document.addEventListener('DOMContentLoaded', (event) => {
                     async (event: MessageEvent<EventData>) => {
                         // Accept messages only from same window
                         if (event.source != window) {
-                            console.log("KERI_Auth_CS from page: unexpected source");
+                            console.log("KeriAuthCs from page: unexpected source");
                         } else {
-                            console.log("KERI_Auth_CS from page:", event.data);
+                            console.log("KeriAuthCs from page:", event.data);
 
                             switch (event.data.type) {
                                 case "signify-extension":
@@ -130,14 +130,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
                                     //const msg: ICsSwMsg = {
                                     //    type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
                                     //};
-                                    //console.log("KERI_Auth_CS to extension:", msg);
+                                    //console.log("KeriAuthCs to extension:", msg);
                                     //port.postMessage(msg);
                                     break;
                                 case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
                                     const msg2: ICsSwMsg = {
                                         type: CsSwMsgType.SELECT_IDENTIFIER
                                     };
-                                    console.log("KERI_Auth_CS to extension:", msg2);
+                                    console.log("KeriAuthCs to extension:", msg2);
                                     port.postMessage(msg2);
                                     break;
                                 case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
                                 case PAGE_EVENT_TYPE.FETCH_RESOURCE:
                                 case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
                                 default:
-                                    console.error("KERI_Auth_CS from page: handler not yet implemented for:", event.data);
+                                    console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
                                     break;
                             }
                         }
@@ -156,14 +156,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
                 );
                 break;
             default:
-                console.error("KERI_Auth_CS from extension: handler not yet implemented for:", message);
+                console.error("KeriAuthCs from extension: handler not yet implemented for:", message);
                 break;
         }
     });
 
     // Send a message to the service worker
     const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
-    console.log("KERI_Auth_CS: to SW:", helloMsg);
+    console.log("KeriAuthCs to SW:", helloMsg);
     port.postMessage(helloMsg);
 
     // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.

@@ -19,7 +19,7 @@ import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType } fro
 
 // Bring up the Onboarding page if a new install
 chrome.runtime.onInstalled.addListener(async (installDetails) => {
-    console.log(`WORKER: onInstalled details:`, installDetails);
+    console.log(`SW onInstalled details:`, installDetails);
     // Pre-cache files or perform other installation tasks
     // await RegisterContentScripts();
     let urlString = "";
@@ -43,13 +43,13 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
 });
 
 //self.addEventListener('activating', (event: ExtendableEvent) => {
-//    console.log(`WORKER: version ${version} activating...`);
+//    console.log(`SW version ${version} activating...`);
 //    // event.waitUntil(self.clients.claim());
 //    // Perform tasks needed during activation
 //});
 
 self.addEventListener('activate', (event) => {
-    console.log('WORKER: activated');
+    console.log('SW activated');
     //event.waitUntil(
     //    (async () => {
     //        // Perform tasks needed after activation
@@ -69,7 +69,7 @@ self.addEventListener('activate', (event) => {
 // Handle network requests and serving cached responses
 // self.addEventListener('fetch', (event) => {
 // way to noisy for now to echo every fetch
-// console.log('WORKER: Fetch event for ', event);
+// console.log('SW Fetch event for ', event);
 // Handle network requests and serving cached responses
 //. event.request.url);
 //event.respondWith(
@@ -80,7 +80,7 @@ self.addEventListener('activate', (event) => {
 // });
 
 chrome.runtime.onStartup.addListener(() => {
-    console.log('WORKER: runtime.onStartup');
+    console.log('SW runtime.onStartup');
     // This handler, for when a new browser profile with the extension installed is first launched, 
     // could potentially be used to set the extension's icon to a "locked" state, for example
 });
@@ -96,35 +96,35 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     // 2. TBD
     // 3. TBD
 
-    console.log("WORKER: clicked on action button while on tab: ", tab);
+    console.log("SW clicked on action button while on tab: ", tab);
 
     if (tab.id && Number(tab.id) != 0 && tab.url !== undefined && tab.url.startsWith("http")) {
         // TODO create a helper for creating the popupDetails(tab). DRY
         const tabId = Number(tab.id);
-        // chrome.action.getPopup({ tabId: tabId }, (popupUrl) => { console.log("WORKER: getPopup: ", popupUrl) });
+        // chrome.action.getPopup({ tabId: tabId }, (popupUrl) => { console.log("SW getPopup: ", popupUrl) });
         // chrome.action.setPopup({ popup: "index.html?environment=ActionPopup" }) //  tabId: tabId,
         //    .then(() => {
         //chrome.action.openPopup()
         //    .then(() => {
-        //console.log("WORKER: user clicked on action button");
+        //console.log("SW user clicked on action button");
         //if (typeof tab.url !== 'string') {
         //    chrome.action.setPopup({ popup: "", tabId: tab.id })
         //        .then(() => { return; })
         //}
         const origin = new URL(tab.url!).origin + '/';
-        console.log('WORKER: origin: ', origin);
+        console.log('SW origin: ', origin);
         chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
-            console.log('WORKER: isOriginPermitted: ', isOriginPermitted);
+            console.log('SW isOriginPermitted: ', isOriginPermitted);
             if (!isOriginPermitted) {
                 // Request permission from the user
                 chrome.permissions.request({
                     origins: [origin]
                 }, (isGranted: boolean) => {
                     if (isGranted) {
-                        console.log('WORKER: Permission granted for:', origin);
+                        console.log('SW Permission granted for:', origin);
                         useActionPopup(tabId);
                     } else {
-                        console.log('WORKER: Permission denied for:', origin);
+                        console.log('SW Permission denied for:', origin);
                     }
                 });
             } else {
@@ -132,9 +132,9 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
             }
         });
         //   })
-        //   .catch((err) => console.warn(`WORKER: could not openPopup`, { tabId: tabId, tab: tab, err: err }))
+        //   .catch((err) => console.warn(`SW could not openPopup`, { tabId: tabId, tab: tab, err: err }))
         //    })
-        //    .catch((err) => console.warn(`WORKER: openPopup dropped`, err));
+        //    .catch((err) => console.warn(`SW openPopup dropped`, err));
         // clear the popup url so that subsequent clicks on popup will be handled by this onClicked listener
         // TODO correct?
         chrome.action.setPopup({ popup: "", tabId: tab.id });
@@ -151,7 +151,7 @@ let popupWindow: chrome.windows.Window | null = null;
 // If a popup window is already open, then bring it into focus; otherwise, create a new one
 // TODO: each popupWindow should be associated with a tab?  Add a tabId parameter?
 function usePopupWindow() {
-    console.log("WORKER: usePopupWindow");
+    console.log("SW usePopupWindow");
     if (popupWindow && popupWindow.id) {
         isWindowOpen(popupWindow.id).then((isOpen) => {
             if (isOpen && popupWindow && typeof popupWindow.id === 'number') {
@@ -169,7 +169,7 @@ function usePopupWindow() {
 
 // TODO: each popupWindow should be associated with a tab?  Add a tabId parameter?
 function createPopupWindow() {
-    console.log("WORKER: createPopupWindow");
+    console.log("SW createPopupWindow");
     // TODO P3 Rather than having a fixed position, it would be better to compute this left position
     // based on the windows's or device's availableWidth,
     // as well as knowing on which monitor it belongs (versus assuming the primary monitor).
@@ -187,7 +187,7 @@ function createPopupWindow() {
     }) as chrome.windows.CreateData
     chrome.windows.create(popupWindowCreateData, (newWindow) => {
         if (newWindow) {
-            console.log("WORKER: new extension popup window created");
+            console.log("SW new extension popup window created");
             newWindow.alwaysOnTop = true;
             newWindow.state = "normal";
             popupWindow = newWindow;
@@ -196,12 +196,12 @@ function createPopupWindow() {
 }
 
 function useActionPopup(tabId: number) {
-    console.log('WORKER: useActionPopup acting on current tab');
+    console.log('SW useActionPopup acting on current tab');
     //chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    //    console.log('WORKER: useActionPopup tabs: ', tabs);
+    //    console.log('SW useActionPopup tabs: ', tabs);
     //    let tab = tabs[0];
     //    if (typeof tab?.url === 'string') {
-    //        console.log("WORKER: useActionPopup tab url: ", tab.url);
+    //        console.log("SW useActionPopup tab url: ", tab.url);
     //        if (typeof tab.id === 'number') {
     //            //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
     //            //isActionPopupUrlSet()
@@ -209,21 +209,21 @@ function useActionPopup(tabId: number) {
     //            //        if (!isOpen) {
     chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
     chrome.action.openPopup()
-        .then(() => console.log("WORKER: useActionPopup succeeded"))
+        .then(() => console.log("SW useActionPopup succeeded"))
         .catch((err) => {
-            console.warn(`WORKER: useActionPopup dropped. Was already open?`, err);
+            console.warn(`SW useActionPopup dropped. Was already open?`, err);
             //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
             //chrome.action.openPopup().then(() =>
-            //    console.log("WORKER: useActionPopup re-opened"))
-            //    .catch((err) => console.warn("WORKER: useActionPopup re-open dropped: ", err));
+            //    console.log("SW useActionPopup re-opened"))
+            //    .catch((err) => console.warn("SW useActionPopup re-open dropped: ", err));
         });
 
     //}
     //else {
-    //    console.warn("WORKER: useActionPopup: unexpected tab");
+    //    console.warn("SW useActionPopup: unexpected tab");
     //}
     //} else {
-    //    console.warn("WORKER: useActionPopup: unexpected tab or url");
+    //    console.warn("SW useActionPopup: unexpected tab or url");
     //}
     //})
 }
@@ -243,7 +243,7 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
 
 function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the message
-    console.log("WORKER: handleSelectIdentifier: ", msg);
+    console.log("SW handleSelectIdentifier: ", msg);
     // TODO EE should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     if (port.sender && port.sender.tab && port.sender.tab.id) {
@@ -252,7 +252,7 @@ function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runt
         chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
         useActionPopup(tabId);
     } else {
-        console.warn("WORKER: handleSelectIdentifier: no tabId found")
+        console.warn("SW handleSelectIdentifier: no tabId found")
     }
 };
 
@@ -260,7 +260,7 @@ function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runt
 function isActionPopupUrlSet(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         chrome.action.getPopup({}, (popupUrl) => {
-            console.warn("WORKER: isActionPopupOpen: popupUrl: ", popupUrl);
+            console.warn("SW isActionPopupOpen: popupUrl: ", popupUrl);
             if (chrome.runtime.lastError) {
                 reject(chrome.runtime.lastError);
             } else {
@@ -275,21 +275,21 @@ const connections: { [key: string]: { port: chrome.runtime.Port } } = {};
 
 // Listen for port connections from content scripts
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
-    console.log("WORKER: onConnect port: ", connectedPort);
+    console.log("SW onConnect port: ", connectedPort);
     let connectionId = connectedPort.name;
-    console.log("WORKER: connections before update: ", { connections });
+    console.log("SW connections before update: ", { connections });
     // store the port for this tab in the connections object. Assume 1:1
     connections[connectionId] = { port: connectedPort };
-    console.log("WORKER: connections: ", { connections });
+    console.log("SW connections: ", { connections });
 
     const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     if (portNamePattern.test(connectedPort.name)) {
-        console.log(`WORKER: Connected to ${connectedPort.name}`);
+        console.log(`SW Connected to ${connectedPort.name}`);
 
         // Listen for and handle messages from the content script
-        console.log("WORKER: Adding onMessage listener for port");
+        console.log("SW Adding onMessage listener for port");
         connectedPort.onMessage.addListener((message: any) => {
-            console.log("WORKER: from CS: message, port", message, connectedPort);
+            console.log("SW from CS: message, port", message, connectedPort);
             // assure tab is still connected        
             if (connections[connectionId]) {
                 switch (message.type) {
@@ -311,10 +311,10 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                     case CsSwMsgType.SELECT_ID_CRED:
                     case CsSwMsgType.DOMCONTENTLOADED:
                     default:
-                        console.warn("WORKER: from CS: message type not yet handled: ", message);
+                        console.warn("SW from CS: message type not yet handled: ", message);
                 }
             } else {
-                console.log("WORKER: Port no longer connected");
+                console.log("SW Port no longer connected");
             }
         });
         // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
@@ -330,7 +330,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 // Listen for tab updates to maintain connection info
 // TODO can probably remove this tabs.onUpdated listener
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // console.log("WORKER: tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
+    // console.log("SW tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
     //
     // if the url changes to another domain, then the connection should be closed?
     //if (connections[tabId] && changeInfo.url) {
@@ -341,7 +341,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Remove connection from list when a tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (connections[tabId]) {
-        console.log("WORKER: tabs.onRemoved: tabId: ", tabId)
+        console.log("SW tabs.onRemoved: tabId: ", tabId)
         delete connections[tabId]
     };
 });
