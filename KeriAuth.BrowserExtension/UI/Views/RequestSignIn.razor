@@ -1,0 +1,130 @@
+﻿@page "/RequestSignIn"
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using System.Diagnostics
+@using MudBlazor
+
+@implements IDisposable;
+
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@inject ILogger<IdentifiersView> logger
+@inject IdentifiersService identifiersService;
+@inject ISignifyClientService signifyClientService;
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Request to Sign In</MudText>
+            <MudText Typo="Typo.h6">Select Identifier</MudText>
+            <MudSelect T="string" SelectedValues="@SelectedStrings">
+                @foreach (CachedAid cachedAid in cachedAids)
+                {
+                    <MudSelectItem Value="@cachedAid.Alias" />
+                }
+                <MudSelectItem Value="@NewIdentifierIndicator.Alias">Create New Identifier</MudSelectItem>
+            </MudSelect>
+            <MudStack Row>
+                <MudText Typo="Typo.h6">Options for this interacting with website, https://foo</MudText>
+                <MudLink Href="https://foo" Target="_blank">history</MudLink>
+            </MudStack>
+            <MudStack Row>
+            <MudCheckBox Label="Set this identifier as preferred" Value="@IsChoiceRemembered" /> (?)
+            </MudStack>
+            <MudStack Row>
+            <MudCheckBox Label="Allow automatic SignIn" Value="@WillSignInAutomatically" /> (?)
+            </MudStack>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Tertiary">Cancel</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary">Sign In</MudButton>
+    </MudStack>
+</div>
+
+@code {
+    private string ActiveAid { get; set; } = string.Empty;
+
+    List<CachedAid> cachedAids = new List<CachedAid>();
+
+    bool IsChoiceRemembered { get; set; }
+
+    // create a placeholder for the "new identifier" option
+    static readonly Guid StaticGuid = Guid.Parse("d9b2d63d-a233-4123-847a-42d3b2c67a48");
+    static readonly CachedAid NewIdentifierIndicator = new CachedAid("asd2l3i5u708uaslkj35u27089734jf", "asdf", StaticGuid);
+
+    string[] SelectedStrings { get; set; } = [];
+
+    bool WillSignInAutomatically { get; set; 
+}
+
+    CachedAid? DefaultCachedAidOrNothing {get; set;}
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitialized();
+        await Task.Delay(0);
+        logger.LogInformation($"OnInitializedAsync");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        base.OnParametersSet();
+        logger.LogInformation($"OnParametersSetAsync");
+        await GetHeadlines();
+    }
+
+    private async Task GetHeadlines()
+    {
+        logger.LogWarning("GetHeadlines");
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res != null)
+        {
+            logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
+            cachedAids.Clear();
+            foreach (var item in res.Value)
+            {
+                // logger.LogWarning("adding aid {1}", item.Prefix);
+                cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
+            }
+            cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();
+        };
+
+        if (cachedAids.Count > 0)
+        {
+            // TODO look up in database for this website
+            DefaultCachedAidOrNothing = cachedAids[0];
+            SelectedStrings = new string[] { cachedAids[0].Alias };
+        } else {
+            SelectedStrings = new string[] { NewIdentifierIndicator.Alias };
+        }
+    }
+
+    void InitializeOrOnNextPrefs(Preferences prefs)
+    {
+        ActiveAid = prefs.SelectedAid;
+        this.StateHasChanged();
+    }
+
+    public static string cardClass(string activeAid2, string rowIdentifier) =>
+        (string)activeAid2 == rowIdentifier ? "border-left: 4px solid var(--mud-palette-text-primary);" : "";
+
+    private string DialogResult { get; set; } = "unknown";
+
+    public void Dispose()
+    {
+        ;
+    }
+}
