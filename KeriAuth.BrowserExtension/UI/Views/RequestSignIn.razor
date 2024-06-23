@@ -1,4 +1,6 @@
 ﻿@page "/RequestSignIn"
+@page "/RequestSignIn/{originUri}"
+@using System.Linq
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.UI.Components
@@ -21,6 +23,162 @@
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
+@inject IWebsitesService websitesService
+@inject IStorageService storageService
+
+
+@code {
+    [Parameter]
+    public string originUri { get; set; } = "https://foo.bar.com";
+
+    private Uri UriUri { get; set; } = new Uri("http://unset.com");
+
+    private string ActiveAid { get; set; } = string.Empty;
+
+    List<CachedAid> cachedAids = new List<CachedAid>();
+
+    List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
+
+    private bool _isChoiceRemembered = false;
+
+    bool IsChoiceRemembered => _isChoiceRemembered;
+
+    async Task updateWillSignInAutomatically(bool willSignInAutomatically2)
+    {
+        // TODO move much of this edgecase code into Websites service
+        Websites websites;
+        var getWebsitesRes = await websitesService.GetWebsites();
+        if (getWebsitesRes.IsFailed)
+        {
+            logger.LogError("Error in websiteService {0}", getWebsitesRes.Errors);
+            return;
+        }
+        else
+        {
+            logger.LogInformation("updateWillSignInAutomatically: {0}", getWebsitesRes, getWebsitesRes.Value);
+
+            if (getWebsitesRes.Value is null)
+            {
+                // This is the first website. Add the Websites collection
+                websites = new Websites(WebsiteList: new List<Website>() { new Website(UriUri, new List<WebsiteInteraction>(){ }, null, null, AutoSignInMode.None) });
+                var setItemRes = await storageService.SetItem<Websites>(websites);
+                if (setItemRes.IsFailed)
+                {
+                    logger.LogError("Error adding websites to database: {0}", setItemRes.Errors);
+                    return;
+                }
+                else
+                {
+                    logger.LogInformation("Added websites to database");
+                }
+            }
+            else
+            {
+                websites = getWebsitesRes.Value;
+            }
+
+            // Find the website in the collection
+            var websiteOrNothing = websites.WebsiteList.FirstOrDefault<Website>(a => a.Origin == UriUri);
+            logger.LogInformation("updateWillSignInAutomatically: {0}", websiteOrNothing);
+            if (websiteOrNothing is null)
+            {
+                WillSignInAutomatically = false;
+                logger.LogError("Error finding website");
+            }
+            else
+            {
+                Website website = websiteOrNothing;
+                if (willSignInAutomatically2)
+                {
+                    website = website with { AutoSignInChoice = AutoSignInMode.Identifier };
+                }
+                else
+                {
+                    website = website with { AutoSignInChoice = AutoSignInMode.Identifier };
+                }
+
+                logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", website);
+                var res = await websitesService.Update(website);
+                if (res is null || res.IsFailed)
+                {
+                    WillSignInAutomatically = false;
+                    logger.LogError("Error updating website: {0}", res?.Errors);
+                }
+                else
+                {
+                    logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
+                    WillSignInAutomatically = willSignInAutomatically2;
+                }
+            }
+        }
+    }
+
+    IdentifierHeadline? selectedHeadlineOrNothing { get; set; }
+
+    bool WillSignInAutomatically
+    {
+        get; set;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitialized();
+        await Task.Delay(0);
+        logger.LogInformation($"OnInitializedAsync");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        base.OnParametersSet();
+        logger.LogInformation($"OnParametersSetAsync");
+        base.OnParametersSet();
+        try
+        {
+            UriUri = new Uri(originUri);
+        }
+        catch (Exception)
+        {
+            logger.LogWarning("Invalid originUri: {0}", originUri);
+            UriUri = new Uri("http://unset.com");
+        }
+        await GetHeadlines();
+    }
+
+    private async Task GetHeadlines()
+    {
+        logger.LogWarning("GetHeadlines");
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res != null && res.IsSuccess)
+        {
+            logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
+            IdentifiersHeadlines = res.Value;
+            IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
+            if (IdentifiersHeadlines.Count > 0)
+            {
+                // TODO look up in database for this website.  If preferred identifier is not remembered for this website, use the User's general preferences
+                selectedHeadlineOrNothing = IdentifiersHeadlines[0];
+            }
+            else
+            {
+                selectedHeadlineOrNothing = null;
+            }
+        };
+    }
+
+    void InitializeOrOnNextPrefs(Preferences prefs)
+    {
+        ActiveAid = prefs.SelectedAid;
+        // TODO decide whether the Select Identifier value should change
+        this.StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ;
+    }
+}
+
+
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -29,20 +187,17 @@
             <MudText Typo="Typo.body1"><em>https://foo.bar.com</em></MudText>
             <!-- TODO:  https://foo.bar.com is requesting you to sign in -->
 
-            <MudText Class="mt-6"><b>Select Identifier</b></MudText>
-            <MudSelect T="string" bind-Value="@SelectedStrings">
+            <MudText Class="mt-6"><b>Identifier</b></MudText>
+            <MudSelect T="IdentifierHeadline" bind-Value="@selectedHeadlineOrNothing">
                 @foreach (var identifierHeadline in IdentifiersHeadlines)
                 {
                     <!-- TODO selection should be on Prefix, not Alias -->
-                    <MudSelectItem Value="@identifierHeadline.Prefix" >
+                    <MudSelectItem Value="@identifierHeadline">
                         <MudStack Row Style="align-items:center;">
                             <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                             <div class="bt-sad-2" style="display:contents;">
                                 <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
                             </div>
-                            <!--
-                            <MudDivider DividerType="DividerType.Inset" />
-                            -->
                         </MudStack>
                     </MudSelectItem>
                 }
@@ -51,9 +206,9 @@
             <MudStack>
                 <MudText Class="mt-6"><b>Options</b></MudText>
                 <MudText Typo="Typo.body1">For future requests from <em>https://foo.bar.com</em></MudText>
-                <MudCheckBox Label="Remember this identifier as preferred" @bind-Value="@IsChoiceRemembered" />
+                <MudCheckBox Label="Remember this identifier as preferred" Value="true" />
                 <!-- TODO disable unless at least one identifier is remembered for this site-->
-                <MudCheckBox Label="Allow automatic CheckIn" @bind-Value="@WillSignInAutomatically" />
+                <MudCheckBox Label="Enable automatic Sign In" Value="@WillSignInAutomatically" ValueChanged="async (bool b) => await updateWillSignInAutomatically(b)" />
             </MudStack>
         </div>
     </div>
@@ -70,74 +225,3 @@
     }
 </style>
 
-@code {
-    private string ActiveAid { get; set; } = string.Empty;
-
-    List<CachedAid> cachedAids = new List<CachedAid>();
-
-    List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
-
-    bool IsChoiceRemembered { get; set; }
-
-    string[] SelectedStrings { get; set; } = [];
-
-    bool WillSignInAutomatically
-    {
-        get; set;
-    }
-
-    IdentifierHeadline? DefaultIdentifierHeadline { get; set; }
-
-    protected override async Task OnInitializedAsync()
-    {
-        base.OnInitialized();
-        await Task.Delay(0);
-        logger.LogInformation($"OnInitializedAsync");
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        base.OnParametersSet();
-        logger.LogInformation($"OnParametersSetAsync");
-        await GetHeadlines();
-    }
-
-    private async Task GetHeadlines()
-    {
-        logger.LogWarning("GetHeadlines");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res != null && res.IsSuccess)
-        {
-            logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
-            IdentifiersHeadlines = res.Value;
-            IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
-            if (IdentifiersHeadlines.Count > 0)
-            {
-                // TODO look up in database for this website.  If preference not remembered for this website, use the User's general preferences
-                DefaultIdentifierHeadline = IdentifiersHeadlines[0];
-                SelectedStrings = new string[] { IdentifiersHeadlines[0].Alias };
-            }
-            else
-            {
-                SelectedStrings = new string[] { };
-            }
-        };
-    }
-
-    void InitializeOrOnNextPrefs(Preferences prefs)
-    {
-        ActiveAid = prefs.SelectedAid;
-        // TODO decide whether the Select Identifier value should change
-        this.StateHasChanged();
-    }
-
-    public static string cardClass(string activeAid2, string rowIdentifier) =>
-        (string)activeAid2 == rowIdentifier ? "border-left: 4px solid var(--mud-palette-text-primary);" : "";
-
-    private string DialogResult { get; set; } = "unknown";
-
-    public void Dispose()
-    {
-        ;
-    }
-}

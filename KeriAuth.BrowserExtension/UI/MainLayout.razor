@@ -1,5 +1,5 @@
 ﻿@inherits LayoutComponentBase
-@implements IDisposable
+
 @using KeriAuth.BrowserExtension;
 @using KeriAuth.BrowserExtension.Helper;
 @using KeriAuth.BrowserExtension.Models
@@ -27,6 +27,7 @@
 @inject IStateService stateService
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
+@implements IDisposable
 
 <MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@IsDarkTheme" />
 <MudDialogProvider />
@@ -161,164 +162,6 @@
         </MudMainContent>
     </MudDrawerContainer>
 </MudLayout>
-
-<style>
-    :root {
-        --appbar-height: 64px;
-        /* TODO override MudBlazor behavior making it smaller at narrow widths */
-        --bt-buttontray-height: 60px;
-        --bt-chatbox-height: 60px;
-    }
-
-    .mud-appbar .mud-toolbar-appbar {
-        /* Fixed height. We don't want Mudblazor default of changing height depending on media width */
-        height: var(--appbar-height);
-    }
-
-    .mud-button {
-        text-transform: capitalize;
-    }
-
-    .mud-chip {
-        text-wrap: wrap; /* known CSS102 issue. Experimental feature, but supported in Chrome 114. no easy workaround yet. */
-        /* TODO P3 try this fix for text-wrap:wrap instead:  word-wrap: break-word;  */
-    }
-
-    .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
-        color: #eaff00;
-        background-color: #373737;
-    }
-
-    .mud-nav-link.active:not(.mud-nav-link-disabled) {
-        color: green;
-    }
-
-    .mud-nav-link-disabled {
-        background: transparent;
-    }
-
-    /* Known false warning in VS of CSS002 issue. See https://github.com/dotnet/razor/issues/7349 */
-    @@media (min-width: 960px) {
-        .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {
-            margin-left: 0;
-            width: inherit;
-        }
-    }
-
-    .mud-typography {
-        overflow-wrap: break-word;
-    }
-
-    .bt-sad-1 {
-        align-items: center;
-    }
-
-    .bt-sad-2 {
-        margin-left: 12px;
-        min-width: 100%;
-        display: flex;
-        align-items: center;
-    }
-
-    .bt-sad-3 {
-        display: inline-block;
-        width: inherit;
-    }
-
-    .bt-sad-4 {
-    }
-
-    .bt-sad-5 {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 0;
-        padding-top: 0;
-    }
-
-    .bt-sad-6 {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 195px;
-    }
-
-    .bt-sad-8 {
-        float: right;
-    }
-
-    .bt-body-page {
-        height: inherit;
-        min-height: inherit;
-    }
-
-    /* bt-main is used in on many pages, typically with the preceeding classes: d-flex flex-column??? gap-3 d-flex */
-    .bt-main {
-        height: calc(100vh - var(--appbar-height) - var(--bt-buttontray-height));
-        overflow-y: auto;
-        padding-left: 16px;
-        padding-right: 0px; /* so that scrollbars hug right edge */
-        padding-top: 10px;
-    }
-
-    .bt-main-inside-scroll {
-        padding-right: 12px;
-        width: -webkit-fill-available; /* known CSS105 issue. no easy workaround. */
-    }
-
-    .bt-main-content {
-        position: relative;
-        padding-top: 0;
-    }
-
-    .bt-chat-group-header {
-        /* width: -webkit-fill-available; */
-        align-items: center;
-        gap: 0;
-        padding-right: 4px;
-        padding-top: 8px;
-    }
-
-    .bt-chaticon {
-        margin-left: 0px;
-        margin-right: 8px;
-    }
-
-    .bt-button-tray {
-        justify-content: flex-end;
-        padding-left: 15px;
-        padding-right: 15px;
-        padding-bottom: 15px;
-        height: var(--bt-buttontray-height);
-    }
-
-    .bt-chatbox {
-        height: var(--bt-chatbox-height);
-    }
-
-    .bt-stack-item {
-        justify-content: flex-end;
-        padding-left: 15px;
-        padding-right: 15px;
-        align-items: center;
-        height: 48px;
-    }
-
-    .bt-identicon {
-        border-style: solid;
-        border-color: black;
-        border-width: 2px;
-        border-radius: 50%;
-        width: 35px;
-        height: 35px;
-        overflow: hidden;
-    }
-
-    .bt-info-icon {
-        height: 15px;
-        color: lightslategrey;
-        position: relative;
-        top: 10px;
-    }
-</style>
 
 @code {
     bool IsMenuDrawerOpen { get; set; }

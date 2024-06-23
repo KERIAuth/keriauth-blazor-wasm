@@ -4,12 +4,9 @@ using System.Text.Json.Serialization;
 
 public class CachedAid
 {
-    // implement this class with the JsonProperty attributes and JsonConstructor attribute for: Prefix, AID, Alias, and Identicon
-
     [JsonConstructor]
     public CachedAid(string prefix, string alias, Guid keriaConnectionId)
     {
-        // set the properties
         Prefix = prefix;
         Alias = alias;
         Identicon = Helper.Identicon.MakeIdenticon(prefix);
