@@ -26,51 +26,67 @@
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign In</MudText>
-            <MudText Typo="Typo.h6">Select Identifier</MudText>
-            <MudSelect T="string" SelectedValues="@SelectedStrings">
-                @foreach (CachedAid cachedAid in cachedAids)
+            <MudText Typo="Typo.body1"><em>https://foo.bar.com</em></MudText>
+            <!-- TODO:  https://foo.bar.com is requesting you to sign in -->
+
+            <MudText Class="mt-6"><b>Select Identifier</b></MudText>
+            <MudSelect T="string" bind-Value="@SelectedStrings">
+                @foreach (var identifierHeadline in IdentifiersHeadlines)
                 {
-                    <MudSelectItem Value="@cachedAid.Alias" />
+                    <!-- TODO selection should be on Prefix, not Alias -->
+                    <MudSelectItem Value="@identifierHeadline.Prefix" >
+                        <MudStack Row Style="align-items:center;">
+                            <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                            <div class="bt-sad-2" style="display:contents;">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                            </div>
+                            <!--
+                            <MudDivider DividerType="DividerType.Inset" />
+                            -->
+                        </MudStack>
+                    </MudSelectItem>
                 }
-                <MudSelectItem Value="@NewIdentifierIndicator.Alias">Create New Identifier</MudSelectItem>
             </MudSelect>
-            <MudStack Row>
-                <MudText Typo="Typo.h6">Options for this interacting with website, https://foo</MudText>
-                <MudLink Href="https://foo" Target="_blank">history</MudLink>
-            </MudStack>
-            <MudStack Row>
-            <MudCheckBox Label="Set this identifier as preferred" Value="@IsChoiceRemembered" /> (?)
-            </MudStack>
-            <MudStack Row>
-            <MudCheckBox Label="Allow automatic SignIn" Value="@WillSignInAutomatically" /> (?)
+
+            <MudStack>
+                <MudText Class="mt-6"><b>Options</b></MudText>
+                <MudText Typo="Typo.body1">For future requests from <em>https://foo.bar.com</em></MudText>
+                <MudCheckBox Label="Remember this identifier as preferred" @bind-Value="@IsChoiceRemembered" />
+                <!-- TODO disable unless at least one identifier is remembered for this site-->
+                <MudCheckBox Label="Allow automatic CheckIn" @bind-Value="@WillSignInAutomatically" />
             </MudStack>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Tertiary">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary">Cancel</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary">Sign In</MudButton>
     </MudStack>
 </div>
+
+<style>
+    .mud-select .mud-select-input .mud-input-slot {
+        height: auto;
+    }
+</style>
 
 @code {
     private string ActiveAid { get; set; } = string.Empty;
 
     List<CachedAid> cachedAids = new List<CachedAid>();
 
-    bool IsChoiceRemembered { get; set; }
+    List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
 
-    // create a placeholder for the "new identifier" option
-    static readonly Guid StaticGuid = Guid.Parse("d9b2d63d-a233-4123-847a-42d3b2c67a48");
-    static readonly CachedAid NewIdentifierIndicator = new CachedAid("asd2l3i5u708uaslkj35u27089734jf", "asdf", StaticGuid);
+    bool IsChoiceRemembered { get; set; }
 
     string[] SelectedStrings { get; set; } = [];
 
-    bool WillSignInAutomatically { get; set; 
-}
+    bool WillSignInAutomatically
+    {
+        get; set;
+    }
 
-    CachedAid? DefaultCachedAidOrNothing {get; set;}
+    IdentifierHeadline? DefaultIdentifierHeadline { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -90,31 +106,28 @@
     {
         logger.LogWarning("GetHeadlines");
         var res = await identifiersService.GetIdentifierHeadlines();
-        if (res != null)
+        if (res != null && res.IsSuccess)
         {
             logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
-            cachedAids.Clear();
-            foreach (var item in res.Value)
+            IdentifiersHeadlines = res.Value;
+            IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
+            if (IdentifiersHeadlines.Count > 0)
             {
-                // logger.LogWarning("adding aid {1}", item.Prefix);
-                cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
+                // TODO look up in database for this website.  If preference not remembered for this website, use the User's general preferences
+                DefaultIdentifierHeadline = IdentifiersHeadlines[0];
+                SelectedStrings = new string[] { IdentifiersHeadlines[0].Alias };
             }
-            cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();
+            else
+            {
+                SelectedStrings = new string[] { };
+            }
         };
-
-        if (cachedAids.Count > 0)
-        {
-            // TODO look up in database for this website
-            DefaultCachedAidOrNothing = cachedAids[0];
-            SelectedStrings = new string[] { cachedAids[0].Alias };
-        } else {
-            SelectedStrings = new string[] { NewIdentifierIndicator.Alias };
-        }
     }
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
         ActiveAid = prefs.SelectedAid;
+        // TODO decide whether the Select Identifier value should change
         this.StateHasChanged();
     }
 
