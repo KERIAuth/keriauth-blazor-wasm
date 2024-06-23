@@ -18,7 +18,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
-@inject ILogger<IdentifiersView> logger
+@inject ILogger<RequestSignIn> logger
 @inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
@@ -29,7 +29,7 @@
 
 @code {
     [Parameter]
-    public string originUri { get; set; } = "https://foo.bar.com";
+    public string originUri { get; set; } = "http://unset.com";
 
     private Uri UriUri { get; set; } = new Uri("http://unset.com");
 
@@ -43,6 +43,16 @@
 
     bool IsChoiceRemembered => _isChoiceRemembered;
 
+    async Task updateIsChoiceRemembered(bool willRememberChoice)
+    {
+        
+    }
+
+
+
+
+
+
     async Task updateWillSignInAutomatically(bool willSignInAutomatically2)
     {
         // TODO move much of this edgecase code into Websites service
@@ -55,12 +65,12 @@
         }
         else
         {
-            logger.LogInformation("updateWillSignInAutomatically: {0}", getWebsitesRes, getWebsitesRes.Value);
+            logger.LogInformation("updateWillSignInAutomatically: 1 {0} {1} {2}", getWebsitesRes, getWebsitesRes.Value, willSignInAutomatically2);
 
             if (getWebsitesRes.Value is null)
             {
                 // This is the first website. Add the Websites collection
-                websites = new Websites(WebsiteList: new List<Website>() { new Website(UriUri, new List<WebsiteInteraction>(){ }, null, null, AutoSignInMode.None) });
+                websites = new Websites(WebsiteList: new List<Website>() { new Website(UriUri, new List<WebsiteInteraction>() { }, null, null, AutoSignInMode.None) });
                 var setItemRes = await storageService.SetItem<Websites>(websites);
                 if (setItemRes.IsFailed)
                 {
@@ -79,7 +89,7 @@
 
             // Find the website in the collection
             var websiteOrNothing = websites.WebsiteList.FirstOrDefault<Website>(a => a.Origin == UriUri);
-            logger.LogInformation("updateWillSignInAutomatically: {0}", websiteOrNothing);
+            logger.LogInformation("updateWillSignInAutomatically: 2 {0}", websiteOrNothing);
             if (websiteOrNothing is null)
             {
                 WillSignInAutomatically = false;
@@ -88,26 +98,32 @@
             else
             {
                 Website website = websiteOrNothing;
-                if (willSignInAutomatically2)
+                Website newWebsite;
+                if (selectedHeadlineOrNothing is not null)
                 {
-                    website = website with { AutoSignInChoice = AutoSignInMode.Identifier };
-                }
-                else
-                {
-                    website = website with { AutoSignInChoice = AutoSignInMode.Identifier };
-                }
+                    if (willSignInAutomatically2)
+                    {
+                        // TODO issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
+                        newWebsite = website with { RememberedPrefixOrNothing = selectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.Identifier };
+                    }
+                    else
+                    {
+                        newWebsite = website with { RememberedPrefixOrNothing = selectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.None };
+                    }
 
-                logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", website);
-                var res = await websitesService.Update(website);
-                if (res is null || res.IsFailed)
-                {
-                    WillSignInAutomatically = false;
-                    logger.LogError("Error updating website: {0}", res?.Errors);
-                }
-                else
-                {
-                    logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
-                    WillSignInAutomatically = willSignInAutomatically2;
+
+                    logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsite);
+                    var res = await websitesService.Update(newWebsite);
+                    if (res is null || res.IsFailed)
+                    {
+                        WillSignInAutomatically = false;
+                        logger.LogError("Error updating website: {0}", res?.Errors);
+                    }
+                    else
+                    {
+                        logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
+                        WillSignInAutomatically = willSignInAutomatically2;
+                    }
                 }
             }
         }
@@ -184,8 +200,8 @@
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign In</MudText>
-            <MudText Typo="Typo.body1"><em>https://foo.bar.com</em></MudText>
-            <!-- TODO:  https://foo.bar.com is requesting you to sign in -->
+            <MudText Typo="Typo.body1"><em>http://unset.com</em></MudText>
+            <!-- TODO:  http://unset.com is requesting you to sign in -->
 
             <MudText Class="mt-6"><b>Identifier</b></MudText>
             <MudSelect T="IdentifierHeadline" bind-Value="@selectedHeadlineOrNothing">
@@ -205,8 +221,8 @@
 
             <MudStack>
                 <MudText Class="mt-6"><b>Options</b></MudText>
-                <MudText Typo="Typo.body1">For future requests from <em>https://foo.bar.com</em></MudText>
-                <MudCheckBox Label="Remember this identifier as preferred" Value="true" />
+                <MudText Typo="Typo.body1">For future requests from <em>http://unset.com</em></MudText>
+                <MudCheckBox Label="Remember this identifier as preferred" Value="IsChoiceRemembered" ValueChanged="async (bool b) => await updateIsChoiceRemembered(b)" />
                 <!-- TODO disable unless at least one identifier is remembered for this site-->
                 <MudCheckBox Label="Enable automatic Sign In" Value="@WillSignInAutomatically" ValueChanged="async (bool b) => await updateWillSignInAutomatically(b)" />
             </MudStack>

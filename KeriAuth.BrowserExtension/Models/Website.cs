@@ -49,9 +49,9 @@ namespace KeriAuth.BrowserExtension.Models
 
     public enum AutoSignInMode
     {
-        None = 1,
-        Identifier = 2,
-        Credential = 3
+        None,
+        Identifier,
+        Credential
     }
 
     public record WebsiteInteraction

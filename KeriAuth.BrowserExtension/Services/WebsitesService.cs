@@ -6,32 +6,38 @@ namespace KeriAuth.BrowserExtension.Services;
 public class WebsitesService : IWebsitesService
 
 {
-    public WebsitesService(IStorageService storageService, ILogger<PreferencesService> logger)
+    public WebsitesService(IStorageService storageService, ILogger<WebsitesService> logger)
     {
         this.storageService = storageService;
         this.logger = logger;
     }
 
     private IStorageService storageService;
-    private ILogger<PreferencesService> logger;
+    private ILogger<WebsitesService> logger;
     private readonly List<IObserver<IEnumerable<Website>>> websitesObservers = [];
     // private IDisposable? stateSubscription;
 
     public async Task<Result<Websites?>> GetWebsites()
     {
         logger.LogInformation("Getting websites from storage");
-        return (await storageService.GetItem<Websites>()).ToResult();
+        return await storageService.GetItem<Websites>();
     }
 
-    public async Task<Result<Website>> Get(Uri originUri)
+    public async Task<Result<Website?>> Get(Uri originUri)
     {
-        var websites = await GetWebsites();
-        if (websites.IsFailed)
+        var res = await GetWebsites();
+        if (res.IsFailed)
         {
-            return Result.Fail("could not fetch websites from storage");
+            logger.LogError("Get: could not fetch websites from storage {websites}", res);
+            return Result.Fail("Get: could not fetch websites from storage");
         }
-        var website = websites.Value.WebsiteList.Find(w => w.Origin == originUri);
-        return website is not null ? Result.Ok(website) : Result.Fail("website not found");
+        if (res.Value is null)
+        {
+            logger.LogError("Get: websites is null");
+            return Result.Fail("Get: websites is null");
+        }
+        var website = res.Value.WebsiteList.Find(w => w.Origin == originUri);
+        return Result.Ok(website);
     }
 
     public async Task<Result> Add(Website website)
@@ -45,7 +51,8 @@ public class WebsitesService : IWebsitesService
         var websitesResult = await GetWebsites();
         if (websitesResult.IsFailed)
         {
-            return Result.Fail("could not fetch websites from storage");
+            logger.LogError("Add: could not fetch websites from storage {1}", websitesResult);
+            return Result.Fail("Add: could not fetch websites from storage");
         }
 
         // Since Websites is a record, create a new list with the existing websites plus the new one
@@ -73,7 +80,8 @@ public class WebsitesService : IWebsitesService
         var websitesResult = await GetWebsites();
         if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null)
         {
-            return Result.Fail<Website>("could not fetch websites from storage");
+            logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
+            return Result.Fail<Website>("Update: could not fetch websites from storage");
         }
 
         var existingWebsite = websitesResult.Value.WebsiteList.FirstOrDefault(w => w.Origin == updatedWebsite.Origin);
