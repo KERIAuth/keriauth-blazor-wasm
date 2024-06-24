@@ -7,11 +7,12 @@
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Services.SignifyService
 @using KeriAuth.BrowserExtension.Services.SignifyService.Models
-@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.AppConfig
 @using System.Diagnostics
 @using MudBlazor
+@using FluentResults
 
-@implements IDisposable;
+@implements IDisposable
 
 @inject IStorageService storageService
 @inject IStateService stateService
@@ -19,17 +20,17 @@
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @inject ILogger<RequestSignIn> logger
-@inject IdentifiersService identifiersService;
-@inject ISignifyClientService signifyClientService;
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject IWebsitesService websitesService
 @inject IStorageService storageService
-
+@inject IPreferencesService preferencesService
 
 @code {
     [Parameter]
-    public string originUri { get; set; } = "http://unset.com";
+    public string originUri { get; set; } = "http:unset.com";
 
     private Uri UriUri { get; set; } = new Uri("http://unset.com");
 
@@ -45,27 +46,57 @@
 
     async Task updateIsChoiceRemembered(bool willRememberChoice)
     {
-        
+        var getOrCreateWebsiteRes = await getOrCreateWebsite(UriUri);
+        if (getOrCreateWebsiteRes.IsFailed)
+        {
+            logger.LogError("Error in websiteService {0}", getOrCreateWebsiteRes.Errors);
+            return;
+        }
+        Website newWebsite = getOrCreateWebsiteRes.Value;
+        if (SelectedHeadlineOrNothing is not null)
+        {
+            if (willRememberChoice)
+            {
+                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedHeadlineOrNothing.Prefix };
+            }
+            else
+            {
+                newWebsite = newWebsite with { RememberedPrefixOrNothing = null };
+            }
+
+            logger.LogInformation("updateIsChoiceRemembered: about to update: {0}", newWebsite);
+            var res = await websitesService.Update(newWebsite);
+            if (res is null || res.IsFailed)
+            {
+                _isChoiceRemembered = false;
+                logger.LogError("Error updating website: {0}", res?.Errors);
+            }
+            else
+            {
+                logger.LogInformation("updateIsChoiceRemembered: setting willRememberChoice {0}", res);
+                _isChoiceRemembered = willRememberChoice;
+            }
+        }
+        else
+        {
+            logger.LogError("Unexpected null Identifier selection");
+        }
+        return;
     }
 
-
-
-
-
-
-    async Task updateWillSignInAutomatically(bool willSignInAutomatically2)
+    // TODO move this to the WebsitesService
+    async Task<Result<Website>> getOrCreateWebsite(Uri originUri)
     {
-        // TODO move much of this edgecase code into Websites service
         Websites websites;
         var getWebsitesRes = await websitesService.GetWebsites();
         if (getWebsitesRes.IsFailed)
         {
             logger.LogError("Error in websiteService {0}", getWebsitesRes.Errors);
-            return;
+            return Result.Fail(getWebsitesRes.Errors.FirstOrDefault());
         }
         else
         {
-            logger.LogInformation("updateWillSignInAutomatically: 1 {0} {1} {2}", getWebsitesRes, getWebsitesRes.Value, willSignInAutomatically2);
+            logger.LogInformation("getOrCreateWebsite: 1 {0} {1}", getWebsitesRes, getWebsitesRes.Value);
 
             if (getWebsitesRes.Value is null)
             {
@@ -74,8 +105,8 @@
                 var setItemRes = await storageService.SetItem<Websites>(websites);
                 if (setItemRes.IsFailed)
                 {
-                    logger.LogError("Error adding websites to database: {0}", setItemRes.Errors);
-                    return;
+                    logger.LogError("getOrCreateWebsite: Error adding websites to database: {0}", setItemRes.Errors);
+                    return Result.Fail(setItemRes.Errors.FirstOrDefault());
                 }
                 else
                 {
@@ -89,47 +120,60 @@
 
             // Find the website in the collection
             var websiteOrNothing = websites.WebsiteList.FirstOrDefault<Website>(a => a.Origin == UriUri);
-            logger.LogInformation("updateWillSignInAutomatically: 2 {0}", websiteOrNothing);
+            logger.LogInformation("getOrCreateWebsite: 2 {0}", websiteOrNothing);
             if (websiteOrNothing is null)
             {
-                WillSignInAutomatically = false;
+                //WillSignInAutomatically = false;
                 logger.LogError("Error finding website");
+                return Result.Fail("Error finding website");
             }
             else
             {
                 Website website = websiteOrNothing;
-                Website newWebsite;
-                if (selectedHeadlineOrNothing is not null)
-                {
-                    if (willSignInAutomatically2)
-                    {
-                        // TODO issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
-                        newWebsite = website with { RememberedPrefixOrNothing = selectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.Identifier };
-                    }
-                    else
-                    {
-                        newWebsite = website with { RememberedPrefixOrNothing = selectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.None };
-                    }
-
-
-                    logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsite);
-                    var res = await websitesService.Update(newWebsite);
-                    if (res is null || res.IsFailed)
-                    {
-                        WillSignInAutomatically = false;
-                        logger.LogError("Error updating website: {0}", res?.Errors);
-                    }
-                    else
-                    {
-                        logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
-                        WillSignInAutomatically = willSignInAutomatically2;
-                    }
-                }
+                return Result.Ok(website);
             }
         }
     }
+    
+    async Task updateWillSignInAutomatically(bool willSignInAutomatically2)
+    {
+        var result = await getOrCreateWebsite(UriUri);
 
-    IdentifierHeadline? selectedHeadlineOrNothing { get; set; }
+        Website newWebsite = result.Value;
+        if (SelectedHeadlineOrNothing is not null)
+        {
+            if (willSignInAutomatically2)
+            {
+                // TODO issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
+                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.Identifier };
+            }
+            else
+            {
+                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.None };
+            }
+
+
+            logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsite);
+            var res = await websitesService.Update(newWebsite);
+            if (res is null || res.IsFailed)
+            {
+                WillSignInAutomatically = false;
+                logger.LogError("Error updating website: {0}", res?.Errors);
+            }
+            else
+            {
+                logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
+                WillSignInAutomatically = willSignInAutomatically2;
+            }
+        }
+        else
+        {
+            logger.LogError("Unexpected null Identifier selection");
+        }
+    }
+
+
+    IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
 
     bool WillSignInAutomatically
     {
@@ -158,6 +202,7 @@
             UriUri = new Uri("http://unset.com");
         }
         await GetHeadlines();
+        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
     }
 
     private async Task GetHeadlines()
@@ -171,12 +216,27 @@
             IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
             if (IdentifiersHeadlines.Count > 0)
             {
-                // TODO look up in database for this website.  If preferred identifier is not remembered for this website, use the User's general preferences
-                selectedHeadlineOrNothing = IdentifiersHeadlines[0];
+                var res22 = await getOrCreateWebsite(UriUri);
+                if (res22.IsFailed)
+                {
+                    logger.LogError("Error in websiteService {0}", res22.Errors);
+                    return;
+                }
+                Website newWebsite = res22.Value;
+                if (newWebsite.RememberedPrefixOrNothing is not null)
+                {
+                    SelectedHeadlineOrNothing = IdentifiersHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing);
+                }
+                else
+                {
+                    // use the user's general preferences
+                    SelectedHeadlineOrNothing = IdentifiersHeadlines.FirstOrDefault(a => a.Prefix == ActiveAid);
+                }
+                StateHasChanged();
             }
             else
             {
-                selectedHeadlineOrNothing = null;
+                throw new Exception("No Identifiers found");
             }
         };
     }
@@ -194,29 +254,26 @@
     }
 }
 
-
-
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign In</MudText>
             <MudText Typo="Typo.body1"><em>http://unset.com</em></MudText>
-            <!-- TODO:  http://unset.com is requesting you to sign in -->
 
             <MudText Class="mt-6"><b>Identifier</b></MudText>
-            <MudSelect T="IdentifierHeadline" bind-Value="@selectedHeadlineOrNothing">
+            <MudSelect T="IdentifierHeadline" bind-Value="@SelectedHeadlineOrNothing">
                 @foreach (var identifierHeadline in IdentifiersHeadlines)
-                {
-                    <!-- TODO selection should be on Prefix, not Alias -->
-                    <MudSelectItem Value="@identifierHeadline">
-                        <MudStack Row Style="align-items:center;">
-                            <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                            <div class="bt-sad-2" style="display:contents;">
-                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                            </div>
-                        </MudStack>
-                    </MudSelectItem>
-                }
+                    {
+                <!-- TODO selection should be on Prefix, not Alias -->
+                <MudSelectItem Value="@identifierHeadline">
+                    <MudStack Row Style="align-items:center;">
+                        <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                        <div class="bt-sad-2" style="display:contents;">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                        </div>
+                    </MudStack>
+                </MudSelectItem>
+                    }
             </MudSelect>
 
             <MudStack>

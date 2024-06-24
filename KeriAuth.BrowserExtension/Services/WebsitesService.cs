@@ -1,5 +1,6 @@
 ﻿using FluentResults;
 using KeriAuth.BrowserExtension.Models;
+using System.Diagnostics;
 
 namespace KeriAuth.BrowserExtension.Services;
 
@@ -55,6 +56,7 @@ public class WebsitesService : IWebsitesService
             return Result.Fail("Add: could not fetch websites from storage");
         }
 
+        Debug.Assert (websitesResult.Value is not null, "websitesResult.Value != null");
         // Since Websites is a record, create a new list with the existing websites plus the new one
         var updatedWebsiteList = websitesResult.Value.WebsiteList.Append(website).ToList();
 
@@ -80,6 +82,7 @@ public class WebsitesService : IWebsitesService
         var websitesResult = await GetWebsites();
         if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null)
         {
+            Debug.Assert(websitesResult is not null, "websitesResult != null");
             logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
             return Result.Fail<Website>("Update: could not fetch websites from storage");
         }
