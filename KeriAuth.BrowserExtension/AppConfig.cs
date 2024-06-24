@@ -36,7 +36,7 @@
         public const string RouteToConfigureView = "/Configure";
         public const string RouteToUnlockView = "/Unlock";
         public const string RouteToConnectingView = "/Connecting";
-        public const string RouteToRequestSignIn = "/RequestSignIn";
+        public const string RouteToRequestSignIn = "/RequestSignIn/";
 
 
         // Idle Timeout
