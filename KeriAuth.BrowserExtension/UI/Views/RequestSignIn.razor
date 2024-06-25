@@ -24,7 +24,7 @@
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
-@inject IWebsiteConfigService websitesService
+@inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
 @inject IPreferencesService preferencesService
 
@@ -32,48 +32,37 @@
     [Parameter]
     public string encodedOriginStr { get; set; } = "";
 
-    Uri UriUri => new Uri(System.Web.HttpUtility.UrlDecode(encodedOriginStr));
+    Uri OriginUrl => new Uri(System.Web.HttpUtility.UrlDecode(encodedOriginStr));
 
-    string ActiveAid { get; set; } = string.Empty;
+    string AppActivePrefix { get; set; } = string.Empty;
 
     List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
 
-    bool IsChoiceRemembered { get; set; }
+    // TODO should be something like  get => ThisWebsiteConfig?.RememberedPrefixOrNothing == SelectedPrefix;
+    bool IsPrefixRemembered { get; set; }
 
     IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
 
     string SelectedPrefix { get; set; } = "unknown";
 
-    // bool IsEnableAutomaticSignInCheckboxDisabled => !WillSignInAutomatically && !IsChoiceRemembered;
+    // TODO should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
+    bool IsAutoSignIn { get; set; }
 
-    bool WillSignInAutomatically { get; set; }
+    WebsiteConfig? ThisWebsiteConfig { get; set; }
 
     async Task updateSelectedPrefix(string prefix)
     {
         SelectedPrefix = prefix;
-        await getWebsiteConfig(UriUri);
+        // TODO following should be just un/resubscribe to another websiteConfig? ... and this UI is made responsive to an IObserver<WebsiteConfig>
+        await getWebsiteConfig(OriginUrl);
         StateHasChanged();
-
-        // await Task.Delay(0);
-        // logger.LogWarning("updateSelectedPrefix: {0}", prefix);
-        // SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == prefix);
-        // if (SelectedHeadlineOrNothing is null)
-        // {
-        //     logger.LogError("updateSelectedPrefix: Unexpected null Identifier selection");
-        //     return;
-        // }
-
-        // logger.LogWarning("updateSelectedPrefix: SelectedHeadlineOrNothing: {0}", JsonSerializer.Serialize(SelectedHeadlineOrNothing));
-        // SelectedPrefix = prefix;
-        // IsChoiceRemembered = SelectedHeadlineOrNothing.Prefix == prefix;
-        // WillSignInAutomatically = SelectedHeadlineOrNothing.Prefix == prefix;
-        // StateHasChanged();
     }
 
-    async Task updateIsRemembered(bool isChecked)
+    async Task updateIsPrefixRemembered(bool isChecked)
     {
-        IsChoiceRemembered = isChecked;
-        var getOrCreateWebsiteRes = await websitesService.GetOrCreateWebsiteConfig(UriUri);
+        // TODO implementation should just push an update into websiteConfigService, and rest be reactive to that.
+        IsPrefixRemembered = isChecked;
+        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(OriginUrl);
         if (getOrCreateWebsiteRes.IsFailed)
         {
             logger.LogError("Error in websiteService {0}", getOrCreateWebsiteRes.Errors);
@@ -84,29 +73,24 @@
         {
             if (isChecked)
             {
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedHeadlineOrNothing.Prefix };
+                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedPrefix };
             }
             else
             {
                 // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
                 // TODO: once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
-                WillSignInAutomatically = false;
+                IsAutoSignIn = false;
                 newWebsite = newWebsite with { RememberedPrefixOrNothing = null, AutoSignInChoice = AutoSignInMode.None };
             }
 
             logger.LogInformation("updateIsRemembered: about to update: {0}", newWebsite);
-            var res = await websitesService.Update(newWebsite);
+            var res = await websiteConfigService.Update(newWebsite);
             if (res is null || res.IsFailed)
             {
                 throw new Exception($"Error updating website: {res?.Errors}");
-                // isChoiceRemembered = false;
-                // logger.LogError("updateIsRemembered: Error updating website: {0}", res?.Errors);
             }
-            else
-            {
-                // logger.LogInformation("updateIsRemembered: setting willRememberChoice {0}", res);
-                // isChoiceRemembered = isRemembered;
-            }
+            await getWebsiteConfig(OriginUrl); // StateHasChanged();
+            return;
         }
         else
         {
@@ -115,39 +99,42 @@
         return;
     }
 
-    async Task updateWillSignInAutomatically(bool isChecked)
+    async Task updateIsAutoSignIn(bool isChecked)
     {
-        WillSignInAutomatically = isChecked;
-        var result = await websitesService.GetOrCreateWebsiteConfig(UriUri);
+        // TODO implementation should just push an update into websiteConfigService, and rest be reactive to that.
+        IsAutoSignIn = isChecked;
+        var result = await websiteConfigService.GetOrCreateWebsiteConfig(OriginUrl);
 
-        WebsiteConfig newWebsite = result.Value;
+        WebsiteConfig newWebsiteConfig = result.Value;
         if (SelectedHeadlineOrNothing is not null)
         {
             if (isChecked)
             {
                 // TODO issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
                 // put this logic into service and simplify here once this UI is made responsive to an IObserver<WebsiteConfig>
-                IsChoiceRemembered = true;
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.Identifier };
+                IsPrefixRemembered = true;
+                newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.Identifier };
             }
             else
             {
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedHeadlineOrNothing.Prefix, AutoSignInChoice = AutoSignInMode.None };
+                newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.None };
             }
 
 
-            logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsite);
-            var res = await websitesService.Update(newWebsite);
+            logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsiteConfig);
+            var res = await websiteConfigService.Update(newWebsiteConfig);
             if (res is null || res.IsFailed)
             {
-                WillSignInAutomatically = false;
+                IsAutoSignIn = false;
                 logger.LogError("Error updating website: {0}", res?.Errors);
             }
             else
             {
                 logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
-                WillSignInAutomatically = isChecked;
+                IsAutoSignIn = isChecked;
             }
+            await getWebsiteConfig(OriginUrl); //  StateHasChanged();
+            return;
         }
         else
         {
@@ -155,11 +142,10 @@
         }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         base.OnInitialized();
-        await Task.Delay(0);
-        logger.LogInformation($"OnInitializedAsync");
+        logger.LogInformation($"OnInitialized");
     }
 
     protected override async Task OnParametersSetAsync()
@@ -168,12 +154,6 @@
         await base.OnParametersSetAsync();
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
         await GetInitialHeadlines();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        // logger.LogInformation($"OnAfterRenderAsync");
-        await base.OnAfterRenderAsync(firstRender);
     }
 
     async Task GetInitialHeadlines()
@@ -187,7 +167,7 @@
             IdentifierHeadlines = IdentifierHeadlines.OrderBy(a => a.Alias).ToList();
             if (IdentifierHeadlines.Count > 0)
             {
-                var wcRes = await websitesService.GetOrCreateWebsiteConfig(UriUri);
+                var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(OriginUrl);
                 logger.LogInformation("GetHeadlines: getOrCreateWebsite: {0}", JsonSerializer.Serialize(wcRes));
                 if (wcRes.IsFailed)
                 {
@@ -202,7 +182,7 @@
                 else
                 {
                     // use the user's general preferences or otherwise the first headline
-                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == ActiveAid);
+                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == AppActivePrefix);
                     if (SelectedHeadlineOrNothing is null)
                     {
                         SelectedHeadlineOrNothing = IdentifierHeadlines.First();
@@ -211,7 +191,7 @@
                 logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
                 SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
                 Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value for SelectedHeadlineOrNothing");
-                await getWebsiteConfig(UriUri);
+                await getWebsiteConfig(OriginUrl);
                 StateHasChanged();
             }
             else
@@ -221,17 +201,16 @@
         };
     }
 
-    WebsiteConfig? ThisWebsiteConfig { get; set; }
-
     async Task getWebsiteConfig(Uri uri)
     {
-        var x = await websitesService.GetOrCreateWebsiteConfig(uri);
+        var x = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
         if (x.IsSuccess)
         {
             ThisWebsiteConfig = x.Value;
             // TODO: update the getter for the following properties to use this
-            IsChoiceRemembered = x.Value.RememberedPrefixOrNothing == SelectedPrefix;
-            WillSignInAutomatically = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
+            IsPrefixRemembered = x.Value.RememberedPrefixOrNothing == SelectedPrefix;
+            IsAutoSignIn = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
+            StateHasChanged();
         }
         else
         {
@@ -241,13 +220,13 @@
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
-        ActiveAid = prefs.SelectedAid;
-        // TODO decide whether the Select Identifier value should change
+        AppActivePrefix = prefs.SelectedAid;
         this.StateHasChanged();
     }
 
     public void Dispose()
     {
+        // TODO unsubscribe from services, observables
         ;
     }
 }
@@ -256,7 +235,7 @@
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign In</MudText>
-            <MudText Typo="Typo.body1"><em>@UriUri</em></MudText>
+            <MudText Typo="Typo.body1"><em>@OriginUrl</em></MudText>
             <MudStack Class="gap-0">
                 <MudText Class="mt-6"><b>Identifier</b></MudText>
                 <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
@@ -275,14 +254,14 @@
             </MudStack>
             <MudStack Class="gap-0">
                 <MudText Class="mt-6"><b>Options</b></MudText>
-                <MudText Typo="Typo.body1">For future requests from <em>@UriUri</em></MudText>
-                <MudCheckBox Label="Prefer this identifier" Value="@IsChoiceRemembered" ValueChanged="async (bool b) => await updateIsRemembered(b)" />
-                <MudCheckBox Label="Auto sign in" Value="@WillSignInAutomatically" ValueChanged="async (bool b) => await updateWillSignInAutomatically(b)" />
+                <MudText Typo="Typo.body1">for future requests from <em>@OriginUrl</em></MudText>
+                <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                <MudCheckBox Label="Enable auto SignIn" Value="@IsAutoSignIn" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
                 @{
-                    /* If "auto sign in" but not with this Identifier, show the other identifier */
-                    if (WillSignInAutomatically && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
+                    /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
+                    if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
                     {
-                        <MudText Class="pt-0 mt-0 pl-10" Typo="Typo.caption">(with "@IdentifierHeadlines.First(x => x.Prefix == ThisWebsiteConfig?.RememberedPrefixOrNothing).Alias")</MudText>
+                        <MudText Class="pt-0 mt-0 pl-10" Typo="Typo.caption">(enabled for "@IdentifierHeadlines.First(x => x.Prefix == ThisWebsiteConfig?.RememberedPrefixOrNothing).Alias)"</MudText>
                     }
                 }
             </MudStack>
