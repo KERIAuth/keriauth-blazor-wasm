@@ -1,9 +1,9 @@
 ﻿using System.Text.Json.Serialization;
 namespace KeriAuth.BrowserExtension.Models
 {
-    public record Website
+    public record WebsiteConfig
     {
-        public Website(
+        public WebsiteConfig(
         Uri origin,
         List<WebsiteInteraction> interactions,
         string? rememberedPrefixOrNothing,

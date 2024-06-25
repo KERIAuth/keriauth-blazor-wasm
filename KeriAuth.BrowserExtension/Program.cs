@@ -32,7 +32,7 @@ builder.Services.AddSingleton<IAlarmService, AlarmService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
 builder.Services.AddSingleton<IdentifiersService>();
-builder.Services.AddSingleton<IWebsitesService, WebsitesService>();
+builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 
 var host = builder.Build();
 
