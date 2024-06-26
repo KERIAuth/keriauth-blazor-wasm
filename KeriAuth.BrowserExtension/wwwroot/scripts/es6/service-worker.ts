@@ -195,37 +195,16 @@ function createPopupWindow() {
     });
 }
 
-function useActionPopup(tabId: number) {
+function useActionPopup(tabId: number, queryParams: { key: string, value: string }[] = []) {
     console.log('SW useActionPopup acting on current tab');
-    //chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    //    console.log('SW useActionPopup tabs: ', tabs);
-    //    let tab = tabs[0];
-    //    if (typeof tab?.url === 'string') {
-    //        console.log("SW useActionPopup tab url: ", tab.url);
-    //        if (typeof tab.id === 'number') {
-    //            //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup" });
-    //            //isActionPopupUrlSet()
-    //            //    .then(isOpen => {
-    //            //        if (!isOpen) {
-    chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
+    queryParams.push({ key: "environment", value: "ActionPopup" });
+    const url = createUrlWithEncodedQueryStrings("./index.html", queryParams)
+    chrome.action.setPopup({ popup: url, tabId: tabId });
     chrome.action.openPopup()
         .then(() => console.log("SW useActionPopup succeeded"))
         .catch((err) => {
             console.warn(`SW useActionPopup dropped. Was already open?`, err);
-            //chrome.action.setPopup({ popup: "./index.html?environment=ActionPopup", tabId: tabId });
-            //chrome.action.openPopup().then(() =>
-            //    console.log("SW useActionPopup re-opened"))
-            //    .catch((err) => console.warn("SW useActionPopup re-open dropped: ", err));
         });
-
-    //}
-    //else {
-    //    console.warn("SW useActionPopup: unexpected tab");
-    //}
-    //} else {
-    //    console.warn("SW useActionPopup: unexpected tab or url");
-    //}
-    //})
 }
 
 // bring the window to focus.  requires windows permission in the manifest ?
@@ -248,9 +227,12 @@ function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runt
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     if (port.sender && port.sender.tab && port.sender.tab.id) {
         const tabId = Number(port.sender.tab.id);
-        chrome.action.setBadgeText({ text: "3", tabId: tabId });
-        chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        useActionPopup(tabId);
+        //chrome.action.setBadgeText({ text: "3", tabId: tabId });
+        //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
+        // TODO Could alternately implement the message passing via messaging versus the URL
+        // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user?
+        console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", JSON.stringify(msg));
+        useActionPopup(tabId, [{ key: "message", value: JSON.stringify(msg) }]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
     }
@@ -345,5 +327,30 @@ chrome.tabs.onRemoved.addListener((tabId) => {
         delete connections[tabId]
     };
 });
+
+// TODO move into a helper file
+function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: string, value: string }[]): string {
+    const url = new URL(chrome.runtime.getURL(baseUrl));
+    const params = new URLSearchParams();
+
+    queryParams.forEach(param => {
+        if (isValidKey(param.key)) {
+            params.append(encodeURIComponent(param.key), encodeURIComponent(param.value));
+        } else {
+            console.warn(`Invalid key skipped: ${param.key}`);
+        }
+    });
+
+    url.search = params.toString();
+    return url.toString();
+}
+
+// TODO move into a helper file
+function isValidKey(key: string): boolean {
+    // A simple regex to check for valid characters in a key
+    // Adjust the regex based on what you consider "well-formed"
+    const keyRegex = /^[a-zA-Z0-9-_]+$/;
+    return keyRegex.test(key);
+}
 
 export { };

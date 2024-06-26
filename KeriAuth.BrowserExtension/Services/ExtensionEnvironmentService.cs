@@ -17,13 +17,17 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     /// </summary>
     public Uri? ExtensionIframeLocation { get; private set; }
 
+    public string? InitialUriQuery { get; private set; }
+
     /// <inheritdoc />
     public void Initialize(Uri uri, string contextType)
     {
         logger.LogWarning("Initialize with uri {uri}", uri);
         var query = uri.Query;
+        InitialUriQuery = query;
         if (uri.AbsoluteUri.Contains("chrome-extension"))
         {
+            // TODO: better to get this environment value from the chrome.runtime.getContexts() API, filtered by the current context.  See UIHelper.GetChromeContexts()
             if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment))
             {
                 if (Enum.TryParse(environment.FirstOrDefault(), true, out ExtensionEnvironment extensionEnvironment))

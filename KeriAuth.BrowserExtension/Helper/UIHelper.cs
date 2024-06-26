@@ -24,5 +24,8 @@ namespace KeriAuth.BrowserExtension.Helper
 
         [JSImport("Utils.restartBlazorApp", "uiHelper")]
         internal static partial void RestartBlazorApp(string urlString);
+
+        [JSImport("Utils.getChromeContexts", "uiHelper")]
+        internal static partial Task<string> GetChromeContexts();
     }
 }

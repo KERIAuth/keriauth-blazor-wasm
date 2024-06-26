@@ -1,5 +1,6 @@
 @using Blazor.BrowserExtension
 @using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.UI
 @using KeriAuth.BrowserExtension.Services
 @using MudBlazor
@@ -35,7 +36,9 @@
 
         // Initialize services as needed
         var uri = navManager.ToAbsoluteUri(navManager.Uri);
-        extensionEnvironmentService.Initialize(uri, "unknown"); // See chrome.runtime.getContexts
+        var contexts = await UIHelper.GetChromeContexts();
+        logger.LogInformation($"Chrome Contexts: {contexts}");
+        extensionEnvironmentService.Initialize(uri, "unknown");
         await storageService.Initialize();
         await stateService.Initialize();
         preferencesService.Initialize();

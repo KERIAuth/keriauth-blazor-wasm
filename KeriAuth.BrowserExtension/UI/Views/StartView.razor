@@ -18,6 +18,8 @@
 @using System.Text.Json;
 @using System.Text.Json.Nodes
 @using Blazor.BrowserExtension
+@using Microsoft.AspNetCore.WebUtilities
+@using System.Web
 @using WebExtensions.Net
 @using WebExtensions.Net.Runtime
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
@@ -191,6 +193,16 @@
         var currentAppState = stateService.GetState();
 
         logger.LogInformation($"currentAppState: {currentAppState}");
+
+        var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
+        logger.LogWarning($"Chrome URI query: {initialUriQuery}");
+        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
+        {
+            var decodedMsg = HttpUtility.UrlDecode(message);
+            logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
+            // TODO try-parse the message into a known type and handle it
+        }
+
         switch (currentAppState)
         {
             case IStateService.States.Unconfigured:
@@ -208,6 +220,8 @@
                 return;
 
             case IStateService.States.AuthenticatedConnected:
+                // TODO implement navigateTo if URI query message, e.g.
+                // to "dialog" view such as for select-identifier.
                 navManager.NavigateTo(RouteToHome);
                 return;
 

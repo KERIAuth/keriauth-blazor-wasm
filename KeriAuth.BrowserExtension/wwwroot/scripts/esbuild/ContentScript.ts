@@ -124,32 +124,36 @@ document.addEventListener('DOMContentLoaded', (event) => {
                         } else {
                             console.log("KeriAuthCs from page:", event.data);
 
-                            switch (event.data.type) {
-                                case "signify-extension":
-                                    // Note, this notification to SW is haneled earlier in the code, in the advertiseToPage function
-                                    //const msg: ICsSwMsg = {
-                                    //    type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
-                                    //};
-                                    //console.log("KeriAuthCs to extension:", msg);
-                                    //port.postMessage(msg);
-                                    break;
-                                case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-                                    const msg2: ICsSwMsg = {
-                                        type: CsSwMsgType.SELECT_IDENTIFIER
-                                    };
-                                    console.log("KeriAuthCs to extension:", msg2);
-                                    port.postMessage(msg2);
-                                    break;
-                                case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-                                case PAGE_EVENT_TYPE.SELECT_ID_CRED:
-                                case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
-                                case PAGE_EVENT_TYPE.NONE:
-                                case PAGE_EVENT_TYPE.VENDOR_INFO:
-                                case PAGE_EVENT_TYPE.FETCH_RESOURCE:
-                                case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
-                                default:
-                                    console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
-                                    break;
+                            try {
+                                switch (event.data.type) {
+                                    case "signify-extension":
+                                        // Note, this notification to SW is haneled earlier in the code, in the advertiseToPage function
+                                        //const msg: ICsSwMsg = {
+                                        //    type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
+                                        //};
+                                        //console.log("KeriAuthCs to extension:", msg);
+                                        //port.postMessage(msg);
+                                        break;
+                                    case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
+                                        const msg2: ICsSwMsg = {
+                                            type: CsSwMsgType.SELECT_IDENTIFIER
+                                        };
+                                        console.log("KeriAuthCs to extension:", msg2);
+                                        port.postMessage(msg2);
+                                        break;
+                                    case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
+                                    case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+                                    case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
+                                    case PAGE_EVENT_TYPE.NONE:
+                                    case PAGE_EVENT_TYPE.VENDOR_INFO:
+                                    case PAGE_EVENT_TYPE.FETCH_RESOURCE:
+                                    case PAGE_EVENT_TYPE.AUTO_SIGNIN_SIG:
+                                    default:
+                                        console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
+                                        break;
+                                }
+                            } catch (error) {
+                                console.error("KeriAuthCs: error in handling event from page: ", event.data, "Extension reloaded? Try reloading page.", "Error:", error)
                             }
                         }
                     }
