@@ -194,6 +194,8 @@
 
         logger.LogInformation($"currentAppState: {currentAppState}");
 
+
+        // TODO temporary code to handle select-identifier message (Chrome URI query message)
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogWarning($"Chrome URI query: {initialUriQuery}");
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
@@ -201,7 +203,12 @@
             var decodedMsg = HttpUtility.UrlDecode(message);
             logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
             // TODO try-parse the message into a known type and handle it
+            await stateService.Configure(); // TODO TMP
+            var url = System.Web.HttpUtility.UrlEncode("https://unset.com"); // TODO fix to the page's origin
+            navManager.NavigateTo(RouteToRequestSignIn + url);
+            return;
         }
+        ////
 
         switch (currentAppState)
         {

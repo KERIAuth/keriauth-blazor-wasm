@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+﻿@inherits BaseLayout
 
 @using KeriAuth.BrowserExtension;
 @using KeriAuth.BrowserExtension.Helper;
@@ -29,12 +29,14 @@
 @inject ISignifyClientService signifyClientService
 @implements IDisposable
 
-<MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@IsDarkTheme" />
+<!-- Note this is wrapped by the outter content in BaseLayout -->
+
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" @bind-IsDarkMode="@App.IsDarkTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
 
-<MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
 
+<MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
     <!-- APP BAR -->
     <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
         <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
@@ -111,6 +113,7 @@
     </MudAppBar>
 
 
+
     <!-- MENU DRAWER AND MAIN CONTENT -->
     @{
         /* TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting */
@@ -163,10 +166,11 @@
     </MudDrawerContainer>
 </MudLayout>
 
+
+
 @code {
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
-    bool IsDarkTheme { get; set; }
     bool IsIdenticonHidden
     {
         get
@@ -421,7 +425,7 @@
     {
         var prefs = await preferencesService.GetPreferences();
         prefs = prefs with { IsDarkTheme = !prefs.IsDarkTheme };
-        IsDarkTheme = prefs.IsDarkTheme;
+        App.IsDarkTheme = prefs.IsDarkTheme;
         await preferencesService.SetPreferences(prefs);
     }
 
@@ -473,7 +477,7 @@
     async Task InitializeOrOnNextPrefs(Preferences prefs)
     {
         // logger.LogInformation("received prefs: " + JsonSerializer.Serialize(prefs));
-        IsDarkTheme = prefs.IsDarkTheme;
+        App.IsDarkTheme = prefs.IsDarkTheme;
         // TODO P4 set the background-image depending on isDarkTheme.
         ActiveAid = (object)prefs.SelectedAid;
         UpdateDrawerMode(DrawerMode, prefs);
@@ -558,138 +562,4 @@
 
     // TODO why not make this always get the current state from stateService?
     public static IStateService.States CurrentState { get; set; } = IStateService.States.Unknown;
-
-    MudTheme MyCustomTheme = new MudTheme()
-        {
-            // See also https://mudblazor.com/customization/default-theme
-            Palette = new PaletteLight()
-            {
-                Primary = new MudColor(201, 1.0, 0.38, 1.0), // Colors.Indigo.Default,
-                PrimaryLighten = Colors.Indigo.Lighten1,
-                PrimaryDarken = Colors.Indigo.Darken1,
-                PrimaryContrastText = Colors.Grey.Lighten5,
-                // TextPrimary **
-
-                Secondary = Colors.Brown.Default,
-                SecondaryLighten = Colors.Brown.Lighten1,
-                SecondaryDarken = Colors.Brown.Darken1,
-                SecondaryContrastText = Colors.Grey.Lighten5,
-                // TextSecondary  **
-
-                Tertiary = Colors.DeepOrange.Default,
-                TertiaryLighten = Colors.DeepOrange.Lighten1,
-                TertiaryDarken = Colors.DeepOrange.Darken1,
-                TertiaryContrastText = Colors.Grey.Lighten5,
-
-                // Info
-                // InfoLighten
-                // InfoDarken
-                // InfoContrastText
-
-                // Success
-                // SuccessLighten
-                // SuccessDarken
-                // SuccessContrastText
-                // TextSuccess
-
-                // Warning,
-                // WarningLighten,
-                // WarningDarken,
-                // WarningContrastText,
-
-                // Error,
-                // ErrorDarken,
-                // ErrorLighten,
-                // ErrorContrastText,
-
-                // Dark
-                // DarkLighten
-                // DarkDarken
-                // DarkContrastText
-
-                Background = new MudColor(0, 0.0, 0.96, 1.0),
-                BackgroundGrey = new MudColor(0, 0.0, 0.76, 1.0),
-
-                AppbarBackground = new MudColor(200, 0.17, 0.26, 1.0),
-                // AppbarText
-
-                TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
-
-                DrawerBackground = new MudColor(0, 100, 10, 1.0),
-                DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
-                DrawerText = new MudColor(0, 1.0, 1.0, 1.0),
-
-                ActionDisabled = Colors.Grey.Default,
-
-                Surface = new MudColor(0, 0.0, 0.90, 1.0),
-                /*
-                White
-                Black
-
-                TableStriped
-                TableLines
-                TableHover
-
-                Surface
-
-                OverlayLight
-                OverlayDark
-
-                LinesInputs
-                LinesDefault
-
-                HoverOpacity
-
-                GrayLighter
-                GrayLight
-                GrayDefault
-                GrayDarker
-                GrayDark
-
-                Divider
-                DividerLight
-                DividerDark
-
-                ActionDisabledBackground
-                ActionDisabled
-                ActionDefault
-                */
-            },
-            PaletteDark = new PaletteDark()
-            {
-                Primary = Colors.LightBlue.Lighten4,
-                PrimaryLighten = Colors.LightBlue.Lighten3,
-                PrimaryDarken = Colors.Cyan.Lighten5,
-                PrimaryContrastText = Colors.Grey.Darken4,
-
-                Secondary = Colors.Amber.Lighten4,
-                SecondaryLighten = Colors.Amber.Lighten3,
-                SecondaryDarken = Colors.Amber.Lighten5,
-                SecondaryContrastText = Colors.Grey.Darken4,
-
-                Tertiary = Colors.DeepOrange.Lighten4,
-                TertiaryLighten = Colors.DeepOrange.Lighten3,
-                TertiaryDarken = Colors.DeepOrange.Lighten5,
-                TertiaryContrastText = Colors.Grey.Darken4,
-
-                ActionDisabled = Colors.Grey.Darken1,
-                ActionDisabledBackground = Colors.Grey.Default,
-
-                Background = new MudColor(201, 0.23, 0.12, 1.0),
-                BackgroundGrey = new MudColor(0, 0.0, 0.13, 1.0),
-                Success = new MudColor(123, 0.41, 0.45, 1.0),
-                // Error = new MudColor(244, 0.67, 0.54, 1.0),
-                AppbarBackground = new MudColor(200, 0.19, 0.18, 1.0),
-                TextPrimary = new MudColor(0, 0.0, 0.92, 1.0),
-
-                TextSecondary = new MudColor(0, 0.0, 0.45, 1.0),
-                Surface = new MudColor(0, 0.0, 0.21, 1.0),
-                LinesDefault = new MudColor(0, 0.0, 1.0, 0.12),
-
-                DrawerText = new MudColor(0, 0.0, 1.0, 1.0),
-                TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
-                DrawerBackground = new MudColor(200, 0.19, 0.18, 1.0),
-                DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
-            },
-        };
 }

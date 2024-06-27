@@ -1,0 +1,18 @@
+﻿@inherits BaseLayout
+
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" @bind-IsDarkMode="@App.IsDarkTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider Style="z-index:9999" />
+
+<div id="@this.GetType().Name">
+    @Body
+</div>
+
+<style>
+    #BaseLayout {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+</style>

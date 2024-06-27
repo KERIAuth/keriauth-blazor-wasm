@@ -62,13 +62,11 @@
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="IsLocked" OnClick="@(() => navManager.NavigateTo(RouteToStart))" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
 
 @code {
-    private bool IsLocked = true;
+    // private bool IsLocked = true;
     private bool isValid;
     MudForm? form;
     private string[] errors = { };
@@ -155,7 +153,7 @@
         if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
         {
             await stateService.Authenticate(false);
-            IsLocked = false;
+            // IsLocked = false;
             // TODO: Start showing a spinner here?
             var res = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             logger.LogInformation("res: " + res);

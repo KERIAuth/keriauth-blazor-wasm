@@ -51,6 +51,12 @@
         {
             await storageService.Clear();
             RestartBlazorApp(RouteToIndex);
+            // TODO consider the following instead:
+            // NavManager.NavigateTo(RouteToIndex, new NavigationOptions()
+            //     {
+            //         ForceLoad = true,
+            //         ReplaceHistoryEntry = true
+            //     });
         } else
         {
             navManager.NavigateTo(RouteToHome);

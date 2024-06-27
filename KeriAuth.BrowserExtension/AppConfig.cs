@@ -1,4 +1,7 @@
-﻿namespace KeriAuth.BrowserExtension
+﻿using MudBlazor.Utilities;
+using MudBlazor;
+
+namespace KeriAuth.BrowserExtension
 {
     public static class AppConfig
     {
@@ -51,6 +54,140 @@
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
         public const int SignifyTimeoutMs = 6000;
+
+        public static readonly MudTheme MyCustomTheme = new()
+        {
+            // See also https://mudblazor.com/customization/default-theme
+            Palette = new PaletteLight()
+            {
+                Primary = new MudColor(201, 1.0, 0.38, 1.0), // Colors.Indigo.Default,
+                PrimaryLighten = Colors.Indigo.Lighten1,
+                PrimaryDarken = Colors.Indigo.Darken1,
+                PrimaryContrastText = Colors.Grey.Lighten5,
+                // TextPrimary **
+
+                Secondary = Colors.Brown.Default,
+                SecondaryLighten = Colors.Brown.Lighten1,
+                SecondaryDarken = Colors.Brown.Darken1,
+                SecondaryContrastText = Colors.Grey.Lighten5,
+                // TextSecondary  **
+
+                Tertiary = Colors.DeepOrange.Default,
+                TertiaryLighten = Colors.DeepOrange.Lighten1,
+                TertiaryDarken = Colors.DeepOrange.Darken1,
+                TertiaryContrastText = Colors.Grey.Lighten5,
+
+                // Info
+                // InfoLighten
+                // InfoDarken
+                // InfoContrastText
+
+                // Success
+                // SuccessLighten
+                // SuccessDarken
+                // SuccessContrastText
+                // TextSuccess
+
+                // Warning,
+                // WarningLighten,
+                // WarningDarken,
+                // WarningContrastText,
+
+                // Error,
+                // ErrorDarken,
+                // ErrorLighten,
+                // ErrorContrastText,
+
+                // Dark
+                // DarkLighten
+                // DarkDarken
+                // DarkContrastText
+
+                Background = new MudColor(0, 0.0, 0.96, 1.0),
+                BackgroundGrey = new MudColor(0, 0.0, 0.76, 1.0),
+
+                AppbarBackground = new MudColor(200, 0.17, 0.26, 1.0),
+                // AppbarText
+
+                TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
+
+                DrawerBackground = new MudColor(0, 100, 10, 1.0),
+                DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
+                DrawerText = new MudColor(0, 1.0, 1.0, 1.0),
+
+                ActionDisabled = Colors.Grey.Default,
+
+                Surface = new MudColor(0, 0.0, 0.90, 1.0),
+                /*
+                White
+                Black
+
+                TableStriped
+                TableLines
+                TableHover
+
+                Surface
+
+                OverlayLight
+                OverlayDark
+
+                LinesInputs
+                LinesDefault
+
+                HoverOpacity
+
+                GrayLighter
+                GrayLight
+                GrayDefault
+                GrayDarker
+                GrayDark
+
+                Divider
+                DividerLight
+                DividerDark
+
+                ActionDisabledBackground
+                ActionDisabled
+                ActionDefault
+                */
+            },
+            PaletteDark = new PaletteDark()
+            {
+                Primary = Colors.LightBlue.Lighten4,
+                PrimaryLighten = Colors.LightBlue.Lighten3,
+                PrimaryDarken = Colors.Cyan.Lighten5,
+                PrimaryContrastText = Colors.Grey.Darken4,
+
+                Secondary = Colors.Amber.Lighten4,
+                SecondaryLighten = Colors.Amber.Lighten3,
+                SecondaryDarken = Colors.Amber.Lighten5,
+                SecondaryContrastText = Colors.Grey.Darken4,
+
+                Tertiary = Colors.DeepOrange.Lighten4,
+                TertiaryLighten = Colors.DeepOrange.Lighten3,
+                TertiaryDarken = Colors.DeepOrange.Lighten5,
+                TertiaryContrastText = Colors.Grey.Darken4,
+
+                ActionDisabled = Colors.Grey.Darken1,
+                ActionDisabledBackground = Colors.Grey.Default,
+
+                Background = new MudColor(201, 0.23, 0.12, 1.0),
+                BackgroundGrey = new MudColor(0, 0.0, 0.13, 1.0),
+                Success = new MudColor(123, 0.41, 0.45, 1.0),
+                // Error = new MudColor(244, 0.67, 0.54, 1.0),
+                AppbarBackground = new MudColor(200, 0.19, 0.18, 1.0),
+                TextPrimary = new MudColor(0, 0.0, 0.92, 1.0),
+
+                TextSecondary = new MudColor(0, 0.0, 0.45, 1.0),
+                Surface = new MudColor(0, 0.0, 0.21, 1.0),
+                LinesDefault = new MudColor(0, 0.0, 1.0, 0.12),
+
+                DrawerText = new MudColor(0, 0.0, 1.0, 1.0),
+                TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
+                DrawerBackground = new MudColor(200, 0.19, 0.18, 1.0),
+                DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
+            },
+        };
     }
 }
 
