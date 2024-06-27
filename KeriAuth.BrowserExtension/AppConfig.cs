@@ -1,5 +1,5 @@
-﻿using MudBlazor.Utilities;
-using MudBlazor;
+﻿using MudBlazor;
+using MudBlazor.Utilities;
 
 namespace KeriAuth.BrowserExtension
 {

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using FluentAssertions;
-using FluentResults;
+﻿using FluentResults;
 using KeriAuth.BrowserExtension.Models;
 
 namespace KeriAuth.BrowserExtension.Services

@@ -45,7 +45,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("Add: could not fetch websites from storage");
         }
 
-        Debug.Assert (websitesResult.Value is not null, "websitesResult.Value != null");
+        Debug.Assert(websitesResult.Value is not null, "websitesResult.Value != null");
         // Since Websites is a record, create a new list with the existing websites plus the new one
         var updatedWebsiteList = websitesResult.Value.WebsiteList.Append(website).ToList();
 

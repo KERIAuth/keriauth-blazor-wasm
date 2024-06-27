@@ -1,6 +1,4 @@
 ﻿using System.Web;
-using System;
-using System.Collections.Generic;
 
 namespace KeriAuth.BrowserExtension.Helper
 {
