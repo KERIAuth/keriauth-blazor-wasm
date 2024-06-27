@@ -1,5 +1,4 @@
-﻿@page "/Welcome"
-@layout MainLayout
+﻿@page "/NewRelease"
 
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
@@ -15,8 +14,8 @@
 @using FluentResults
 @using JsBind.Net
 @using JsBind.Net.Configurations
-@using System.Diagnostics;
-@using System.Text.Json;
+@using System.Diagnostics
+@using System.Text.Json
 @using System.Text.Json.Nodes
 @using Blazor.BrowserExtension
 @using WebExtensions.Net
@@ -33,7 +32,7 @@
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IExtensionEnvironmentService extensionEnvironmentService
-@inject ILogger<WelcomeView> logger
+@inject ILogger<NewReleasePage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -41,43 +40,40 @@
 @inject ISnackbar snackbar
 
 <div id="@this.GetType().Name" class="bt-body-page">
+
     <div class="d-flex gap-3 bt-main">
         <MudStack>
+            <MudText Typo="Typo.h6">Updated Release</MudText>
             <MudText Typo="Typo.body1">
-                Thank you for installing KERI Auth.
-                We're excited to have you on board!
-                <br />
-                This release supports the following features:
+                The version of software has been updated.
             </MudText>
-            <MudContainer>
-                <ul style="list-style-type:circle;">
-                    <li>TBD</li>
-                    <li>TBD</li>
-                </ul>
-            </MudContainer>
-            <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
+            <MudText>For release history, see </MudText>
+            <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHistory)">release history</MudButton>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
+        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+            -->
         <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => AckNewRelease())" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
 
 @code {
-    private async Task AcknowledgeWelcome()
+    private async Task AckNewRelease()
     {
         var res = await storageService.GetItem<OnboardState>();
         if (res.IsFailed || res.Value is null)
         {
-            throw new Exception("OnboardState not found");
+            throw new Exception("Failed to get OnboardState");
         }
         var onboardState = res.Value;
-        onboardState = onboardState with { HasAcknowledgedInstall = true };
-        await storageService.SetItem(onboardState);
-
+        onboardState = onboardState with
+            {
+                HasAcknowledgedNewVersion = true
+            };
+        _ = await storageService.SetItem<OnboardState>(onboardState);
         navManager.NavigateTo(RouteToStart);
-        return;
     }
 
     protected override async Task OnInitializedAsync()

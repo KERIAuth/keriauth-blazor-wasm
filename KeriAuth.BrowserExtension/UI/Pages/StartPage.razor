@@ -34,7 +34,7 @@
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IExtensionEnvironmentService extensionEnvironmentService
-@inject ILogger<StartView> logger
+@inject ILogger<StartPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -153,19 +153,19 @@
         {
             if (!onboardState.HasAcknowledgedInstall)
             {
-                navManager.NavigateTo(RouteToWelcomeView);
+                navManager.NavigateTo(RouteToWelcome);
                 return;
             }
 
             if (!onboardState.HasAcknowledgedNewVersion)
             {
-                navManager.NavigateTo(RouteToNewReleaseView);
+                navManager.NavigateTo(RouteToNewRelease);
                 return;
             }
 
             if (onboardState.PrivacyAgreedHash == 0 || onboardState.TosAgreedHash == 0)
             {
-                navManager.NavigateTo(RouteToTermsView);
+                navManager.NavigateTo(RouteToTerms);
                 return;
             }
         }
@@ -185,7 +185,7 @@
         if (!keriaConnectConfig.IsConfigured())
         {
             // logger.LogWarning(keriaConnectConfig.ToString()); ///////////
-            navManager.NavigateTo(RouteToConfigureView);
+            navManager.NavigateTo(RouteToConfigure);
             return;
         }
 
@@ -215,15 +215,15 @@
             case IStateService.States.Unconfigured:
                 // TODO hack to get the app into a known state
                 await stateService.Configure();
-                navManager.NavigateTo(RouteToUnlockView);
+                navManager.NavigateTo(RouteToUnlock);
                 return; // intentional return here versus break?
 
             case IStateService.States.Unauthenticated:
-                navManager.NavigateTo(RouteToUnlockView);
+                navManager.NavigateTo(RouteToUnlock);
                 return;
 
             case IStateService.States.AuthenticatedDisconnected:
-                navManager.NavigateTo(RouteToConnectingView);
+                navManager.NavigateTo(RouteToConnecting);
                 return;
 
             case IStateService.States.AuthenticatedConnected:

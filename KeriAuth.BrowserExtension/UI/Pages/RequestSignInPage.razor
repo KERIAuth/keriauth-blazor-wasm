@@ -1,11 +1,12 @@
 ﻿@page "/RequestSignIn/{encodedOriginStr}"
-@layout DialogLayout
+@layout Layouts.DialogLayout
 
 @using System.Linq
 @using System.Text.Json
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
 @using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.UI.Pages
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Services.SignifyService
 @using KeriAuth.BrowserExtension.Services.SignifyService.Models
@@ -23,7 +24,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
-@inject ILogger<RequestSignIn> logger
+@inject ILogger<RequestSignInPage> logger
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService

@@ -6,7 +6,7 @@
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Services.SignifyService
 @using KeriAuth.BrowserExtension.UI.Components
-@using KeriAuth.BrowserExtension.UI.Views
+@using KeriAuth.BrowserExtension.UI.Pages
 @using FluentResults;
 @using System.Diagnostics;
 @using static KeriAuth.BrowserExtension.AppConfig;
@@ -93,7 +93,7 @@
                 <MudList Clickable="true" @bind-SelectedValue="ActiveAid" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
-                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersView.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersPage.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -150,7 +150,7 @@
                     <MudNavLink Href=@RouteToRelease Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Current Release Notes</MudNavLink>
                     <MudNavLink Href=@RouteToReleaseHistory Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release History</MudNavLink>
                     <MudNavLink Href=@RouteToTerms Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms of Use</MudNavLink>
-                    <MudNavLink Href=@RouteToPrivacy Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy Policy</MudNavLink>
+                    <MudNavLink Href=@RouteToPrivacyHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy Policy</MudNavLink>
                     <MudNavLink Href=@RouteToLicenses Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
                     <MudNavLink Href=@RouteToReleaseHistory Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">Version @version_name</MudNavLink>
                 </MudNavGroup>
@@ -219,11 +219,11 @@
         RouteToDelete,
         RouteToNewInstall,
         RouteToReleaseHistory,
-        RouteToWelcomeView,
-        RouteToNewReleaseView,
-        RouteToTermsView,
-        RouteToConfigureView,
-        RouteToUnlockView,
+        RouteToWelcome,
+        RouteToNewRelease,
+        RouteToTerms,
+        RouteToConfigure,
+        RouteToUnlock,
         RouteToRequestSignIn
     };
 

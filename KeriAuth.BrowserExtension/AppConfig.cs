@@ -23,8 +23,8 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToManagePrefs = "/ManagePreferences";
         public const string RouteToManageMediators = "/Mediators";
         public const string RouteToBackup = "/Backup";
-        public const string RouteToTerms = "content/terms.html";
-        public const string RouteToPrivacy = "content/privacy.html";
+        public const string RouteToTermsHtml = "content/terms.html";
+        public const string RouteToPrivacyHtml = "content/privacy.html";
         public const string RouteToAbout = "content/about.html";
         public const string RouteToHelp = "content/help.html";
         public const string RouteToLicenses = "content/licenses.html";
@@ -33,14 +33,13 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToNotifications = "/Notifications";
         public const string RouteToSchemas = "/Schemas";
         public const string RouteToManageAgents = "/Agents";
-        public const string RouteToWelcomeView = "/Welcome";
-        public const string RouteToNewReleaseView = "/NewRelease";
-        public const string RouteToTermsView = "/Terms";
-        public const string RouteToConfigureView = "/Configure";
-        public const string RouteToUnlockView = "/Unlock";
-        public const string RouteToConnectingView = "/Connecting";
+        public const string RouteToWelcome = "/Welcome";
+        public const string RouteToNewRelease = "/NewRelease";
+        public const string RouteToTerms = "/Terms";
+        public const string RouteToConfigure = "/Configure";
+        public const string RouteToUnlock = "/Unlock";
+        public const string RouteToConnecting = "/Connecting";
         public const string RouteToRequestSignIn = "/RequestSignIn/";
-
 
         // Idle Timeout
         public const int IdleDebounceTimeSpanSecs = 5;
