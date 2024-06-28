@@ -41,7 +41,7 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
-<!-- 
+<!--
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
     </div>
@@ -126,7 +126,10 @@
         logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
         // See also OnParametersSetAsync for additional initialization occuring on every navigation to this view
+        initialUriQuery = extensionEnvironmentService.InitialUriQuery;
     }
+
+    string? initialUriQuery;
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
 
@@ -136,6 +139,9 @@
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
+
+
+        logger.LogError($"Chrome URI query: {initialUriQuery}");
 
         // Get the onboardState from storage and route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
@@ -192,24 +198,10 @@
         // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate view
         var currentAppState = stateService.GetState();
 
-        logger.LogInformation($"currentAppState: {currentAppState}");
-
-
-        // TODO temporary code to handle select-identifier message (Chrome URI query message)
-        var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
-        logger.LogWarning($"Chrome URI query: {initialUriQuery}");
-        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
-        {
-            var decodedMsg = HttpUtility.UrlDecode(message);
-            logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
-            // TODO try-parse the message into a known type and handle it
-            await stateService.Configure(); // TODO TMP
-            var url = System.Web.HttpUtility.UrlEncode("https://unset.com"); // TODO fix to the page's origin
-            navManager.NavigateTo(RouteToRequestSignIn + url);
-            return;
-        }
-        ////
-
+        logger.LogError($"currentAppState: {currentAppState}");
+        logger.LogError($"Chrome URI query: {initialUriQuery}");
+        initialUriQuery = HttpUtility.UrlDecode(initialUriQuery);
+        logger.LogError($"Chrome URI query decoded: {initialUriQuery}");
         switch (currentAppState)
         {
             case IStateService.States.Unconfigured:
@@ -227,9 +219,39 @@
                 return;
 
             case IStateService.States.AuthenticatedConnected:
-                // TODO implement navigateTo if URI query message, e.g.
-                // to "dialog" view such as for select-identifier.
-                navManager.NavigateTo(RouteToHome);
+
+                // TODO temporary code to handle select-identifier message (Chrome URI query message)
+
+                if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
+                {
+                    var decodedMsg = HttpUtility.UrlDecode(message);
+                    logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
+                    // TODO try-parse the message into a known type and handle it
+                    // await stateService.Configure(); // TODO TMP
+                                                    // var url = System.Web.HttpUtility.UrlEncode("https://unset.com"); // TODO fix to the page's origin
+
+
+                    // var uriBuilder = new UriBuilder(navManager.BaseUri)
+                    //     {
+                    //         Path = RouteToRequestSignIn,
+                    //         Query = initialUriQuery
+                    //     };
+                    // var uriStr = uriBuilder.Uri.ToString();
+                    // logger.LogError("Navigating to {uriStr}", uriStr);
+                    // navManager.NavigateTo(uriStr);
+
+                    // TODO pass a parameter to the RequestSignIn page of the requesting page's encoded origin
+                    //                     logger.LogError("Navigating to {RouteToRequestSignIn}", RouteToRequestSignIn);
+                    // var x = new Uri("https://unset.com");
+                    
+
+                    var xxx = Uri.EscapeDataString("https://unset.com");
+                    navManager.NavigateTo(RouteToRequestSignIn + xxx);
+                }
+                else
+                {
+                    navManager.NavigateTo(RouteToHome);
+                }
                 return;
 
             default:

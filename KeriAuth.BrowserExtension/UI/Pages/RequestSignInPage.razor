@@ -1,5 +1,5 @@
-﻿@page "/RequestSignIn/{encodedOriginStr}"
-@layout Layouts.DialogLayout
+﻿@page "/RequestSignIn/{escapedOriginStr}"
+@layout Layouts.MainLayout
 
 @using System.Linq
 @using System.Text.Json
@@ -36,9 +36,10 @@
 
 @code {
     [Parameter]
-    public string encodedOriginStr { get; set; } = "";
+    public string escapedOriginStr { get; set; } = "";
 
-    Uri OriginUrl => new Uri(System.Web.HttpUtility.UrlDecode(encodedOriginStr));
+    // TODO this should have a try-catch around its usage
+    Uri OriginUrl => new Uri(Uri.UnescapeDataString(escapedOriginStr));
 
     string AppActivePrefix { get; set; } = string.Empty;
 
@@ -148,10 +149,13 @@
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
+        await base.OnInitializedAsync();
         logger.LogInformation($"OnInitialized");
+        logger.LogWarning("escapedOriginStr: {x}", escapedOriginStr);
+        logger.LogWarning(OriginUrl.Authority);
+        return;
     }
 
     protected override async Task OnParametersSetAsync()

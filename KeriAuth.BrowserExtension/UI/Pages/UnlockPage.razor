@@ -1,4 +1,5 @@
 ﻿@page "/Unlock"
+@layout Layouts.MainLayout
 
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Models
@@ -159,7 +160,6 @@
             logger.LogInformation("res: " + res);
             if (res is null || res.IsFailed)
             {
-                logger.LogInformation("TEMP7");
                 openWalletError = "Could not connect to KERI Agent";
                 snackbar.Add(openWalletError, Severity.Error);
                 logger.LogError(openWalletError);
@@ -170,7 +170,7 @@
                 await stateService.ConfirmConnected();
             }
             // Stop showing spinner
-            navManager.NavigateTo(RouteToHome);
+            navManager.NavigateTo(RouteToStart);
             return;
         }
         else

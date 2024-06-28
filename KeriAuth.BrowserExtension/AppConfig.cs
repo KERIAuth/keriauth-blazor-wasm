@@ -54,6 +54,19 @@ namespace KeriAuth.BrowserExtension
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
         public const int SignifyTimeoutMs = 6000;
 
+        public static readonly List<string> ViewsNotRequiringAuth =
+        [
+            RouteToStart,
+            RouteToDelete,
+            RouteToNewInstall,
+            RouteToReleaseHistory,
+            RouteToWelcome,
+            RouteToNewRelease,
+            RouteToTerms,
+            RouteToConfigure,
+            RouteToUnlock
+        ];
+
         public static readonly MudTheme MyCustomTheme = new()
         {
             // See also https://mudblazor.com/customization/default-theme

@@ -214,19 +214,6 @@
         public string Version_name { get; set; } = "unset verson name";
     }
 
-    static List<string> ViewsNotRequiringAuth = new() {
-        RouteToStart,
-        RouteToDelete,
-        RouteToNewInstall,
-        RouteToReleaseHistory,
-        RouteToWelcome,
-        RouteToNewRelease,
-        RouteToTerms,
-        RouteToConfigure,
-        RouteToUnlock,
-        RouteToRequestSignIn
-    };
-
     private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;
 
@@ -268,11 +255,9 @@
         switch (stateService.GetState())
         {
             case IStateService.States.AuthenticatedDisconnected:
-                logger.LogInformation("TEMP22");
                 IdentifiersHeadlines = [];
                 break;
             case IStateService.States.AuthenticatedConnected:
-                logger.LogInformation("TEMP1");
                 var res = await identifiersService.GetIdentifierHeadlines();
                 if (res.IsSuccess)
                 {
