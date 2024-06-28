@@ -197,7 +197,11 @@ function createPopupWindow() {
 
 function useActionPopup(tabId: number, queryParams: { key: string, value: string }[] = []) {
     console.log('SW useActionPopup acting on current tab');
-    queryParams.push({ key: "environment", value: "ActionPopup" });
+
+    const originParam = queryParams.find(param => param.key === "origin");
+    const origin = originParam ? originParam.value : "http://COULD.NOT.FIND.com";
+
+    queryParams.push({ key: "environment", value: "ActionPopup" }, { key: "origin", value: origin} );
     const url = createUrlWithEncodedQueryStrings("./index.html", queryParams)
     chrome.action.setPopup({ popup: url, tabId: tabId });
     chrome.action.openPopup()
@@ -231,8 +235,8 @@ function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runt
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
         // TODO Could alternately implement the message passing via messaging versus the URL
         // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user?
-        console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", JSON.stringify(msg));
-        useActionPopup(tabId, [{ key: "message", value: JSON.stringify(msg) }]);
+        console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", JSON.stringify(msg), "origin: ", JSON.stringify(port.sender.origin));
+        useActionPopup(tabId, [{ key: "message", value: JSON.stringify(msg) }, { key: "origin", value: JSON.stringify(port.sender.origin)}]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
     }

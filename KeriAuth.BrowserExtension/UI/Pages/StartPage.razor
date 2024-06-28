@@ -202,6 +202,8 @@
         logger.LogError($"Chrome URI query: {initialUriQuery}");
         initialUriQuery = HttpUtility.UrlDecode(initialUriQuery);
         logger.LogError($"Chrome URI query decoded: {initialUriQuery}");
+        var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
+        logger.LogError($"Chrome URI query decoded 2: {initialUriQuery2}");
         switch (currentAppState)
         {
             case IStateService.States.Unconfigured:
@@ -224,34 +226,29 @@
 
                 if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
                 {
-                    var decodedMsg = HttpUtility.UrlDecode(message);
-                    logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
-                    // TODO try-parse the message into a known type and handle it
-                    // await stateService.Configure(); // TODO TMP
-                                                    // var url = System.Web.HttpUtility.UrlEncode("https://unset.com"); // TODO fix to the page's origin
 
+                    logger.LogInformation("Chrome URI query message decoded2: {msg}", initialUriQuery2);
 
-                    // var uriBuilder = new UriBuilder(navManager.BaseUri)
-                    //     {
-                    //         Path = RouteToRequestSignIn,
-                    //         Query = initialUriQuery
-                    //     };
-                    // var uriStr = uriBuilder.Uri.ToString();
-                    // logger.LogError("Navigating to {uriStr}", uriStr);
-                    // navManager.NavigateTo(uriStr);
-
-                    // TODO pass a parameter to the RequestSignIn page of the requesting page's encoded origin
-                    //                     logger.LogError("Navigating to {RouteToRequestSignIn}", RouteToRequestSignIn);
-                    // var x = new Uri("https://unset.com");
-                    
-
-                    var xxx = Uri.EscapeDataString("https://unset.com");
-                    navManager.NavigateTo(RouteToRequestSignIn + xxx);
+                    if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("origin", out var encodedOrigin))
+                    {
+                        if (encodedOrigin.FirstOrDefault() is null)
+                        {
+                            logger.LogError("OnParametersSetAsync: Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
+                        }
+                        else
+                        {
+                            var origin = HttpUtility.UrlEncode(encodedOrigin.FirstOrDefault());
+                            logger.LogInformation("OnParametersSetAsync: Origin: {origin}", origin);
+                            navManager.NavigateTo(RouteToRequestSignIn + origin);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        logger.LogError("OnParametersSetAsync: Encoded origin not found in decodedMsg: {dm}", initialUriQuery2);
+                    }
                 }
-                else
-                {
-                    navManager.NavigateTo(RouteToHome);
-                }
+                navManager.NavigateTo(RouteToHome);
                 return;
 
             default:

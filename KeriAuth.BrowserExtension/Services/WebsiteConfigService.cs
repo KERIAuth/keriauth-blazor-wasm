@@ -100,16 +100,17 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
 
     public async Task<Result<WebsiteConfig>> GetOrCreateWebsiteConfig(Uri originUri)
     {
+        logger.LogInformation("GetOrCreateWebsiteConfig Uri {uri}", originUri);
         WebsiteConfigList websiteConfigList;
         var getWebsitesRes = await GetList();
-        if (getWebsitesRes.IsFailed)
+        if (getWebsitesRes is null || getWebsitesRes.IsFailed)
         {
-            logger.LogError("Error in websiteService {err}", getWebsitesRes.Errors);
-            return Result.Fail(getWebsitesRes.Errors.FirstOrDefault());
+            logger.LogError("Error in websiteService {err}", getWebsitesRes?.Errors);
+            return Result.Fail(getWebsitesRes?.Errors.FirstOrDefault());
         }
         else
         {
-            logger.LogInformation("getOrCreateWebsite: 1 {res}", JsonSerializer.Serialize(getWebsitesRes));
+            logger.LogInformation("getOrCreateWebsiteConfig: from storage: {res}", JsonSerializer.Serialize(getWebsitesRes));
 
             if (getWebsitesRes.Value is null)
             {
@@ -132,8 +133,8 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             }
 
             // Find the website in the collection
-            var websiteConfigOrNothing = websiteConfigList.WebsiteList.First<WebsiteConfig>(a => a.Origin == originUri);
-            logger.LogInformation("getOrCreateWebsite: 2 {website}", JsonSerializer.Serialize(websiteConfigOrNothing));
+            var websiteConfigOrNothing = websiteConfigList.WebsiteList.FirstOrDefault<WebsiteConfig>(a => a.Origin == originUri);
+            logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
             if (websiteConfigOrNothing is null)
             {
                 logger.LogInformation("Adding websiteConfig for {originUrl}", originUri);
