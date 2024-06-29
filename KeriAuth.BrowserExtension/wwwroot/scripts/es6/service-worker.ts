@@ -201,7 +201,7 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     const originParam = queryParams.find(param => param.key === "origin");
     const origin = originParam ? originParam.value : "http://COULD.NOT.FIND.com";
 
-    queryParams.push({ key: "environment", value: "ActionPopup" }, { key: "origin", value: origin} );
+    queryParams.push({ key: "environment", value: "ActionPopup" }, { key: "origin", value: origin });
     const url = createUrlWithEncodedQueryStrings("./index.html", queryParams)
     chrome.action.setPopup({ popup: url, tabId: tabId });
     chrome.action.openPopup()
@@ -236,7 +236,7 @@ function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runt
         // TODO Could alternately implement the message passing via messaging versus the URL
         // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user?
         console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", JSON.stringify(msg), "origin: ", JSON.stringify(port.sender.origin));
-        useActionPopup(tabId, [{ key: "message", value: JSON.stringify(msg) }, { key: "origin", value: JSON.stringify(port.sender.origin)}]);
+        useActionPopup(tabId, [{ key: "message", value: JSON.stringify(msg) }, { key: "origin", value: JSON.stringify(port.sender.origin) }]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
     }
@@ -307,7 +307,18 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
         connectedPort.onDisconnect.addListener(() => {
             delete connections[connectionId];
         });
+    } else if (connectedPort.name === "blazorAppPort") {
+        // TODO react to port names that are more descriptive and less likely to conflict if multiple Apps are open
+        connectedPort.onMessage.addListener((message) => {
+            if (message.type === 'fromBlazorApp') {
+                console.log(`SW from App: ${message.data}`);
+                // Send a response back to the Blazor app
+                connectedPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data}` });
+            }
+        });
 
+        // Send an initial message to the Blazor app
+        connectedPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
     } else {
         console.error('Invalid port name:', connectedPort.name);
     }

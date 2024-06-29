@@ -22,7 +22,7 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     /// <inheritdoc />
     public void Initialize(Uri uri, string contextType)
     {
-        logger.LogWarning("Initialize with uri {uri}", uri);
+        logger.LogInformation("Initialize with uri {uri}", uri);
         var query = uri.Query;
         InitialUriQuery = query;
         if (uri.AbsoluteUri.Contains("chrome-extension"))

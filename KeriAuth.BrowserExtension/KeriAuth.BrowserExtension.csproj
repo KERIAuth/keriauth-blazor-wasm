@@ -241,4 +241,7 @@
 	<ItemGroup>
 	  <None Remove="wwwroot\scripts\storageHelper.ts" />
 	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="wwwroot\scripts\es6\SwAppInterop.ts" />
+	</ItemGroup>
 </Project>

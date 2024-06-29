@@ -361,7 +361,7 @@
         logger.LogInformation("OnInitializedAsync");
 
         // Set properties affecting UI layout depending on the hosting environment
-        logger.LogWarning("OnInitializedAsync env {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
+        logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.ActionPopup:

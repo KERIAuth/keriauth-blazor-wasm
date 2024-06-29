@@ -139,9 +139,7 @@
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
-
-
-        logger.LogError($"Chrome URI query: {initialUriQuery}");
+        logger.LogInformation($"OnParametersSetAsync: Chrome URI query: {initialUriQuery}");
 
         // Get the onboardState from storage and route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
@@ -190,7 +188,6 @@
         }
         if (!keriaConnectConfig.IsConfigured())
         {
-            // logger.LogWarning(keriaConnectConfig.ToString()); ///////////
             navManager.NavigateTo(RouteToConfigure);
             return;
         }
@@ -198,12 +195,12 @@
         // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate view
         var currentAppState = stateService.GetState();
 
-        logger.LogError($"currentAppState: {currentAppState}");
-        logger.LogError($"Chrome URI query: {initialUriQuery}");
+        logger.LogInformation($"currentAppState: {currentAppState}");
+        logger.LogInformation($"Chrome URI query: {initialUriQuery}");
         initialUriQuery = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogError($"Chrome URI query decoded: {initialUriQuery}");
+        logger.LogInformation($"Chrome URI query decoded: {initialUriQuery}");
         var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogError($"Chrome URI query decoded 2: {initialUriQuery2}");
+        logger.LogInformation($"Chrome URI query decoded 2: {initialUriQuery2}");
         switch (currentAppState)
         {
             case IStateService.States.Unconfigured:
