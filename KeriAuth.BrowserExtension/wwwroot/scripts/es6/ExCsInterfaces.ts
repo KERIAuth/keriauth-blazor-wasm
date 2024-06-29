@@ -1,9 +1,4 @@
-﻿//
-// Common definitions for this content script and the extension service-worker.
-// Note these are manually repeated here and in the ContentScript,
-// because of the CommonJS module system that must be used for this ContentScript.
-// A fix would be to use a separate CommonInterface.ts file and a bundler to build the content script, but that is not yet implemented.
-//
+﻿// Common definitions for content script and service-worker.
 
 // Message types from CS to SW
 export type CsSwMsg = ICsSwMsgSelectIdentifier | ICsSwMsgSelectCredential;
