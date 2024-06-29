@@ -11,7 +11,7 @@
 
 import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType } from "./ExCsInterfaces.js";
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled, IExCsMsgSigned, ExCsMsgType } from "./ExCsInterfaces.js";
 
 // The following handlers trigger in order:
 // runtime.onInstalled, this.activating, this.activated, and then others
@@ -30,7 +30,7 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
             Utils.createTab(urlString);
             break;
         case "update":
-            // this could also result from user hitting Reload on the Extensions page
+            // This event could also be triggered from user hitting Reload on the browser's Extensions page
             // TODO P3 Allow the index page to know whether the version of the cache is not the new manifest's version?
             urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
             Utils.createTab(urlString);
@@ -256,10 +256,10 @@ function isActionPopupUrlSet(): Promise<boolean> {
     });
 }
 
-// Object to store connection info
+// Object to track the connections between the service worker and the content scripts, using the tabId as the key
 const connections: { [key: string]: { port: chrome.runtime.Port } } = {};
 
-// Listen for port connections from content scripts
+// Listen for and handle port connections from content scripts
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
     console.log("SW onConnect port: ", connectedPort);
     let connectionId = connectedPort.name;

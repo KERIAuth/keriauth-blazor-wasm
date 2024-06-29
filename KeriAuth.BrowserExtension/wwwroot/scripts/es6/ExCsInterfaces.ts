@@ -39,11 +39,20 @@ export interface IExCsMsg {
 }
 
 export enum ExCsMsgType {
-    HELLO = "hello"
+    HELLO = "hello",
+    CANCELED = "canceled",
+    SIGNED = "signed"
 }
 
 export interface IExCsMsgHello extends IExCsMsg {
     type: ExCsMsgType.HELLO
+}
+
+export interface IExCsMsgCanceled extends IExCsMsg {
+    type: ExCsMsgType.CANCELED
+}
+export interface IExCsMsgSigned extends IExCsMsg {
+    type: ExCsMsgType.SIGNED
 }
 
 //
