@@ -54,6 +54,7 @@
                               OnKeyDown="@HandleKeyDown"
                               InputType="InputType.Password"
                               @bind-Value="@unlockPasscodeModel.Passcode"
+                              HelperText="&nbsp;"
                               For="@(() => unlockPasscodeModel.Passcode)"
                               Immediate="true" />
             </MudForm>

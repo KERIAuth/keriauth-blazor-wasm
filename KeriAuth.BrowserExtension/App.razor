@@ -15,6 +15,7 @@
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
+@inject IAppSwMessagingService appSwMessagingService
 @implements IDisposable
 
 <Router AppAssembly="@typeof(App).Assembly">
@@ -54,12 +55,20 @@
         await stateService.Initialize();
         preferencesService.Initialize();
 
-        await InitializeMessaging();
-        // TODO temporary test
+        // TODO remove test 1
         await SendMessage();
+
+        // TODO remove test 2. These subscriptions will go into pages as needed
+        appSwMessagingService.Subscribe<string>((message) =>
+        {
+            logger.LogError("App from SW/MessagingService: {m}", message);
+        });
+        await appSwMessagingService.Initialize();
+        await appSwMessagingService.SendToServiceWorkerAsync<string>("Hello from Blazor App via service", "hello2");
+
         return;
     }
-    
+
     private async Task InitializeMessaging()
     {
         _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference);
