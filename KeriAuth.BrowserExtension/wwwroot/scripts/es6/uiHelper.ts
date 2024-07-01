@@ -79,6 +79,10 @@ const UIHelper = () => {
         }
     }
 
+    const closeWindow = (): void => {
+        window.close();
+    }
+
     return {
         bt_scrollToItem,
         closeCurrentTab,
@@ -86,7 +90,8 @@ const UIHelper = () => {
         createTab,
         copy2Clipboard,
         restartBlazorApp,
-        getChromeContexts
+        getChromeContexts,
+        closeWindow
     };
 }
 export const Utils = UIHelper();

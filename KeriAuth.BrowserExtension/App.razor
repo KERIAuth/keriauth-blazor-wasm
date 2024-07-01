@@ -63,15 +63,19 @@
         {
             logger.LogError("App from SW/MessagingService: {m}", message);
         });
-        await appSwMessagingService.Initialize();
-        await appSwMessagingService.SendToServiceWorkerAsync<string>("Hello from Blazor App via service", "hello2");
+        // TODO use Authority instead of TabId?
+        
+        await appSwMessagingService.Initialize(uri.Authority);
+        var msgData = "hello2 Authority: " + uri?.Authority + " initialUri: " + extensionEnvironmentService.InitialUriQuery;
+        logger.LogWarning("App to SW: msgData: ", msgData);
+        await appSwMessagingService.SendToServiceWorkerAsync<string>("initial Hello App via service", msgData);
 
         return;
     }
 
     private async Task InitializeMessaging()
     {
-        _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference);
+        _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab11");
     }
 
     private async Task SendMessage()

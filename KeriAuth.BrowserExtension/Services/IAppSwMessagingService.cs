@@ -6,7 +6,7 @@ namespace KeriAuth.BrowserExtension.Services
 {
     public interface IAppSwMessagingService : IObservable<string>
     {
-        public Task Initialize();
+        public Task Initialize(string tabId);
 
         public Task SendToServiceWorkerAsync<T>(string message, T payload);
 

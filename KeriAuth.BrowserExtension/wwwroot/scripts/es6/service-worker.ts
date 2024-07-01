@@ -13,7 +13,7 @@ import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
 import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled, IExCsMsgSigned, ExCsMsgType } from "./ExCsInterfaces.js";
 
-// The following handlers trigger in order:
+// The handlers trigger in order:
 // runtime.onInstalled, this.activating, this.activated, and then others
 // See runtime events here: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
 
@@ -42,11 +42,11 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
     }
 });
 
-//self.addEventListener('activating', (event: ExtendableEvent) => {
-//    console.log(`SW version ${version} activating...`);
-//    // event.waitUntil(self.clients.claim());
-//    // Perform tasks needed during activation
-//});
+self.addEventListener('activating', (event: any /*ExtendableEvent*/) => {
+    console.log(`SW version activating`, event);
+    // event.waitUntil(self.clients.claim());
+    // Perform tasks needed during activation
+});
 
 self.addEventListener('activate', (event) => {
     console.log('SW activated');
@@ -201,7 +201,12 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     const originParam = queryParams.find(param => param.key === "origin");
     const origin = originParam ? originParam.value : "http://COULD.NOT.FIND.com";
 
-    queryParams.push({ key: "environment", value: "ActionPopup" }, { key: "origin", value: origin });
+
+
+
+
+
+    queryParams.push({ key: "environment", value: "ActionPopup" }); // , { key: "origin", value: origin });
     const url = createUrlWithEncodedQueryStrings("./index.html", queryParams)
     chrome.action.setPopup({ popup: url, tabId: tabId });
     chrome.action.openPopup()
@@ -257,23 +262,32 @@ function isActionPopupUrlSet(): Promise<boolean> {
 }
 
 // Object to track the connections between the service worker and the content scripts, using the tabId as the key
-const connections: { [key: string]: { port: chrome.runtime.Port } } = {};
+const connections: { [key: string]: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } } = {};
 
 // Listen for and handle port connections from content scripts
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
     console.log("SW onConnect port: ", connectedPort);
     let connectionId = connectedPort.name;
     console.log("SW connections before update: ", { connections });
+
+    // Get the tabId from the port, which will be a number if a browser tab from the contentScript, -1 if an action popup App, or undefined if not a tab
+    let tabId = -1;
+    if (connectedPort.sender?.tab?.id) {
+        tabId = connectedPort.sender?.tab?.id;
+    }
+
+    console.log("SW tabId: ", tabId);
     // store the port for this tab in the connections object. Assume 1:1
-    connections[connectionId] = { port: connectedPort };
+    connections[connectionId] = { port: connectedPort, tabId: tabId, pageAuthority: "?" };
     console.log("SW connections: ", { connections });
 
+    // First check if the port is from a content script and its pattern
     const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     if (portNamePattern.test(connectedPort.name)) {
         console.log(`SW Connected to ${connectedPort.name}`);
 
-        // Listen for and handle messages from the content script
-        console.log("SW Adding onMessage listener for port");
+        // Listen for and handle messages from the content script and Blazor app
+        console.log("SW adding onMessage listener for port", connectedPort);
         connectedPort.onMessage.addListener((message: any) => {
             console.log("SW from CS: message, port", message, connectedPort);
             // assure tab is still connected        
@@ -283,6 +297,10 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                         handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[connectionId].port);
                         break;
                     case CsSwMsgType.SIGNIFY_EXTENSION:
+                        // Update the connections list with the tabId and URL
+                        connections[connectionId].tabId = tabId;
+                        const url = new URL(String(connectedPort.sender?.url));
+                        connections[connectionId].pageAuthority = url.host;
                         const response: IExCsMsgHello = {
                             type: ExCsMsgType.HELLO
                         };
@@ -307,21 +325,43 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
         connectedPort.onDisconnect.addListener(() => {
             delete connections[connectionId];
         });
-    } else if (connectedPort.name === "blazorAppPort") {
-        // TODO react to port names that are more descriptive and less likely to conflict if multiple Apps are open
-        connectedPort.onMessage.addListener((message) => {
-            if (message.type === 'fromBlazorApp') {
-                console.log(`SW from App: ${message.data}`);
-                // Send a response back to the Blazor app
-                connectedPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data}` });
-            }
-        });
 
-        // Send an initial message to the Blazor app
-        connectedPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
-    } else {
-        console.error('Invalid port name:', connectedPort.name);
-    }
+
+    } else
+        // Check if the port is from the Blazor App
+        if (connectedPort.name.substring(0, 8) === "blazorAppPort".substring(0, 8)) {
+            // TODO react to port names that are more descriptive and less likely to conflict if multiple Apps are open
+            // On the first connection, associate this port from the Blazor App with the port from the same tabId
+
+            // Get get the authority from the tab's origin
+            let url = "unknown"
+            if (connectedPort.sender?.url) {
+                url = connectedPort.sender.url;
+            }
+            console.warn(`SW from App: url:`, url);
+            const authority = getAuthorityFromOrigin(url);
+            console.warn(`SW from App: authority:`, authority);
+
+            // Update the connections list with the URL's authority, so the SW-CS and SW-App connections can be associated
+            connections[connectedPort.name].pageAuthority = authority || "unknown";
+            console.warn(`SW from App: connections:`, connections);
+            // TODO EE! finish this logic above to associate the Blazor App port with the tabId
+
+            connectedPort.onMessage.addListener((message) => {
+                if (message.type === 'fromBlazorApp') {
+                    console.log(`SW from App:`, message.data);
+                    // TODO check for nonexistance of connectedPort.sender?.tab, which would indicate a message from a non-tab source
+                    console.log(`SW from App: port:`, connectedPort);
+                    // Send a response to the KeriAuth App
+                    connectedPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${connectedPort.sender?.tab}` });
+                }
+            });
+
+            // Send an initial message to the Blazor app
+            connectedPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
+        } else {
+            console.error('Invalid port name:', connectedPort.name);
+        }
 });
 
 // Listen for tab updates to maintain connection info
@@ -367,5 +407,55 @@ function isValidKey(key: string): boolean {
     const keyRegex = /^[a-zA-Z0-9-_]+$/;
     return keyRegex.test(key);
 }
+
+function getQueryParameter(url: string, key: string): string | null {
+    // Create a new URL object from the provided URL string
+    const parsedUrl = new URL(url);
+
+    // Get the query string parameters
+    const params = new URLSearchParams(parsedUrl.search);
+
+    // Get the encoded value of the specified key
+    const encodedValue = params.get(key);
+
+    // Decode the value if it exists
+    if (encodedValue) {
+        return decodeURIComponent(decodeURIComponent(encodedValue));
+    }
+
+    return null;
+}
+
+function getAuthorityFromOrigin(url: string): string | null {
+    // Get the "origin" query parameter value
+    const origin = getQueryParameter(url, 'origin');
+    const unquotedOrigin = origin?.replace(/^["'](.*)["']$/, '$1');
+
+    if (origin) {
+        try {
+            // Create a new URL object from the origin value
+            const originUrl = new URL(String(unquotedOrigin));
+
+            // Return the authority portion (hostname and port)
+            return originUrl.host;
+        } catch (error) {
+            console.error('Invalid origin URL:', error);
+        }
+    }
+
+    return null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 export { };

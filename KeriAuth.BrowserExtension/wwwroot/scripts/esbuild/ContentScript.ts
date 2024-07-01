@@ -20,7 +20,8 @@ import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType, IExC
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
-// this "const" structure is intentionally used versus an enum, because of CommonJS module system in use
+// this "const" structure was intentionally used versus an enum, because of CommonJS module system in use.
+// TODO above is no longer a constraint, and can move these back to enums?
 
 // page to CS
 const PAGE_EVENT_TYPE = Object.freeze({
@@ -91,7 +92,7 @@ function advertiseToPage(): void {
             extensionId: String(chrome.runtime.id)
         },
     };
-    console.log("KeriAuthCs to page: advertise", advertizeMsg);
+    console.log("KeriAuthCs to page:", advertizeMsg);
     window.postMessage(
         advertizeMsg,
         "*"
@@ -110,7 +111,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     port.onMessage.addListener((message: IExCsMsg) => {
         // TODO move this into its own function for readability
         // Handle messages from the extension
-        console.log("KeriAuthCs from extension:", message);
+        console.log("KeriAuthCs from SW:", message);
         switch (message.type) {
             case ExCsMsgType.HELLO:
 
@@ -127,18 +128,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
                             try {
                                 switch (event.data.type) {
                                     case "signify-extension":
-                                        // Note, this notification to SW is haneled earlier in the code, in the advertiseToPage function
-                                        //const msg: ICsSwMsg = {
-                                        //    type: CsSwMsgType.SIGNIFY_EXTENSION // : "PageReady"
-                                        //};
-                                        //console.log("KeriAuthCs to extension:", msg);
-                                        //port.postMessage(msg);
+                                        // Note, this notification to SW is effectively haneled earlier in the code, in the advertiseToPage function
+                                        console.log("KeriAuthCs from page: message ignored:", event.data);
                                         break;
                                     case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
                                         const msg2: ICsSwMsg = {
                                             type: CsSwMsgType.SELECT_IDENTIFIER
                                         };
-                                        console.log("KeriAuthCs to extension:", msg2);
+                                        console.log("KeriAuthCs to SW:", msg2);
                                         port.postMessage(msg2);
                                         break;
                                     case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
@@ -153,19 +150,19 @@ document.addEventListener('DOMContentLoaded', (event) => {
                                         break;
                                 }
                             } catch (error) {
-                                console.error("KeriAuthCs: error in handling event from page: ", event.data, "Extension reloaded? Try reloading page.", "Error:", error)
+                                console.error("KeriAuthCs from page: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
                             }
                         }
                     }
                 );
                 break;
             default:
-                console.error("KeriAuthCs from extension: handler not yet implemented for:", message);
+                console.error("KeriAuthCs from SW: handler not implemented for:", message);
                 break;
         }
     });
 
-    // Send a message to the service worker
+    // Send a hello message to the service worker (versus waiting on a trigger message from the page)
     const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
     console.log("KeriAuthCs to SW:", helloMsg);
     port.postMessage(helloMsg);

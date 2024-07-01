@@ -33,6 +33,8 @@
 @inject IStorageService storageService
 @inject IPreferencesService preferencesService
 @inject IExtensionEnvironmentService extensionEnvironmentService
+@inject IAppSwMessagingService appSwMessagingService
+@inject IJSRuntime jsRuntime
 
 @code {
     [Parameter]
@@ -45,7 +47,7 @@
         // TODO try-catch
         var x = new Uri(OriginStr);
         return x;
-    } 
+    }
 
     string AppActivePrefix { get; set; } = string.Empty;
 
@@ -182,7 +184,7 @@
         logger.LogWarning("escapedOriginStr: {x}", escapedOriginStr);
         var xxx = HttpUtility.UrlDecode(escapedOriginStr);
         logger.LogWarning("OriginStr: {x}", xxx);
-        OriginStr = xxx.Trim('"'); 
+        OriginStr = xxx.Trim('"');
 
         // if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("origin", out var encodedOrigin))
         // {
@@ -262,6 +264,22 @@
         this.StateHasChanged();
     }
 
+    async Task SignIn()
+    {
+        await appSwMessagingService.SendToServiceWorkerAsync<string>("sign-in", "sign-in2");
+        // TODO may need to assure message makes it to the service-worker?
+        // Close blazor application
+        UIHelper.CloseWindow();
+    }
+
+    async Task Cancel()
+    {
+        await appSwMessagingService.SendToServiceWorkerAsync<string>("sign-in-cancel", "sign-in-cancel-2");
+        // TODO may need to assure message makes it to the service-worker?
+        // Close blazor application
+        UIHelper.CloseWindow();
+    }
+
     public void Dispose()
     {
         // TODO unsubscribe from services, observables
@@ -308,8 +326,8 @@
             <MudSpacer />
             <MudStack Row="true" class="bt-button-tray">
                 <MudSpacer />
-                <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary">Cancel</MudButton>
-                <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary">Sign In</MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" @onclick="SignIn">Sign In</MudButton>
             </MudStack>
         </MudStack>
     </div>
@@ -320,3 +338,4 @@
         height: auto;
     }
 </style>
+

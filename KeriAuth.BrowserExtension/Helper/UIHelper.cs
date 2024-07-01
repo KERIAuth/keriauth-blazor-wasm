@@ -27,5 +27,8 @@ namespace KeriAuth.BrowserExtension.Helper
 
         [JSImport("Utils.getChromeContexts", "uiHelper")]
         internal static partial Task<string> GetChromeContexts();
+
+        [JSImport("Utils.closeWindow", "uiHelper")]
+        internal static partial void CloseWindow();
     }
 }

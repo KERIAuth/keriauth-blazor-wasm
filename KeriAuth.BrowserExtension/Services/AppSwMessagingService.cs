@@ -13,12 +13,12 @@ namespace KeriAuth.BrowserExtension.Services
         private IJSObjectReference _interopModule = default!;
         private DotNetObjectReference<AppSwMessagingService> _objectReference = default!;
 
-        public async Task Initialize()
+        public async Task Initialize(string tabId)
         {
             _objectReference = DotNetObjectReference.Create(this);
             _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
             // await js.InvokeVoidAsync("registerServiceWorkerMessaging");
-            _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference);
+            _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
         }
 
         public async Task SendToServiceWorkerAsync<T>(string message, T payload)
