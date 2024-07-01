@@ -1,6 +1,4 @@
 ﻿/// <reference types="chrome" />
-/* <reference types="serviceworker" />
-*/
 
 // TODO Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
 // import * as _ from "/content/Blazor.BrowserExtension/lib/browser-polyfill.min.js";
@@ -13,15 +11,12 @@ import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
 import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled, IExCsMsgSigned, ExCsMsgType } from "./ExCsInterfaces.js";
 
-// The handlers trigger in order:
-// runtime.onInstalled, this.activating, this.activated, and then others
-// See runtime events here: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
+// Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
+// For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
 
-// Bring up the Onboarding page if a new install
+// Listen for and handle a new install or update of the extension
 chrome.runtime.onInstalled.addListener(async (installDetails) => {
     console.log(`SW onInstalled details:`, installDetails);
-    // Pre-cache files or perform other installation tasks
-    // await RegisterContentScripts();
     let urlString = "";
     switch (installDetails.reason) {
         case "install":
@@ -42,75 +37,30 @@ chrome.runtime.onInstalled.addListener(async (installDetails) => {
     }
 });
 
-self.addEventListener('activating', (event: any /*ExtendableEvent*/) => {
-    console.log(`SW version activating`, event);
-    // event.waitUntil(self.clients.claim());
-    // Perform tasks needed during activation
-});
-
+// Listen for and handle the activation event, such as to clean up old caches
 self.addEventListener('activate', (event) => {
     console.log('SW activated');
-    //event.waitUntil(
-    //    (async () => {
-    //        // Perform tasks needed after activation
-    //        // For example, clean up old caches
-    //        const cacheNames = await caches.keys();
-    //        await Promise.all(
-    //            cacheNames.map((cacheName) => {
-    //                if (/* condition to determine old cache */) {
-    //                    return caches.delete(cacheName);
-    //                }
-    //            })
-    //        );
-    //    })()
-    //);
 });
 
-// Handle network requests and serving cached responses
-// self.addEventListener('fetch', (event) => {
-// way to noisy for now to echo every fetch
-// console.log('SW Fetch event for ', event);
-// Handle network requests and serving cached responses
-//. event.request.url);
-//event.respondWith(
-//    caches.match(event.request).then((response) => {
-//        return response || fetch(event.request);
-//    })
-//);
-// });
-
+// Listen for and handle event when the browser is launched
 chrome.runtime.onStartup.addListener(() => {
     console.log('SW runtime.onStartup');
     // This handler, for when a new browser profile with the extension installed is first launched, 
     // could potentially be used to set the extension's icon to a "locked" state, for example
 });
 
+// Listen for and handle the browser action being clicked
 chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     // Note since the extension is a browser action, it needs to be able to access the current tab's URL, but with activeTab permission and not tabs permission
-    // In addition, the default_action cannot be defined in manifest.json. See https://developer.chrome.com/docs/extensions/reference/action/#default_popup
-    //
-    // will not fire if the action has a popup
-    //
-    // When the user clicks this extension's action button, this starts a sequence of events. One typical sequence is below, which ends with the popup being opened.
-    // 1. This handler is invoked
-    // 2. TBD
-    // 3. TBD
+    // In our design, the default_action should not be defined in manifest.json, since we want to handle the click event in the service worker
 
     console.log("SW clicked on action button while on tab: ", tab);
 
+    // If the tab is a web page, check if the extension has permission to access the tab (based on its origin)
     if (tab.id && Number(tab.id) != 0 && tab.url !== undefined && tab.url.startsWith("http")) {
-        // TODO create a helper for creating the popupDetails(tab). DRY
         const tabId = Number(tab.id);
-        // chrome.action.getPopup({ tabId: tabId }, (popupUrl) => { console.log("SW getPopup: ", popupUrl) });
-        // chrome.action.setPopup({ popup: "index.html?environment=ActionPopup" }) //  tabId: tabId,
-        //    .then(() => {
-        //chrome.action.openPopup()
-        //    .then(() => {
-        //console.log("SW user clicked on action button");
-        //if (typeof tab.url !== 'string') {
-        //    chrome.action.setPopup({ popup: "", tabId: tab.id })
-        //        .then(() => { return; })
-        //}
+
+        // Check if the extension has permission to access the tab (based on its origin), and if not, request it
         const origin = new URL(tab.url!).origin + '/';
         console.log('SW origin: ', origin);
         chrome.permissions.contains({ origins: [origin] }, (isOriginPermitted: boolean) => {
@@ -131,15 +81,11 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
                 useActionPopup(tabId);
             }
         });
-        //   })
-        //   .catch((err) => console.warn(`SW could not openPopup`, { tabId: tabId, tab: tab, err: err }))
-        //    })
-        //    .catch((err) => console.warn(`SW openPopup dropped`, err));
-        // clear the popup url so that subsequent clicks on popup will be handled by this onClicked listener
-        // TODO correct?
+        // Clear the popup url for the action button, if it is set, so that future use of the action button will also trigger this same handler
         chrome.action.setPopup({ popup: "", tabId: tab.id });
         return;
     }
+    // If the tab is not a web page, open the extension's popup window
     else {
         createPopupWindow();
         return;
@@ -148,7 +94,7 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
 
 let popupWindow: chrome.windows.Window | null = null;
 
-// If a popup window is already open, then bring it into focus; otherwise, create a new one
+// If a popup window is already open, bring it into focus; otherwise, create a new one
 // TODO: each popupWindow should be associated with a tab?  Add a tabId parameter?
 function usePopupWindow() {
     console.log("SW usePopupWindow");
@@ -167,6 +113,7 @@ function usePopupWindow() {
     }
 }
 
+// Create a new popup window (versus an action popup)
 // TODO: each popupWindow should be associated with a tab?  Add a tabId parameter?
 function createPopupWindow() {
     console.log("SW createPopupWindow");
@@ -195,18 +142,10 @@ function createPopupWindow() {
     });
 }
 
+// Use the action popup to interact with the user for the current tab (if it is a web page)
 function useActionPopup(tabId: number, queryParams: { key: string, value: string }[] = []) {
     console.log('SW useActionPopup acting on current tab');
-
-    const originParam = queryParams.find(param => param.key === "origin");
-    const origin = originParam ? originParam.value : "http://COULD.NOT.FIND.com";
-
-
-
-
-
-
-    queryParams.push({ key: "environment", value: "ActionPopup" }); // , { key: "origin", value: origin });
+    queryParams.push({ key: "environment", value: "ActionPopup" });
     const url = createUrlWithEncodedQueryStrings("./index.html", queryParams)
     chrome.action.setPopup({ popup: url, tabId: tabId });
     chrome.action.openPopup()
@@ -216,11 +155,12 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
         });
 }
 
-// bring the window to focus.  requires windows permission in the manifest ?
+// Bring the window (e.g. an extension popupWindow) to focus.  requires windows permission in the manifest ?
 function focusWindow(windowId: number): void {
     chrome.windows.update(windowId, { focused: true });
 }
 
+// Check if the window (e.g. an extension popupWindow) is open, e.g. to avoid opening multiple windows
 async function isWindowOpen(windowId: number): Promise<boolean> {
     return new Promise((resolve) => {
         chrome.tabs.query({ windowId }, (tabs) => {
@@ -229,6 +169,7 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
     });
 }
 
+// Handle the web page's request for user to select an identifier
 function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the message
     console.log("SW handleSelectIdentifier: ", msg);
@@ -247,12 +188,12 @@ function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runt
     }
 };
 
-// Function to check if the actionPopup is already open
+// Check if the actionPopup is already open
 function isActionPopupUrlSet(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         chrome.action.getPopup({}, (popupUrl) => {
-            console.warn("SW isActionPopupOpen: popupUrl: ", popupUrl);
             if (chrome.runtime.lastError) {
+                console.warn("SW isActionPopupOpen: popupUrl: ", popupUrl);
                 reject(chrome.runtime.lastError);
             } else {
                 resolve(!!popupUrl);
@@ -264,7 +205,7 @@ function isActionPopupUrlSet(): Promise<boolean> {
 // Object to track the connections between the service worker and the content scripts, using the tabId as the key
 const connections: { [key: string]: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } } = {};
 
-// Listen for and handle port connections from content scripts
+// Listen for and handle port connections from content script and Blazor App
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
     console.log("SW onConnect port: ", connectedPort);
     let connectionId = connectedPort.name;
@@ -282,14 +223,15 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     console.log("SW connections: ", { connections });
 
     // First check if the port is from a content script and its pattern
-    const portNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
-    if (portNamePattern.test(connectedPort.name)) {
+    const cSPortNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
+    if (cSPortNamePattern.test(connectedPort.name)) {
         console.log(`SW Connected to ${connectedPort.name}`);
+        const cSPort = connectedPort;
 
         // Listen for and handle messages from the content script and Blazor app
-        console.log("SW adding onMessage listener for port", connectedPort);
-        connectedPort.onMessage.addListener((message: any) => {
-            console.log("SW from CS: message, port", message, connectedPort);
+        console.log("SW adding onMessage listener for port", cSPort);
+        cSPort.onMessage.addListener((message: any) => {
+            console.log("SW from CS: message, port", message, cSPort);
             // assure tab is still connected        
             if (connections[connectionId]) {
                 switch (message.type) {
@@ -299,12 +241,12 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                     case CsSwMsgType.SIGNIFY_EXTENSION:
                         // Update the connections list with the tabId and URL
                         connections[connectionId].tabId = tabId;
-                        const url = new URL(String(connectedPort.sender?.url));
+                        const url = new URL(String(cSPort.sender?.url));
                         connections[connectionId].pageAuthority = url.host;
                         const response: IExCsMsgHello = {
                             type: ExCsMsgType.HELLO
                         };
-                        connectedPort.postMessage(response);
+                        cSPort.postMessage(response);
                         break;
                     case CsSwMsgType.AUTO_SIGNIN_SIG:
                     case CsSwMsgType.FETCH_RESOURCE:
@@ -321,61 +263,63 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                 console.log("SW Port no longer connected");
             }
         });
-        // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
-        connectedPort.onDisconnect.addListener(() => {
-            delete connections[connectionId];
-        });
-
-
-    } else
-        // Check if the port is from the Blazor App
+    } else {
+        // Check if the port is from the Blazor App, based on naming pattern
         if (connectedPort.name.substring(0, 8) === "blazorAppPort".substring(0, 8)) {
             // TODO react to port names that are more descriptive and less likely to conflict if multiple Apps are open
-            // On the first connection, associate this port from the Blazor App with the port from the same tabId
+            // On the first connection, associate this port from the Blazor App with the port from the same tabId?
+
+            const appPort = connectedPort;
 
             // Get get the authority from the tab's origin
             let url = "unknown"
-            if (connectedPort.sender?.url) {
-                url = connectedPort.sender.url;
+            if (appPort.sender?.url) {
+                url = appPort.sender.url;
             }
-            console.warn(`SW from App: url:`, url);
+            // console.log(`SW from App: url:`, url);
             const authority = getAuthorityFromOrigin(url);
-            console.warn(`SW from App: authority:`, authority);
+            console.log(`SW from App: authority:`, authority);
 
             // Update the connections list with the URL's authority, so the SW-CS and SW-App connections can be associated
-            connections[connectedPort.name].pageAuthority = authority || "unknown";
-            console.warn(`SW from App: connections:`, connections);
-            // TODO EE! finish this logic above to associate the Blazor App port with the tabId
+            connections[appPort.name].pageAuthority = authority || "unknown";
+            // console.log(`SW from App: connections:`, connections);
 
-            connectedPort.onMessage.addListener((message) => {
+            // Find the matching connection based on the page authority. TODO should this also be based on the tabId?
+            const cSConnection = findMatchingConnection(connections, appPort.name)
+            console.log(`SW from App: ActionPopupConnection:`, connections[appPort.name], `ContentScriptConnection`, cSConnection);
+
+            // Add a listener for messages from the App, where the handler can process and forward to the content script as appropriate.
+            appPort.onMessage.addListener((message) => {
                 if (message.type === 'fromBlazorApp') {
                     console.log(`SW from App:`, message.data);
-                    // TODO check for nonexistance of connectedPort.sender?.tab, which would indicate a message from a non-tab source
-                    console.log(`SW from App: port:`, connectedPort);
+                    // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
+                    console.log(`SW from App: port:`, appPort);
                     // Send a response to the KeriAuth App
-                    connectedPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${connectedPort.sender?.tab}` });
+                    appPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+
+                    // Forward the message to the content script, if appropriate
+                    // TODO EE! finish this logic to forward the message to the content script only as appropriate, and typed
+                    if (cSConnection) {
+                        console.log(`SW from App: Forwarding message to CS:`, message.data);
+                        cSConnection.port.postMessage({ type: 'fromServiceWorker', data: `Forwarded message from App: ${message.data}` });
+                    }
                 }
             });
 
-            // Send an initial message to the Blazor app
-            connectedPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
+            // Send an initial message from SW to App
+            appPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
+
         } else {
             console.error('Invalid port name:', connectedPort.name);
         }
+    }
+    // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
+    connectedPort.onDisconnect.addListener(() => {
+        delete connections[connectionId];
+    });
 });
 
-// Listen for tab updates to maintain connection info
-// TODO can probably remove this tabs.onUpdated listener
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // console.log("SW tabs.onUpdated: tabId: ", tabId, " changeInfo: ", changeInfo, " tab: ", tab)
-    //
-    // if the url changes to another domain, then the connection should be closed?
-    //if (connections[tabId] && changeInfo.url) {
-    //    connections[tabId].url = changeInfo.url;
-    //}
-});
-
-// Remove connection from list when a tab is closed
+// Listen for and handle when a tab is closed. Remove related connection from list.
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (connections[tabId]) {
         console.log("SW tabs.onRemoved: tabId: ", tabId)
@@ -383,11 +327,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     };
 });
 
-// TODO move into a helper file
+// Create a URL with the provided base URL and query parameters, verifying that the keys are well-formed
 function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: string, value: string }[]): string {
     const url = new URL(chrome.runtime.getURL(baseUrl));
     const params = new URLSearchParams();
-
     queryParams.forEach(param => {
         if (isValidKey(param.key)) {
             params.append(encodeURIComponent(param.key), encodeURIComponent(param.value));
@@ -395,12 +338,11 @@ function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: s
             console.warn(`Invalid key skipped: ${param.key}`);
         }
     });
-
     url.search = params.toString();
     return url.toString();
 }
 
-// TODO move into a helper file
+// Check if the provided key is well-formed
 function isValidKey(key: string): boolean {
     // A simple regex to check for valid characters in a key
     // Adjust the regex based on what you consider "well-formed"
@@ -408,54 +350,45 @@ function isValidKey(key: string): boolean {
     return keyRegex.test(key);
 }
 
+// Based on the provided url and key, extract key's decoded value from the query string
 function getQueryParameter(url: string, key: string): string | null {
-    // Create a new URL object from the provided URL string
     const parsedUrl = new URL(url);
-
-    // Get the query string parameters
     const params = new URLSearchParams(parsedUrl.search);
-
-    // Get the encoded value of the specified key
     const encodedValue = params.get(key);
-
-    // Decode the value if it exists
     if (encodedValue) {
         return decodeURIComponent(decodeURIComponent(encodedValue));
     }
-
     return null;
 }
 
+// Extract the authority portion (hostname and port) from the provided URL's query string, origin key
 function getAuthorityFromOrigin(url: string): string | null {
-    // Get the "origin" query parameter value
     const origin = getQueryParameter(url, 'origin');
     const unquotedOrigin = origin?.replace(/^["'](.*)["']$/, '$1');
-
     if (origin) {
         try {
-            // Create a new URL object from the origin value
             const originUrl = new URL(String(unquotedOrigin));
-
-            // Return the authority portion (hostname and port)
             return originUrl.host;
         } catch (error) {
             console.error('Invalid origin URL:', error);
         }
     }
-
     return null;
 }
 
-
-
-
-
-
-
-
-
-
-
-
+// Find the first matching connection based on the provided key and its page authority value
+function findMatchingConnection(connections: { [key: string]: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } }, providedKey: string): { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined {
+    const providedConnection = connections[providedKey];
+    if (!providedConnection) {
+        return undefined;
+    }
+    const targetPageAuthority = providedConnection.pageAuthority;
+    for (const key in connections) {
+        if (key !== providedKey && connections[key].pageAuthority === targetPageAuthority) {
+            return connections[key];
+        }
+    }
+    return undefined;
+}
 
 export { };
