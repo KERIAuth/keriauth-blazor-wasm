@@ -7,7 +7,7 @@
 @using MudBlazor
 @using System.Runtime.InteropServices.JavaScript;
 @using KeriAuth.BrowserExtension.Services.SignifyService
-<!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
+<!-- TODO inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject NavigationManager navManager
 @inject IJSRuntime jsRuntime
@@ -16,7 +16,6 @@
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IAppSwMessagingService appSwMessagingService
-@implements IDisposable
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
@@ -34,17 +33,10 @@
 @code {
     public static bool IsDarkTheme { get; set; }
 
-    private IJSObjectReference _interopModule = default!;
-    private IJSObjectReference? _port;
-    private DotNetObjectReference<App> _objectReference = default!;
-
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
-
-        _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
-        _objectReference = DotNetObjectReference.Create(this);
 
         // Initialize services as needed
         var uri = navManager.ToAbsoluteUri(navManager.Uri);
@@ -55,46 +47,18 @@
         await stateService.Initialize();
         preferencesService.Initialize();
 
-        // TODO remove test 1
-        await SendMessage();
-
-        // TODO remove test 2. These subscriptions will go into pages as needed
+        // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>
         {
-            logger.LogError("App from SW/MessagingService: {m}", message);
+            logger.LogInformation("App from SW/MessagingService: {m}", message);
         });
-        // TODO use Authority instead of TabId?
         
+        // Initialize messaging with service worker
         await appSwMessagingService.Initialize(uri.Authority);
+
+        // Send test message to service worker
         var msgData = "hello2 Authority: " + uri?.Authority + " initialUri: " + extensionEnvironmentService.InitialUriQuery;
-        logger.LogWarning("App to SW: msgData: ", msgData);
+        logger.LogInformation("App to SW: msgData: ", msgData);
         await appSwMessagingService.SendToServiceWorkerAsync<string>("initial Hello App via service", msgData);
-
-        return;
-    }
-
-    private async Task InitializeMessaging()
-    {
-        _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab11");
-    }
-
-    private async Task SendMessage()
-    {
-        if (_port != null)
-        {
-            await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToServiceWorker", _port, "Hello from Blazor");
-        }
-    }
-
-    [JSInvokable]
-    public void ReceiveMessage(string message)
-    {
-        // Handle the message received from the service worker
-        logger.LogInformation("App from SW: {m}", message);
-    }
-
-    public void Dispose()
-    {
-        _objectReference?.Dispose();
     }
 }
