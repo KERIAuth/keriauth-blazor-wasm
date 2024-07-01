@@ -1,5 +1,7 @@
 # KERI Auth Browser Extension
 
+![KERI Auth build](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml/badge.svg)
+
 ## Summary
 This extension removes a class of problems website owners have with managing usernames and passwords or relying on federated identity providers that risk leaking or correlating user usage patterns. 
 
