@@ -12,6 +12,7 @@ import {
     randomPasscode,
     EventResult,
     Identifier,
+
 } from "@signify-ts";
 
 export const PASSCODE_TIMEOUT = 5;
@@ -139,6 +140,22 @@ export const getAID = async (name: string) => {
     const managedIdentifier = await client.identifiers().get(name);
     const identifierJson: string = JSON.stringify(managedIdentifier);
     console.debug("signify_ts_shim: getAID: ", managedIdentifier);
-    // console.warn("signify_ts_shim: getAID: ", managedIdentifier);
     return identifierJson;
+}
+
+export async function getCredentialsList(
+    // filter: object
+): Promise<string> {  // TODO : define the return type
+    try {
+        validateClient();
+        const client: SignifyClient = _client!;
+        const credentials: EventResult = await client.credentials().list();
+        console.log("signify_ts_shim: getCredentialList credentials: ", credentials);
+        const credentialsJson: string = JSON.stringify(credentials);
+        return credentialsJson;
+    }
+    catch (error) {
+        console.error(error);
+        throw error;
+    }
 }

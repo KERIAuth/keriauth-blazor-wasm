@@ -2,6 +2,7 @@
 using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
+using System.Net;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
@@ -159,11 +160,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return Task.FromResult(Result.Fail<IList<Contact>>("Not implemented"));
         }
 
-        public static Task<Result<IList<Credential>>> GetCredentials()
-        {
-            return Task.FromResult(Result.Fail<IList<Credential>>("Not implemented"));
-        }
-
         public Task<Result<IList<Escrow>>> GetEscrows()
         {
             return Task.FromResult(Result.Fail<IList<Escrow>>("Not implemented"));
@@ -297,9 +293,33 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
 
-        Task<Result<IList<Credential>>> ISignifyClientService.GetCredentials()
+        public async Task<Result<IList<Credential>>> GetCredentials()
         {
-            throw new NotImplementedException();
+            try
+            {
+                var jsonString = await GetCredentialsList();
+                logger.LogInformation("GetCredentials: {jsonString}", jsonString);
+                if (jsonString is null)
+                {
+                    return Result.Fail("GetCredentials returned null");
+                }
+                var credentials = JsonSerializer.Deserialize<List<Credential>>(jsonString);
+                if (credentials is null)
+                {
+                    return Result.Fail("SignifyClientService: GetCredentials: Failed to deserialize Credentials");
+                }
+                return Result.Ok<IList<Credential>>(credentials);
+            }
+            catch (JSException e)
+            {
+                logger.LogWarning("GetIdentifiers: JSException: {e}", e);
+                return Result.Fail("SignifyClientService: GetCredentials: Exception: " + e);
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning("GetIdentifiers: Exception: {e}", e);
+                return Result.Fail("SignifyClientService: GetCredentials: Exception: " + e);
+            }
         }
 
         Task<Result<IList<Models.Registry>>> ISignifyClientService.GetRegistries()
