@@ -22,8 +22,7 @@
 @inject ISnackbar snackbar
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <MudStack id="asdf">
-    <div class="d-flex gap-3 bt-main">
+    <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Identifiers (@cachedAids.Count)</MudText>
             @foreach (CachedAid cachedAid in cachedAids)
@@ -48,13 +47,11 @@
                 </div>
             }
         </div>
-    </div>
-    <MudSpacer />
+    </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
-    </MudStack>
     </MudStack>
 </div>
 

@@ -287,50 +287,47 @@
     }
 }
 
-<div id="@this.GetType().Name" class="bt-body-page" style="height:100%;">
-    <div class="d-flex gap-3 bt-main" style="height:100%;">
-        <MudStack>
-            <div class="bt-main-inside-scroll">
-                <MudText Typo="Typo.h6">Request to Sign In</MudText>
-                <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
-                <MudStack Class="gap-0">
-                    <MudText Class="mt-6"><b>Identifier</b></MudText>
-                    <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
-                        @foreach (var identifierHeadline in IdentifierHeadlines)
-                        {
-                            <MudSelectItem Value="@identifierHeadline.Prefix">
-                                <MudStack Row Style="align-items:center;">
-                                    <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                    <div class="bt-sad-2" style="display:contents;">
-                                        <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                                    </div>
-                                </MudStack>
-                            </MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudStack>
-                <MudStack Class="gap-0">
-                    <MudText Class="mt-6"><b>Options</b></MudText>
-                    <MudText Typo="Typo.body1">for future requests from <em>@OriginStr</em></MudText>
-                    <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                    <MudCheckBox Label="Enable auto SignIn" Value="@IsAutoSignIn" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
-                    @{
-                        /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
-                        if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
-                        {
-                            <MudText Class="pt-0 mt-0 pl-10" Typo="Typo.caption">(enabled for "@IdentifierHeadlines.First(x => x.Prefix == ThisWebsiteConfig?.RememberedPrefixOrNothing).Alias)"</MudText>
-                        }
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Request to Sign In</MudText>
+            <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
+            <MudStack Class="gap-0">
+                <MudText Class="mt-6"><b>Identifier</b></MudText>
+                <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                    @foreach (var identifierHeadline in IdentifierHeadlines)
+                    {
+                        <MudSelectItem Value="@identifierHeadline.Prefix">
+                            <MudStack Row Style="align-items:center;">
+                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <div class="bt-sad-2" style="display:contents;">
+                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                </div>
+                            </MudStack>
+                        </MudSelectItem>
                     }
-                </MudStack>
-            </div>
-            <MudSpacer />
-            <MudStack Row="true" class="bt-button-tray">
-                <MudSpacer />
-                <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-                <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" @onclick="SignIn">Sign In</MudButton>
+                </MudSelect>
             </MudStack>
-        </MudStack>
-    </div>
+            <MudStack Class="gap-0">
+                <MudText Class="mt-6"><b>Options</b></MudText>
+                <MudText Typo="Typo.body1">for future requests from <em>@OriginStr</em></MudText>
+                <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                <MudCheckBox Label="Enable auto SignIn" Value="@IsAutoSignIn" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
+                @{
+                    /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
+                    if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
+                    {
+                        <MudText Class="pt-0 mt-0 pl-10" Typo="Typo.caption">(enabled for "@IdentifierHeadlines.First(x => x.Prefix == ThisWebsiteConfig?.RememberedPrefixOrNothing).Alias)"</MudText>
+                    }
+                }
+            </MudStack>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" @onclick="SignIn">Sign In</MudButton>
+    </MudStack>
 </div>
 
 <style>

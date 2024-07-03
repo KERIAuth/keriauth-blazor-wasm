@@ -4,9 +4,9 @@
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
 
-<div id="@this.GetType().Name">
+<MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
     @Body
-</div>
+</MudLayout>
 
 <style>
     #DialogLayout {
