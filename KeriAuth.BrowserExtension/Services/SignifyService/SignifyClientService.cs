@@ -1,5 +1,6 @@
 ﻿using FluentResults;
 using KeriAuth.BrowserExtension.Helper;
+using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
 using System.Net;
@@ -293,8 +294,15 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
 
-        public async Task<Result<IList<Credential>>> GetCredentials()
+        public async Task<Result<List<Dictionary<string, object>>>> GetCredentials()
         {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new DictionaryConverter() }
+            };
+
+
             try
             {
                 var jsonString = await GetCredentialsList();
@@ -303,12 +311,12 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     return Result.Fail("GetCredentials returned null");
                 }
-                var credentials = JsonSerializer.Deserialize<List<Credential>>(jsonString);
+                var credentials = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, options);
                 if (credentials is null)
                 {
                     return Result.Fail("SignifyClientService: GetCredentials: Failed to deserialize Credentials");
                 }
-                return Result.Ok<IList<Credential>>(credentials);
+                return Result.Ok<List<Dictionary<string, object>>>(credentials);
             }
             catch (JSException e)
             {

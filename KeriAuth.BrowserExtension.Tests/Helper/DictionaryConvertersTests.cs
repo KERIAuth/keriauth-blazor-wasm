@@ -28,6 +28,8 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
             string jsonString = @"{
             ""id"": 1,
             ""name"": ""Foo1"",
+            ""truthy"": true,
+            ""falsy"": false,
             ""nested"": {
                 ""value"": ""NestedValue1"",
                 ""deepNested"": {
@@ -58,6 +60,19 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
             Assert.NotNull(nameTypedValue);
             Assert.Equal(typeof(string), nameTypedValue.Type);
             Assert.Equal("Foo1", nameTypedValue.Value);
+
+            // Test truthy
+            var truthyTypedValue = DictionaryConverter.GetValueByPath(foo, "truthy");
+            Assert.NotNull(truthyTypedValue);
+            Assert.Equal(typeof(bool), truthyTypedValue.Type);
+            Assert.True((bool)truthyTypedValue.Value);
+
+            // Test falsy
+            var falsyTypedValue = DictionaryConverter.GetValueByPath(foo, "falsy");
+            Assert.NotNull(falsyTypedValue);
+            Assert.Equal(typeof(bool), falsyTypedValue.Type);
+            Assert.False((bool)falsyTypedValue.Value);
+
 
             // Test nested value
             var nestedValueTypedValue = DictionaryConverter.GetValueByPath(foo, "nested.value");

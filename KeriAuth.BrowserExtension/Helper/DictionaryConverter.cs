@@ -68,6 +68,10 @@ namespace KeriAuth.BrowserExtension.Helper.DictionaryConverters
                         return l;
                     }
                     return reader.GetDouble();
+                case JsonTokenType.True:
+                    return true;
+                case JsonTokenType.False:
+                    return false;
                 case JsonTokenType.StartObject:
                     return JsonSerializer.Deserialize<Dictionary<string, object>>(ref reader, options);
                 case JsonTokenType.StartArray:
