@@ -32,7 +32,7 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToGroups = "/Groups";
         public const string RouteToNotifications = "/Notifications";
         public const string RouteToSchemas = "/Schemas";
-        public const string RouteToManageAgents = "/Agents";
+        public const string RouteToManageAgents = "/KeriAgentService";
         public const string RouteToWelcome = "/Welcome";
         public const string RouteToNewRelease = "/NewRelease";
         public const string RouteToTerms = "/Terms";

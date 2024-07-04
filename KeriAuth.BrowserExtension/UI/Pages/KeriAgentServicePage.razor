@@ -1,0 +1,60 @@
+﻿@page "/KeriAgentService"
+@layout Layouts.MainLayout
+
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using KeriAuth.BrowserExtension.UI.Components
+@using System.Collections.Immutable
+@using System.Diagnostics
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using KeriAuth.BrowserExtension.Helper.DictionaryConverters
+@using System.Text.Json
+@using static KeriAuth.BrowserExtension.Helper.Identicon;
+
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ILogger<CredentialsPage> logger
+@inject ISignifyClientService signifyClientService;
+@inject IStorageService storageService;
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <div style="display:flex;">
+                <MudText Typo="Typo.h6">KERI Agent Service - Connection Configuration</MudText>
+                <MudTooltip Delay="0.5"
+                            Text="This is a read-only view. You'd need to Delete Configuration to reset the connection.">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
+                </MudTooltip>
+            </div>
+            <MudStack Class="d-flex justify-center mt-3">
+                <MudText>Admin URL: @keriaConnectConfig.AdminUrl</MudText>
+                <MudText>Boot URL: @keriaConnectConfig.BootUrl</MudText>
+            </MudStack>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer></MudSpacer>
+    </MudStack>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+
+        var res = await storageService.GetItem<KeriaConnectConfig>();
+        if (res.IsFailed || res.Value is null)
+        {
+            throw new Exception("Failed to get KeriaConnectConfig");
+        }
+        keriaConnectConfig = res.Value;
+    }
+
+    KeriaConnectConfig keriaConnectConfig { get; set; } = new();
+}
