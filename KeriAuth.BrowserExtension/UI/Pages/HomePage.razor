@@ -20,36 +20,40 @@
         <div class="bt-main-inside-scroll" style="align-items:center; justify-content: center; display:flex; flex-direction:column;">
             <MudText Typo="Typo.h6">Dashboard</MudText>
             <MudStack AlignItems="AlignItems.Center">
-                <MudStack Row>
-                    <MudText Style="width:200px; text-align:right;">KERI Agent</MudText>
-                    <div style="text-align:left; width:135px; display:flex;">
-                        @switch (stateService.GetState())
-                        {
-                            case IStateService.States.AuthenticatedConnected:
-                                <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                                <MudText Typo="Typo.body2">Connected</MudText>
-                                break;
-                            case IStateService.States.AuthenticatedDisconnected:
-                                <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
-                                <MudText Typo="Typo.body2">Disconnected</MudText>
-                                break;
-                            default:
-                                <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
-                                <MudText Typo="Typo.body2">Disconnected - Other</MudText>
-                                break;
-                        }
-                    </div>
-                </MudStack>
 
-                <MudStack Row>
-                    <MudText Style="width:200px; text-align:right;">
-                        <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
-                    </MudText>
-                    <MudText Style="width:135px; text-align:left;">@identifiersCount</MudText>
-                </MudStack>
-
-                <MudStack Style="background: var(--mud-palette-action-default-hover);">
+                <MudStack Style="background: var(--mud-palette-background-grey); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            KERI Agent
+                        </MudText>
+                        <div style="text-align:left; width:135px; display:flex;">
+                            @switch (stateService.GetState())
+                            {
+                                case IStateService.States.AuthenticatedConnected:
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
+                                    <MudText Typo="Typo.body2">Connected</MudText>
+                                    break;
+                                case IStateService.States.AuthenticatedDisconnected:
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
+                                    <MudText Typo="Typo.body2">Disconnected</MudText>
+                                    break;
+                                default:
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
+                                    <MudText Typo="Typo.body2">Disconnected - Other</MudText>
+                                    break;
+                            }
+                        </div>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Style="width:200px; text-align:right;">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
+                        </MudText>
+                        <MudText Style="width:135px; text-align:left;">@identifiersCount</MudText>
+                    </MudStack>
+                </MudStack>
+
+                <MudStack Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
+                    <MudStack Row Style="align-items:center;">
                         <MudText Style="width:200px; text-align:right;">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Selected Identifier</MudLink>
                         </MudText>
@@ -58,50 +62,34 @@
                     </MudStack>
                     <MudStack Row>
                         <MudText Style="width:200px; text-align:right;">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Credentials Received</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                        <MudText Style="width:135px; text-align:left;">5</MudText>
                     </MudStack>
                     <MudStack Row>
                         <MudText Style="width:200px; text-align:right;">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Credentials Issued</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Multi-Sig Groups</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                        <MudText Style="width:135px; text-align:left;">1</MudText>
                     </MudStack>
                     <MudStack Row>
                         <MudText Style="width:200px; text-align:right;">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Groups</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Configured Websites</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                        <MudText Style="width:135px; text-align:left;">4</MudText>
                     </MudStack>
                     <MudStack Row>
                         <MudText Style="width:200px; text-align:right;">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Registered Websites</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">KERI Agent Requests</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
-                    </MudStack>
-                    <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">Pending Requests:</MudText>
-                    </MudStack>
-                    <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">From Websites</MudLink>
-                        </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
-                    </MudStack>
-                    <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">From KERI Agent</MudLink>
-                        </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                        <MudText Style="width:135px; text-align:left;">2</MudText>
                     </MudStack>
                     <MudStack Row>
                         <MudText Style="width:200px; text-align:right;">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Notifications</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">888</MudText>
+                        <MudText Style="width:135px; text-align:left;">1</MudText>
                     </MudStack>
-
                 </MudStack>
             </MudStack>
         </div>
@@ -119,7 +107,7 @@
             identifiersCount = res.Value.Count();
         }
 
-        preferencesService.Subscribe<Preferences>( 
+        preferencesService.Subscribe<Preferences>(
             onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService()
@@ -165,7 +153,8 @@
                 SelectedAlias = headline.Alias;
                 SelectedIdenticon = MakeIdenticon(SelectedAid);
             }
-        } else
+        }
+        else
         {
             logger.LogError("InitialOrNextPreference: failed to get IdentifierHeadlines");
         }

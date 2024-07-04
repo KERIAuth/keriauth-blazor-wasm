@@ -42,7 +42,7 @@
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
-        <MudStack Style="min-width: 340px; max-width:100%">
+        <MudStack Style="min-width: 340px; width:100%">
             <MudText Typo="Typo.h6">Configure</MudText>
             <MudStack Class="bt-create-card-top-scrollable">
                 <MudText Typo="Typo.h6">KERI Agent Service</MudText>
@@ -62,7 +62,7 @@
                               For="@(() => urlModel.BootUrl)"
                               Immediate="true"
                               OnBlur="@HandleOnBlur" />
-                <MudText Typo="Typo.h6">KERI Agent Account</MudText>
+                <MudText Typo="Typo.h6">Your KERI Agent Account</MudText>
                 <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
