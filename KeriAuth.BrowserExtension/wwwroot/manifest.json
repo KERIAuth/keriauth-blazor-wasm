@@ -31,7 +31,7 @@
     "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals"
   },
   "default_locale": "en",
-  "description": "KERI Auth Browser Extension for authentication and authorization using KERI identifiers and credentials",
+  "description": "Authenticate and authorize with websites supporting KERI and compatible credentials.",
   "icons": {
     "512": "images/512_keri_logo.png"
   },
