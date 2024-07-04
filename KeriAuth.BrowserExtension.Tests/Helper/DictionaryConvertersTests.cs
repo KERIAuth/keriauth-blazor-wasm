@@ -41,7 +41,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
                         },
                         {
                             ""itemId"": 102,
-                            ""itemName"": ""Item2""
+                            ""itemName"": ""Item2_asdf asdf""
                         }
                     ]
                 }
@@ -106,7 +106,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
             var secondItem = collection[1] as Dictionary<string, object>;
             Assert.NotNull(secondItem);
             Assert.Equal(102L, secondItem["itemId"]);
-            Assert.Equal("Item2", secondItem["itemName"]);
+            Assert.Equal("Item2_asdf asdf", secondItem["itemName"]);
         }
     }
 }
