@@ -1,44 +1,63 @@
 # KERI Auth Browser Extension
-
 [![KERI Auth build](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml/badge.svg)](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml)
-
-## Summary
-This extension removes a class of problems website owners have with managing usernames and passwords or relying on federated identity providers that risk leaking or correlating user usage patterns. 
-
-The primary goal of this extension is to provide a highly secure way to authentically "sign in" to certain websites. The browser extension under development will enable a user to interact with conforming websites, to *authenticate* with the user’s KERI identifier and to *authorize* with an ACDC credential they’ve been issued. 
-
-Its passwordless design enables the user to create and manage their own stable identifiers (KERI AIDs), signing keys, and credentials. It utilizes credentials issued by the website owners and/or other issuers they trust.
-
-The browser extension, implemented for Chromium browsers, uses the [WebOfTrust/signify-ts](https://github.com/weboftrust/signify-ts) component to connect with an instance of [KERIA](https://github.com/weboftrust/keria), a KERI cloud agent, which safely manages the user’s AIDs, associated keys, credentials, and other services. The user can choose whether they host a KERIA instance themselves or use one provided by a third party.
-
-## Contents
-- [Architecture](#architecture) 
-  - [Service-worker](#service-worker)
-  - [Browser Extension Action Icon/Button](#browser-extension-action-iconbutton)
-  - [Content Script](#content-script)
-  - [Integrated Web Page](#integrated-web-page)
-  - [Blazor WASM Components](#blazor-wasm-components)
-    - [Single Page App](#single-page-app)
-    - [Views](#views)
-    - [Services](#services)
-- [Security considerations](#security-considerations)
-- [Run for development](#run-for-development)
-- [Roadmap](#roadmap)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Development Setup](#development-setup)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-- [Contact Information](#contact-information)
+# Overview
+**KERI Auth** is a browser extension designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for identifiers (KERI), credentials (ACDC), and other Trust Over IP objectives. 
+These solutions are aimed at greatly reducing security and privacy vulnerabilities with today’s set of internet mechanisms (e.g., federated identity, passwords, SMS 2FA, certificate authority processes, shared secrets, access tokens, and DNS).
+The KERI Auth 1.0 release is currently under development and targets the features below.
+# Contents
+- [Features](#features)
+- [For Users](#for_users)
+  - [Installation](#installation)
+  - [Runtime Dependencies](#dependencies)
+- [For Developers](#developers)
+  - [Architecture](#architecture)
+  - [Development Setup](#development-setup)
+  - [Run for development](#run-for-development)
+  - [License](#license)
+  - [Acknowledgments](#acknowledgments)
 - [Community](#community)
 - [References](#references)
 
+# Features
+From the end user’s perspective, the extension enables the user to create and manage their own stable identifiers (KERI AIDs), signing keys, and credentials. It can utilize credentials issued by the website owner and/or other issuers they trust.
+V1.0 target features include:
+* Configure a connection with a KERI Agent Service of your choosing
+* Create one or more KERI identifiers
+* Select your current KERI identifier
+* View credentials issued to your identifiers
+* Visit websites supporting KERI's Signify protocol, and:
+  * Launch the extension
+  * Authenticate ("sign in") with your KERI identifier
+  * Authorize ("sign in") with a credential you've received
+
+Product Roadmap goals will evolve and may include interoperability with other KERI-related extensions and website JavaScript APIs. 
+For more information, see https://keriauth.com, GitHub Issues, and join the [community](#community) discussions.
+
+<hr/>
+
+# For Users
+
+## Installation
+The extension will eventually be available for installation from the Chrome Web Store. Until then, please contact us for the latest pre-release and instructions.
+
+## Runtime Dependencies
+To successfully install and use the KERI Auth browser extension, you need the following:
+* **Chromium-based Browser** version 127 (released July 2024) or later. Chrome, Edge, or Brave. 
+* **Web page supporting Signify**, a JavaScript API protocol
+* **Connection to KERI Agent Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth browser extension.
+Over time, we expect many KERIA service providers to be available, including a turn-key self-hosted option. There is currently no turn-key solution to set up a KERIA service along with configured Witness services and Watcher network.
+KERIA creates a separate agent instance for each Signify client as well as partitions the server’s storage to isolate agent instances from each other. 
+The KERIA agent instance does not hold any of the user’s signing keys, as signing is the job for a Signify client. 
+The agent instance does hold ACDCs (which may contain PII) as it needs to verify KEL-backed signatures and does exchange messages with other agents on behalf of the AID’s controller.
+
+<hr/>
+
+# For Developers
 ## Architecture
+
+This diagram depicts the primary components of the solution and how they interact. The sections below provide more detail on the components.
 ![KERI Auth Architecture](KERIAuthArchitecture.jpg)
 Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.com/drawings/d/1xICKkvaJkS4IrOGcj_3GidkKHu1VcIrzGCN_vJSvAv4))
-<!-- The browser extension is composed of the following components: -->
 
 ### Manifest.json
 * Describes the extension and its permissions.
@@ -50,105 +69,77 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 
 ### Service-worker
 * Runs background tasks.
-* Sends and handles messages to/from the integrated webpage via injected content script.
-* Sends and handles messages to/from the WASM components.
+* Sends and handles messages to/from the webpage via the extension's content script.
+* Sends and handles messages to/from the WASM App.
 * Persists configuration via chrome.storage.local.
 * Communicates with KERIA agent via signify-ts library.
 
-### Content Script Context
+### Content Script
 * With the user’s permission this script is injected into the active web page after the user initiates the action.
+* Runs in an isolated JavaScript context
 * Handles messages to/from the website via a JavaScript API that the web page also implements.
 * Handles messages to/from the service-worker.
 
-### Integrated Web Page
-* Provided by a website owner, leveraging interfaces on the Content Script.
-* Interacts with extension via content script to get user's choice of AID and Credential.
-* Responsible for validating and determining acceptance of presented AID and Credential.
+### Web Page
+* Provided by a website owner, leveraging JavaScript interfaces on the Content Script, which follows the Signify protocol.
+* Interacts with extension via content script to get user's choice of Identifier (KERI AID) and Credential (ACDC).
+* Responsible for validating and determining acceptance of presented Identifier and Credential. May use other services for validation of the identifier's key-state, credential schema, and issuer's root of trust.
 
-### Blazor WASM Components
+### Blazor WASM App Components
 
-#### Single Page App (index.html)
-* Program and page that run in browser WASM when any non-trivial extension UI is visible.
-* Includes services and views.
+#### Single Page App
+* Bootstrapped by index.html
+* Program.cs, App.wasm, Razor pages, and services that run as WASM when any non-trivial extension UI is visible.
 
-#### Views (via App.razor)
-* May appear as a popup (typically) or in a full tab.
+#### Pages
+* May be hosted by the browser's Action Popup (typically), a browser popup window, or a browser tab.
 
 #### Services
-* Interact with service-worker (and indirectly the webpages) via messages.
-* Communicates with KERIA agent via signify-ts library.
+* Interact with service-worker (and indirectly the web pages) via messages.
+* Communicates with KERIA service via the signify-ts library.
 * Persists configuration and notifications via chrome.storage.local.
 
 ### Design security considerations
 The following rules are enforced by design to ensure the security of the extension:
-* Only sends signed headers to the website if the user has previously created a signing association with that website.
-* Only sends signed headers to the website if the website is the active tab on the browser.
-* Caches the passcode only temporarily and clears from cache after a few minutes.
-* Only accepts content script messages from the active tab website, during authentication or after a signing association exists with the auto-authenticate flag enabled.
-* Declare minimum required and optional permissions in its manifest.
+* Only sends signed requests ("headers") to the website if the user has previously authorized a signing association with that website.
+* Only sends signed requests to the website if the website is the active tab on the browser.
+* Caches the passcode only temporarily and clears it from cache after a few minutes.
+* Only accepts content script messages from the active tab website, during authentication or after a signing association exists with the auto-authenticate (sign in) flag enabled.
+* Declare minimum required and optional permissions in the extension's manifest.
 * Never runs dynamic or inline scripts.
-* Assures all sensitive data never reaches the content script or website.
-
-# Roadmap
-The goals for KERI Auth Brower Extension will evolve and may include interoperability with other KERI-related extensions and website JavaScript APIs. The high-level backlog and roadmap will be shown on https://keriauth.com, and details in GitHub Issues
-<hr/>
-
-## Install Prerequisites
-* Run or get access to a KERIA instance. See [KERIA README](https://github.com/WebOfTrust/keria/blob/main/README.md). Run test suites
-* **TBD**
+* Assures all sensitive data (e.g., passcode) never reaches the content script or website.
 
 ## Development Setup and Build
-**TBD** Instructions for setting up a development environment:
 - Prerequisites (Node.js, npm, browser development tools, etc.).
-- Cloning the repository and building the extension.
-- Running tests.
+- Clone the repository and build the extension.
 
 ## Extension Installation
-**TBD** Step-by-step instructions for installing the extension:
-- From a public repository (like Chrome Web Store).
-- From the source code via `load unpacked` in developer mode.
+- After building from source code, use Chrome/Edge/Brave's "developer mode" and press `load unpacked`, selecting the directory KeriAuth.BrowserExtension\bin\Release\net8.0\browserextension.
 
-## Usage
-**TBD** add detailed instructions on how to use the extension, including:
-- Key features and how to access them.
-- Screenshots or GIFs to illustrate functionality.
-- Typical workflows and use cases.
+<hr/>
 
-## Configuration
-**TBD** Information on customizing the extension, if applicable:
-- Configurable options.
-- Instructions for changing settings.
-
-<!-- 
-## Contributing
-Guidelines for contributing to the project:
-- How to submit issues and pull requests.
-- Coding standards and best practices.
-- Code of conduct and community guidelines.
--->
-
-## Acknowledgments
+# Acknowledgments
 We especially appreciate the contributors of following libraries we use:
 * [WebOfTrust/signify-ts](https://github.com/webOfTrust/signify-ts/) by WebOfTrust
 * [mingyaulee/Blazor.BrowserExtension](https://github.com/mingyaulee/Blazor.BrowserExtension) by mingyaulee
 <!-- TODO See acknowledgements file for other 3rd parties utilized -->
 
-<!--
-## Contact Information
-Contact information for the project maintainer(s):
-- Email, GitHub profiles, or social media links.
--->
+<hr/>
 
-## Community
-Join the project's community on [Discord](https://discord.gg/Va79ag9RCw).
+# Community
+Join the project's community on [Discord](https://discord.gg/Va79ag9RCw), or via Trust Over IP Foundation projects.
 
-## References
-### Articles
-* [Sign and Verify with Signify & Keria](https://medium.com/finema/keri-tutorial-sign-and-verify-with-signify-keria-833dabfd356b)
+<hr/>
+
+# Highlighted References
+## Articles
 * [Introduction to KERI](https://medium.com/finema/the-hitchhikers-guide-to-keri-part-1-51371f655bba)
 * [Introduction to ACDC](https://medium.com/finema/the-hitchhikers-guide-to-acdc-part-1-4b3b3b3b3b3b)
-### Repositories
+* [Sign and Verify with Signify & Keria](https://medium.com/finema/keri-tutorial-sign-and-verify-with-signify-keria-833dabfd356b)
+## Repositories
 * [WebOfTrust/signify-ts](https://github.com/WebOfTrust/signify-ts)
 * [WebOfTrust/signify-browser-extension](https://github.com/WebOfTrust/signify-browser-extension)
+* [WebOfTrust/keria](https://github.com/WebOfTrust/keria)
 * [cardano-foundation/cf-identity-wallet](https://github.com/cardano-foundation/cf-identity-wallet)
 * [cardano-foundation/cf-poc-tunnel](https://github.com/cardano-foundation/cf-poc-tunnel)
+
