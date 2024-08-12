@@ -70,24 +70,24 @@ namespace KeriAuth.BrowserExtension
         public static readonly MudTheme MyCustomTheme = new()
         {
             // See also https://mudblazor.com/customization/default-theme
-            Palette = new PaletteLight()
+            PaletteLight = new PaletteLight()
             {
                 Primary = new MudColor(201, 1.0, 0.38, 1.0), // Colors.Indigo.Default,
                 PrimaryLighten = Colors.Indigo.Lighten1,
                 PrimaryDarken = Colors.Indigo.Darken1,
-                PrimaryContrastText = Colors.Grey.Lighten5,
+                PrimaryContrastText = Colors.Gray.Lighten5,
                 // TextPrimary **
 
                 Secondary = Colors.Brown.Default,
                 SecondaryLighten = Colors.Brown.Lighten1,
                 SecondaryDarken = Colors.Brown.Darken1,
-                SecondaryContrastText = Colors.Grey.Lighten5,
+                SecondaryContrastText = Colors.Gray.Lighten5,
                 // TextSecondary  **
 
                 Tertiary = Colors.DeepOrange.Default,
                 TertiaryLighten = Colors.DeepOrange.Lighten1,
                 TertiaryDarken = Colors.DeepOrange.Darken1,
-                TertiaryContrastText = Colors.Grey.Lighten5,
+                TertiaryContrastText = Colors.Gray.Lighten5,
 
                 // Info
                 // InfoLighten
@@ -116,7 +116,7 @@ namespace KeriAuth.BrowserExtension
                 // DarkContrastText
 
                 Background = new MudColor(0, 0.0, 0.96, 1.0),
-                BackgroundGrey = new MudColor(0, 0.0, 0.76, 1.0),
+                BackgroundGray = new MudColor(0, 0.0, 0.76, 1.0),
 
                 AppbarBackground = new MudColor(200, 0.17, 0.26, 1.0),
                 // AppbarText
@@ -127,7 +127,7 @@ namespace KeriAuth.BrowserExtension
                 DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
                 DrawerText = new MudColor(0, 1.0, 1.0, 1.0),
 
-                ActionDisabled = Colors.Grey.Default,
+                ActionDisabled = Colors.Gray.Default,
 
                 Surface = new MudColor(0, 0.0, 0.90, 1.0),
                 /*
@@ -168,23 +168,23 @@ namespace KeriAuth.BrowserExtension
                 Primary = Colors.LightBlue.Lighten4,
                 PrimaryLighten = Colors.LightBlue.Lighten3,
                 PrimaryDarken = Colors.Cyan.Lighten5,
-                PrimaryContrastText = Colors.Grey.Darken4,
+                PrimaryContrastText = Colors.Gray.Darken4,
 
                 Secondary = Colors.Amber.Lighten4,
                 SecondaryLighten = Colors.Amber.Lighten3,
                 SecondaryDarken = Colors.Amber.Lighten5,
-                SecondaryContrastText = Colors.Grey.Darken4,
+                SecondaryContrastText = Colors.Gray.Darken4,
 
                 Tertiary = Colors.DeepOrange.Lighten4,
                 TertiaryLighten = Colors.DeepOrange.Lighten3,
                 TertiaryDarken = Colors.DeepOrange.Lighten5,
-                TertiaryContrastText = Colors.Grey.Darken4,
+                TertiaryContrastText = Colors.Gray.Darken4,
 
-                ActionDisabled = Colors.Grey.Darken1,
-                ActionDisabledBackground = Colors.Grey.Default,
+                ActionDisabled = Colors.Gray.Darken1,
+                ActionDisabledBackground = Colors.Gray.Default,
 
                 Background = new MudColor(201, 0.23, 0.12, 1.0),
-                BackgroundGrey = new MudColor(0, 0.0, 0.13, 1.0),
+                BackgroundGray = new MudColor(0, 0.0, 0.13, 1.0),
                 Success = new MudColor(123, 0.41, 0.45, 1.0),
                 // Error = new MudColor(244, 0.67, 0.54, 1.0),
                 AppbarBackground = new MudColor(200, 0.19, 0.18, 1.0),

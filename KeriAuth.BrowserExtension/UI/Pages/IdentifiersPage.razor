@@ -128,13 +128,13 @@
                 CloseOnEscapeKey = true,
                 MaxWidth = MaxWidth.Small,
                 FullWidth = true,
-                DisableBackdropClick = true,
+                BackdropClick = false,
                 CloseButton = true,
                 Position = DialogPosition.Center,
             };
         var dialog = dialogService.Show<AddIdentifierDialog>("Add Identifier", parameters, options);
         var result = await dialog.Result;
-        if (result.Canceled)
+        if (result is null || result.Canceled)
         {
             DialogResult = "Dialog was cancelled";
         }

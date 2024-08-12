@@ -13,7 +13,7 @@
 	}
 	@if (ops.IsPending && ops.IsRunning && !ops.CompletedSuccessfully)
 	{
-		<MudProgressCircular Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGrey.Lighten3};")" Indeterminate="true" />
+		<MudProgressCircular Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGray.Lighten3};")" Indeterminate="true" />
 	}
 	@if (!ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully)
 	{
@@ -21,7 +21,7 @@
 	}
 	@if (ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully)
 	{
-		<MudIcon Icon="@Icons.Material.Filled.Pending" Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGrey.Lighten3};")" />
+		<MudIcon Icon="@Icons.Material.Filled.Pending" Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGray.Lighten3};")" />
 	}
 	<MudText>@ops.Label</MudText>
 </MudStack>
