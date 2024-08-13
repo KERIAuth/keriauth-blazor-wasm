@@ -92,7 +92,7 @@
                 <MudList Clickable="true" @bind-SelectedValue="ActiveAid" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
-                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid()" Style="@IdentifiersPage.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style="@IdentifiersPage.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -503,13 +503,13 @@
         // Other side-effects will be reactive. See IObserver<StateService>
     }
 
-    async Task SetActiveAid()
+    async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
         var pref = await preferencesService.GetPreferences();
         pref = pref with
             {
-                SelectedAid = (string)ActiveAid
+                SelectedAid = prefix
             };
         await preferencesService.SetPreferences(pref);
         // Other side-effects will be reactive. See IObserver<Preferences>
