@@ -27,7 +27,7 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
         InitialUriQuery = query;
         if (uri.AbsoluteUri.Contains("chrome-extension"))
         {
-            // TODO: better to get this environment value from the chrome.runtime.getContexts() API, filtered by the current context.  See UIHelper.GetChromeContexts()
+            // TODO P3: better to get this environment value from the chrome.runtime.getContexts() API, filtered by the current context.  See UIHelper.GetChromeContexts()
             if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment))
             {
                 if (Enum.TryParse(environment.FirstOrDefault(), true, out ExtensionEnvironment extensionEnvironment))

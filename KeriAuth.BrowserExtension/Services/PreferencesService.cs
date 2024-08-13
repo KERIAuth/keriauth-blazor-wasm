@@ -12,7 +12,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
 
     public void Initialize()
     {
-        stateSubscription = storageService.Subscribe(this); // TODO consider using parameters for onNext, etc.
+        stateSubscription = storageService.Subscribe(this);
     }
 
     public async Task<Preferences> GetPreferences()

@@ -8,7 +8,7 @@ namespace KeriAuth.BrowserExtension.Helper
 {
     public class JSInteropHelper(IJSRuntime jsRuntime)
     {
-        // TODO set shorter timeout depending on #debug
+        // TODO P3 set shorter timeout depending on #debug
 
 #if DEBUG
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(22222000);

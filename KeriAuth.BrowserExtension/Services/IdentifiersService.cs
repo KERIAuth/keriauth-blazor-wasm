@@ -60,10 +60,10 @@ namespace KeriAuth.BrowserExtension.Services
                     //// logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService salty {1}", (object)aid.Salty);
                     //logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService transferable {1}", aid.Transferable);
                     //// logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService windexes {1}", (object)aid.Windexes);
-                    //// TODO !! parse?
+                    //// TODO P4 parse?
 
 
-                    // TODO ??  set the current identifierService in the Headline?
+                    // TODO P3  set the current identifierService in the Headline?
                     var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), logger, storageService);
                     headlines.Add(new IdentifierHeadline(item.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));
                 }

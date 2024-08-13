@@ -84,7 +84,7 @@ public class StateService : IStateService
     {
         foreach (var observer in stateObservers)
             observer.OnNext(stateMachine.State);
-        await Task.Delay(0); // hack
+        await Task.Delay(0);
         return;
     }
 

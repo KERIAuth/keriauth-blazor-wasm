@@ -17,7 +17,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
             var queryParams = new List<KeyValuePair<string, string>>
             {
                 new("key1", "value1"),
-                // TODO adjust code so this test passes
+                // TODO P3 adjust code so this test passes
                 // new("key2", "value with space"),
                 // new("key3", "value&with&special"),
                 // new("key&with&special", "value&with&special")
@@ -33,7 +33,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
             // Assert.Contains("key%26with%26special=value%26with%26special", result);
         }
 
-        /* /* TODO adjust code so this test passes
+        /* /* TODO P3 adjust code so this test passes
         [Fact]
         public void CreateUrlWithEncodedQueryStrings_HandlesEmptyQueryParams()
         {
@@ -64,7 +64,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
             Assert.Equal("value&with&special", result["key&with&special"]);
         }
 
-        /* TODO adjust code so this test passes
+        /* TODO P3 adjust code so this test passes
         [Fact]
         public void DecodeUrlQueryString_ThrowsExceptionOnNullValue()
         {
@@ -77,7 +77,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
         }
         */
 
-        /* TODO adjust code so this test passes
+        /* TODO P3 adjust code so this test passes
         [Fact]
         public void DecodeUrlQueryString_ReturnsEmptyDictionaryForNoQueryParams()
         {

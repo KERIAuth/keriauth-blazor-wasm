@@ -25,7 +25,7 @@ namespace KeriAuth.BrowserExtension.Services
         {
             if (_port != null)
             {
-                // TODO make the message payload typed
+                // TODO P2 make the message payload typed
                 //var messagePayload = new MessagePayload<T>
                 //{
                 //    Message = message,
