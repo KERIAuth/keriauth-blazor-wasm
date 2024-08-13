@@ -105,7 +105,7 @@
 
     private async Task GetHeadlines()
     {
-        logger.LogWarning("GetHeadlines");
+        logger.LogInformation("GetHeadlines");
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res != null)
         {
