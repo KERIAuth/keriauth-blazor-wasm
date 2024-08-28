@@ -87,9 +87,9 @@
 
         </MudStack>
         <!-- The AID selector overlay covers entire page -->
-        <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" OnClick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
+        <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
-                <MudList Clickable="true" @bind-SelectedValue="ActiveAid" Class="bt-sad-4;" Style="padding: 0px">
+                <MudList @bind-SelectedValue="ActiveAid" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
                         <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style="@IdentifiersPage.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">

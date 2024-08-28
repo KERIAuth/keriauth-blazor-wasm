@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace KeriAuth.BrowserExtension.Services
 {
-    public class AppSwMessagingService(ILogger<AppSwMessagingService> logger, IExtensionEnvironmentService extensionEnvironmentService, IJSRuntime jsRuntime) : IAppSwMessagingService
+    public class AppSwMessagingService(ILogger<AppSwMessagingService> logger, IJSRuntime jsRuntime) : IAppSwMessagingService
     {
         private readonly List<IObserver<string>> observers = [];
         private IJSObjectReference? _port;
@@ -79,22 +79,22 @@ namespace KeriAuth.BrowserExtension.Services
         }
 
         // Helper method to notify observers of an error
-        private void NotifyError(Exception error)
-        {
-            foreach (var observer in observers)
-            {
-                observer.OnError(error);
-            }
-        }
+        //private void NotifyError(Exception error)
+        //{
+        //    foreach (var observer in observers)
+        //    {
+        //        observer.OnError(error);
+        //    }
+        //}
 
         // Helper method to notify observers of completion
-        private void Complete()
-        {
-            foreach (var observer in observers)
-            {
-                observer.OnCompleted();
-            }
-        }
+        //private void Complete()
+        //{
+        //    foreach (var observer in observers)
+        //    {
+        //        observer.OnCompleted();
+        //    }
+        //}
 
         // Inner class to handle unsubscribing
         private class Unsubscriber(List<IObserver<string>> observers, IObserver<string> observer) : IDisposable

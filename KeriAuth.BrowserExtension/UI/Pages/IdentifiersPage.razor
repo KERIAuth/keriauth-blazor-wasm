@@ -144,7 +144,7 @@
             logger.LogInformation("AddIdentifier: {1}", result.Data);
             IsAddingAid = true;
             StateHasChanged();
-            var res = await identifiersService.Add((string)result.Data);
+            var res = await identifiersService.Add(result.Data?.ToString() ?? String.Empty);
             await Task.Delay(1000);  // Simulate delay to show and test spinner. Can remove later.
             if (res.IsFailed || res.Value is null)
             {
