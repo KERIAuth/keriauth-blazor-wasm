@@ -19,7 +19,8 @@
     "outDir": ".",
     "paths": {
       "*": [ "./node_modules/*" ],
-      "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ]
+      "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],
+      "@polaris-web/*": [ "./node_modules/polaris-web/dist/*" ]
     },
     "removeComments": true,
     "resolveJsonModule": true,

@@ -1,12 +1,14 @@
 {
-  "not used": "this should not used by the project, it is here for reference only",
   "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "noErrorTruncation": true,
     "target": "es5",
     "module": "commonjs",
     "strict": true,
-    "noEmit": true,
     "removeComments": true
   },
-  "include": [ "none"],
+  "include": [],
   "exclude": [ "**/*" ]
 }

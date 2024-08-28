@@ -16,7 +16,20 @@ interface EventData {
 }
 
 import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType, IExCsMsg, ICsSwMsg } from "../es6/ExCsInterfaces.js";
-
+import {
+    AuthorizeResultCredential,
+    AuthorizeArgs,
+    AuthorizeResultIdentifier,
+    AuthorizeResult,
+    SignDataArgs,
+    SignDataResultItem,
+    SignDataResult,
+    SignRequestArgs,
+    SignRequestResult,
+    ConfigureVendorArgs,
+    MessageData
+} from "polaris-web/dist/client";
+    
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
@@ -27,7 +40,7 @@ import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType, IExC
 const PAGE_EVENT_TYPE = Object.freeze({
     SELECT_IDENTIFIER: "select-identifier",
     SELECT_CREDENTIAL: "select-credential",
-    SELECT_ID_CRED: "select-aid-or-credential",
+    SELECT_ID_CRED: "/signify/authorize",
     SELECT_AUTO_SIGNIN: "select-auto-signin",
     NONE: "none",
     VENDOR_INFO: "vendor-info",
@@ -131,6 +144,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
                                         // Note, this notification to SW is effectively haneled earlier in the code, in the advertiseToPage function
                                         console.log("KeriAuthCs from page: message ignored:", event.data);
                                         break;
+                                    case PAGE_EVENT_TYPE.SELECT_ID_CRED:
                                     case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
                                         const msg2: ICsSwMsg = {
                                             type: CsSwMsgType.SELECT_IDENTIFIER
@@ -139,7 +153,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
                                         port.postMessage(msg2);
                                         break;
                                     case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-                                    case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+
                                     case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
                                     case PAGE_EVENT_TYPE.NONE:
                                     case PAGE_EVENT_TYPE.VENDOR_INFO:
