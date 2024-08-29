@@ -47,7 +47,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
                 }
             }}";
 
-            Dictionary<string, object> foo = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, _options);
+            Dictionary<string, object> foo = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, _options) ?? [];
 
             // Test id
             var idTypedValue = DictionaryConverter.GetValueByPath(foo, "id");

@@ -28,8 +28,8 @@
             @foreach (CachedAid cachedAid in cachedAids)
             {
                 <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier)">
-                    <MudCard Class="py-1 my-1" Style="@cardClass((string)ActiveAid, cachedAid.Alias)">
-                        <div class="d-flex" style="align-items:center; @cardClass((string)ActiveAid, cachedAid.Prefix)">
+                    <MudCard Class="py-0 my-1">
+                        <div class="d-flex" style=@("align-items:center; " + @cardClass((string)ActiveAid, cachedAid.Prefix))>
                             <MudTooltip Text="Set Identifier as active" Delay="1000">
                                 <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
                                     <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
@@ -170,7 +170,7 @@
     }
 
     public static string cardClass(string activeAid2, string rowIdentifier) =>
-        (string)activeAid2 == rowIdentifier ? "border-left: 4px solid var(--mud-palette-text-primary);" : "";
+        (string)activeAid2 == rowIdentifier ? "border-left: 4px solid var(--mud-palette-primary);" : "border-left: 4px solid transparent;";
 
     // Set ActiveDid based on value of activeDidIdentifier,
     // retrieved from picker or via preferences
