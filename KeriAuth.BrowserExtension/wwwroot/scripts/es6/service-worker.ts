@@ -15,8 +15,8 @@ import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled,
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
 
 // Listen for and handle a new install or update of the extension
-chrome.runtime.onInstalled.addListener(async (installDetails) => {
-    console.log(`SW onInstalled details:`, installDetails);
+chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.InstalledDetails) => {
+    console.log("SW InstalledDetails: ", installDetails);
     let urlString = "";
     switch (installDetails.reason) {
         case "install":
@@ -203,13 +203,18 @@ function isActionPopupUrlSet(): Promise<boolean> {
 }
 
 // Object to track the connections between the service worker and the content scripts, using the tabId as the key
-const connections: { [key: string]: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } } = {};
+interface Connection {
+    port: chrome.runtime.Port;
+    tabId: number;
+    pageAuthority: string;
+}
+let connections: { [key: string]: Connection } = {};
 
 // Listen for and handle port connections from content script and Blazor App
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
-    console.log("SW onConnect port: ", connectedPort);
+    console.log("SW onConnect port: ", connectedPort );
     let connectionId = connectedPort.name;
-    console.log("SW connections before update: ", { connections });
+    console.log(`SW ${Object.keys(connections).length} connections before update: `, connections );
 
     // Get the tabId from the port, which will be a number if a browser tab from the contentScript, -1 if an action popup App, or undefined if not a tab
     let tabId = -1;
@@ -220,18 +225,18 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     console.log("SW tabId: ", tabId);
     // store the port for this tab in the connections object. Assume 1:1
     connections[connectionId] = { port: connectedPort, tabId: tabId, pageAuthority: "?" };
-    console.log("SW connections: ", { connections });
+    console.log(`SW ${Object.keys(connections).length} connections after update: `, connections );
 
     // First check if the port is from a content script and its pattern
     const cSPortNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     if (cSPortNamePattern.test(connectedPort.name)) {
-        console.log(`SW Connected to ${connectedPort.name}`);
-        const cSPort = connectedPort;
+        const cSPort : chrome.runtime.Port = connectedPort;
+        console.log(`SW with CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
-        console.log("SW adding onMessage listener for port", cSPort);
+        // console.log("SW adding onMessage listener for port", cSPort);
         cSPort.onMessage.addListener((message: any) => {
-            console.log("SW from CS: message, port", message, cSPort);
+            console.log("SW from CS: message", message);
             // assure tab is still connected        
             if (connections[connectionId]) {
                 switch (message.type) {
@@ -270,7 +275,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             // On the first connection, associate this port from the Blazor App with the port from the same tabId?
 
             const appPort = connectedPort;
-
+            console.log(`SW with App via port`, appPort);
             // Get get the authority from the tab's origin
             let url = "unknown"
             if (appPort.sender?.url) {
@@ -310,11 +315,12 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             appPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
 
         } else {
-            console.error('Invalid port name:', connectedPort.name);
+            console.error('Invalid port:', connectedPort);
         }
     }
     // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
     connectedPort.onDisconnect.addListener(() => {
+        console.log("SW port closed connection: ", connections[connectionId])
         delete connections[connectionId];
     });
 });

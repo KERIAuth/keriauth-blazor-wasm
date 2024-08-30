@@ -22,6 +22,7 @@ export enum CsSwMsgType {
 
 export interface ICsSwMsgSelectIdentifier extends ICsSwMsg {
     type: CsSwMsgType.SELECT_IDENTIFIER
+    message: string
 }
 
 export interface ICsSwMsgHello extends ICsSwMsg {
@@ -41,7 +42,8 @@ export interface IExCsMsg {
 export enum ExCsMsgType {
     HELLO = "hello",
     CANCELED = "canceled",
-    SIGNED = "signed"
+    SIGNED = "signed",
+    FSW = "fromServiceWorker"
 }
 
 export interface IExCsMsgHello extends IExCsMsg {
