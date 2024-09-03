@@ -73,7 +73,7 @@ const PAGE_EVENT_TYPE = Object.freeze({
     FETCH_RESOURCE: "fetch-resource",
     SELECT_IDENTIFIER: "/signify/authorize/aid",
     SELECT_CREDENTIAL: "/signify/authorize/credential",
-    SELECT_ID_CRED: "/signify/authorize",
+    SIGNIFY_AUTHORIZE: "/signify/authorize",
     AUTHORIZE_AUTO_SIGNIN: "/signify/authorize-auto-signin",
     SIGN_REQUEST: "/signify/sign-request",
     CONFIGURE_VENDOR: "/signify/configure-vendor",
@@ -92,9 +92,12 @@ const PAGE_POST_TYPE = Object.freeze({
 // interfaces for the messages posted to the web page
 interface BaseCsPageMessage {
     // version: "0.0.1"
-    source: "KeriAuthCs"
-    type: string
-    data: object
+    source: "KeriAuthCs";
+    type: string;
+    data?: object;
+    payload?: object;
+    error?: string;
+    requestId?: string;
 }
 
 //interface SignifyExtensionMessage extends BaseCsPageMessage {
@@ -120,16 +123,17 @@ const uniquePortName: string = generateUniqueIdentifier();
 function advertiseToPage(): void {
     postMessageToPage(PAGE_POST_TYPE.SIGNIFY_EXT, { extensionId: String(chrome.runtime.id) });
 }
-// postMessageToPage(PAGE_POST_TYPE.SIGNIFY_EXT, { extensionId: String(chrome.runtime.id) });
 
 const CsToPageMsgIndicator = "KeriAuthCs";
 
-function postMessageToPage(type: string, data: object): void {
+function postMessageToPage(type: string, data?: object, payload?: object, requestId?: string, error?: string): void {
     const msg: BaseCsPageMessage = {
-        // version: "0.0.1",
         source: CsToPageMsgIndicator,
         type: type,
-        data: data
+        data: data,
+        payload: payload,
+        requestId: requestId,
+        error: error
     };
     console.log("KeriAuthCs to page postMessage:", msg);
     window.postMessage(msg, currentOrigin);
@@ -218,7 +222,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 /*
 // Handle messages from the page
-*/ 
+*/
 function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.runtime.Port) {
 
     // TODO EE tmp debug
@@ -231,7 +235,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
         return;
     }
 
-    // Ignore messages from Cs intended for Page
+    // Ignore messages from Cs intended for the Page, as indicated by the source property
     if (event.data.source == CsToPageMsgIndicator) {
         console.log("KeriAuthCs ignoring message not intended for Cs: type, event: ", event.data.type, event);
         return;
@@ -246,11 +250,44 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 // Note, the signify-extension notification from page is effectively haneled earlier in the code, in the advertiseToPage function
                 console.warn("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
                 break;
-            case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+            case PAGE_EVENT_TYPE.SIGNIFY_AUTHORIZE:
                 console.log("EE1.1");
                 try {
                     const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
                     portWithSw.postMessage(msg);
+
+
+                    // TODO EE! tmp
+                    if (Math.random() >= 0.5) {
+                        const fakeError = "fake error" + event.data.requestId;
+                        postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
+
+                    } else {
+                        // TODO EE! tmp2 return an AuthorizeResult object as defined in polaris-web/src/client.ts
+                        postMessageToPage("/signify/reply", null, { identifier: { prefix: "asdf" } }, event.data.requestId, null);
+                    }
+
+                } catch (error) {
+                    // TODO refactor to common postMessage wrapper
+                    console.error("KeriAuthCs to SW: error converting page event data to JSON or sending message:", error);
+                    return;
+                }
+                break;
+            case PAGE_EVENT_TYPE.SIGN_REQUEST:
+                try {
+                    const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
+                    portWithSw.postMessage(msg);
+
+                    // TODO EE! tmp
+                    if (Math.random() >= 0.5) {
+                        const fakeError = "fake error" + event.data.requestId;
+                        postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
+
+                    } else {
+                        // TODO EE! tmp2 return a SignDataResult object as defined in polaris-web/src/client.ts
+                        postMessageToPage("/signify/reply", null, { aid: "asdf", items: [{ data: "asdfasdf_from original request", signature: "sigsig" }] }, event.data.requestId, null);
+                    }
+
                 } catch (error) {
                     // TODO refactor to common postMessage wrapper
                     console.error("KeriAuthCs to SW: error converting page event data to JSON or sending message:", error);
