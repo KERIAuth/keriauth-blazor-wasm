@@ -2,11 +2,12 @@
     invokeMethodAsync(methodName: string, ...args: any[]): Promise<void>;
 }
 
-const SwAppInteropModule = (() => {
+export const SwAppInteropModule = (() => {
     const initializeMessaging = (dotNetHelper: DotNetObjectReference, tabId: String) => {
         const port = chrome.runtime.connect({ name: "blazorAppPort" + "-tab-" + tabId });
 
         port.onMessage.addListener((message) => {
+            // TODO EE!
             if (message && message.type === 'fromServiceWorker') {
                 dotNetHelper.invokeMethodAsync('ReceiveMessage', message.data);
             }
@@ -15,7 +16,8 @@ const SwAppInteropModule = (() => {
         return port;
     };
 
-    const sendMessageToServiceWorker = (port: chrome.runtime.Port, message: string) => {
+    const sendMessageToServiceWorker = (port: chrome.runtime.Port, type: string, message: string) => {
+        // TODO EE!
         port.postMessage({ type: 'fromBlazorApp', data: message });
     };
 
@@ -25,4 +27,4 @@ const SwAppInteropModule = (() => {
     };
 })();
 
-export { SwAppInteropModule };
+

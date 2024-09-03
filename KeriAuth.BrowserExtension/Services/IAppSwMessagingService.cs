@@ -8,7 +8,7 @@ namespace KeriAuth.BrowserExtension.Services
     {
         public Task Initialize(string tabId);
 
-        public Task SendToServiceWorkerAsync<T>(string message, T payload);
+        public Task SendToServiceWorkerAsync<T>(string type, string message, T payload);
 
         [JSInvokable]
         public void ReceiveMessage(string message);

@@ -21,7 +21,7 @@ namespace KeriAuth.BrowserExtension.Services
             _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
         }
 
-        public async Task SendToServiceWorkerAsync<T>(string message, T payload)
+        public async Task SendToServiceWorkerAsync<T>(string type, string message, T payload)
         {
             if (_port != null)
             {
@@ -32,11 +32,12 @@ namespace KeriAuth.BrowserExtension.Services
                 //    Payload = payload
                 //};
 
-                logger.LogInformation("AppSwMessagingService to SW: sending: {m}", message);
+                logger.LogInformation("AppSwMessagingService to SW: sending type, message, payload: {t} {m} {p}", type, message, payload);
 
                 //var messageJson = JsonSerializer.Serialize(message);
                 //var messageBytes = Encoding.UTF8.GetBytes(messageJson);
-                await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToServiceWorker", _port, message);
+                await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToServiceWorker", _port, type, message);
+                // await Task.Delay(1000); // TODO big issue here?, need to wait for the message to be sent.  See mingyaulee for a better way to do this?
                 logger.LogInformation("AppSwMessagingService to SW: sent");
             }
             else

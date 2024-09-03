@@ -1,8 +1,8 @@
 interface DotNetObjectReference {
     invokeMethodAsync(methodName: string, ...args: any[]): Promise<void>;
 }
-declare const SwAppInteropModule: {
+export declare const SwAppInteropModule: {
     initializeMessaging: (dotNetHelper: DotNetObjectReference, tabId: String) => chrome.runtime.Port;
-    sendMessageToServiceWorker: (port: chrome.runtime.Port, message: string) => void;
+    sendMessageToServiceWorker: (port: chrome.runtime.Port, type: string, message: string) => void;
 };
-export { SwAppInteropModule };
+export {};

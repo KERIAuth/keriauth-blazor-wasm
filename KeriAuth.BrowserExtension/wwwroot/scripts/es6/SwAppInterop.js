@@ -1,4 +1,4 @@
-const SwAppInteropModule = (() => {
+export const SwAppInteropModule = (() => {
     const initializeMessaging = (dotNetHelper, tabId) => {
         const port = chrome.runtime.connect({ name: "blazorAppPort" + "-tab-" + tabId });
         port.onMessage.addListener((message) => {
@@ -8,7 +8,7 @@ const SwAppInteropModule = (() => {
         });
         return port;
     };
-    const sendMessageToServiceWorker = (port, message) => {
+    const sendMessageToServiceWorker = (port, type, message) => {
         port.postMessage({ type: 'fromBlazorApp', data: message });
     };
     return {
@@ -16,5 +16,4 @@ const SwAppInteropModule = (() => {
         sendMessageToServiceWorker
     };
 })();
-export { SwAppInteropModule };
 //# sourceMappingURL=SwAppInterop.js.map

@@ -5,10 +5,13 @@ export type CsSwMsg = ICsSwMsgSelectIdentifier | ICsSwMsgSelectCredential;
 
 export interface ICsSwMsg {
     type: string
+    requestId?: string
+    payload?: object
+    error?: string
 }
 
 export enum CsSwMsgType {
-    SELECT_IDENTIFIER = "select-identifier",
+    SELECT_AUTHORIZE = "/signify/authorize",
     SELECT_CREDENTIAL = "select-credential",
     SIGNIFY_EXTENSION = "signify-extension",
     SELECT_ID_CRED = "select-aid-or-credential",
@@ -21,8 +24,9 @@ export enum CsSwMsgType {
 }
 
 export interface ICsSwMsgSelectIdentifier extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_IDENTIFIER
-    message: string
+    type: CsSwMsgType.SELECT_AUTHORIZE
+    requestId: string
+    payload: object
 }
 
 export interface ICsSwMsgHello extends ICsSwMsg {
@@ -34,44 +38,49 @@ export interface ICsSwMsgSelectCredential extends ICsSwMsg {
     data: any
 }
 
+
 // Message types from Extension to CS
-export interface IExCsMsg {
-    type: ExCsMsgType
+export interface ISwCsMsg {
+    type: string // SwCsMsgType
+    requestId?: string // response to this requestId
+    payload?: object
+    error?: string
 }
 
-export enum ExCsMsgType {
+export enum SwCsMsgType {
     HELLO = "hello",
     CANCELED = "canceled",
-    SIGNED = "signed",
+    REPLY = "/signify/reply",
     FSW = "fromServiceWorker"
 }
 
-export interface IExCsMsgHello extends IExCsMsg {
-    type: ExCsMsgType.HELLO
+export interface IExCsMsgHello extends ISwCsMsg {
+    type: SwCsMsgType.HELLO
 }
 
-export interface IExCsMsgCanceled extends IExCsMsg {
-    type: ExCsMsgType.CANCELED
+export interface IExCsMsgCanceled extends ISwCsMsg {
+    type: SwCsMsgType.CANCELED
 }
-export interface IExCsMsgSigned extends IExCsMsg {
-    type: ExCsMsgType.SIGNED
+export interface IExCsMsgReply extends ISwCsMsg {
+    type: SwCsMsgType.REPLY
 }
 
 //
 // Signing related types from signify-browser-extension. https://github.com/WebOfTrust/signify-browser-extension/blob/909803e6ad0a1038aa8d4ffea914767d98ea2894/src/config/types.ts
+// TODO EE! See polaris-web instead
 //
-export interface ISignin {
-    id: string;
-    domain: string;
-    identifier?: {
-        name?: string;
-        prefix?: string;
-    };
-    credential?: ICredential;
-    createdAt: number;
-    updatedAt: number;
-    autoSignin?: boolean;
-}
+//export interface ISignin {
+//    id: string;
+//    domain: string;
+//    identifier?: {
+//        name?: string;
+//        prefix?: string;
+//    };
+//    credential?: ICredential;
+//    createdAt: number;
+//    updatedAt: number;
+//    autoSignin?: boolean;
+//}
 
 export interface IIdentifier {
     name?: string;

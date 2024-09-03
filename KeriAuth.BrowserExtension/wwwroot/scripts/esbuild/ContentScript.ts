@@ -10,12 +10,15 @@ interface ChromeMessage {
     [key: string]: any;
 }
 
+// Get the current origin
+const currentOrigin = window.location.origin;
+
 interface EventData {
     type: string;
     [key: string]: any;
 }
 
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, ExCsMsgType, IExCsMsg, ICsSwMsg } from "../es6/ExCsInterfaces.js";
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import {
     AuthorizeResultCredential,
     AuthorizeArgs,
@@ -30,6 +33,34 @@ import {
     MessageData
 } from "polaris-web/dist/client";
 
+
+// Signing related types from signify-browser-extension config/types.ts
+interface ISignin {
+    id: string;
+    domain: string;
+    identifier?: {
+        name?: string;
+        prefix?: string;
+    };
+    credential?: ICredential;
+    createdAt: number;
+    updatedAt: number;
+    autoSignin?: boolean;
+}
+interface ICredential {
+    issueeName: string;
+    ancatc: string[];
+    sad: { a: { i: string }; d: string };
+    schema: {
+        title: string;
+        credentialType: string;
+        description: string;
+    };
+    status: {
+        et: string;
+    };
+    cesr?: string;
+}
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
@@ -59,32 +90,18 @@ const PAGE_POST_TYPE = Object.freeze({
 })
 
 // interfaces for the messages posted to the web page
-interface BaseMessage {
-    version: string
+interface BaseCsPageMessage {
+    // version: "0.0.1"
+    source: "KeriAuthCs"
     type: string
+    data: object
 }
 
-interface SignifyExtensionMessage extends BaseMessage {
-    type: typeof PAGE_POST_TYPE.SIGNIFY_EXT
-    version: "0.0.1"
-    data: {
-        extensionId: string
-    };
-}
-
-//interface SignifySignatureMessage extends BaseMessage {
-//    type: typeof PAGE_POST_TYPE.SIGNIFY_SIGNATURE
-//    version: "0.0.1"
-//    data: any
-//    requestId: string
-//    rurl: string
-//}
-
-//interface SignifyAutoSigninMessage extends BaseMessage {
-//    type: typeof PAGE_POST_TYPE.SELECT_AUTO_SIGNIN
-//    version: "0.0.1"
-//    requestId: string
-//    rurl: string
+//interface SignifyExtensionMessage extends BaseCsPageMessage {
+//    type: typeof PAGE_POST_TYPE.SIGNIFY_EXT
+//    data: {
+//        extensionId: string
+//    };
 //}
 
 // Union type for all possible messages that can be sent to the web page
@@ -93,7 +110,7 @@ interface SignifyExtensionMessage extends BaseMessage {
 // Function to generate a unique and unguessable identifier for the port name for communications between the content script and the extension
 function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
-    window.crypto.getRandomValues(array);
+    window.crypto.getRandomValues(array); // TODO consider randumUUID() instead
     return Array.from(array, dec => ('00000000' + dec.toString(16)).slice(-8)).join('-');
 }
 
@@ -101,121 +118,156 @@ function generateUniqueIdentifier(): string {
 const uniquePortName: string = generateUniqueIdentifier();
 
 function advertiseToPage(): void {
-    const advertizeMsg = {
-        type: "signify-extension",
-        data: {
-            extensionId: String(chrome.runtime.id)
-        },
+    postMessageToPage(PAGE_POST_TYPE.SIGNIFY_EXT, { extensionId: String(chrome.runtime.id) });
+}
+// postMessageToPage(PAGE_POST_TYPE.SIGNIFY_EXT, { extensionId: String(chrome.runtime.id) });
+
+const CsToPageMsgIndicator = "KeriAuthCs";
+
+function postMessageToPage(type: string, data: object): void {
+    const msg: BaseCsPageMessage = {
+        // version: "0.0.1",
+        source: CsToPageMsgIndicator,
+        type: type,
+        data: data
     };
-    console.log("KeriAuthCs to page:", advertizeMsg);
-    window.postMessage(
-        advertizeMsg,
-        "*"
-    );
+    console.log("KeriAuthCs to page postMessage:", msg);
+    window.postMessage(msg, currentOrigin);
 }
 
-// ensure your content script responds to changes in the page even if it was injected after the page load.
+// Handle messages from the extension
+function handleMessageFromServiceWorker(message: any, port: chrome.runtime.Port): void {
+    // TODO move this into its own function for readability
+    console.log("KeriAuthCs from SW message:", message);
+
+    if (message.type) {
+        // console.error("KeriAuthCs from SW: message type found:", message);
+        // return;
+    } else {
+        console.error("KeriAuthCs from SW: type not found in message:", message);
+        return;
+    }
+
+    switch (message.type) {
+        case SwCsMsgType.HELLO:
+            window.addEventListener("message", (event: MessageEvent<any>) => handleWindowMessage(event, port));
+            break;
+        case SwCsMsgType.REPLY:
+            console.log("EE2.1.1.1");
+            const type = message.type;
+            const requestId: string = message?.requestId;
+            const payload: object = message?.payload;
+            const rurl = null;
+            const error = null;
+            const msg = { requestId, type, error, payload }; // TODO why not use a proper interface constructor here?
+            postMessageToPage(type, msg);
+            break;
+        case "signify-extension":
+            console.log("intentionally ignoring type signify-extension here, as it is handled in advertiseToPage function.")
+            break;
+        case SwCsMsgType.CANCELED:
+        default:
+            console.error("KeriAuthCs from SW: handler not implemented for message type:", message.type);
+            break;
+    }
+}
+
+// ensure content script responds to changes in the page even if it was injected after the page load.
 document.addEventListener('DOMContentLoaded', (event) => {
-    console.log("KeriAuthCs DOMContentLoaded event:", event);
+    const port = chrome.runtime.connect({ name: uniquePortName });
+    console.log("KeriAuthCs to SW connected port:", port);
 
-    console.log("KeriAuthCs DOMContentLoaded connecting to :", uniquePortName);
-    const port = chrome.runtime.connect(/* TODO extensionId: string , */  { name: uniquePortName });
-    console.log("KeriAuthCs DOMContentLoaded connected:", port);
+    // register to receive and handle messages from the extension (and indirectly also from the web page)
+    port.onMessage.addListener((message: object) => handleMessageFromServiceWorker(message, port));
 
-    // register to receive and handle messages from the extension, and then from the page
-    port.onMessage.addListener((message: IExCsMsg) => {
-        // TODO move this into its own function for readability
-        // Handle messages from the extension
-        console.log("KeriAuthCs from SW:", message);
-        switch (message.type) {
-            case ExCsMsgType.HELLO:
-
-                // Register to handle messages from web page, most of which will be forwarded to the extension service worker via the port
-                window.addEventListener(
-                    "message",
-                    async (event: MessageEvent<EventData>) => {
-                        // Reject likely malicious messages, such as those that might be sent by a malicious extension (Cross-Extension Communication).
-                        // Check if the origin matches the origin of the current page
-                        if (event.origin !== window.origin) {
-                            console.warn("KeriAuthCs from page: event: ", event);
-                            console.warn('Message origin mismatch. Ignoring message.');
-                            return;
-                        }
-                        // Ensure the message is from the page's window
-                        if (event.source !== window) {
-                            console.warn("KeriAuthCs from page: event: ", event);
-                            console.warn('Message source mismatch. Ignoring message.');
-                            return;
-                        }
-                        // Optionally, verify that the message data contains an expected format or token
-                        //if (!event.data || event.data.token !== 'expectedTokenValue') {
-                        //    console.warn('Message data mismatch or missing token. Ignoring message.');
-                        //    return;
-                        //}
-
-                        // Handle messages from the page
-                        console.log("KeriAuthCs from page:", event.data);
-
-                        try {
-                            switch (event.data.type) {
-                                case "signify-extension":
-                                    // Note, this notification to SW is effectively haneled earlier in the code, in the advertiseToPage function
-                                    console.log("KeriAuthCs: message ignored:", event.data);
-                                    break;
-                                case PAGE_EVENT_TYPE.SELECT_ID_CRED:
-                                    try {
-                                        if (event.data && event.data.payload && event.data.payload.message) {
-                                            const message: string = event.data.payload.message;
-                                            const msg2: ICsSwMsgSelectIdentifier = {
-                                                type: CsSwMsgType.SELECT_IDENTIFIER,
-                                                message: message
-                                            }
-                                            console.log("KeriAuthCs to SW:", msg2);
-                                            port.postMessage(msg2);
-                                        } else {
-                                            throw new Error("Invalid JSON structure: 'message' field not found. Or, issue sending to SW");
-                                        }
-                                    } catch (error) {
-                                        // Handle any errors that may occur during parsing or property access
-                                        console.error("An error occurred:", (error as Error).message);
-                                        return;
-                                    }
-                                    break;
-                                case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-                                case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-                                case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
-                                case PAGE_EVENT_TYPE.NONE:
-                                case PAGE_EVENT_TYPE.VENDOR_INFO:
-                                case PAGE_EVENT_TYPE.FETCH_RESOURCE:
-                                default:
-                                    console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
-                                    break;
-                            }
-                        } catch (error) {
-                            console.error("KeriAuthCs from page: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
-                        }
-                    }
-
-                );
-                break;
-            case ExCsMsgType.FSW:
-                console.info("KeriAuthCs from SW: handler not implemented for message type:", message.type);
-                break;
-            case ExCsMsgType.CANCELED:
-            case ExCsMsgType.SIGNED:
-            default:
-                console.error("KeriAuthCs from SW: handler not implemented for message type:", message.type);
-                break;
-        }
-    });
-
-    // Send a hello message to the service worker (versus waiting on a trigger message from the page)
+    // Send a hello message to the service worker (versus waiting on a triggering message from the page)
+    // TODO use a constructor for the message object
     const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
     console.log("KeriAuthCs to SW:", helloMsg);
     port.postMessage(helloMsg);
 
     // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
-    // TODO find a more deterministic approach vs delay?
+    // TODO hack - find a more deterministic approach vs delay?
     setTimeout(advertiseToPage, 500);
-    // advertiseToPage();
 });
+
+//function parseTypeValue(jsonString: string): string | null {
+//    try {
+//        const parsedObject = JSON.parse(jsonString);
+
+//        // Check if the parsed object is an object and contains the "type" key
+//        if (typeof parsedObject === 'object' && parsedObject !== null && 'type' in parsedObject) {
+//            const typeValue = parsedObject.type;
+
+//            // Check if the type value is a string
+//            if (typeof typeValue === 'string') {
+//                return typeValue;
+//            } else {
+//                console.error('The "type" key is present but its value is not a string.');
+//                return null;
+//            }
+//        } else {
+//            console.error('The parsed object does not contain the "type" key or is not a valid object.');
+//            return null;
+//        }
+//    } catch (error) {
+//        console.error('Failed to parse JSON:', error.message);
+//        return null;
+//    }
+//}
+
+/*
+// Handle messages from the page
+*/ 
+function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.runtime.Port) {
+
+    // TODO EE tmp debug
+    console.log("Cs handleWindowMessage event:", event);
+
+    // Check if the payload is sent from the current window and is safe to process
+    if (window.location.href.indexOf(event.origin) !== 0 && event.source !== window) {
+        // Reject likely malicious messages, such as those that might be sent by a malicious extension (Cross-Extension Communication).
+        console.warn('KeriAuthCs ignoring potentially malicious message event:', event);
+        return;
+    }
+
+    // Ignore messages from Cs intended for Page
+    if (event.data.source == CsToPageMsgIndicator) {
+        console.log("KeriAuthCs ignoring message not intended for Cs: type, event: ", event.data.type, event);
+        return;
+    }
+
+    console.log("EE1");
+    console.log("KeriAuthCs message received of type, event:", event.data.type, event);
+    try {
+        switch (event.data.type) {
+            case "/signify/reply":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.REPLY
+            case "signify-extension":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.SIGNIFY_EXTENSION
+                // Note, the signify-extension notification from page is effectively haneled earlier in the code, in the advertiseToPage function
+                console.warn("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
+                break;
+            case PAGE_EVENT_TYPE.SELECT_ID_CRED:
+                console.log("EE1.1");
+                try {
+                    const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
+                    portWithSw.postMessage(msg);
+                } catch (error) {
+                    // TODO refactor to common postMessage wrapper
+                    console.error("KeriAuthCs to SW: error converting page event data to JSON or sending message:", error);
+                    return;
+                }
+                break;
+            case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
+            case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
+            case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
+            case PAGE_EVENT_TYPE.NONE:
+            case PAGE_EVENT_TYPE.VENDOR_INFO:
+            case PAGE_EVENT_TYPE.FETCH_RESOURCE:
+            default:
+                console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
+                break;
+        }
+    } catch (error) {
+        console.error("KeriAuthCs from page: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
+    }
+};

@@ -171,28 +171,53 @@
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
         await GetInitialHeadlines();
 
+        logger.LogInformation("EE1.1.1.1");
         // TODO remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
-        logger.LogWarning($"Chrome URI query: {initialUriQuery}");
-        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
+        logger.LogInformation($"URI query: {initialUriQuery}");
+        // TODO add try-catch?
+        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
         {
-            var decodedMsg = HttpUtility.UrlDecode(message);
+            var decodedMsg = HttpUtility.UrlDecode(outterMessage);
             logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
-            // TODO try-parse the message into a known type and handle it
-        } // TODO implement else
+            if (!IsJsonValid(decodedMsg))
+            {
+                logger.LogError("Invalid JSON message: {msg}", decodedMsg);
+                return;
+            };
 
-        logger.LogWarning("escapedOriginStr: {x}", escapedOriginStr);
-        var xxx = HttpUtility.UrlDecode(escapedOriginStr);
-        logger.LogWarning("OriginStr: {x}", xxx);
-        OriginStr = xxx.Trim('"');
+            string jsonString = outterMessage.ToString(); // Convert StringValues to string
 
-        // if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("origin", out var encodedOrigin))
-        // {
-        //     OriginStr = HttpUtility.UrlDecode(encodedOrigin);
-        //     logger.LogInformation("Chrome URI initialUriQuery origin: {originStr}", OriginStr);
-        //     logger.LogInformation("Chrome originAuthority: {originAuthority}", OriginUrl.Authority);
-        //     logger.LogWarning("escapedOriginStr: {x}", escapedOriginStr);
-        // } TODO implement else
+            // Parse the JSON string
+            var jsonDocument = JsonDocument.Parse(jsonString);
+            var jsonObject = jsonDocument.RootElement;
+
+            // Extract the "type" value
+            if (jsonObject.TryGetProperty("type", out var typeElement))
+            {
+                string type = typeElement.GetString() ?? String.Empty;
+                logger.LogInformation("Processing message of type: {t}", type);
+                switch (type)
+                {
+                    case "select-=identifier":
+                        logger.LogInformation("TODO EE1.1.1.1: {0}", type);
+                        break;
+                    default:
+                        logger.LogInformation("Unknown message type: {0}", type);
+                        return;
+                }
+            }
+            else
+            {
+                logger.LogError("No 'type' property found in outer message");
+                return;
+            }
+
+        } else
+        {
+            logger.LogError("Could not find UriQuery content containing outter \"message\".");
+            return;
+        }
     }
 
     async Task GetInitialHeadlines()
@@ -266,15 +291,20 @@
 
     async Task SignIn()
     {
-        await appSwMessagingService.SendToServiceWorkerAsync<string>("sign-in", "sign-in2");
+        // TODO EE! finish implementation. setting payload with the prefix, etc.
+        logger.LogInformation("EE2");
+        // TODO should type of the payload be a class or JSON?
+        await appSwMessagingService.SendToServiceWorkerAsync<string>("/signify/reply", "sign-in", "sign-in payload");
         // TODO may need to assure message makes it to the service-worker?
         // Close blazor application
-        UIHelper.CloseWindow();
+        await Task.Delay(1000); // TODO remove this delay
+                                // UIHelper.CloseWindow();
     }
 
     async Task Cancel()
     {
-        await appSwMessagingService.SendToServiceWorkerAsync<string>("sign-in-cancel", "sign-in-cancel-2");
+        // TODO should type of the payload be a class or JSON?
+        await appSwMessagingService.SendToServiceWorkerAsync<string>("AppSwSignIn", "sign-in-cancel", "sign-in-cancel-payload");
         // TODO may need to assure message makes it to the service-worker?
         // Close blazor application
         UIHelper.CloseWindow();
@@ -284,6 +314,22 @@
     {
         // TODO unsubscribe from services, observables
         ;
+    }
+
+    static bool IsJsonValid(string jsonString)
+    {
+        try
+        {
+            // Attempt to parse the JSON string
+            var jsonDocument = JsonDocument.Parse(jsonString);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            // JSON parsing failed, likely due to improper escaping or formatting
+            Console.WriteLine($"JSON Parsing Error: {ex.Message}");
+            return false;
+        }
     }
 }
 
@@ -311,8 +357,8 @@
             <MudStack Class="gap-0">
                 <MudText Class="mt-6"><b>Options</b></MudText>
                 <MudText Typo="Typo.body1">for future requests from <em>@OriginStr</em></MudText>
-                <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                <MudCheckBox Label="Enable auto SignIn" Value="@IsAutoSignIn" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
+                <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                <MudCheckBox Label="Enable auto SignIn" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
                 @{
                     /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
                     if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)

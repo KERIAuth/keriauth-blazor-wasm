@@ -9,7 +9,21 @@
 
 import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled, IExCsMsgSigned, ExCsMsgType } from "./ExCsInterfaces.js";
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled, IExCsMsgReply, SwCsMsgType } from "./ExCsInterfaces.js";
+import {
+    AuthorizeResultCredential,
+    AuthorizeArgs,
+    AuthorizeResultIdentifier,
+    AuthorizeResult,
+    SignDataArgs,
+    SignDataResultItem,
+    SignDataResult,
+    SignRequestArgs,
+    SignRequestResult,
+    ConfigureVendorArgs,
+    MessageData
+} /* TODO as X */ from "polaris-web/dist/client";
+import { ICsSwMsg } from "./ExCsInterfaces.js";
 
 // Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
@@ -151,7 +165,8 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     chrome.action.openPopup()
         .then(() => console.log("SW useActionPopup succeeded"))
         .catch((err) => {
-            console.warn(`SW useActionPopup dropped. Was already open?`, err);
+            // TODO: this error from openPopup() seems to throw even when the popup is opened successfully, perhaps due to a timing issue.  Ignoring for now.
+            // console.warn(`SW useActionPopup dropped. Was already open?`, err);
         });
 }
 
@@ -169,20 +184,25 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
     });
 }
 
-// Handle the web page's request for user to select an identifier
-function handleSelectIdentifier(msg: ICsSwMsgSelectIdentifier, port: chrome.runtime.Port) {
+// Handle the web page's (Cs's) request for user to select an identifier
+function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the message
     console.log("SW handleSelectIdentifier: ", msg);
     // TODO EE should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
-    if (port.sender && port.sender.tab && port.sender.tab.id) {
-        const tabId = Number(port.sender.tab.id);
+    if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
+        const tabId = Number(csTabPort.sender.tab.id);
         //chrome.action.setBadgeText({ text: "3", tabId: tabId });
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
         // TODO Could alternately implement the message passing via messaging versus the URL
-        // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user?
-        console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", JSON.stringify(msg), "origin: ", JSON.stringify(port.sender.origin));
-        useActionPopup(tabId, [{ key: "message", value: JSON.stringify(msg) }, { key: "origin", value: JSON.stringify(port.sender.origin) }]);
+        // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
+
+        // TODO EE! add msgRequestId
+        const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
+        console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
+        console.log("EE1.1.1b");
+        // TODO define and use a interface constructor for the message
+        useActionPopup(tabId, [{ key: "message", value: msg }, { key: "origin", value: jsonOrigin }]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
     }
@@ -202,19 +222,32 @@ function isActionPopupUrlSet(): Promise<boolean> {
     });
 }
 
-// Object to track the connections between the service worker and the content scripts, using the tabId as the key
+// Object to track the pageCsConnections between the service worker and the content scripts, using the tabId as the key
 interface Connection {
     port: chrome.runtime.Port;
     tabId: number;
     pageAuthority: string;
 }
-let connections: { [key: string]: Connection } = {};
+let pageCsConnections: { [key: string]: Connection } = {};
 
-// Listen for and handle port connections from content script and Blazor App
+// TODO move into CsSw interface file
+interface Payload {
+    message: string;
+}
+
+// TODO move into CsSw interface file
+interface JsonRequest {
+    requestId: string;
+    type: string;
+    payload: Payload;
+}
+
+
+// Listen for and handle port pageCsConnections from content script and Blazor App
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
-    console.log("SW onConnect port: ", connectedPort );
+    console.log("SW onConnect port: ", connectedPort);
     let connectionId = connectedPort.name;
-    console.log(`SW ${Object.keys(connections).length} connections before update: `, connections );
+    console.log(`SW ${Object.keys(pageCsConnections).length} connections before update: `, pageCsConnections);
 
     // Get the tabId from the port, which will be a number if a browser tab from the contentScript, -1 if an action popup App, or undefined if not a tab
     let tabId = -1;
@@ -223,51 +256,24 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     }
 
     console.log("SW tabId: ", tabId);
-    // store the port for this tab in the connections object. Assume 1:1
-    connections[connectionId] = { port: connectedPort, tabId: tabId, pageAuthority: "?" };
-    console.log(`SW ${Object.keys(connections).length} connections after update: `, connections );
+    // store the port for this tab in the pageCsConnections object. Assume 1:1
+    pageCsConnections[connectionId] = { port: connectedPort, tabId: tabId, pageAuthority: "?" };
+    console.log(`SW ${Object.keys(pageCsConnections).length} connections after update: `, pageCsConnections);
 
     // First check if the port is from a content script and its pattern
     const cSPortNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     if (cSPortNamePattern.test(connectedPort.name)) {
-        const cSPort : chrome.runtime.Port = connectedPort;
+        const cSPort: chrome.runtime.Port = connectedPort;
+        // TODO test and update assumptions of having a longrunning port established, especially when sending.  With back-forward cache (bfcache), ports can get suspended or terminated, leading to errors such as:
+        // "Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed."
         console.log(`SW with CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
         // console.log("SW adding onMessage listener for port", cSPort);
-        cSPort.onMessage.addListener((message: any) => {
-            console.log("SW from CS: message", message);
-            // assure tab is still connected        
-            if (connections[connectionId]) {
-                switch (message.type) {
-                    case CsSwMsgType.SELECT_IDENTIFIER:
-                        handleSelectIdentifier(message as ICsSwMsgSelectIdentifier, connections[connectionId].port);
-                        break;
-                    case CsSwMsgType.SIGNIFY_EXTENSION:
-                        // Update the connections list with the tabId and URL
-                        connections[connectionId].tabId = tabId;
-                        const url = new URL(String(cSPort.sender?.url));
-                        connections[connectionId].pageAuthority = url.host;
-                        const response: IExCsMsgHello = {
-                            type: ExCsMsgType.HELLO
-                        };
-                        cSPort.postMessage(response);
-                        break;
-                    case CsSwMsgType.AUTO_SIGNIN_SIG:
-                    case CsSwMsgType.FETCH_RESOURCE:
-                    case CsSwMsgType.VENDOR_INFO:
-                    case CsSwMsgType.NONE:
-                    case CsSwMsgType.SELECT_AUTO_SIGNIN:
-                    case CsSwMsgType.SELECT_CREDENTIAL:
-                    case CsSwMsgType.SELECT_ID_CRED:
-                    case CsSwMsgType.DOMCONTENTLOADED:
-                    default:
-                        console.warn("SW from CS: message type not yet handled: ", message);
-                }
-            } else {
-                console.log("SW Port no longer connected");
-            }
-        });
+        // TODO EE! refactor to a defined handler for improved readability
+        cSPort.onMessage.addListener((message: ICsSwMsg) => handleMessageFromPageCs(message, cSPort, tabId, connectionId));
+
+
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
         if (connectedPort.name.substring(0, 8) === "blazorAppPort".substring(0, 8)) {
@@ -285,28 +291,36 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             const authority = getAuthorityFromOrigin(url);
             console.log(`SW from App: authority:`, authority);
 
-            // Update the connections list with the URL's authority, so the SW-CS and SW-App connections can be associated
-            connections[appPort.name].pageAuthority = authority || "unknown";
-            // console.log(`SW from App: connections:`, connections);
+            // Update the pageCsConnections list with the URL's authority, so the SW-CS and SW-App pageCsConnections can be associated
+            pageCsConnections[appPort.name].pageAuthority = authority || "unknown";
+            // console.log(`SW from App: pageCsConnections:`, pageCsConnections);
 
             // Find the matching connection based on the page authority. TODO should this also be based on the tabId?
-            const cSConnection = findMatchingConnection(connections, appPort.name)
-            console.log(`SW from App: ActionPopupConnection:`, connections[appPort.name], `ContentScriptConnection`, cSConnection);
+            const cSConnection = findMatchingConnection(pageCsConnections, appPort.name)
+            console.log(`SW from App: ActionPopupConnection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
             // Add a listener for messages from the App, where the handler can process and forward to the content script as appropriate.
             appPort.onMessage.addListener((message) => {
-                if (message.type === 'fromBlazorApp') {
-                    console.log(`SW from App:`, message.data);
-                    // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
-                    console.log(`SW from App: port:`, appPort);
-                    // Send a response to the KeriAuth App
-                    appPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+                console.log(`SW from App message, port:`, message, appPort);
+                // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
 
-                    // Forward the message to the content script, if appropriate
-                    // TODO EE! finish this logic to forward the message to the content script only as appropriate, and typed
-                    if (cSConnection) {
-                        console.log(`SW from App: Forwarding message to CS:`, message.data);
-                        cSConnection.port.postMessage({ type: 'fromServiceWorker', data: `Forwarded message from App: ${message.data}` });
+                // Send a response to the KeriAuth App
+                appPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+
+                // Forward the message to the content script, if appropriate
+                if (cSConnection) {
+                    switch (message.type) {
+                        case "TMP":
+                            // console.log(`SW from App: Forwarding message to CS:`, message.data);
+                            cSConnection.port.postMessage({ type: SwCsMsgType.REPLY /* TODO SwCs.AuthorizeResultIdentifier */, data: message?.data });
+                            break;
+                        case "fromBlazorApp":
+                            console.log("EE2.1");
+                            console.log("EE2.1.1");
+                            cSConnection.port.postMessage({ type: SwCsMsgType.REPLY /* TODO SwCs.AuthorizeResultIdentifier */, data: message?.data });
+                            break;
+                        default:
+                            console.warn("SW from App: message type not yet handled: ", message);
                     }
                 }
             });
@@ -320,18 +334,50 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     }
     // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
     connectedPort.onDisconnect.addListener(() => {
-        console.log("SW port closed connection: ", connections[connectionId])
-        delete connections[connectionId];
+        console.log("SW port closed connection: ", pageCsConnections[connectionId])
+        delete pageCsConnections[connectionId];
     });
 });
 
 // Listen for and handle when a tab is closed. Remove related connection from list.
 chrome.tabs.onRemoved.addListener((tabId) => {
-    if (connections[tabId]) {
+    if (pageCsConnections[tabId]) {
         console.log("SW tabs.onRemoved: tabId: ", tabId)
-        delete connections[tabId]
+        delete pageCsConnections[tabId]
     };
 });
+
+function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
+    console.log("SW from CS: message", message);
+
+    // assure tab is still connected  
+    if (pageCsConnections[connectionId]) {
+
+        // Handle the message based on its type
+        switch (message.type) {
+            case CsSwMsgType.SELECT_AUTHORIZE:
+                console.log("EE1.1.1a");
+                handleSelectAuthorize(message /* as ICsSwMsgSelectIdentifier */, pageCsConnections[connectionId].port);
+                break;
+            case CsSwMsgType.SIGNIFY_EXTENSION:
+                // Update the pageCsConnections list with the tabId and URL
+                pageCsConnections[connectionId].tabId = tabId;
+                const url = new URL(String(cSPort.sender?.url));
+                pageCsConnections[connectionId].pageAuthority = url.host;
+                const response: IExCsMsgHello = {
+                    type: SwCsMsgType.HELLO,
+                    requestId: message.requestId,
+                    payload: {}
+                };
+                cSPort.postMessage(response);
+                break;
+            default:
+                console.warn("SW from CS: message type not yet handled: ", message);
+        }
+    } else {
+        console.log("SW Port no longer connected");
+    }
+}
 
 // Create a URL with the provided base URL and query parameters, verifying that the keys are well-formed
 function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: string, value: string }[]): string {
