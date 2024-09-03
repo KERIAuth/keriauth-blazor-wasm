@@ -263,8 +263,12 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                         postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
 
                     } else {
-                        // TODO EE! tmp2 return an AuthorizeResult object as defined in polaris-web/src/client.ts
-                        postMessageToPage("/signify/reply", null, { identifier: { prefix: "asdf" } }, event.data.requestId, null);
+                        // return an identifier or credential as defined in polaris-web/src/client.ts
+                        if (Math.random() >= 0.5) {
+                            postMessageToPage("/signify/reply", null, { identifier: { prefix: "asdf" } }, event.data.requestId, null);
+                        } else {
+                            postMessageToPage("/signify/reply", null, { credential: { raw: null, cesr: "hail cesr" } }, event.data.requestId, null);
+                        }
                     }
 
                 } catch (error) {
