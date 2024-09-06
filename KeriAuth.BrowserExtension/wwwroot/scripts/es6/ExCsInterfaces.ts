@@ -12,6 +12,8 @@ export interface ICsSwMsg {
 
 export enum CsSwMsgType {
     SELECT_AUTHORIZE = "/signify/authorize",
+    SIGN_REQUEST = "/signify/sign-request",
+    SIGN_DATA = "/signify/sign-data",
     SELECT_CREDENTIAL = "select-credential",
     SIGNIFY_EXTENSION = "signify-extension",
     SELECT_ID_CRED = "select-aid-or-credential",

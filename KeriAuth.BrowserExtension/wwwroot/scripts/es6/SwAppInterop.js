@@ -1,19 +1,58 @@
-export const SwAppInteropModule = (() => {
-    const initializeMessaging = (dotNetHelper, tabId) => {
-        const port = chrome.runtime.connect({ name: "blazorAppPort" + "-tab-" + tabId });
-        port.onMessage.addListener((message) => {
-            if (message && message.type === 'fromServiceWorker') {
-                dotNetHelper.invokeMethodAsync('ReceiveMessage', message.data);
+export const SwAppInteropModule = {
+    initializeMessaging: function (dotNetObjectReference, tabId) {
+        try {
+            if (!tabId || typeof tabId !== "string") {
+                console.error("Invalid tabId provided");
+                return null;
             }
-        });
-        return port;
-    };
-    const sendMessageToServiceWorker = (port, type, message) => {
-        port.postMessage({ type: 'fromBlazorApp', data: message });
-    };
-    return {
-        initializeMessaging,
-        sendMessageToServiceWorker
-    };
-})();
+            console.log("Initializing messaging for tab:", tabId);
+            const port = chrome.runtime.connect({ name: "blazorAppPort" + "-tab-" + tabId });
+            port.onMessage.addListener((message) => {
+                console.log("SwAppInterop received port message: ", message);
+                if (message && message.type === 'fromServiceWorker') {
+                    dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
+                }
+            });
+            return port;
+        }
+        catch {
+            console.error("SwAppInteropModule: Error initializing messaging");
+            return null;
+        }
+    },
+    sendMessageToServiceWorker: function (port, jsonReplyMessageData) {
+        console.log("SwAppInteropModule.sendMessageToServiceWorker... ");
+        try {
+            const messageData = JSON.parse(jsonReplyMessageData);
+            console.log("SwAppInteropModule.sendMessageToServiceWorker messageData: ", messageData);
+            const { type, requestId, payload, error, payloadTypeName, source } = messageData;
+            switch (payloadTypeName) {
+                case "AuthorizeResult":
+                    const messageData2 = JSON.parse(jsonReplyMessageData);
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", messageData2);
+                    port.postMessage(messageData);
+                    break;
+                case "SignDataResult":
+                case "SignDataResult":
+                case "void":
+                default:
+                    throw new Error('Unknown typeHint: ' + payloadTypeName);
+            }
+        }
+        catch (error) {
+            console.error("SwAppInteropModule.sendMessageToServiceWorker error: ", error);
+        }
+    },
+    parseJson: function (jsonString) {
+        try {
+            const parsedObj = JSON.parse(jsonString);
+            return parsedObj;
+        }
+        catch (error) {
+            console.error("Error parsing JSON:", error);
+            return null;
+        }
+    }
+};
+export default SwAppInteropModule;
 //# sourceMappingURL=SwAppInterop.js.map

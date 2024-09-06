@@ -121,26 +121,31 @@ function generateUniqueIdentifier(): string {
 const uniquePortName: string = generateUniqueIdentifier();
 
 function advertiseToPage(): void {
-    postMessageToPage(PAGE_POST_TYPE.SIGNIFY_EXT, { extensionId: String(chrome.runtime.id) });
+    // TODO the following should be typed and ideally imported from polaris-web/client.ts
+    const msg = {
+        type: PAGE_POST_TYPE.SIGNIFY_EXT,
+        data: { extensionId: String(chrome.runtime.id) },
+    }
+    postMessageToPage<unknown>(msg);
 }
 
 const CsToPageMsgIndicator = "KeriAuthCs";
 
-function postMessageToPage(type: string, data?: object, payload?: object, requestId?: string, error?: string): void {
-    const msg: BaseCsPageMessage = {
-        source: CsToPageMsgIndicator,
-        type: type,
-        data: data,
-        payload: payload,
-        requestId: requestId,
-        error: error
-    };
-    console.log("KeriAuthCs to page postMessage:", msg);
-    window.postMessage(msg, currentOrigin);
+function postMessageToPage<T>(msg2: T): void {
+    //const msg: BaseCsPageMessage = {
+    //    source: CsToPageMsgIndicator,
+    //    type: type,
+    //    data: data,
+    //    payload: payload,
+    //    requestId: requestId,
+    //    error: error
+    //};
+    console.log("KeriAuthCs to page data:", msg2);
+    window.postMessage(msg2, currentOrigin);
 }
 
 // Handle messages from the extension
-function handleMessageFromServiceWorker(message: any, port: chrome.runtime.Port): void {
+function handleMessageFromServiceWorker(message: BaseCsPageMessage, port: chrome.runtime.Port): void {
     // TODO move this into its own function for readability
     console.log("KeriAuthCs from SW message:", message);
 
@@ -158,13 +163,15 @@ function handleMessageFromServiceWorker(message: any, port: chrome.runtime.Port)
             break;
         case SwCsMsgType.REPLY:
             console.log("EE2.1.1.1");
-            const type = message.type;
-            const requestId: string = message?.requestId;
-            const payload: object = message?.payload;
-            const rurl = null;
-            const error = null;
-            const msg = { requestId, type, error, payload }; // TODO why not use a proper interface constructor here?
-            postMessageToPage(type, msg);
+            const msg: MessageData<AuthorizeResult> = {
+                type: message.type,
+                requestId: message.requestId,
+                payload: message.payload,
+                error: message.error
+
+            }
+    
+            postMessageToPage<MessageData<AuthorizeResult>>(msg);
             break;
         case "signify-extension":
             console.log("intentionally ignoring type signify-extension here, as it is handled in advertiseToPage function.")
@@ -226,7 +233,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.runtime.Port) {
 
     // TODO EE tmp debug
-    console.log("Cs handleWindowMessage event:", event);
+    console.log("KeriAuthCs handleWindowMessage event:", event);
 
     // Check if the payload is sent from the current window and is safe to process
     if (window.location.href.indexOf(event.origin) !== 0 && event.source !== window) {
@@ -235,17 +242,17 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
         return;
     }
 
-    // Ignore messages from Cs intended for the Page, as indicated by the source property
+    // Ignore messages from Cs intended for the Page
     if (event.data.source == CsToPageMsgIndicator) {
-        console.log("KeriAuthCs ignoring message not intended for Cs: type, event: ", event.data.type, event);
+        console.log("KeriAuthCs ignoring message from ", event.data.source);
         return;
     }
 
     console.log("EE1");
-    console.log("KeriAuthCs message received of type, event:", event.data.type, event);
+    console.log("KeriAuthCs received message event.data:", event.data);
     try {
         switch (event.data.type) {
-            case "/signify/reply":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.REPLY
+            // case "/signify/reply":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.REPLY
             case "signify-extension":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.SIGNIFY_EXTENSION
                 // Note, the signify-extension notification from page is effectively haneled earlier in the code, in the advertiseToPage function
                 console.warn("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
@@ -253,23 +260,26 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case PAGE_EVENT_TYPE.SIGNIFY_AUTHORIZE:
                 console.log("EE1.1");
                 try {
-                    const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
-                    portWithSw.postMessage(msg);
-
-
+                    // const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
                     // TODO EE! tmp
-                    if (Math.random() >= 0.5) {
-                        const fakeError = "fake error" + event.data.requestId;
-                        postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
+                    // if (Math.random() >= 0.1) {
+                        portWithSw.postMessage(event.data);
 
-                    } else {
-                        // return an identifier or credential as defined in polaris-web/src/client.ts
-                        if (Math.random() >= 0.5) {
-                            postMessageToPage("/signify/reply", null, { identifier: { prefix: "asdf" } }, event.data.requestId, null);
-                        } else {
-                            postMessageToPage("/signify/reply", null, { credential: { raw: null, cesr: "hail cesr" } }, event.data.requestId, null);
-                        }
-                    }
+                    //} else {
+                    //    // TODO EE! tmp
+                    //    if (Math.random() >= 0.5) {
+                    //        const fakeError = "fake error" + event.data.requestId;
+                    //        postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
+
+                    //    } else {
+                    //        // return an identifier or credential as defined in polaris-web/src/client.ts
+                    //        if (Math.random() >= 0.5) {
+                    //            postMessageToPage("/signify/reply", null, { identifier: { prefix: "asdf" } }, event.data.requestId, null);
+                    //        } else {
+                    //            postMessageToPage("/signify/reply", null, { credential: { raw: null, cesr: "hail cesr" } }, event.data.requestId, null);
+                    //        }
+                    //    }
+                    //}
 
                 } catch (error) {
                     // TODO refactor to common postMessage wrapper
@@ -279,18 +289,21 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
             case PAGE_EVENT_TYPE.SIGN_REQUEST:
                 try {
-                    const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
-                    portWithSw.postMessage(msg);
-
+                    // const msg = JSON.stringify(event.data);  // assumes no BigInt or other complext content
                     // TODO EE! tmp
-                    if (Math.random() >= 0.5) {
-                        const fakeError = "fake error" + event.data.requestId;
-                        postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
+                    // if (Math.random() >= 0.1) {
+                        portWithSw.postMessage(event.data);
+                    //} else {
+                    //    // TODO EE! tmp
+                    //    if (Math.random() >= 0.5) {
+                    //        const fakeError = "fake error" + event.data.requestId;
+                    //        postMessageToPage("/signify/reply", null, null, event.data.requestId, fakeError);
 
-                    } else {
-                        // TODO EE! tmp2 return a SignDataResult object as defined in polaris-web/src/client.ts
-                        postMessageToPage("/signify/reply", null, { aid: "asdf", items: [{ data: "asdfasdf_from original request", signature: "sigsig" }] }, event.data.requestId, null);
-                    }
+                    //    } else {
+                    //        // TODO EE! tmp2 return a SignDataResult object as defined in polaris-web/src/client.ts
+                    //        postMessageToPage("/signify/reply", null, { aid: "asdf", items: [{ data: "asdfasdf_from original request", signature: "sigsig" }] }, event.data.requestId, null);
+                    //    }
+                    //}
 
                 } catch (error) {
                     // TODO refactor to common postMessage wrapper

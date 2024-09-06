@@ -121,7 +121,7 @@
         <!--  background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">  -->
         <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@DrawerMode" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
-                <MudNavLink Href=@(RouteToRequestSignIn + System.Web.HttpUtility.UrlEncode("https://unset.com")) Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Request SignIn</MudNavLink>
+                <MudNavLink Href=@(RouteToRequestSignIn + System.Web.HttpUtility.UrlEncode("https://unset.com") + "/" + System.Web.HttpUtility.UrlEncode("1234567890")) Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Request SignIn</MudNavLink>
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>

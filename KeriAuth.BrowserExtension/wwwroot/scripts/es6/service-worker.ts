@@ -184,6 +184,12 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
     });
 }
 
+function serializeAndEncode(obj: object): string {
+    const jsonString: string = JSON.stringify(obj);
+    const encodedString: string = encodeURIComponent(jsonString);
+    return encodedString;
+}
+
 // Handle the web page's (Cs's) request for user to select an identifier
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the message
@@ -201,8 +207,13 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
         console.log("EE1.1.1b");
+
         // TODO define and use a interface constructor for the message
-        useActionPopup(tabId, [{ key: "message", value: msg }, { key: "origin", value: jsonOrigin }]);
+        const encodedMsg = serializeAndEncode(msg);
+
+
+
+        useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
     }
@@ -288,7 +299,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                 url = appPort.sender.url;
             }
             // console.log(`SW from App: url:`, url);
-            const authority = getAuthorityFromOrigin(url);
+            const authority = getAuthorityFromOrigin(url);  // TODO why not use origin string directly?
             console.log(`SW from App: authority:`, authority);
 
             // Update the pageCsConnections list with the URL's authority, so the SW-CS and SW-App pageCsConnections can be associated
@@ -297,33 +308,12 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
             // Find the matching connection based on the page authority. TODO should this also be based on the tabId?
             const cSConnection = findMatchingConnection(pageCsConnections, appPort.name)
-            console.log(`SW from App: ActionPopupConnection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
+            console.log(`SW from App connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
             // Add a listener for messages from the App, where the handler can process and forward to the content script as appropriate.
-            appPort.onMessage.addListener((message) => {
-                console.log(`SW from App message, port:`, message, appPort);
-                // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
-
-                // Send a response to the KeriAuth App
-                appPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
-
-                // Forward the message to the content script, if appropriate
-                if (cSConnection) {
-                    switch (message.type) {
-                        case "TMP":
-                            // console.log(`SW from App: Forwarding message to CS:`, message.data);
-                            cSConnection.port.postMessage({ type: SwCsMsgType.REPLY /* TODO SwCs.AuthorizeResultIdentifier */, data: message?.data });
-                            break;
-                        case "fromBlazorApp":
-                            console.log("EE2.1");
-                            console.log("EE2.1.1");
-                            cSConnection.port.postMessage({ type: SwCsMsgType.REPLY /* TODO SwCs.AuthorizeResultIdentifier */, data: message?.data });
-                            break;
-                        default:
-                            console.warn("SW from App: message type not yet handled: ", message);
-                    }
-                }
-            });
+            console.warn("SW adding onMessage listener for App port, csConnection, tabId, connectionId", appPort, cSConnection, tabId, connectionId);
+            appPort.onMessage.addListener((message) => handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
+            console.warn("SW adding onMessage listener for App port... done", appPort);
 
             // Send an initial message from SW to App
             appPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
@@ -347,6 +337,29 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     };
 });
 
+function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string) {
+
+    console.log(`SW from App message, port:`, message, appPort);
+    // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
+
+    // Send a response to the KeriAuth App
+    appPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+
+    // Forward the message to the content script, if appropriate
+    if (cSConnection) {
+        switch (message.type) {
+            case "/signify/reply":
+                console.log("EE2.1");
+                console.log("EE2.1.1");
+                cSConnection.port.postMessage(message);
+                break;
+            default:
+                console.warn("SW from App: message type not yet handled: ", message);
+        }
+    }
+};
+
+
 function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
     console.log("SW from CS: message", message);
 
@@ -364,6 +377,7 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
+                // TODO create a constructor and ts interface for the message?
                 const response: IExCsMsgHello = {
                     type: SwCsMsgType.HELLO,
                     requestId: message.requestId,
@@ -371,6 +385,10 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 };
                 cSPort.postMessage(response);
                 break;
+            case CsSwMsgType.SIGN_DATA:
+            // TODO request user to sign request
+            case CsSwMsgType.SIGN_REQUEST:
+            // TODO request user to sign request
             default:
                 console.warn("SW from CS: message type not yet handled: ", message);
         }

@@ -3,6 +3,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using System;
+using KeriAuth.BrowserExtension.Models;
 
 namespace KeriAuth.BrowserExtension.Services
 {
@@ -15,30 +18,35 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task Initialize(string tabId)
         {
-            _objectReference = DotNetObjectReference.Create(this);
-            _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
-            // await js.InvokeVoidAsync("registerServiceWorkerMessaging");
-            _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
+            try
+            {
+                _objectReference = DotNetObjectReference.Create(this);
+                _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
+
+                if (_interopModule != null)
+                {
+                    logger.LogInformation("JS module SwAppInterop.js import was successful.");
+                    await jsRuntime.InvokeVoidAsync("console.log", "test log");
+
+                    _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Failed to import JS module: {ex.Message}");
+            }
         }
 
-        public async Task SendToServiceWorkerAsync<T>(string type, string message, T payload)
+        public async Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData)
         {
+            logger.LogInformation("SendToServiceWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.payloadTypeName);
+
             if (_port != null)
             {
-                // TODO P2 make the message payload typed
-                //var messagePayload = new MessagePayload<T>
-                //{
-                //    Message = message,
-                //    Payload = payload
-                //};
-
-                logger.LogInformation("AppSwMessagingService to SW: sending type, message, payload: {t} {m} {p}", type, message, payload);
-
-                //var messageJson = JsonSerializer.Serialize(message);
-                //var messageBytes = Encoding.UTF8.GetBytes(messageJson);
-                await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToServiceWorker", _port, type, message);
-                // await Task.Delay(1000); // TODO big issue here?, need to wait for the message to be sent.  See mingyaulee for a better way to do this?
-                logger.LogInformation("AppSwMessagingService to SW: sent");
+                var replyJson = JsonSerializer.Serialize(replyMessageData);
+                logger.LogInformation("SendToServiceWorkerAsync sending payloadJson: {p}", replyJson);
+                await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToServiceWorker", _port, replyJson);
+                logger.LogInformation("SendToServiceWorkerAsync to SW: sent");
             }
             else
             {

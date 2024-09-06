@@ -1,8 +1,17 @@
-interface DotNetObjectReference {
-    invokeMethodAsync(methodName: string, ...args: any[]): Promise<void>;
+interface DotNetObjectReference<T = any> {
+    invokeMethodAsync: (methodName: string, ...args: any[]) => Promise<void>;
+}
+export interface ReplyMessageData<T = unknown> {
+    type: string;
+    requestId: string;
+    payload?: T;
+    error?: string;
+    payloadTypeName?: string;
+    source?: string;
 }
 export declare const SwAppInteropModule: {
-    initializeMessaging: (dotNetHelper: DotNetObjectReference, tabId: String) => chrome.runtime.Port;
-    sendMessageToServiceWorker: (port: chrome.runtime.Port, type: string, message: string) => void;
+    initializeMessaging: (dotNetObjectReference: DotNetObjectReference, tabId: String) => chrome.runtime.Port | null;
+    sendMessageToServiceWorker: (port: chrome.runtime.Port, jsonReplyMessageData: string) => void;
+    parseJson: <T>(jsonString: string) => T | null;
 };
-export {};
+export default SwAppInteropModule;

@@ -1,6 +1,7 @@
 ﻿using Microsoft.JSInterop;
 using System.Text.Json;
 using System.Text;
+using KeriAuth.BrowserExtension.Models;
 
 namespace KeriAuth.BrowserExtension.Services
 {
@@ -8,7 +9,7 @@ namespace KeriAuth.BrowserExtension.Services
     {
         public Task Initialize(string tabId);
 
-        public Task SendToServiceWorkerAsync<T>(string type, string message, T payload);
+        public Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData);
 
         [JSInvokable]
         public void ReceiveMessage(string message);

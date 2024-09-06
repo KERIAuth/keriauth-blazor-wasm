@@ -1,4 +1,4 @@
-﻿@page "/RequestSignIn/{escapedOriginStr}"
+﻿@page "/RequestSignIn/{encodedOrigin}/{requestId}"
 @layout Layouts.DialogLayout
 
 @using System.Linq
@@ -38,15 +38,25 @@
 
 @code {
     [Parameter]
-    public string escapedOriginStr { get; set; } = "";
+    public string encodedOrigin { get; set; } = "";
 
-    string OriginStr { get; set; } = "http://example.com";
+    [Parameter]
+    public string requestId { get; set; } = "";
 
-    Uri GetOriginUri()
+    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
+
+    Uri? GetOriginUri()
     {
-        // TODO try-catch
-        var x = new Uri(OriginStr);
-        return x;
+        try
+        {
+            var x = new Uri(OriginStr);
+            return x;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Error parsing OriginStr '{o}': {e}", OriginStr, ex);
+            return null;
+        }
     }
 
     string AppActivePrefix { get; set; } = string.Empty;
@@ -171,22 +181,28 @@
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
         await GetInitialHeadlines();
 
+        logger.LogInformation("OnParametersSetAsync requestId {r}", requestId);
+
         logger.LogInformation("EE1.1.1.1");
         // TODO remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
         // TODO add try-catch?
+        // TODO EE! decide whether these values (requestId, type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
         {
             var decodedMsg = HttpUtility.UrlDecode(outterMessage);
             logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
-            if (!IsJsonValid(decodedMsg))
+            var decodedMsg2 = HttpUtility.UrlDecode(decodedMsg);
+            logger.LogInformation("Chrome URI query message decoded2: {msg}", decodedMsg2);
+
+            if (!IsJsonValid(decodedMsg2))
             {
-                logger.LogError("Invalid JSON message: {msg}", decodedMsg);
+                logger.LogError("Chrome URI query Invalid JSON message: {msg}", decodedMsg2);
                 return;
             };
 
-            string jsonString = outterMessage.ToString(); // Convert StringValues to string
+            string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
 
             // Parse the JSON string
             var jsonDocument = JsonDocument.Parse(jsonString);
@@ -196,10 +212,19 @@
             if (jsonObject.TryGetProperty("type", out var typeElement))
             {
                 string type = typeElement.GetString() ?? String.Empty;
+
+                if (jsonObject.TryGetProperty("requestId", out var requestId2))
+                {
+                    string requestId3 = requestId2.GetString() ?? String.Empty;
+                    requestId = requestId3;
+                    logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
+                }
+
+
                 logger.LogInformation("Processing message of type: {t}", type);
                 switch (type)
                 {
-                    case "select-=identifier":
+                    case "/signify/authorize":
                         logger.LogInformation("TODO EE1.1.1.1: {0}", type);
                         break;
                     default:
@@ -213,7 +238,8 @@
                 return;
             }
 
-        } else
+        }
+        else
         {
             logger.LogError("Could not find UriQuery content containing outter \"message\".");
             return;
@@ -292,19 +318,29 @@
     async Task SignIn()
     {
         // TODO EE! finish implementation. setting payload with the prefix, etc.
-        logger.LogInformation("EE2");
-        // TODO should type of the payload be a class or JSON?
-        await appSwMessagingService.SendToServiceWorkerAsync<string>("/signify/reply", "sign-in", "sign-in payload");
+        logger.LogInformation("EE2 SignIn");
+        logger.LogInformation("EE2 escapedOriginStr {e}", encodedOrigin);
+
+        ReplyMessageData<AuthorizeResult> replyMessageData = new(
+            "/signify/reply",
+            new AuthorizeResult(new AuthorizeResultCredential("rawraw", "hail cesr"), null), // new AuthorizeResultIdentifier("selectedPrefix....")),
+            typeHint: "AuthorizeResult",
+            requestId: requestId
+        );
+
+        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
+
         // TODO may need to assure message makes it to the service-worker?
         // Close blazor application
-        await Task.Delay(1000); // TODO remove this delay
-                                // UIHelper.CloseWindow();
+        // TODO remove this delay
+        await Task.Delay(1000);
+        // UIHelper.CloseWindow();
     }
 
     async Task Cancel()
     {
-        // TODO should type of the payload be a class or JSON?
-        await appSwMessagingService.SendToServiceWorkerAsync<string>("AppSwSignIn", "sign-in-cancel", "sign-in-cancel-payload");
+        // TODO Send cancel or error to SendToServiceWorkerAsync
+        //
         // TODO may need to assure message makes it to the service-worker?
         // Close blazor application
         UIHelper.CloseWindow();

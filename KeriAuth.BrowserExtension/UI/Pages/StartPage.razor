@@ -197,9 +197,7 @@
 
         logger.LogInformation($"currentAppState: {currentAppState}");
         logger.LogInformation($"Chrome URI query: {initialUriQuery}");
-        initialUriQuery = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogInformation($"Chrome URI query decoded: {initialUriQuery}");
-        var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
+        var initialUriQuery2 = HttpUtility.UrlDecode(HttpUtility.UrlDecode(HttpUtility.UrlDecode(initialUriQuery)));
         logger.LogInformation($"Chrome URI query decoded 2: {initialUriQuery2}");
         switch (currentAppState)
         {
@@ -218,13 +216,20 @@
                 return;
 
             case IStateService.States.AuthenticatedConnected:
+                // if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("origin", out var origin2))
+                // {
+                //     logger.LogError("Chrome URI query origin: {m}", origin2);
+                //     UriQueryOriginStr = origin2.FirstOrDefault();
+                //     return;
+                // }
+
 
                 // TODO temporary code to handle select-identifier message (Chrome URI query message)
 
-                if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var message))
+                if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("message", out var message))
                 {
 
-                    logger.LogInformation("Chrome URI query message decoded2: {msg}", initialUriQuery2);
+                    logger.LogInformation("Chrome URI query message decoded2: {m}", message);
 
                     if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("origin", out var encodedOrigin))
                     {
@@ -234,10 +239,31 @@
                         }
                         else
                         {
-                            var origin = HttpUtility.UrlEncode(encodedOrigin.FirstOrDefault());
-                            logger.LogInformation("OnParametersSetAsync: Origin: {origin}", origin);
-                            navManager.NavigateTo(RouteToRequestSignIn + origin);
-                            return;
+                            // logger.LogInformation("OnParametersSetAsync: Origin page parameter escaped: {origin}", encodedOrigin);
+                            var encodedOrigin2 = HttpUtility.UrlEncode(encodedOrigin.FirstOrDefault());
+                            logger.LogInformation("OnParametersSetAsync: Origin page parameter encoded: {origin}", encodedOrigin2);
+
+
+                            logger.LogWarning("OnParametersSetAsync: looking for requestId in initialUrlQuery2 '{i}'", initialUriQuery2);
+                            if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("requestId", out var requestId))
+                            {
+                                logger.LogWarning("OnParametersSetAsync: found requestId '{r}'", requestId);
+                                if (requestId.FirstOrDefault() is null)
+                                {
+                                    logger.LogError("OnParametersSetAsync: RequestId not found in decodedMsg: {dm}", initialUriQuery);
+                                }
+                                else
+                                {
+                                    var requestIdStr = requestId.FirstOrDefault();
+                                    logger.LogInformation("OnParametersSetAsync: RequestId page parameter: {requestId}", requestIdStr);
+
+                                    navManager.NavigateTo(RouteToRequestSignIn + encodedOrigin2 + "/" + requestIdStr);
+                                    return;
+                                }
+                            } else
+                            {
+                                navManager.NavigateTo(RouteToRequestSignIn + encodedOrigin2 + "/" + "no-requestId");
+                            }
                         }
                     }
                     else
