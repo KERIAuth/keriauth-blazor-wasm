@@ -79,7 +79,8 @@
     {
         SelectedPrefix = prefix;
         // TODO following should be just un/resubscribe to another websiteConfig? ... and this UI is made responsive to an IObserver<WebsiteConfig>
-        await getWebsiteConfig(GetOriginUri());
+        Debug.Assert(GetOriginUri() is not null);
+        await getWebsiteConfig(GetOriginUri()!);
         StateHasChanged();
     }
 
@@ -87,7 +88,8 @@
     {
         // TODO implementation should just push an update into websiteConfigService, and rest be reactive to that.
         IsPrefixRemembered = isChecked;
-        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri());
+        Debug.Assert(GetOriginUri() is not null);
+        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
         if (getOrCreateWebsiteRes.IsFailed)
         {
             logger.LogError("Error in websiteService {0}", getOrCreateWebsiteRes.Errors);
@@ -114,7 +116,8 @@
             {
                 throw new Exception($"Error updating website: {res?.Errors}");
             }
-            await getWebsiteConfig(GetOriginUri()); // StateHasChanged();
+            Debug.Assert(GetOriginUri() is not null);
+            await getWebsiteConfig(GetOriginUri()!); // StateHasChanged();
             return;
         }
         else
@@ -128,7 +131,8 @@
     {
         // TODO implementation should just push an update into websiteConfigService, and rest be reactive to that.
         IsAutoSignIn = isChecked;
-        var result = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri());
+        Debug.Assert(GetOriginUri() is not null);
+        var result = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
 
         WebsiteConfig newWebsiteConfig = result.Value;
         if (SelectedHeadlineOrNothing is not null)
@@ -158,7 +162,8 @@
                 logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
                 IsAutoSignIn = isChecked;
             }
-            await getWebsiteConfig(GetOriginUri()); //  StateHasChanged();
+            Debug.Assert(GetOriginUri() is not null);
+            await getWebsiteConfig(GetOriginUri()!); //  StateHasChanged();
             return;
         }
         else
@@ -257,7 +262,8 @@
             IdentifierHeadlines = IdentifierHeadlines.OrderBy(a => a.Alias).ToList();
             if (IdentifierHeadlines.Count > 0)
             {
-                var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri());
+                Debug.Assert(GetOriginUri() is not null);
+                var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
                 logger.LogInformation("GetHeadlines: getOrCreateWebsite: {0}", JsonSerializer.Serialize(wcRes));
                 if (wcRes.IsFailed)
                 {
@@ -281,7 +287,8 @@
                 logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
                 SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
                 Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value for SelectedHeadlineOrNothing");
-                await getWebsiteConfig(GetOriginUri());
+                Debug.Assert(GetOriginUri() is not null);
+                await getWebsiteConfig(GetOriginUri()!);
                 StateHasChanged();
             }
             else
@@ -339,6 +346,7 @@
 
     async Task Cancel()
     {
+        await Task.Delay(0);
         // TODO Send cancel or error to SendToServiceWorkerAsync
         //
         // TODO may need to assure message makes it to the service-worker?

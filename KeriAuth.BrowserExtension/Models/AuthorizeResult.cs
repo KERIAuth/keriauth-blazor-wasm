@@ -20,9 +20,9 @@ namespace KeriAuth.BrowserExtension.Models
         }
 
         [JsonPropertyName("credential")]
-        public AuthorizeResultCredential arc { get; }
+        public AuthorizeResultCredential? arc { get; }
 
         [JsonPropertyName("identifier")]
-        public AuthorizeResultIdentifier ari { get; }
+        public AuthorizeResultIdentifier? ari { get; }
     }
 }

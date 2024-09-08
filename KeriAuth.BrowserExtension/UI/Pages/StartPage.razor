@@ -229,7 +229,7 @@
                 if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("message", out var message))
                 {
 
-                    logger.LogInformation("Chrome URI query message decoded2: {m}", message);
+                    logger.LogInformation("Chrome URI query message decoded2: {m}", message.ToString());
 
                     if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("origin", out var encodedOrigin))
                     {
@@ -247,7 +247,7 @@
                             logger.LogWarning("OnParametersSetAsync: looking for requestId in initialUrlQuery2 '{i}'", initialUriQuery2);
                             if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("requestId", out var requestId))
                             {
-                                logger.LogWarning("OnParametersSetAsync: found requestId '{r}'", requestId);
+                                logger.LogWarning("OnParametersSetAsync: found requestId '{r}'", requestId.ToString());
                                 if (requestId.FirstOrDefault() is null)
                                 {
                                     logger.LogError("OnParametersSetAsync: RequestId not found in decodedMsg: {dm}", initialUriQuery);
