@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     console.log("KeriAuthCs to SW connected port:", port);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
-    port.onMessage.addListener((message: object) => handleMessageFromServiceWorker(message, port));
+    port.onMessage.addListener((message: BaseCsPageMessage) => handleMessageFromServiceWorker(message, port));
 
     // Send a hello message to the service worker (versus waiting on a triggering message from the page)
     // TODO use a constructor for the message object
