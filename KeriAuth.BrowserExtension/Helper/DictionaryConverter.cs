@@ -71,7 +71,7 @@ namespace KeriAuth.BrowserExtension.Helper.DictionaryConverters
                     }
                     return list;
                 case JsonTokenType.Null:
-                    return new object();  // TODO : Should this be null?
+                    return new object();
                 default:
                     throw new JsonException($"Unexpected token parsing JSON: {reader.TokenType}");
             }

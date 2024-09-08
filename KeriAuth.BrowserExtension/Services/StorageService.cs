@@ -51,7 +51,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             logger.Log(ServiceLogLevel, "Registering handler for storage change event");
 
             // Set up to listen for storage changes.  Could alternately have implemented this in the background script and/or https://github.com/mingyaulee/WebExtensions.Net
-            // TODO P2 investigate using https://github.com/mingyaulee/WebExtensions.Net
+            // TODO P1 investigate using https://github.com/mingyaulee/WebExtensions.Net
             IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/storageHelper.js");
             await _module.InvokeVoidAsync("addStorageChangeListener", _dotNetObjectRef);
         }
@@ -226,80 +226,6 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         if (!preferencesObservers.Contains(preferencesObserver))
             preferencesObservers.Add(preferencesObserver);
         return new Unsubscriber(preferencesObservers, preferencesObserver);
-    }
-
-    // TODO Remove unused code Callback
-    private bool Callback(object request, string _)
-    {
-        // When data has changed, so notifications and downstream effects might be needed
-
-        // TODO P3 should there be try-catch blocks here, e.g. in case parsing fails?
-        logger.Log(ServiceLogLevel, "In Callback");
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = false,
-            Converters =
-            {
-                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-                // new IDataJsonConverter()
-            }
-        };
-
-        var jsonDocument = JsonDocument.Parse(request.ToString() ?? string.Empty);
-        var parsedJsonNode = JsonNode.Parse(jsonDocument.ToJsonString());
-        Debug.Assert(parsedJsonNode is not null);
-        // TODO P3: an assumption below that there isn't more than one change
-        var (key, value) = parsedJsonNode!.Root.AsObject().First();
-
-        if (key == nameof(WalletEncrypted).ToUpperInvariant())
-        {
-            Debug.Assert(value is not null);
-            var newWalletEncrypted = value["newValue"];
-            if (newWalletEncrypted is not null)
-            {
-                var deserializedObject = JsonSerializer.Deserialize<WalletEncrypted>(newWalletEncrypted.ToJsonString(), options);
-                // logger.LogInformation("new value for walletEncryped:");
-                // xxConsole.WriteLine(deserializedObject);
-            }
-            else
-            {
-                // logger.LogInformation("new value for walletEncryped: null");
-            }
-        }
-        else if (key.Equals(nameof(Preferences), StringComparison.OrdinalIgnoreCase))
-        {
-            logger.Log(ServiceLogLevel, "In Callback ... Preferences");
-            JsonNode? newJsonNode = null;
-            if (value is not null)
-            {
-                // xxConsole.WriteLine($"value is: {value.ToString()}");
-                newJsonNode = value["newValue"];
-            }
-            // xxConsole.WriteLine($"newJsonNode preferences is: {newJsonNode}");
-            Preferences newPreferences;
-            if (newJsonNode is not null)
-            {
-                Preferences? maybeNewPrefs = JsonSerializer.Deserialize<Preferences>(newJsonNode.ToJsonString(), options);
-                Debug.Assert(maybeNewPrefs is not null);
-                newPreferences = (Preferences)maybeNewPrefs;
-                // xxConsole.WriteLine($"new value for Preferences IsDarkTheme: {newPreferences.IsDarkTheme}");
-            }
-            else
-            {
-                return false; // logger.LogInformation("new value for Preferences: null");
-            }
-            // xxConsole.WriteLine($"There are {preferencesObservers.Count} preferencesObservers");
-
-            if (preferencesObservers is not null)
-            {
-                logger.Log(ServiceLogLevel, "Preferences updated: {value}", newPreferences.ToString());
-                foreach (var observer in preferencesObservers)
-                {
-                    observer.OnNext(newPreferences);
-                }
-            }
-        }
-        return true;
     }
 
     private class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable

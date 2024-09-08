@@ -43,7 +43,7 @@ export const SwAppInteropModule = {
 
             port.onMessage.addListener((message) => {
                 console.log("SwAppInterop received port message: ", message);
-                // TODO EE!
+                // TODO EE! fromApp vs fromServiceWorker?
                 if (message && message.type === 'fromServiceWorker') {
                     dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
                 }

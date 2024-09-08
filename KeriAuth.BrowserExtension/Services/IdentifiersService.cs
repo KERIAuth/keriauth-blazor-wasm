@@ -36,33 +36,6 @@ namespace KeriAuth.BrowserExtension.Services
 
                 foreach (Aid item in res2.Value.Aids)
                 {
-                    //// TMP
-                    //var x = await Signify_ts_shim.GetAID(item.Name);
-                    //if (x is null )
-                    //{
-                    //    logger.LogError("Failed to get AID for prefix: {name}", item.Name);
-                    //    continue;
-                    //}
-                    //logger.LogWarning("GetIdentifierHeadlines: GetAID test {1}", x);
-
-
-                    //var y = await signifyClientService.GetIdentifier(item.Name);
-                    //if (y.IsFailed)
-                    //{
-                    //    logger.LogError("Failed to get IdentifierService for prefix: {name}", item.Name);
-                    //    continue;
-                    //}
-                    //var aid = y.Value;
-                    //// logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService object {1}", (object)aid);
-                    //logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService name {1}", aid.Name);
-                    //logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService prefix {1}", aid.Prefix);
-                    //// logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService state {1}", (object)aid.State);
-                    //// logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService salty {1}", (object)aid.Salty);
-                    //logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService transferable {1}", aid.Transferable);
-                    //// logger.LogWarning("GetIdentifierHeadlines: GetIdentifierService windexes {1}", (object)aid.Windexes);
-                    //// TODO P4 parse?
-
-
                     // TODO P3  set the current identifierService in the Headline?
                     var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), logger, storageService);
                     headlines.Add(new IdentifierHeadline(item.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));

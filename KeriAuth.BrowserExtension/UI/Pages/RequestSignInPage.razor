@@ -188,7 +188,6 @@
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", requestId);
 
-        logger.LogInformation("EE1.1.1.1");
         // TODO remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
@@ -230,7 +229,6 @@
                 switch (type)
                 {
                     case "/signify/authorize":
-                        logger.LogInformation("TODO EE1.1.1.1: {0}", type);
                         break;
                     default:
                         logger.LogInformation("Unknown message type: {0}", type);
@@ -324,10 +322,6 @@
 
     async Task SignIn()
     {
-        // TODO EE! finish implementation. setting payload with the prefix, etc.
-        logger.LogInformation("EE2 SignIn");
-        logger.LogInformation("EE2 escapedOriginStr {e}", encodedOrigin);
-
         ReplyMessageData<AuthorizeResult> replyMessageData = new(
             "/signify/reply",
             new AuthorizeResult(new AuthorizeResultCredential("rawraw", "hail cesr"), null), // new AuthorizeResultIdentifier("selectedPrefix....")),
@@ -336,12 +330,7 @@
         );
 
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
-
-        // TODO may need to assure message makes it to the service-worker?
-        // Close blazor application
-        // TODO remove this delay
-        await Task.Delay(1000);
-        // UIHelper.CloseWindow();
+        UIHelper.CloseWindow();
     }
 
     async Task Cancel()

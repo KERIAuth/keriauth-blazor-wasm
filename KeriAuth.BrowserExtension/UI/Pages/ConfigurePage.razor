@@ -150,8 +150,6 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
-        // TODO EE!
-        // await SetUseExistingPasscodeAsync(false);
     }
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);

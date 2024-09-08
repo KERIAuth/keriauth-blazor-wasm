@@ -206,7 +206,6 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         // TODO EE! add msgRequestId
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
-        console.log("EE1.1.1b");
 
         // TODO define and use a interface constructor for the message
         const encodedMsg = serializeAndEncode(msg);
@@ -280,10 +279,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
         console.log(`SW with CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
-        // console.log("SW adding onMessage listener for port", cSPort);
-        // TODO EE! refactor to a defined handler for improved readability
         cSPort.onMessage.addListener((message: ICsSwMsg) => handleMessageFromPageCs(message, cSPort, tabId, connectionId));
-
 
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
@@ -349,8 +345,6 @@ function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConn
     if (cSConnection) {
         switch (message.type) {
             case "/signify/reply":
-                console.log("EE2.1");
-                console.log("EE2.1.1");
                 cSConnection.port.postMessage(message);
                 break;
             default:
@@ -369,7 +363,6 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
         // Handle the message based on its type
         switch (message.type) {
             case CsSwMsgType.SELECT_AUTHORIZE:
-                console.log("EE1.1.1a");
                 handleSelectAuthorize(message /* as ICsSwMsgSelectIdentifier */, pageCsConnections[connectionId].port);
                 break;
             case CsSwMsgType.SIGNIFY_EXTENSION:

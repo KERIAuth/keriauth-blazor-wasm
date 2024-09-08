@@ -67,23 +67,6 @@ export interface IExCsMsgReply extends ISwCsMsg {
     type: SwCsMsgType.REPLY
 }
 
-//
-// Signing related types from signify-browser-extension. https://github.com/WebOfTrust/signify-browser-extension/blob/909803e6ad0a1038aa8d4ffea914767d98ea2894/src/config/types.ts
-// TODO EE! See polaris-web instead
-//
-//export interface ISignin {
-//    id: string;
-//    domain: string;
-//    identifier?: {
-//        name?: string;
-//        prefix?: string;
-//    };
-//    credential?: ICredential;
-//    createdAt: number;
-//    updatedAt: number;
-//    autoSignin?: boolean;
-//}
-
 export interface IIdentifier {
     name?: string;
     prefix: string;
