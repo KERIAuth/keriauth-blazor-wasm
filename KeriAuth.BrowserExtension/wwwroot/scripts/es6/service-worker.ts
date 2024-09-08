@@ -311,9 +311,9 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             console.log(`SW from App connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
             // Add a listener for messages from the App, where the handler can process and forward to the content script as appropriate.
-            console.warn("SW adding onMessage listener for App port, csConnection, tabId, connectionId", appPort, cSConnection, tabId, connectionId);
+            console.log("SW adding onMessage listener for App port, csConnection, tabId, connectionId", appPort, cSConnection, tabId, connectionId);
             appPort.onMessage.addListener((message) => handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
-            console.warn("SW adding onMessage listener for App port... done", appPort);
+            console.log("SW adding onMessage listener for App port... done", appPort);
 
             // Send an initial message from SW to App
             appPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });

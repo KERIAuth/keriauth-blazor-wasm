@@ -255,7 +255,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             // case "/signify/reply":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.REPLY
             case "signify-extension":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.SIGNIFY_EXTENSION
                 // Note, the signify-extension notification from page is effectively haneled earlier in the code, in the advertiseToPage function
-                console.warn("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
+                console.info("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
                 break;
             case PAGE_EVENT_TYPE.SIGNIFY_AUTHORIZE:
                 console.log("EE1.1");
