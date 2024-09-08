@@ -15,14 +15,14 @@ namespace KeriAuth.BrowserExtension.Models
                 throw new ArgumentException("Either arc or ari must be non-null");
             }
 
-            this.arc = arc;
-            this.ari = ari;
+            this.ARCredential = arc;
+            this.ARIdentifier = ari;
         }
 
         [JsonPropertyName("credential")]
-        public AuthorizeResultCredential? arc { get; }
+        public AuthorizeResultCredential? ARCredential { get; }
 
         [JsonPropertyName("identifier")]
-        public AuthorizeResultIdentifier? ari { get; }
+        public AuthorizeResultIdentifier? ARIdentifier { get; }
     }
 }
