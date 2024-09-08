@@ -96,7 +96,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        base.OnParametersSet();
+        await base.OnParametersSetAsync();
         logger.LogInformation($"OnParametersSetAsync");
         var prefs = await preferencesService.GetPreferences();
         InitializeOrOnNextPrefs(prefs);
