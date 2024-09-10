@@ -1,8 +1,23 @@
 ﻿// Common definitions for content script and service-worker.
 
+import {
+    AuthorizeResultCredential,
+    AuthorizeArgs,
+    AuthorizeResultIdentifier,
+    AuthorizeResult,
+    SignDataArgs,
+    SignDataResultItem,
+    SignDataResult,
+    SignRequestArgs,
+    SignRequestResult,
+    ConfigureVendorArgs,
+    MessageData
+} from "polaris-web/dist/client";
+
 // Message types from CS to SW
 export type CsSwMsg = ICsSwMsgSelectIdentifier | ICsSwMsgSelectCredential;
 
+// TODO EE! See KeriAuthMessageData and MessageData. Clarify these as IXXXX and which are owned by polaris-web vs KeriAuth. Superset of these is a "Response"?
 export interface ICsSwMsg {
     type: string
     requestId?: string
@@ -71,7 +86,6 @@ export interface IIdentifier {
     name?: string;
     prefix: string;
 }
-
 export interface ICredential {
     issueeName: string;
     ancatc: string[];
@@ -96,3 +110,34 @@ export interface ISignature {
     };
     autoSignin?: boolean;
 }
+
+// See also ReplyMessageData.cs, which pairs with this interface for interop with the extension WASM
+export interface ReplyMessageData<T = unknown> {
+    type: string;
+    requestId: string;
+    payload?: T;
+    error?: string;
+    payloadTypeName?: string;
+    source?: string;
+}
+
+export const CsToPageMsgIndicator = "KeriAuthCs";
+
+export interface KeriAuthMessageData<T = unknown> extends MessageData<T> {
+    source: typeof CsToPageMsgIndicator;
+}
+
+// Signing related types from signify-browser-extension config/types.ts
+export interface ISignin {
+    id: string;
+    domain: string;
+    identifier?: {
+        name?: string;
+        prefix?: string;
+    };
+    credential?: ICredential;
+    createdAt: number;
+    updatedAt: number;
+    autoSignin?: boolean;
+}
+

@@ -3,22 +3,16 @@
 // This ContentScript is inserted into pages after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension service-worker.
 
-// Define types for message events and chrome message
-interface ChromeMessage {
-    type: string;
-    subtype?: string;
-    [key: string]: any;
-}
-
 // Get the current origin
 const currentOrigin = window.location.origin;
 
+// windows message event data
 interface EventData {
     type: string;
     [key: string]: any;
 }
 
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg } from "../es6/ExCsInterfaces.js";
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential } from "../es6/ExCsInterfaces.js";
 import {
     AuthorizeResultCredential,
     AuthorizeArgs,
@@ -32,35 +26,12 @@ import {
     ConfigureVendorArgs,
     MessageData
 } from "polaris-web/dist/client";
+// TODO, or consider using the following instead of the above import
+// import * as PolarisWebClient from "polaris-web/dist/client";
 
 
-// Signing related types from signify-browser-extension config/types.ts
-interface ISignin {
-    id: string;
-    domain: string;
-    identifier?: {
-        name?: string;
-        prefix?: string;
-    };
-    credential?: ICredential;
-    createdAt: number;
-    updatedAt: number;
-    autoSignin?: boolean;
-}
-interface ICredential {
-    issueeName: string;
-    ancatc: string[];
-    sad: { a: { i: string }; d: string };
-    schema: {
-        title: string;
-        credentialType: string;
-        description: string;
-    };
-    status: {
-        et: string;
-    };
-    cesr?: string;
-}
+
+
 
 // signify-brower-extension compliant page message types
 // Note this is called TAB_STATE and others in the signify-browser-extension
@@ -100,16 +71,6 @@ interface BaseCsPageMessage {
     requestId?: string;
 }
 
-//interface SignifyExtensionMessage extends BaseCsPageMessage {
-//    type: typeof PAGE_POST_TYPE.SIGNIFY_EXT
-//    data: {
-//        extensionId: string
-//    };
-//}
-
-// Union type for all possible messages that can be sent to the web page
-// type PageMessage = SignifyExtensionMessage | SignifySignatureMessage | SignifyAutoSigninMessage;
-
 // Function to generate a unique and unguessable identifier for the port name for communications between the content script and the extension
 function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
@@ -129,17 +90,7 @@ function advertiseToPage(): void {
     postMessageToPage<unknown>(msg);
 }
 
-const CsToPageMsgIndicator = "KeriAuthCs";
-
 function postMessageToPage<T>(msg2: T): void {
-    //const msg: BaseCsPageMessage = {
-    //    source: CsToPageMsgIndicator,
-    //    type: type,
-    //    data: data,
-    //    payload: payload,
-    //    requestId: requestId,
-    //    error: error
-    //};
     console.log("KeriAuthCs to page data:", msg2);
     window.postMessage(msg2, currentOrigin);
 }
@@ -159,17 +110,17 @@ function handleMessageFromServiceWorker(message: BaseCsPageMessage, port: chrome
 
     switch (message.type) {
         case SwCsMsgType.HELLO:
-            window.addEventListener("message", (event: MessageEvent<any>) => handleWindowMessage(event, port));
+            window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event, port));
             break;
         case SwCsMsgType.REPLY:
-            const msg: MessageData<AuthorizeResult> = {
+            const msg: KeriAuthMessageData<AuthorizeResult> = {
                 type: message.type,
                 requestId: message.requestId,
                 payload: message.payload,
-                error: message.error
-
+                error: message.error,
+                source: CsToPageMsgIndicator
             }
-            postMessageToPage<MessageData<AuthorizeResult>>(msg);
+            postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
             break;
         case "signify-extension":
             console.log("intentionally ignoring type signify-extension here, as it is handled in advertiseToPage function.")
@@ -199,31 +150,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
     // TODO hack - find a more deterministic approach vs delay?
     setTimeout(advertiseToPage, 500);
 });
-
-//function parseTypeValue(jsonString: string): string | null {
-//    try {
-//        const parsedObject = JSON.parse(jsonString);
-
-//        // Check if the parsed object is an object and contains the "type" key
-//        if (typeof parsedObject === 'object' && parsedObject !== null && 'type' in parsedObject) {
-//            const typeValue = parsedObject.type;
-
-//            // Check if the type value is a string
-//            if (typeof typeValue === 'string') {
-//                return typeValue;
-//            } else {
-//                console.error('The "type" key is present but its value is not a string.');
-//                return null;
-//            }
-//        } else {
-//            console.error('The parsed object does not contain the "type" key or is not a valid object.');
-//            return null;
-//        }
-//    } catch (error) {
-//        console.error('Failed to parse JSON:', error.message);
-//        return null;
-//    }
-//}
 
 /*
 // Handle messages from the page

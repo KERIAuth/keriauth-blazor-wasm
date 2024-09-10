@@ -36,7 +36,7 @@ export const SwAppInteropModule = {
                 case "SignDataResult":
                 case "void":
                 default:
-                    throw new Error('Unknown typeHint: ' + payloadTypeName);
+                    throw new Error('Unknown typeName: ' + payloadTypeName);
             }
         }
         catch (error) {

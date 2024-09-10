@@ -22,7 +22,10 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} /* TODO as X */ from "polaris-web/dist/client";
+} from "polaris-web/dist/client";
+// TODO consider the following alternate import statement for polaris-web, which may be clearer:
+// import * as PolarisWebClient from "polaris-web/dist/client";
+
 import { ICsSwMsg } from "./ExCsInterfaces.js";
 
 // Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
@@ -191,6 +194,7 @@ function serializeAndEncode(obj: object): string {
 }
 
 // Handle the web page's (Cs's) request for user to select an identifier
+// TODO EE! define type for msg
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the message
     console.log("SW handleSelectIdentifier: ", msg);
@@ -207,10 +211,7 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
 
-        // TODO define and use a interface constructor for the message
         const encodedMsg = serializeAndEncode(msg);
-
-
 
         useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }]);
     } else {
@@ -239,19 +240,6 @@ interface Connection {
     pageAuthority: string;
 }
 let pageCsConnections: { [key: string]: Connection } = {};
-
-// TODO move into CsSw interface file
-interface Payload {
-    message: string;
-}
-
-// TODO move into CsSw interface file
-interface JsonRequest {
-    requestId: string;
-    type: string;
-    payload: Payload;
-}
-
 
 // Listen for and handle port pageCsConnections from content script and Blazor App
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
@@ -352,7 +340,6 @@ function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConn
         }
     }
 };
-
 
 function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
     console.log("SW from CS: message", message);

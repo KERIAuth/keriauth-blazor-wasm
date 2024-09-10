@@ -320,12 +320,14 @@
         this.StateHasChanged();
     }
 
+    /* SignIn()
+    // TODO parameterize this to include the Identifier AID (or prefix?) or Credential
+    */
     async Task SignIn()
     {
         ReplyMessageData<AuthorizeResult> replyMessageData = new(
             "/signify/reply",
             new AuthorizeResult(new AuthorizeResultCredential("rawraw", "hail cesr"), null), // new AuthorizeResultIdentifier("selectedPrefix....")),
-            typeHint: "AuthorizeResult",
             requestId: requestId
         );
 

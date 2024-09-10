@@ -14,19 +14,10 @@ import {
     MessageData
 } from "polaris-web/dist/client";
 
+import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData } from "../es6/ExCsInterfaces.js";
+
 interface DotNetObjectReference<T = any> {
     invokeMethodAsync: (methodName: string, ...args: any[]) => Promise<void>;
-}
-
-// See also ReplyMessageData.cs
-// TODO EE! need to import this elsewhere?
-export interface ReplyMessageData<T = unknown> {
-    type: string;
-    requestId: string;
-    payload?: T;
-    error?: string;
-    payloadTypeName?: string;
-    source?: string;
 }
 
 export const SwAppInteropModule = {
@@ -84,7 +75,7 @@ export const SwAppInteropModule = {
                 
                 case "void":
                 default:
-                    throw new Error('Unknown typeHint: ' + payloadTypeName);
+                    throw new Error('Unknown typeName: ' + payloadTypeName);
             }
 
             //const messageDataObject = { type, requestId, payloadObject, error }

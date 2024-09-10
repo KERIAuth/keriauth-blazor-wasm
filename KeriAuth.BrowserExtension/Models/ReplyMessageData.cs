@@ -4,11 +4,12 @@ namespace KeriAuth.BrowserExtension.Models
 {
     public record ReplyMessageData<T>
     {
+        // See how this relates to the `RequestMessageData` class
+
         [JsonConstructor]
         public ReplyMessageData(
             string type,
             T payload,
-            string typeHint,
             string? requestId = null,
             string? error = null,
             string? source = null)
