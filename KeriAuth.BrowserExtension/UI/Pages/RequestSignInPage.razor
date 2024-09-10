@@ -192,7 +192,7 @@
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
         // TODO add try-catch?
-        // TODO EE! decide whether these values (requestId, type, and others) should come in page parameters, initialUriQuery, or database/service.
+        // TODO EE! decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
         {
             var decodedMsg = HttpUtility.UrlDecode(outterMessage);
@@ -212,7 +212,7 @@
             var jsonDocument = JsonDocument.Parse(jsonString);
             var jsonObject = jsonDocument.RootElement;
 
-            // Extract the "type" value
+            // Extract the "Type" value
             if (jsonObject.TryGetProperty("type", out var typeElement))
             {
                 string type = typeElement.GetString() ?? String.Empty;
@@ -338,7 +338,7 @@
     async Task Cancel()
     {
         await Task.Delay(0);
-        // TODO Send cancel or error to SendToServiceWorkerAsync
+        // TODO Send cancel or Error to SendToServiceWorkerAsync
         //
         // TODO may need to assure message makes it to the service-worker?
         // Close blazor application

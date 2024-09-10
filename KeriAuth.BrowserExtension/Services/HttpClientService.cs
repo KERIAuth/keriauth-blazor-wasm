@@ -76,7 +76,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task<Result<HttpResponseMessage>> GetJsonAsync<TResponse>(string url)
         {
-            TimeSpan timeout = TimeSpan.FromSeconds(3);  // TODO P2. Consider making this configurable and also providing an external cts source. Apply pattern elsewhere.
+            TimeSpan timeout = TimeSpan.FromSeconds(3);  // TODO P2. Consider making this configurable and also providing an external cts Source. Apply pattern elsewhere.
             HttpResponseMessage httpResponseMessage;
             using var cts = new CancellationTokenSource(timeout);
             try

@@ -3,7 +3,7 @@
 public static class WordBreaker
 {
     /// <summary>
-    /// Helper for avoid Snackbar Messages or other user-facing error messages to grow out of proportion.
+    /// Helper for avoid Snackbar Messages or other user-facing Error messages to grow out of proportion.
     /// </summary>
     /// <param name="input"></param>
     /// <param name="maxWordLength">Defines the longest word in the text. Any longer at it will be shortend</param>

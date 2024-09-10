@@ -14,49 +14,34 @@ import {
     MessageData
 } from "polaris-web/dist/client";
 
-// Message types from CS to SW
-export type CsSwMsg = ICsSwMsgSelectIdentifier | ICsSwMsgSelectCredential;
-
+// Requests (via events handled in CS) from Page to Content Script (and beyond)
 // TODO EE! See KeriAuthMessageData and MessageData. Clarify these as IXXXX and which are owned by polaris-web vs KeriAuth. Superset of these is a "Response"?
 export interface ICsSwMsg {
     type: string
     requestId?: string
     payload?: object
-    error?: string
 }
 
+// Message types from Page to CS, which may be then forwarded to the extension service-worker.  Aka "EVENT_TYPE" in the polaris-web code."
 export enum CsSwMsgType {
-    SELECT_AUTHORIZE = "/signify/authorize",
-    SIGN_REQUEST = "/signify/sign-request",
-    SIGN_DATA = "/signify/sign-data",
-    SELECT_CREDENTIAL = "select-credential",
-    SIGNIFY_EXTENSION = "signify-extension",
-    SELECT_ID_CRED = "select-aid-or-credential",
-    SELECT_AUTO_SIGNIN = "select-auto-signin",
-    NONE = "none",
-    VENDOR_INFO = "vendor-info",
-    FETCH_RESOURCE = "fetch-resource",
+    AUTHORIZE_AUTO_SIGNIN = "/signify/authorize-auto-signin",
     AUTO_SIGNIN_SIG = "auto-signin-sig",
-    DOMCONTENTLOADED = "document-loaded"
+    CONFIGURE_VENDOR = "/signify/configure-vendor",
+    DOMCONTENTLOADED = "document-loaded",
+    FETCH_RESOURCE = "fetch-resource",
+    SELECT_AUTHORIZE = "/signify/authorize",
+    SELECT_AUTO_SIGNIN = "select-auto-signin",
+    SELECT_CREDENTIAL = "/signify/authorize/credential",
+    SELECT_ID_CRED = "select-aid-or-credential",
+    SELECT_IDENTIFIER = "/signify/authorize/aid",
+    SIGN_DATA = "/signify/sign-data",
+    SIGN_REQUEST = "/signify/sign-request",
+    SIGNIFY_AUTHORIZE = "/signify/authorize",
+    SIGNIFY_EXTENSION = "signify-extension",
+    VENDOR_INFO = "vendor-info",
 }
 
-export interface ICsSwMsgSelectIdentifier extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_AUTHORIZE
-    requestId: string
-    payload: object
-}
-
-export interface ICsSwMsgHello extends ICsSwMsg {
-    type: CsSwMsgType.DOMCONTENTLOADED
-}
-
-export interface ICsSwMsgSelectCredential extends ICsSwMsg {
-    type: CsSwMsgType.SELECT_CREDENTIAL
-    data: any
-}
-
-
-// Message types from Extension to CS
+// Message types from Extension to CS (and typically forward to Page and sometimes of type FooResponse)
 export interface ISwCsMsg {
     type: string // SwCsMsgType
     requestId?: string // response to this requestId
@@ -68,24 +53,21 @@ export enum SwCsMsgType {
     HELLO = "hello",
     CANCELED = "canceled",
     REPLY = "/signify/reply",
-    FSW = "fromServiceWorker"
+    FSW = "fromServiceWorker",
+    SE = "signify-extension"
 }
 
 export interface IExCsMsgHello extends ISwCsMsg {
     type: SwCsMsgType.HELLO
 }
 
-export interface IExCsMsgCanceled extends ISwCsMsg {
-    type: SwCsMsgType.CANCELED
-}
-export interface IExCsMsgReply extends ISwCsMsg {
-    type: SwCsMsgType.REPLY
-}
-
+// This IIdentifier is used in the context of responses from the extension service-worker, CS, to page
 export interface IIdentifier {
     name?: string;
     prefix: string;
 }
+
+// This ICredential is used in the context of responses from the extension service-worker, CS, to page
 export interface ICredential {
     issueeName: string;
     ancatc: string[];
@@ -101,6 +83,7 @@ export interface ICredential {
     cesr?: string;
 }
 
+// This ISignature is used in the context of responses from the extension service-worker, CS, to page
 export interface ISignature {
     headers: HeadersInit;
     credential?: ICredential;
@@ -111,7 +94,9 @@ export interface ISignature {
     autoSignin?: boolean;
 }
 
-// See also ReplyMessageData.cs, which pairs with this interface for interop with the extension WASM
+// See also ReplyMessageData.cs, which pairs with this interface for interop with the extension WASM.
+// The generic type T is the payload, which is typically a response object from the extension service-worker.
+// See MessageData < T > from polaris - web / types, and see the interfaces that extend MessageData<T>, in the current file.
 export interface ReplyMessageData<T = unknown> {
     type: string;
     requestId: string;
@@ -127,7 +112,8 @@ export interface KeriAuthMessageData<T = unknown> extends MessageData<T> {
     source: typeof CsToPageMsgIndicator;
 }
 
-// Signing related types from signify-browser-extension config/types.ts
+// Signing related types from signify-browser-extension config/types.ts. Here because we don't want dependencies on signify-browser-extension,
+// and ISignin is not defined in polaris-web/types.
 export interface ISignin {
     id: string;
     domain: string;
@@ -141,3 +127,4 @@ export interface ISignin {
     autoSignin?: boolean;
 }
 
+// TODO Add constructors here for the various message interfaces, to ensure they are properly formatted and optional null value combos are assured valid.

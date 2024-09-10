@@ -12,7 +12,7 @@ interface EventData {
     [key: string]: any;
 }
 
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential } from "../es6/ExCsInterfaces.js";
+import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, } from "../es6/ExCsInterfaces.js";
 import {
     AuthorizeResultCredential,
     AuthorizeArgs,
@@ -33,44 +33,6 @@ import {
 
 
 
-// signify-brower-extension compliant page message types
-// Note this is called TAB_STATE and others in the signify-browser-extension
-// this "const" structure was intentionally used versus an enum, because of CommonJS module system in use.
-// TODO above is no longer a constraint, and can move these back to enums?
-
-// page to CS
-const PAGE_EVENT_TYPE = Object.freeze({
-    VENDOR_INFO: "vendor-info",
-    FETCH_RESOURCE: "fetch-resource",
-    SELECT_IDENTIFIER: "/signify/authorize/aid",
-    SELECT_CREDENTIAL: "/signify/authorize/credential",
-    SIGNIFY_AUTHORIZE: "/signify/authorize",
-    AUTHORIZE_AUTO_SIGNIN: "/signify/authorize-auto-signin",
-    SIGN_REQUEST: "/signify/sign-request",
-    CONFIGURE_VENDOR: "/signify/configure-vendor",
-    SELECT_AUTO_SIGNIN: "select-auto-signin",
-    NONE: "none"
-})
-
-// CS to page
-const PAGE_POST_TYPE = Object.freeze({
-    SIGNIFY_EXT: "signify-extension"
-    // SELECT_AUTO_SIGNIN: "select-auto-signin",
-    // SIGNIFY_SIGNATURE: "signify-signature",
-    // SIGNIFY_SIGNATURE2: "signify-signature"
-})
-
-// interfaces for the messages posted to the web page
-interface BaseCsPageMessage {
-    // version: "0.0.1"
-    source: "KeriAuthCs";
-    type: string;
-    data?: object;
-    payload?: object;
-    error?: string;
-    requestId?: string;
-}
-
 // Function to generate a unique and unguessable identifier for the port name for communications between the content script and the extension
 function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
@@ -84,7 +46,7 @@ const uniquePortName: string = generateUniqueIdentifier();
 function advertiseToPage(): void {
     // TODO the following should be typed and ideally imported from polaris-web/client.ts
     const msg = {
-        type: PAGE_POST_TYPE.SIGNIFY_EXT,
+        type: SwCsMsgType.SE,
         data: { extensionId: String(chrome.runtime.id) },
     }
     postMessageToPage<unknown>(msg);
@@ -96,7 +58,7 @@ function postMessageToPage<T>(msg2: T): void {
 }
 
 // Handle messages from the extension
-function handleMessageFromServiceWorker(message: BaseCsPageMessage, port: chrome.runtime.Port): void {
+function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chrome.runtime.Port): void {
     // TODO move this into its own function for readability
     console.log("KeriAuthCs from SW message:", message);
 
@@ -122,7 +84,7 @@ function handleMessageFromServiceWorker(message: BaseCsPageMessage, port: chrome
             }
             postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
             break;
-        case "signify-extension":
+        case SwCsMsgType.SE:
             console.log("intentionally ignoring type signify-extension here, as it is handled in advertiseToPage function.")
             break;
         case SwCsMsgType.CANCELED:
@@ -138,7 +100,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     console.log("KeriAuthCs to SW connected port:", port);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
-    port.onMessage.addListener((message: BaseCsPageMessage) => handleMessageFromServiceWorker(message, port));
+    port.onMessage.addListener((message: MessageData<unknown>) => handleMessageFromServiceWorker(message, port));
 
     // Send a hello message to the service worker (versus waiting on a triggering message from the page)
     // TODO use a constructor for the message object
@@ -173,12 +135,11 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
     console.log("KeriAuthCs received message event.data:", event.data);
     try {
         switch (event.data.type) {
-            // case "/signify/reply":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.REPLY
-            case "signify-extension":  // TODO needed? If so, refactor to PAGE_EVENT_TYPE.SIGNIFY_EXTENSION
-                // Note, the signify-extension notification from page is effectively haneled earlier in the code, in the advertiseToPage function
+            case CsSwMsgType.SIGNIFY_EXTENSION:
+                // Note, the signify-extension notification from page is effectively handled (or premptively assumed) earlier in the code, in the advertiseToPage function
                 console.info("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
                 break;
-            case PAGE_EVENT_TYPE.SIGNIFY_AUTHORIZE:
+            case CsSwMsgType.SIGNIFY_AUTHORIZE:
                 try {
                     portWithSw.postMessage(event.data);
                 } catch (error) {
@@ -187,7 +148,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     return;
                 }
                 break;
-            case PAGE_EVENT_TYPE.SIGN_REQUEST:
+            case CsSwMsgType.SIGN_REQUEST:
                 try {
                     portWithSw.postMessage(event.data);
                 } catch (error) {
@@ -195,12 +156,11 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     return;
                 }
                 break;
-            case PAGE_EVENT_TYPE.SELECT_CREDENTIAL:
-            case PAGE_EVENT_TYPE.SELECT_IDENTIFIER:
-            case PAGE_EVENT_TYPE.SELECT_AUTO_SIGNIN:
-            case PAGE_EVENT_TYPE.NONE:
-            case PAGE_EVENT_TYPE.VENDOR_INFO:
-            case PAGE_EVENT_TYPE.FETCH_RESOURCE:
+            case CsSwMsgType.SELECT_CREDENTIAL:
+            case CsSwMsgType.SELECT_IDENTIFIER:
+            case CsSwMsgType.SELECT_AUTO_SIGNIN:
+            case CsSwMsgType.VENDOR_INFO:
+            case CsSwMsgType.FETCH_RESOURCE:
             default:
                 console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
                 break;

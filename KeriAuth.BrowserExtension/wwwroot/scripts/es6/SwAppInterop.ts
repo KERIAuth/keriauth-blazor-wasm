@@ -14,7 +14,7 @@ import {
     MessageData
 } from "polaris-web/dist/client";
 
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData } from "../es6/ExCsInterfaces.js";
+import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData } from "../es6/ExCsInterfaces.js";
 
 interface DotNetObjectReference<T = any> {
     invokeMethodAsync: (methodName: string, ...args: any[]) => Promise<void>;
@@ -35,7 +35,7 @@ export const SwAppInteropModule = {
             port.onMessage.addListener((message) => {
                 console.log("SwAppInterop received port message: ", message);
                 // TODO EE! fromApp vs fromServiceWorker?
-                if (message && message.type === 'fromServiceWorker') {
+                if (message && message.type === SwCsMsgType.FSW) {
                     dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
                 }
             });

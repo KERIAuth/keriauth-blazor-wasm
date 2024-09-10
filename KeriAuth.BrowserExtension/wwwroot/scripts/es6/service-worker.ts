@@ -9,7 +9,7 @@
 
 import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
-import { ICsSwMsgSelectIdentifier, CsSwMsgType, IExCsMsgHello, IExCsMsgCanceled, IExCsMsgReply, SwCsMsgType } from "./ExCsInterfaces.js";
+import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "./ExCsInterfaces.js";
 import {
     AuthorizeResultCredential,
     AuthorizeArgs,
@@ -300,7 +300,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             console.log("SW adding onMessage listener for App port... done", appPort);
 
             // Send an initial message from SW to App
-            appPort.postMessage({ type: 'fromServiceWorker', data: 'Service worker connected' });
+            appPort.postMessage({ type: SwCsMsgType.FSW, data: 'Service worker connected' });
 
         } else {
             console.error('Invalid port:', connectedPort);
@@ -327,12 +327,13 @@ function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConn
     // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
 
     // Send a response to the KeriAuth App
-    appPort.postMessage({ type: 'fromServiceWorker', data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+    // TODO EE! this seems like active feedback?
+    appPort.postMessage({ type: SwCsMsgType.FSW, data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the message to the content script, if appropriate
     if (cSConnection) {
         switch (message.type) {
-            case "/signify/reply":
+            case SwCsMsgType.REPLY:
                 cSConnection.port.postMessage(message);
                 break;
             default:

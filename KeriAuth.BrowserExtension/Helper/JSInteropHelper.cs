@@ -18,7 +18,7 @@ namespace KeriAuth.BrowserExtension.Helper
 
         private readonly IJSRuntime _jsRuntime = jsRuntime;
 
-        // Adds parameters to control the error message detail
+        // Adds parameters to control the Error message detail
         public async Task<Result<T>> InvokeAsync<T>(
             string functionName,
             string errorMessage,
@@ -41,7 +41,7 @@ namespace KeriAuth.BrowserExtension.Helper
                         typeof(T) == typeof(double) || // number (TypeScript)
                         typeof(T) == typeof(float) || // number (TypeScript), but be cautious with precision
                         typeof(T) == typeof(long) || // number (TypeScript), but be cautious with the range
-                        typeof(T) == typeof(object) || // any or object (TypeScript), use specific types for better type safety
+                        typeof(T) == typeof(object) || // any or object (TypeScript), use specific types for better Type safety
                         typeof(T) == typeof(JsonElement) || // any (TypeScript), for handling arbitrary JSON objects
                                                             // JsonObject isn't directly recognized in System.Text.Json. For dynamic JSON objects, you might use 'dynamic' in C# to represent 'any' in TypeScript.
                         typeof(T).IsArray || // Array<Type> or Type[] (TypeScript)
@@ -68,14 +68,14 @@ namespace KeriAuth.BrowserExtension.Helper
                     return Result.Fail<T>(new FluentResults.Error("unexpected null javascript exception"));
 
                 var detailedErrorMessage = errorMessage + jsEx.Message; //  BuildErrorMessage(errorMessage, jsEx, includeExceptionMessage, includeNestedExceptionMessages);
-                                                                        // Log the detailed error message if necessary
+                                                                        // Log the detailed Error message if necessary
                 Console.WriteLine(detailedErrorMessage);
                 return Result.Fail(detailedErrorMessage);
             }
             catch (Exception ex)
             {
                 var detailedErrorMessage = BuildErrorMessage(errorMessage, ex, includeExceptionMessage, includeNestedExceptionMessages);
-                // Log the detailed error message if necessary
+                // Log the detailed Error message if necessary
                 Console.WriteLine(detailedErrorMessage);
                 return Result.Fail(detailedErrorMessage);
             }

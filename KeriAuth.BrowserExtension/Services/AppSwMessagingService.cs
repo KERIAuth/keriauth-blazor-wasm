@@ -39,7 +39,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData)
         {
-            logger.LogInformation("SendToServiceWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.payloadTypeName);
+            logger.LogInformation("SendToServiceWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.PayloadTypeName);
 
             if (_port != null)
             {
@@ -87,12 +87,12 @@ namespace KeriAuth.BrowserExtension.Services
             }
         }
 
-        // Helper method to notify observers of an error
-        //private void NotifyError(Exception error)
+        // Helper method to notify observers of an Error
+        //private void NotifyError(Exception Error)
         //{
         //    foreach (var observer in observers)
         //    {
-        //        observer.OnError(error);
+        //        observer.OnError(Error);
         //    }
         //}
 

@@ -1,3 +1,4 @@
+import { SwCsMsgType } from "../es6/ExCsInterfaces.js";
 export const SwAppInteropModule = {
     initializeMessaging: function (dotNetObjectReference, tabId) {
         try {
@@ -9,7 +10,7 @@ export const SwAppInteropModule = {
             const port = chrome.runtime.connect({ name: "blazorAppPort" + "-tab-" + tabId });
             port.onMessage.addListener((message) => {
                 console.log("SwAppInterop received port message: ", message);
-                if (message && message.type === 'fromServiceWorker') {
+                if (message && message.type === SwCsMsgType.FSW) {
                     dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
                 }
             });

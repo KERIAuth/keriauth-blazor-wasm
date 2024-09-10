@@ -133,7 +133,7 @@
                 <MudNavLink Disabled=@(!IsInPopup) OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface">
                     @{
-                        /* TODO P3 convert to a "navigate(url)" type of method, so tooltip of URL doesn't show in browser?' */
+                        /* TODO P3 convert to a "navigate(url)" Type of method, so tooltip of URL doesn't show in browser?' */
                     }
                     <MudNavLink Href=@RouteToManagePrefs Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent Service</MudNavLink>
@@ -274,7 +274,7 @@
 
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
 
-    // Compute the Left position for MainContent depending on the type of Drawer and its open state
+    // Compute the Left position for MainContent depending on the Type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
     private void UpdateMainContentStyle()
     {
