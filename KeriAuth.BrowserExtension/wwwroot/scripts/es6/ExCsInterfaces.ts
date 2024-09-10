@@ -1,4 +1,6 @@
 ﻿// Common definitions for content script and service-worker.
+// Consider renaming or scoping to signify-browser-extension, polaris-web, KeriAuth, and/or others.  
+// Many of these are coming from polaris - web / types explicitly or implicitly
 
 import {
     AuthorizeResultCredential,
