@@ -54,14 +54,14 @@ function advertiseToPage(): void {
 }
 
 function postMessageToPage<T>(msg2: T): void {
-    console.log("KeriAuthCs to page data:", msg2);
+    console.log("KeriAuthCs to page:", msg2);
     window.postMessage(msg2, currentOrigin);
 }
 
 // Handle messages from the extension
 function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chrome.runtime.Port): void {
     // TODO move this into its own function for readability
-    console.log("KeriAuthCs from SW message:", message);
+    console.log("KeriAuthCs from SW:", message);
 
     if (message.type) {
         // console.error("KeriAuthCs from SW: message type found:", message);
@@ -98,7 +98,7 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
 // ensure content script responds to changes in the page even if it was injected after the page load.
 document.addEventListener('DOMContentLoaded', (event) => {
     const port = chrome.runtime.connect({ name: uniquePortName });
-    console.log("KeriAuthCs to SW connected port:", port);
+    // console.log("KeriAuthCs to SW connected port:", port);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
     port.onMessage.addListener((message: MessageData<unknown>) => handleMessageFromServiceWorker(message, port));
@@ -133,7 +133,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
         return;
     }
 
-    console.log("KeriAuthCs received message event.data:", event.data);
+    console.log("KeriAuthCs from page: ", event.data);
     try {
         switch (event.data.type) {
             case CsSwMsgType.SIGNIFY_EXTENSION:
