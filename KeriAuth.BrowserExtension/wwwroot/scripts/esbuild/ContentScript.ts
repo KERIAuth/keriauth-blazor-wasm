@@ -48,6 +48,7 @@ function advertiseToPage(): void {
     const msg = {
         type: SwCsMsgType.SE,
         data: { extensionId: String(chrome.runtime.id) },
+        source: CsToPageMsgIndicator
     }
     postMessageToPage<unknown>(msg);
 }
@@ -128,7 +129,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
 
     // Ignore messages from Cs intended for the Page
     if (event.data.source == CsToPageMsgIndicator) {
-        console.log("KeriAuthCs ignoring message from ", event.data.source);
+        // console.log("KeriAuthCs ignoring message from source, event: ", event.data.source, event);
         return;
     }
 
@@ -148,6 +149,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     return;
                 }
                 break;
+            case CsSwMsgType.SELECT_AUTHORIZE_AID:
             case CsSwMsgType.SIGN_REQUEST:
                 try {
                     portWithSw.postMessage(event.data);
@@ -156,8 +158,8 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     return;
                 }
                 break;
-            case CsSwMsgType.SELECT_CREDENTIAL:
-            case CsSwMsgType.SELECT_IDENTIFIER:
+            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
+
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:

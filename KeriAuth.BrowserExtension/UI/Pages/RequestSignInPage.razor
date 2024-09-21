@@ -65,6 +65,9 @@
 
     // TODO should be something like  get => ThisWebsiteConfig?.RememberedPrefixOrNothing == SelectedPrefix;
     bool IsPrefixRemembered { get; set; }
+    bool IsCredentialRemembered { get; set; }
+    enum SignInMode { Credential, Identifier, Prompt }
+    SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
 
     IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
 
@@ -82,6 +85,14 @@
         Debug.Assert(GetOriginUri() is not null);
         await getWebsiteConfig(GetOriginUri()!);
         StateHasChanged();
+    }
+
+    async Task updateIsCredentialRemembered(bool isChecked)
+    {
+        IsCredentialRemembered = isChecked;
+        // TODO EE! See updateIsPrefixRemembered for how this should be implemented
+        await Task.Delay(0);
+        return;
     }
 
     async Task updateIsPrefixRemembered(bool isChecked)
@@ -224,11 +235,19 @@
                     logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
                 }
 
-
                 logger.LogInformation("Processing message of type: {t}", type);
                 switch (type)
                 {
+                    // TODO EE how should these string values be aligned with the definitions in ExCsInterface.ts?
                     case "/signify/authorize":
+                        RequestedSignInMode = SignInMode.Prompt;
+                        break;
+                    case "/signify/authorize/identifier":
+                    case "/signify/authorize/aid":
+                        RequestedSignInMode = SignInMode.Identifier;
+                        break;
+                    case "/signify/authorize/credential":
+                        RequestedSignInMode = SignInMode.Credential;
                         break;
                     default:
                         logger.LogInformation("Unknown message type: {0}", type);
@@ -325,9 +344,17 @@
     */
     async Task SignIn()
     {
+        // for Credential
+        // ReplyMessageData<AuthorizeResult> replyMessageData = new(
+        //     "/signify/reply",
+        //     new AuthorizeResult(new AuthorizeResultCredential("rawraw", "hail cesr"), null), new AuthorizeResultIdentifier("selectedPrefix....")),
+        //     requestId: requestId
+        // );
+
+        // for Identifier
         ReplyMessageData<AuthorizeResult> replyMessageData = new(
             "/signify/reply",
-            new AuthorizeResult(new AuthorizeResultCredential("rawraw", "hail cesr"), null), // new AuthorizeResultIdentifier("selectedPrefix....")),
+            new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
             requestId: requestId
         );
 
@@ -371,29 +398,75 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Request to Sign In</MudText>
+            @switch (RequestedSignInMode)
+            {
+                case SignInMode.Identifier:
+                    <MudText Typo="Typo.h6">Request to Sign In with Identifier</MudText>
+                    break;
+                case SignInMode.Credential:
+                    <MudText Typo="Typo.h6">Request to Sign In with Credential</MudText>
+                    break;
+                case SignInMode.Prompt:
+                    <MudText Typo="Typo.h6">Request to Sign In</MudText>
+                    break;
+            }
             <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
-            <MudStack Class="gap-0">
-                <MudText Class="mt-6"><b>Identifier</b></MudText>
-                <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
-                    @foreach (var identifierHeadline in IdentifierHeadlines)
-                    {
-                        <MudSelectItem Value="@identifierHeadline.Prefix">
-                            <MudStack Row Style="align-items:center;">
-                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                <div class="bt-sad-2" style="display:contents;">
-                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                                </div>
-                            </MudStack>
-                        </MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
+
+            @if (RequestedSignInMode == SignInMode.Prompt)
+            {
+                <MudStack Class="gap-0">
+                    <MudText Class="mt-6"><b>Sign-in method</b></MudText>
+                    <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode Row="true">
+                        <MudRadio Class="d-block" Value=@(SignInMode.Identifier)>Identifier</MudRadio>
+                        <MudRadio Class="d-block" Value=@(SignInMode.Credential)>Credential</MudRadio>
+                    </MudRadioGroup>
+                </MudStack>
+            }
+
+            @if (RequestedSignInMode == SignInMode.Identifier)
+            {
+                <MudStack Class="gap-0">
+                    <MudText Class="mt-6"><b>Identifier</b></MudText>
+                    <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                        @foreach (var identifierHeadline in IdentifierHeadlines)
+                        {
+                            <MudSelectItem Value="@identifierHeadline.Prefix">
+                                <MudStack Row Style="align-items:center;">
+                                    <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                    <div class="bt-sad-2" style="display:contents;">
+                                        <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                    </div>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+            }
+            @if (RequestedSignInMode == SignInMode.Credential)
+            {
+                <MudStack Class="gap-0">
+                    <MudText Class="mt-6"><b>Credential</b></MudText>
+                    <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                        @foreach (var identifierHeadline in IdentifierHeadlines)
+                        {
+                            <MudSelectItem Value="@identifierHeadline.Prefix">
+                                <MudStack Row Style="align-items:center;">
+                                    <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                    <div class="bt-sad-2" style="display:contents;">
+                                        <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                    </div>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+            }
             <MudStack Class="gap-0">
                 <MudText Class="mt-6"><b>Options</b></MudText>
                 <MudText Typo="Typo.body1">for future requests from <em>@OriginStr</em></MudText>
                 <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                <MudCheckBox Label="Enable auto SignIn" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
+                <MudCheckBox Label="INDENT Remember this credential" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
+                <MudCheckBox Label="Enable Auto-SignIn" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
                 @{
                     /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
                     if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)

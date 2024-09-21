@@ -193,6 +193,8 @@ function serializeAndEncode(obj: object): string {
     return encodedString;
 }
 
+
+
 // Handle the web page's (Cs's) request for user to select an identifier
 // TODO EE! define type for msg
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
@@ -351,6 +353,9 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
         // Handle the message based on its type
         switch (message.type) {
             case CsSwMsgType.SELECT_AUTHORIZE:
+            case CsSwMsgType.SELECT_AUTHORIZE_AID:
+            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
+                // TODO EE! need to handle these differently
                 handleSelectAuthorize(message /* as ICsSwMsgSelectIdentifier */, pageCsConnections[connectionId].port);
                 break;
             case CsSwMsgType.SIGNIFY_EXTENSION:
