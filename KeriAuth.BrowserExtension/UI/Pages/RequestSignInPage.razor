@@ -339,25 +339,33 @@
         this.StateHasChanged();
     }
 
-    /* SignIn()
-    // TODO parameterize this to include the Identifier AID (or prefix?) or Credential
+    /* 
+    // SignIn()
     */
-    async Task SignIn()
+    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string SelectedPrefix)
     {
-        // for Credential
-        // ReplyMessageData<AuthorizeResult> replyMessageData = new(
-        //     "/signify/reply",
-        //     new AuthorizeResult(new AuthorizeResultCredential("rawraw", "hail cesr"), null), new AuthorizeResultIdentifier("selectedPrefix....")),
-        //     requestId: requestId
-        // );
-
-        // for Identifier
-        ReplyMessageData<AuthorizeResult> replyMessageData = new(
-            "/signify/reply",
-            new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
-            requestId: requestId
-        );
-
+        ReplyMessageData<AuthorizeResult> replyMessageData;
+        switch (RequestedSignInMode)
+        {
+            case SignInMode.Identifier:
+                logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
+                replyMessageData = new(
+                    "/signify/reply",
+                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
+                    requestId: requestId2
+                );
+                break;
+            case SignInMode.Credential:
+                logger.LogInformation("SignIn with Credential: {0}", "Test from KERI Auth");
+                replyMessageData = new(
+                    "/signify/reply",
+                    new AuthorizeResult(new AuthorizeResultCredential("rawraw", "Test from KERI Auth"), null),
+                    requestId: requestId2
+                );
+                break;
+            default:
+                return;
+        }
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
         UIHelper.CloseWindow();
     }
@@ -480,7 +488,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" @onclick="SignIn">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix)">Sign In</MudButton>
     </MudStack>
 </div>
 
@@ -489,4 +497,3 @@
         height: auto;
     }
 </style>
-

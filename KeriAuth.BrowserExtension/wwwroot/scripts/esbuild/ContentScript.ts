@@ -158,8 +158,11 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     return;
                 }
                 break;
-            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
 
+            case CsSwMsgType.CONFIGURE_VENDOR:
+                console.warn(`KeriAuthCs from page: ${event.data.type} not yet implemented`);
+                break;
+            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:

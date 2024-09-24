@@ -44,8 +44,8 @@
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack Class="d-flex justify-center pa-0" Style="text-align:center;">
             <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-            <MudText>
-                <span style="font-weight:bold">KERI Auth</span>
+            <MudText Typo="Typo.h5">
+                <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
             </MudText>
             <MudText Style="font-style:italic">autonomous and authentic</MudText>
             <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors">
@@ -60,7 +60,7 @@
             </MudForm>
             <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
             <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            <MudText>KERI Auth locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
+            <MudText><span style="font-variant: small-caps;">KeriAuth</span> locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
