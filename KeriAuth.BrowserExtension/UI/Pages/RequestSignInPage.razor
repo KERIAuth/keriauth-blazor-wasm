@@ -372,13 +372,12 @@
 
     async Task Cancel()
     {
-        var cr = new ReplyMessageData<AuthorizeResult>( //  CancelResult>(
+        var cr = new ReplyMessageData<AuthorizeResult>(
             "/signify/reply",
-            new AuthorizeResult(new AuthorizeResultCredential("KERIAuth Canceled by user", "KERIAuth Canceled by user"), null), // new AuthorizeResultIdentifier("User canceled")), //new AuthorizeResultCredential("User canceled", "")), // CancelResult("User cancelled"),
+            new AuthorizeResult(new AuthorizeResultCredential("KERIAuth Canceled by user", "KERIAuth Canceled by user"), null),
             requestId: requestId
         );
-        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr); //  CancelResult > (cr);
-        await Task.Delay(1000); // TODO : remove this delay of 1 sec
+        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr);
         // Close blazor application
         UIHelper.CloseWindow();
     }
