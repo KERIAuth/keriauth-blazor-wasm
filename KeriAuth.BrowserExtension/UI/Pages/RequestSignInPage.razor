@@ -374,7 +374,7 @@
     {
         var cr = new ReplyMessageData<AuthorizeResult>( //  CancelResult>(
             "/signify/reply",
-            new AuthorizeResult(null, null), // new AuthorizeResultIdentifier("User canceled")), //new AuthorizeResultCredential("User canceled", "")), // CancelResult("User cancelled"),
+            new AuthorizeResult(new AuthorizeResultCredential("KERIAuth Canceled by user", "KERIAuth Canceled by user"), null), // new AuthorizeResultIdentifier("User canceled")), //new AuthorizeResultCredential("User canceled", "")), // CancelResult("User cancelled"),
             requestId: requestId
         );
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr); //  CancelResult > (cr);
