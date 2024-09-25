@@ -12,7 +12,7 @@ namespace KeriAuth.BrowserExtension.Models
         {
             if (arc is null && ari is null)
             {
-                throw new ArgumentException("Either arc or ari must be non-null");
+                // throw new ArgumentException("Either arc or ari must be non-null");
             }
 
             this.ARCredential = arc;

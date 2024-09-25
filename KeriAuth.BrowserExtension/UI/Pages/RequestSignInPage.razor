@@ -339,7 +339,7 @@
         this.StateHasChanged();
     }
 
-    /* 
+    /*
     // SignIn()
     */
     async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string SelectedPrefix)
@@ -372,10 +372,13 @@
 
     async Task Cancel()
     {
-        await Task.Delay(0);
-        // TODO Send cancel or Error to SendToServiceWorkerAsync
-        //
-        // TODO may need to assure message makes it to the service-worker?
+        var cr = new ReplyMessageData<AuthorizeResult>( //  CancelResult>(
+            "/signify/reply",
+            new AuthorizeResult(null, null), // new AuthorizeResultIdentifier("User canceled")), //new AuthorizeResultCredential("User canceled", "")), // CancelResult("User cancelled"),
+            requestId: requestId
+        );
+        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr); //  CancelResult > (cr);
+        await Task.Delay(1000); // TODO : remove this delay of 1 sec
         // Close blazor application
         UIHelper.CloseWindow();
     }

@@ -57,11 +57,16 @@ export const SwAppInteropModule = {
 
             // depending on type, re-parse and process 
             switch (payloadTypeName) {
+                case "CancelResult":
+                    // TODO AuthroizeResult type is the closest match to CancelResult at the moment.
+                    const messageData3 = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", messageData3);
+                    port.postMessage(messageData3);
+                    break;
                 case "AuthorizeResult":
                     const messageData2 = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
-                    // const maybeAuthorizeResult = parseJson<AuthorizeResult>(jsonReplyMessageData);
                     console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", messageData2);
-                    port.postMessage(messageData);
+                    port.postMessage(messageData2);
                     break;
                 case "SignDataResult":
                 //const maybeAuthroizeResult = parseJson<AuthorizeResult>(jsonReplyMessageData);
@@ -72,7 +77,7 @@ export const SwAppInteropModule = {
                 //}
                 // break;
                 case "SignDataResult":
-                
+                case "ConfigureVendorResult":
                 case "void":
                 default:
                     throw new Error('Unknown typeName: ' + payloadTypeName);

@@ -103,6 +103,15 @@ document.addEventListener('DOMContentLoaded', (event) => {
     // register to receive and handle messages from the extension (and indirectly also from the web page)
     port.onMessage.addListener((message: MessageData<unknown>) => handleMessageFromServiceWorker(message, port));
 
+    // handle disconnects, e.g. when a new extension is loaded
+    port.onDisconnect.addListener(() => {
+        console.warn("KeriAuthCs: Disconnected from service worker. May need to refresh page. Extension might have: 1) auto-locked, 2) been un/re-installed.");
+        // clean up resources
+        // error handle if this disconnect is unexpected
+        // reconneciton logic
+        // TODO implement reconnection logic, but now with a new uniquePortName?
+    });
+
     // Send a hello message to the service worker (versus waiting on a triggering message from the page)
     // TODO use a constructor for the message object
     const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
@@ -145,7 +154,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     portWithSw.postMessage(event.data);
                 } catch (error) {
                     // TODO refactor to common postMessage wrapper
-                    console.error("KeriAuthCs to SW: error converting page event data to JSON or sending message:", error);
+                    console.error("KeriAuthCs to SW: error sending message: {e}", error);
                     return;
                 }
                 break;

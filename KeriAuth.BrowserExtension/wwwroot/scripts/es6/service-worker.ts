@@ -171,6 +171,8 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
             // TODO: this error from openPopup() seems to throw even when the popup is opened successfully, perhaps due to a timing issue.  Ignoring for now.
             // console.warn(`SW useActionPopup dropped. Was already open?`, err);
         });
+    // Clear the popup url for the action button, if it is set, so that future use of the action button will also trigger this same handler
+    chrome.action.setPopup({ popup: "", tabId: tabId });
 }
 
 // Bring the window (e.g. an extension popupWindow) to focus.  requires windows permission in the manifest ?
@@ -192,7 +194,6 @@ function serializeAndEncode(obj: object): string {
     const encodedString: string = encodeURIComponent(jsonString);
     return encodedString;
 }
-
 
 
 // Handle the web page's (Cs's) request for user to select an identifier
