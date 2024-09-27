@@ -183,12 +183,23 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     source: CsToPageMsgIndicator
                 });
                 break;
+            case "/signify/clear-session":
+                    console.log(`KeriAuthCs from page: ${event.data.type} sessions not yet implemented`);
+                // TODO implement sessions
+                postMessageToPage<object>({
+                    type: "/signify/reply",
+                    error: { code: 501, message: "KERIAuth sessions not supported" },
+                    requestId: event?.data?.requestId,
+                    rurl: "",
+                    source: CsToPageMsgIndicator
+                });
+                break;
             case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:
             default:
-                console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
+                console.log("KeriAuthCs from page: handler not yet implemented for:", event.data);
                 break;
         }
     } catch (error) {

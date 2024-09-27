@@ -342,19 +342,20 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 cSConnection.port.postMessage(message);
                 break;
             case "/KeriAuth/signify/replyCredential":
-                // TODO add try-catch
-                console.log("SW from App: ...", message);
-                const credObject = JSON.parse(message.payload.credential.rawJson);
-                console.log("SW from App: ...2", credObject);
-                const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr } };
-                console.log("SW from App: ...3", authorizeResultCredential);
-                const authorizeResult = {
-                    type: SwCsMsgType.REPLY,
-                    requestId: message.requestId,
-                    payload: authorizeResultCredential
-                };
-                console.log("SW from App: aughorizeResult: ", authorizeResult);
-                cSConnection.port.postMessage(authorizeResult);
+                try {
+                    const credObject = JSON.parse(message.payload.credential.rawJson);
+                    const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr } };
+                    const authorizeResult = {
+                        type: SwCsMsgType.REPLY,
+                        requestId: message.requestId,
+                        payload: authorizeResultCredential
+                    };
+                    console.log("SW from App: authorizeResult", authorizeResult);
+                    cSConnection.port.postMessage(authorizeResult);
+                }
+                catch (error) {
+                    console.error("SW from App: error parsing credential: ", error);
+                }
                 break;
             case "/KeriAuth/signify/replyCancel":
                 { };
