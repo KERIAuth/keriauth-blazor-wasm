@@ -16,6 +16,10 @@
 @using MudBlazor
 @using FluentResults
 @using System.Web
+@using System.Text.Json.Serialization
+@using System;
+@using System.Collections.Generic;
+
 
 @implements IDisposable
 
@@ -373,13 +377,17 @@
     /*
     // SignIn()
     */
-    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string SelectedPrefix)
+    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string? SelectedPrefix, Dictionary<string, object>? credentialDictionary)
     {
         ReplyMessageData<AuthorizeResult> replyMessageData;
         switch (RequestedSignInMode)
         {
             case SignInMode.Identifier:
                 logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
+                if (SelectedPrefix is null)
+                {
+                    throw (new Exception("SelectedPrefix is null"));
+                }
                 replyMessageData = new(
                     "/signify/reply",
                     new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
@@ -387,10 +395,33 @@
                 );
                 break;
             case SignInMode.Credential:
-                logger.LogInformation("SignIn with Credential: {0}", "Test from KERI Auth");
+                // populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
+
+                // Deserialize JSON string to ICredential record
+                var options = new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase, // Camel case property names
+                        PropertyNameCaseInsensitive = true,                 // Case-insensitive properties
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // Ignore null values
+                        IgnoreReadOnlyProperties = true,                    // Ignore read-only properties
+                        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip // Ignore unmapped members
+                    };
+
+                var json = JsonSerializer.Serialize(credentialDictionary, options);
+
+                // Deserialize with options, which gets rid of excess properties that are not in the ICredential record
+                var credential2 = JsonSerializer.Deserialize<ICredential>(json, options);
+
+                logger.LogInformation("SignIn with Credential: {0}", credential2);
+                if(credential2 is null)
+                {
+                    throw (new Exception("Credential is null"));
+                };
+                var cesr = await Signify_ts_shim.GetCredential(credential2.sad.d, true);
+                logger.LogInformation("SignIn with Credential: sad: {0}", credential2.sad.d);
                 replyMessageData = new(
-                    "/signify/reply",
-                    new AuthorizeResult(new AuthorizeResultCredential("rawraw", "Test from KERI Auth"), null),
+                    type: "/KeriAuth/signify/replyCredential",
+                    payload: new AuthorizeResult(new AuthorizeResultCredential(JsonSerializer.Serialize(credential2), cesr), null),
                     requestId: requestId2
                 );
                 break;
@@ -404,8 +435,8 @@
     async Task Cancel()
     {
         var cr = new ReplyMessageData<AuthorizeResult>(
-            "/signify/reply",
-            new AuthorizeResult(new AuthorizeResultCredential("KERIAuth Canceled by user", "KERIAuth Canceled by user"), null),
+            "/KeriAuth/signify/replyCancel",
+            new AuthorizeResult(null, null),
             requestId: requestId
         );
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr);
@@ -568,7 +599,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix)">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix, SelectedCredential)">Sign In</MudButton>
     </MudStack>
 </div>
 

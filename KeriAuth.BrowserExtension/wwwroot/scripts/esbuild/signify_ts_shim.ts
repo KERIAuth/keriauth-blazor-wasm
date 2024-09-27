@@ -132,7 +132,7 @@ export const getAIDs = async () => {
     const identifierJson: string = JSON.stringify(managedIdentifiers);
     console.debug("signify_ts_shim: getAIDs: ", managedIdentifiers);
     return identifierJson;
-}     
+}
 
 export const getAID = async (name: string) => {
     validateClient();
@@ -153,6 +153,23 @@ export async function getCredentialsList(
         console.log("signify_ts_shim: getCredentialList credentials: ", credentials);
         const credentialsJson: string = JSON.stringify(credentials);
         return credentialsJson;
+    }
+    catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+export async function getCredential(
+    id: string,
+    includeCESR: boolean = false
+): Promise<any> {
+    try {
+        validateClient();
+        const client: SignifyClient = _client!;
+        const credential = await client.credentials().get(id, includeCESR);
+        console.log("signify_ts_shim: getCredential: ", credential);
+        return credential as any;
     }
     catch (error) {
         console.error(error);

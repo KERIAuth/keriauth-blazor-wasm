@@ -244,7 +244,7 @@
                             logger.LogInformation("OnParametersSetAsync: Origin page parameter encoded: {origin}", encodedOrigin2);
 
 
-                            logger.LogWarning("OnParametersSetAsync: looking for requestId in initialUrlQuery2 '{i}'", initialUriQuery2);
+                            logger.LogInformation("OnParametersSetAsync: looking for requestId in initialUrlQuery2 '{i}'", initialUriQuery2);
                             if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("requestId", out var requestId))
                             {
                                 logger.LogWarning("OnParametersSetAsync: found requestId '{r}'", requestId.ToString());

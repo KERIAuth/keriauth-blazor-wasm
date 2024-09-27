@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     // handle disconnects, e.g. when a new extension is loaded
     port.onDisconnect.addListener(() => {
-        console.warn("KeriAuthCs: Disconnected from service worker. May need to refresh page. Extension might have: 1) auto-locked, 2) been un/re-installed.");
+        console.log("KeriAuthCs: Disconnected from service worker. May need to refresh page. Extension might have: 1) auto-locked, 2) been un/re-installed.");
         // clean up resources
         // error handle if this disconnect is unexpected
         // reconneciton logic
@@ -170,6 +170,18 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
 
             case CsSwMsgType.CONFIGURE_VENDOR:
                 console.warn(`KeriAuthCs from page: ${event.data.type} not yet implemented`);
+                break;
+
+            case "/signify/get-session-info":
+                console.log(`KeriAuthCs from page: ${event.data.type} sessions not yet implemented`);
+                // TODO implement sessions
+                postMessageToPage<object>({
+                    type: "/signify/reply",
+                    error: { code: 501, message: "KERIAuth sessions not supported" },
+                    requestId: event?.data?.requestId,
+                    rurl: "",
+                    source: CsToPageMsgIndicator
+                });
                 break;
             case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgType.SELECT_AUTO_SIGNIN:

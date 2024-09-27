@@ -27,6 +27,7 @@ import {
 // import * as PolarisWebClient from "polaris-web/dist/client";
 
 import { ICsSwMsg } from "./ExCsInterfaces.js";
+// import { getCredential } from "@esbuilt/signify_ts_shim.js";
 
 // Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
@@ -299,7 +300,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
             // Add a listener for messages from the App, where the handler can process and forward to the content script as appropriate.
             console.log("SW adding onMessage listener for App port, csConnection, tabId, connectionId", appPort, cSConnection, tabId, connectionId);
-            appPort.onMessage.addListener((message) => handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
+            appPort.onMessage.addListener(async (message) => await handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
             console.log("SW adding onMessage listener for App port... done", appPort);
 
             // Send an initial message from SW to App
@@ -324,7 +325,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     };
 });
 
-function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string) {
+async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string): Promise<void> {
 
     console.log(`SW from App message, port:`, message, appPort);
     // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
@@ -335,9 +336,28 @@ function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConn
 
     // Forward the message to the content script, if appropriate
     if (cSConnection) {
+        console.log("SW from App: handling App message of type: ", message.type);
         switch (message.type) {
             case SwCsMsgType.REPLY:
                 cSConnection.port.postMessage(message);
+                break;
+            case "/KeriAuth/signify/replyCredential":
+                // TODO add try-catch
+                console.log("SW from App: ...", message);
+                const credObject = JSON.parse(message.payload.credential.rawJson);
+                console.log("SW from App: ...2", credObject);
+                const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr } };
+                console.log("SW from App: ...3", authorizeResultCredential);
+                const authorizeResult = {
+                    type: SwCsMsgType.REPLY,
+                    requestId: message.requestId,
+                    payload: authorizeResultCredential
+                };
+                console.log("SW from App: aughorizeResult: ", authorizeResult);
+                cSConnection.port.postMessage(authorizeResult);
+                break;
+            case "/KeriAuth/signify/replyCancel":
+                { };
                 break;
             default:
                 console.warn("SW from App: message type not yet handled: ", message);

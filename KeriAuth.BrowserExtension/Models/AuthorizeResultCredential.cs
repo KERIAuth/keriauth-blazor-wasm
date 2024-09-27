@@ -5,14 +5,14 @@ namespace KeriAuth.BrowserExtension.Models
     public record AuthorizeResultCredential : IEquatable<AuthorizeResultCredential>
     {
         [JsonConstructor]
-        public AuthorizeResultCredential(string raw, string cesr)
+        public AuthorizeResultCredential(string rawJson, string cesr)
         {
-            this.raw = raw;
+            this.rawJson = rawJson;
             this.cesr = cesr;
         }
 
-        [JsonPropertyName("raw")]
-        public string raw { get; }
+        [JsonPropertyName("rawJson")]
+        public string rawJson { get; }
 
 
         [JsonPropertyName("cesr")]

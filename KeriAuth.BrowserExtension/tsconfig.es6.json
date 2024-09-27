@@ -20,7 +20,8 @@
     "paths": {
       "*": [ "./node_modules/*" ],
       "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],
-      "@polaris-web/*": [ "./node_modules/polaris-web/dist/*" ]
+      "@polaris-web/*": [ "./node_modules/polaris-web/dist/*" ],
+      "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ]
     },
     "removeComments": true,
     "resolveJsonModule": true,
