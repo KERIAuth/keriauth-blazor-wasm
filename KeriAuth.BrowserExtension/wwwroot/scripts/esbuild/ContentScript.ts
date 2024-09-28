@@ -159,7 +159,6 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 }
                 break;
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
-            case CsSwMsgType.SIGN_REQUEST:
                 try {
                     portWithSw.postMessage(event.data);
                 } catch (error) {
@@ -184,7 +183,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 });
                 break;
             case "/signify/clear-session":
-                    console.log(`KeriAuthCs from page: ${event.data.type} sessions not yet implemented`);
+                console.log(`KeriAuthCs from page: ${event.data.type} sessions not yet implemented`);
                 // TODO implement sessions
                 postMessageToPage<object>({
                     type: "/signify/reply",
@@ -198,8 +197,9 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:
+            case CsSwMsgType.SIGN_REQUEST:
             default:
-                console.log("KeriAuthCs from page: handler not yet implemented for:", event.data);
+                console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
                 break;
         }
     } catch (error) {

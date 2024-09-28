@@ -344,7 +344,8 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
             case "/KeriAuth/signify/replyCredential":
                 try {
                     const credObject = JSON.parse(message.payload.credential.rawJson);
-                    const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr } };
+                    const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
+                    const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr }, expiry: expiry };
                     const authorizeResult = {
                         type: SwCsMsgType.REPLY,
                         requestId: message.requestId,

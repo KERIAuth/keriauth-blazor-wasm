@@ -17,6 +17,9 @@ namespace KeriAuth.BrowserExtension.Models
 
             this.ARCredential = arc;
             this.ARIdentifier = ari;
+            // TODO make expiry configurable
+            // TODO note as of 2024-09-28 AuthorizeResult for a credential is currently being manually constructed in service-worker.ts
+            this.Expiry = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
         }
 
         [JsonPropertyName("credential")]
@@ -24,5 +27,8 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("identifier")]
         public AuthorizeResultIdentifier? ARIdentifier { get; }
+
+        [JsonPropertyName("expiry")]
+        public long? Expiry { get; }
     }
 }
