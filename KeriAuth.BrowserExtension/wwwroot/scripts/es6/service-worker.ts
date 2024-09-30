@@ -196,6 +196,32 @@ function serializeAndEncode(obj: object): string {
     return encodedString;
 }
 
+function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
+    // ICsSwMsgSignRequest
+    console.log("SW handleSignRequest: ", message);
+    // TODO EE! temporary placeholder. Should request user to sign request
+    try {
+        //const credObject = JSON.parse(message.payload.credential.rawJson);
+        //const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
+        //const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr }, expiry: expiry };
+        const authorizeResult = {
+            type: SwCsMsgType.REPLY,
+            payload: {
+                "signature": "indexed=\"?0\";signify=\"0BCUmN5EAYdT3okIb8yEIG9sVepXwlQQSqcuZd7wQYEFDzVNkIPwYUX679lYNHS1YCdSPATJGTHfdTLTHjZoPO8F\"",
+                "signature-input": "signify=(\"@method\" \"@path\" \"signify-resource\" \"signify-timestamp\");created=1727719612;keyid=\"BJF5YenWeqMPGU2iL2hsn9D8PSGXRDXSZbM7Znvh1XvI\";alg=\"ed25519\"",
+                "signify-resource": "EO0KSgpgvjNFoc8KoFfb0qgjbrVieMVbBhNit7ZtEue3",
+                "signify-timestamp": "2024-10-01T18:06:52.193000+00:00"
+            },
+            requestId: message.requestId,
+        };
+        console.log("TMP SW from App: SignDataResult?? authorizeResult", authorizeResult);
+        csTabPort.postMessage(authorizeResult);
+    }
+    catch (error) {
+        console.error("SW from App: error parsing credential: ", error);
+    }
+}
+
 
 // Handle the web page's (Cs's) request for user to select an identifier
 // TODO EE! define type for msg
@@ -381,6 +407,9 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 // TODO EE! need to handle these differently
                 handleSelectAuthorize(message /* as ICsSwMsgSelectIdentifier */, pageCsConnections[connectionId].port);
                 break;
+            case CsSwMsgType.SIGN_REQUEST:
+                handleSignRequest(message as any /* any? */, pageCsConnections[connectionId].port);
+                break;
             case CsSwMsgType.SIGNIFY_EXTENSION:
                 // Update the pageCsConnections list with the tabId and URL
                 pageCsConnections[connectionId].tabId = tabId;
@@ -395,8 +424,6 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 cSPort.postMessage(response);
                 break;
             case CsSwMsgType.SIGN_DATA:
-            // TODO request user to sign request
-            case CsSwMsgType.SIGN_REQUEST:
             // TODO request user to sign request
             default:
                 console.warn("SW from CS: message type not yet handled: ", message);

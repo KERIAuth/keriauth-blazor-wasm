@@ -149,15 +149,8 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 // Note, the signify-extension notification from page is effectively handled (or premptively assumed) earlier in the code, in the advertiseToPage function
                 console.info("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
                 break;
+            case CsSwMsgType.SIGN_REQUEST:
             case CsSwMsgType.SIGNIFY_AUTHORIZE:
-                try {
-                    portWithSw.postMessage(event.data);
-                } catch (error) {
-                    // TODO refactor to common postMessage wrapper
-                    console.error("KeriAuthCs to SW: error sending message: {e}", error);
-                    return;
-                }
-                break;
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
                 try {
                     portWithSw.postMessage(event.data);
@@ -197,7 +190,6 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:
-            case CsSwMsgType.SIGN_REQUEST:
             default:
                 console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
                 break;
