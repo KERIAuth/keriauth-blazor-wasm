@@ -1,5 +1,8 @@
 ﻿using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService
 {
@@ -27,5 +30,14 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
 
         [JSImport("getCredential", "signify_ts_shim")]
         internal static partial Task<string> GetCredential(string id, bool includeCESR);
+
+        // Note JSObject is a dictionary-like object that can be passed to JS functions
+        [JSImport("getSignedHeadersWithJsonHeaders", "signify_ts_shim")]
+        internal static partial Task<string> GetSignedHeadersWithJsonHeaders(
+            string origin, 
+            string rurl, 
+            string method, 
+            string headersJson, 
+            string aidName);
     }
 }

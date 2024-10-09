@@ -1,4 +1,4 @@
-﻿@page "/RequestSignIn/{encodedOrigin}"
+﻿@page "/RequestSign/{encodedOrigin}"
 @layout Layouts.DialogLayout
 
 @using System.Linq
@@ -28,7 +28,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
-@inject ILogger<RequestSignInPage> logger
+@inject ILogger<RequestSignPage> logger
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
@@ -45,6 +45,8 @@
     public string encodedOrigin { get; set; } = "";
 
     public string requestId { get; set; } = "";
+
+    public string PayloadJson { get; set; } = "";
 
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
 
@@ -75,20 +77,21 @@
     IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
 
     string SelectedPrefix { get; set; } = "unknown";
+    string SelectedAidAlias { get; set; } = "unknown";
 
     // TODO should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
     bool IsAutoSignIn { get; set; }
 
     WebsiteConfig? ThisWebsiteConfig { get; set; }
 
-    async Task updateSelectedPrefix(string prefix)
-    {
-        SelectedPrefix = prefix;
-        // TODO following should be just un/resubscribe to another websiteConfig? ... and this UI is made responsive to an IObserver<WebsiteConfig>
-        Debug.Assert(GetOriginUri() is not null);
-        await getWebsiteConfig(GetOriginUri()!);
-        StateHasChanged();
-    }
+    // async Task updateSelectedPrefix(string prefix)
+    // {
+    //     SelectedPrefix = prefix;
+    //     TODO following should be just un/resubscribe to another websiteConfig? ... and this UI is made responsive to an IObserver<WebsiteConfig>
+    //     Debug.Assert(GetOriginUri() is not null);
+    //     await getWebsiteConfig(GetOriginUri()!);
+    //     StateHasChanged();
+    // }
 
     async Task updateIsCredentialRemembered(bool isChecked)
     {
@@ -223,46 +226,16 @@
 
             string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
 
+
+
+
+
             // Parse the JSON string
-            var jsonDocument = JsonDocument.Parse(jsonString);
-            var jsonObject = jsonDocument.RootElement;
-
-            // Extract the "Type" value
-            if (jsonObject.TryGetProperty("type", out var typeElement))
-            {
-                string type = typeElement.GetString() ?? String.Empty;
-
-                if (jsonObject.TryGetProperty("requestId", out var requestId2))
-                {
-                    string requestId3 = requestId2.GetString() ?? String.Empty;
-                    requestId = requestId3;
-                    logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
-                }
-
-                logger.LogInformation("Processing message of type: {t}", type);
-                switch (type)
-                {
-                    // TODO EE how should these string values be aligned with the definitions in ExCsInterface.ts?
-                    case "/signify/authorize":
-                        RequestedSignInMode = SignInMode.Prompt;
-                        break;
-                    case "/signify/authorize/identifier":
-                    case "/signify/authorize/aid":
-                        RequestedSignInMode = SignInMode.Identifier;
-                        break;
-                    case "/signify/authorize/credential":
-                        RequestedSignInMode = SignInMode.Credential;
-                        break;
-                    default:
-                        logger.LogInformation("Unknown message type: {0}", type);
-                        return;
-                }
-            }
-            else
-            {
-                logger.LogError("No 'type' property found in outer message");
-                return;
-            }
+            // TODO write exception handling around the following
+            JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
+            JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
+            PayloadJson = payload.ToString();
+            return;
 
         }
         else
@@ -307,6 +280,7 @@
                 }
                 logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
                 SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
+                SelectedAidAlias = SelectedHeadlineOrNothing?.Alias ?? "UNSET!";
                 Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value for SelectedHeadlineOrNothing");
                 Debug.Assert(GetOriginUri() is not null);
                 await getWebsiteConfig(GetOriginUri()!);
@@ -369,66 +343,51 @@
         }
     }
 
+    // TODO move into Models directory file
+    public record ApiRequest
+    {
+        [JsonPropertyName("url")]
+        public string Url { get; init; }
 
-
-
+        [JsonPropertyName("method")]
+        public string Method { get; init; }
+    }
 
     /*
-    // SignIn()
+    / SignRequest()
     */
-    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string? SelectedPrefix, Dictionary<string, object>? credentialDictionary)
+    async Task SignRequest(SignInMode RequestedSignInMode, string requestId2, string? SelectedName, string payloadJson)
     {
-        ReplyMessageData<AuthorizeResult> replyMessageData;
-        switch (RequestedSignInMode)
+        
+        logger.LogInformation("SignRequest: payloadJson: {d}", payloadJson);
+
+        ApiRequest? request = JsonSerializer.Deserialize<ApiRequest>(payloadJson);
+        if (request is null)
         {
-            case SignInMode.Identifier:
-                logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
-                if (SelectedPrefix is null)
-                {
-                    throw (new Exception("SelectedPrefix is null"));
-                }
-                replyMessageData = new(
-                    "/signify/reply",
-                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
-                    requestId: requestId2
-                );
-                break;
-            case SignInMode.Credential:
-                // populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
-
-                // Deserialize JSON string to ICredential record
-                var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase, // Camel case property names
-                        PropertyNameCaseInsensitive = true,                 // Case-insensitive properties
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // Ignore null values
-                        IgnoreReadOnlyProperties = true,                    // Ignore read-only properties
-                        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip // Ignore unmapped members
-                    };
-
-                var json = JsonSerializer.Serialize(credentialDictionary, options);
-
-                // Deserialize with options, which gets rid of excess properties that are not in the ICredential record
-                var credential2 = JsonSerializer.Deserialize<ICredential>(json, options);
-
-                logger.LogInformation("SignIn with Credential: {0}", credential2);
-                if(credential2 is null)
-                {
-                    throw (new Exception("Credential is null"));
-                };
-                var cesr = await Signify_ts_shim.GetCredential(credential2.sad.d, true);
-                logger.LogInformation("SignIn with Credential: sad: {0}", credential2.sad.d);
-                replyMessageData = new(
-                    type: "/KeriAuth/signify/replyCredential",
-                    payload: new AuthorizeResult(new AuthorizeResultCredential(JsonSerializer.Serialize(credential2), cesr), null),
-                    requestId: requestId2
-                );
-                break;
-            default:
-                return;
+            logger.LogError("Error in SignRequest: {0}", "Invalid payloadJson");
+            return;
         }
-        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
-        UIHelper.CloseWindow();
+        logger.LogInformation("SignRequest: request: {d}", request.ToString());
+
+        // headers is intentionally empty for now
+        Dictionary<string, string> inputHeadersDict = new Dictionary<string, string>();
+        
+        var replyMessageDataRes = await signifyClientService.SignRequestHeader(OriginStr, request.Url, request.Method, inputHeadersDict, SelectedName!);
+        if (replyMessageDataRes.IsFailed || replyMessageDataRes.Value is null)
+        {
+            logger.LogError("Error in SignRequest: {0}", replyMessageDataRes.Errors);
+            return;
+        }
+        else
+        {
+            var replyMessageData = replyMessageDataRes.Value;
+            logger.LogInformation("replyMessageData: {r}", replyMessageData);
+            var tmp = new SignedHeadersResult("1", "2", "3", "4");
+            var tmp2 = new ReplyMessageData<SignedHeadersResult>("/signify/reply", tmp, requestId2, null, "KeriAuth");
+            await appSwMessagingService.SendToServiceWorkerAsync<SignedHeadersResult>(tmp2);
+            // TODO close commented out to help with debugging
+            // UIHelper.CloseWindow();
+        }
     }
 
     async Task Cancel()
@@ -464,7 +423,7 @@
             return false;
         }
     }
-    
+
     private Dictionary<string, object>? SelectedCredential;
 
     private bool IsExpanded = false;
@@ -503,102 +462,23 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            @switch (RequestedSignInMode)
-            {
-                case SignInMode.Identifier:
-                    <MudText Typo="Typo.h6">Request to Sign In with Identifier</MudText>
-                    break;
-                case SignInMode.Credential:
-                    <MudText Typo="Typo.h6">Request to Sign In with Credential</MudText>
-                    break;
-                case SignInMode.Prompt:
-                    <MudText Typo="Typo.h6">Request to Sign In</MudText>
-                    break;
-            }
+            <MudText Typo="Typo.h6">Request to Sign</MudText>
             <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
-
-            @switch (RequestedSignInMode)
-            {
-                case SignInMode.Identifier:
-                    <MudStack Class="gap-0">
-                        <MudText Class="mt-6"><b>Identifier</b></MudText>
-                        <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
-                            @foreach (var identifierHeadline in IdentifierHeadlines)
-                            {
-                                <MudSelectItem Value="@identifierHeadline.Prefix">
-                                    <MudStack Row Style="align-items:center;">
-                                        <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                        <div class="bt-sad-2" style="display:contents;">
-                                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                                        </div>
-                                    </MudStack>
-                                </MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudStack>
-                    break;
-                case SignInMode.Credential:
-                    <MudStack Class="gap-0">
-                        <MudText Class="mt-6"><b>Credential</b></MudText>
-                        <MudPaper Class="pa-0 mr-3">
-                            <!-- Display Selected Credential -->
-                            <MudPaper Class="d-flex align-items-center">
-                                @if (SelectedCredential is null)
-                                {
-                                    <MudText>Select a credential</MudText>
-                                } else {
-                                    <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal"/>
-                                }
-                                <MudSpacer />
-                                <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
-                            </MudPaper>
-                            <!-- Display Credential List When Expanded -->
-                            @if (IsExpanded)
-                            {
-                                <MudList Dense="true" T="Dictionary<string, object>">
-                                    @foreach (var credential in credentials)
-                                    {
-                                        <MudListItem OnClick="@(() => SelectCredential(credential))"
-                                                     Class="@GetCredentialItemClass(credential)">
-                                        <CredentialDisplay credential="@credential" />
-                                        </MudListItem>
-                                    }
-                                </MudList>
-                            }
-                        </MudPaper>
-                    </MudStack>
-                    break;
-                case SignInMode.Prompt:
-                    <MudStack Class="gap-0">
-                        <MudText Class="mt-6"><b>Sign-in method</b></MudText>
-                        <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode Row="true">
-                            <MudRadio Class="d-block" Value=@(SignInMode.Identifier)>Identifier</MudRadio>
-                            <MudRadio Class="d-block" Value=@(SignInMode.Credential)>Credential</MudRadio>
-                        </MudRadioGroup>
-                    </MudStack>
-                    break;
-            }
-
-            <MudStack Class="gap-0">
-                <MudText Class="mt-6"><b>Options</b></MudText>
-                <MudText Typo="Typo.body1">for future requests from <em>@OriginStr</em></MudText>
-                <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                <MudCheckBox Label="INDENT Remember this credential" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
-                <MudCheckBox Label="Enable Auto-SignIn" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
-                @{
-                    /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
-                    if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
-                    {
-                        <MudText Class="pt-0 mt-0 pl-10" Typo="Typo.caption">(enabled for "@IdentifierHeadlines.First(x => x.Prefix == ThisWebsiteConfig?.RememberedPrefixOrNothing).Alias)"</MudText>
-                    }
-                }
-            </MudStack>
+            <MudText class="mt-6" Typo="Typo.body1">
+                This website is requesting you to cryptographically sign a request header, which will allow it to verify your identity in subsequent interactions with the specified service.<br />
+            </MudText>
+            <MudText Class="my-3" Typo="Typo.body1">
+                Details:
+            </MudText>
+            <MudPaper>
+                <MudText Typo="Typo.body1">@PayloadJson</MudText>
+            </MudPaper>
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix, SelectedCredential)">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignRequest(RequestedSignInMode, requestId, SelectedAidAlias, PayloadJson)">Sign Request</MudButton>
     </MudStack>
 </div>
 

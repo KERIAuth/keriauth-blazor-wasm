@@ -11,8 +11,7 @@ import {
     Authenticater,
     randomPasscode,
     EventResult,
-    Identifier,
-
+    Identifier
 } from "@signify-ts";
 
 export const PASSCODE_TIMEOUT = 5;
@@ -134,13 +133,19 @@ export const getAIDs = async () => {
     return identifierJson;
 }
 
-export const getAID = async (name: string) => {
-    validateClient();
-    const client: SignifyClient = _client!;
-    const managedIdentifier = await client.identifiers().get(name);
-    const identifierJson: string = JSON.stringify(managedIdentifier);
-    console.debug("signify_ts_shim: getAID: ", managedIdentifier);
-    return identifierJson;
+// get AID by name, i.e., alias not prefix
+export const getAID = async (name: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client!;
+        const managedIdentifier = await client.identifiers().get(name);
+        const identifierJson: string = JSON.stringify(managedIdentifier);
+        console.debug("signify_ts_shim: getAID: name, identifier:", name, managedIdentifier);
+        return identifierJson;
+    } catch (error) {
+        console.error("signify_ts_shim: getAID: name, error:", name, error);
+        throw error;
+    }
 }
 
 export async function getCredentialsList(
@@ -175,4 +180,172 @@ export async function getCredential(
         console.error(error);
         throw error;
     }
+}
+
+// inspired by https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/pages/background/services/signify.ts#L307
+/**
+   * @param origin - origin url from where request is being made -- required
+   * @param rurl - resource url that the request is being made to -- required
+   * @param method - http method of the request -- default GET
+   * @param headers - initialHeaders object of the request -- default empty
+   * @param signin - signin object containing identifier or credential -- required
+   * @returns Promise<Request> - returns a signed initialHeaders request object
+   */
+const getSignedHeaders = async (
+    origin: string,
+    rurl: string,
+    method: string,
+    headers: Headers,
+    aidName: string,
+): Promise<any> => {
+    console.log("getSignedHeaders: params: ", origin, " ", rurl, " ", method, " ", headers, " ", aidName);
+
+    // in case the client is not connected, try to connect
+    //const connected = await isConnected();
+    // connected is false, it means the client session timed out or disconnected by user
+    //if (!connected) {
+    validateClient();
+    //}
+
+
+    const client: SignifyClient = _client!;
+
+    //const session = await sessionService.get({ tabId, origin });
+    //await sessionService.incrementRequestCount(tabId);
+    //if (!session) {
+    //    throw new Error("Session not found");
+    //}
+    try {
+
+        // temporary test
+        const aid = await getAID(aidName);
+        console.log("getSignedHeaders: aid: ", aid);
+        // end temporary test
+
+
+
+        const signedRequest = await client.createSignedRequest(aidName, rurl, {
+            method,
+            headers,
+        });
+        //resetTimeoutAlarm();
+        console.log("getSignedHeaders: signedRequest:", signedRequest);
+        let jsonHeaders: { [key: string]: string } = {};
+        if (signedRequest?.headers) {
+            for (const pair of signedRequest.headers.entries()) {
+                jsonHeaders[pair[0]] = pair[1];
+            }
+        }
+        console.log("getSignedHeaders: jsonHeaders:", jsonHeaders);
+        return {
+            headers: jsonHeaders,
+        };
+    } catch (error) {
+        console.error("getSignedHeaders: Error occurred:", error);
+        return JSON.stringify({ error: error.message });
+    }
+};
+
+export function parseHeaders(headersJson: string | null): Headers {
+    try {
+        // If headersJson is null, return an empty Headers object
+        if (!headersJson) {
+            console.log("parseHeaders: null new Headers: ", new Headers());
+            return new Headers();
+        }
+
+        // Try to parse the JSON string
+        const headersObj: Record<string, string> = JSON.parse(headersJson);
+
+        // Check if the parsed result is a plain object
+        if (typeof headersObj !== 'object' || headersObj === null) {
+            throw new Error("Invalid headers format");
+        }
+
+        // Convert the plain object to a Headers object
+        console.log("parseHeaders: headersObj: ", headersObj, " newHeaders: ", new Headers(headersObj));
+        return new Headers(headersObj);
+    } catch (error) {
+        console.error("Failed to parse headersJson:", error);
+        // Return an empty Headers object in case of failure
+        return new Headers();
+    }
+}
+
+
+//[JSImport("getSignedHeadersWithJsonHeaders", "signify_ts_shim")]
+//        internal static partial Task < string > GetSignedHeadersWithJsonHeaders(string origin, string rurl, string method, string jsonHeaders, string aidName);
+//    }
+
+export const getSignedHeadersWithJsonHeaders = async (
+    origin: string,
+    rurl: string,
+    method: string,
+    headersJson: string,
+    aidName: string,
+): Promise<string> => {
+    try {
+        console.log("getSignedHeadersWithJsonHeaders: ", origin, " ", rurl, " ", method, " ", headersJson, " ", aidName);
+        const initialHeaders: Headers = parseHeaders(headersJson);
+        console.log("getSignedHeadersWithJsonHeaders initialHeaders: ", initialHeaders);
+
+        // Call the original getSignedHeaders function with the parsed initialHeaders
+        const signedHeaders: Headers = await getSignedHeaders(
+            origin,
+            rurl,
+            method,
+            initialHeaders,
+            aidName,
+        );
+        console.log("getSignedHeadersWithJsonHeaders signedHeaders: ", signedHeaders);
+
+        // Convert the returned Headers object back into a plain object for JSON serialization
+        const headersPlainObject: { [key: string]: string } = {};
+        signedHeaders.forEach((value: string, key: string) => {
+            headersPlainObject[key] = value;
+        });
+
+        // Return the plain object as a JSON string
+        return JSON.stringify(headersPlainObject);
+    } catch (error) {
+        // Handle errors (e.g., invalid JSON, issues with the request)
+        console.error("Error occurred:", error);
+        return JSON.stringify({ error: error.message });
+    }
+}
+
+// from https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/config/types.ts
+interface ISignin {
+    id: string;
+    domain: string;
+    identifier?: {
+        name?: string;
+        prefix?: string;
+    };
+    credential?: ICredential;
+    createdAt: number;
+    updatedAt: number;
+    autoSignin?: boolean;
+    expiry?: number;
+}
+
+// from https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/config/types.ts
+interface ISessionConfig {
+    sessionOneTime: boolean;
+}
+
+// from https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/config/types.ts
+interface ICredential {
+    issueeName: string;
+    ancatc: string[];
+    sad: { a: { i: string }; d: string };
+    schema: {
+        title: string;
+        credentialType: string;
+        description: string;
+    };
+    status: {
+        et: string;
+    };
+    cesr?: string;
 }

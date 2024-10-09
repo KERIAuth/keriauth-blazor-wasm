@@ -151,6 +151,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
             case CsSwMsgType.SIGN_REQUEST:
             case CsSwMsgType.SIGNIFY_AUTHORIZE:
+            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
                 try {
                     portWithSw.postMessage(event.data);
@@ -186,7 +187,6 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     source: CsToPageMsgIndicator
                 });
                 break;
-            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:

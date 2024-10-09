@@ -2,6 +2,7 @@
 using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
+using MudBlazor;
 using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices.JavaScript;
@@ -338,6 +339,47 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         Task<Result<IList<Models.Notification>>> ISignifyClientService.GetNotifications()
         {
             throw new NotImplementedException();
+        }
+
+        async Task<Result<Dictionary<string, string>>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> inputHeadersDict, string prefix)
+        {
+            logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, inputHeadersDict.ToString(), prefix);
+            try
+            {
+                var jsonInputHeaders = JsonSerializer.Serialize(inputHeadersDict);
+                logger.LogInformation("SignRequestHeader: jsonInputHeaders: `{i}`", jsonInputHeaders);
+                logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, jsonInputHeaders, prefix);
+
+
+                // tmp test
+                var aidJson = await Signify_ts_shim.GetAID(prefix);
+                logger.LogWarning("SignRequestHeader: aidJson: {s}", aidJson);
+                // end tmp test
+
+
+                    // TODO consider timeout, e.g.  await TimeoutHelper.WithTimeout<string>(...
+
+
+
+                var signedHeaderJson = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, prefix);
+                logger.LogInformation("SignRequestHeader: signedHeaderJson: {s}", signedHeaderJson);
+                var signedHeader = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeaderJson, new JsonSerializerOptions { WriteIndented = true });
+                if (signedHeader is null)
+                {
+                    return Result.Fail<Dictionary<string, string>>("SignifyClientService: SignRequestHeader: Failed to deserialize signedHeader");
+                }
+                return Result.Ok(signedHeader);
+            }
+            catch (JSException e)
+            {
+                logger.LogWarning("SignRequestHeader: JSException: {e}", e);
+                return Result.Fail<Dictionary<string, string>>("SignifyClientService: SignRequestHeader: Exception: " + e);
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning("SignRequestHeader: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, string>>("SignifyClientService: SignRequestHeader: Exception: " + e);
+            }
         }
     }
 }

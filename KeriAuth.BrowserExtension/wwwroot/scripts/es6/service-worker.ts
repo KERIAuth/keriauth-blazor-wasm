@@ -196,29 +196,49 @@ function serializeAndEncode(obj: object): string {
     return encodedString;
 }
 
-function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
+function handleSignRequest(msg: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
-    console.log("SW handleSignRequest: ", message);
+    console.log("SW handleSignRequest: ", msg);
     // TODO EE! temporary placeholder. Should request user to sign request
-    try {
-        //const credObject = JSON.parse(message.payload.credential.rawJson);
-        //const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
-        //const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr }, expiry: expiry };
-        const authorizeResult = {
-            type: SwCsMsgType.REPLY,
-            payload: {
-                "signature": "indexed=\"?0\";signify=\"0BCUmN5EAYdT3okIb8yEIG9sVepXwlQQSqcuZd7wQYEFDzVNkIPwYUX679lYNHS1YCdSPATJGTHfdTLTHjZoPO8F\"",
-                "signature-input": "signify=(\"@method\" \"@path\" \"signify-resource\" \"signify-timestamp\");created=1727719612;keyid=\"BJF5YenWeqMPGU2iL2hsn9D8PSGXRDXSZbM7Znvh1XvI\";alg=\"ed25519\"",
-                "signify-resource": "EO0KSgpgvjNFoc8KoFfb0qgjbrVieMVbBhNit7ZtEue3",
-                "signify-timestamp": "2024-10-01T18:06:52.193000+00:00"
-            },
-            requestId: message.requestId,
-        };
-        console.log("TMP SW from App: SignDataResult?? authorizeResult", authorizeResult);
-        csTabPort.postMessage(authorizeResult);
-    }
-    catch (error) {
-        console.error("SW from App: error parsing credential: ", error);
+
+
+    // TODO EE should check if a popup is already open, and if so, bring it into focus.
+    // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
+    if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
+        const tabId = Number(csTabPort.sender.tab.id);
+        //chrome.action.setBadgeText({ text: "3", tabId: tabId });
+        //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
+        // TODO Could alternately implement the msg passing via messaging versus the URL
+        // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
+
+        // TODO EE! add msgRequestId
+        const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
+        console.log("SW handleSignRequest: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
+
+        const encodedMsg = serializeAndEncode(msg);
+
+        try {
+            useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SignRequest" }]);
+            //const credObject = JSON.parse(msg.payload.credential.rawJson);
+            //const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
+            //const authorizeResultCredential = { credential: { raw: credObject, cesr: msg.payload.credential.cesr }, expiry: expiry };
+
+            //    const authorizeResult = {
+            //        type: SwCsMsgType.REPLY,
+            //        payload: {
+            //            "signature": "indexed=\"?0\";signify=\"0BCUmN5EAYdT3okIb8yEIG9sVepXwlQQSqcuZd7wQYEFDzVNkIPwYUX679lYNHS1YCdSPATJGTHfdTLTHjZoPO8F\"",
+            //            "signature-input": "signify=(\"@method\" \"@path\" \"signify-resource\" \"signify-timestamp\");created=1727719612;keyid=\"BJF5YenWeqMPGU2iL2hsn9D8PSGXRDXSZbM7Znvh1XvI\";alg=\"ed25519\"",
+            //            "signify-resource": "EO0KSgpgvjNFoc8KoFfb0qgjbrVieMVbBhNit7ZtEue3",
+            //            "signify-timestamp": "2024-10-01T18:06:52.193000+00:00"
+            //        },
+            //        requestId: msg.requestId,
+            //    };
+            //    console.log("TMP SW from App: SignDataResult?? authorizeResult", authorizeResult);
+            //    csTabPort.postMessage(authorizeResult);
+        }
+        catch (error) {
+            console.error("SW handleSignRequest: error invoking useActionPopup: ", error);
+        }
     }
 }
 
@@ -226,7 +246,7 @@ function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
 // Handle the web page's (Cs's) request for user to select an identifier
 // TODO EE! define type for msg
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
-    // TODO P3 Implement the logic for handling the message
+    // TODO P3 Implement the logic for handling the msg
     console.log("SW handleSelectIdentifier: ", msg);
     // TODO EE should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
@@ -234,7 +254,7 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         const tabId = Number(csTabPort.sender.tab.id);
         //chrome.action.setBadgeText({ text: "3", tabId: tabId });
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        // TODO Could alternately implement the message passing via messaging versus the URL
+        // TODO Could alternately implement the msg passing via messaging versus the URL
         // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
 
         // TODO EE! add msgRequestId
@@ -243,7 +263,7 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
 
         const encodedMsg = serializeAndEncode(msg);
 
-        useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }]);
+        useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SelectAuthorize" }]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
     }
@@ -293,7 +313,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     if (cSPortNamePattern.test(connectedPort.name)) {
         const cSPort: chrome.runtime.Port = connectedPort;
         // TODO test and update assumptions of having a longrunning port established, especially when sending.  With back-forward cache (bfcache), ports can get suspended or terminated, leading to errors such as:
-        // "Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed."
+        // "Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the msg channel is closed."
         console.log(`SW with CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
@@ -329,7 +349,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             appPort.onMessage.addListener(async (message) => await handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
             console.log("SW adding onMessage listener for App port... done", appPort);
 
-            // Send an initial message from SW to App
+            // Send an initial msg from SW to App
             appPort.postMessage({ type: SwCsMsgType.FSW, data: 'Service worker connected' });
 
         } else {
@@ -354,13 +374,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string): Promise<void> {
 
     console.log(`SW from App message, port:`, message, appPort);
-    // TODO check for nonexistance of appPort.sender?.tab, which would indicate a message from a non-tab source
+    // TODO check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
 
     // Send a response to the KeriAuth App
     // TODO EE! this seems like active feedback?
     appPort.postMessage({ type: SwCsMsgType.FSW, data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
-    // Forward the message to the content script, if appropriate
+    // Forward the msg to the content script, if appropriate
     if (cSConnection) {
         console.log("SW from App: handling App message of type: ", message.type);
         switch (message.type) {
@@ -398,24 +418,22 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
 
     // assure tab is still connected  
     if (pageCsConnections[connectionId]) {
-
-        // Handle the message based on its type
         switch (message.type) {
             case CsSwMsgType.SELECT_AUTHORIZE:
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
             case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
-                // TODO EE! need to handle these differently
-                handleSelectAuthorize(message /* as ICsSwMsgSelectIdentifier */, pageCsConnections[connectionId].port);
+                handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
+            case CsSwMsgType.SIGN_DATA:
+            // TODO request user to sign request
             case CsSwMsgType.SIGN_REQUEST:
-                handleSignRequest(message as any /* any? */, pageCsConnections[connectionId].port);
+                handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
             case CsSwMsgType.SIGNIFY_EXTENSION:
-                // Update the pageCsConnections list with the tabId and URL
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
-                // TODO create a constructor and ts interface for the message?
+                // TODO create a constructor and ts interface for the msg?
                 const response: IExCsMsgHello = {
                     type: SwCsMsgType.HELLO,
                     requestId: message.requestId,
@@ -423,8 +441,6 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 };
                 cSPort.postMessage(response);
                 break;
-            case CsSwMsgType.SIGN_DATA:
-            // TODO request user to sign request
             default:
                 console.warn("SW from CS: message type not yet handled: ", message);
         }

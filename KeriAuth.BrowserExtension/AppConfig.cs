@@ -40,6 +40,7 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToUnlock = "/Unlock";
         public const string RouteToConnecting = "/Connecting";
         public const string RouteToRequestSignIn = "/RequestSignIn/";
+        public const string RouteToRequestSign = "/RequestSign/";
 
         // Idle Timeout
         public const int IdleDebounceTimeSpanSecs = 5;
