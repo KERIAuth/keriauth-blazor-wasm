@@ -3,9 +3,12 @@ using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using MudBlazor;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices.JavaScript;
+using System.Text;
 using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
 using Group = KeriAuth.BrowserExtension.Services.SignifyService.Models.Group;
@@ -186,7 +189,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     return Result.Fail<Identifiers>("GetAIDs returned null");
                 }
-                var identifiers = JsonSerializer.Deserialize<Identifiers>(jsonString);
+                var identifiers = System.Text.Json.JsonSerializer.Deserialize<Identifiers>(jsonString);
                 if (identifiers is null)
                 {
                     return Result.Fail<Identifiers>("SignifyClientService: GetIdentifiers: Failed to deserialize Identifiers");
@@ -215,7 +218,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     return Result.Fail<Aid>("GetAID returned null");
                 }
-                var aid = JsonSerializer.Deserialize<Aid>(jsonString);
+                var aid = System.Text.Json.JsonSerializer.Deserialize<Aid>(jsonString);
                 if (aid is null)
                 {
                     return Result.Fail<Aid>("Failed to deserialize Identifier");
@@ -312,7 +315,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     return Result.Fail("GetCredentials returned null");
                 }
-                var credentials = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, options);
+                var credentials = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, options);
                 if (credentials is null)
                 {
                     return Result.Fail("SignifyClientService: GetCredentials: Failed to deserialize Credentials");
@@ -340,20 +343,19 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         {
             throw new NotImplementedException();
         }
-
-        async Task<Result<Dictionary<string, string>>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> inputHeadersDict, string prefix)
+        async Task<Result<string>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> inputHeadersDict, string prefix)
         {
             logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, inputHeadersDict.ToString(), prefix);
             try
             {
-                var jsonInputHeaders = JsonSerializer.Serialize(inputHeadersDict);
+                var jsonInputHeaders = System.Text.Json.JsonSerializer.Serialize(inputHeadersDict);
                 logger.LogInformation("SignRequestHeader: jsonInputHeaders: `{i}`", jsonInputHeaders);
                 logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, jsonInputHeaders, prefix);
 
 
                 // tmp test
-                var aidJson = await Signify_ts_shim.GetAID(prefix);
-                logger.LogWarning("SignRequestHeader: aidJson: {s}", aidJson);
+                //var aidJson = await Signify_ts_shim.GetAID(prefix);
+                //logger.LogWarning("SignRequestHeader: aidJson: {s}", aidJson);
                 // end tmp test
 
 
@@ -361,24 +363,35 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
 
 
 
-                var signedHeaderJson = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, prefix);
-                logger.LogInformation("SignRequestHeader: signedHeaderJson: {s}", signedHeaderJson);
-                var signedHeader = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeaderJson, new JsonSerializerOptions { WriteIndented = true });
-                if (signedHeader is null)
-                {
-                    return Result.Fail<Dictionary<string, string>>("SignifyClientService: SignRequestHeader: Failed to deserialize signedHeader");
-                }
-                return Result.Ok(signedHeader);
+                var signedHeadersAsJsonBase64 = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, prefix);
+                logger.LogInformation("SignRequestHeader: signedHeadersAsJsonBase64: {s}", signedHeadersAsJsonBase64);
+
+
+                // Step 1: Decode the Base64 string
+                byte[] jsonBytes = Convert.FromBase64String(signedHeadersAsJsonBase64);
+                string jsonString = Encoding.UTF8.GetString(jsonBytes);
+                logger.LogInformation("SignRequestHeader: signedHeaders as jsonString: {p}", jsonString);
+
+                // Step 2: Parse the JSON string to JObject for a structured representation
+                // wrap to return a Request-like object
+                JObject jsonObject = JObject.Parse("{ headers: " + jsonString + "}");
+
+                // Step 3: Pretty print the JSON object
+                string json = JsonConvert.SerializeObject(jsonObject, Formatting.Indented);
+                logger.LogInformation("SignRequestHeader: signedHeaders as json-like: {p}", json);
+
+
+                return Result.Ok(json);
             }
             catch (JSException e)
             {
                 logger.LogWarning("SignRequestHeader: JSException: {e}", e);
-                return Result.Fail<Dictionary<string, string>>("SignifyClientService: SignRequestHeader: Exception: " + e);
+                return Result.Fail<string>("SignifyClientService: SignRequestHeader: Exception: " + e);
             }
             catch (Exception e)
             {
                 logger.LogWarning("SignRequestHeader: Exception: {e}", e);
-                return Result.Fail<Dictionary<string, string>>("SignifyClientService: SignRequestHeader: Exception: " + e);
+                return Result.Fail<string>("SignifyClientService: SignRequestHeader: Exception: " + e);
             }
         }
     }

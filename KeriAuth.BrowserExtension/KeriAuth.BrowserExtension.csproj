@@ -57,6 +57,7 @@
 		</PackageReference>
 		<PackageReference Include="MudBlazor" Version="7.6.0" />
 		<PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.5" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="Polly" Version="8.4.1" />
 		<PackageReference Include="Stateless" Version="5.16.0" />
 		<PackageReference Include="System.Reactive" Version="6.0.1" />

@@ -38,6 +38,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         Task<Result<IList<Models.Group>>> GetGroups();
         Task<Result<IList<Exchange>>> GetExchanges();
         Task<Result<Aid>> GetIdentifier(string name);
-        Task<Result<Dictionary<string, string>>> SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> inputHeaders, string prefix);
+        Task<Result<string>> SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> inputHeaders, string prefix);
     }
 }

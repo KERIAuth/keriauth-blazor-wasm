@@ -44,7 +44,7 @@
     [Parameter]
     public string encodedOrigin { get; set; } = "";
 
-    public string requestId { get; set; } = "";
+    public string RequestId { get; set; } = "";
 
     public string PayloadJson { get; set; } = "";
 
@@ -204,7 +204,7 @@
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
         await GetInitialHeadlines();
 
-        logger.LogInformation("OnParametersSetAsync requestId {r}", requestId);
+        logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
 
         // TODO remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
@@ -235,6 +235,10 @@
             JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
             JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
             PayloadJson = payload.ToString();
+
+            JsonElement requestId = jsonDocument.RootElement.GetProperty("requestId");
+            RequestId = requestId.ToString();
+
             return;
 
         }
@@ -358,7 +362,7 @@
     */
     async Task SignRequest(SignInMode RequestedSignInMode, string requestId2, string? SelectedName, string payloadJson)
     {
-        
+
         logger.LogInformation("SignRequest: payloadJson: {d}", payloadJson);
 
         ApiRequest? request = JsonSerializer.Deserialize<ApiRequest>(payloadJson);
@@ -371,7 +375,7 @@
 
         // headers is intentionally empty for now
         Dictionary<string, string> inputHeadersDict = new Dictionary<string, string>();
-        
+
         var replyMessageDataRes = await signifyClientService.SignRequestHeader(OriginStr, request.Url, request.Method, inputHeadersDict, SelectedName!);
         if (replyMessageDataRes.IsFailed || replyMessageDataRes.Value is null)
         {
@@ -382,11 +386,21 @@
         {
             var replyMessageData = replyMessageDataRes.Value;
             logger.LogInformation("replyMessageData: {r}", replyMessageData);
-            var tmp = new SignedHeadersResult("1", "2", "3", "4");
-            var tmp2 = new ReplyMessageData<SignedHeadersResult>("/signify/reply", tmp, requestId2, null, "KeriAuth");
-            await appSwMessagingService.SendToServiceWorkerAsync<SignedHeadersResult>(tmp2);
-            // TODO close commented out to help with debugging
-            // UIHelper.CloseWindow();
+
+            var tmp = JsonSerializer.Deserialize<SignedRequestResult>(replyMessageData);
+            if (tmp is null)
+            {
+                // TODO: return an error in ReplyMessageData instead
+                throw new Exception("cannot deserialize replyMessageData");
+            }
+            else
+            {
+                // var tmp = new SignedHeadersResult("1", "2", "3", "4");
+                var tmp2 = new ReplyMessageData<SignedRequestResult>("/signify/reply", tmp, requestId2, null, "KeriAuth");
+                await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(tmp2);
+                // TODO close commented out to help with debugging
+                // UIHelper.CloseWindow();
+            }
         }
     }
 
@@ -395,7 +409,7 @@
         var cr = new ReplyMessageData<AuthorizeResult>(
             "/KeriAuth/signify/replyCancel",
             new AuthorizeResult(null, null),
-            requestId: requestId
+            requestId: RequestId
         );
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr);
         // Close blazor application
@@ -478,7 +492,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignRequest(RequestedSignInMode, requestId, SelectedAidAlias, PayloadJson)">Sign Request</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson)">Sign Request</MudButton>
     </MudStack>
 </div>
 

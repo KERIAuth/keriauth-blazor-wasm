@@ -195,9 +195,9 @@ const getSignedHeaders = async (
     origin: string,
     rurl: string,
     method: string,
-    headers: Headers,
+    headers = new Headers({}),
     aidName: string,
-): Promise<any> => {
+): Promise<Request> => {
     console.log("getSignedHeaders: params: ", origin, " ", rurl, " ", method, " ", headers, " ", aidName);
 
     // in case the client is not connected, try to connect
@@ -218,31 +218,45 @@ const getSignedHeaders = async (
     try {
 
         // temporary test
-        const aid = await getAID(aidName);
-        console.log("getSignedHeaders: aid: ", aid);
+        //const aid = await getAID(aidName);
+        //console.log("getSignedHeaders: aid: ", aid);
         // end temporary test
 
 
-
-        const signedRequest = await client.createSignedRequest(aidName, rurl, {
+        console.log("getSignedHeaders: createSignedRequest args:", aidName, rurl, method, new Headers()); // headers); // TODO ignoring param
+        const signedRequest: Request = await client.createSignedRequest(aidName, rurl, {
             method,
             headers,
         });
         //resetTimeoutAlarm();
         console.log("getSignedHeaders: signedRequest:", signedRequest);
-        let jsonHeaders: { [key: string]: string } = {};
-        if (signedRequest?.headers) {
-            for (const pair of signedRequest.headers.entries()) {
-                jsonHeaders[pair[0]] = pair[1];
-            }
+
+
+        // Log each header for better visibility
+        if (signedRequest.headers) {
+            console.log("getSignedHeaders: signedRequest.headers details:");
+            signedRequest.headers.forEach((value, key) => {
+                console.log(`    ${key}: ${value}`);
+            });
         }
-        console.log("getSignedHeaders: jsonHeaders:", jsonHeaders);
-        return {
-            headers: jsonHeaders,
-        };
+        
+        //let jsonHeaders: { [key: string]: string } = {};
+        //if (signedRequest?.headers) {
+        //    for (const pair of signedRequest.headers.entries()) {
+        //        jsonHeaders[pair[0]] = String(pair[1]);
+        //    }
+        //}
+        //console.log("getSignedHeaders: jsonHeaders:", jsonHeaders);
+
+        //const nh = new Headers(jsonHeaders);
+        // console.log("getSignedHeaders: newHeaders:", nh);
+        return signedRequest;
+        
+        
     } catch (error) {
         console.error("getSignedHeaders: Error occurred:", error);
-        return JSON.stringify({ error: error.message });
+        throw error;
+        // return JSON.stringify({ error: error.message });
     }
 };
 
@@ -276,7 +290,7 @@ export function parseHeaders(headersJson: string | null): Headers {
 //[JSImport("getSignedHeadersWithJsonHeaders", "signify_ts_shim")]
 //        internal static partial Task < string > GetSignedHeadersWithJsonHeaders(string origin, string rurl, string method, string jsonHeaders, string aidName);
 //    }
-
+// Returns a json string of signed Headers
 export const getSignedHeadersWithJsonHeaders = async (
     origin: string,
     rurl: string,
@@ -290,29 +304,50 @@ export const getSignedHeadersWithJsonHeaders = async (
         console.log("getSignedHeadersWithJsonHeaders initialHeaders: ", initialHeaders);
 
         // Call the original getSignedHeaders function with the parsed initialHeaders
-        const signedHeaders: Headers = await getSignedHeaders(
+        const signedRequest: Request = await getSignedHeaders(
             origin,
             rurl,
             method,
             initialHeaders,
             aidName,
         );
-        console.log("getSignedHeadersWithJsonHeaders signedHeaders: ", signedHeaders);
+        console.log("getSignedHeadersWithJsonHeaders signedHeaders: ", signedRequest);
 
         // Convert the returned Headers object back into a plain object for JSON serialization
-        const headersPlainObject: { [key: string]: string } = {};
-        signedHeaders.forEach((value: string, key: string) => {
-            headersPlainObject[key] = value;
-        });
+        const signedHeadersJson = headersToJsonBase64(signedRequest?.headers);
+        
+        
+        //const headersPlainObject: { [key: string]: string } = { };
+        //signedRequest.forEach((value: string, key: string) => {
+        //    headersPlainObject[key] = value;
+        //});
 
         // Return the plain object as a JSON string
-        return JSON.stringify(headersPlainObject);
+        // return signedHeadersJson; // JSON.stringify(headersPlainObject);
+    return signedHeadersJson;
     } catch (error) {
         // Handle errors (e.g., invalid JSON, issues with the request)
         console.error("Error occurred:", error);
         return JSON.stringify({ error: error.message });
     }
 }
+
+function headersToJsonBase64(headers: Headers): string {
+    // Step 1: Convert Headers to a key-value object
+    const headersObject: { [key: string]: string } = {};
+    headers.forEach((value, key) => {
+        headersObject[key] = value;
+    });
+
+    // Step 2: Convert the object to a JSON string
+    const jsonString = JSON.stringify(headersObject);
+
+    // Step 3: Convert JSON string to Base64 using btoa()
+    const base64String = btoa(jsonString);
+
+    return base64String;
+}
+
 
 // from https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/config/types.ts
 interface ISignin {

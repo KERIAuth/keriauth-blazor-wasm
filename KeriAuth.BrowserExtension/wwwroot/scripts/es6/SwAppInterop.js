@@ -30,13 +30,18 @@ export const SwAppInteropModule = {
             switch (payloadTypeName) {
                 case "CancelResult":
                     const messageData3 = JSON.parse(jsonReplyMessageData);
-                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", messageData3);
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData3: ", messageData3);
                     port.postMessage(messageData3);
                     break;
                 case "AuthorizeResult":
                     const messageData2 = JSON.parse(jsonReplyMessageData);
                     console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", messageData2);
                     port.postMessage(messageData2);
+                    break;
+                case "SignedRequestResult":
+                    const messageData5 = JSON.parse(jsonReplyMessageData);
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData5: ", messageData5);
+                    port.postMessage(messageData5);
                     break;
                 case "SignDataResult":
                 case "SignDataResult":
