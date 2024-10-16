@@ -352,20 +352,8 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 logger.LogInformation("SignRequestHeader: jsonInputHeaders: `{i}`", jsonInputHeaders);
                 logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, jsonInputHeaders, prefix);
 
-
-                // tmp test
-                //var aidJson = await Signify_ts_shim.GetAID(prefix);
-                //logger.LogWarning("SignRequestHeader: aidJson: {s}", aidJson);
-                // end tmp test
-
-
-                    // TODO consider timeout, e.g.  await TimeoutHelper.WithTimeout<string>(...
-
-
-
                 var signedHeadersAsJsonBase64 = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, prefix);
                 logger.LogInformation("SignRequestHeader: signedHeadersAsJsonBase64: {s}", signedHeadersAsJsonBase64);
-
 
                 // Step 1: Decode the Base64 string
                 byte[] jsonBytes = Convert.FromBase64String(signedHeadersAsJsonBase64);
@@ -379,7 +367,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 // Step 3: Pretty print the JSON object
                 string json = JsonConvert.SerializeObject(jsonObject, Formatting.Indented);
                 logger.LogInformation("SignRequestHeader: signedHeaders as json-like: {p}", json);
-
 
                 return Result.Ok(json);
             }

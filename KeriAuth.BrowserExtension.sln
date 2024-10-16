@@ -10,9 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 		KERIAuthArchitecture.jpg = KERIAuthArchitecture.jpg
 		README.md = README.md
+		PAGE-CS-MESSAGES.md = PAGE-CS-MESSAGES.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeriAuth.BrowserExtension.Tests", "KeriAuth.BrowserExtension.Tests\KeriAuth.BrowserExtension.Tests.csproj", "{3DA9AB88-7EFD-460F-A919-3D8BCE0EA95D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KeriAuth.BrowserExtension.Tests", "KeriAuth.BrowserExtension.Tests\KeriAuth.BrowserExtension.Tests.csproj", "{3DA9AB88-7EFD-460F-A919-3D8BCE0EA95D}"
 	ProjectSection(ProjectDependencies) = postProject
 		{118B1C27-1F19-4566-849E-D2EA618A6988} = {118B1C27-1F19-4566-849E-D2EA618A6988}
 	EndProjectSection

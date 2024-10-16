@@ -190,15 +190,16 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
     });
 }
 
-function serializeAndEncode(obj: object): string {
+function serializeAndEncode(obj: any): string {
+    // TODO assumes the payload obj is simple
     const jsonString: string = JSON.stringify(obj);
     const encodedString: string = encodeURIComponent(jsonString);
     return encodedString;
 }
 
-function handleSignRequest(msg: any, csTabPort: chrome.runtime.Port) {
+function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
-    console.log("SW handleSignRequest: ", msg);
+    console.log("SW handleSignRequest: ", payload);
     // TODO EE! temporary placeholder. Should request user to sign request
 
 
@@ -208,33 +209,17 @@ function handleSignRequest(msg: any, csTabPort: chrome.runtime.Port) {
         const tabId = Number(csTabPort.sender.tab.id);
         //chrome.action.setBadgeText({ text: "3", tabId: tabId });
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        // TODO Could alternately implement the msg passing via messaging versus the URL
+        // TODO Could alternately implement the payload passing via messaging versus the URL
         // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
 
         // TODO EE! add msgRequestId
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
-        console.log("SW handleSignRequest: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
+        console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", payload, "origin: ", jsonOrigin);
 
-        const encodedMsg = serializeAndEncode(msg);
+        const encodedMsg = serializeAndEncode(payload);
 
         try {
             useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SignRequest" }]);
-            //const credObject = JSON.parse(msg.payload.credential.rawJson);
-            //const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
-            //const authorizeResultCredential = { credential: { raw: credObject, cesr: msg.payload.credential.cesr }, expiry: expiry };
-
-            //    const authorizeResult = {
-            //        type: SwCsMsgType.REPLY,
-            //        payload: {
-            //            "signature": "indexed=\"?0\";signify=\"0BCUmN5EAYdT3okIb8yEIG9sVepXwlQQSqcuZd7wQYEFDzVNkIPwYUX679lYNHS1YCdSPATJGTHfdTLTHjZoPO8F\"",
-            //            "signature-input": "signify=(\"@method\" \"@path\" \"signify-resource\" \"signify-timestamp\");created=1727719612;keyid=\"BJF5YenWeqMPGU2iL2hsn9D8PSGXRDXSZbM7Znvh1XvI\";alg=\"ed25519\"",
-            //            "signify-resource": "EO0KSgpgvjNFoc8KoFfb0qgjbrVieMVbBhNit7ZtEue3",
-            //            "signify-timestamp": "2024-10-01T18:06:52.193000+00:00"
-            //        },
-            //        requestId: msg.requestId,
-            //    };
-            //    console.log("TMP SW from App: SignDataResult?? authorizeResult", authorizeResult);
-            //    csTabPort.postMessage(authorizeResult);
         }
         catch (error) {
             console.error("SW handleSignRequest: error invoking useActionPopup: ", error);
@@ -395,7 +380,8 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                     const authorizeResult = {
                         type: SwCsMsgType.REPLY,
                         requestId: message.requestId,
-                        payload: authorizeResultCredential
+                        payload: authorizeResultCredential,
+                        rurl: ""  // TODO rurl should not be fixed
                     };
                     console.log("SW from App: authorizeResult", authorizeResult);
                     cSConnection.port.postMessage(authorizeResult);

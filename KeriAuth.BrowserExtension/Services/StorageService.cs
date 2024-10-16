@@ -337,7 +337,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             case "managed":
             case "session":
             default:
-                logger.LogError("Responding to storage area not yet implemented: {areaname}", areaname);
+                logger.LogError("Responding to storage area not implemented: {areaname}", areaname);
                 break;
         }
     }

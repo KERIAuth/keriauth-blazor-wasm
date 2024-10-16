@@ -76,6 +76,9 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
     console.debug(`signify_ts_shim: connect: creating client...`);
     _client = new SignifyClient(agentUrl, passcode, Tier.low, "");
 
+    // TODO EE! remove temporary test:
+    console.warn(new Date().toISOString())
+
     try {
         await _client.connect();
         console.debug("signify_ts_shim: client connected");
@@ -195,9 +198,10 @@ const getSignedHeaders = async (
     origin: string,
     rurl: string,
     method: string,
-    headers = new Headers({}),
+    headers: Headers,
     aidName: string,
 ): Promise<Request> => {
+    // TODO not that headers won't be printable this way:
     console.log("getSignedHeaders: params: ", origin, " ", rurl, " ", method, " ", headers, " ", aidName);
 
     // in case the client is not connected, try to connect
@@ -207,7 +211,6 @@ const getSignedHeaders = async (
     validateClient();
     //}
 
-
     const client: SignifyClient = _client!;
 
     //const session = await sessionService.get({ tabId, origin });
@@ -216,21 +219,14 @@ const getSignedHeaders = async (
     //    throw new Error("Session not found");
     //}
     try {
-
-        // temporary test
-        //const aid = await getAID(aidName);
-        //console.log("getSignedHeaders: aid: ", aid);
-        // end temporary test
-
-
-        console.log("getSignedHeaders: createSignedRequest args:", aidName, rurl, method, new Headers()); // headers); // TODO ignoring param
+        // TODO not that headers won't be printable this way:
+        console.log("getSignedHeaders: createSignedRequest args:", aidName, rurl, method, headers);
         const signedRequest: Request = await client.createSignedRequest(aidName, rurl, {
             method,
             headers,
         });
         //resetTimeoutAlarm();
         console.log("getSignedHeaders: signedRequest:", signedRequest);
-
 
         // Log each header for better visibility
         if (signedRequest.headers) {
@@ -256,7 +252,6 @@ const getSignedHeaders = async (
     } catch (error) {
         console.error("getSignedHeaders: Error occurred:", error);
         throw error;
-        // return JSON.stringify({ error: error.message });
     }
 };
 
@@ -301,6 +296,7 @@ export const getSignedHeadersWithJsonHeaders = async (
     try {
         console.log("getSignedHeadersWithJsonHeaders: ", origin, " ", rurl, " ", method, " ", headersJson, " ", aidName);
         const initialHeaders: Headers = parseHeaders(headersJson);
+        // TODO to confirm headers parsing, iterate and print these, but expect these to be {} at current stage of development.
         console.log("getSignedHeadersWithJsonHeaders initialHeaders: ", initialHeaders);
 
         // Call the original getSignedHeaders function with the parsed initialHeaders

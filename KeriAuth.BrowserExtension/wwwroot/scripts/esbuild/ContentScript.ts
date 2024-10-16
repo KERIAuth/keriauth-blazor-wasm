@@ -81,7 +81,8 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
                 requestId: message.requestId,
                 payload: message.payload,
                 error: message.error,
-                source: CsToPageMsgIndicator
+                source: CsToPageMsgIndicator,
+                rurl: "" // TODO rurl should not be fixed
             }
             postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
             break;
@@ -154,6 +155,15 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
                 try {
+                    if (event.data.payload?.headers) {
+                        console.log("KeriAuthCs from page payload headers: ");
+                        for (const key in event.data.payload.headers) {
+                            if (event.data.payload.headers.hasOwnProperty(key)) {
+                                const value = event.data.payload.headers[key];
+                                console.log(`   ${key}: ${value}`);
+                            }
+                        }
+                    }
                     portWithSw.postMessage(event.data);
                 } catch (error) {
                     console.error("KeriAuthCs to SW: error sending message {event.data} {e}:", event.data, error);
@@ -166,24 +176,24 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
 
             case "/signify/get-session-info":
-                console.log(`KeriAuthCs from page: ${event.data.type} sessions not yet implemented`);
+                console.log(`KeriAuthCs from page: ${event.data.type} sessions not implemented`);
                 // TODO implement sessions
                 postMessageToPage<object>({
                     type: "/signify/reply",
                     error: { code: 501, message: "KERIAuth sessions not supported" },
                     requestId: event?.data?.requestId,
-                    rurl: "",
+                    rurl: "", // TODO rurl should not be fixed
                     source: CsToPageMsgIndicator
                 });
                 break;
             case "/signify/clear-session":
-                console.log(`KeriAuthCs from page: ${event.data.type} sessions not yet implemented`);
+                console.log(`KeriAuthCs from page: ${event.data.type} sessions not implemented`);
                 // TODO implement sessions
                 postMessageToPage<object>({
                     type: "/signify/reply",
                     error: { code: 501, message: "KERIAuth sessions not supported" },
                     requestId: event?.data?.requestId,
-                    rurl: "",
+                    rurl: "", // TODO rurl should not be fixed
                     source: CsToPageMsgIndicator
                 });
                 break;
@@ -191,7 +201,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.VENDOR_INFO:
             case CsSwMsgType.FETCH_RESOURCE:
             default:
-                console.error("KeriAuthCs from page: handler not yet implemented for:", event.data);
+                console.error("KeriAuthCs from page: handler not implemented for:", event.data);
                 break;
         }
     } catch (error) {

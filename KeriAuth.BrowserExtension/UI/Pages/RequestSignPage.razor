@@ -20,7 +20,6 @@
 @using System;
 @using System.Collections.Generic;
 
-
 @implements IDisposable
 
 @inject IStorageService storageService
@@ -54,12 +53,12 @@
     {
         try
         {
-            var x = new Uri(OriginStr);
-            return x;
+            var uri = new Uri(OriginStr);
+            return uri;
         }
         catch (Exception ex)
         {
-            logger.LogError("Error parsing OriginStr '{o}': {e}", OriginStr, ex);
+            logger.LogError("GetOriginUri: Error parsing OriginStr '{o}': {e}", OriginStr, ex);
             return null;
         }
     }
@@ -83,15 +82,6 @@
     bool IsAutoSignIn { get; set; }
 
     WebsiteConfig? ThisWebsiteConfig { get; set; }
-
-    // async Task updateSelectedPrefix(string prefix)
-    // {
-    //     SelectedPrefix = prefix;
-    //     TODO following should be just un/resubscribe to another websiteConfig? ... and this UI is made responsive to an IObserver<WebsiteConfig>
-    //     Debug.Assert(GetOriginUri() is not null);
-    //     await getWebsiteConfig(GetOriginUri()!);
-    //     StateHasChanged();
-    // }
 
     async Task updateIsCredentialRemembered(bool isChecked)
     {
@@ -226,10 +216,6 @@
 
             string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
 
-
-
-
-
             // Parse the JSON string
             // TODO write exception handling around the following
             JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
@@ -240,7 +226,6 @@
             RequestId = requestId.ToString();
 
             return;
-
         }
         else
         {
@@ -321,7 +306,6 @@
         this.StateHasChanged();
     }
 
-
     List<Dictionary<string, object>> credentials = new();
 
     private async Task getCredentials()
@@ -347,57 +331,51 @@
         }
     }
 
-    // TODO move into Models directory file
-    public record ApiRequest
-    {
-        [JsonPropertyName("url")]
-        public string Url { get; init; }
-
-        [JsonPropertyName("method")]
-        public string Method { get; init; }
-    }
-
     /*
     / SignRequest()
     */
     async Task SignRequest(SignInMode RequestedSignInMode, string requestId2, string? SelectedName, string payloadJson)
     {
-
         logger.LogInformation("SignRequest: payloadJson: {d}", payloadJson);
 
         ApiRequest? request = JsonSerializer.Deserialize<ApiRequest>(payloadJson);
         if (request is null)
         {
-            logger.LogError("Error in SignRequest: {0}", "Invalid payloadJson");
+            logger.LogError("SignRequest: Error: {0}", "Invalid payloadJson");
             return;
         }
         logger.LogInformation("SignRequest: request: {d}", request.ToString());
 
-        // headers is intentionally empty for now
-        Dictionary<string, string> inputHeadersDict = new Dictionary<string, string>();
+        var inputHeadersDict = new Dictionary<string, string>();
 
-        var replyMessageDataRes = await signifyClientService.SignRequestHeader(OriginStr, request.Url, request.Method, inputHeadersDict, SelectedName!);
-        if (replyMessageDataRes.IsFailed || replyMessageDataRes.Value is null)
+        var signedRequestResultJsonRes = await signifyClientService.SignRequestHeader(OriginStr, request.Url, request.Method, inputHeadersDict, SelectedName!);
+        if (signedRequestResultJsonRes.IsFailed || signedRequestResultJsonRes.Value is null)
         {
-            logger.LogError("Error in SignRequest: {0}", replyMessageDataRes.Errors);
+            logger.LogError("SignRequest: Error: {0}", signedRequestResultJsonRes.Errors);
             return;
         }
         else
         {
-            var replyMessageData = replyMessageDataRes.Value;
-            logger.LogInformation("replyMessageData: {r}", replyMessageData);
+            var signedRequestResultJson = signedRequestResultJsonRes.Value;
+            logger.LogInformation("SignRequest: replyMessageData: {r}", signedRequestResultJson);
 
-            var tmp = JsonSerializer.Deserialize<SignedRequestResult>(replyMessageData);
-            if (tmp is null)
+            var signedRequestResult = JsonSerializer.Deserialize<SignedRequestResult>(signedRequestResultJson);
+            if (signedRequestResult is null)
             {
-                // TODO: return an error in ReplyMessageData instead
-                throw new Exception("cannot deserialize replyMessageData");
+                var errMsg = "KeriAuth could not deserialize signedRequestResult";
+                logger.LogError("SignRequest error: {e}", errMsg);
+                var replyMessageDataErr = new ReplyMessageData<SignedRequestResult>("/signify/reply", null, requestId2, null, errMsg);
+                await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(replyMessageDataErr);
             }
             else
             {
-                // var tmp = new SignedHeadersResult("1", "2", "3", "4");
-                var tmp2 = new ReplyMessageData<SignedRequestResult>("/signify/reply", tmp, requestId2, null, "KeriAuth");
-                await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(tmp2);
+                var replyMessageData = new ReplyMessageData<SignedRequestResult>(
+                    "/signify/reply", 
+                    signedRequestResult, 
+                    requestId2, 
+                    null, 
+                    "KeriAuth");
+                await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(replyMessageData);
                 // TODO close commented out to help with debugging
                 // UIHelper.CloseWindow();
             }
@@ -406,12 +384,14 @@
 
     async Task Cancel()
     {
-        var cr = new ReplyMessageData<AuthorizeResult>(
+        var replyMessageData = new ReplyMessageData<AuthorizeResult>(
             "/KeriAuth/signify/replyCancel",
             new AuthorizeResult(null, null),
-            requestId: RequestId
+            requestId: RequestId,
+            null,
+            "KeriAuth"
         );
-        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr);
+        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
         // Close blazor application
         UIHelper.CloseWindow();
     }
@@ -422,6 +402,7 @@
         ;
     }
 
+    // TODO remove or create helper?
     static bool IsJsonValid(string jsonString)
     {
         try

@@ -74,16 +74,20 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 * Persists configuration via chrome.storage.local.
 * Communicates with KERIA agent via signify-ts library.
 
-### Content Script
+### Web Page and Content Script Interaction
+#### Content Script
 * With the user’s permission this script is injected into the active web page after the user initiates the action.
 * Runs in an isolated JavaScript context
 * Handles messages to/from the website via a JavaScript API (polaris-web) that the web page also implements.
 * Handles messages to/from the service-worker.
 
-### Web Page
+#### Web Page
 * Provided by a website owner, leveraging JavaScript interfaces on the Content Script, which follows the Signify protocol (polaris-web).
 * Interacts with extension via content script to get user's choice of Identifier (KERI AID) and Credential (ACDC).
 * Responsible for validating and determining acceptance of presented Identifier and Credential. May use other services for validation of the identifier's key-state, credential schema, and issuer's root of trust.
+
+#### JavaScript API
+The messages between the Content Script and Web Page are documented [here](PAGE-CS-MESSAGES.md).
 
 ### Blazor WASM App Components
 

@@ -61,7 +61,7 @@
 		<PackageReference Include="Polly" Version="8.4.1" />
 		<PackageReference Include="Stateless" Version="5.16.0" />
 		<PackageReference Include="System.Reactive" Version="6.0.1" />
-		<PackageReference Include="System.Text.Json" Version="8.0.2" />
+		<PackageReference Include="System.Text.Json" Version="8.0.5" />
 		<PackageReference Include="WebExtensions.Net" Version="2.1.1" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.7" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.7" PrivateAssets="all" />

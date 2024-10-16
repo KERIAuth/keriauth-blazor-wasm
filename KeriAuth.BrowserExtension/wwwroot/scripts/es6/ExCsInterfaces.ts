@@ -112,6 +112,7 @@ export const CsToPageMsgIndicator = "KeriAuthCs";
 
 export interface KeriAuthMessageData<T = unknown> extends MessageData<T> {
     source: typeof CsToPageMsgIndicator;
+    rurl?: string;
 }
 
 // Signing related types from signify-browser-extension config/types.ts. Here because we don't want dependencies on signify-browser-extension,
