@@ -25,13 +25,7 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "polaris-web/dist/client";
-// TODO, or consider using the following instead of the above import
-// import * as PolarisWebClient from "polaris-web/dist/client";
-
-
-
-
+} from "../es6/PageCsInterfaces.js"
 
 // Function to generate a unique and unguessable identifier for the port name for communications between the content script and the extension
 function generateUniqueIdentifier(): string {
@@ -44,7 +38,7 @@ function generateUniqueIdentifier(): string {
 const uniquePortName: string = generateUniqueIdentifier();
 
 function advertiseToPage(): void {
-    // TODO the following should be typed and ideally imported from polaris-web/client.ts
+    // TODO the following should be typed and ideally imported from PageCsInterfaces
     const msg = {
         type: SwCsMsgType.SE,
         data: { extensionId: String(chrome.runtime.id) },

@@ -1,6 +1,4 @@
 ﻿// Common definitions for content script and service-worker.
-// Consider renaming or scoping to signify-browser-extension, polaris-web, KeriAuth, and/or others.  
-// Many of these are coming from polaris - web / types explicitly or implicitly
 
 import {
     AuthorizeResultCredential,
@@ -14,10 +12,8 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "polaris-web/dist/client";
+} from "../es6/PageCsInterfaces.js"
 
-// Requests (via events handled in CS) from Page to Content Script (and beyond)
-// TODO EE! See KeriAuthMessageData and MessageData. Clarify these as IXXXX and which are owned by polaris-web vs KeriAuth. Superset of these is a "Response"?
 export interface ICsSwMsg {
     type: string
     requestId?: string

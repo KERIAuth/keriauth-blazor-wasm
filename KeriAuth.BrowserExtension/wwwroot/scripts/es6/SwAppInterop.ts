@@ -12,7 +12,7 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "polaris-web/dist/client";
+} from "../es6/PageCsInterfaces.js"
 
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData } from "../es6/ExCsInterfaces.js";
 

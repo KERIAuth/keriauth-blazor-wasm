@@ -22,9 +22,7 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "polaris-web/dist/client";
-// TODO consider the following alternate import statement for polaris-web, which may be clearer:
-// import * as PolarisWebClient from "polaris-web/dist/client";
+} from "../es6/PageCsInterfaces.js"
 
 import { ICsSwMsg } from "./ExCsInterfaces.js";
 // import { getCredential } from "@esbuilt/signify_ts_shim.js";
