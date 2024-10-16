@@ -478,3 +478,17 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/ExCsInterfaces.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/ExCsInterfaces.d.ts
 /KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/ContentScript.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/PageCsInterfaces.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/SwAppInterop.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/interopHelper.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/ContentScript.d.ts
+/KeriAuth.BrowserExtension/wwwroot/KeriAuth.BrowserExtension.lib.module.d.ts
+/KeriAuth.BrowserExtension/wwwroot/KeriAuth.BrowserExtension.lib.module.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/ExCsInterfaces.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/interopHelper.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/moduleLoader.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/registerInactivityEvents.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/service-worker.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/storageHelper.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/uiHelper.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/signify_ts_shim.d.ts
