@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
+﻿namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
 {
     public record A(string i);
     public record Sad(A a, string d);

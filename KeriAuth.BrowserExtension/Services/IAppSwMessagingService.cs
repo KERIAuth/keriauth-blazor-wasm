@@ -1,7 +1,5 @@
-﻿using Microsoft.JSInterop;
-using System.Text.Json;
-using System.Text;
-using KeriAuth.BrowserExtension.Models;
+﻿using KeriAuth.BrowserExtension.Models;
+using Microsoft.JSInterop;
 
 namespace KeriAuth.BrowserExtension.Services
 {

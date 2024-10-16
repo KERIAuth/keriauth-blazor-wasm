@@ -2,18 +2,15 @@
 using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
-using MudBlazor;
-using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Diagnostics;
-using System.Net;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
 using Group = KeriAuth.BrowserExtension.Services.SignifyService.Models.Group;
 using State = KeriAuth.BrowserExtension.Services.SignifyService.Models.State;
-
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService
 {

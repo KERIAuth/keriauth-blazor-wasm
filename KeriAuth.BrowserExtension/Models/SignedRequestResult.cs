@@ -1,5 +1,4 @@
-﻿using FluentResults;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 namespace KeriAuth.BrowserExtension.Models
 {
     public record SignedRequestResult

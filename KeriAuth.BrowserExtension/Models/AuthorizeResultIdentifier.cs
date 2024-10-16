@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Serialization;
-using KeriAuth.BrowserExtension.Models;
 
 namespace KeriAuth.BrowserExtension.Models
 {

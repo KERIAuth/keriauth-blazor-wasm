@@ -10,26 +10,11 @@
 import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "./uiHelper.js";
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "./ExCsInterfaces.js";
-import {
-    AuthorizeResultCredential,
-    AuthorizeArgs,
-    AuthorizeResultIdentifier,
-    AuthorizeResult,
-    SignDataArgs,
-    SignDataResultItem,
-    SignDataResult,
-    SignRequestArgs,
-    SignRequestResult,
-    ConfigureVendorArgs,
-    MessageData
-} from "../es6/PageCsInterfaces.js"
-
 import { ICsSwMsg } from "./ExCsInterfaces.js";
-// import { getCredential } from "@esbuilt/signify_ts_shim.js";
 
 // Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
-
+//
 // Listen for and handle a new install or update of the extension
 chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.InstalledDetails) => {
     console.log("SW InstalledDetails: ", installDetails);

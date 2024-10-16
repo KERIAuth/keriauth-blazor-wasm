@@ -116,9 +116,6 @@
 		<None Include="..\.editorconfig" Link=".editorconfig" />
 	</ItemGroup>
 	<ItemGroup>
-		<None Update="wwwroot\KeriAuth.BrowserExtension.lib.module.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
 		<Content Update="wwwroot\sounds\beep.mp3">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>

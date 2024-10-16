@@ -1,11 +1,6 @@
-﻿using System.Text;
-using System.Text.Json;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+﻿using KeriAuth.BrowserExtension.Models;
 using Microsoft.JSInterop;
-using System.Threading.Tasks;
-using System.Text.Json.Serialization;
-using System;
-using KeriAuth.BrowserExtension.Models;
+using System.Text.Json;
 
 namespace KeriAuth.BrowserExtension.Services
 {

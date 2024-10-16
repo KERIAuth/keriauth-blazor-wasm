@@ -1,8 +1,3 @@
-using Xunit;
-using System;
-using System.Collections.Generic;
-using System.Web;
-using Xunit;
 using KeriAuth.BrowserExtension.Helper;
 
 namespace KeriAuth.BrowserExtension.Tests.Helper

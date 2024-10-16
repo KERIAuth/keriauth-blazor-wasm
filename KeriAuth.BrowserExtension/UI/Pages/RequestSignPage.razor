@@ -364,7 +364,7 @@
             {
                 var errMsg = "KeriAuth could not deserialize signedRequestResult";
                 logger.LogError("SignRequest error: {e}", errMsg);
-                var replyMessageDataErr = new ReplyMessageData<SignedRequestResult>("/signify/reply", null, requestId2, null, errMsg);
+                var replyMessageDataErr = new ReplyMessageData<SignedRequestResult>("/signify/reply", null!, requestId2, null, errMsg);
                 await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(replyMessageDataErr);
             }
             else
