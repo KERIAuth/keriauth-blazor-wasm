@@ -79,7 +79,9 @@
                                   For="@(() => configuredPasscodeModel.Passcode)"
                                   Immediate="true"
                                   OnBlur="@HandleOnBlur" />
-                    <!-- TODO consider adding a Loading Button while connecting. See https://mudblazor.com/components/button#loading-button -->
+
+                    // TODO P3 consider adding a Loading Button while connecting. See https://mudblazor.com/components/button#loading-button
+
                     <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await StoreHashAndConnect())" Disabled="@(!IsValidNewInfo || IsKeriaConfigured() )" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
@@ -89,7 +91,7 @@
                                   @bind-Value="@RandomPasscode"
                                   ReadOnly="true"
                                   Immediate="true" />
-                    <!-- TODO implmement Reveal and CopyToClipboard -->
+                    // TODO P4 implmement Reveal and CopyToClipboard
                     <MudCheckBox @bind-Value="isPasscodeCopyConfirmed" Style="overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
                     @if (isPasscodeCopyConfirmed)
                     {
@@ -186,7 +188,8 @@
     struct Preset
     {
         public string ProviderName { get; init; }
-        public string AgentUrl { get; init; }  // TODO here and in the UI is it Agent or Admin?
+        public string AgentUrl { get; init; }
+        // TODO P3 naming here and in the UI is it Agent or Admin URL?
         public string BootUrl { get; init; }
 
         public Preset(string provider, string adminUrl, string bootUrl)
@@ -263,9 +266,10 @@
         ops3BootAndConnect.Reset();
         ops5CreatePersonalAid.Reset();
         ops4ListAids.Reset();
-        if (IsValidURLs) // TODO EE! should to a more thorough check of other conditions. See what enables the button(s)
+        // TODO P1 should do a more thorough check of other conditions. See what enables the button(s)
+        if (IsValidURLs)
         {
-            // TODO since BootUrl is optional, we should check if AdminUrl is reachable
+            // TODO P4 since BootUrl is optional, we should check if AdminUrl is reachable
             // check if BootUrl is reachable.
             ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
@@ -281,11 +285,11 @@
             ops1LivenessCheck.SetCompletedWithoutErrors();
             StateHasChanged();
 
-            // TODO since BootUrl is optional, we should check if AdminUrl is reachable
+            // TODO P4 since BootUrl is optional, we should check if AdminUrl is reachable
             // check if KERIA is reporting as healthy
             ops2HealthCheck.SetIsRunning();
             StateHasChanged();
-            // TODO move this into service code
+            // TODO P3 move this into service code
             var httpClientService2 = new HttpClientService(new HttpClient());
             var postResult2 = await httpClientService2.GetJsonAsync<String>($"{urlModel.BootUrl}/health");
             if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
@@ -386,11 +390,12 @@
                 return;
             }
             await stateService.Configure();
-            await stateService.Authenticate(true); // TODO EE! temporary location here, to enable testing
-                                                   // TODO EE! reactive effects of stateservice should disable the Connect button and enable the Next button??
-                                                   // navManager.NavigateTo("Home");
+            await stateService.Authenticate(true);
+            // TODO P3 temporary location here, to enable testing
+            // TODO P3 reactive effects of stateservice should disable the Connect button and enable the Next button??
+            // navManager.NavigateTo("Home");
         }
-        // TODO EE! else show Error message
+        // TODO P3 else show Error message
     }
 
     private bool IsValidURLs
@@ -410,19 +415,19 @@
 
     private class UrlModel
     {
-        // TODO add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
+        // TODO P2 add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
 
         [Required]
         [Url(ErrorMessage = "Enter KERIA Agent Admin URL")]
         public string AdminUrl { get; set; } = AppConfig.DefaultKeriaAdminUrl;
 
-        // TODO should be optional or nullableSCrqAIjxIWIoFCe2zpRMq
+        // TODO P4 should be optional or nullable?
         [Required]
         [Url(ErrorMessage = "Enter KERIA Boot URL")]
         public string BootUrl { get; set; } = AppConfig.DefaultKeriaBootUrl;
     }
 
-    // TODO DRY with UnlockView
+    // TODO P3 DRY with UnlockView
     private class PasscodeModel
     {
         [Required]

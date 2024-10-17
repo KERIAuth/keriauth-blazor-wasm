@@ -68,7 +68,7 @@ const UIHelper = () => {
 
     const getChromeContexts = async (): Promise<string> => {
         if (chrome && chrome.runtime && chrome.runtime.getContexts) {
-            // TODO currently assumes POPUP contexts.  Should expand to other UI contexts and distinguish when there is a general action POPUP vs a popup for a specific website tabId.
+            // TODO P3 currently assumes POPUP contexts.  Should expand to other UI contexts and distinguish when there is a general action POPUP vs a popup for a specific website tabId.
             var c = await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.POPUP ]});
             console.log('chrome.runtime.getContexts: ', c);
             console.log('chrome.runtime.getContexts: ', JSON.stringify(c));

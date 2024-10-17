@@ -51,7 +51,7 @@ export const bootAndConnect = async (
     });
     const state = await getState();
     console.debug(`signify_ts_shim: bootAndConnect: connected`);
-    console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO throw exception?
+    console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO P2 throw exception?
 
     return objectToJson(_client);
 };
@@ -85,7 +85,7 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
 
     const state = await getState();
     console.debug(`signify_ts_shim: connect: connected`);
-    console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO throw exception?
+    console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO P2 throw exception?
 
     return objectToJson(_client);
 };
@@ -115,7 +115,7 @@ export async function createAID(
         const id: string = op2.response.i;
         console.log("signify_ts_shim: createAID id: " + id);
         return id;
-        // TODO expand to also return the OOBI.  See test-setup.ts
+        // TODO P3 expand to also return the OOBI.  See test-setup.ts
     }
     catch (error) {
         console.error(error);
@@ -127,7 +127,7 @@ export const getAIDs = async () => {
     validateClient();
     const client: SignifyClient = _client!;
     const managedIdentifiers = await client.identifiers().list();
-    // TODO: unclear what should be returned and its type
+    // TODO P3 unclear what should be returned and its type
     const identifierJson: string = JSON.stringify(managedIdentifiers);
     console.debug("signify_ts_shim: getAIDs: ", managedIdentifiers);
     return identifierJson;
@@ -150,7 +150,7 @@ export const getAID = async (name: string): Promise<string> => {
 
 export async function getCredentialsList(
     // filter: object
-): Promise<string> {  // TODO : define the return type
+): Promise<string> {  // TODO P3 define the return type?
     try {
         validateClient();
         const client: SignifyClient = _client!;
@@ -198,7 +198,7 @@ export const getSignedHeaders = async (
     headers: Headers,
     aidName: string,
 ): Promise<any> => {
-    // TODO not that headers won't be printable this way:
+    // TODO P3 note that headers won't be printable this way:
     console.log("getSignedHeaders: params: ", origin, " ", rurl, " ", method, " ", headers, " ", aidName);
     
     // in case the client is not connected, try to connect
@@ -216,7 +216,7 @@ export const getSignedHeaders = async (
     //    throw new Error("Session not found");
     //}
     try {
-        // TODO note that headers won't be printable this way:
+        // TODO P3 note that headers won't be printable this way:
         console.log("getSignedHeaders: createSignedRequest args:", aidName, rurl, method, headers);
         const signedRequest: Request = await client.createSignedRequest(aidName, rurl, {
             method,
@@ -225,7 +225,7 @@ export const getSignedHeaders = async (
         //resetTimeoutAlarm();
         console.log("getSignedHeaders: signedRequest:", signedRequest);
 
-        // TODO move into utility function for printing headers
+        // TODO P4 move into utility function for printing headers
         // Log each header for better visibility
         if (signedRequest.headers) {
             console.warn("getSignedHeaders: signedRequest.headers details:");
@@ -275,55 +275,6 @@ export function parseHeaders(headersJson: string | null): Headers {
     }
 }
 
-
-//[JSImport("getSignedHeadersWithJsonHeaders", "signify_ts_shim")]
-//        internal static partial Task < string > GetSignedHeadersWithJsonHeaders(string origin, string rurl, string method, string jsonHeaders, string aidName);
-//    }
-// Returns a json string of signed Headers
-/*
-export const getSignedHeadersWithJsonHeaders = async (
-    origin: string,
-    rurl: string,
-    method: string,
-    headersJson: string,
-    aidName: string,
-): Promise<string> => {
-    try {
-        console.log("getSignedHeadersWithJsonHeaders: ", origin, " ", rurl, " ", method, " ", headersJson, " ", aidName);
-        const initialHeaders: Headers = parseHeaders(headersJson);
-        // TODO to confirm headers parsing, iterate and print these, but expect these to be {} at current stage of development.
-        console.log("getSignedHeadersWithJsonHeaders initialHeaders: ", initialHeaders);
-
-        // Call the original getSignedHeaders function with the parsed initialHeaders
-        const signedRequest: Request = await getSignedHeaders(
-            origin,
-            rurl,
-            method,
-            initialHeaders,
-            aidName,
-        );
-        console.log("getSignedHeadersWithJsonHeaders signedHeaders: ", signedRequest);
-
-        // Convert the returned Headers object back into a plain object for JSON serialization
-        const signedHeadersJson = headersToJsonBase64(signedRequest?.headers);
-        
-        
-        //const headersPlainObject: { [key: string]: string } = { };
-        //signedRequest.forEach((value: string, key: string) => {
-        //    headersPlainObject[key] = value;
-        //});
-
-        // Return the plain object as a JSON string
-        // return signedHeadersJson; // JSON.stringify(headersPlainObject);
-    return signedHeadersJson;
-    } catch (error) {
-        // Handle errors (e.g., invalid JSON, issues with the request)
-        console.error("Error occurred:", error);
-        return JSON.stringify(error);
-    }
-}
-*/
-
 function headersToJsonBase64(headers: Headers): string {
     // Step 1: Convert Headers to a key-value object
     const headersObject: { [key: string]: string } = {};
@@ -339,7 +290,6 @@ function headersToJsonBase64(headers: Headers): string {
 
     return base64String;
 }
-
 
 // from https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/config/types.ts
 interface ISignin {

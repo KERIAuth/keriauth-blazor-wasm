@@ -116,7 +116,7 @@
             await OpenWalletWithPasscode(unlockPasscodeModel.Passcode);
     }
 
-    // TODO DRY with ConfigureView
+    // TODO P3 DRY with ConfigureView
     private class PasscodeModel
     {
         [Required]
@@ -133,7 +133,8 @@
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
         {
-            logger.LogWarning($"TODO Hack: Unexpected AppState {currentState}");
+            // TODO P3: This should not happen. Log and handle better
+            logger.LogWarning($"Unexpected AppState {currentState}");
             await stateService.Initialize();
             await stateService.Configure();
         }
@@ -156,7 +157,7 @@
         {
             await stateService.Authenticate(false);
             // IsLocked = false;
-            // TODO: Start showing a spinner here?
+            // TODO P3 Start showing a spinner here?
             var res = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             logger.LogInformation("res: " + res);
             if (res is null || res.IsFailed)

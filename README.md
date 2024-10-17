@@ -126,7 +126,7 @@ The following rules are enforced by design to ensure the security of the extensi
 We especially appreciate the contributors of following libraries we use:
 * [WebOfTrust/signify-ts](https://github.com/webOfTrust/signify-ts/) by WebOfTrust
 * [mingyaulee/Blazor.BrowserExtension](https://github.com/mingyaulee/Blazor.BrowserExtension) by mingyaulee
-<!-- TODO See acknowledgements file for other 3rd parties utilized -->
+<!-- TODO P2 See acknowledgements file for other 3rd parties utilized -->
 
 <hr/>
 

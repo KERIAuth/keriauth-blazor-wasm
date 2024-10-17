@@ -16,7 +16,7 @@ namespace KeriAuth.BrowserExtension.Services
         public HttpClientService(HttpClient httpClient)
         {
             _httpClient = httpClient;
-            logger = new Logger<HttpClientService>(new LoggerFactory()); // TODO P4: insert via DI
+            logger = new Logger<HttpClientService>(new LoggerFactory()); // TODO P4 insert via DI
 
             // Define a timeout policy that times out after 2 seconds.
             var timeoutDuration = TimeSpan.FromSeconds(2);
@@ -76,7 +76,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         public async Task<Result<HttpResponseMessage>> GetJsonAsync<TResponse>(string url)
         {
-            TimeSpan timeout = TimeSpan.FromSeconds(3);  // TODO P2. Consider making this configurable and also providing an external cts Source. Apply pattern elsewhere.
+            TimeSpan timeout = TimeSpan.FromSeconds(3);  // TODO P2 Consider making this configurable and also providing an external cts Source. Apply pattern elsewhere.
             HttpResponseMessage httpResponseMessage;
             using var cts = new CancellationTokenSource(timeout);
             try

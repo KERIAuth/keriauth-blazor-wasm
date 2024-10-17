@@ -34,7 +34,7 @@ export const SwAppInteropModule = {
 
             port.onMessage.addListener((message) => {
                 console.log("SwAppInterop received port message: ", message);
-                // TODO EE! fromApp vs fromServiceWorker?
+                // TODO P2 message types fromApp vs fromServiceWorker?
                 if (message && message.type === SwCsMsgType.FSW) {
                     dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
                 }
@@ -58,7 +58,7 @@ export const SwAppInteropModule = {
             // depending on type, re-parse and process 
             switch (payloadTypeName) {
                 case "CancelResult":
-                    // TODO AuthroizeResult type is the closest match to CancelResult at the moment.
+                    // TODO P2 AuthorizeResult type is the closest match to CancelResult at the moment.
                     const msgCancelResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
                     console.log("SwAppInteropModule.sendMessageToServiceWorker messageData3: ", msgCancelResult);
                     port.postMessage(msgCancelResult);

@@ -144,7 +144,8 @@
         SelectedAid = value.SelectedAid;
         SelectedAlias = "";
         SelectedIdenticon = "";
-        var res = await identifiersService.GetIdentifierHeadlines(); // TODO needed to populate the cache, to enable GetIdentifierService ?
+        var res = await identifiersService.GetIdentifierHeadlines(); 
+        // TODO P3 above needed to populate the cache, to enable GetIdentifierService ?
         if (res is not null && res.IsSuccess)
         {
             var headline = res.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedAid).First();

@@ -114,8 +114,7 @@
 
 
     <!-- MENU DRAWER AND MAIN CONTENT -->
-    @{
-        /* TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting */
+    @{ // TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting 
     }
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex;">
         <!--  background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">  -->
@@ -191,7 +190,7 @@
     DrawerVariant DrawerMode { get; set; }
     IdleAlarm? idleAlarm;
 
-    // TODO: Implement instead the newer [JSExport] attribute? See https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/import-export-interop?view=aspnetcore-8.0
+    // TODO P3 Implement instead the newer [JSExport] attribute? See https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/import-export-interop?view=aspnetcore-8.0
     [JSInvokable]
     public Task ResetInactivityTimer()   // this method name needs to match the JS literal that invokes this
     {
@@ -219,7 +218,7 @@
 
     private async Task RefreshConnect()
     {
-        // TODO not yet implemented
+        // TODO P3 not yet implemented
         snackbar.Add("Refreshing connection...", Severity.Info);
         await Task.Delay(0);
     }
@@ -378,7 +377,7 @@
                 break;
         }
 
-        // TODO P2: update this to use chrome.runtime.getManifest()
+        // TODO P2 update this to use chrome.runtime.getManifest()
         // Get version info from Manifest file
         const string manifestFilePath = "./manifest.json";
         var manifestData = await http.GetFromJsonAsync<ManifestData>(manifestFilePath);
@@ -417,7 +416,7 @@
     void UpdateDrawerMode(DrawerVariant oldDrawerMode, Preferences prefs)
     {
         // set drawerMode based on environment and preferences
-        // TODO move this drawerMode code
+        // TODO P4 move this drawerMode code
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.Iframe:
@@ -434,7 +433,7 @@
         // if the drawer mode has changed, update the UI to reasonable drawer state
         if (oldDrawerMode != DrawerMode)
         {
-            // TODO this might be better if dependant on (oldDrawerMode, drawerMode, isMenuDrawerOpen)
+            // TODO P4 this might be better if dependant on (oldDrawerMode, drawerMode, isMenuDrawerOpen)
             switch (DrawerMode)
             {
                 case DrawerVariant.Mini:
@@ -451,7 +450,7 @@
                     break;
             }
         }
-        // TODO persiste the isMenuDrawerOpen state in preferences if Persistence drawer mode is selected. Depends on ExtensionEnvironment.
+        // TODO P4 persist the isMenuDrawerOpen state in preferences if Persistence drawer mode is selected. Depends on ExtensionEnvironment.
         // For now, just assume the following:
         if (DrawerMode == DrawerVariant.Persistent && extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.None)
         {
@@ -493,7 +492,7 @@
     async Task OpenTabAndClosePopUp()
     {
         await UIHelper.NewTabAndClosePopup();
-        await Task.Delay(8000);  // TODO this will go out of scope when the popup closes.  This is a temporary workaround.
+        await Task.Delay(8000);  // TODO P3 this will go out of scope when the popup closes.  This is a temporary workaround.
         return;
     }
 
@@ -545,6 +544,6 @@
         navManager.NavigateTo(RouteToChat);
     }
 
-    // TODO why not make this always get the current state from stateService?
+    // TODO P3 why not make this always get the current state from stateService?
     public static IStateService.States CurrentState { get; set; } = IStateService.States.Unknown;
 }

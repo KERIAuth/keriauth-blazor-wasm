@@ -123,7 +123,7 @@
                                             <MudTd Class="py-0 my-0">@context.Weight / @context.GroupThreshold</MudTd>
                                             <MudTd Class="py-0 my-0">
                                                 @{
-                                                    /* TODO could we know in advance what the aid would be? */
+                                                    // TODO P3 could we know in advance what the aid would be?
                                                 }
                                                 <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                             </MudTd>
@@ -178,7 +178,7 @@
                                             <MudTd Class="py-0 my-0">
                                                 @if (@context.PubKey == @Elements2.First().PubKey)
                                                 {
-                                                    // TODO: remove hack that shows action only on first row as an example
+                                                    // TODO P2 remove hack that shows action only on first row as an example
                                                     <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Initiate Update</MudButton>
                                                 }
                                             </MudTd>

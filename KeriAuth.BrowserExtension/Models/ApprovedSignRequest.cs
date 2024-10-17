@@ -18,7 +18,7 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("selectedName")]
         public string SelectedName { get; init; }
-                
+
         public ApprovedSignRequest(string origin, string requestUrl, string requestMethod, Dictionary<string, string>? initHeaders, string selectedName)
         {
             Origin = origin;

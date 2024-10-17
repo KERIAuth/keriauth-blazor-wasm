@@ -2,11 +2,8 @@
 using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
-using System.Text;
 using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
 using Group = KeriAuth.BrowserExtension.Services.SignifyService.Models.Group;

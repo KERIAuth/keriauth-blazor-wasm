@@ -48,7 +48,7 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
 
         [Theory]
         [InlineData("")]
-        // [InlineData(null)] // TODO adjust code so this test passes?
+        // [InlineData(null)] // TODO P4 adjust code so this test passes?
         public void HashInt_HandlesNullOrEmptyInput(string input)
         {
             // Act

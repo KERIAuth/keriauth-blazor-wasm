@@ -29,7 +29,7 @@ import {
 // Function to generate a unique and unguessable identifier for the port name for communications between the content script and the extension
 function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
-    window.crypto.getRandomValues(array); // TODO consider randumUUID() instead
+    window.crypto.getRandomValues(array); // TODO P4 consider randumUUID() instead
     return Array.from(array, dec => ('00000000' + dec.toString(16)).slice(-8)).join('-');
 }
 
@@ -37,7 +37,7 @@ function generateUniqueIdentifier(): string {
 const uniquePortName: string = generateUniqueIdentifier();
 
 function advertiseToPage(): void {
-    // TODO the following should be typed and ideally imported from PageCsInterfaces
+    // TODO P2 the following should be typed and ideally imported from PageCsInterfaces
     const msg = {
         type: SwCsMsgType.SE,
         data: { extensionId: String(chrome.runtime.id) },
@@ -53,7 +53,7 @@ function postMessageToPage<T>(msg2: T): void {
 
 // Handle messages from the extension
 function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chrome.runtime.Port): void {
-    // TODO move this into its own function for readability
+    // TODO P3 move this into its own function for readability
     console.log("KeriAuthCs from SW:", message);
 
     if (message.type) {
@@ -75,7 +75,7 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
                 payload: message.payload,
                 error: message.error,
                 source: CsToPageMsgIndicator,
-                rurl: "" // TODO rurl should not be fixed
+                rurl: "" // TODO P2 rurl should not be fixed
             }
             postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
             break;
@@ -103,17 +103,17 @@ document.addEventListener('DOMContentLoaded', (event) => {
         // clean up resources
         // error handle if this disconnect is unexpected
         // reconneciton logic
-        // TODO implement reconnection logic, but now with a new uniquePortName?
+        // TODO P2 implement reconnection logic, but now with a new uniquePortName?
     });
 
     // Send a hello message to the service worker (versus waiting on a triggering message from the page)
-    // TODO use a constructor for the message object
+    // TODO P3 use a constructor for the message object
     const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
     console.log("KeriAuthCs to SW:", helloMsg);
     port.postMessage(helloMsg);
 
     // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
-    // TODO hack - find a more deterministic approach vs delay?
+    // TODO P3 hack - find a more deterministic approach vs delay?
     setTimeout(advertiseToPage, 500);
 });
 
@@ -149,7 +149,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
                 try {
                     if (event.data.payload?.headers) {
-                        // TODO create a headers print utility function
+                        // TODO P3 create a headers print utility function
                         console.log("KeriAuthCs from page payload headers: ");
                         const hs: Headers = event.data.payload?.headers;
                         for (const key in hs) {
@@ -172,12 +172,12 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
 
             case "/signify/get-session-info":
                 console.log(`KeriAuthCs from page: ${event.data.type} sessions not implemented`);
-                // TODO implement sessions
+                // TODO P2 implement sessions?
                 postMessageToPage<object>({
                     type: "/signify/reply",
                     error: { code: 501, message: "KERIAuth sessions not supported" },
                     requestId: event?.data?.requestId,
-                    rurl: "", // TODO rurl should not be fixed
+                    rurl: "", // TODO P2 rurl should not be fixed
                     source: CsToPageMsgIndicator
                 });
                 break;
@@ -188,7 +188,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     type: "/signify/reply",
                     error: { code: 501, message: "KERIAuth sessions not supported" },
                     requestId: event?.data?.requestId,
-                    rurl: "", // TODO rurl should not be fixed
+                    rurl: "", // TODO P2 rurl should not be fixed
                     source: CsToPageMsgIndicator
                 });
                 break;

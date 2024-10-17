@@ -1,9 +1,9 @@
 ﻿/// <reference types="chrome" />
 
-// TODO Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
+// TODO P0 Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
 // import * as _ from "/content/Blazor.BrowserExtension/lib/browser-polyfill.min.js";
 
-// TODO Prior to release, cache management needs to be more explicit in order to avoid
+// TODO P2 Prior to release, cache management needs to be more explicit in order to avoid
 // using cache from prior releases, etc. See advice in
 // https://www.oreilly.com/library/view/building-progressive-web/9781491961643/ch04.html
 
@@ -97,7 +97,7 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
 let popupWindow: chrome.windows.Window | null = null;
 
 // If a popup window is already open, bring it into focus; otherwise, create a new one
-// TODO: each popupWindow should be associated with a tab?  Add a tabId parameter?
+// TODO P3 each popupWindow should be associated with a tab?  Add a tabId parameter?
 function usePopupWindow() {
     console.log("SW usePopupWindow");
     if (popupWindow && popupWindow.id) {
@@ -116,7 +116,7 @@ function usePopupWindow() {
 }
 
 // Create a new popup window (versus an action popup)
-// TODO: each popupWindow should be associated with a tab?  Add a tabId parameter?
+// TODO P3 each popupWindow should be associated with a tab?  Add a tabId parameter?
 function createPopupWindow() {
     console.log("SW createPopupWindow");
     // TODO P3 Rather than having a fixed position, it would be better to compute this left position
@@ -153,7 +153,7 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     chrome.action.openPopup()
         .then(() => console.log("SW useActionPopup succeeded"))
         .catch((err) => {
-            // TODO: this error from openPopup() seems to throw even when the popup is opened successfully, perhaps due to a timing issue.  Ignoring for now.
+            // TODO P2 this error from openPopup() seems to throw even when the popup is opened successfully, perhaps due to a timing issue.  Ignoring for now.
             // console.warn(`SW useActionPopup dropped. Was already open?`, err);
         });
     // Clear the popup url for the action button, if it is set, so that future use of the action button will also trigger this same handler
@@ -175,7 +175,7 @@ async function isWindowOpen(windowId: number): Promise<boolean> {
 }
 
 function serializeAndEncode(obj: any): string {
-    // TODO assumes the payload obj is simple
+    // TODO P2 assumes the payload obj is simple
     const jsonString: string = JSON.stringify(obj);
     const encodedString: string = encodeURIComponent(jsonString);
     return encodedString;
@@ -185,29 +185,27 @@ function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
     console.log("SW handleSignRequest: ", payload);
 
-    // TODO EE should check if a popup is already open, and if so, bring it into focus.
+    // TODO P3 should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
         const tabId = Number(csTabPort.sender.tab.id);
         //chrome.action.setBadgeText({ text: "3", tabId: tabId });
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        // TODO Could alternately implement the payload passing via messaging versus the URL
-        // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
+        // TODO P3 Could alternately implement the payload passing via messaging versus the URL
+        // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
 
-        // TODO EE! add msgRequestId
+        // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", payload, "origin: ", jsonOrigin);
 
-        // TODO EE! may need to serialize payload.headers explicitly.
+        // TODO P1 may need to serialize payload.headers explicitly.
         // Consider these:
         // origin: getDomainFromUrl(url!),
         // rurl: payload.url,
         // method: payload.method,
         // headers: payload.headers,
-        
 
         const encodedMsg = serializeAndEncode(payload);
-
 
         try {
             useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SignRequest" }]);
@@ -220,20 +218,20 @@ function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
 
 
 // Handle the web page's (Cs's) request for user to select an identifier
-// TODO EE! define type for msg
+// TODO P2 define type for msg
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the msg
     console.log("SW handleSelectIdentifier: ", msg);
-    // TODO EE should check if a popup is already open, and if so, bring it into focus.
+    // TODO P3 should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
         const tabId = Number(csTabPort.sender.tab.id);
         //chrome.action.setBadgeText({ text: "3", tabId: tabId });
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        // TODO Could alternately implement the msg passing via messaging versus the URL
-        // TODO should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
+        // TODO P1 Could alternately implement the msg passing via messaging versus the URL
+        // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
 
-        // TODO EE! add msgRequestId
+        // TODO P1 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
 
@@ -288,7 +286,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     const cSPortNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     if (cSPortNamePattern.test(connectedPort.name)) {
         const cSPort: chrome.runtime.Port = connectedPort;
-        // TODO test and update assumptions of having a longrunning port established, especially when sending.  With back-forward cache (bfcache), ports can get suspended or terminated, leading to errors such as:
+        // TODO P2 test and update assumptions of having a longrunning port established, especially when sending.  With back-forward cache (bfcache), ports can get suspended or terminated, leading to errors such as:
         // "Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the msg channel is closed."
         console.log(`SW with CS via port`, cSPort);
 
@@ -298,7 +296,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
         if (connectedPort.name.substring(0, 8) === "blazorAppPort".substring(0, 8)) {
-            // TODO react to port names that are more descriptive and less likely to conflict if multiple Apps are open
+            // TODO P3 react to port names that are more descriptive and less likely to conflict if multiple Apps are open
             // On the first connection, associate this port from the Blazor App with the port from the same tabId?
 
             const appPort = connectedPort;
@@ -309,14 +307,14 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                 url = appPort.sender.url;
             }
             // console.log(`SW from App: url:`, url);
-            const authority = getAuthorityFromOrigin(url);  // TODO why not use origin string directly?
+            const authority = getAuthorityFromOrigin(url);  // TODO P3 why not use origin string directly?
             console.log(`SW from App: authority:`, authority);
 
             // Update the pageCsConnections list with the URL's authority, so the SW-CS and SW-App pageCsConnections can be associated
             pageCsConnections[appPort.name].pageAuthority = authority || "unknown";
             // console.log(`SW from App: pageCsConnections:`, pageCsConnections);
 
-            // Find the matching connection based on the page authority. TODO should this also be based on the tabId?
+            // Find the matching connection based on the page authority. TODO P3 should this also be based on the tabId?
             const cSConnection = findMatchingConnection(pageCsConnections, appPort.name)
             console.log(`SW from App connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
@@ -350,10 +348,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string): Promise<void> {
 
     console.log(`SW from App message, port:`, message, appPort);
-    // TODO check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
+    // TODO P3 check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
 
     // Send a response to the KeriAuth App
-    // TODO EE! this seems like active feedback?
+    // TODO P1 this seems like active feedback?
     appPort.postMessage({ type: SwCsMsgType.FSW, data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate
@@ -365,11 +363,11 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 break;
             case "ApprovedSignRequest":
                 try {
-                    // TODO EE! don't hardcode agentUrl and passcode, but pass these in as an argument for now.
+                    // TODO P0 don't hardcode agentUrl and passcode, but pass these in as an argument for now.
                     const jsonSignifyClient = await connect("https://keria-dev.rootsid.cloud/admin", "Ap31Xt-FGcNXpkxmBYMQn");
                     // console.log("service-worker: ", message.type, ": connect: ", jsonSignifyClient);
                     const payload = message.payload;
-                    // TODO honor the initHeaders rather than a default empty here
+                    // TODO P1 the initHeaders rather than a default empty here
                     const headers = await getSignedHeaders(payload.origin, payload.requestUrl, payload.method, new Headers({}), payload.selectedName);
                     console.log("service-worker: signedRequest: ", headers);
                     //console.log("service-worker: signedRequest.headers: ");
@@ -381,7 +379,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         type: SwCsMsgType.REPLY,
                         requestId: message.requestId,
                         payload: { headers },
-                        rurl: ""  // TODO rurl should not be fixed
+                        rurl: ""  // TODO P2 rurl should not be fixed
                     };
                     console.log("SW from App: signedHeaderResult", signedHeaderResult);
                     cSConnection.port.postMessage(signedHeaderResult);
@@ -400,7 +398,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         type: SwCsMsgType.REPLY,
                         requestId: message.requestId,
                         payload: authorizeResultCredential,
-                        rurl: ""  // TODO rurl should not be fixed
+                        rurl: ""  // TODO P2 rurl should not be fixed
                     };
                     console.log("SW from App: authorizeResult", authorizeResult);
                     cSConnection.port.postMessage(authorizeResult);
@@ -430,7 +428,7 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
             case CsSwMsgType.SIGN_DATA:
-            // TODO request user to sign request
+            // TODO P2 request user to sign data (or request?)
             case CsSwMsgType.SIGN_REQUEST:
                 handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
@@ -438,7 +436,7 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
-                // TODO create a constructor and ts interface for the msg?
+                // TODO P3 create a constructor and ts interface for the msg?
                 const response: IExCsMsgHello = {
                     type: SwCsMsgType.HELLO,
                     requestId: message.requestId,

@@ -67,7 +67,7 @@
 
     List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
 
-    // TODO should be something like  get => ThisWebsiteConfig?.RememberedPrefixOrNothing == SelectedPrefix;
+    // TODO P2 should be something like  get => ThisWebsiteConfig?.RememberedPrefixOrNothing == SelectedPrefix;
     bool IsPrefixRemembered { get; set; }
     bool IsCredentialRemembered { get; set; }
     enum SignInMode { Credential, Identifier, Prompt }
@@ -78,7 +78,7 @@
     string SelectedPrefix { get; set; } = "unknown";
     string SelectedAidAlias { get; set; } = "unknown";
 
-    // TODO should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
+    // TODO P2 should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
     bool IsAutoSignIn { get; set; }
 
     WebsiteConfig? ThisWebsiteConfig { get; set; }
@@ -86,14 +86,14 @@
     async Task updateIsCredentialRemembered(bool isChecked)
     {
         IsCredentialRemembered = isChecked;
-        // TODO EE! See updateIsPrefixRemembered for how this should be implemented
+        // TODO P1 See updateIsPrefixRemembered for how this should be implemented
         await Task.Delay(0);
         return;
     }
 
     async Task updateIsPrefixRemembered(bool isChecked)
     {
-        // TODO implementation should just push an update into websiteConfigService, and rest be reactive to that.
+        // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
         IsPrefixRemembered = isChecked;
         Debug.Assert(GetOriginUri() is not null);
         var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
@@ -112,7 +112,7 @@
             else
             {
                 // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
-                // TODO: once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
+                // TODO P2 once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
                 IsAutoSignIn = false;
                 newWebsite = newWebsite with { RememberedPrefixOrNothing = null, AutoSignInChoice = AutoSignInMode.None };
             }
@@ -136,7 +136,7 @@
 
     async Task updateIsAutoSignIn(bool isChecked)
     {
-        // TODO implementation should just push an update into websiteConfigService, and rest be reactive to that.
+        // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
         IsAutoSignIn = isChecked;
         Debug.Assert(GetOriginUri() is not null);
         var result = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
@@ -146,7 +146,7 @@
         {
             if (isChecked)
             {
-                // TODO issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
+                // TODO P2 issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
                 // put this logic into service and simplify here once this UI is made responsive to an IObserver<WebsiteConfig>
                 IsPrefixRemembered = true;
                 newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.Identifier };
@@ -196,11 +196,11 @@
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
 
-        // TODO remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
+        // TODO P2 remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
-        // TODO add try-catch?
-        // TODO EE! decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
+        // TODO P1 add try-catch
+        // TODO P1 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
         {
             var decodedMsg = HttpUtility.UrlDecode(outterMessage);
@@ -217,7 +217,7 @@
             string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
 
             // Parse the JSON string
-            // TODO write exception handling around the following
+            // TODO P1 write exception handling around the following
             JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
             JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
             PayloadJson = payload.ToString();
@@ -289,7 +289,7 @@
         if (x.IsSuccess)
         {
             ThisWebsiteConfig = x.Value;
-            // TODO: update the getter for the following properties to use this
+            // TODO P2 update the getter for the following properties to use this
             IsPrefixRemembered = x.Value.RememberedPrefixOrNothing == SelectedPrefix;
             IsAutoSignIn = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
             StateHasChanged();
@@ -310,7 +310,7 @@
 
     private async Task getCredentials()
     {
-        // TODO implement filtering to show only the holder's credentials
+        // TODO P2 implement filtering to show only the holder's credentials
         // typescript:  client.credentials().list({ filter: { '-a-i': holderAid.prefix } })
         var res = await signifyClientService.GetCredentials();
         if (res.IsFailed || res.Value is null)
@@ -355,41 +355,7 @@
         ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
         await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
 
-        /*
-        var signedRequestResultJsonRes = await signifyClientService.SignRequestHeader(OriginStr, request.Url, request.Method, inputHeadersDict, SelectedName!);
-        if (signedRequestResultJsonRes.IsFailed || signedRequestResultJsonRes.Value is null)
-        {
-            logger.LogError("SignRequest: Error: {0}", signedRequestResultJsonRes.Errors);
-            return;
-        }
-        else
-        {
-            var signedRequestResultJson = signedRequestResultJsonRes.Value;
-            logger.LogInformation("SignRequest: replyMessageData: {r}", signedRequestResultJson);
-
-            var signedRequestResult = JsonSerializer.Deserialize<SignedRequestResult>(signedRequestResultJson);
-            if (signedRequestResult is null)
-            {
-                var errMsg = "KeriAuth could not deserialize signedRequestResult";
-                logger.LogError("SignRequest error: {e}", errMsg);
-                var replyMessageDataErr = new ReplyMessageData<SignedRequestResult>("/signify/reply", null!, requestId2, null, errMsg);
-                await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(replyMessageDataErr);
-            }
-            else
-            {
-                var replyMessageData = new ReplyMessageData<SignedRequestResult>(
-                    "/signify/reply",
-                    signedRequestResult,
-                    requestId2,
-                    null,
-                    "KeriAuth");
-                await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(replyMessageData);
-
-            }}
-            */
-
-        // TODO close is commented out to help with debugging
-        // UIHelper.CloseWindow();
+        UIHelper.CloseWindow();
     }
 
     async Task Cancel()
@@ -408,11 +374,11 @@
 
     public void Dispose()
     {
-        // TODO unsubscribe from services, observables
+        // TODO P4 unsubscribe from services, observables
         ;
     }
 
-    // TODO remove or create helper?
+    // TODO P4 remove or create helper?
     static bool IsJsonValid(string jsonString)
     {
         try
@@ -435,7 +401,7 @@
 
     protected override void OnInitialized()
     {
-        // SelectedCredential = new Dictionary<string, object>(); // TODO EE! this is a placeholder
+        // SelectedCredential = new Dictionary<string, object>();
     }
 
     private void ToggleExpand()

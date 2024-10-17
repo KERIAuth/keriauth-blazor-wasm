@@ -56,7 +56,7 @@ namespace KeriAuth.BrowserExtension.Models
 
     public record WebsiteInteraction
     {
-        // TODO P2: Implement this record
+        // TODO P2 Implement this record WebsiteInteraction
         // RequestingTabId
         // RequestingOrigin
         // RequestedAt
