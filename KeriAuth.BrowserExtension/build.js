@@ -14,57 +14,55 @@ import { fileURLToPath } from 'url';
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
-    console.log('Building signify_ts_shim bundle...');
-    esbuild.build({
-        entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
-        bundle: true,
-        minify: true,
-        outfile: 'wwwroot/scripts/esbuild/signify_ts_shim.js',
-        platform: 'browser',
-        format: 'esm',
-        plugins: [
-            alias({
-                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs')
-            })
-        ],
-        loader: {
-            '.ts': 'ts'
-        }
-    }).catch((error) => {
-        console.error(error);
-        process.exit(1)
-    });
+    try {
+        console.log('Building signify_ts_shim bundle...');
+        await esbuild.build({
+            entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
+            bundle: true,
+            minify: true,
+            outfile: 'wwwroot/scripts/esbuild/signify_ts_shim.js',
+            platform: 'browser',
+            format: 'esm',
+            plugins: [
+                alias({
+                    '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs')
+                })
+            ],
+            loader: {
+                '.ts': 'ts'
+            }
+        });
 
-    console.log('Building ContentScript bundle...');
-    esbuild.build({
-        entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
-        bundle: true,
-        minify: true,
-        outfile: 'wwwroot/scripts/esbuild/ContentScript.js',
-        platform: 'browser',
-        format: 'esm',
-        loader: {
-            '.ts': 'ts'
-        }
-    }).catch((error) => {
-        console.error(error);
-        process.exit(1)
-    });
+        console.log('Building ContentScript bundle...');
+        await esbuild.build({
+            entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
+            bundle: true,
+            minify: true,
+            outfile: 'wwwroot/scripts/esbuild/ContentScript.js',
+            platform: 'browser',
+            format: 'esm',
+            loader: {
+                '.ts': 'ts'
+            }
+        });
 
-    console.log('Building service-worker bundle...');
-    esbuild.build({
-        entryPoints: ['wwwroot/scripts/esbuild/service-worker.ts'],
-        bundle: true,
-        minify: true,
-        outfile: 'wwwroot/scripts/esbuild/service-worker.js',
-        platform: 'browser',
-        format: 'esm',
-        loader: {
-            '.ts': 'ts'
-        }
-    }).catch((error) => {
-        console.error(error);
-        process.exit(1)
-    });
+        console.log('Building service-worker bundle...');
+        await esbuild.build({
+            entryPoints: ['wwwroot/scripts/esbuild/service-worker.ts'],
+            bundle: true,
+            minify: true,
+            outfile: 'wwwroot/scripts/esbuild/service-worker.js',
+            platform: 'browser',
+            format: 'esm',
+            loader: {
+                '.ts': 'ts'
+            }
+        });
 
-}) ();
+        console.log('All builds completed successfully.');
+
+    } catch (error) {
+        console.error('Build failed:', error);
+        process.exit(1);
+    }
+})();
