@@ -46,7 +46,6 @@ try
 {
     // Adding imports of modules here for use via [JSImport] attributes in C# classes
     List<(string, string)> imports = [
-        // ("signify-ts", "/node_modules/signify-ts"),
         ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
         ("registerInactivityEvents", "/scripts/es6/registerInactivityEvents.js"),
         ("uiHelper", "/scripts/es6/uiHelper.js"),

@@ -38,7 +38,7 @@
 		<TrimmableAssembly Include="NBitcoin" />
 	</ItemGroup>
 	<ItemGroup>
-		<ServiceWorker Include="wwwroot\scripts\es6\service-worker.js" PublishedContent="wwwroot\scripts\es6\service-worker.js" />
+		<ServiceWorker Include="wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Blazor.BrowserExtension" Version="1.5.4" />
@@ -141,13 +141,13 @@
 		<TypeScriptCompile Update="wwwroot\scripts\es6\registerInactivityEvents.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\es6\service-worker.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\es6\uiHelper.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\esbuild\ContentScript.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</TypeScriptCompile>
+		<TypeScriptCompile Update="wwwroot\scripts\esbuild\service-worker.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
 	</ItemGroup>

@@ -1,5 +1,5 @@
 ﻿// build.js
-// This file is used to build the ESBuild bundle
+// This file is used to build the ESBuild bundle(s)
 // Not used by other tsc-built files
 
 import { strict } from 'assert';
@@ -50,4 +50,21 @@ import { fileURLToPath } from 'url';
         console.error(error);
         process.exit(1)
     });
+
+    console.log('Building service-worker bundle...');
+    esbuild.build({
+        entryPoints: ['wwwroot/scripts/esbuild/service-worker.ts'],
+        bundle: true,
+        minify: true,
+        outfile: 'wwwroot/scripts/esbuild/service-worker.js',
+        platform: 'browser',
+        format: 'esm',
+        loader: {
+            '.ts': 'ts'
+        }
+    }).catch((error) => {
+        console.error(error);
+        process.exit(1)
+    });
+
 }) ();

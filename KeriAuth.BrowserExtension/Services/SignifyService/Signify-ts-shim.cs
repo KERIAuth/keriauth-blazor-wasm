@@ -3,7 +3,7 @@ using System.Runtime.Versioning;
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService
 {
-    // keep the imported method and property names aligned with signify_ts_shim.ts
+    // Important: keep the imported method and property names aligned with signify_ts_shim.ts
     [SupportedOSPlatform("browser")]
     public partial class Signify_ts_shim
     {
@@ -28,13 +28,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         [JSImport("getCredential", "signify_ts_shim")]
         internal static partial Task<string> GetCredential(string id, bool includeCESR);
 
-        // Note JSObject is a dictionary-like object that can be passed to JS functions
-        [JSImport("getSignedHeadersWithJsonHeaders", "signify_ts_shim")]
-        internal static partial Task<string> GetSignedHeadersWithJsonHeaders(
-            string origin,
-            string rurl,
-            string method,
-            string headersJson,
-            string aidName);
+        // note that GetSignedHeaders has bugs when running in WASM.  See https://github.com/WebOfTrust/signify-ts/issues/284
     }
 }

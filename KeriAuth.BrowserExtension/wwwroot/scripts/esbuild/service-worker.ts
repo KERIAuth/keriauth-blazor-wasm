@@ -8,9 +8,10 @@
 // https://www.oreilly.com/library/view/building-progressive-web/9781491961643/ch04.html
 
 import MessageSender = chrome.runtime.MessageSender;
-import { Utils } from "./uiHelper.js";
-import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "./ExCsInterfaces.js";
-import { ICsSwMsg } from "./ExCsInterfaces.js";
+import { Utils } from "../es6/uiHelper.js";
+import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
+import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
+import { connect, getSignedHeaders } from "./signify_ts_shim.js";
 
 // Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
@@ -183,8 +184,6 @@ function serializeAndEncode(obj: any): string {
 function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
     console.log("SW handleSignRequest: ", payload);
-    // TODO EE! temporary placeholder. Should request user to sign request
-
 
     // TODO EE should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
@@ -199,7 +198,16 @@ function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", payload, "origin: ", jsonOrigin);
 
+        // TODO EE! may need to serialize payload.headers explicitly.
+        // Consider these:
+        // origin: getDomainFromUrl(url!),
+        // rurl: payload.url,
+        // method: payload.method,
+        // headers: payload.headers,
+        
+
         const encodedMsg = serializeAndEncode(payload);
+
 
         try {
             useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SignRequest" }]);
@@ -354,6 +362,34 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
         switch (message.type) {
             case SwCsMsgType.REPLY:
                 cSConnection.port.postMessage(message);
+                break;
+            case "ApprovedSignRequest":
+                try {
+                    // TODO EE! don't hardcode agentUrl and passcode, but pass these in as an argument for now.
+                    const jsonSignifyClient = await connect("https://keria-dev.rootsid.cloud/admin", "Ap31Xt-FGcNXpkxmBYMQn");
+                    // console.log("service-worker: ", message.type, ": connect: ", jsonSignifyClient);
+                    const payload = message.payload;
+                    // TODO honor the initHeaders rather than a default empty here
+                    const headers = await getSignedHeaders(payload.origin, payload.requestUrl, payload.method, new Headers({}), payload.selectedName);
+                    console.log("service-worker: signedRequest: ", headers);
+                    //console.log("service-worker: signedRequest.headers: ");
+                    //headers.headers.forEach((value, key) => {
+                    //    console.log(`service-worker:   ${key}: ${value}`);
+                    //});
+
+                    const signedHeaderResult = {
+                        type: SwCsMsgType.REPLY,
+                        requestId: message.requestId,
+                        payload: { headers },
+                        rurl: ""  // TODO rurl should not be fixed
+                    };
+                    console.log("SW from App: signedHeaderResult", signedHeaderResult);
+                    cSConnection.port.postMessage(signedHeaderResult);
+                    break;
+                }
+                catch(error) {
+                    console.error("Sw from App: service-worker: ApprovedSignRequest: ", error);
+                }
                 break;
             case "/KeriAuth/signify/replyCredential":
                 try {

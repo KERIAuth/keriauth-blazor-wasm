@@ -127,3 +127,12 @@ export interface ISignin {
 }
 
 // TODO Add constructors here for the various message interfaces, to ensure they are properly formatted and optional null value combos are assured valid.
+
+export interface ApprovedSignRequest {
+    originStr: string;
+    rUrl: string;
+    rMethod: string;
+    // TODO EE! lossless during serialization?
+    initHeadersDict?: Map<string, string>;
+    selectedName: string;
+}

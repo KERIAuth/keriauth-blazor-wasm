@@ -346,8 +346,16 @@
         }
         logger.LogInformation("SignRequest: request: {d}", request.ToString());
 
-        var inputHeadersDict = new Dictionary<string, string>();
+        // var inputHeadersDict = new Dictionary<string, string>();
 
+        // create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and them to content script
+        if (SelectedName is null)
+            throw new Exception("SelectedName must not be null here");
+        ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url,request.Method, null, SelectedName!);
+        ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
+        await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
+
+        /*
         var signedRequestResultJsonRes = await signifyClientService.SignRequestHeader(OriginStr, request.Url, request.Method, inputHeadersDict, SelectedName!);
         if (signedRequestResultJsonRes.IsFailed || signedRequestResultJsonRes.Value is null)
         {
@@ -370,16 +378,18 @@
             else
             {
                 var replyMessageData = new ReplyMessageData<SignedRequestResult>(
-                    "/signify/reply", 
-                    signedRequestResult, 
-                    requestId2, 
-                    null, 
+                    "/signify/reply",
+                    signedRequestResult,
+                    requestId2,
+                    null,
                     "KeriAuth");
                 await appSwMessagingService.SendToServiceWorkerAsync<SignedRequestResult>(replyMessageData);
-                // TODO close commented out to help with debugging
-                // UIHelper.CloseWindow();
-            }
-        }
+
+            }}
+            */
+
+        // TODO close is commented out to help with debugging
+        // UIHelper.CloseWindow();
     }
 
     async Task Cancel()

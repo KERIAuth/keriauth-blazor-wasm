@@ -28,7 +28,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
             catch (Exception ex)
             {
-                logger.LogError($"Failed to import JS module: {ex.Message}");
+                logger.LogError("Failed to import JS module: {e}", ex.Message);
             }
         }
 
@@ -70,8 +70,6 @@ namespace KeriAuth.BrowserExtension.Services
             }
             return new Unsubscriber(observers, observer);
         }
-
-
 
         private void OnNext(string value)
         {

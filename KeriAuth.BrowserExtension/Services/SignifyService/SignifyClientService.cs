@@ -340,12 +340,15 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         {
             throw new NotImplementedException();
         }
-        async Task<Result<string>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> inputHeadersDict, string prefix)
+        async Task<Result<string>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> initHeadersDict, string prefix)
         {
-            logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, inputHeadersDict.ToString(), prefix);
+            await Task.Delay(0);
+            throw new NotImplementedException();
+            /*
+            logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, initHeadersDict.ToString(), prefix);
             try
             {
-                var jsonInputHeaders = System.Text.Json.JsonSerializer.Serialize(inputHeadersDict);
+                var jsonInputHeaders = System.Text.Json.JsonSerializer.Serialize(initHeadersDict);
                 logger.LogInformation("SignRequestHeader: jsonInputHeaders: `{i}`", jsonInputHeaders);
                 logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, jsonInputHeaders, prefix);
 
@@ -377,6 +380,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 logger.LogWarning("SignRequestHeader: Exception: {e}", e);
                 return Result.Fail<string>("SignifyClientService: SignRequestHeader: Exception: " + e);
             }
+            */
         }
     }
 }

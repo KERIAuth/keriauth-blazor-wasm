@@ -3,7 +3,6 @@
 // This ContentScript is inserted into pages after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension service-worker.
 
-// Get the current origin
 const currentOrigin = window.location.origin;
 
 // windows message event data
@@ -150,10 +149,12 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
                 try {
                     if (event.data.payload?.headers) {
+                        // TODO create a headers print utility function
                         console.log("KeriAuthCs from page payload headers: ");
-                        for (const key in event.data.payload.headers) {
-                            if (event.data.payload.headers.hasOwnProperty(key)) {
-                                const value = event.data.payload.headers[key];
+                        const hs: Headers = event.data.payload?.headers;
+                        for (const key in hs) {
+                            if (hs.hasOwnProperty(key)) {
+                                const value = hs[key];
                                 console.log(`   ${key}: ${value}`);
                             }
                         }

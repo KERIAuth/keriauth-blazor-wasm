@@ -14,7 +14,7 @@ import {
     MessageData
 } from "../es6/PageCsInterfaces.js"
 
-import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData } from "../es6/ExCsInterfaces.js";
+import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData, ApprovedSignRequest } from "../es6/ExCsInterfaces.js";
 
 interface DotNetObjectReference<T = any> {
     invokeMethodAsync: (methodName: string, ...args: any[]) => Promise<void>;
@@ -59,33 +59,29 @@ export const SwAppInteropModule = {
             switch (payloadTypeName) {
                 case "CancelResult":
                     // TODO AuthroizeResult type is the closest match to CancelResult at the moment.
-                    const messageData3 = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
-                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData3: ", messageData3);
-                    port.postMessage(messageData3);
+                    const msgCancelResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData3: ", msgCancelResult);
+                    port.postMessage(msgCancelResult);
                     break;
                 case "AuthorizeResult":
-                    const messageData2 = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
-                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", messageData2);
-                    port.postMessage(messageData2);
+                    const msgAuthorizeResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", msgAuthorizeResult);
+                    port.postMessage(msgAuthorizeResult);
+                    break;
+                case "ApprovedSignRequest":
+                    const msgApprovedSignRequest = JSON.parse(jsonReplyMessageData) as ApprovedSignRequest;
+                    console.log("SwAppInteropModule approvedSignRequest: ", msgApprovedSignRequest);
+                    port.postMessage(msgApprovedSignRequest);
                     break;
                 case "SignedRequestResult":
-                    const messageData5 = JSON.parse(jsonReplyMessageData) as ReplyMessageData<SignRequestResult>;
-                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData5: ", messageData5);
-                    port.postMessage(messageData5);
+                    const msgSignRequestResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<SignRequestResult>;
+                    console.log("SwAppInteropModule.sendMessageToServiceWorker messageData5: ", msgSignRequestResult);
+                    port.postMessage(msgSignRequestResult);
                     break;
                 case "SignDataResult":
-                //const maybeAuthroizeResult = parseJson<AuthorizeResult>(jsonReplyMessageData);
-                //if (maybeAuthroizeResult) {
-                //    payloadObject = maybeAuthroizeResult;
-                //} else {
-                //    throw new Error('Invalid payloadJson for SignDataResult');
-                //}
-                // break;
-                case "SignDataResult":
                 case "ConfigureVendorResult":
-                case "void":
                 default:
-                    throw new Error('Unknown typeName: ' + payloadTypeName);
+                    throw new Error('SwAppInteropModule: unknown typeName: ' + payloadTypeName);
             }
 
             //const messageDataObject = { type, requestId, payloadObject, error }
