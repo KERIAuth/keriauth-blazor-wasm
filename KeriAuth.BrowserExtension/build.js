@@ -15,7 +15,8 @@ import { fileURLToPath } from 'url';
     const __dirname = path.dirname(__filename);
 
     try {
-        console.log('Building signify_ts_shim bundle...');
+        console.log('current directory: ', process.cwd());
+        console.log('Building signify_ts_shim.js bundle...');
         await esbuild.build({
             entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
             bundle: true,
@@ -33,7 +34,7 @@ import { fileURLToPath } from 'url';
             }
         });
 
-        console.log('Building ContentScript bundle...');
+        console.log('Building ContentScript.js bundle...');
         await esbuild.build({
             entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
             bundle: true,
@@ -46,7 +47,7 @@ import { fileURLToPath } from 'url';
             }
         });
 
-        console.log('Building service-worker bundle...');
+        console.log('Building service-worker.js bundle...');
         await esbuild.build({
             entryPoints: ['wwwroot/scripts/esbuild/service-worker.ts'],
             bundle: true,
