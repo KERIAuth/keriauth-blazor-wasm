@@ -412,7 +412,7 @@
                 var credential2 = JsonSerializer.Deserialize<ICredential>(json, options);
 
                 logger.LogInformation("SignIn with Credential: {0}", credential2);
-                if(credential2 is null)
+                if (credential2 is null)
                 {
                     throw (new Exception("Credential is null"));
                 };
@@ -464,7 +464,7 @@
             return false;
         }
     }
-    
+
     private Dictionary<string, object>? SelectedCredential;
 
     private bool IsExpanded = false;
@@ -546,8 +546,10 @@
                                 @if (SelectedCredential is null)
                                 {
                                     <MudText>Select a credential</MudText>
-                                } else {
-                                    <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal"/>
+                                }
+                                else
+                                {
+                                    <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
                                 }
                                 <MudSpacer />
                                 <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
@@ -560,7 +562,7 @@
                                     {
                                         <MudListItem OnClick="@(() => SelectCredential(credential))"
                                                      Class="@GetCredentialItemClass(credential)">
-                                        <CredentialDisplay credential="@credential" />
+                                            <CredentialDisplay credential="@credential" />
                                         </MudListItem>
                                     }
                                 </MudList>
@@ -579,12 +581,14 @@
                     break;
             }
 
-            <MudStack Class="gap-0">
-                <MudText Class="mt-6"><b>Options</b></MudText>
-                <MudText Typo="Typo.body1">for future requests from <em>@OriginStr</em></MudText>
-                <MudCheckBox Label="Remember this identifier" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                <MudCheckBox Label="INDENT Remember this credential" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
-                <MudCheckBox Label="Enable Auto-SignIn" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
+            <MudStack Class="gap-0 " Spacing="1">
+                <span style="margin-top:20px;">
+                    <MudText Inline Class="mt-6"><b>Options</b></MudText>
+                    <MudText Inline> for future requests from <em>@OriginStr</em></MudText>
+                </span>
+                <MudCheckBox Label="Remember this identifier" Class="my-0" style="height: 28px;" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                <MudCheckBox Label="Remember this credential" Class="my-0" style="height: 28px; margin-left:38px;" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
+                <MudCheckBox Label="Enable Auto-SignIn" Class="my-0" style="height: 28px; margin-left:38px;" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
                 @{
                     /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
                     if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
