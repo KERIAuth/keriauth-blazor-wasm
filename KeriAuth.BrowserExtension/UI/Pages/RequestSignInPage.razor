@@ -554,21 +554,26 @@
                         <MudText Class="mt-6"><b>Credential</b></MudText>
                         <MudPaper Class="pa-0 mr-3">
                             <!-- Display Selected Credential -->
-                            <MudPaper Class="d-flex align-items-center">
-                                @if (SelectedCredential is null)
-                                {
-                                    <MudText>Select a credential</MudText>
-                                }
-                                else
-                                {
-                                    <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
-                                }
-                                <MudSpacer />
-                                <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
-                            </MudPaper>
-                            <!-- Display Credential List When Expanded -->
-                            @if (IsExpanded)
+                            @if (!IsExpanded)
                             {
+                                <MudPaper Class="d-flex align-items-center">
+                                    @if (SelectedCredential is null)
+                                    {
+                                        <div @onclick="() => ToggleExpand()" style="width:100%; align-content:center;">
+                                            <MudText Class="ml-3">Select</MudText>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
+                                    }
+                                    <MudSpacer />
+                                    <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
+                                </MudPaper>
+                            }
+                            else
+                            {
+                                <!-- Display Credential List When Expanded -->
                                 <MudList Dense="true" T="Dictionary<string, object>">
                                     @foreach (var credential in credentials)
                                     {
