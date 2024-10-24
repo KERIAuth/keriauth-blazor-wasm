@@ -77,7 +77,8 @@
     string SelectedPrefix { get; set; } = "unknown";
 
     // TODO P2 should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
-    bool IsAutoSignIn { get; set; }
+    bool IsAutoSignInIdentifier { get; set; }
+    bool IsAutoSignInCred { get; set; }
 
     WebsiteConfig? ThisWebsiteConfig { get; set; }
 
@@ -125,7 +126,7 @@
             {
                 // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
                 // TODO P2 once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
-                IsAutoSignIn = false;
+                IsAutoSignInIdentifier = false;
                 IsCredentialRemembered = false;
                 newWebsite = newWebsite with
                     {
@@ -152,11 +153,17 @@
         }
         return;
     }
+    async Task updateIsAutoSignInCred(bool isChecked)
+    {
+        IsAutoSignInCred = isChecked;
+        // TODO P0 implement
+        return;
+    }
 
     async Task updateIsAutoSignIn(bool isChecked)
     {
         // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
-        IsAutoSignIn = isChecked;
+        IsAutoSignInIdentifier = isChecked;
         Debug.Assert(GetOriginUri() is not null);
         var result = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
 
@@ -180,13 +187,13 @@
             var res = await websiteConfigService.Update(newWebsiteConfig);
             if (res is null || res.IsFailed)
             {
-                IsAutoSignIn = false;
+                IsAutoSignInIdentifier = false;
                 logger.LogError("Error updating website: {0}", res?.Errors);
             }
             else
             {
                 logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
-                IsAutoSignIn = isChecked;
+                IsAutoSignInIdentifier = isChecked;
             }
             Debug.Assert(GetOriginUri() is not null);
             await getWebsiteConfig(GetOriginUri()!); //  StateHasChanged();
@@ -339,7 +346,7 @@
             ThisWebsiteConfig = x.Value;
             // TODO P3 update the getter for the following properties to use this
             IsPrefixRemembered = x.Value.RememberedPrefixOrNothing == SelectedPrefix;
-            IsAutoSignIn = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
+            IsAutoSignInIdentifier = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
             StateHasChanged();
         }
         else
@@ -514,6 +521,11 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
+            @{
+                // TODO move OriginStr into visual header layout for all page interactions. Add its ico?
+            }
+            <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
+
             @switch (RequestedSignInMode)
             {
                 case SignInMode.Identifier:
@@ -525,67 +537,13 @@
                 case SignInMode.Prompt:
                     <MudText Typo="Typo.h6">Request to Sign In</MudText>
                     break;
+                default:
+                    <MudText Typo="Typo.h6">Unsupported SignIn Mode: @RequestedSignInMode</MudText>
+                    break;
             }
-            <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
 
             @switch (RequestedSignInMode)
             {
-                case SignInMode.Identifier:
-                    <MudStack Class="gap-0">
-                        <MudText Class="mt-6"><b>Identifier</b></MudText>
-                        <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
-                            @foreach (var identifierHeadline in IdentifierHeadlines)
-                            {
-                                <MudSelectItem Value="@identifierHeadline.Prefix">
-                                    <MudStack Row Style="align-items:center;">
-                                        <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                        <div class="bt-sad-2" style="display:contents;">
-                                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                                        </div>
-                                    </MudStack>
-                                </MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudStack>
-                    break;
-                case SignInMode.Credential:
-                    <MudStack Class="gap-0">
-                        <MudText Class="mt-6"><b>Credential</b></MudText>
-                        <MudPaper Class="pa-0 mr-3">
-                            <!-- Display Selected Credential -->
-                            @if (!IsExpanded)
-                            {
-                                <MudPaper Class="d-flex align-items-center">
-                                    @if (SelectedCredential is null)
-                                    {
-                                        <div @onclick="() => ToggleExpand()" style="width:100%; align-content:center;">
-                                            <MudText Class="ml-3">Select</MudText>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
-                                    }
-                                    <MudSpacer />
-                                    <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
-                                </MudPaper>
-                            }
-                            else
-                            {
-                                <!-- Display Credential List When Expanded -->
-                                <MudList Dense="true" T="Dictionary<string, object>">
-                                    @foreach (var credential in credentials)
-                                    {
-                                        <MudListItem OnClick="@(() => SelectCredential(credential))"
-                                                     Class="@GetCredentialItemClass(credential)">
-                                            <CredentialDisplay credential="@credential" />
-                                        </MudListItem>
-                                    }
-                                </MudList>
-                            }
-                        </MudPaper>
-                    </MudStack>
-                    break;
                 case SignInMode.Prompt:
                     <MudStack Class="gap-0">
                         <MudText Class="mt-6"><b>Sign-in method</b></MudText>
@@ -595,24 +553,82 @@
                         </MudRadioGroup>
                     </MudStack>
                     break;
+                case SignInMode.Identifier:
+                case SignInMode.Credential:
+                    <MudStack Class="gap-0">
+                        <MudText Class="mt-4" Typo="Typo.h5"><b>Identifier</b></MudText>
+                        <MudStack Class="ml-0" Style="gap:0;">
+                            <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                                @foreach (var identifierHeadline in IdentifierHeadlines)
+                                {
+                                    <MudSelectItem Value="@identifierHeadline.Prefix">
+                                        <MudStack Row Style="align-items:center;">
+                                            <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                            <div class="bt-sad-2" style="display:contents;">
+                                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                            </div>
+                                        </MudStack>
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudCheckBox Label="Remember" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                            <MudCheckBox Label="Automatically Sign In" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
+                        </MudStack>
+                    </MudStack>
+                    if (RequestedSignInMode == SignInMode.Credential)
+                    {
+                        <MudStack Class="gap-0">
+                            <MudText Class="mt-4" Typo="Typo.h5"><b>Credential</b></MudText>
+                            <MudStack Class="ml-0" Style="gap:0;">
+                                <MudPaper Class="pa-0 mr-3">
+                                    <!-- Display Selected Credential -->
+                                    @if (!IsExpanded)
+                                    {
+                                        <MudPaper Class="d-flex align-items-center">
+                                            @if (SelectedCredential is null)
+                                            {
+                                                <div @onclick="() => ToggleExpand()" style="width:100%; align-content:center;">
+                                                    <MudText Class="ml-3">Select</MudText>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
+                                            }
+                                            <MudSpacer />
+                                            <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
+                                        </MudPaper>
+                                    }
+                                    else
+                                    {
+                                        <!-- Display Credential List When Expanded -->
+                                        <MudList Dense="true" T="Dictionary<string, object>">
+                                            @foreach (var credential in credentials)
+                                            {
+                                                <MudListItem OnClick="@(() => SelectCredential(credential))"
+                                                             Class="@GetCredentialItemClass(credential)">
+                                                    <CredentialDisplay credential="@credential" />
+                                                </MudListItem>
+                                            }
+                                        </MudList>
+                                    }
+                                </MudPaper>
+                                <MudCheckBox Label="Remember" Disabled="@(SelectedCredential is null)" style="height: 28px;" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
+                                <MudCheckBox Label="Automatically Sign In" Disabled="@(SelectedCredential is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
+                            </MudStack>
+                        </MudStack>
+                    }
+                    break;
+                default:
+                    <MudText>Unsupported Sign-In Mode: @RequestedSignInMode</MudText>
+                    break;
             }
 
-            <MudStack Class="gap-0 " Spacing="1">
-                <span style="margin-top:20px;">
-                    <MudText Inline Class="mt-6"><b>Options</b></MudText>
-                    <MudText Inline> for future requests from <em>@OriginStr</em></MudText>
-                </span>
-                <MudCheckBox Label="Remember this identifier" Class="my-0" style="height: 28px;" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                <MudCheckBox Label="Remember this credential" Class="my-0" style="height: 28px; margin-left:38px;" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" Disabled="SelectedCredential == null" />
-                <MudCheckBox Label="Enable Auto-SignIn" Class="my-0" style="height: 28px; margin-left:38px;" Value="@IsAutoSignIn" id="enableAutoSitnInCheckBox" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
-                @{
-                    /* If "Enable auto SignIn" is set, but not with this Identifier, show the other identifier */
-                    if (ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier && ThisWebsiteConfig?.RememberedPrefixOrNothing != SelectedPrefix)
-                    {
-                        <MudText Class="pt-0 mt-0 pl-10" Typo="Typo.caption">(enabled for "@IdentifierHeadlines.First(x => x.Prefix == ThisWebsiteConfig?.RememberedPrefixOrNothing).Alias)"</MudText>
-                    }
-                }
-            </MudStack>
+
+
+
+
+
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
