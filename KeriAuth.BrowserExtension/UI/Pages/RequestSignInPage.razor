@@ -93,7 +93,12 @@
     async Task updateIsCredentialRemembered(bool isChecked)
     {
         IsCredentialRemembered = isChecked;
+
         // TODO P2 EE! See updateIsPrefixRemembered for how this should be implemented
+        if (isChecked)
+        {
+            IsPrefixRemembered = true;
+        }
         await Task.Delay(0);
         return;
     }
@@ -121,7 +126,14 @@
                 // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
                 // TODO P2 once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
                 IsAutoSignIn = false;
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = null, AutoSignInChoice = AutoSignInMode.None };
+                IsCredentialRemembered = false;
+                newWebsite = newWebsite with
+                    {
+                        RememberedPrefixOrNothing = null,
+                        AutoSignInChoice = AutoSignInMode.None,
+
+                        RememberedCredSaidOrNothing = null
+                    };
             }
 
             logger.LogInformation("updateIsRemembered: about to update: {0}", newWebsite);
