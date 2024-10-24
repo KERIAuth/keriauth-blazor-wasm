@@ -3,7 +3,7 @@ using System.Text;
 
 namespace KeriAuth.BrowserExtension.Helper
 {
-    // TODO P1 this is temporary and must be replaced with a more secure implementation
+    // TODO P2 this is temporary and must be replaced with a more secure implementation
     public class RandomStringGenerator
     {
         private static readonly char[] _characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".ToCharArray();
