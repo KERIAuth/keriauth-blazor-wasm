@@ -242,7 +242,7 @@
                             // TODO P3 popupType should be an enum
                             if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("popupType", out var popupType))
                             {
-                                logger.LogWarning("OnParametersSetAsync: popupType: {p}", popupType.ToString());
+                                logger.LogInformation("OnParametersSetAsync: popupType: {p}", popupType.ToString());
                                 switch (popupType.ToString())
                                 {
                                     // TODO P3 popupTypes should be an enum

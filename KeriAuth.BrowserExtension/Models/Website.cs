@@ -8,13 +8,34 @@ namespace KeriAuth.BrowserExtension.Models
         List<WebsiteInteraction> interactions,
         string? rememberedPrefixOrNothing,
         string? rememberedCredSaidOrNothing,
-        AutoSignInMode autoSignInChoice)
+        bool isAutoSignInIdentifier,
+        bool isAutoSignInCredential
+        )
         {
             Origin = origin;
             Interactions = interactions;
             RememberedPrefixOrNothing = rememberedPrefixOrNothing;
             RememberedCredSaidOrNothing = rememberedCredSaidOrNothing;
-            AutoSignInChoice = autoSignInChoice;
+            IsAutoSignInIdentifier = isAutoSignInIdentifier;
+            IsAutoSignInCredential = isAutoSignInCredential;
+
+        }
+
+        public WebsiteConfig Validate()
+        {
+            if (IsAutoSignInIdentifier && RememberedPrefixOrNothing is null)
+            {
+                throw new ArgumentException("WebsiteConfig constructor is inconsistent on identifier.");
+            }
+            if (IsAutoSignInCredential && (RememberedCredSaidOrNothing is null || !IsAutoSignInIdentifier))
+            {
+                throw new ArgumentException("WebsiteConfig constructor is inconsistent on credential.");
+            }
+            if (RememberedCredSaidOrNothing is not null && RememberedPrefixOrNothing is null)
+            {
+                throw new ArgumentException("WebsiteConfig constructor with credential set must also have identifier set.");
+            }
+            return this;
         }
 
         [JsonPropertyName("origin")]
@@ -29,30 +50,22 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("rememberedCredSaidOrNothing")]
         public string? RememberedCredSaidOrNothing { get; init; }
 
-        [JsonPropertyName("autoSignInChoice")]
-        public AutoSignInMode AutoSignInChoice
-        {
-            get => _autoSignInMode;
-            init
-            {
-                _autoSignInMode = value switch
-                {
-                    AutoSignInMode.Identifier when RememberedPrefixOrNothing is not null => AutoSignInMode.Identifier,
-                    AutoSignInMode.Credential when RememberedCredSaidOrNothing is not null => AutoSignInMode.Credential,
-                    _ => AutoSignInMode.None,
-                };
-            }
-        }
+        //[JsonPropertyName("autoSignInChoice")]
+        //public AutoSignInMode AutoSignInChoice { get; init; }
 
-        private AutoSignInMode _autoSignInMode;
+        [JsonPropertyName("isAutoSignInIdentifier")]
+        public bool IsAutoSignInIdentifier { get; init; }
+
+        [JsonPropertyName("isAutoSignInCredential")]
+        public bool IsAutoSignInCredential { get; init; }
     }
 
-    public enum AutoSignInMode
-    {
-        None,
-        Identifier,
-        Credential
-    }
+    //public enum AutoSignInMode
+    //{
+    //    None,
+    //    Identifier,
+    //    Credential
+    //}
 
     public record WebsiteInteraction
     {

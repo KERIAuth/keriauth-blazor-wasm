@@ -113,9 +113,9 @@
             {
                 // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
                 // TODO P2 once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
-                IsAutoSignIn = false;
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = null, AutoSignInChoice = AutoSignInMode.None };
+                newWebsite = newWebsite with { RememberedPrefixOrNothing = null, IsAutoSignInIdentifier = false, RememberedCredSaidOrNothing = null, IsAutoSignInCredential = false };
             }
+            newWebsite.Validate();
 
             logger.LogInformation("updateIsRemembered: about to update: {0}", newWebsite);
             var res = await websiteConfigService.Update(newWebsite);
@@ -132,51 +132,6 @@
             logger.LogError("updateIsRemembered: Unexpected null Identifier selection");
         }
         return;
-    }
-
-    async Task updateIsAutoSignIn(bool isChecked)
-    {
-        // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
-        IsAutoSignIn = isChecked;
-        Debug.Assert(GetOriginUri() is not null);
-        var result = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
-
-        WebsiteConfig newWebsiteConfig = result.Value;
-        if (SelectedHeadlineOrNothing is not null)
-        {
-            if (isChecked)
-            {
-                // TODO P2 issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
-                // put this logic into service and simplify here once this UI is made responsive to an IObserver<WebsiteConfig>
-                IsPrefixRemembered = true;
-                newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.Identifier };
-            }
-            else
-            {
-                newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.None };
-            }
-
-
-            logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsiteConfig);
-            var res = await websiteConfigService.Update(newWebsiteConfig);
-            if (res is null || res.IsFailed)
-            {
-                IsAutoSignIn = false;
-                logger.LogError("Error updating website: {0}", res?.Errors);
-            }
-            else
-            {
-                logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
-                IsAutoSignIn = isChecked;
-            }
-            Debug.Assert(GetOriginUri() is not null);
-            await getWebsiteConfig(GetOriginUri()!); //  StateHasChanged();
-            return;
-        }
-        else
-        {
-            logger.LogError("Unexpected null Identifier selection");
-        }
     }
 
     protected override async Task OnInitializedAsync()
@@ -285,13 +240,12 @@
     async Task getWebsiteConfig(Uri uri)
     {
         logger.LogInformation("getWebsiteConfig uri: {uri}", uri);
-        var x = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
-        if (x.IsSuccess)
+        var res = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
+        if (res.IsSuccess)
         {
-            ThisWebsiteConfig = x.Value;
-            // TODO P2 update the getter for the following properties to use this
-            IsPrefixRemembered = x.Value.RememberedPrefixOrNothing == SelectedPrefix;
-            IsAutoSignIn = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
+            ThisWebsiteConfig = res.Value;
+            // TODO P2 update the getter for the following properties to use this?
+            IsPrefixRemembered = res.Value.RememberedPrefixOrNothing == SelectedPrefix;
             StateHasChanged();
         }
         else
@@ -351,7 +305,7 @@
         // create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and them to content script
         if (SelectedName is null)
             throw new Exception("SelectedName must not be null here");
-        ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url,request.Method, null, SelectedName!);
+        ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url, request.Method, null, SelectedName!);
         ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
         await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
 

@@ -20,7 +20,6 @@
 @using System;
 @using System.Collections.Generic;
 
-
 @implements IDisposable
 
 @inject IStorageService storageService
@@ -41,175 +40,20 @@
 @inject IJSRuntime jsRuntime
 
 @code {
-    [Parameter]
-    public string encodedOrigin { get; set; } = "";
+    [Parameter] public string encodedOrigin { get; set; } = "";
 
     public string requestId { get; set; } = "";
 
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
-
-    Uri? GetOriginUri()
-    {
-        try
-        {
-            var x = new Uri(OriginStr);
-            return x;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError("Error parsing OriginStr '{o}': {e}", OriginStr, ex);
-            return null;
-        }
-    }
-
-    string AppActivePrefix { get; set; } = string.Empty;
-
-    List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
-
-    // TODO P2 should property be something like  get => ThisWebsiteConfig?.RememberedPrefixOrNothing == SelectedPrefix;
-    bool IsPrefixRemembered { get; set; }
-    bool IsCredentialRemembered { get; set; }
     enum SignInMode { Credential, Identifier, Prompt }
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
-
-    IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
-
     string SelectedPrefix { get; set; } = "unknown";
-
-    // TODO P2 should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
-    bool IsAutoSignInIdentifier { get; set; }
-    bool IsAutoSignInCred { get; set; }
-
-    WebsiteConfig? ThisWebsiteConfig { get; set; }
-
-    async Task updateSelectedPrefix(string prefix)
-    {
-        SelectedPrefix = prefix;
-        // TODO P2 following should be just un/resubscribe to another websiteConfig? ... and this UI is made responsive to an IObserver<WebsiteConfig>
-        Debug.Assert(GetOriginUri() is not null);
-        await getWebsiteConfig(GetOriginUri()!);
-        StateHasChanged();
-    }
-
-    async Task updateIsCredentialRemembered(bool isChecked)
-    {
-        IsCredentialRemembered = isChecked;
-
-        // TODO P2 EE! See updateIsPrefixRemembered for how this should be implemented
-        if (isChecked)
-        {
-            IsPrefixRemembered = true;
-        }
-        await Task.Delay(0);
-        return;
-    }
-
-    async Task updateIsPrefixRemembered(bool isChecked)
-    {
-        // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
-        IsPrefixRemembered = isChecked;
-        Debug.Assert(GetOriginUri() is not null);
-        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
-        if (getOrCreateWebsiteRes.IsFailed)
-        {
-            logger.LogError("Error in websiteService {0}", getOrCreateWebsiteRes.Errors);
-            return;
-        }
-        WebsiteConfig newWebsite = getOrCreateWebsiteRes.Value;
-        if (SelectedHeadlineOrNothing is not null)
-        {
-            if (isChecked)
-            {
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedPrefix };
-            }
-            else
-            {
-                // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
-                // TODO P2 once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
-                IsAutoSignInIdentifier = false;
-                IsCredentialRemembered = false;
-                newWebsite = newWebsite with
-                    {
-                        RememberedPrefixOrNothing = null,
-                        AutoSignInChoice = AutoSignInMode.None,
-
-                        RememberedCredSaidOrNothing = null
-                    };
-            }
-
-            logger.LogInformation("updateIsRemembered: about to update: {0}", newWebsite);
-            var res = await websiteConfigService.Update(newWebsite);
-            if (res is null || res.IsFailed)
-            {
-                throw new Exception($"Error updating website: {res?.Errors}");
-            }
-            Debug.Assert(GetOriginUri() is not null);
-            await getWebsiteConfig(GetOriginUri()!); // StateHasChanged();
-            return;
-        }
-        else
-        {
-            logger.LogError("updateIsRemembered: Unexpected null Identifier selection");
-        }
-        return;
-    }
-    async Task updateIsAutoSignInCred(bool isChecked)
-    {
-        IsAutoSignInCred = isChecked;
-        // TODO P0 implement
-        return;
-    }
-
-    async Task updateIsAutoSignIn(bool isChecked)
-    {
-        // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
-        IsAutoSignInIdentifier = isChecked;
-        Debug.Assert(GetOriginUri() is not null);
-        var result = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
-
-        WebsiteConfig newWebsiteConfig = result.Value;
-        if (SelectedHeadlineOrNothing is not null)
-        {
-            if (isChecked)
-            {
-                // TODO P2 issues if user changes identifier after setting willSignInAutomatically or if willSignAutomatically was set for a different identifier earlier
-                // put this logic into service and simplify here once this UI is made responsive to an IObserver<WebsiteConfig>
-                IsPrefixRemembered = true;
-                newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.Identifier };
-            }
-            else
-            {
-                newWebsiteConfig = newWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, AutoSignInChoice = AutoSignInMode.None };
-            }
-
-
-            logger.LogInformation("updateWillSignInAutomatically: about to update: {0}", newWebsiteConfig);
-            var res = await websiteConfigService.Update(newWebsiteConfig);
-            if (res is null || res.IsFailed)
-            {
-                IsAutoSignInIdentifier = false;
-                logger.LogError("Error updating website: {0}", res?.Errors);
-            }
-            else
-            {
-                logger.LogInformation("updateWillSignInAutomatically: setting willSignInAutomatically2 {0}", res);
-                IsAutoSignInIdentifier = isChecked;
-            }
-            Debug.Assert(GetOriginUri() is not null);
-            await getWebsiteConfig(GetOriginUri()!); //  StateHasChanged();
-            return;
-        }
-        else
-        {
-            logger.LogError("Unexpected null Identifier selection");
-        }
-    }
+    Dictionary<string, object>? SelectedCredential;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitialized");
-        await getCredentials();
         return;
     }
 
@@ -217,8 +61,8 @@
     {
         logger.LogInformation($"OnParametersSetAsync");
         await base.OnParametersSetAsync();
-        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-        await GetInitialHeadlines();
+        // InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+        // await GetInitialHeadlines();
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", requestId);
 
@@ -290,124 +134,23 @@
         }
     }
 
-    async Task GetInitialHeadlines()
-    {
-        logger.LogInformation("GetHeadlines...");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res != null && res.IsSuccess)
-        {
-            logger.LogInformation("GetIdentifierHeadlines: count {1}", res.Value.Count);
-            IdentifierHeadlines = res.Value;
-            IdentifierHeadlines = IdentifierHeadlines.OrderBy(a => a.Alias).ToList();
-            if (IdentifierHeadlines.Count > 0)
-            {
-                Debug.Assert(GetOriginUri() is not null);
-                var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
-                logger.LogInformation("GetHeadlines: getOrCreateWebsite: {0}", JsonSerializer.Serialize(wcRes));
-                if (wcRes.IsFailed)
-                {
-                    logger.LogError("Error in websiteService: {0}", wcRes.Errors);
-                    return;
-                }
-                WebsiteConfig newWebsite = wcRes.Value;
-                if (newWebsite.RememberedPrefixOrNothing is not null)
-                {
-                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == newWebsite.RememberedPrefixOrNothing);
-                }
-                else
-                {
-                    // use the user's general preferences or otherwise the first headline
-                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == AppActivePrefix);
-                    if (SelectedHeadlineOrNothing is null)
-                    {
-                        SelectedHeadlineOrNothing = IdentifierHeadlines.First();
-                    }
-                }
-                logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
-                SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
-                Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value for SelectedHeadlineOrNothing");
-                Debug.Assert(GetOriginUri() is not null);
-                await getWebsiteConfig(GetOriginUri()!);
-                StateHasChanged();
-            }
-            else
-            {
-                throw new Exception("No Identifiers found");
-            }
-        };
-    }
-
-    async Task getWebsiteConfig(Uri uri)
-    {
-        logger.LogInformation("getWebsiteConfig uri: {uri}", uri);
-        var x = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
-        if (x.IsSuccess)
-        {
-            ThisWebsiteConfig = x.Value;
-            // TODO P3 update the getter for the following properties to use this
-            IsPrefixRemembered = x.Value.RememberedPrefixOrNothing == SelectedPrefix;
-            IsAutoSignInIdentifier = x.Value.AutoSignInChoice == AutoSignInMode.Identifier;
-            StateHasChanged();
-        }
-        else
-        {
-            throw new Exception("No Identifiers found");
-        }
-    }
-
-    void InitializeOrOnNextPrefs(Preferences prefs)
-    {
-        AppActivePrefix = prefs.SelectedAid;
-        this.StateHasChanged();
-    }
-
-
-    List<Dictionary<string, object>> credentials = new();
-
-    private async Task getCredentials()
-    {
-        // TODO P2 implement filtering to show only the holder's credentials
-        // typescript:  client.credentials().list({ filter: { '-a-i': holderAid.prefix } })
-        var res = await signifyClientService.GetCredentials();
-        if (res.IsFailed || res.Value is null)
-        {
-            logger.LogError($"Error: {res.Errors}");
-            return;
-        }
-        else
-        {
-            credentials = res.Value as List<Dictionary<string, object>>;
-            Debug.Assert(credentials is not null);
-            logger.LogInformation("Credentials: count {res}", credentials.Count);
-            // foreach (Dictionary<string, object> credential in credentials)
-            // {
-            //     logger.LogInformation("Credential: {credential}", credential);
-            //     logger.LogInformation("Credential title: {credential}", DictionaryConverter.GetValueByPath(credential, "schema.title").Value);
-            // }
-        }
-    }
-
-
-
-
-
     /*
     // SignIn()
     */
-    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string? SelectedPrefix, Dictionary<string, object>? credentialDictionary)
+    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string? selectedPrefix, Dictionary<string, object>? credentialDictionary)
     {
         ReplyMessageData<AuthorizeResult> replyMessageData;
         switch (RequestedSignInMode)
         {
             case SignInMode.Identifier:
-                logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
-                if (SelectedPrefix is null)
+                logger.LogInformation("SignIn with Identifier: {0}", selectedPrefix);
+                if (selectedPrefix is null)
                 {
                     throw (new Exception("SelectedPrefix is null"));
                 }
                 replyMessageData = new(
                     "/signify/reply",
-                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
+                    new AuthorizeResult(null, new AuthorizeResultIdentifier(selectedPrefix)),
                     requestId: requestId2
                 );
                 break;
@@ -483,49 +226,15 @@
         }
     }
 
-    private Dictionary<string, object>? SelectedCredential;
-
-    private bool IsExpanded = false;
-
     protected override void OnInitialized()
     {
-        // SelectedCredential = new Dictionary<string, object>();
-    }
-
-    private void ToggleExpand()
-    {
-        IsExpanded = !IsExpanded;
-    }
-
-    private void SelectCredential(Dictionary<string, object> item)
-    {
-        if (SelectedCredential == item)
-        {
-            IsExpanded = false;
-        }
-        else
-        {
-            SelectedCredential = item;
-            IsExpanded = false;
-        }
-    }
-
-    private string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-
-    private string GetCredentialItemClass(Dictionary<string, object> item)
-    {
-        return item == SelectedCredential ? "selected-item" : String.Empty;
+        ;
     }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            @{
-                // TODO move OriginStr into visual header layout for all page interactions. Add its ico?
-            }
-            <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
-
             @switch (RequestedSignInMode)
             {
                 case SignInMode.Identifier:
@@ -554,87 +263,21 @@
                     </MudStack>
                     break;
                 case SignInMode.Identifier:
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" />
+                    break;
                 case SignInMode.Credential:
-                    <MudStack Class="gap-0">
-                        <MudText Class="mt-4" Typo="Typo.h5"><b>Identifier</b></MudText>
-                        <MudStack Class="ml-0" Style="gap:0;">
-                            <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
-                                @foreach (var identifierHeadline in IdentifierHeadlines)
-                                {
-                                    <MudSelectItem Value="@identifierHeadline.Prefix">
-                                        <MudStack Row Style="align-items:center;">
-                                            <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                            <div class="bt-sad-2" style="display:contents;">
-                                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                                            </div>
-                                        </MudStack>
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
-                            <MudCheckBox Label="Remember" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" id="rememberCheckBox" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                            <MudCheckBox Label="Automatically Sign In" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignIn(b)" />
-                        </MudStack>
-                    </MudStack>
-                    if (RequestedSignInMode == SignInMode.Credential)
-                    {
-                        <MudStack Class="gap-0">
-                            <MudText Class="mt-4" Typo="Typo.h5"><b>Credential</b></MudText>
-                            <MudStack Class="ml-0" Style="gap:0;">
-                                <MudPaper Class="pa-0 mr-3">
-                                    <!-- Display Selected Credential -->
-                                    @if (!IsExpanded)
-                                    {
-                                        <MudPaper Class="d-flex align-items-center">
-                                            @if (SelectedCredential is null)
-                                            {
-                                                <div @onclick="() => ToggleExpand()" style="width:100%; align-content:center;">
-                                                    <MudText Class="ml-3">Select</MudText>
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <CredentialDisplay credential="@SelectedCredential" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
-                                            }
-                                            <MudSpacer />
-                                            <MudIconButton Icon="@ExpandIcon" OnClick="@ToggleExpand" />
-                                        </MudPaper>
-                                    }
-                                    else
-                                    {
-                                        <!-- Display Credential List When Expanded -->
-                                        <MudList Dense="true" T="Dictionary<string, object>">
-                                            @foreach (var credential in credentials)
-                                            {
-                                                <MudListItem OnClick="@(() => SelectCredential(credential))"
-                                                             Class="@GetCredentialItemClass(credential)">
-                                                    <CredentialDisplay credential="@credential" />
-                                                </MudListItem>
-                                            }
-                                        </MudList>
-                                    }
-                                </MudPaper>
-                                <MudCheckBox Label="Remember" Disabled="@(SelectedCredential is null)" style="height: 28px;" Value="@IsCredentialRemembered" id="rememberCredentialCheckBox" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
-                                <MudCheckBox Label="Automatically Sign In" Disabled="@(SelectedCredential is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
-                            </MudStack>
-                        </MudStack>
-                    }
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" />
                     break;
                 default:
-                    <MudText>Unsupported Sign-In Mode: @RequestedSignInMode</MudText>
+                    <MudText>Unsupported SignInMode: @RequestedSignInMode</MudText>
                     break;
             }
-
-
-
-
-
-
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix, SelectedCredential)">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix, SelectedCredential))">Sign In</MudButton>
     </MudStack>
 </div>
 
