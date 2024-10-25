@@ -46,9 +46,11 @@
     {
         get
         {
-            if (SelectedCredentialOrNothing is not null) {
+            if (SelectedCredentialOrNothing is not null)
+            {
                 TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
-                if (tv is not null) {
+                if (tv is not null)
+                {
                     return tv.Value.ToString();
                 }
             }
@@ -218,7 +220,7 @@
         logger.LogWarning($"credential debug dictionary: {rememberedCredSaidOrNothing}");
         newWebsite = isChecked
             ? newWebsite with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix }
-            : newWebsite with { RememberedCredSaidOrNothing = null } ;
+            : newWebsite with { RememberedCredSaidOrNothing = null };
         newWebsite.Validate();
         var updateRes = await websiteConfigService.Update(newWebsite);
         if (updateRes is null || updateRes.IsFailed)
@@ -237,7 +239,7 @@
                                              // logger.LogWarning($"updateIsPrefixRemembered: ThisWebsiteConfig: {ThisWebsiteConfig}");
         newWebsite = isPrefixRemembered
             ? newWebsite with { RememberedPrefixOrNothing = SelectedPrefix }
-            : newWebsite with { RememberedPrefixOrNothing = null }; 
+            : newWebsite with { RememberedPrefixOrNothing = null };
         newWebsite.Validate();
         // logger.LogWarning($"updateIsPrefixRemembered: newWebsite {newWebsite}"); // TODO EE convert to JSON for printing?
         var updateRes = await websiteConfigService.Update(newWebsite);
@@ -339,20 +341,23 @@
                     </MudSelectItem>
                 }
             </MudSelect>
-            <MudCheckBox Label="Use as default" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-            <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignInIdentifier(b)" />
-            @if (IsAutoSignInIdentifier)
-            {
-                if (SelectedPrefix == ThisWebsiteConfig.RememberedPrefixOrNothing)
+            <!-- Hiding this functionality until it is fixed -->
+            <div style="display:none;">
+                <MudCheckBox Label="Use as default" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignInIdentifier(b)" />
+                @if (IsAutoSignInIdentifier)
                 {
-                    <MudText>(with this identifier)</MudText>
-                }
+                    if (SelectedPrefix == ThisWebsiteConfig.RememberedPrefixOrNothing)
+                    {
+                        <MudText>(with this identifier)</MudText>
+                    }
 
-                else
-                {
-                    <MudText>(with another identifier)</MudText>
+                    else
+                    {
+                        <MudText>(with another identifier)</MudText>
+                    }
                 }
-            }
+            </div>
         </MudStack>
     </MudStack>
 
@@ -394,8 +399,11 @@
                         </MudList>
                     }
                 </MudPaper>
-                <MudCheckBox Label="Default credential for website" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsCredentialRemembered" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
-                <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
+                <!-- Hiding this functionality until it is fixed -->
+                <div style="display:none;">
+                    <MudCheckBox Label="Default credential for website" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsCredentialRemembered" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
+                    <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
+                </div>
             </MudStack>
         </MudStack>
     }
