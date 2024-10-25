@@ -93,7 +93,7 @@
         await Task.Delay(0);
     }
 
-    private async Task GetInitialHeadlines()
+    private async Task GetInitialIdentifierHeadlines()
     {
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res?.IsSuccess == true)
@@ -131,6 +131,28 @@
     }
 
     List<Dictionary<string, object>> CredentialsDict { get; set; } = new();
+
+    // TODO move this to a helper
+    List<Dictionary<string, object>>? filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
+    {
+        if (!filters.Any())
+        {
+            throw new Exception("filterCredentials must have at least one filter string");
+        }
+        List<Dictionary<string, object>> filteredCredentials = new();
+        foreach (var credDict in credentialDictList)
+        {
+            foreach (var filter in filters)
+            {
+                if (DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match )
+                {
+                    filteredCredentials.Add(credDict);
+                    break;
+                }
+            }
+        }
+        return filteredCredentials;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -290,7 +312,7 @@
     {
         await base.OnParametersSetAsync();
         // InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-        await GetInitialHeadlines();
+        await GetInitialIdentifierHeadlines();
         await getCredentials();
         await GetInitialCredential();
     }
@@ -305,10 +327,12 @@
         }
         var selectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
         logger.LogWarning("GetInitialCredential selectedCredSaidOrNothing: {c}", selectedCredSaidOrNothing);
-        if (selectedCredSaidOrNothing is not null) {
+        if (selectedCredSaidOrNothing is not null)
+        {
             // get full credential by said
             var credRes = await signifyClientService.GetCredential(selectedCredSaidOrNothing);
-            if (credRes.IsSuccess) {
+            if (credRes.IsSuccess)
+            {
                 logger.LogWarning("GetInitialCredential credRes: {c}", credRes.Value);
                 await updateSelectedCredential(credRes.Value);
                 return;
@@ -338,7 +362,7 @@
 
     <!-- Select Identifier -->
     <MudStack Class="gap-0">
-        <MudText Class="mt-4" Typo="Typo.h6"><b>Identifier</b></MudText>
+        <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
         <MudStack Class="ml-0" Style="gap:0;">
             @if (IdentifierHeadlines.Any())  // this prevents a flash while loading
             {
@@ -379,7 +403,7 @@
     {
         <!-- Select Credential --->
         <MudStack Class="gap-0">
-            <MudText Class="mt-4" Typo="Typo.h6"><b>Credential</b></MudText>
+            <MudText Class="mt-4" Typo="Typo.h6">Credential</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
                 <MudPaper Class="pa-0 mr-3">
                     <!-- Display Selected Credential -->
@@ -402,15 +426,22 @@
                     }
                     else
                     {
-                        <MudList Dense="true" T="Dictionary<string, object>">
-                            @foreach (var credential in CredentialsDict)
-                            {
+                        var FilteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
+                        if (FilteredCredentials is not null && FilteredCredentials.Any())
+                        {
+                            <MudList Dense="true" T="Dictionary<string, object>">
+                                @foreach (var credential in FilteredCredentials)
+                                {
                                 <MudListItem OnClick="@(() => updateSelectedCredential(credential))"
                                              Class="@GetCredentialItemClass(credential)">
                                     <CredentialDisplay credential="@credential" />
                                 </MudListItem>
-                            }
-                        </MudList>
+                                }
+                            </MudList>
+                        } else
+                        {
+                            <MudText>No credentials for this issuee.</MudText>
+                        }
                     }
                 </MudPaper>
                 <!-- TODO P3 Hiding these options functionality until it is fixed -->
