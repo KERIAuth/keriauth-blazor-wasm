@@ -3,6 +3,7 @@ using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
+using System.Net;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;
@@ -202,7 +203,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             }
         }
 
-
         public async Task<Result<Aid>> GetIdentifier(string name)
         {
             try
@@ -230,7 +230,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 return Result.Fail<Aid>("SignifyClientService: GetIdentifier: Exception: " + e);
             }
         }
-
 
         public Task<Result<IList<Ipex>>> GetIpex()
         {
@@ -292,6 +291,24 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
 
+        public async Task<Result<Dictionary<string, object>>> GetCredential(string said)
+        {
+            var res = await GetCredentials();
+            if (res.IsFailed)
+            {
+                return res.ToResult<Dictionary<string, object>>();
+            }
+            foreach (var credDict in res.Value)
+            {
+                var credDictSaid = DictionaryConverter.GetValueByPath(credDict, "sad.d")?.Value?.ToString();
+                if (credDictSaid is not null && credDictSaid == said)
+                {
+                    return credDict.ToResult<Dictionary<string, object>>();
+                }
+            }
+            return Result.Fail($"Could not find credential with said {said}");
+        }
+
         public async Task<Result<List<Dictionary<string, object>>>> GetCredentials()
         {
             var options = new JsonSerializerOptions
@@ -299,7 +316,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 PropertyNameCaseInsensitive = true,
                 Converters = { new DictionaryConverter() }
             };
-
 
             try
             {

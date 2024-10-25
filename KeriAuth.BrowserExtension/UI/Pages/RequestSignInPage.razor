@@ -47,8 +47,6 @@
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
     enum SignInMode { Credential, Identifier, Prompt }
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
-    string SelectedPrefix { get; set; } = "unknown";
-    Dictionary<string, object>? SelectedCredential;
 
     protected override async Task OnInitializedAsync()
     {
@@ -125,7 +123,6 @@
                 logger.LogError("No 'type' property found in outer message");
                 return;
             }
-
         }
         else
         {
@@ -137,9 +134,23 @@
     /*
     // SignIn()
     */
-    async Task SignIn(SignInMode RequestedSignInMode, string requestId2, string? selectedPrefix, Dictionary<string, object>? credentialDictionary)
+    async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
+        var res = await websiteConfigService.GetOrCreateWebsiteConfig(new Uri(OriginStr));
+        if (res.IsFailed)
+        {
+            throw new Exception("SignIn: could not retrieve website config");
+        }
+
+        WebsiteConfig websiteConfig = res.Value;
+        if (websiteConfig.RememberedPrefixOrNothing is null)
+        {
+            throw new Exception("SignIn: prefix must be set here");
+        }
+        string selectedPrefix = websiteConfig.RememberedPrefixOrNothing;
+
         ReplyMessageData<AuthorizeResult> replyMessageData;
+
         switch (RequestedSignInMode)
         {
             case SignInMode.Identifier:
@@ -155,8 +166,19 @@
                 );
                 break;
             case SignInMode.Credential:
-                // populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
+                string? said = websiteConfig.RememberedCredSaidOrNothing;
+                if (said is null)
+                {
+                    throw new Exception("SignIn: credential said must be set here");
+                }
+                var credRes = await signifyClientService.GetCredential(said);
+                if (credRes.IsFailed)
+                {
+                    throw new Exception("SignIn: unable to find credential by said");
+                }
+                Dictionary<string, object>? credentialDictionary = credRes.Value;
 
+                // Populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
                 // Deserialize JSON string to ICredential record
                 var options = new JsonSerializerOptions
                     {
@@ -277,7 +299,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId, SelectedPrefix, SelectedCredential))">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
     </MudStack>
 </div>
 
