@@ -113,7 +113,7 @@
                 if (SelectedHeadlineOrNothing is null)
                 {
                     throw new Exception("GetInitialHeadlines: must set a prefix");
-                }                                         
+                }
                 SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
                 var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedPrefix });
                 if (updateRes is null || updateRes.IsFailed)
@@ -311,41 +311,48 @@
         <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
     }
 
+    <!-- Select Identifier -->
     <MudStack Class="gap-0">
         <MudText Class="mt-4" Typo="Typo.h6"><b>Identifier</b></MudText>
         <MudStack Class="ml-0" Style="gap:0;">
-            <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
-                @foreach (var identifierHeadline in IdentifierHeadlines)
-                {
-                    <MudSelectItem Value="@identifierHeadline.Prefix" Class="@GetIdentifierItemClass(identifierHeadline.Prefix)">
-                        <MudStack Row Style="align-items:center;">
-                            <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                            <div class="bt-sad-2" style="display:contents;">
-                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                            </div>
-                        </MudStack>
-                    </MudSelectItem>
-                }
-            </MudSelect>
-            <!-- Hiding this functionality until it is fixed -->
-            <div style="display:none;">
-                <MudCheckBox Label="Use as default" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
-                <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignInIdentifier(b)" />
-                @if (IsAutoSignInIdentifier)
-                {
-                    if (SelectedPrefix == ThisWebsiteConfig.RememberedPrefixOrNothing)
+            @if (IdentifierHeadlines.Any())  // this prevents a flash while loading
+            {
+                <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                    @foreach (var identifierHeadline in IdentifierHeadlines)
                     {
-                        <MudText>(with this identifier)</MudText>
-                    } else {
-                        <MudText>(with another identifier)</MudText>
+                        <MudSelectItem Value="@identifierHeadline.Prefix" Class="@GetIdentifierItemClass(identifierHeadline.Prefix)">
+                            <MudStack Row Style="align-items:center;">
+                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <div class="bt-sad-2" style="display:contents;">
+                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                </div>
+                            </MudStack>
+                        </MudSelectItem>
                     }
-                }
-            </div>
+                </MudSelect>
+                <!-- TODO P3 Hiding these options functionality until it is fixed -->
+                <div style="display:none;">
+                    <MudCheckBox Label="Use as default" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
+                    <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignInIdentifier(b)" />
+                    @if (IsAutoSignInIdentifier && ThisWebsiteConfig is not null)
+                    {
+                        if (SelectedPrefix == ThisWebsiteConfig.RememberedPrefixOrNothing)
+                        {
+                            <MudText>(with this identifier)</MudText>
+                        }
+                        else
+                        {
+                            <MudText>(with another identifier)</MudText>
+                        }
+                    }
+                </div>
+            }
         </MudStack>
     </MudStack>
 
     @if (IsCredentialShown)
     {
+        <!-- Select Credential --->
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6"><b>Credential</b></MudText>
             <MudStack Class="ml-0" Style="gap:0;">
@@ -370,7 +377,6 @@
                     }
                     else
                     {
-                        <!-- Display Credential List When Expanded -->
                         <MudList Dense="true" T="Dictionary<string, object>">
                             @foreach (var credential in credentials)
                             {
@@ -382,7 +388,7 @@
                         </MudList>
                     }
                 </MudPaper>
-                <!-- Hiding this functionality until it is fixed -->
+                <!-- TODO P3 Hiding these options functionality until it is fixed -->
                 <div style="display:none;">
                     <MudCheckBox Label="Default credential for website" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsCredentialRemembered" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
                     <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
