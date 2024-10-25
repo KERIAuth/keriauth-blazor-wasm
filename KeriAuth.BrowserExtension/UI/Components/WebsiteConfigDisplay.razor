@@ -30,21 +30,31 @@
     [Parameter] public required bool IsOriginShown { get; init; }
 
     private bool IsCredListExpanded { get; set; }
-    private string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     private string AppActivePrefix { get; set; } = string.Empty;
     private List<IdentifierHeadline> IdentifierHeadlines { get; set; } = new();
-
-    private bool IsPrefixRemembered => ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedPrefixOrNothing == SelectedPrefix;
-    private bool IsAutoSignInIdentifier => ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInIdentifier;
-    private bool IsAutoSignInCred => ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInCredential;
-    private bool IsCredentialRemembered => ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedCredSaidOrNothing is not null;
-
+    private bool IsPrefixRemembered { get; set; }
+    private bool IsAutoSignInIdentifier { get; set; }
+    private bool IsAutoSignInCred { get; set; }
+    private bool IsCredentialRemembered { get; set; }
     private IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
-
     private string SelectedPrefix { get; set; } = "unknown";
-
     private WebsiteConfig? ThisWebsiteConfig { get; set; }
     private Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
+
+    private string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
+    private string? selectedCredSaidOrNothing
+    {
+        get
+        {
+            if (SelectedCredentialOrNothing is not null) {
+                TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
+                if (tv is not null) {
+                    return tv.Value.ToString();
+                }
+            }
+            return null;
+        }
+    }
 
     Uri? GetOriginUri()
     {
@@ -72,9 +82,12 @@
             throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
         }
         var newWebsite = getOrCreateWebsiteRes.Value;
-
         ThisWebsiteConfig = newWebsite;
-        StateHasChanged();
+        IsPrefixRemembered = ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedPrefixOrNothing == SelectedPrefix;
+        IsAutoSignInIdentifier = ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInIdentifier;
+        IsAutoSignInCred = ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInCredential;
+        IsCredentialRemembered = ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedCredSaidOrNothing == selectedCredSaidOrNothing;
+
         await Task.Delay(0);
     }
 
@@ -117,16 +130,16 @@
     /*
     private async Task GetWebsiteConfig(Uri uri)
     {
-        var res = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
+    var res = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
         if (res?.IsSuccess == true)
-        {
-            ThisWebsiteConfig = res.Value;
-            StateHasChanged();
+    {
+    ThisWebsiteConfig = res.Value;
+    StateHasChanged();
         }
         else
         {
-            throw new Exception("WebsiteConfig retrieval failed");
-        }
+        throw new Exception("WebsiteConfig retrieval failed");
+    }
     }
     */
 
@@ -143,7 +156,7 @@
     {
         SelectedPrefix = prefix;
         logger.LogInformation("updateSelectedPrefix set prefix to ", SelectedPrefix);
-            /*
+        /*
         if (GetOriginUri() is not null)
         {
         await GetWebsiteConfig(GetOriginUri()!);
@@ -156,7 +169,7 @@
         if (updateRes is null || updateRes.IsFailed)
             {
             logger.LogError($"Error updating website: {updateRes?.Errors}");
-        return;
+            return;
         }
         */
         await RefreshThisWebsiteConfig();
@@ -167,9 +180,9 @@
         SelectedCredentialOrNothing = item;
         string json = JsonConvert.SerializeObject(SelectedCredentialOrNothing, Formatting.Indented);
         logger.LogInformation("updateSelectedCredential set to ~ ", json);
-            /*
-            if (GetOriginUri() is not null)
-            {
+        /*
+        if (GetOriginUri() is not null)
+        {
         await GetWebsiteConfig(GetOriginUri()!);
         }
 
@@ -182,7 +195,7 @@
         if (updateRes is null || updateRes.IsFailed)
             {
             logger.LogError($"Error updating website: {updateRes?.Errors}");
-        return;
+            return;
         }
         */
         await RefreshThisWebsiteConfig();
@@ -204,8 +217,8 @@
         var rememberedCredSaidOrNothing = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d")?.Value?.ToString() ?? null;
         logger.LogWarning($"credential debug dictionary: {rememberedCredSaidOrNothing}");
         newWebsite = isChecked
-            ? newWebsite with { RememberedCredSaidOrNothing = null }
-            : newWebsite with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix };
+            ? newWebsite with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix }
+            : newWebsite with { RememberedCredSaidOrNothing = null } ;
         newWebsite.Validate();
         var updateRes = await websiteConfigService.Update(newWebsite);
         if (updateRes is null || updateRes.IsFailed)
@@ -219,11 +232,14 @@
 
     async Task updateIsPrefixRemembered(bool isPrefixRemembered)
     {
+        // logger.LogWarning($"updateIsPrefixRemembered: {isPrefixRemembered} SelectedPrefix: {SelectedPrefix}");
         var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
+                                             // logger.LogWarning($"updateIsPrefixRemembered: ThisWebsiteConfig: {ThisWebsiteConfig}");
         newWebsite = isPrefixRemembered
-            ? newWebsite with { RememberedPrefixOrNothing = null }
-            : newWebsite with { RememberedPrefixOrNothing = SelectedPrefix };
+            ? newWebsite with { RememberedPrefixOrNothing = SelectedPrefix }
+            : newWebsite with { RememberedPrefixOrNothing = null }; 
         newWebsite.Validate();
+        // logger.LogWarning($"updateIsPrefixRemembered: newWebsite {newWebsite}"); // TODO EE convert to JSON for printing?
         var updateRes = await websiteConfigService.Update(newWebsite);
         if (updateRes is null || updateRes.IsFailed)
         {
@@ -267,8 +283,18 @@
 
     async Task updateIsAutoSignInIdentifier(bool isChecked)
     {
-        await Task.Delay(0);
-        // TODO P0 implement
+        // logger.LogWarning($"updateIsPrefixRemembered: {isPrefixRemembered} SelectedPrefix: {SelectedPrefix}");
+        var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
+                                             // logger.LogWarning($"updateIsPrefixRemembered: ThisWebsiteConfig: {ThisWebsiteConfig}");
+        newWebsite = newWebsite with { IsAutoSignInIdentifier = isChecked && IsPrefixRemembered };
+        newWebsite.Validate();
+        // logger.LogWarning($"updateIsPrefixRemembered: newWebsite {newWebsite}"); // TODO EE convert to JSON for printing?
+        var updateRes = await websiteConfigService.Update(newWebsite);
+        if (updateRes is null || updateRes.IsFailed)
+        {
+            logger.LogError($"Error updating website: {updateRes?.Errors}");
+            return;
+        }
         await RefreshThisWebsiteConfig();
         return;
     }
@@ -285,7 +311,10 @@
         return item == SelectedCredentialOrNothing ? "selected-item" : String.Empty;
     }
 
-
+    private string GetIdentifierItemClass(string prefix)
+    {
+        return prefix == SelectedPrefix ? "selected-item" : String.Empty;
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -300,7 +329,7 @@
             <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
                 @foreach (var identifierHeadline in IdentifierHeadlines)
                 {
-                    <MudSelectItem Value="@identifierHeadline.Prefix">
+                    <MudSelectItem Value="@identifierHeadline.Prefix" Class="@GetIdentifierItemClass(identifierHeadline.Prefix)">
                         <MudStack Row Style="align-items:center;">
                             <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                             <div class="bt-sad-2" style="display:contents;">
@@ -310,8 +339,20 @@
                     </MudSelectItem>
                 }
             </MudSelect>
-            <MudCheckBox Label="Default identifier for website" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" /> 
+            <MudCheckBox Label="Use as default" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
             <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignInIdentifier(b)" />
+            @if (IsAutoSignInIdentifier)
+            {
+                if (SelectedPrefix == ThisWebsiteConfig.RememberedPrefixOrNothing)
+                {
+                    <MudText>(with this identifier)</MudText>
+                }
+
+                else
+                {
+                    <MudText>(with another identifier)</MudText>
+                }
+            }
         </MudStack>
     </MudStack>
 
