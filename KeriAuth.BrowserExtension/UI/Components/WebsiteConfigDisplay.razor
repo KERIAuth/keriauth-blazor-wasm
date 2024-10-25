@@ -102,25 +102,26 @@
             if (IdentifierHeadlines.Any())
             {
                 await RefreshThisWebsiteConfig();
-                // var originUri = GetOriginUri();
-                // if (originUri is null) return;
-
-                // var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
-                // if (wcRes.IsFailed)
-                // {
-                //     logger.LogError("Error in websiteService: {0}", wcRes.Errors);
-                //     return;
-                // }
-
+                if (ThisWebsiteConfig is null)
+                {
+                    throw new Exception("GetInitialHeadlines: website config must not be null here");
+                }
                 var newWebsite = ThisWebsiteConfig;
                 SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
                                           ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
                                           ?? IdentifierHeadlines.First();
-
-                SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
+                if (SelectedHeadlineOrNothing is null)
+                {
+                    throw new Exception("GetInitialHeadlines: must set a prefix");
+                }                                         
+                SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
+                var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedPrefix });
+                if (updateRes is null || updateRes.IsFailed)
+                {
+                    throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
+                }
                 await RefreshThisWebsiteConfig();
-                // await GetWebsiteConfig(originUri);
-                StateHasChanged();
+                StateHasChanged(); // needed?
             }
             else
             {
@@ -128,22 +129,6 @@
             }
         }
     }
-
-    /*
-    private async Task GetWebsiteConfig(Uri uri)
-    {
-    var res = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
-        if (res?.IsSuccess == true)
-    {
-    ThisWebsiteConfig = res.Value;
-    StateHasChanged();
-        }
-        else
-        {
-        throw new Exception("WebsiteConfig retrieval failed");
-    }
-    }
-    */
 
     List<Dictionary<string, object>> credentials = new();
 
@@ -158,48 +143,49 @@
     {
         SelectedPrefix = prefix;
         logger.LogInformation("updateSelectedPrefix set prefix to ", SelectedPrefix);
-        /*
-        if (GetOriginUri() is not null)
+        if (ThisWebsiteConfig is null)
         {
-        await GetWebsiteConfig(GetOriginUri()!);
+            throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
         }
-
-        var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
-        newWebsite = newWebsite with { RememberedPrefixOrNothing = prefix };
-        newWebsite.Validate();
-        var updateRes = await websiteConfigService.Update(newWebsite);
+        var newWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+        newWebsiteConfig.Validate();
+        var updateRes = await websiteConfigService.Update(newWebsiteConfig);
         if (updateRes is null || updateRes.IsFailed)
-            {
-            logger.LogError($"Error updating website: {updateRes?.Errors}");
-            return;
+        {
+            throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
         }
-        */
         await RefreshThisWebsiteConfig();
     }
 
     private async Task updateSelectedCredential(Dictionary<string, object>? item)
     {
-        SelectedCredentialOrNothing = item;
-        string json = JsonConvert.SerializeObject(SelectedCredentialOrNothing, Formatting.Indented);
-        logger.LogInformation("updateSelectedCredential set to ~ ", json);
-        /*
-        if (GetOriginUri() is not null)
+        if (item is null)
         {
-        await GetWebsiteConfig(GetOriginUri()!);
+            throw new Exception($"updateSelectedCredential: credential should not be null here.");
         }
+        if (ThisWebsiteConfig is null)
+        {
+            throw new Exception($"updateSelectedCredential: ThisWebsiteConfig should not be null here.");
+        }
+        SelectedCredentialOrNothing = item;
 
-        var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
         var rememberedCredSaidOrNothing = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d")?.Value?.ToString() ?? null;
-        logger.LogWarning("updateSelectedCredential cred: ", rememberedCredSaidOrNothing);
-        newWebsite = newWebsite with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing };
+        if (rememberedCredSaidOrNothing is null)
+        {
+            string json = JsonConvert.SerializeObject(SelectedCredentialOrNothing, Formatting.Indented);
+            logger.LogInformation("updateSelectedCredential set to ~ ", json);
+            throw new Exception($"updateSelectedCredential: Could not find SAID of credential");
+        }
+        logger.LogInformation("updateSelectedCredential cred: ", rememberedCredSaidOrNothing);
+
+        var newWebsite = ThisWebsiteConfig with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix };
         newWebsite.Validate();
         var updateRes = await websiteConfigService.Update(newWebsite);
         if (updateRes is null || updateRes.IsFailed)
-            {
-            logger.LogError($"Error updating website: {updateRes?.Errors}");
+        {
+            logger.LogError($"updateSelectedCredential: Error updating website: {updateRes?.Errors}");
             return;
         }
-        */
         await RefreshThisWebsiteConfig();
 
         IsCredListExpanded = false;
