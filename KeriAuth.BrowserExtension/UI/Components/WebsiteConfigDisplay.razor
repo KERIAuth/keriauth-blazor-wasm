@@ -115,7 +115,7 @@
                     throw new Exception("GetInitialHeadlines: must set a prefix");
                 }
                 SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
-                var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedPrefix });
+                var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
                 if (updateRes is null || updateRes.IsFailed)
                 {
                     throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
@@ -130,13 +130,11 @@
         }
     }
 
-    List<Dictionary<string, object>> credentials = new();
+    List<Dictionary<string, object>> CredentialsDict { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        await GetInitialHeadlines();
-        await getCredentials();
     }
 
     async Task updateSelectedPrefix(string prefix)
@@ -161,6 +159,7 @@
     {
         if (item is null)
         {
+            return;
             throw new Exception($"updateSelectedCredential: credential should not be null here.");
         }
         if (ThisWebsiteConfig is null)
@@ -250,9 +249,9 @@
         }
         else
         {
-            credentials = res.Value as List<Dictionary<string, object>>;
-            Debug.Assert(credentials is not null);
-            logger.LogInformation("Credentials: count {res}", credentials.Count);
+            CredentialsDict = res.Value as List<Dictionary<string, object>>;
+            // Debug.Assert(CredentialsDict is not null);
+            logger.LogInformation("Credentials: count {res}", CredentialsDict.Count);
             // foreach (Dictionary<string, object> credential in credentials)
             // {
             //     logger.LogInformation("Credential: {credential}", credential);
@@ -292,14 +291,40 @@
         await base.OnParametersSetAsync();
         // InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
         await GetInitialHeadlines();
+        await getCredentials();
+        await GetInitialCredential();
     }
 
-    private string GetCredentialItemClass(Dictionary<string, object> item)
+    async Task GetInitialCredential()
+    {
+        logger.LogWarning("GetInitialCredential");
+        await RefreshThisWebsiteConfig();
+        if (ThisWebsiteConfig is null)
+        {
+            throw new Exception("GetInitialCredential: website config must not be null here");
+        }
+        var selectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
+        logger.LogWarning("GetInitialCredential selectedCredSaidOrNothing: {c}", selectedCredSaidOrNothing);
+        if (selectedCredSaidOrNothing is not null) {
+            // get full credential by said
+            var credRes = await signifyClientService.GetCredential(selectedCredSaidOrNothing);
+            if (credRes.IsSuccess) {
+                logger.LogWarning("GetInitialCredential credRes: {c}", credRes.Value);
+                await updateSelectedCredential(credRes.Value);
+                return;
+            }
+        }
+        await updateSelectedCredential(null);
+        return;
+    }
+
+
+    string GetCredentialItemClass(Dictionary<string, object> item)
     {
         return item == SelectedCredentialOrNothing ? "selected-item" : String.Empty;
     }
 
-    private string GetIdentifierItemClass(string prefix)
+    string GetIdentifierItemClass(string prefix)
     {
         return prefix == SelectedPrefix ? "selected-item" : String.Empty;
     }
@@ -350,7 +375,7 @@
         </MudStack>
     </MudStack>
 
-    @if (IsCredentialShown)
+    @if (IsCredentialShown && CredentialsDict.Any())
     {
         <!-- Select Credential --->
         <MudStack Class="gap-0">
@@ -378,7 +403,7 @@
                     else
                     {
                         <MudList Dense="true" T="Dictionary<string, object>">
-                            @foreach (var credential in credentials)
+                            @foreach (var credential in CredentialsDict)
                             {
                                 <MudListItem OnClick="@(() => updateSelectedCredential(credential))"
                                              Class="@GetCredentialItemClass(credential)">
