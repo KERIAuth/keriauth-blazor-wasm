@@ -408,7 +408,19 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 }
                 break;
             case "/KeriAuth/signify/replyCancel":
-                { };
+                try {
+                    const cancelResult = {
+                        type: SwCsMsgType.REPLY,
+                        requestId: message.requestId,
+                        payload: {},
+                        rurl: ""
+                    };
+                    console.log("SW from App: authorizeResult", cancelResult);
+                    cSConnection.port.postMessage(cancelResult);
+                }
+                catch (error) {
+                    console.error("SW from App: error parsing credential: ", error);
+                }
                 break;
             default:
                 console.warn("SW from App: message type not yet handled: ", message);
