@@ -47,6 +47,9 @@
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
     enum SignInMode { Credential, Identifier, Prompt }
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
+    string? SelectedPrefix { get; set; }
+    Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -136,47 +139,27 @@
     */
     async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
-        var res = await websiteConfigService.GetOrCreateWebsiteConfig(new Uri(OriginStr));
-        if (res.IsFailed)
-        {
-            throw new Exception("SignIn: could not retrieve website config");
-        }
+        // will received prefix and credential via callback from WebsiteConfigDisplay component
 
-        WebsiteConfig websiteConfig = res.Value;
-        if (websiteConfig.RememberedPrefixOrNothing is null)
-        {
-            throw new Exception("SignIn: prefix must be set here");
-        }
-        string selectedPrefix = websiteConfig.RememberedPrefixOrNothing;
 
         ReplyMessageData<AuthorizeResult> replyMessageData;
 
         switch (RequestedSignInMode)
         {
             case SignInMode.Identifier:
-                logger.LogInformation("SignIn with Identifier: {0}", selectedPrefix);
-                if (selectedPrefix is null)
+                logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
+                if (SelectedPrefix is null)
                 {
                     throw (new Exception("SelectedPrefix is null"));
                 }
                 replyMessageData = new(
                     "/signify/reply",
-                    new AuthorizeResult(null, new AuthorizeResultIdentifier(selectedPrefix)),
+                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
                     requestId: requestId2
                 );
                 break;
             case SignInMode.Credential:
-                string? said = websiteConfig.RememberedCredSaidOrNothing;
-                if (said is null)
-                {
-                    throw new Exception("SignIn: credential said must be set here");
-                }
-                var credRes = await signifyClientService.GetCredential(said);
-                if (credRes.IsFailed)
-                {
-                    throw new Exception("SignIn: unable to find credential by said");
-                }
-                Dictionary<string, object>? credentialDictionary = credRes.Value;
+                Dictionary<string, object>? credentialDictionary = SelectedCredentialOrNothing;
 
                 // Populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
                 // Deserialize JSON string to ICredential record
@@ -252,6 +235,35 @@
     {
         ;
     }
+
+    private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
+    {
+        logger.LogWarning($"HandleValueChanged {value.selectedPrefix}");
+        SelectedPrefix = value.selectedPrefix;
+        SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
+        StateHasChanged();
+    }
+
+    string? _callbackSelectedPrefix;
+    Dictionary<string, object>? _callbackSelectedCred;
+
+    private bool IsSignInDisabled  
+    {
+        get
+        {
+            logger.LogWarning("isSignInDisabled");
+            if (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null))
+            {
+                logger.LogWarning("isSignInDisabled {b}", true);
+                return true;
+            }
+            else
+            {
+                logger.LogWarning("isSignInDisabled {b}", false);
+                return false;
+            }
+        }
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -285,10 +297,10 @@
                     </MudStack>
                     break;
                 case SignInMode.Identifier:
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" />
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" ValueChanged="HandleValueChanged" />
                     break;
                 case SignInMode.Credential:
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" />
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" ValueChanged="HandleValueChanged" />
                     break;
                 default:
                     <MudText>Unsupported SignInMode: @RequestedSignInMode</MudText>
@@ -299,7 +311,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Disabled="IsSignInDisabled" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
     </MudStack>
 </div>
 

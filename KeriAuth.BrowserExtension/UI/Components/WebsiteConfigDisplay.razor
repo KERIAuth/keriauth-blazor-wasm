@@ -28,6 +28,7 @@
     [Parameter] public required string OriginStr { get; init; }
     [Parameter] public required bool IsCredentialShown { get; init; }
     [Parameter] public required bool IsOriginShown { get; init; }
+    [Parameter] public EventCallback<(string? selectedPrefix, Dictionary<string, object>? selectedCredential)> ValueChanged { get; init; }
 
     private bool IsCredListExpanded { get; set; }
     private string AppActivePrefix { get; set; } = string.Empty;
@@ -71,6 +72,12 @@
         }
     }
 
+    async Task SendValueToParent()
+    {
+        logger.LogWarning($"SendValueToParent prefix: {SelectedPrefix}");
+        await ValueChanged.InvokeAsync((SelectedPrefix, SelectedCredentialOrNothing));
+    }
+
     async Task RefreshThisWebsiteConfig()
     {
         // TODO P2 refactor RefreshThisWebsiteConfig to be reactive IObserver<WebsiteConfig> on websiteConfigService
@@ -89,6 +96,8 @@
         IsAutoSignInIdentifier = ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInIdentifier;
         IsAutoSignInCred = ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInCredential;
         IsCredentialRemembered = ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedCredSaidOrNothing == selectedCredSaidOrNothing;
+
+        await SendValueToParent();
 
         await Task.Delay(0);
     }
@@ -144,7 +153,7 @@
         {
             foreach (var filter in filters)
             {
-                if (DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match )
+                if (DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match)
                 {
                     filteredCredentials.Add(credDict);
                     break;
@@ -310,11 +319,24 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        await base.OnParametersSetAsync();
+        // await base.OnParametersSetAsync();
         // InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-        await GetInitialIdentifierHeadlines();
-        await getCredentials();
-        await GetInitialCredential();
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initial render logic here
+            await GetInitialIdentifierHeadlines();
+            await getCredentials();
+            await GetInitialCredential();
+        }
+        else
+        {
+            // Logic for subsequent renders, if needed
+        }
     }
 
     async Task GetInitialCredential()
@@ -341,7 +363,6 @@
         await updateSelectedCredential(null);
         return;
     }
-
 
     string GetCredentialItemClass(Dictionary<string, object> item)
     {
@@ -426,20 +447,23 @@
                     }
                     else
                     {
-                        var FilteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
-                        if (FilteredCredentials is not null && FilteredCredentials.Any())
+                        var filteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
+                        if (filteredCredentials is not null && filteredCredentials.Any())
                         {
                             <MudList Dense="true" T="Dictionary<string, object>">
-                                @foreach (var credential in FilteredCredentials)
+                                @foreach (var credential in filteredCredentials)
                                 {
-                                <MudListItem OnClick="@(() => updateSelectedCredential(credential))"
-                                             Class="@GetCredentialItemClass(credential)">
-                                    <CredentialDisplay credential="@credential" />
-                                </MudListItem>
+                                    <MudListItem OnClick="@(async () => await updateSelectedCredential(credential))"
+                                                 Class="@GetCredentialItemClass(credential)">
+                                        <CredentialDisplay credential="@credential" />
+                                    </MudListItem>
                                 }
                             </MudList>
-                        } else
+                        }
+                        else
                         {
+                            // TODO not awaited
+                            updateSelectedCredential(null);
                             <MudText>No credentials issued to this identifier.</MudText>
                         }
                     }
