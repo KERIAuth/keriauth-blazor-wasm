@@ -101,16 +101,16 @@
         // TODO EE! implement and test ensurance
         // Ensure the SelectedCredentialOrNothing's issuee's value is consistent with the SelectedPrefix
         /*
-        if (SelectedCredentialOrNothing is not null)
-        {
+            if (SelectedCredentialOrNothing is not null)
+            {
             TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
             if (tv?.Value.ToString() != SelectedPrefix)
-            {
+                {
                 SelectedCredSaidOrNothing = null;
                 SelectedCredentialOrNothing = null;
                 ThisWebsiteConfig = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredSaidOrNothing };
                 await websiteConfigService.Update(ThisWebsiteConfig);
-            }
+        }
         }
         */
 
@@ -125,36 +125,36 @@
         if (res?.IsSuccess == true)
         {
             IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
-/*
-            if (IdentifierHeadlines.Any())
+        /*
+    if (IdentifierHeadlines.Any())
+    {
+        await RefreshFromWebsiteConfig();
+        if (ThisWebsiteConfig is null)
             {
-                await RefreshFromWebsiteConfig();
-                if (ThisWebsiteConfig is null)
-                {
-                    throw new Exception("GetInitialHeadlines: website config must not be null here");
-                }
-                var newWebsite = ThisWebsiteConfig;
-                SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
-                                          ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
-                                          ?? IdentifierHeadlines.First();
-                if (SelectedHeadlineOrNothing is null)
-                {
-                    throw new Exception("GetInitialHeadlines: must set a prefix");
-                }
-                SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
-                var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
-                if (updateRes is null || updateRes.IsFailed)
-                {
-                    throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
-                }
-                await RefreshFromWebsiteConfig();
-                StateHasChanged(); // needed?
+            throw new Exception("GetInitialHeadlines: website config must not be null here");
             }
-            else
+                                      var newWebsite = ThisWebsiteConfig;
+                                      SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
+                                      ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
+                                      ?? IdentifierHeadlines.First();
+                                      if (SelectedHeadlineOrNothing is null)
+                {
+                throw new Exception("GetInitialHeadlines: must set a prefix");
+            }
+            SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
+            var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
+            if (updateRes is null || updateRes.IsFailed)
             {
-                throw new Exception("No Identifiers found");
+                throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
             }
-            */
+            await RefreshFromWebsiteConfig();
+            StateHasChanged(); // needed?
+        }
+        else
+            {
+            throw new Exception("No Identifiers found");
+        }
+        */
         }
     }
 
@@ -188,6 +188,8 @@
     async Task updateSelectedPrefix(string prefix)
     {
         logger.LogInformation("updateSelectedPrefix set prefix to ", prefix);
+        IsCredListExpanded = false;
+        SelectedCredentialOrNothing = null;
         if (ThisWebsiteConfig is null)
         {
             throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
@@ -232,10 +234,11 @@
             logger.LogError($"updateSelectedCredential: Error updating website: {updateRes?.Errors}");
             return;
         }
-        await Task.Delay(2000); // TODO EE! debug
+        // await Task.Delay(2000); // TODO EE! debug
+        IsCredListExpanded = false;
         await RefreshFromWebsiteConfig();
 
-        IsCredListExpanded = false;
+        
         return;
     }
 
