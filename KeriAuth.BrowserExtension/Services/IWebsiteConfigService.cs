@@ -13,6 +13,6 @@ namespace KeriAuth.BrowserExtension.Services
 
         Task<Result> Update(WebsiteConfig website);
 
-        Task<Result<WebsiteConfig>> GetOrCreateWebsiteConfig(Uri originUri);
+        Task<Result<(WebsiteConfig websiteConfig1, bool isConfigNew)>> GetOrCreateWebsiteConfig(Uri originUri);
     }
 }

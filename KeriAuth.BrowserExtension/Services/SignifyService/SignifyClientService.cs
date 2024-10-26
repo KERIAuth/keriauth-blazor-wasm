@@ -320,7 +320,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             try
             {
                 var jsonString = await GetCredentialsList();
-                logger.LogInformation("GetCredentials: {jsonString}", jsonString);
+                // logger.LogInformation("GetCredentials: {jsonString}", jsonString);
                 if (jsonString is null)
                 {
                     return Result.Fail("GetCredentials returned null");

@@ -41,23 +41,11 @@
     private string SelectedPrefix { get; set; } = "unknown";
     private WebsiteConfig? ThisWebsiteConfig { get; set; }
     private Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
+    private List<Dictionary<string, object>> CredentialsDict { get; set; } = new();
+    private string? SelectedCredSaidOrNothing { get; set; }
+    private List<Dictionary<string, object>>? FilteredCredentials { get; set; }
 
     private string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-    private string? selectedCredSaidOrNothing
-    {
-        get
-        {
-            if (SelectedCredentialOrNothing is not null)
-            {
-                TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
-                if (tv is not null)
-                {
-                    return tv.Value.ToString();
-                }
-            }
-            return null;
-        }
-    }
 
     Uri? GetOriginUri()
     {
@@ -78,28 +66,57 @@
         await ValueChanged.InvokeAsync((SelectedPrefix, SelectedCredentialOrNothing));
     }
 
-    async Task RefreshThisWebsiteConfig()
+    async Task RefreshFromWebsiteConfig()
     {
-        // TODO P2 refactor RefreshThisWebsiteConfig to be reactive IObserver<WebsiteConfig> on websiteConfigService
-
         var originUri = GetOriginUri();
-        if (originUri is null) return;
+        if (originUri is null)
+        {
+            throw new Exception($"RefreshThisWebsiteConfig: origin must be set.");
+        }
 
         var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
         if (getOrCreateWebsiteRes.IsFailed)
         {
             throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
         }
-        var newWebsite = getOrCreateWebsiteRes.Value;
+        var (newWebsite, isConfigNew) = getOrCreateWebsiteRes.Value;
         ThisWebsiteConfig = newWebsite;
-        IsPrefixRemembered = ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedPrefixOrNothing == SelectedPrefix;
-        IsAutoSignInIdentifier = ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInIdentifier;
-        IsAutoSignInCred = ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInCredential;
-        IsCredentialRemembered = ThisWebsiteConfig is not null && ThisWebsiteConfig.RememberedCredSaidOrNothing == selectedCredSaidOrNothing;
 
+        if (isConfigNew)
+        {
+            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedAid;
+            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+            await websiteConfigService.Update(ThisWebsiteConfig);
+        }
+        else
+        {
+            SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+        }
+
+        FilteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
+        // logger.LogWarning("FilteredCredentials: {i}", FilteredCredentials?.Count() ?? 0);
+
+        SelectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
+
+        // TODO EE! implement and test ensurance
+        // Ensure the SelectedCredentialOrNothing's issuee's value is consistent with the SelectedPrefix
+        /*
+        if (SelectedCredentialOrNothing is not null)
+        {
+            TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
+            if (tv?.Value.ToString() != SelectedPrefix)
+            {
+                SelectedCredSaidOrNothing = null;
+                SelectedCredentialOrNothing = null;
+                ThisWebsiteConfig = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredSaidOrNothing };
+                await websiteConfigService.Update(ThisWebsiteConfig);
+            }
+        }
+        */
+
+        // send relevant values to parent (e.g. a page for SignIn or website config)
         await SendValueToParent();
-
-        await Task.Delay(0);
+        StateHasChanged(); // TODO EE! should not need this to force refresh of filtered credentials?
     }
 
     private async Task GetInitialIdentifierHeadlines()
@@ -108,9 +125,10 @@
         if (res?.IsSuccess == true)
         {
             IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
+/*
             if (IdentifierHeadlines.Any())
             {
-                await RefreshThisWebsiteConfig();
+                await RefreshFromWebsiteConfig();
                 if (ThisWebsiteConfig is null)
                 {
                     throw new Exception("GetInitialHeadlines: website config must not be null here");
@@ -129,17 +147,16 @@
                 {
                     throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
                 }
-                await RefreshThisWebsiteConfig();
+                await RefreshFromWebsiteConfig();
                 StateHasChanged(); // needed?
             }
             else
             {
                 throw new Exception("No Identifiers found");
             }
+            */
         }
     }
-
-    List<Dictionary<string, object>> CredentialsDict { get; set; } = new();
 
     // TODO move this to a helper
     List<Dictionary<string, object>>? filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
@@ -170,28 +187,27 @@
 
     async Task updateSelectedPrefix(string prefix)
     {
-        SelectedPrefix = prefix;
-        logger.LogInformation("updateSelectedPrefix set prefix to ", SelectedPrefix);
+        logger.LogInformation("updateSelectedPrefix set prefix to ", prefix);
         if (ThisWebsiteConfig is null)
         {
             throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
         }
-        var newWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+        // when changing the prefix, any prior selection of RememberedCred will not be relevant
+        var newWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = prefix, RememberedCredSaidOrNothing = null };
         newWebsiteConfig.Validate();
         var updateRes = await websiteConfigService.Update(newWebsiteConfig);
         if (updateRes is null || updateRes.IsFailed)
         {
             throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
         }
-        await RefreshThisWebsiteConfig();
+        await RefreshFromWebsiteConfig();
     }
 
     private async Task updateSelectedCredential(Dictionary<string, object>? item)
     {
-        if (item is null)
+        if (item is null || !item.Any() )
         {
-            return;
-            throw new Exception($"updateSelectedCredential: credential should not be null here.");
+            throw new Exception($"updateSelectedCredential: credential should not be null or empty here.");
         }
         if (ThisWebsiteConfig is null)
         {
@@ -206,7 +222,7 @@
             logger.LogInformation("updateSelectedCredential set to ~ ", json);
             throw new Exception($"updateSelectedCredential: Could not find SAID of credential");
         }
-        logger.LogInformation("updateSelectedCredential cred: ", rememberedCredSaidOrNothing);
+        logger.LogInformation("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
 
         var newWebsite = ThisWebsiteConfig with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix };
         newWebsite.Validate();
@@ -216,62 +232,21 @@
             logger.LogError($"updateSelectedCredential: Error updating website: {updateRes?.Errors}");
             return;
         }
-        await RefreshThisWebsiteConfig();
+        await Task.Delay(2000); // TODO EE! debug
+        await RefreshFromWebsiteConfig();
 
         IsCredListExpanded = false;
         return;
     }
 
     async Task updateIsCredentialRemembered(bool isChecked)
-    {
-        if (SelectedCredentialOrNothing is null)
-        {
-            throw new Exception("updateIsCredentialRemembered expects credential to be set");
-        }
-
-        logger.LogInformation("updateIsCredentialRemembered set to ", isChecked.ToString());
-
-        var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
-        var rememberedCredSaidOrNothing = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d")?.Value?.ToString() ?? null;
-        logger.LogWarning($"credential debug dictionary: {rememberedCredSaidOrNothing}");
-        newWebsite = isChecked
-            ? newWebsite with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix }
-            : newWebsite with { RememberedCredSaidOrNothing = null };
-        newWebsite.Validate();
-        var updateRes = await websiteConfigService.Update(newWebsite);
-        if (updateRes is null || updateRes.IsFailed)
-        {
-            logger.LogError($"Error updating website: {updateRes?.Errors}");
-            return;
-        }
-        await RefreshThisWebsiteConfig();
-        return;
-    }
+    { }
 
     async Task updateIsPrefixRemembered(bool isPrefixRemembered)
-    {
-        // logger.LogWarning($"updateIsPrefixRemembered: {isPrefixRemembered} SelectedPrefix: {SelectedPrefix}");
-        var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
-                                             // logger.LogWarning($"updateIsPrefixRemembered: ThisWebsiteConfig: {ThisWebsiteConfig}");
-        newWebsite = isPrefixRemembered
-            ? newWebsite with { RememberedPrefixOrNothing = SelectedPrefix }
-            : newWebsite with { RememberedPrefixOrNothing = null };
-        newWebsite.Validate();
-        // logger.LogWarning($"updateIsPrefixRemembered: newWebsite {newWebsite}"); // TODO EE convert to JSON for printing?
-        var updateRes = await websiteConfigService.Update(newWebsite);
-        if (updateRes is null || updateRes.IsFailed)
-        {
-            logger.LogError($"Error updating website: {updateRes?.Errors}");
-            return;
-        }
-        await RefreshThisWebsiteConfig();
-        return;
-    }
+    { }
 
     async Task getCredentials()
     {
-        // TODO P2 implement filtering to show only the holder's credentials
-        // typescript:  client.credentials().list({ filter: { '-a-i': holderAid.prefix } })
         var res = await signifyClientService.GetCredentials();
         if (res.IsFailed || res.Value is null)
         {
@@ -282,7 +257,7 @@
         {
             CredentialsDict = res.Value as List<Dictionary<string, object>>;
             // Debug.Assert(CredentialsDict is not null);
-            logger.LogInformation("Credentials: count {res}", CredentialsDict.Count);
+            // logger.LogInformation("Credentials: count {res}", CredentialsDict.Count);
             // foreach (Dictionary<string, object> credential in credentials)
             // {
             //     logger.LogInformation("Credential: {credential}", credential);
@@ -292,46 +267,26 @@
     }
 
     async Task updateIsAutoSignInCred(bool isChecked)
-    {
-        await Task.Delay(0);
-        // TODO P0 implement
-        await RefreshThisWebsiteConfig();
-        return;
-    }
+    { }
 
     async Task updateIsAutoSignInIdentifier(bool isChecked)
-    {
-        // logger.LogWarning($"updateIsPrefixRemembered: {isPrefixRemembered} SelectedPrefix: {SelectedPrefix}");
-        var newWebsite = ThisWebsiteConfig!; // TODO P3 dangerous non-null assumption
-                                             // logger.LogWarning($"updateIsPrefixRemembered: ThisWebsiteConfig: {ThisWebsiteConfig}");
-        newWebsite = newWebsite with { IsAutoSignInIdentifier = isChecked && IsPrefixRemembered };
-        newWebsite.Validate();
-        // logger.LogWarning($"updateIsPrefixRemembered: newWebsite {newWebsite}"); // TODO EE convert to JSON for printing?
-        var updateRes = await websiteConfigService.Update(newWebsite);
-        if (updateRes is null || updateRes.IsFailed)
-        {
-            logger.LogError($"Error updating website: {updateRes?.Errors}");
-            return;
-        }
-        await RefreshThisWebsiteConfig();
-        return;
-    }
+    { }
 
     protected override async Task OnParametersSetAsync()
     {
-        // await base.OnParametersSetAsync();
-        // InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-
+        await base.OnParametersSetAsync();
+        await getCredentials();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // TODO P2 optimize by moving some of the above into these optimizations:
         if (firstRender)
         {
             // Initial render logic here
-            await GetInitialIdentifierHeadlines();
-            await getCredentials();
-            await GetInitialCredential();
+            await GetInitialIdentifierHeadlines(); // TODO EE! move to OnParametersSetAsync?
+            await RefreshFromWebsiteConfig(); // TODO EE! move into firstRender section?
+            await SendValueToParent();
         }
         else
         {
@@ -339,10 +294,11 @@
         }
     }
 
+    // TODO EE! can get rid of this?
     async Task GetInitialCredential()
     {
         logger.LogWarning("GetInitialCredential");
-        await RefreshThisWebsiteConfig();
+        await RefreshFromWebsiteConfig();
         if (ThisWebsiteConfig is null)
         {
             throw new Exception("GetInitialCredential: website config must not be null here");
@@ -447,11 +403,10 @@
                     }
                     else
                     {
-                        var filteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
-                        if (filteredCredentials is not null && filteredCredentials.Any())
+                        if (FilteredCredentials is not null && FilteredCredentials.Any())
                         {
                             <MudList Dense="true" T="Dictionary<string, object>">
-                                @foreach (var credential in filteredCredentials)
+                                @foreach (var credential in FilteredCredentials)
                                 {
                                     <MudListItem OnClick="@(async () => await updateSelectedCredential(credential))"
                                                  Class="@GetCredentialItemClass(credential)">
@@ -462,8 +417,6 @@
                         }
                         else
                         {
-                            // TODO not awaited
-                            updateSelectedCredential(null);
                             <MudText>No credentials issued to this identifier.</MudText>
                         }
                     }

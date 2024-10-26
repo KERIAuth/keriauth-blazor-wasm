@@ -98,7 +98,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         return Result.Ok();
     }
 
-    public async Task<Result<WebsiteConfig>> GetOrCreateWebsiteConfig(Uri originUri)
+    public async Task<Result<(WebsiteConfig websiteConfig1, bool isConfigNew)>> GetOrCreateWebsiteConfig(Uri originUri)
     {
         logger.LogInformation("GetOrCreateWebsiteConfig Uri {uri}", originUri);
         WebsiteConfigList websiteConfigList;
@@ -152,12 +152,12 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 {
                     logger.LogInformation("Added website to database");
                 }
-                return Result.Ok(newWebsiteConfig);
+                return Result.Ok((newWebsiteConfig, true));
             }
             else
             {
                 WebsiteConfig website = websiteConfigOrNothing;
-                return Result.Ok(website);
+                return Result.Ok((website, false));
             }
         }
     }

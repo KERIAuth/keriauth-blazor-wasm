@@ -159,8 +159,6 @@
                 );
                 break;
             case SignInMode.Credential:
-                Dictionary<string, object>? credentialDictionary = SelectedCredentialOrNothing;
-
                 // Populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
                 // Deserialize JSON string to ICredential record
                 var options = new JsonSerializerOptions
@@ -172,7 +170,7 @@
                         UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip // Ignore unmapped members
                     };
 
-                var json = JsonSerializer.Serialize(credentialDictionary, options);
+                var json = JsonSerializer.Serialize(SelectedCredentialOrNothing, options);
 
                 // Deserialize with options, which gets rid of excess properties that are not in the ICredential record
                 var credential2 = JsonSerializer.Deserialize<ICredential>(json, options);
@@ -251,15 +249,15 @@
     {
         get
         {
-            logger.LogWarning("isSignInDisabled");
+            logger.LogWarning("isSignInDisabled: RequestedSignInMode: {m} SelectedCredentialOrNothing: {s}", RequestedSignInMode, SelectedCredentialOrNothing?.GetType().ToString() );
             if (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null))
             {
-                logger.LogWarning("isSignInDisabled {b}", true);
+                // logger.LogWarning("isSignInDisabled {b}", true);
                 return true;
             }
             else
             {
-                logger.LogWarning("isSignInDisabled {b}", false);
+                // logger.LogWarning("isSignInDisabled {b}", false);
                 return false;
             }
         }
@@ -309,7 +307,6 @@
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
-        <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
         <MudButton StartIcon="@Icons.Material.Filled.Login" Disabled="IsSignInDisabled" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
     </MudStack>

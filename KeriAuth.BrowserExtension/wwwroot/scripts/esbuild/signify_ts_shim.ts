@@ -155,7 +155,7 @@ export async function getCredentialsList(
         validateClient();
         const client: SignifyClient = _client!;
         const credentials: EventResult = await client.credentials().list();
-        console.log("signify_ts_shim: getCredentialList credentials: ", credentials);
+        // console.log("signify_ts_shim: getCredentialList credentials: ", credentials);
         const credentialsJson: string = JSON.stringify(credentials);
         return credentialsJson;
     }

@@ -102,7 +102,7 @@
             logger.LogError("Error in websiteService {0}", getOrCreateWebsiteRes.Errors);
             return;
         }
-        WebsiteConfig newWebsite = getOrCreateWebsiteRes.Value;
+        WebsiteConfig newWebsite = getOrCreateWebsiteRes.Value.websiteConfig1;
         if (SelectedHeadlineOrNothing is not null)
         {
             if (isChecked)
@@ -124,7 +124,7 @@
                 throw new Exception($"Error updating website: {res?.Errors}");
             }
             Debug.Assert(GetOriginUri() is not null);
-            await getWebsiteConfig(GetOriginUri()!); // StateHasChanged();
+            // await getWebsiteConfig(GetOriginUri()!); // StateHasChanged();
             return;
         }
         else
@@ -208,7 +208,7 @@
                     logger.LogError("Error in websiteService: {0}", wcRes.Errors);
                     return;
                 }
-                WebsiteConfig newWebsite = wcRes.Value;
+                WebsiteConfig newWebsite = wcRes.Value.websiteConfig1;
                 if (newWebsite.RememberedPrefixOrNothing is not null)
                 {
                     SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == newWebsite.RememberedPrefixOrNothing);
@@ -225,9 +225,9 @@
                 logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
                 SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
                 SelectedAidAlias = SelectedHeadlineOrNothing?.Alias ?? "UNSET!";
-                Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value for SelectedHeadlineOrNothing");
+                Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value ???? for SelectedHeadlineOrNothing");
                 Debug.Assert(GetOriginUri() is not null);
-                await getWebsiteConfig(GetOriginUri()!);
+                // await getWebsiteConfig(GetOriginUri()!);
                 StateHasChanged();
             }
             else
@@ -235,23 +235,6 @@
                 throw new Exception("No Identifiers found");
             }
         };
-    }
-
-    async Task getWebsiteConfig(Uri uri)
-    {
-        logger.LogInformation("getWebsiteConfig uri: {uri}", uri);
-        var res = await websiteConfigService.GetOrCreateWebsiteConfig(uri);
-        if (res.IsSuccess)
-        {
-            ThisWebsiteConfig = res.Value;
-            // TODO P2 update the getter for the following properties to use this?
-            IsPrefixRemembered = res.Value.RememberedPrefixOrNothing == SelectedPrefix;
-            StateHasChanged();
-        }
-        else
-        {
-            throw new Exception("No Identifiers found");
-        }
     }
 
     void InitializeOrOnNextPrefs(Preferences prefs)
