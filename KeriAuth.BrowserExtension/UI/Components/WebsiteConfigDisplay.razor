@@ -62,7 +62,7 @@
 
     async Task SendValueToParent()
     {
-        logger.LogWarning($"SendValueToParent prefix: {SelectedPrefix}");
+        logger.LogWarning($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
         await ValueChanged.InvokeAsync((SelectedPrefix, SelectedCredentialOrNothing));
     }
 
@@ -98,7 +98,16 @@
 
         SelectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
 
-        // TODO EE! implement and test ensurance
+        if (SelectedCredSaidOrNothing is null)
+        {
+            SelectedCredentialOrNothing = null;
+        }
+        else
+        {
+            SelectedCredentialOrNothing = filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
+        }
+
+        // TODO P3 implement and test ensurance
         // Ensure the SelectedCredentialOrNothing's issuee's value is consistent with the SelectedPrefix
         /*
             if (SelectedCredentialOrNothing is not null)
@@ -125,36 +134,36 @@
         if (res?.IsSuccess == true)
         {
             IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
-        /*
-    if (IdentifierHeadlines.Any())
-    {
-        await RefreshFromWebsiteConfig();
-        if (ThisWebsiteConfig is null)
-            {
-            throw new Exception("GetInitialHeadlines: website config must not be null here");
-            }
-                                      var newWebsite = ThisWebsiteConfig;
-                                      SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
-                                      ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
-                                      ?? IdentifierHeadlines.First();
-                                      if (SelectedHeadlineOrNothing is null)
-                {
-                throw new Exception("GetInitialHeadlines: must set a prefix");
-            }
-            SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
-            var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
-            if (updateRes is null || updateRes.IsFailed)
-            {
-                throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
-            }
+            /*
+        if (IdentifierHeadlines.Any())
+        {
             await RefreshFromWebsiteConfig();
-            StateHasChanged(); // needed?
-        }
-        else
-            {
-            throw new Exception("No Identifiers found");
-        }
-        */
+            if (ThisWebsiteConfig is null)
+                {
+                throw new Exception("GetInitialHeadlines: website config must not be null here");
+                }
+                                          var newWebsite = ThisWebsiteConfig;
+                                          SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
+                                          ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
+                                          ?? IdentifierHeadlines.First();
+                                          if (SelectedHeadlineOrNothing is null)
+                    {
+                    throw new Exception("GetInitialHeadlines: must set a prefix");
+                }
+                SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
+                var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
+                if (updateRes is null || updateRes.IsFailed)
+                {
+                    throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
+                }
+                await RefreshFromWebsiteConfig();
+                StateHasChanged(); // needed?
+            }
+            else
+                {
+                throw new Exception("No Identifiers found");
+            }
+            */
         }
     }
 
@@ -207,7 +216,7 @@
 
     private async Task updateSelectedCredential(Dictionary<string, object>? item)
     {
-        if (item is null || !item.Any() )
+        if (item is null || !item.Any())
         {
             throw new Exception($"updateSelectedCredential: credential should not be null or empty here.");
         }
@@ -238,7 +247,7 @@
         IsCredListExpanded = false;
         await RefreshFromWebsiteConfig();
 
-        
+
         return;
     }
 
@@ -278,7 +287,6 @@
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
-        await getCredentials();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -288,8 +296,8 @@
         {
             // Initial render logic here
             await GetInitialIdentifierHeadlines(); // TODO EE! move to OnParametersSetAsync?
+            await getCredentials();
             await RefreshFromWebsiteConfig(); // TODO EE! move into firstRender section?
-            await SendValueToParent();
         }
         else
         {
@@ -297,6 +305,7 @@
         }
     }
 
+    /*
     // TODO EE! can get rid of this?
     async Task GetInitialCredential()
     {
@@ -322,7 +331,7 @@
         await updateSelectedCredential(null);
         return;
     }
-
+    */
     string GetCredentialItemClass(Dictionary<string, object> item)
     {
         return item == SelectedCredentialOrNothing ? "selected-item" : String.Empty;

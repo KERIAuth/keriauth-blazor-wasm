@@ -54,27 +54,23 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        logger.LogInformation($"OnInitialized");
+        // logger.LogInformation($"OnInitialized");
         return;
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        logger.LogInformation($"OnParametersSetAsync");
+        // logger.LogInformation($"OnParametersSetAsync");
         await base.OnParametersSetAsync();
-        // InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-        // await GetInitialHeadlines();
-
-        logger.LogInformation("OnParametersSetAsync requestId {r}", requestId);
 
         // TODO P3 remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
-        logger.LogInformation($"URI query: {initialUriQuery}");
+        // logger.LogInformation($"URI query: {initialUriQuery}");
         // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
         {
             var decodedMsg = HttpUtility.UrlDecode(outterMessage);
-            logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
+            // logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
             var decodedMsg2 = HttpUtility.UrlDecode(decodedMsg);
             logger.LogInformation("Chrome URI query message decoded2: {msg}", decodedMsg2);
 
@@ -99,10 +95,10 @@
                 {
                     string requestId3 = requestId2.GetString() ?? String.Empty;
                     requestId = requestId3;
-                    logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
+                    // logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
                 }
 
-                logger.LogInformation("Processing message of type: {t}", type);
+                // logger.LogInformation("Processing message of type: {t}", type);
                 switch (type)
                 {
                     // TODO P3 how should these string values be aligned with the definitions in ExCsInterface.ts?
@@ -236,7 +232,7 @@
 
     private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {
-        logger.LogWarning($"HandleValueChanged {value.selectedPrefix}");
+        logger.LogWarning($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;
         SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
         StateHasChanged();
@@ -249,7 +245,7 @@
     {
         get
         {
-            logger.LogWarning("isSignInDisabled: RequestedSignInMode: {m} SelectedCredentialOrNothing: {s}", RequestedSignInMode, SelectedCredentialOrNothing?.GetType().ToString() );
+            // logger.LogWarning("isSignInDisabled: RequestedSignInMode: {m} SelectedCredentialOrNothing: {s}", RequestedSignInMode, SelectedCredentialOrNothing?.GetType().ToString() );
             if (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null))
             {
                 // logger.LogWarning("isSignInDisabled {b}", true);
