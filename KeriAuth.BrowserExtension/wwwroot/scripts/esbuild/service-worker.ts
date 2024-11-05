@@ -363,11 +363,11 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 break;
             case "ApprovedSignRequest":
                 try {
-                    // TODO P0 don't hardcode agentUrl and passcode, but pass these in as an argument for now.
+                    // TODO P0 EE! don't hardcode agentUrl and passcode, but pass these in as an argument for now.
                     const jsonSignifyClient = await connect("https://keria-dev.rootsid.cloud/admin", "Ap31Xt-FGcNXpkxmBYMQn");
                     const payload = message.payload;
-                    const initHeaders = new Headers({ 'method': payload.method, 'path': payload.requestUrl });
-                    const headers = await getSignedHeaders(payload.origin, payload.requestUrl, payload.method, initHeaders, payload.selectedName);
+                    const initHeaders: { [key: string]: string } = { method: payload.requestMethod, path: payload.requestUrl };
+                    const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.requestUrl, payload.requestMethod, initHeaders, payload.selectedName);
                     console.log("service-worker: signedRequest: ", headers);
                     //console.log("service-worker: signedRequest.headers: ");
                     //headers.headers.forEach((value, key) => {
@@ -378,7 +378,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         type: SwCsMsgType.REPLY,
                         requestId: message.requestId,
                         payload: { headers },
-                        rurl: ""  // TODO P2 rurl should not be fixed
+                        rurl: payload.requestUrl
                     };
                     console.log("SW from App: signedHeaderResult", signedHeaderResult);
                     cSConnection.port.postMessage(signedHeaderResult);

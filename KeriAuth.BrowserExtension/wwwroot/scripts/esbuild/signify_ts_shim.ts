@@ -187,21 +187,24 @@ export async function getCredential(
    * @param origin - origin url from where request is being made -- required
    * @param rurl - resource url that the request is being made to -- required
    * @param method - http method of the request -- default GET
-   * @param headers - initialHeaders object of the request -- default empty
+   * @param headersDict - initialHeaders object of the request -- default empty
    * @param signin - signin object containing identifier or credential -- required
    * @returns Promise<Request> - returns a signed initialHeaders request object
    */
 export const getSignedHeaders = async (
     origin: string,
-    rurl: string,
-    method: string,
-    headers: Headers,
+    rurl: string,   // used? or should be in headers by this time?
+    method: string, // used? or should be in headers by this time?
+    headersDict: { [key: string]: string },
     aidName: string,
-): Promise<any> => {
-    console.log("getSignedHeaders: params: origin: ", origin, " rurl:", rurl, " method:", method, " aidname", aidName);
-    console.log("getSignedHeaders: params: headers:...");
-    for (const [key, value] of headers.entries()) {
-        console.log(  `Header: ${key} = ${value}`);
+): Promise<{ [key: string]: string }> => {
+    console.log("signify_ts_shim getSignedHeaders: params: origin: ", origin, " rurl:", rurl, " method:", method, " aidname", aidName);
+    console.log("signify_ts_shim getSignedHeaders: params: headers:...");
+    "ApprovedSignRequest"    
+    for (const key in headersDict) {
+        if (headersDict.hasOwnProperty(key)) {
+            console.log(`  Header: ${key} = ${headersDict[key]}`);
+        }
     }
 
     // in case the client is not connected, try to connect
@@ -219,18 +222,18 @@ export const getSignedHeaders = async (
     //    throw new Error("Session not found");
     //}
     try {
-        const requestInit = {
-            method,
-            headers
+        const requestInit: RequestInit = {
+            method: method,
+            headers: headersDict
         };
         const signedRequest: Request = await client.createSignedRequest(aidName, rurl, requestInit);
         //resetTimeoutAlarm();
-        console.log("getSignedHeaders: signedRequest:", signedRequest);
+        console.log("signify_ts_shim getSignedHeaders: signedRequest:", signedRequest);
 
-        // TODO P4 move into utility function for printing headers
+        // TODO P4 move into utility function for printing headersDict
         // Log each header for better visibility
         if (signedRequest.headers) {
-            console.warn("getSignedHeaders: signedRequest.headers details:");
+            console.warn("signify_ts_shim getSignedHeaders: signedRequest.headers details:");
             signedRequest.headers.forEach((value, key) => {
                 console.log(`    ${key}: ${value}`);
             });
@@ -242,11 +245,11 @@ export const getSignedHeaders = async (
                 jsonHeaders[pair[0]] = String(pair[1]);
             }
         }
-        console.log("getSignedHeaders: jsonHeaders:", jsonHeaders);
+        console.log("signify_ts_shim getSignedHeaders: jsonHeaders:", jsonHeaders);
         return jsonHeaders;
         
     } catch (error) {
-        console.error("getSignedHeaders: Error occurred:", error);
+        console.error("signify_ts_shim getSignedHeaders: Error occurred:", error);
         throw error;
     }
 };

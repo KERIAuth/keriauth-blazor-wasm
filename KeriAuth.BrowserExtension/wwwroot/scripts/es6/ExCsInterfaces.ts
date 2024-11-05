@@ -132,7 +132,7 @@ export interface ApprovedSignRequest {
     originStr: string;
     rUrl: string;
     rMethod: string;
-    // is the following lossless during serialization?
-    initHeadersDict?: Map<string, string>;
+    // not using type of Headers or Map<string, string> because of serialization issues.
+    initHeadersDict?: { [key: string]: string };  
     selectedName: string;
 }

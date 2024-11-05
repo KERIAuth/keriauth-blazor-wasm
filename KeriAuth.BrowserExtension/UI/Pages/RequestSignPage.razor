@@ -288,7 +288,8 @@
         // create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
         if (SelectedName is null)
             throw new Exception("SelectedName must not be null here");
-        ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url, request.Method, null, SelectedName!);
+
+        ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url, request.Method, request.HeadersDict, SelectedName!);
         ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
         await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
 

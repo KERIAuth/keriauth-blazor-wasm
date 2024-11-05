@@ -152,13 +152,17 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                         // TODO P3 create a headers print utility function
                         console.log("KeriAuthCs from page payload headers: ");
                         const hs: Headers = event.data.payload?.headers;
-                        for (const key in hs) {
-                            if (hs.hasOwnProperty(key)) {
-                                const value = hs[key];
-                                console.log(`   ${key}: ${value}`);
-                            }
+                        for (const pair of hs.entries()) {
+                            console.log(` ${pair[0]}: ${pair[1]}`);
                         }
+                        //for (const key in hs) {
+                        //    if (hs.hasOwnProperty(key)) {
+                        //        const value = hs[key];
+                        //        console.log(`   ${key}: ${value}`);
+                        //    }
+                        //}
                     }
+                    console.log(`KeriAuthCs to SW:`, event.data);
                     portWithSw.postMessage(event.data);
                 } catch (error) {
                     console.error("KeriAuthCs to SW: error sending message {event.data} {e}:", event.data, error);
