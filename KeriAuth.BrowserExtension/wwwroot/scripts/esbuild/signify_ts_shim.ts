@@ -198,9 +198,12 @@ export const getSignedHeaders = async (
     headers: Headers,
     aidName: string,
 ): Promise<any> => {
-    // TODO P3 note that headers won't be printable this way:
-    console.log("getSignedHeaders: params: ", origin, " ", rurl, " ", method, " ", headers, " ", aidName);
-    
+    console.log("getSignedHeaders: params: origin: ", origin, " rurl:", rurl, " method:", method, " aidname", aidName);
+    console.log("getSignedHeaders: params: headers:...");
+    for (const [key, value] of headers.entries()) {
+        console.log(  `Header: ${key} = ${value}`);
+    }
+
     // in case the client is not connected, try to connect
     //const connected = await isConnected();
     // connected is false, it means the client session timed out or disconnected by user
@@ -216,12 +219,11 @@ export const getSignedHeaders = async (
     //    throw new Error("Session not found");
     //}
     try {
-        // TODO P3 note that headers won't be printable this way:
-        console.log("getSignedHeaders: createSignedRequest args:", aidName, rurl, method, headers);
-        const signedRequest: Request = await client.createSignedRequest(aidName, rurl, {
+        const requestInit = {
             method,
-            headers,
-        });
+            headers
+        };
+        const signedRequest: Request = await client.createSignedRequest(aidName, rurl, requestInit);
         //resetTimeoutAlarm();
         console.log("getSignedHeaders: signedRequest:", signedRequest);
 

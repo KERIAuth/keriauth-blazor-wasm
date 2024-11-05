@@ -365,10 +365,9 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 try {
                     // TODO P0 don't hardcode agentUrl and passcode, but pass these in as an argument for now.
                     const jsonSignifyClient = await connect("https://keria-dev.rootsid.cloud/admin", "Ap31Xt-FGcNXpkxmBYMQn");
-                    // console.log("service-worker: ", message.type, ": connect: ", jsonSignifyClient);
                     const payload = message.payload;
-                    // TODO P1 the initHeaders rather than a default empty here
-                    const headers = await getSignedHeaders(payload.origin, payload.requestUrl, payload.method, new Headers({}), payload.selectedName);
+                    const initHeaders = new Headers({ 'method': payload.method, 'path': payload.requestUrl });
+                    const headers = await getSignedHeaders(payload.origin, payload.requestUrl, payload.method, initHeaders, payload.selectedName);
                     console.log("service-worker: signedRequest: ", headers);
                     //console.log("service-worker: signedRequest.headers: ");
                     //headers.headers.forEach((value, key) => {

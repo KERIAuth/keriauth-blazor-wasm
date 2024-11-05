@@ -285,7 +285,7 @@
 
         // var inputHeadersDict = new Dictionary<string, string>();
 
-        // create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and them to content script
+        // create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
         if (SelectedName is null)
             throw new Exception("SelectedName must not be null here");
         ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url, request.Method, null, SelectedName!);
