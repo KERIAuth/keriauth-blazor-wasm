@@ -1,6 +1,6 @@
 ﻿/// <reference types="chrome" />
 
-// TODO P0 Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
+// TODO P2 Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
 // import * as _ from "/content/Blazor.BrowserExtension/lib/browser-polyfill.min.js";
 
 // TODO P2 Prior to release, cache management needs to be more explicit in order to avoid
@@ -197,16 +197,7 @@ function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
         // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", payload, "origin: ", jsonOrigin);
-
-        // TODO P1 may need to serialize payload.headers explicitly.
-        // Consider these:
-        // origin: getDomainFromUrl(url!),
-        // rurl: payload.url,
-        // method: payload.method,
-        // headers: payload.headers,
-
         const encodedMsg = serializeAndEncode(payload);
-
         try {
             useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SignRequest" }]);
         }
@@ -231,7 +222,7 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         // TODO P1 Could alternately implement the msg passing via messaging versus the URL
         // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
 
-        // TODO P1 add msgRequestId?
+        // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
 
@@ -368,11 +359,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                     const payload = message.payload;
                     const initHeaders: { [key: string]: string } = { method: payload.requestMethod, path: payload.requestUrl };
                     const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.requestUrl, payload.requestMethod, initHeaders, payload.selectedName);
-                    console.log("service-worker: signedRequest: ", headers);
-                    //console.log("service-worker: signedRequest.headers: ");
-                    //headers.headers.forEach((value, key) => {
-                    //    console.log(`service-worker:   ${key}: ${value}`);
-                    //});
+                    console.log("SW: signedRequest: ", headers);
 
                     const signedHeaderResult = {
                         type: SwCsMsgType.REPLY,

@@ -47,6 +47,8 @@
 
     public string PayloadJson { get; set; } = "";
 
+    Dictionary<string, string> HeadersDict { get; set; } = new();
+
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
 
     Uri? GetOriginUri()
@@ -172,10 +174,11 @@
             string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
 
             // Parse the JSON string
-            // TODO P1 write exception handling around the following
+            // TODO P2 write exception handling around the following
             JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
             JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
             PayloadJson = payload.ToString();
+            HeadersDict = JsonSerializer.Deserialize<Dictionary<string, string>>(payload);
 
             JsonElement requestId = jsonDocument.RootElement.GetProperty("requestId");
             RequestId = requestId.ToString();
@@ -374,13 +377,29 @@
             <MudText Typo="Typo.h6">Request to Sign</MudText>
             <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                This website is requesting you to cryptographically sign a request header, which will allow it to verify your identity in subsequent interactions with the specified service.<br />
+                This website is requesting the extension to cryptographically sign an HTTP request header, which will allow it to verify your identity.<br />
             </MudText>
             <MudText Class="my-3" Typo="Typo.body1">
                 Details:
             </MudText>
             <MudPaper>
-                <MudText Typo="Typo.body1">@PayloadJson</MudText>
+                <table class="non-responsive-table">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in HeadersDict)
+                        {
+                            <tr>
+                                <td>@item.Key</td>
+                                <td class="right-column">@item.Value</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </MudPaper>
         </div>
     </MudStack>
@@ -399,4 +418,31 @@
     .selected-item {
         border-left: 4px solid blue;
     }
+
+    .non-responsive-table {
+        /* width: 100%; /* Maintain full width */
+        border-collapse: collapse; /* Ensure borders don't have spacing */
+        table-layout: fixed; /* Fixed column widths */
+    }
+
+        .non-responsive-table th, .non-responsive-table td {
+            border: 1px solid #ddd; /* Add borders for cells */
+            padding: 8px; /* Add padding for better readability */
+            white-space: nowrap; /* Prevent text wrapping */
+            overflow: hidden; /* Hide overflow content */
+            text-overflow: ellipsis; /* Add ellipsis for overflowing content */
+        }
+
+        .non-responsive-table th {
+            /* background-color: #f2f2f2; /* Add background color to header */
+            font-weight: bold;
+        }
+
+    .right-column td {
+        word-break: break-all;
+        text-overflow: unset;
+        text-wrap: auto;
+        
+    }
+
 </style>

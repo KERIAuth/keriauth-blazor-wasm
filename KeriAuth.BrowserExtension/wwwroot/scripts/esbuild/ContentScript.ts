@@ -187,12 +187,12 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
             case "/signify/clear-session":
                 console.log(`KeriAuthCs from page: ${event.data.type} sessions not implemented`);
-                // TODO implement sessions
+                // TODO P1 implement sessions?
                 postMessageToPage<object>({
                     type: "/signify/reply",
                     error: { code: 501, message: "KERIAuth sessions not supported" },
                     requestId: event?.data?.requestId,
-                    rurl: "", // TODO P2 rurl should not be fixed
+                    // rurl: "", // TODO P2 rurl should not be fixed
                     source: CsToPageMsgIndicator
                 });
                 break;
