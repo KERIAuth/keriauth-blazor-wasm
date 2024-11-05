@@ -178,7 +178,7 @@
             JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
             JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
             PayloadJson = payload.ToString();
-            HeadersDict = JsonSerializer.Deserialize<Dictionary<string, string>>(payload);
+            HeadersDict = JsonSerializer.Deserialize<Dictionary<string, string>>(payload) ?? new Dictionary<string, string>();
 
             JsonElement requestId = jsonDocument.RootElement.GetProperty("requestId");
             RequestId = requestId.ToString();
@@ -384,18 +384,18 @@
             </MudText>
             <MudPaper>
                 <table class="non-responsive-table">
-                    <thead>
+                    <thead style="text-align:left;">
                         <tr>
-                            <th>Key</th>
-                            <th>Value</th>
+                            <th class="content-width-col">Key</th>
+                            <th class="remaining-width-col">Value</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in HeadersDict)
                         {
                             <tr>
-                                <td>@item.Key</td>
-                                <td class="right-column">@item.Value</td>
+                                <td class="content-width-col">@item.Key</td>
+                                <td class="remaining-width-col">@item.Value</td>
                             </tr>
                         }
                     </tbody>
@@ -419,30 +419,38 @@
         border-left: 4px solid blue;
     }
 
-    .non-responsive-table {
-        /* width: 100%; /* Maintain full width */
-        border-collapse: collapse; /* Ensure borders don't have spacing */
-        table-layout: fixed; /* Fixed column widths */
+    .content-width-col {
+        width: 1%;
+        white-space: nowrap;
     }
 
-        .non-responsive-table th, .non-responsive-table td {
-            border: 1px solid #ddd; /* Add borders for cells */
-            padding: 8px; /* Add padding for better readability */
-            white-space: nowrap; /* Prevent text wrapping */
-            overflow: hidden; /* Hide overflow content */
-            text-overflow: ellipsis; /* Add ellipsis for overflowing content */
+    .remaining-width-col {
+        word-break: break-all;
+        text-overflow: unset;
+        word-wrap: anywhere;
+        width: auto;
+        white-space: unset !important;
+    }
+
+    .non-responsive-table {
+        table-layout: fixed;
+        border-collapse: collapse;
+        text-align: left;
+        vertical-align: baseline;
+    }
+
+        .non-responsive-table th,
+        .non-responsive-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: baseline;
         }
 
         .non-responsive-table th {
-            /* background-color: #f2f2f2; /* Add background color to header */
             font-weight: bold;
         }
-
-    .right-column td {
-        word-break: break-all;
-        text-overflow: unset;
-        text-wrap: auto;
-        
-    }
 
 </style>
