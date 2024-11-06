@@ -41,7 +41,7 @@
 		<ServiceWorker Include="wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Blazor.BrowserExtension" Version="1.5.4" />
+		<PackageReference Include="Blazor.BrowserExtension" Version="2.0.0" />
 		<PackageReference Include="BlazorIndexedDB" Version="0.3.1" />
 		<PackageReference Include="Ensure.That" Version="10.1.0" />
 		<PackageReference Include="FluentResults.Extensions.FluentAssertions" Version="2.1.2" />
@@ -62,10 +62,10 @@
 		<PackageReference Include="Stateless" Version="5.16.0" />
 		<PackageReference Include="System.Reactive" Version="6.0.1" />
 		<PackageReference Include="System.Text.Json" Version="8.0.5" />
-		<PackageReference Include="WebExtensions.Net" Version="2.1.1" />
+		<PackageReference Include="WebExtensions.Net" Version="3.0.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.10" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.10" PrivateAssets="all" />
-		<PackageReference Include="WebExtensions.Net.Extensions.DependencyInjection" Version="2.1.1" />
+		<PackageReference Include="WebExtensions.Net.Extensions.DependencyInjection" Version="3.0.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Include="wwwroot\**\*" CopyToOutputDirectory="Always" />
