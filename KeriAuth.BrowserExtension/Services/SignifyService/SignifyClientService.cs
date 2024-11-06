@@ -51,7 +51,8 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         var res = await TimeoutHelper.WithTimeout<string>(ct => BootAndConnect(agentUrl, bootUrl, passcode), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
-                        logger.LogInformation("Connect: {connectResults}", res);
+                        // Don't log the following, since it contains the bran, passcode.
+                        // logger.LogInformation("Connect: {connectResults}", res);
                         if (res is null)
                         {
                             return Result.Fail("Connect failed with null");
@@ -67,7 +68,8 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         var res = await TimeoutHelper.WithTimeout<string>(ct => Signify_ts_shim.Connect(agentUrl, passcode), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
-                        logger.LogInformation("Connect: {connectResults}", res);
+                        // Don't log the following, since it contains the bran, passcode.
+                        // logger.LogInformation("Connect: {connectResults}", res);
                         if (res is null)
                         {
                             return Result.Fail("Connect failed with null");
