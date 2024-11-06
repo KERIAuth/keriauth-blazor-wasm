@@ -2,15 +2,10 @@
 {
     using System.Text.Json.Serialization;
 
-    public class WalletLogin
+    [method: JsonConstructor]
+    public class WalletLogin(string encryptedLogin)
     {
-        [JsonConstructor]
-        public WalletLogin(string encryptedLogin)
-        {
-            EncryptedLogin = encryptedLogin;
-        }
-
         [JsonPropertyName("eL")]
-        public string EncryptedLogin { get; }
+        public string EncryptedLogin { get; } = encryptedLogin;
     }
 }

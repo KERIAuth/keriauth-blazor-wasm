@@ -31,7 +31,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
     public delegate bool CallbackDelegate(object request, string something);
 
-    private DotNetObjectReference<StorageService>? _dotNetObjectRef;
+    private readonly DotNetObjectReference<StorageService>? _dotNetObjectRef;
     // public event Action<Dictionary<string, (object oldValue, object newValue)>> OnStorageChanged;
 
     public void Dispose()
@@ -301,8 +301,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         var convertedChanges = changes.ToDictionary(
             kvp => kvp.Key,
             kvp => (
-                oldValue: kvp.Value.ContainsKey("oldValue") ? (object)kvp.Value["oldValue"].ToString() : null,
-                newValue: kvp.Value.ContainsKey("newValue") ? (object)kvp.Value["newValue"].ToString() : null
+                oldValue: kvp.Value.TryGetValue("oldValue", out JsonElement oldValue) ? (object)oldValue.ToString() : null,
+                newValue: kvp.Value.TryGetValue("newValue", out JsonElement newValue) ? (object)newValue.ToString() : null
             )
         );
 
