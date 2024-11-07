@@ -99,7 +99,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                 logger.LogWarning("storageService22 value {x}", jsonElement2);
                 // logger.LogWarning("storageService22 jsonElement {x}", jsonElement2);
                 T? t = JsonSerializer.Deserialize<T>(jsonElement2, jsonSerializerOptions);
-                logger.LogError("storageService22 t: {x} .", t.ToString());
+                logger.LogError("storageService22 t: {x} .", t!.ToString());
                 return t.ToResult<T?>();
             }
             else

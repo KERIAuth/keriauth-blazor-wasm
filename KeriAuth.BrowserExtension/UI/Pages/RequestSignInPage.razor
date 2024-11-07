@@ -284,7 +284,7 @@
                 case SignInMode.Prompt:
                     <MudStack Class="gap-0">
                         <MudText Class="mt-6"><b>Sign-in method</b></MudText>
-                        <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode Row="true">
+                        <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode Row>
                             <MudRadio Class="d-block" Value=@(SignInMode.Identifier)>Identifier</MudRadio>
                             <MudRadio Class="d-block" Value=@(SignInMode.Credential)>Credential</MudRadio>
                         </MudRadioGroup>
