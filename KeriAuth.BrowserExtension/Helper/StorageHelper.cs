@@ -3,27 +3,6 @@ using System.Text.Json;
 
 namespace KeriAuth.BrowserExtension.Helper;
 
-//    // keep the imported method and property names aligned with storageHelper.ts
-//    [SupportedOSPlatform("browser")]
-//    public partial class StorageHelper
-//    {
-//        private readonly IJSRuntime _jsRuntime;
-
-//        public StorageHelper(IJSRuntime jsRuntime)
-//        {
-//            _jsRuntime = jsRuntime;
-//        }   
-
-//        public async Task AddStorageChangeListenerPublic(DotNetObjectReference<StorageChangeHandler> dotNetObjectReference)
-//        {
-//            await AddStorageChangeListener(dotNetObjectReference);
-//        }
-
-//        [JSImport("addStorageChangeListener", "storageHelper")]
-//        internal static partial Task AddStorageChangeListener([JsMarshalAsObject] DotNetObjectReference<StorageChangeHandler> dotNetObjectReference);
-//    }
-//}
-
 public static class StorageHelper
 {
     // Helper function to convert a JsonDocument to a string

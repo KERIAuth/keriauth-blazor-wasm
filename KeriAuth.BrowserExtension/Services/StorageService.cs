@@ -10,21 +10,29 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using WebExtensions.Net;
+using JsBind.Net;
 using static KeriAuth.BrowserExtension.Services.IStorageService;
 using JsonSerializer = System.Text.Json.JsonSerializer;
+using Polly;
+using System.Text;
 
 public partial class StorageService : IStorageService, IObservable<Preferences>
 {
-    private readonly IJSRuntime jsRuntime;  // TODO P2 in Playwright project, does this JsRuntime need to be null?  If not, then why is it nullable?
+    private readonly IJSRuntime jsRuntime;
+    private readonly IJsRuntimeAdapter jsRuntimeAdapter;
     private readonly ILogger<StorageService> logger;
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
+    private readonly WebExtensionsApi webExtensionsApi;
 
-    public StorageService(IJSRuntime jsRuntime, ILogger<StorageService> logger)
+    public StorageService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<StorageService> logger)
     {
         this.jsRuntime = jsRuntime;
+        this.jsRuntimeAdapter = jsRuntimeAdapter;
         this.logger = logger;
         logger.Log(ServiceLogLevel, "StorageService: constructor");
         _dotNetObjectRef = DotNetObjectReference.Create(this);
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
     }
 
     public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
@@ -32,7 +40,6 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     public delegate bool CallbackDelegate(object request, string something);
 
     private readonly DotNetObjectReference<StorageService>? _dotNetObjectRef;
-    // public event Action<Dictionary<string, (object oldValue, object newValue)>> OnStorageChanged;
 
     public void Dispose()
     {
@@ -47,11 +54,10 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         {
             logger.Log(ServiceLogLevel, "Using StorageApi");
 
-            Debug.Assert(jsRuntime is not null);
+            Debug.Assert(jsRuntimeAdapter is not null);
             logger.Log(ServiceLogLevel, "Registering handler for storage change event");
 
             // Set up to listen for storage changes.  Could alternately have implemented this in the background script and/or https://github.com/mingyaulee/WebExtensions.Net
-            // TODO P2 investigate using https://github.com/mingyaulee/WebExtensions.Net
             IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/storageHelper.js");
             await _module.InvokeVoidAsync("addStorageChangeListener", _dotNetObjectRef);
         }
@@ -69,106 +75,47 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         return AppHostingKind.BlazorWasmHosted;
     }
 
-    /// <inheritdoc />
     public async Task Clear()
     {
-        Debug.Assert(jsRuntime is not null);
-        await jsRuntime.InvokeVoidAsync("chrome.storage.local.clear");
+        await webExtensionsApi.Storage.Local.Clear();
         return;
     }
 
-    /// <inheritdoc />
     public async Task RemoveItem<T>()
     {
-        var tName = typeof(T).Name.ToUpperInvariant();
-        Debug.Assert(jsRuntime is not null);
-        await jsRuntime.InvokeVoidAsync("chrome.storage.local.remove", tName);
+        var tName = typeof(T).Name; //.ToUpperInvariant();
+        await webExtensionsApi.Storage.Local.Remove(tName);
         return;
     }
 
-    /// <inheritdoc />
     public async Task<Result<T?>> GetItem<T>()
     {
         try
         {
-            logger.Log(ServiceLogLevel, "Getting item of type {name}", typeof(T).Name);
+            var keys = new WebExtensions.Net.Storage.StorageAreaGetKeys(typeof(T).Name);
+            var jsonElement = await webExtensionsApi.Storage.Local.Get(keys);
+            if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(typeof(T).Name), out JsonElement jsonElement2))
+            {
+                logger.LogWarning("storageService22 value {x}", jsonElement2);
+                // logger.LogWarning("storageService22 jsonElement {x}", jsonElement2);
+                T? t = JsonSerializer.Deserialize<T>(jsonElement2, jsonSerializerOptions);
+                logger.LogError("storageService22 t: {x} .", t.ToString());
+                return t.ToResult<T?>();
+            }
+            else
 
-            T? nullValue = default;
-            var tName = typeof(T).Name.ToUpperInvariant();
-            var options = new JsonSerializerOptions
+
+
+
             {
-                PropertyNameCaseInsensitive = false,
-                Converters =
-            {
-                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-                // new IDataJsonConverter()
-            }
-            };
-            JsonDocument jsonDocument;
-            try
-            {
-                Debug.Assert(jsRuntime is not null);
-                jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", tName);
-                logger.Log(ServiceLogLevel, "Got {doc}", jsonDocument.ToJsonString());
-            }
-            catch (Exception ex)
-            {
-                return Result.Fail($"Unable to access storage for key '{tName}': {ex.Message}");
+                logger.LogError("storageService22 returning null");
+                return Result.Ok();
             }
 
-            if (jsonDocument is null)
-            {
-                return Result.Ok<T?>(nullValue);
-            }
-
-            // xxConsole.WriteLine($"Preparing to parse jsonDocument: {jsonDocument.ToJsonString()}");
-            var parsedJsonNode = JsonNode.Parse(jsonDocument.ToJsonString());
-            if (parsedJsonNode is null)
-            {
-                return Result.Fail($"Unable to parse jsonDocument: {jsonDocument.ToJsonString()}");
-            }
-            // xxConsole.WriteLine($"ParsedJsonNode: {parsedJsonNode.ToJsonString()}");
-            var rootJsonNode = parsedJsonNode!.Root[tName];
-            if (rootJsonNode is null)
-            {
-                // No content was found
-                return Result.Ok<T?>(nullValue);
-            }
-            // xxConsole.WriteLine($"rootJsonNode: {rootJsonNode.ToJsonString()}");
-
-            T? deserializedObject;
-            try
-            {
-                // xxConsole.WriteLine($"prparing deserializedObject...");
-                deserializedObject = JsonSerializer.Deserialize<T>(rootJsonNode.ToJsonString(), options);
-                if (deserializedObject is null)
-                {
-                    // xxConsole.WriteLine($"deserializedObject is null");
-                }
-                else
-                {
-                    // xxConsole.WriteLine($"deserializedObject: {deserializedObject}");
-                }
-            }
-            catch (Exception e)
-            {
-                return Result.Fail($"Failed to deserialize: {e.Message}");
-            }
-
-            if (deserializedObject is null)
-            {
-                // TODO P3 check if this is a success or failure?
-                return Result.Fail($"");
-            }
-
-            // xxConsole.WriteLine($"preparing to return deserializedObject: {deserializedObject}");
-            T? ret = deserializedObject;
-            // xxConsole.WriteLine($"preparing to return deserializedObject: {ret}");
-            return ret!.ToResult<T?>(); //  Result.Ok(ret); // ret; // Result.Ok(ret);
         }
         catch (Exception e)
         {
-            // logger.LogError("Failed to get item: {e}", e.Message);
+            logger.LogError("Failed to get item: {e}", e.Message);
             Console.WriteLine($"Failed to get item: {e.Message}");
             return Result.Fail($"Failed to get item: {e.Message}");
         }
@@ -177,47 +124,30 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
     private static readonly JsonSerializerOptions jsonSerializerOptions = new()
     {
         PropertyNameCaseInsensitive = false,
-        Converters =
-        {
-            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-            // new IDataJsonConverter()
-        }
+        IncludeFields = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
+
+        //Converters =
+        //{
+        //    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
+        //}
     };
 
-    /// <inheritdoc />
     public async Task<Result> SetItem<T>(T t)
     {
         try
         {
-            string jsonString;
-            var tName = typeof(T).Name.ToUpperInvariant();
-            try
-            {
-                jsonString = JsonSerializer.Serialize(t, jsonSerializerOptions);
-            }
-            catch (Exception e)
-            {
-                return Result.Fail($"Failed to serialize: {e.Message}");
-            }
-
-            try
-            {
-                Debug.Assert(jsRuntime is not null);
-                object obj = await jsRuntime!.InvokeAsync<object>("JSON.parse", $"{{ \"{tName}\": {jsonString} }}");
-                await jsRuntime!.InvokeVoidAsync("chrome.storage.local.set", obj);
-            }
-            catch (Exception e)
-            {
-                return Result.Fail($"Error writing to chrome.storage.local with key '{tName}': {e.Message}");
-            }
-
+            var data = new Dictionary<string, object?>{
+                { typeof(T).Name, t }};
+            await webExtensionsApi.Storage.Local.Set(data);
             return Result.Ok();
         }
         catch (Exception e)
         {
-            // logger.LogError("Failed to set item: {e}", e.Message);
-            Console.WriteLine($"Failed to set item: {e.Message}");
-            return Result.Fail($"Failed to set item: {e.Message}");
+            var msg = "Failed to serialize or set item:";
+            logger.LogError("{m} {e}", msg, e.Message);
+            Console.WriteLine($"{msg} {e.Message}");
+            return Result.Fail($"{msg} {e.Message}");
         }
     }
 
@@ -244,9 +174,9 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         List<string> topLevelKeysToRemove =
         [
             // These should not be backed up, in order to force a restore to reset the state of the wallet and authenticate.
-            nameof(AppState).ToUpper(),
-            nameof(WalletLogin).ToUpper(),
-            nameof(BackupVersion).ToUpper()
+            nameof(AppState),
+            nameof(WalletLogin),
+            nameof(BackupVersion)
         ];
         return RemoveKeys(jsonDocument, topLevelKeysToRemove);
     }
@@ -285,7 +215,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         JsonDocument jsonDocument;
         try
         {
-            Debug.Assert(jsRuntime is not null);
+            Debug.Assert(jsRuntimeAdapter is not null);
             jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", null);
         }
         catch (JsonException ex)

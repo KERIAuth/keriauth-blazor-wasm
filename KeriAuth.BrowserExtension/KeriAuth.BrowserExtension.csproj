@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 	<PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
 		<TypeScriptTarget>ESNext</TypeScriptTarget>
 		<TypeScriptNoImplicitAny>True</TypeScriptNoImplicitAny>

@@ -7,7 +7,7 @@ namespace KeriAuth.BrowserExtension.Models
     [method: JsonConstructor]
     public class AppState(Services.IStateService.States currentState)
     {
-        [JsonPropertyName("cs")] public States CurrentState { get; } = currentState;
-        [JsonPropertyName("wUTC")] public DateTime WriteUtc { get; } = DateTime.UtcNow;
+        public States CurrentState { get; } = currentState;
+        public DateTime WriteUtc { get; } = DateTime.UtcNow;
     }
 }

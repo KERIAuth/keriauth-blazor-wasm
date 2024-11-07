@@ -80,6 +80,7 @@
     private async Task AcknowledgeWelcome()
     {
         var res = await storageService.GetItem<OnboardState>();
+        // logger.LogWarning("pre-stored OnboardStateRes: {s}", res);
         if (res.IsFailed || res.Value is null)
         {
             throw new Exception("OnboardState not found");

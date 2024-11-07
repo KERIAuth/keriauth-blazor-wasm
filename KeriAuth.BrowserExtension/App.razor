@@ -4,6 +4,7 @@
 @using KeriAuth.BrowserExtension.UI
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.UI.Layouts
+@using KeriAuth.BrowserExtension.Models
 @using MudBlazor
 @using System.Runtime.InteropServices.JavaScript;
 @using KeriAuth.BrowserExtension.Services.SignifyService
@@ -46,12 +47,42 @@
         await stateService.Initialize();
         preferencesService.Initialize();
 
+        // TODO P0 remove this test
+        /*
+        OnboardState onboardState = new()
+            {
+                HasAcknowledgedInstall = false,
+                HasAcknowledgedNewVersion = true,
+                PrivacyAgreedHash = 222,
+                TosAgreedHash = 111
+            };
+        await storageService.SetItem(onboardState);
+        var x = await storageService.GetItem<OnboardState>();
+        if (x.IsFailed || x.Value is null)
+        {
+            logger.LogError("failed to get OnboardState");
+        }
+        else
+        {
+            if (x.Value == onboardState)
+            {
+                logger.LogWarning("onboardState test passed");
+            } else
+            {
+                var msg = "onboardState test failed";
+                logger.LogError("{m} {o}", msg, x);
+                throw new Exception(msg);
+            }
+        }
+
+        */
+
         // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>
         {
             logger.LogInformation("App from SW/MessagingService: {m}", message);
         });
-        
+
         // Initialize messaging with service worker
         await appSwMessagingService.Initialize(uri.Authority);
 

@@ -143,6 +143,7 @@
 
         // Get the onboardState from storage and route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
+        // logger.LogWarning("OnParametersSetAsync: OnboardStateRes: {r}", res);
         OnboardState? onboardState;
         if (res.IsFailed || res.Value is null)
         {

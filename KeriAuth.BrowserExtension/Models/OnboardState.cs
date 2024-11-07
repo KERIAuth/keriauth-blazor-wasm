@@ -4,33 +4,23 @@ namespace KeriAuth.BrowserExtension.Models
 {
     public record OnboardState
     {
-        [JsonConstructor]
-        public OnboardState(bool hasAcknowledgedInstall = false, bool hasAcknowledgedNewVersion = false, DateTime? tosAgreedUtc = null, int tosAgreedHash = 0, DateTime? privacyAgreedUtc = null, int privacyAgreedHash = 0)
-        {
-            HasAcknowledgedInstall = hasAcknowledgedInstall;
-            HasAcknowledgedNewVersion = hasAcknowledgedNewVersion;
-            TosAgreedUtc = tosAgreedUtc;
-            TosAgreedHash = tosAgreedHash;
-            PrivacyAgreedUtc = privacyAgreedUtc;
-            PrivacyAgreedHash = privacyAgreedHash;
-        }
 
-        [JsonPropertyName("hasAcknowledgedInstall")]
+        [JsonPropertyName("HasAcknowledgedInstall")]
         public bool HasAcknowledgedInstall { get; init; }
 
-        [JsonPropertyName("hasAcknowledgedNewVersion")]
+        [JsonPropertyName("HasAcknowledgedNewVersion")]
         public bool HasAcknowledgedNewVersion { get; init; }
 
-        [JsonPropertyName("tosAgreedUtc")]
+        [JsonPropertyName("TosAgreedUtc")]
         public DateTime? TosAgreedUtc { get; init; }
 
-        [JsonPropertyName("tosAgreedHash")]
+        [JsonPropertyName("TosAgreedHash")]
         public int TosAgreedHash { get; init; }
 
-        [JsonPropertyName("privacyAgreedUtc")]
+        [JsonPropertyName("PrivacyAgreedUtc")]
         public DateTime? PrivacyAgreedUtc { get; init; }
 
-        [JsonPropertyName("privacyAgreedHash")]
+        [JsonPropertyName("PrivacyAgreedHash")]
         public int PrivacyAgreedHash { get; init; }
 
         public bool IsInstallOnboarded()
