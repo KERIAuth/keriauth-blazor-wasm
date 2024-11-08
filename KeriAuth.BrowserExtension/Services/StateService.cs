@@ -1,6 +1,7 @@
 ﻿namespace KeriAuth.BrowserExtension.Services;
 using KeriAuth.BrowserExtension.Models;
 using Stateless;
+using WebExtensions.Net;
 using static KeriAuth.BrowserExtension.Services.IStateService;
 
 public class StateService : IStateService
@@ -9,13 +10,15 @@ public class StateService : IStateService
     private readonly IStorageService storageService;
     private readonly List<IObserver<States>> stateObservers = [];
     private readonly ILogger<StateService> logger;
-
-    public StateService(IStorageService storageService, ILogger<StateService> logger)
+    private readonly IWebExtensionsApi webExtensionsApi;
+    
+    public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger)
     {
         this.storageService = storageService;
         this.stateMachine = new(States.Uninitialized);
         ConfigureStateMachine();
         this.logger = logger;
+        this.webExtensionsApi = webExtensionsApi;
     }
 
     private enum Triggers
@@ -95,6 +98,9 @@ public class StateService : IStateService
 
     async Task IStateService.TimeOut()
     {
+        // TODO P0 should check passcode in runtime.session storage
+        logger.LogWarning("TimeOut removing CachedPasscode");
+        await webExtensionsApi.Storage.Session.Remove("passcode");
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 

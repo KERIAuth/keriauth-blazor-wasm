@@ -46,8 +46,9 @@
   ],
   "permissions": [
     "activeTab",
-    "storage",
-    "clipboardWrite"
+    "alarms",
+    "clipboardWrite",
+    "storage"
   ],
   "short_name": "KERI Auth",
   "version": "0.1.1",

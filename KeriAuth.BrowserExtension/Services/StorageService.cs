@@ -96,19 +96,15 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             var jsonElement = await webExtensionsApi.Storage.Local.Get(keys);
             if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(typeof(T).Name), out JsonElement jsonElement2))
             {
-                logger.LogWarning("storageService22 value {x}", jsonElement2);
+                // logger.LogWarning("storageService22 value {x}", jsonElement2);
                 // logger.LogWarning("storageService22 jsonElement {x}", jsonElement2);
                 T? t = JsonSerializer.Deserialize<T>(jsonElement2, jsonSerializerOptions);
-                logger.LogError("storageService22 t: {x} .", t!.ToString());
+                // logger.LogError("storageService22 t: {x} .", t!.ToString());
                 return t.ToResult<T?>();
             }
             else
-
-
-
-
             {
-                logger.LogError("storageService22 returning null");
+                // logger.LogError("storageService22 returning null");
                 return Result.Ok();
             }
 
@@ -126,7 +122,6 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         PropertyNameCaseInsensitive = false,
         IncludeFields = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
-
         //Converters =
         //{
         //    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
@@ -150,7 +145,6 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             return Result.Fail($"{msg} {e.Message}");
         }
     }
-
     IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver)
     {
         if (!preferencesObservers.Contains(preferencesObserver))

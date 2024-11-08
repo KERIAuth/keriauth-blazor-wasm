@@ -38,8 +38,10 @@
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
+
 
 <!--
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -129,6 +131,8 @@
         initialUriQuery = extensionEnvironmentService.InitialUriQuery;
     }
 
+    private WebExtensionsApi? webExtensionsApi;
+
     string? initialUriQuery;
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
@@ -141,7 +145,9 @@
         logger.LogInformation("OnParametersSetAsync");
         logger.LogInformation($"OnParametersSetAsync: Chrome URI query: {initialUriQuery}");
 
-        // Get the onboardState from storage and route to the appropriate onboarding views if needed
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+
+        // Get the onboardState from storage then route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
         // logger.LogWarning("OnParametersSetAsync: OnboardStateRes: {r}", res);
         OnboardState? onboardState;
@@ -154,6 +160,7 @@
         {
             onboardState = res.Value;
         }
+
         if (!onboardState.IsInstallOnboarded())
         {
             if (!onboardState.HasAcknowledgedInstall)
@@ -175,7 +182,7 @@
             }
         }
 
-        // Not that we know install is onboarded, get the configState from storage and route to ConfigureView if needed
+        // Now that we know install is onboarded, get the configState from storage and route to ConfigureView if needed
         var res2 = await storageService.GetItem<KeriaConnectConfig>();
         if (res2.IsFailed || res2.Value is null)
         {
@@ -205,24 +212,48 @@
                 // TODO P2 hack to get the app into a known state
                 await stateService.Configure();
                 navManager.NavigateTo(RouteToUnlock);
-                return; // intentional return here versus break?
+                return;
 
             case IStateService.States.Unauthenticated:
-                navManager.NavigateTo(RouteToUnlock);
-                return;
+                // Check if there is a recently CachedPasscode, and if so, use it
+                string? passcode = (await webExtensionsApi!.Storage.Session.Get("passcode") ).ToString();
+                // logger.LogWarning("passcode is {1}", passcode);
+
+                if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
+                {
+                    await stateService.Authenticate(false);
+                    string adminUrl = keriaConnectConfig.AdminUrl!;
+                    var isConnectedRes = await signifyClientService.Connect(adminUrl, passcode, keriaConnectConfig.BootUrl, false);
+                    if (isConnectedRes is null || isConnectedRes.IsFailed || !isConnectedRes.Value)
+                    {
+                        // TODO P0 should check passcode in runtime.session storage
+                        logger.LogWarning("connection failed? so removing CachedPasscode");
+                        await webExtensionsApi.Storage.Session.Remove("passcode");
+                        var openWalletError = "Could not connect to KERI Agent";
+                        snackbar.Add(openWalletError, Severity.Error);
+                        logger.LogError(openWalletError);
+                        navManager.NavigateTo(RouteToStart);
+                        return;
+                    }
+                    else
+                    {
+                        logger.LogInformation("Connected to KERI Agent");
+                        await stateService.ConfirmConnected();
+                        navManager.NavigateTo(RouteToHome);
+                        return;
+                    }
+                }
+                else
+                {
+                    navManager.NavigateTo(RouteToUnlock);
+                    return;
+                }
 
             case IStateService.States.AuthenticatedDisconnected:
                 navManager.NavigateTo(RouteToConnecting);
                 return;
 
             case IStateService.States.AuthenticatedConnected:
-                // if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("origin", out var origin2))
-                // {
-                //     logger.LogError("Chrome URI query origin: {m}", origin2);
-                //     UriQueryOriginStr = origin2.FirstOrDefault();
-                //     return;
-                // }
-
                 if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("message", out var message))
                 {
                     logger.LogInformation("Chrome URI query message decoded2: {m}", message.ToString());

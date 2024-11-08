@@ -51,6 +51,28 @@ chrome.runtime.onStartup.addListener(() => {
     // could potentially be used to set the extension's icon to a "locked" state, for example
 });
 
+// Handle messages from app (other than via port)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'resetInactivityTimer') {
+        // Clear existing alarm and set a new one
+        chrome.alarms.clear('inactivityAlarm', () => {
+            chrome.alarms.create('inactivityAlarm', { delayInMinutes: 0.5 });
+        });
+    }
+});
+
+// When inactivityAlarm fires, remove the stored passcode
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'inactivityAlarm') {
+        // Inactivity timeout expired
+        chrome.storage.session.remove('passcode', () => {
+            // Optionally, send a message to the SPA to lock the app
+            chrome.runtime.sendMessage({ action: 'lockApp' });
+        });
+    }
+});
+
+
 // Listen for and handle the browser action being clicked
 chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     // Note since the extension is a browser action, it needs to be able to access the current tab's URL, but with activeTab permission and not tabs permission

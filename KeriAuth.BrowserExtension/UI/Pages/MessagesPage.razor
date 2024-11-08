@@ -43,14 +43,15 @@
      </MudStack>
  </div>
 
- @code {
+@code {
     protected override async Task OnInitializedAsync()
     {
+        await Task.Delay(0);
         logger.LogInformation("OnInitializedAsync");
         _isFetching = true;
         StateHasChanged();
         // Give time for the menu panel to collapse and spinner to start
-        await Task.Delay(1500);
+        // await Task.Delay(1500);
 
         // TODO P3 Retrieve from preference the last selected filter
         var tmp = new HashSet<string>();
@@ -91,7 +92,7 @@
 
     public async Task ReadMessages(IEnumerable<string> messageTypes)
     {
-        await Task.Delay(0); // tmp hack to avoid warning
+        await Task.Delay(0);
         if (messageTypes is null)
         {
             throw new ArgumentNullException(nameof(messageTypes));

@@ -207,6 +207,7 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <TypeScriptCompile Remove="wwwroot\scripts\ContentScript.d.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\inactivityHelpers.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\PageCsInterfaces.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\interopHelper.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\moduleLoader.d.ts" />

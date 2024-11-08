@@ -1,4 +1,5 @@
 @using Blazor.BrowserExtension
+@using static KeriAuth.BrowserExtension.AppConfig
 @using KeriAuth.BrowserExtension
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.UI
@@ -33,10 +34,26 @@
 @code {
     public static bool IsDarkTheme { get; set; }
 
+    // private readonly DotNetObjectReference<App>? _dotNetObjectRef;
+
+    // public void Dispose()
+    // {
+    //     _dotNetObjectRef?.Dispose();
+    // }
+
+    private static IStateService? staticStateService;
+    private static NavigationManager? staticNavManager;
+
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
+
+        // TODO P1 hack. Instead, create a StaticHelper static class that has injected methods
+        staticStateService = stateService;
+        staticNavManager = navManager;
+
+        //         _dotNetObjectRef = DotNetObjectReference.Create(this);
 
         // Initialize services as needed
         var uri = navManager.ToAbsoluteUri(navManager.Uri);
@@ -47,36 +64,6 @@
         await stateService.Initialize();
         preferencesService.Initialize();
 
-        // TODO P0 remove this test
-        /*
-        OnboardState onboardState = new()
-            {
-                HasAcknowledgedInstall = false,
-                HasAcknowledgedNewVersion = true,
-                PrivacyAgreedHash = 222,
-                TosAgreedHash = 111
-            };
-        await storageService.SetItem(onboardState);
-        var x = await storageService.GetItem<OnboardState>();
-        if (x.IsFailed || x.Value is null)
-        {
-            logger.LogError("failed to get OnboardState");
-        }
-        else
-        {
-            if (x.Value == onboardState)
-            {
-                logger.LogWarning("onboardState test passed");
-            } else
-            {
-                var msg = "onboardState test failed";
-                logger.LogError("{m} {o}", msg, x);
-                throw new Exception(msg);
-            }
-        }
-
-        */
-
         // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>
         {
@@ -86,9 +73,40 @@
         // Initialize messaging with service worker
         await appSwMessagingService.Initialize(uri.Authority);
 
-        // Send test message to service worker
-        // var msgData = "hello2 Authority: " + uri?.Authority + " initialUri: " + extensionEnvironmentService.InitialUriQuery;
-        // logger.LogInformation("App to SW: msgData: ", msgData);
-        // await appSwMessagingService.SendToServiceWorkerAsync<string>("AppSwHello", "initial Hello App via service", msgData);
+        // TODO P0 should this subscribeToUserInteractions move elsewhere?
+        // protected override async Task OnAfterRenderAsync(bool firstRender)
+        // {
+        //     if (firstRender)
+        //     {
+        // Subscribe to user interaction events
+        await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
+        //     }
+        // }
+
+        await jsRuntime.InvokeVoidAsync("registerLockListener");
+
+        //
+        var result = await jsRuntime.InvokeAsync<Dictionary<string, object>>("chrome.storage.session.get", "passcode");
+        if (result.ContainsKey("passcode"))
+        {
+            // Password exists, app is unlocked
+            logger.LogWarning("passcode exists");
+        }
+        else
+        {
+            // Password does not exist, app is locked
+            logger.LogWarning("passcode does not exists. Locked");
+        }
+    }
+}
+
+@code {
+    [JSInvokableAttribute("LockApp")]
+    public static async Task LockApp()
+    {
+        await staticStateService!.TimeOut();
+        staticNavManager!.NavigateTo(RouteToStart);
+        // Other side-effects will be reactive. See IObserver<StateService>
+        return;
     }
 }

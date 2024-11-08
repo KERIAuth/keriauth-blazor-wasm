@@ -13,16 +13,16 @@ namespace KeriAuth.BrowserExtension.Models
             PasscodeHash = passcodeHash;
         }
 
-        [JsonPropertyName("adminUrl")]
+        [JsonPropertyName("AdminUrl")]
         public string? AdminUrl { get; init; }
 
-        [JsonPropertyName("bootUrl")]
+        [JsonPropertyName("BootUrl")]
         public string? BootUrl { get; init; }
 
-        [JsonPropertyName("keriaConnectAlias")]
+        [JsonPropertyName("KeriaConnectAlias")]
         public string? KeriaConnectAlias { get; init; }
 
-        [JsonPropertyName("passcodeHash")]
+        [JsonPropertyName("PasscodeHash")]
         public int PasscodeHash { get; init; }
 
         public bool IsConfigured()

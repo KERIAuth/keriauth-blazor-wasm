@@ -14,22 +14,22 @@ namespace KeriAuth.BrowserExtension.Models
             SelectedKeriaAlias = selectedKeriaAlias;
         }
 
-        [JsonPropertyName("iDT")]
+        [JsonPropertyName("IsDarkTheme")]
         public bool IsDarkTheme { get; init; } = false;
 
-        [JsonPropertyName("sAid")]
+        [JsonPropertyName("SelectedAid")]
         public string SelectedAid { get; init; } = "";
 
-        [JsonPropertyName("iOIDC")]
+        [JsonPropertyName("IsOptedIntoDataCollection")]
         public bool IsOptedIntoDataCollection { get; init; } = false;
 
-        [JsonPropertyName("dvip")]
+        [JsonPropertyName("DrawerVariantInPopup")]
         public MudBlazor.DrawerVariant DrawerVariantInPopup { get; init; } = MudBlazor.DrawerVariant.Temporary;
 
-        [JsonPropertyName("dvit")]
+        [JsonPropertyName("DrawerVariantInTab")]
         public MudBlazor.DrawerVariant DrawerVariantInTab { get; init; } = MudBlazor.DrawerVariant.Temporary;
 
-        [JsonPropertyName("dviw")]
+        [JsonPropertyName("SelectedKeriaAlias")]
         public string SelectedKeriaAlias { get; init; } = "";
     }
 }

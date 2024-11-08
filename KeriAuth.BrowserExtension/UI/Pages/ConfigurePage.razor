@@ -39,6 +39,7 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -147,11 +148,13 @@
     private static string InitialAlias { get; set; } = "";
     private string RandomPasscode { get; set; } = "";
     private bool isPasscodeCopyConfirmed;
+    private WebExtensionsApi? webExtensionsApi;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
     }
 
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
@@ -319,6 +322,10 @@
             // now that we have a connection....
             await stateService.Configure();
             StateHasChanged();
+
+            // Cache password in session
+            // TODO P1 fix DRY and also set hash?
+            await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
 
             ops4ListAids.SetIsRunning();
             StateHasChanged();

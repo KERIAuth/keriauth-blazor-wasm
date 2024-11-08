@@ -3,5 +3,5 @@
 namespace KeriAuth.BrowserExtension.Models
 {
     public record WebsiteConfigList(
-        [property: JsonPropertyName("websites")] List<WebsiteConfig> WebsiteList);
+        [property: JsonPropertyName("Websites")] List<WebsiteConfig> WebsiteList);
 }

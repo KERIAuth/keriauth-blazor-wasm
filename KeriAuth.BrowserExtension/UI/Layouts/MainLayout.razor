@@ -188,27 +188,10 @@
     bool IsAuthenticated => stateService.IsAuthenticated();
     MudBlazor.MudDrawer mudDrawerRef = new();
     DrawerVariant DrawerMode { get; set; }
-    IdleAlarm? idleAlarm;
-
-    // TODO P3 Implement instead the newer [JSExport] attribute? See https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/import-export-interop?view=aspnetcore-8.0
-    [JSInvokable]
-    public Task ResetInactivityTimer()   // this method name needs to match the JS literal that invokes this
-    {
-        Debug.Assert(idleAlarm != null);
-        idleAlarm.Reset();
-        return Task.CompletedTask;
-    }
-
-    private async Task OnIdleHandler()
-    {
-        // Action to perform on inactivity
-        logger.LogInformation("Timed out OnIdleHandler");
-        await stateService.TimeOut();
-        // note that lock() will be invoked in a reactive method
-    }
 
     public class ManifestData
     {
+        // TODO P2 Get these from chrome.runtime instead
         public string Version { get; set; } = "0.0.0";
         public string Version_name { get; set; } = "unset verson name";
     }
@@ -399,9 +382,6 @@
             onCompleted: async () => await HandleCompletedFromStateService());
         CurrentState = stateService.GetState();
 
-        idleAlarm = new IdleAlarm(alarmService, async () => await OnIdleHandler());
-        await js.InvokeVoidAsync("window.registerInactivityTimerResetEvents", DotNetObjectReference.Create(this));
-
         return;
     }
 
@@ -498,6 +478,8 @@
 
     async Task Lock()
     {
+        // TODO P0 DRY invoke App.Lock
+        // await storageService.RemoveItem<CachedPasscode>(); // move into stateService?
         await stateService.Unauthenticate();
         navManager.NavigateTo(RouteToStart);
         // Other side-effects will be reactive. See IObserver<StateService>
