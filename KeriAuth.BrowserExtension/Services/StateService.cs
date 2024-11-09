@@ -97,7 +97,7 @@ public class StateService : IStateService
 
     async Task IStateService.TimeOut()
     {
-        logger.LogWarning("TimeOut removing CachedPasscode");
+        logger.LogInformation("User selected Locked, or the inactivity timer elapsed, so removing CachedPasscode");
         await webExtensionsApi.Storage.Session.Remove("passcode");
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }

@@ -19,14 +19,14 @@
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll" style="align-items:center; justify-content: center; display:flex; flex-direction:column;">
             <MudText Typo="Typo.h6">Dashboard</MudText>
-            <MudStack AlignItems="AlignItems.Center">
+            <MudStack AlignItems="AlignItems.Center" Class="mudstack-full-width">
 
                 <MudStack Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             KERI Agent
                         </MudText>
-                        <div style="text-align:left; width:135px; display:flex;">
+                        <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
                             @switch (stateService.GetState())
                             {
                                 case IStateService.States.AuthenticatedConnected:
@@ -45,57 +45,73 @@
                         </div>
                     </MudStack>
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">@identifiersCount</MudText>
+                        <MudText Class="mudtext-half-width-right">@identifiersCount</MudText>
                     </MudStack>
                 </MudStack>
 
                 <MudStack Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row Style="align-items:center;">
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Selected Identifier</MudLink>
                         </MudText>
-                        <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                        <MudText>@SelectedAlias</MudText>
+                        <MudStack Class="mudtext-half-width-right" Row Style="align-items: center;">
+                            <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                            <MudText>@SelectedAlias</MudText>
+                        </MudStack>
                     </MudStack>
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">0</MudText>
+                        <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Multi-Sig Groups</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">0</MudText>
+                        <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Configured Websites</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">0</MudText>
+                        <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">KERI Agent Requests</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">0</MudText>
+                        <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
                     <MudStack Row>
-                        <MudText Style="width:200px; text-align:right;">
+                        <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Notifications</MudLink>
                         </MudText>
-                        <MudText Style="width:135px; text-align:left;">0</MudText>
+                        <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
                 </MudStack>
             </MudStack>
         </div>
     </div>
 </div>
+<style>
+    .mudstack-full-width {
+        width: 100%;
+    }
 
+    .mudtext-half-width-left {
+        width: 50%;
+        text-align: right
+    }
+
+    .mudtext-half-width-right {
+        width: 50%;
+        text-align: left
+    }
+</style>
 @code {
     protected override async Task OnInitializedAsync()
     {
@@ -144,7 +160,7 @@
         SelectedAid = value.SelectedAid;
         SelectedAlias = "";
         SelectedIdenticon = "";
-        var res = await identifiersService.GetIdentifierHeadlines(); 
+        var res = await identifiersService.GetIdentifierHeadlines();
         // TODO P3 above needed to populate the cache, to enable GetIdentifierService ?
         if (res is not null && res.IsSuccess)
         {

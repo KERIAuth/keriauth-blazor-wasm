@@ -157,7 +157,8 @@
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
 
-        // TODO P2 remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
+        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
+        // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
         // TODO P1 add try-catch

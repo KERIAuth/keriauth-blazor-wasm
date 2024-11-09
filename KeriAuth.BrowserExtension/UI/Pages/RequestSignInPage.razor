@@ -63,7 +63,8 @@
         // logger.LogInformation($"OnParametersSetAsync");
         await base.OnParametersSetAsync();
 
-        // TODO P3 remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
+        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
+        // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         // logger.LogInformation($"URI query: {initialUriQuery}");
         // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.

@@ -27,13 +27,10 @@
 @inject ISignifyClientService signifyClientService
 @implements IDisposable
 
-<!-- Note this is wrapped by the outter content in BaseLayout -->
-
 <MudThemeProvider Theme="@AppConfig.MyCustomTheme" @bind-IsDarkMode="@App.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
-
 
 <MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
     <!-- APP BAR -->
@@ -111,8 +108,6 @@
         </MudOverlay>
     </MudAppBar>
 
-
-
     <!-- MENU DRAWER AND MAIN CONTENT -->
     @{ // TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting 
     }
@@ -165,18 +160,9 @@
     </MudDrawerContainer>
 </MudLayout>
 
-
-
 @code {
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
-    bool IsIdenticonHidden
-    {
-        get
-        {
-            return (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
-        }
-    }
     bool IsInPopup { get; set; }
     bool HasNewMessages { get; set; }
     object ActiveAid { get; set; } = "";
@@ -188,6 +174,11 @@
     bool IsAuthenticated => stateService.IsAuthenticated();
     MudBlazor.MudDrawer mudDrawerRef = new();
     DrawerVariant DrawerMode { get; set; }
+    static public IJSObjectReference? utilModule;
+    List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
+    private IDisposable? preferencesSubscription;
+    private IDisposable? stateSubscription;
+    bool IsIdenticonHidden => (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
 
     public class ManifestData
     {
@@ -195,9 +186,6 @@
         public string Version { get; set; } = "0.0.0";
         public string Version_name { get; set; } = "unset verson name";
     }
-
-    private IDisposable? preferencesSubscription;
-    private IDisposable? stateSubscription;
 
     private async Task RefreshConnect()
     {
@@ -210,17 +198,15 @@
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
-
-
     }
 
-    static public IJSObjectReference? utilModule;
-
+    // TODO P2 Move some of this into OnParametersSetAsync?  See the console log for redundant invocations of this
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         logger.LogInformation("OnAfterRenderAsync");
         await base.OnAfterRenderAsync(firstRender);
 
+        // TODO P2 Move into OnInitializedAsync() ?
         switch (stateService.GetState())
         {
             case IStateService.States.AuthenticatedDisconnected:
@@ -240,7 +226,6 @@
                 break;
         }
 
-
         // If not currently authenticated and are now on a page
         // that requires authentication, then redirect to Start
         if (!IsAuthenticated)
@@ -256,10 +241,7 @@
                 navManager.NavigateTo(RouteToStart);
             }
         }
-
     }
-
-    List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
 
     // Compute the Left position for MainContent depending on the Type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
@@ -349,6 +331,7 @@
         logger.LogInformation("OnInitializedAsync");
 
         // Set properties affecting UI layout depending on the hosting environment
+        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
@@ -434,6 +417,7 @@
                     break;
             }
         }
+        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         // TODO P4 persist the isMenuDrawerOpen state in preferences if Persistence drawer mode is selected. Depends on ExtensionEnvironment.
         // For now, just assume the following:
         if (DrawerMode == DrawerVariant.Persistent && extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.None)

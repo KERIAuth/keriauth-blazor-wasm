@@ -49,12 +49,7 @@
         staticStateService = stateService;
         staticNavManager = navManager;
         staticLogger = logger;
-        return;
-    }
 
-    protected override async Task OnAfterRenderAsync(bool isFirst)
-    {
-        logger.LogInformation($"OnAfterRenderAsync");
 
         // Initialize services as needed
         var uri = navManager.ToAbsoluteUri(navManager.Uri);
@@ -77,7 +72,16 @@
         await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
 
         await jsRuntime.InvokeVoidAsync("registerLockListener");
+
+        return;
     }
+
+    /*
+    protected override async Task OnAfterRenderAsync(bool isFirst)
+    {
+        logger.LogInformation($"OnAfterRenderAsync");
+    }
+    */
 
     [JSInvokableAttribute("LockApp")]
     public static async Task LockApp()
@@ -87,7 +91,7 @@
             throw new Exception("unexpected null staticStateService");
         }
         staticLogger!.LogInformation("LockApp...");
-        await staticStateService!.TimeOut(); 
+        await staticStateService!.TimeOut();
         // Note that other side-effects will be reactive. See IObserver<StateService>
         return;
     }

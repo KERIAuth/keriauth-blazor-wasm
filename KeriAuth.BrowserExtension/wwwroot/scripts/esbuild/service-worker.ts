@@ -220,8 +220,12 @@ function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", payload, "origin: ", jsonOrigin);
         const encodedMsg = serializeAndEncode(payload);
+
         try {
-            useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SignRequest" }]);
+            useActionPopup(tabId, [
+                { key: "message", value: encodedMsg },
+                { key: "origin", value: jsonOrigin },
+                { key: "popupType", value: "SignRequest" }]);
         }
         catch (error) {
             console.error("SW handleSignRequest: error invoking useActionPopup: ", error);

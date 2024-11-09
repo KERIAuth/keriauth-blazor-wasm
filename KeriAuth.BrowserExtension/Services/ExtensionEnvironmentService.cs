@@ -17,6 +17,7 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     /// </summary>
     public Uri? ExtensionIframeLocation { get; private set; }
 
+    // TODO P2 refactor this entire service and instead user webExtensionsApi.Runtime.GetContexts() helpers
     public string? InitialUriQuery { get; private set; }
 
     /// <inheritdoc />
