@@ -211,6 +211,36 @@
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
 
+
+    }
+
+    static public IJSObjectReference? utilModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        logger.LogInformation("OnAfterRenderAsync");
+        await base.OnAfterRenderAsync(firstRender);
+
+        switch (stateService.GetState())
+        {
+            case IStateService.States.AuthenticatedDisconnected:
+                IdentifiersHeadlines = [];
+                break;
+            case IStateService.States.AuthenticatedConnected:
+                var res = await identifiersService.GetIdentifierHeadlines();
+                if (res.IsSuccess)
+                {
+                    IdentifiersHeadlines = res.Value;
+                    IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
+                    // return;
+                }
+                break;
+            default:
+                IdentifiersHeadlines = [];
+                break;
+        }
+
+
         // If not currently authenticated and are now on a page
         // that requires authentication, then redirect to Start
         if (!IsAuthenticated)
@@ -226,32 +256,7 @@
                 navManager.NavigateTo(RouteToStart);
             }
         }
-    }
 
-    static public IJSObjectReference? utilModule;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await base.OnAfterRenderAsync(firstRender);
-
-        switch (stateService.GetState())
-        {
-            case IStateService.States.AuthenticatedDisconnected:
-                IdentifiersHeadlines = [];
-                break;
-            case IStateService.States.AuthenticatedConnected:
-                var res = await identifiersService.GetIdentifierHeadlines();
-                if (res.IsSuccess)
-                {
-                    IdentifiersHeadlines = res.Value;
-                    IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
-                    return;
-                }
-                break;
-            default:
-                IdentifiersHeadlines = [];
-                break;
-        }
     }
 
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
@@ -314,6 +319,7 @@
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 CurrentState = updatedState;
                 StateHasChanged();
+                logger.LogWarning("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
                 navManager.NavigateTo(RouteToStart);
                 return; // intentionally not break
             case (_, IStateService.States.AuthenticatedDisconnected):
@@ -478,11 +484,7 @@
 
     async Task Lock()
     {
-        // TODO P0 DRY invoke App.Lock
-        // await storageService.RemoveItem<CachedPasscode>(); // move into stateService?
-        await stateService.Unauthenticate();
-        navManager.NavigateTo(RouteToStart);
-        // Other side-effects will be reactive. See IObserver<StateService>
+        await App.LockApp();
     }
 
     async Task SetActiveAid(string prefix)

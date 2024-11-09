@@ -56,7 +56,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'resetInactivityTimer') {
         // Clear existing alarm and set a new one
         chrome.alarms.clear('inactivityAlarm', () => {
-            chrome.alarms.create('inactivityAlarm', { delayInMinutes: 0.5 });
+            chrome.alarms.create('inactivityAlarm', { delayInMinutes: 5 }); // TODO P0 inactivityDelay should be configurable 
         });
     }
 });

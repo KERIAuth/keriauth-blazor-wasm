@@ -42,114 +42,43 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
-
-<!--
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
+        Starting...
     </div>
 </div>
--->
-
-<style>
-
-    /* for a MudStack */
-    .bt-create-card-top-scrollable {
-        flex-wrap: wrap;
-        flex-direction: column;
-        /* width:-webkit-fit-content; */
-    }
-
-    /* for a MudStack */
-    .bt-create-card-top-centered {
-        margin: auto;
-        width: fit-content;
-        padding-right: 16px !important; /* since there is no room needed scrollbar here */
-        flex-wrap: wrap;
-        align-content: flex-start;
-        flex-direction: row;
-        align-content: center;
-        justify-content: center;
-        align-items: center;
-    }
-
-    /* Print button placed to the right edge of Terms of Use or Privacy Policy title */
-    .bt-terms-button {
-        padding: 0;
-        display: flex;
-        justify-content: flex-end;
-        overflow: visible;
-        color: var(--mud-palette-primary);
-        top: 41px;
-        right: 10px;
-    }
-
-    .wordCard {
-        display: flex;
-        min-width: 90px;
-        margin: 0 10px 10px 0;
-    }
-
-    .wordNumber {
-        font-size: x-small;
-        min-width: 17px;
-        align-self: baseline;
-    }
-
-    .wordWord {
-        font-weight: bold;
-        font-size: larger;
-        align-self: baseline;
-    }
-
-    #bt-terms-and-privacy {
-        overflow-x: hidden;
-        padding-right: 8px;
-    }
-
-        #bt-terms-and-privacy h1 {
-            color: var(--mud-palette-primary);
-        }
-
-        #bt-terms-and-privacy ul {
-            list-style-type: disc;
-            margin-left: 36px;
-        }
-
-    ul {
-        list-style-type: disc;
-        margin-left: 36px;
-    }
-
-</style>
 
 @code {
+    private WebExtensionsApi? webExtensionsApi;
+    string? initialUriQuery;
+    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
+    private KeriaConnectConfig? keriaConnectConfig;
+
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
         await base.OnInitializedAsync();
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         // See also OnParametersSetAsync for additional initialization occuring on every navigation to this view
         initialUriQuery = extensionEnvironmentService.InitialUriQuery;
     }
 
-    private WebExtensionsApi? webExtensionsApi;
-
-    string? initialUriQuery;
-
-    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
-
-    private KeriaConnectConfig? keriaConnectConfig;
-
     protected override async Task OnParametersSetAsync()
     {
-        await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
         logger.LogInformation($"OnParametersSetAsync: Chrome URI query: {initialUriQuery}");
+        await base.OnParametersSetAsync();
+    }
 
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        logger.LogWarning("OnAfterRenderAsync");
+        await base.OnAfterRenderAsync(firstRender);
+
 
         // Get the onboardState from storage then route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
-        // logger.LogWarning("OnParametersSetAsync: OnboardStateRes: {r}", res);
+        logger.LogWarning("OnParametersSetAsync: OnboardStateRes: {r}", res);
         OnboardState? onboardState;
         if (res.IsFailed || res.Value is null)
         {
@@ -161,6 +90,8 @@
             onboardState = res.Value;
         }
 
+
+        // Onboard if needed
         if (!onboardState.IsInstallOnboarded())
         {
             if (!onboardState.HasAcknowledgedInstall)
@@ -175,12 +106,15 @@
                 return;
             }
 
-            if (onboardState.PrivacyAgreedHash == 0 || onboardState.TosAgreedHash == 0)
+            // TODO P3 check the actual current hashes in AppConfig and navigate to Terms if not equal
+
+            if (onboardState.PrivacyAgreedHash != AppConfig.PrivacyHash || onboardState.TosAgreedHash != AppConfig.PrivacyHash)
             {
                 navManager.NavigateTo(RouteToTerms);
                 return;
             }
         }
+
 
         // Now that we know install is onboarded, get the configState from storage and route to ConfigureView if needed
         var res2 = await storageService.GetItem<KeriaConnectConfig>();
@@ -199,52 +133,74 @@
             return;
         }
 
-        // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate view
+        // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate page
         var currentAppState = stateService.GetState();
-
         logger.LogInformation($"currentAppState: {currentAppState}");
         logger.LogInformation($"Chrome URI query: {initialUriQuery}");
         var initialUriQuery2 = HttpUtility.UrlDecode(HttpUtility.UrlDecode(HttpUtility.UrlDecode(initialUriQuery)));
         logger.LogInformation($"Chrome URI query decoded 2: {initialUriQuery2}");
+        // TODO P1 figure out why StateHasChanged is needed here. Causing UI delays
+        StateHasChanged();
         switch (currentAppState)
         {
             case IStateService.States.Unconfigured:
-                // TODO P2 hack to get the app into a known state
+                // get the app into a known state
                 await stateService.Configure();
                 navManager.NavigateTo(RouteToUnlock);
                 return;
 
             case IStateService.States.Unauthenticated:
                 // Check if there is a recently CachedPasscode, and if so, use it
-                string? passcode = (await webExtensionsApi!.Storage.Session.Get("passcode") ).ToString();
-                // logger.LogWarning("passcode is {1}", passcode);
+                var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
 
-                if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
+                if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
                 {
-                    await stateService.Authenticate(false);
-                    string adminUrl = keriaConnectConfig.AdminUrl!;
-                    var isConnectedRes = await signifyClientService.Connect(adminUrl, passcode, keriaConnectConfig.BootUrl, false);
-                    if (isConnectedRes is null || isConnectedRes.IsFailed || !isConnectedRes.Value)
+                    var passcode = passcodeElement2.GetString();
+                    logger.LogWarning("passcode is {1}", passcode);
+
+                    if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
                     {
-                        // TODO P0 should check passcode in runtime.session storage
-                        logger.LogWarning("connection failed? so removing CachedPasscode");
-                        await webExtensionsApi.Storage.Session.Remove("passcode");
-                        var openWalletError = "Could not connect to KERI Agent";
-                        snackbar.Add(openWalletError, Severity.Error);
-                        logger.LogError(openWalletError);
-                        navManager.NavigateTo(RouteToStart);
-                        return;
+                        logger.LogWarning("attempting to Authenticate with cached passcode...");
+                        await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+
+
+                        // TODO P2 refactor this section into ConnectingPage?  RouteToConnecting, so the extension without a KERIA connection might still be useful
+                        string adminUrl = keriaConnectConfig.AdminUrl!;
+                        var isConnectedRes = await signifyClientService.Connect(adminUrl, passcode, keriaConnectConfig.BootUrl, false);
+                        if (isConnectedRes is null || isConnectedRes.IsFailed || !isConnectedRes.Value)
+                        {
+                            // could not connect to KERI Agent Service
+                            logger.LogWarning("connection failed? so removing CachedPasscode");
+                            await webExtensionsApi.Storage.Session.Remove("passcode");
+                            var openWalletError = "Could not connect to KERI Agent";
+                            // TODO P2 check if snackbar host is still in each of the layouts
+                            snackbar.Add(openWalletError, Severity.Error);
+                            logger.LogError(openWalletError);
+                            logger.LogWarning("TMP 1 TMP");
+                            navManager.NavigateTo(RouteToStart);
+                            return;
+                        }
+                        else
+                        {
+                            await stateService.Authenticate(false);
+                            logger.LogInformation("Connected to KERI Agent");
+                            await stateService.ConfirmConnected();
+                            logger.LogWarning("TMP 2 TMP");
+                            // TODO P0 tmp.  Which one?
+                            StateHasChanged(); // navManager.NavigateTo(RouteToStart);
+                            return;
+                        }
                     }
                     else
                     {
-                        logger.LogInformation("Connected to KERI Agent");
-                        await stateService.ConfirmConnected();
-                        navManager.NavigateTo(RouteToHome);
+                        logger.LogWarning("Invalid passcode was cached. Clearing.");
+                        await App.LockApp(); // this will Route
                         return;
                     }
                 }
                 else
                 {
+                    logger.LogWarning("TMP 4 TMP");
                     navManager.NavigateTo(RouteToUnlock);
                     return;
                 }
@@ -254,6 +210,7 @@
                 return;
 
             case IStateService.States.AuthenticatedConnected:
+                // TODO P2 Ugly parsing. Define and parse this into a Record
                 if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("message", out var message))
                 {
                     logger.LogInformation("Chrome URI query message decoded2: {m}", message.ToString());
@@ -263,18 +220,18 @@
                     {
                         if (encodedOrigin.FirstOrDefault() is null)
                         {
-                            logger.LogError("OnParametersSetAsync: Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
+                            logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
                         }
                         else
                         {
                             // logger.LogInformation("OnParametersSetAsync: Origin page parameter escaped: {origin}", encodedOrigin);
                             var encodedOrigin2 = HttpUtility.UrlEncode(encodedOrigin.FirstOrDefault());
-                            logger.LogInformation("OnParametersSetAsync: Origin page parameter encoded: {origin}", encodedOrigin2);
+                            logger.LogInformation("Origin page parameter encoded: {origin}", encodedOrigin2);
 
                             // TODO P3 popupType should be an enum
                             if (QueryHelpers.ParseQuery(initialUriQuery2).TryGetValue("popupType", out var popupType))
                             {
-                                logger.LogInformation("OnParametersSetAsync: popupType: {p}", popupType.ToString());
+                                logger.LogInformation("popupType: {p}", popupType.ToString());
                                 switch (popupType.ToString())
                                 {
                                     // TODO P3 popupTypes should be an enum
@@ -294,11 +251,17 @@
                 }
                 else
                 {
-                    logger.LogError("OnParametersSetAsync: Encoded origin not found in decodedMsg: {dm}", initialUriQuery2);
+                    logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery2);
                 }
                 navManager.NavigateTo(RouteToHome);
                 return;
-
+            case IStateService.States.Initializing:
+                logger.LogInformation("waiting for initialization to complete...");
+                // TODO P0 Hack for timing issue here.  Need to be reactive to the state changing after Initializing?
+                // await Task.Delay(1500);
+                // navManager.NavigateTo(RouteToStart);
+                // StateHasChanged();
+                return;
             default:
                 throw new Exception($"Unexpected AppState {currentAppState}");
         }

@@ -42,6 +42,10 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToRequestSignIn = "/RequestSignIn/";
         public const string RouteToRequestSign = "/RequestSign/";
 
+        // Terms Of Service and Privacy Policy hashes for the current release
+        public const int TosHash = 343383811;
+        public const int PrivacyHash = 925478292;
+
         // Idle Timeout
         public const int IdleDebounceTimeSpanSecs = 5;
 #if DEBUG

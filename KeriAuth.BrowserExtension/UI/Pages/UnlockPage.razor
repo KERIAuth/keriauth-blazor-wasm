@@ -166,7 +166,7 @@
             await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
 
             await stateService.Authenticate(false);
-            logger.LogWarning("returned from Authenticate. pausing...");
+            // logger.LogWarning("returned from Authenticate. pausing...");
             var res = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             logger.LogWarning("res 2222: {r}", res.Value.ToString());
             if (res is null || res.IsFailed)
