@@ -91,7 +91,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 logger.LogWarning("Connect: Exception: {e}", e);
                 return Result.Fail<bool>("SignifyClientService: Connect: Exception: " + e);
             }
-            
+
         }
 
         public Task<Result<bool>> Connect()
