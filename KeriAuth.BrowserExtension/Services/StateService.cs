@@ -64,9 +64,8 @@ public class StateService : IStateService
 
     public async Task Unauthenticate()
     {
-        // "log out"
+        // aka "Lock"
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
-        // await walletService.CloseWallet();
     }
 
     public async Task ConfirmConnected()

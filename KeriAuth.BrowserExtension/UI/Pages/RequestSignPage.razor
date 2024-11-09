@@ -19,13 +19,14 @@
 @using System.Text.Json.Serialization
 @using System;
 @using System.Collections.Generic;
+@using JsBind.Net
+@using WebExtensions.Net
 
 @implements IDisposable
 
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject NavigationManager navManager
-@inject IJSRuntime js
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @inject ILogger<RequestSignPage> logger
 @inject IdentifiersService identifiersService
@@ -38,6 +39,8 @@
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IAppSwMessagingService appSwMessagingService
 @inject IJSRuntime jsRuntime
+@inject IJSRuntime js
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @code {
     [Parameter]
@@ -286,16 +289,47 @@
         }
         logger.LogInformation("SignRequest: request: {d}", request.ToString());
 
-        // var inputHeadersDict = new Dictionary<string, string>();
+        // prepare to create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
+        if (SelectedName is null) {
+            var msg = "SelectedName must not be null here";
+            logger.LogError(msg);
+            await Task.Delay(8000);
+            return;
+        }
 
-        // create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
-        if (SelectedName is null)
-            throw new Exception("SelectedName must not be null here");
+        // adminUrl
+        var connectConfigRes = await storageService.GetItem<KeriaConnectConfig>();
+        if (connectConfigRes.IsFailed || connectConfigRes.Value is null)
+        {
+            var msg = "Config must not be null here";
+            logger.LogError(msg);
+            await Task.Delay(8000);
+            return;
+        }
+        var adminUrl = connectConfigRes.Value.AdminUrl;
 
-        ApprovedSignRequest approvedSignRequest = new(OriginStr, request.Url, request.Method, request.HeadersDict, SelectedName!);
-        ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
-        await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
+        // Retrieve cached passcode
+        var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
+        if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
+        {
+            var passcode = passcodeElement2.GetString();
+            logger.LogWarning("passcode is {1}", passcode);
 
+            if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
+            {
+                ApprovedSignRequest approvedSignRequest = new("passcode", "adminUrl", OriginStr, request.Url, request.Method, request.HeadersDict, SelectedName!);
+                ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
+                await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
+            }
+            else
+            {
+                var msg = "Passcode must not be null here";
+                logger.LogError(msg);
+                await Task.Delay(8000);
+                return;
+            }
+        }
         UIHelper.CloseWindow();
     }
 

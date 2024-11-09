@@ -370,6 +370,8 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
         console.log("SW from App: handling App message of type: ", message.type);
+        // note the following may expose a passcode
+        // console.log("SW from App: handling App message data: ", message.data);
         switch (message.type) {
             case SwCsMsgType.REPLY:
                 cSConnection.port.postMessage(message);
@@ -456,7 +458,6 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
-                // TODO P3 create a constructor and ts interface for the msg?
                 const response: IExCsMsgHello = {
                     type: SwCsMsgType.HELLO,
                     requestId: message.requestId,

@@ -194,7 +194,8 @@
                     else
                     {
                         logger.LogWarning("Invalid passcode was cached. Clearing.");
-                        await App.LockApp(); // this will Route
+                        await App.LockApp(); 
+                        // Note, the above will reactively cause a NavigateTo page
                         return;
                     }
                 }

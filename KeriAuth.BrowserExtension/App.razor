@@ -15,13 +15,12 @@
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject NavigationManager navManager
 @inject IJSRuntime jsRuntime
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ILogger<App> logger
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IAppSwMessagingService appSwMessagingService
-@inject IJsRuntimeAdapter jsRuntimeAdapter
-
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
@@ -88,10 +87,8 @@
             throw new Exception("unexpected null staticStateService");
         }
         staticLogger!.LogInformation("LockApp...");
-        await staticStateService!.TimeOut(); // Other side-effects will be reactive. See IObserver<StateService>
-        
-        // staticNavManager!.NavigateTo(RouteToStart);
-        
+        await staticStateService!.TimeOut(); 
+        // Note that other side-effects will be reactive. See IObserver<StateService>
         return;
     }
 }

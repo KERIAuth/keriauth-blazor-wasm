@@ -19,8 +19,17 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("selectedName")]
         public string SelectedName { get; init; }
 
-        public ApprovedSignRequest(string origin, string requestUrl, string requestMethod, Dictionary<string, string>? initHeaders, string selectedName)
+        [JsonPropertyName("adminUrl")]
+        public string AdminUrl { get; init; }
+
+        // TODO P1 Adjust design so service-worker gets the passcode from session storage versus it being passed
+        [JsonPropertyName("passcode")]
+        public string Passcode { get; init; }
+
+        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string requestUrl, string requestMethod, Dictionary<string, string>? initHeaders, string selectedName)
         {
+            this.Passcode = passcode;
+            this.AdminUrl = adminUrl;
             Origin = origin;
             RequestUrl = requestUrl;
             RequestMethod = requestMethod;

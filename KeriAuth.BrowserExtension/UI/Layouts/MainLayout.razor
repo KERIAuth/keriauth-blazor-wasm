@@ -321,14 +321,14 @@
                 StateHasChanged();
                 logger.LogWarning("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
                 navManager.NavigateTo(RouteToStart);
-                return; // intentionally not break
+                break;
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
             case (_, _):
+                CurrentState = updatedState;
+                StateHasChanged();
                 break;
         }
-        CurrentState = updatedState;
-        StateHasChanged();
     }
 
     async Task HandleErrorFromStateService(Exception error)
@@ -353,16 +353,14 @@
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.ActionPopup:
-                IsInPopup = true;
-                break;
-            case ExtensionEnvironment.None:
-                break;
             case ExtensionEnvironment.BrowserPopup:
                 IsInPopup = true;
                 break;
+            case ExtensionEnvironment.None:
             case ExtensionEnvironment.Iframe:
             case ExtensionEnvironment.Extension:
             default:
+                IsInPopup = false;
                 break;
         }
 
