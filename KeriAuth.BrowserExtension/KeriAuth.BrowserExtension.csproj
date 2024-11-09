@@ -138,9 +138,6 @@
 		<TypeScriptCompile Update="wwwroot\scripts\es6\ExCsInterfaces.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\es6\registerInactivityEvents.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
 		<TypeScriptCompile Update="wwwroot\scripts\es6\uiHelper.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>

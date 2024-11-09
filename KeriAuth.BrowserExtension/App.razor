@@ -78,19 +78,6 @@
         await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
 
         await jsRuntime.InvokeVoidAsync("registerLockListener");
-
-        // TODO P0 remove this test
-        var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
-        if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
-        {
-            var passcode = passcodeElement2.GetString();
-            logger.LogWarning("passcode is {1}", passcode);
-        }
-        else
-        {
-            logger.LogWarning("passcode was not cached");
-        }
     }
 
     [JSInvokableAttribute("LockApp")]
