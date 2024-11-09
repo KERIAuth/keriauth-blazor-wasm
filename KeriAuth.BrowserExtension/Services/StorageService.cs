@@ -1,21 +1,18 @@
 ﻿namespace KeriAuth.BrowserExtension.Services;
 
 using FluentResults;
+using JsBind.Net;
 using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using System;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using WebExtensions.Net;
-using JsBind.Net;
 using static KeriAuth.BrowserExtension.Services.IStorageService;
 using JsonSerializer = System.Text.Json.JsonSerializer;
-using Polly;
-using System.Text;
 
 public partial class StorageService : IStorageService, IObservable<Preferences>
 {

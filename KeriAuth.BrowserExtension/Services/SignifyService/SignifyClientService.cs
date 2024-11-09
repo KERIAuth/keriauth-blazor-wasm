@@ -3,7 +3,6 @@ using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
-using System.Net;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
 using static KeriAuth.BrowserExtension.Services.SignifyService.Signify_ts_shim;

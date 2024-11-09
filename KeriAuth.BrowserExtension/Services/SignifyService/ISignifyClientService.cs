@@ -28,7 +28,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         Task<Result<IList<KeyEvent>>> GetKeyEvents();
         Task<Result<IList<KeyState>>> GetKeyStates();
         Task<Result<List<Dictionary<string, object>>>> GetCredentials();
-        
+
         Task<Result<Dictionary<string, object>>> GetCredential(string said);
         Task<Result<IList<Ipex>>> GetIpex();
         Task<Result<IList<Registry>>> GetRegistries();

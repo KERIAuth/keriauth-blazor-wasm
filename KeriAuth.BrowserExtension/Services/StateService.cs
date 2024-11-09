@@ -11,7 +11,7 @@ public class StateService : IStateService
     private readonly List<IObserver<States>> stateObservers = [];
     private readonly ILogger<StateService> logger;
     private readonly IWebExtensionsApi webExtensionsApi;
-    
+
     public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger)
     {
         this.storageService = storageService;
