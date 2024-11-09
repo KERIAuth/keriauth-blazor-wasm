@@ -62,16 +62,11 @@
         logger.LogInformation($"OnInitializedAsync");
         // await base.OnInitializedAsync();
 
-
-
-
         // Get the initialUriQuery
         initialUriQuery = extensionEnvironmentService.InitialUriQuery;
-
-        
         
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        // TODO P2 Alternate way to get initialUriQuery, but the following doesn't return what is expected?
+        // TODO P2 Alternate way to get initialUriQuery, but the following doesn't return what is expected, perhaps because of custom quoting of the query in the extensionEnvironmentService?
         /*
         var extensionContexts = await webExtensionsApi.Runtime.GetContexts(new ContextFilter());
         var extensionContext = extensionContexts.FirstOrDefault();
@@ -160,21 +155,9 @@
         // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate page
         var currentAppState = stateService.GetState();
         logger.LogInformation($"currentAppState: {currentAppState}");
-        logger.LogInformation($"Chrome URI query: {initialUriQuery}");
+        logger.LogInformation($"initialUriQuery: {initialUriQuery}");
         var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogInformation($"Chrome URI query decoded: {initialUriQuery2}");
-
-        // If the query is percent-encoded multiple times, consider decoding it in a loop until it doesn't change:
-        /*
-        string decodedQuery = initialUriQuery;
-    string lastDecodedQuery;
-    do
-    {
-    lastDecodedQuery = decodedQuery;
-    decodedQuery = HttpUtility.UrlDecode(decodedQuery);
-    } while (decodedQuery != lastDecodedQuery);
-         */
-
+        logger.LogWarning($"initialUriQuery2: {initialUriQuery2}");
 
         await HandleAppStateAsync(currentAppState, initialUriQuery2);
     }

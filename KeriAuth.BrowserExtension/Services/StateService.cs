@@ -84,9 +84,10 @@ public class StateService : IStateService
 
     public async Task NotifyObservers()
     {
+        await Task.Delay(0); // caller does not need to wait
         foreach (var observer in stateObservers)
             observer.OnNext(stateMachine.State);
-        await Task.Delay(0);
+        
         return;
     }
 

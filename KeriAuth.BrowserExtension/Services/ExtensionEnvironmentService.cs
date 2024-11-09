@@ -21,7 +21,7 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     public string? InitialUriQuery { get; private set; }
 
     /// <inheritdoc />
-    public void Initialize(Uri uri, string contextType)
+    public async Task Initialize(Uri uri, string contextType)
     {
         logger.LogInformation("Initialize with uri {uri}", uri);
         var query = uri.Query;
@@ -60,5 +60,6 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
         {
             logger.LogError("Not running in a browser extension");
         }
+        await Task.Delay(0);
     }
 }

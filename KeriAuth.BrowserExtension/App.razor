@@ -50,15 +50,14 @@
         staticNavManager = navManager;
         staticLogger = logger;
 
-
         // Initialize services as needed
         var uri = navManager.ToAbsoluteUri(navManager.Uri);
         var contexts = await UIHelper.GetChromeContexts();
         logger.LogInformation($"Chrome Contexts: {contexts}");
-        extensionEnvironmentService.Initialize(uri, "unknown");
+        await extensionEnvironmentService.Initialize(uri, "unknown");
         await storageService.Initialize();
         await stateService.Initialize();
-        preferencesService.Initialize();
+        await preferencesService.Initialize();
 
         // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>

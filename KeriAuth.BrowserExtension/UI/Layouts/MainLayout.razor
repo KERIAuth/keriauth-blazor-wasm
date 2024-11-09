@@ -294,7 +294,7 @@
 
     async Task HandleNextFromStateService(IStateService.States updatedState)
     {
-        await Task.Delay(0);
+        
         switch (CurrentState, updatedState)
         {
             case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
@@ -311,6 +311,7 @@
                 StateHasChanged();
                 break;
         }
+        await Task.Delay(0);
     }
 
     async Task HandleErrorFromStateService(Exception error)
@@ -441,7 +442,7 @@
 
     async Task UpdateActiveAid(string activeAid)
     {
-        await Task.Delay(0);
+        
         if (string.IsNullOrEmpty(activeAid))
         {
             ActiveAidIdenticon = "";
@@ -455,6 +456,7 @@
             ActiveAidTooltip = headline.Alias;
             return;
         }
+        await Task.Delay(0);
     }
 
     async Task OpenTabAndClosePopUp()

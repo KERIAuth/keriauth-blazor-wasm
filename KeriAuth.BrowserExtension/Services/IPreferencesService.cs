@@ -8,6 +8,6 @@ public interface IPreferencesService : IObservable<Preferences>
 
     Task SetPreferences(Preferences preferences);
 
-    void Initialize();
+    Task Initialize();
 
 }

@@ -10,9 +10,10 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     // private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
     private IDisposable? stateSubscription;
 
-    public void Initialize()
+    public async Task Initialize()
     {
         stateSubscription = storageService.Subscribe(this);
+        await Task.Delay(0);
     }
 
     public async Task<Preferences> GetPreferences()

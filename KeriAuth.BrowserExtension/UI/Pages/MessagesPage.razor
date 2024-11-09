@@ -46,7 +46,6 @@
 @code {
     protected override async Task OnInitializedAsync()
     {
-        await Task.Delay(0);
         logger.LogInformation("OnInitializedAsync");
         _isFetching = true;
         StateHasChanged();
@@ -55,6 +54,7 @@
         var tmp = new HashSet<string>();
         _ = tmp.Add("DID Operations");
         selectedMessageKinds = tmp;
+        await Task.Delay(0);
     }
     
     private string selectedMessageKindsValue { get; set; } = "Nothing selected";

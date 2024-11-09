@@ -32,7 +32,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             {
                 return Result.Fail<bool>("Passcode must be 21 characters");
             }
-            await Task.Delay(0);
             logger.LogInformation("Connect...");
 
             TimeSpan timeout2;
@@ -92,6 +91,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 logger.LogWarning("Connect: Exception: {e}", e);
                 return Result.Fail<bool>("SignifyClientService: Connect: Exception: " + e);
             }
+            
         }
 
         public Task<Result<bool>> Connect()
@@ -356,7 +356,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         }
         async Task<Result<string>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> initHeadersDict, string prefix)
         {
-            await Task.Delay(0);
             throw new NotImplementedException();
             /*
             logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, initHeadersDict.ToString(), prefix);

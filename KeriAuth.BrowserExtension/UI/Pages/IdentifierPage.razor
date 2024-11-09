@@ -328,7 +328,7 @@
     protected override async Task OnInitializedAsync()
     {
         base.OnInitialized();
-        await Task.Delay(0);
+        await Task.Delay(0); // caller doesn't need to wait
         logger.LogInformation($"OnInitializedAsync");
         preferencesSubscription = preferencesService.Subscribe(
            onNext: (Preferences value) => HandleNextFromPreferencesService(value),
