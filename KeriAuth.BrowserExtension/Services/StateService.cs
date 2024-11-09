@@ -98,7 +98,6 @@ public class StateService : IStateService
 
     async Task IStateService.TimeOut()
     {
-        // TODO P0 should check passcode in runtime.session storage
         logger.LogWarning("TimeOut removing CachedPasscode");
         await webExtensionsApi.Storage.Session.Remove("passcode");
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
@@ -106,10 +105,6 @@ public class StateService : IStateService
 
     private async Task OnTransitioned(StateMachine<States, Triggers>.Transition t)
     {
-        // xxConsole.WriteLine($"StateService transitioned from {t.Source} to {t.Destination} via trigger {t.Trigger}");
-        // TODO P3 use JournalService instead, similar to ...
-        // await JournalService.Write(new SystemLogEntry(nameof(StateService), SystemLogEntryType.AppStateTransitions));
-
         // Store the new state, with some exceptions
         if (t.Source != States.Uninitialized && t.Source != States.Initializing)
         {
