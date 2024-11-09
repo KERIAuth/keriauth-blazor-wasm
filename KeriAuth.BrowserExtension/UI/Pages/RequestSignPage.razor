@@ -41,6 +41,7 @@
 @inject IJSRuntime jsRuntime
 @inject IJSRuntime js
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject ISnackbar snackbar
 
 @code {
     [Parameter]
@@ -292,6 +293,7 @@
         // prepare to create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
         if (SelectedName is null) {
             var msg = "SelectedName must not be null here";
+            snackbar.Add(msg);
             logger.LogError(msg);
             await Task.Delay(8000);
             return;
@@ -303,6 +305,7 @@
         {
             var msg = "Config must not be null here";
             logger.LogError(msg);
+            snackbar.Add(msg);
             await Task.Delay(8000);
             return;
         }
@@ -325,6 +328,7 @@
             else
             {
                 var msg = "Passcode must not be null here";
+                snackbar.Add(msg);
                 logger.LogError(msg);
                 await Task.Delay(8000);
                 return;

@@ -50,8 +50,6 @@
         logger.LogInformation("OnInitializedAsync");
         _isFetching = true;
         StateHasChanged();
-        // Give time for the menu panel to collapse and spinner to start
-        // await Task.Delay(1500);
 
         // TODO P3 Retrieve from preference the last selected filter
         var tmp = new HashSet<string>();

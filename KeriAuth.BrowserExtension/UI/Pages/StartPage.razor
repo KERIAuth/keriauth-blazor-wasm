@@ -258,10 +258,6 @@
                 return;
             case IStateService.States.Initializing:
                 logger.LogInformation("waiting for initialization to complete...");
-                // TODO P0 Hack for timing issue here.  Need to be reactive to the state changing after Initializing?
-                // await Task.Delay(1500);
-                // navManager.NavigateTo(RouteToStart);
-                // StateHasChanged();
                 return;
             default:
                 throw new Exception($"Unexpected AppState {currentAppState}");
