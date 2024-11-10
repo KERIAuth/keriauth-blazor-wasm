@@ -397,19 +397,19 @@
                     <!-- Display Selected Credential -->
                     @if (!IsCredListExpanded)
                     {
-                        <MudPaper Class="d-flex align-items-center">
+                        <MudPaper Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded">
                             @if (SelectedCredentialOrNothing is null)
                             {
-                                <div @onclick="() => IsCredListExpanded = !IsCredListExpanded" style="width:100%; align-content:center;">
+                                <div style="width:100%; align-content:center;">
                                     <MudText Class="ml-3">Select</MudText>
                                 </div>
                             }
                             else
                             {
-                                <CredentialDisplay credential="@SelectedCredentialOrNothing" displayDetail="@CredentialDisplay.CredentialDisplayDetail.Minimal" />
+                                <CredentialDisplay credential="@SelectedCredentialOrNothing" displayDetail="@CredentialDisplay.CredentialDisplayDetail.MinimalWithoutIssuee" />
                             }
                             <MudSpacer />
-                            <MudIconButton Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
+                            <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
                         </MudPaper>
                     }
                     else
