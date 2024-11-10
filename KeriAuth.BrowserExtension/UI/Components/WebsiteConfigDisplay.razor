@@ -349,11 +349,11 @@
     }
 
     <!-- Select Identifier -->
-    <MudStack Class="gap-0">
-        <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
-        <MudStack Class="ml-0" Style="gap:0;">
-            @if (IdentifierHeadlines.Any())  // this prevents a flash while loading
-            {
+    @if (IdentifierHeadlines.Any())  // this prevents loading all at once versus rolling
+    {
+        <MudStack Class="gap-0">
+            <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
+            <MudStack Class="ml-0" Style="gap:0;">
                 <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
                     @foreach (var identifierHeadline in IdentifierHeadlines)
                     {
@@ -383,10 +383,9 @@
                         }
                     }
                 </div>
-            }
+            </MudStack>
         </MudStack>
-    </MudStack>
-
+    }
     @if (IsCredentialShown && CredentialsDict.Any())
     {
         <!-- Select Credential --->

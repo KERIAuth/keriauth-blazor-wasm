@@ -2,16 +2,10 @@ namespace KeriAuth.BrowserExtension.Models
 {
     using System.Text.Json.Serialization;
 
-    public readonly struct Preferences
+    public record Preferences
     {
-        public Preferences(bool isDarkTheme, string selectedAid, bool isOptedIntoDataCollection, MudBlazor.DrawerVariant drawerVariantInPopup, MudBlazor.DrawerVariant drawerVariantInTab, string selectedKeriaAlias)
+        public Preferences()
         {
-            IsDarkTheme = isDarkTheme;
-            SelectedAid = selectedAid;
-            IsOptedIntoDataCollection = isOptedIntoDataCollection;
-            DrawerVariantInPopup = drawerVariantInPopup;
-            DrawerVariantInTab = drawerVariantInTab;
-            SelectedKeriaAlias = selectedKeriaAlias;
         }
 
         [JsonPropertyName("IsDarkTheme")]
@@ -31,5 +25,8 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("SelectedKeriaAlias")]
         public string SelectedKeriaAlias { get; init; } = "";
+
+        [JsonPropertyName("ShowSignRequestDetail")]
+        public bool ShowSignRequestDetail { get; init; }
     }
 }

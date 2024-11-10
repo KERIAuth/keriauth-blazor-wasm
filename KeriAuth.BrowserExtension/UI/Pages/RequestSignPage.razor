@@ -54,8 +54,10 @@
     private bool IsDetailShown { get; set; }
 
     Dictionary<string, string> HeadersDict { get; set; } = new();
+    private bool IsInitialized { get; set; }
 
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
+    string AuthorityStr => (new Uri(OriginStr)).Authority;
 
     Uri? GetOriginUri()
     {
@@ -85,6 +87,16 @@
 
     string SelectedPrefix { get; set; } = "unknown";
     string SelectedAidAlias { get; set; } = "unknown";
+    Preferences? Prefs { get; set; }
+
+    async Task SetIsDetailShown(bool isDetailShown)
+    {
+        IsDetailShown = isDetailShown;
+        Preferences prefs = await preferencesService.GetPreferences();
+        Prefs = prefs with { ShowSignRequestDetail = isDetailShown };
+        await preferencesService.SetPreferences(Prefs);
+        return;
+    }
 
     // TODO P2 should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
     bool IsAutoSignIn { get; set; }
@@ -147,6 +159,9 @@
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitialized");
         await getCredentials();
+        Prefs = await preferencesService.GetPreferences();
+        IsDetailShown = Prefs.ShowSignRequestDetail;
+        IsInitialized = true;
         return;
     }
 
@@ -417,39 +432,42 @@
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign</MudText>
-            <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
+            <MudText Typo="Typo.body1"><em>@AuthorityStr</em></MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                This website is requesting KERI Auth to cryptographically sign an HTTP request header that will allow the website to verify your credential.<br />
+                This website authority is requesting KERI Auth to cryptographically sign an HTTP request header that will allow the website to verify your credential.<br />
             </MudText>
-            <MudCheckBox Label="Show Details" @bind-Value="IsDetailShown" ></MudCheckBox>
-            @if (IsDetailShown && HeadersDict != null && HeadersDict.Any())
+            @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevents distracting progressive loading
             {
-                /*
-                <MudText Class="my-3" Typo="Typo.body1">
+                <MudCheckBox Label="Show Details" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)"></MudCheckBox>
+                @if (IsDetailShown)
+                {
+                    /*
+                    <MudText Class="my-3" Typo="Typo.body1">
                     Details:
-                </MudText>
-                */
-                <MudPaper>
+                    </MudText>
+                        */
+                    <MudPaper>
 
-                    <table class="non-responsive-table">
-                        <thead style="text-align:left;">
-                            <tr>
-                                <th class="content-width-col">Key</th>
-                                <th class="remaining-width-col">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in HeadersDict)
-                            {
+                        <table class="non-responsive-table">
+                            <thead style="text-align:left;">
                                 <tr>
-                                    <td class="content-width-col">@item.Key</td>
-                                    <td class="remaining-width-col">@item.Value</td>
+                                    <th class="content-width-col">Key</th>
+                                    <th class="remaining-width-col">Value</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in HeadersDict)
+                                {
+                                    <tr>
+                                        <td class="content-width-col">@item.Key</td>
+                                        <td class="remaining-width-col">@item.Value</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
 
-                </MudPaper>
+                    </MudPaper>
+                }  
             }
         </div>
     </MudStack>

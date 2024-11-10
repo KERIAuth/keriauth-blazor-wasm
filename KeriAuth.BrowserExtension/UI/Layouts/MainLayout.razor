@@ -277,7 +277,7 @@
 
     async Task HandleNextFromPreferencesService(Preferences value)
     {
-        InitializeOrOnNextPrefs(value);
+        await InitializeOrOnNextPrefs(value);
         await Task.Delay(0);
     }
 
@@ -363,7 +363,7 @@
             onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService());
-        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+        await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
         stateSubscription = stateService.Subscribe(
             onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
