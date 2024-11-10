@@ -333,7 +333,7 @@
     */
     string GetCredentialItemClass(Dictionary<string, object> item)
     {
-        return item == SelectedCredentialOrNothing ? "selected-item" : String.Empty;
+        return item == SelectedCredentialOrNothing ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1";
     }
 
     string GetIdentifierItemClass(string prefix)
@@ -393,7 +393,7 @@
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Credential</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
-                <MudPaper Class="pa-0 mr-3">
+                <MudPaper Class="pa-0 mr-0">
                     <!-- Display Selected Credential -->
                     @if (!IsCredListExpanded)
                     {
