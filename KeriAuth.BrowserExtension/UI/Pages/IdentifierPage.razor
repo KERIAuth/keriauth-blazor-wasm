@@ -258,12 +258,13 @@
 
     async void HandleNextFromPreferencesService(Preferences value)
     {
-        await Task.Run(() => InitializeOrOnNextPrefs(value));
+        InitializeOrOnNextPrefs(value);
     }
 
     async void HandleErrorFromPreferencesService(Exception error)
     {
-        await Task.Run(() => logger.LogInformation("Error from PreferencesService: " + error.Message));
+        logger.LogInformation("Error from PreferencesService: " + error.Message);
+        await Task.Delay(0);
     }
 
     private record Element

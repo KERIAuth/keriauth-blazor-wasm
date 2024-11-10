@@ -277,7 +277,8 @@
 
     async Task HandleNextFromPreferencesService(Preferences value)
     {
-        await InitializeOrOnNextPrefs(value);
+        InitializeOrOnNextPrefs(value);
+        await Task.Delay(0);
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)
@@ -362,7 +363,7 @@
             onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService());
-        await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
         stateSubscription = stateService.Subscribe(
             onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
@@ -427,7 +428,7 @@
         }
     }
 
-    async Task InitializeOrOnNextPrefs(Preferences prefs)
+    Task InitializeOrOnNextPrefs(Preferences prefs)
     {
         // logger.LogInformation("received prefs: " + JsonSerializer.Serialize(prefs));
         App.IsDarkTheme = prefs.IsDarkTheme;
@@ -436,27 +437,27 @@
         UpdateDrawerMode(DrawerMode, prefs);
         UpdateMainContentStyle();
         // logger.LogInformation("setting ActiveAid to {aid}", prefs.SelectedAid);
-        await UpdateActiveAid(prefs.SelectedAid);
+        UpdateActiveAid(prefs.SelectedAid);
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
-    async Task UpdateActiveAid(string activeAid)
+    Task UpdateActiveAid(string activeAid)
     {
-        
         if (string.IsNullOrEmpty(activeAid))
         {
             ActiveAidIdenticon = "";
             ActiveAidTooltip = "";
-            return;
+            return Task.CompletedTask;
         }
         ActiveAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
         var headline = IdentifiersHeadlines.Find(x => x.Prefix == activeAid);
         if (headline is not null)
         {
             ActiveAidTooltip = headline.Alias;
-            return;
+            return Task.CompletedTask;
         }
-        await Task.Delay(0);
+        return Task.CompletedTask;
     }
 
     async Task OpenTabAndClosePopUp()
