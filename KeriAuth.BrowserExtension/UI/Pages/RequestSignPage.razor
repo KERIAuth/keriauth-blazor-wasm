@@ -51,6 +51,8 @@
 
     public string PayloadJson { get; set; } = "";
 
+    private bool IsDetailShown { get; set; }
+
     Dictionary<string, string> HeadersDict { get; set; } = new();
 
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
@@ -292,7 +294,8 @@
         logger.LogInformation("SignRequest: request: {d}", request.ToString());
 
         // prepare to create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
-        if (SelectedName is null) {
+        if (SelectedName is null)
+        {
             var msg = "SelectedName must not be null here";
             snackbar.Add(msg);
             logger.LogError(msg);
@@ -416,30 +419,38 @@
             <MudText Typo="Typo.h6">Request to Sign</MudText>
             <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                This website is requesting the extension to cryptographically sign an HTTP request header, which will allow it to verify your identity.<br />
+                This website is requesting KERI Auth to cryptographically sign an HTTP request header that will allow the website to verify your credential.<br />
             </MudText>
-            <MudText Class="my-3" Typo="Typo.body1">
-                Details:
-            </MudText>
-            <MudPaper>
-                <table class="non-responsive-table">
-                    <thead style="text-align:left;">
-                        <tr>
-                            <th class="content-width-col">Key</th>
-                            <th class="remaining-width-col">Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in HeadersDict)
-                        {
+            <MudCheckBox Label="Show Details" @bind-Value="IsDetailShown" ></MudCheckBox>
+            @if (IsDetailShown && HeadersDict != null && HeadersDict.Any())
+            {
+                /*
+                <MudText Class="my-3" Typo="Typo.body1">
+                    Details:
+                </MudText>
+                */
+                <MudPaper>
+
+                    <table class="non-responsive-table">
+                        <thead style="text-align:left;">
                             <tr>
-                                <td class="content-width-col">@item.Key</td>
-                                <td class="remaining-width-col">@item.Value</td>
+                                <th class="content-width-col">Key</th>
+                                <th class="remaining-width-col">Value</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            </MudPaper>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in HeadersDict)
+                            {
+                                <tr>
+                                    <td class="content-width-col">@item.Key</td>
+                                    <td class="remaining-width-col">@item.Value</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                </MudPaper>
+            }
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
