@@ -501,3 +501,5 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/signify_ts_shim.ts
 /KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/signify_ts_shim.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/esbuild/signify_ts_shim.js.map
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/SpaExtensionInterop.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/SpaExtensionInterop.js
