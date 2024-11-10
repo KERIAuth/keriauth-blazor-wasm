@@ -57,9 +57,11 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Selected Identifier</MudLink>
                         </MudText>
-                        <MudStack Class="mudtext-half-width-right" Row Style="align-items: center;">
+                        <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:38px;">
+                            @if(!string.IsNullOrEmpty(SelectedIdenticon)) {
                             <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                             <MudText>@SelectedAlias</MudText>
+                            }
                         </MudStack>
                     </MudStack>
                     <MudStack Row>
