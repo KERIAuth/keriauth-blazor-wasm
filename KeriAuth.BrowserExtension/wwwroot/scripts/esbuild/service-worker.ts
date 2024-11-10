@@ -57,7 +57,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Clear existing alarm and set a new one
         // TODO P0 inactivityDelay should be configurable by user, within a range of 0.5 to 10 minutes
         chrome.alarms.clear('inactivityAlarm', () => {
-            chrome.alarms.create('inactivityAlarm', { delayInMinutes: 10 });
+            chrome.alarms.create('inactivityAlarm', { delayInMinutes: 5 });
         });
     }
 });

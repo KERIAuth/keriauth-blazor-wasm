@@ -31,14 +31,16 @@
                             <MudSelectItem Value="@item">@item</MudSelectItem>
                         }
                     </MudSelect>
-                    @{/*
-                    <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInPopup" ValueChanged="@(async(a) => await SetAndPersistDVIP(a))" Label="In Popup" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                    @{
+                        /*
+                        <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInPopup" ValueChanged="@(async(a) => await SetAndPersistDVIP(a))" Label="In Popup" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInPopup)))
                         {
-                            <MudSelectItem Value="@item">@item</MudSelectItem>
+                        <MudSelectItem Value="@item">@item</MudSelectItem>
                         }
-                    </MudSelect>
-                    */}
+                        </MudSelect>
+                        */
+                    }
                 </MudStack>
             </MudStack>
         </div>
@@ -51,6 +53,8 @@
 
 @code
 {
+    // TODO P2 Add preference for Inactivity Timeout Duration, allowing 0.5 to 5 minutes. Reflect this setting on the Unlock screen.
+    // TODO P2 Add preference for Show Details on Sign Request
     enum DrawerVariantSupportedInTab
     {
         Persistent = MudBlazor.DrawerVariant.Persistent,
@@ -75,11 +79,11 @@
     async Task Persist()
     {
         prefs = prefs with
-        {
-            DrawerVariantInPopup = DrawerVariantInPopup,
-            DrawerVariantInTab = DrawerVariantInTab,
-            IsDarkTheme = IsDarkTheme,
-        };
+            {
+                DrawerVariantInPopup = DrawerVariantInPopup,
+                DrawerVariantInTab = DrawerVariantInTab,
+                IsDarkTheme = IsDarkTheme,
+            };
         await preferencesService.SetPreferences(prefs);
     }
 
@@ -115,12 +119,12 @@
 
     void HandleNextFromPreferencesService(Preferences value)
     {
-            prefs = value;
-            IsDarkTheme = value.IsDarkTheme;
-            DrawerVariantInPopup = value.DrawerVariantInPopup;
-            DrawerVariantInTab = value.DrawerVariantInTab;
-            logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
-            StateHasChanged();
+        prefs = value;
+        IsDarkTheme = value.IsDarkTheme;
+        DrawerVariantInPopup = value.DrawerVariantInPopup;
+        DrawerVariantInTab = value.DrawerVariantInTab;
+        logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
+        StateHasChanged();
     }
 
     void HandleErrorFromPreferencesService(Exception error)
