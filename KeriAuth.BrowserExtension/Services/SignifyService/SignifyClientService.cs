@@ -356,6 +356,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         }
         async Task<Result<string>> ISignifyClientService.SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> initHeadersDict, string prefix)
         {
+            await Task.Delay(0);
             throw new NotImplementedException();
             /*
             logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, initHeadersDict.ToString(), prefix);

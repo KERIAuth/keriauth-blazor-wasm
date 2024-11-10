@@ -42,18 +42,18 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
-@if (_isLoading)
+@if (IsLoading)
 {
     <MudContainer id="@this.GetType().Name" Class="bt-body-page">
-        <MudPaper Class="d-flex justify-content-center align-items-center full-page" Style="width:100%; height:100%">
-            <MudProgressCircular Color="Color.Success" Size="MudBlazor.Size.Medium" />
+        <MudPaper Style="width:100vw; height: 90vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     </MudContainer>
 }
 
 @code {
     // TODO P2 Fold this StartPage into IndexPage, since IndexPage is always called but is currently not useful.
-    private bool _isLoading { get; set; } = true;
+    private bool IsLoading { get; set; } = true;
     private WebExtensionsApi? webExtensionsApi;
     string? initialUriQuery;
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
@@ -61,44 +61,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        IsLoading = true;
         logger.LogInformation($"OnInitializedAsync");
 
-        initialUriQuery = App.InitialUri?.Query ?? String.Empty; // extensionEnvironmentService.InitialUriQuery;
-
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        // TODO P2 Alternate way to get initialUriQuery, but the following doesn't return what is expected, perhaps because of custom quoting of the query in the extensionEnvironmentService?
-        /*
-        var extensionContexts = await webExtensionsApi.Runtime.GetContexts(new ContextFilter());
-        var extensionContext = extensionContexts.FirstOrDefault();
-        if (extensionContext is null)
-        {
-            logger.LogWarning($"No extension context?");
-        }
-        else
-        {
-            logger.LogInformation("extensionContext: origin: {e} context: {c}", extensionContext.DocumentOrigin, extensionContext.ToString());
-            string documentUrl = extensionContext!.DocumentUrl;
-            if (string.IsNullOrEmpty(documentUrl))
-            {
-                logger.LogWarning($"No documentUrl?");
-            }
-            else
-            {
-                Uri uri = new Uri(documentUrl);
-                if (uri is null)
-                {
-                    logger.LogWarning($"No extension Uri?");
-                }
-                else
-                {
-                    initialUriQuery = uri.OriginalString;
-                    // initialUriQuery = extensionEnvironmentService.InitialUriQuery;
-                    logger.LogInformation($"Chrome URI query: {initialUriQuery}");
-                }
-            }
-        }
-        */
 
+        // Get and handle OnboardState
         var res = await storageService.GetItem<OnboardState>();
         logger.LogInformation("OnboardStateRes: {r}", res.Value);
         OnboardState? onboardState;
@@ -134,47 +102,42 @@
             }
         }
 
-        // Get KERIA configuration
-        var res2 = await storageService.GetItem<KeriaConnectConfig>();
-        if (res2.IsFailed || res2.Value is null)
+        // Get KERIA configuration and if needed route to page for user to configure it
+        var configRes = await storageService.GetItem<KeriaConnectConfig>();
+        if (configRes.IsFailed || configRes.Value is null)
         {
             keriaConnectConfig = defaultKeriaConnectConfig;
             await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
         }
         else
         {
-            keriaConnectConfig = res2.Value;
+            keriaConnectConfig = configRes.Value;
         }
-
         if (!keriaConnectConfig.IsConfigured())
         {
             navManager.NavigateTo(RouteToConfigure);
             return;
         }
 
+        // depending on the application state and initial URL query (depending on interaction with a tab page), route to appropriate page
         var currentAppState = stateService.GetState();
         logger.LogInformation($"currentAppState: {currentAppState}");
-        logger.LogInformation($"initialUriQuery: {initialUriQuery}");
+        initialUriQuery = App.InitialUri?.Query ?? String.Empty;
+        // logger.LogInformation($"initialUriQuery: {initialUriQuery}");
         var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
         logger.LogWarning($"initialUriQuery2: {initialUriQuery2}");
-
         await HandleAppStateAsync(currentAppState, initialUriQuery2);
 
-        _isLoading = false; // Set loading flag to false after completion
+        IsLoading = false;
     }
 
+    /*
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation("OnParametersSetAsync");
-
-        var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogInformation($"Chrome URI query decoded: {initialUriQuery2}");
-
-        // TODO P1 Process query parameters if needed
-        // ...
-
         await base.OnParametersSetAsync();
     }
+    */
 
     /*
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -207,6 +170,7 @@
                         await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
 
                         // TODO P2 refactor this section onto the ConnectingPage?  RouteToConnecting, so the extension without a KERIA connection might still be useful
+                        // And/or, show the status text on this page instead of simple spinner. Also, the mainlayout "link" icon should be set?
                         string? adminUrl = keriaConnectConfig?.AdminUrl;
                         if (keriaConnectConfig is null || adminUrl is null)
                         {
@@ -219,7 +183,6 @@
                             logger.LogWarning("connection failed? so removing CachedPasscode");
                             await webExtensionsApi.Storage.Session.Remove("passcode");
                             var openWalletError = "Could not connect to KERI Agent";
-                            // TODO P2 check if snackbar host is still in each of the layouts
                             snackbar.Add(openWalletError, Severity.Error);
                             logger.LogError("Error connecting to KERI Agent Service: {w}", openWalletError);
                             var currentAppState4 = stateService.GetState();
@@ -291,7 +254,6 @@
                                 logger.LogInformation("No popupType found in UriQuery");
                             }
                         }
-
                     }
                 }
                 else
@@ -301,8 +263,7 @@
                 navManager.NavigateTo(RouteToHome);
                 return;
             case IStateService.States.AuthenticatedDisconnected:
-            // TODO P2 show progress connecting and handle issues
-            // For now, just wait...
+            // TODO P2 show progress connecting and handle issues. For now, just wait...
             case IStateService.States.Initializing:
                 logger.LogInformation("waiting for initialization to complete...");
                 await Task.Delay(100);
