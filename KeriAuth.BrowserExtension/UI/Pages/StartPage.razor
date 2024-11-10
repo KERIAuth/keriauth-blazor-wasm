@@ -42,16 +42,18 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
-<!--
-<MudContainer id="@this.GetType().Name" Class="bt-body-page">
-    <MudPaper Class="d-flex justify-content-center align-items-center full-page" Style="width:100%; height:100%">
-        <MudProgressCircular Color="Color.Success" Size="MudBlazor.Size.Medium" />
-    </MudPaper>
-</MudContainer>
--->
+@if (_isLoading)
+{
+    <MudContainer id="@this.GetType().Name" Class="bt-body-page">
+        <MudPaper Class="d-flex justify-content-center align-items-center full-page" Style="width:100%; height:100%">
+            <MudProgressCircular Color="Color.Success" Size="MudBlazor.Size.Medium" />
+        </MudPaper>
+    </MudContainer>
+}
+
 @code {
     // TODO P2 Fold this StartPage into IndexPage, since IndexPage is always called but is currently not useful.
-
+    private bool _isLoading { get; set; } = true;
     private WebExtensionsApi? webExtensionsApi;
     string? initialUriQuery;
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
@@ -60,11 +62,9 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        // await base.OnInitializedAsync();
 
-        // Get the initialUriQuery
-        initialUriQuery = extensionEnvironmentService.InitialUriQuery;
-        
+        initialUriQuery = App.InitialUri?.Query ?? String.Empty; // extensionEnvironmentService.InitialUriQuery;
+
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         // TODO P2 Alternate way to get initialUriQuery, but the following doesn't return what is expected, perhaps because of custom quoting of the query in the extensionEnvironmentService?
         /*
@@ -99,7 +99,6 @@
         }
         */
 
-        // Get the onboardState from storage then route to the appropriate onboarding views if needed
         var res = await storageService.GetItem<OnboardState>();
         logger.LogInformation("OnboardStateRes: {r}", res.Value);
         OnboardState? onboardState;
@@ -113,7 +112,7 @@
             onboardState = res.Value;
         }
 
-        // Onboard if needed
+        // Handle onboarding conditions
         if (!onboardState.IsInstallOnboarded())
         {
             if (!onboardState.HasAcknowledgedInstall)
@@ -135,7 +134,7 @@
             }
         }
 
-        // Now that we know install is onboarded, get the configState from storage and route to ConfigureView if needed
+        // Get KERIA configuration
         var res2 = await storageService.GetItem<KeriaConnectConfig>();
         if (res2.IsFailed || res2.Value is null)
         {
@@ -146,13 +145,13 @@
         {
             keriaConnectConfig = res2.Value;
         }
+
         if (!keriaConnectConfig.IsConfigured())
         {
             navManager.NavigateTo(RouteToConfigure);
             return;
         }
 
-        // Now that we know the KERIA connection is configured, get the current AppState and route to the appropriate page
         var currentAppState = stateService.GetState();
         logger.LogInformation($"currentAppState: {currentAppState}");
         logger.LogInformation($"initialUriQuery: {initialUriQuery}");
@@ -160,8 +159,9 @@
         logger.LogWarning($"initialUriQuery2: {initialUriQuery2}");
 
         await HandleAppStateAsync(currentAppState, initialUriQuery2);
-    }
 
+        _isLoading = false; // Set loading flag to false after completion
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -182,7 +182,7 @@
     }
     */
 
-    async Task HandleAppStateAsync(IStateService.States currentAppState, string? initialUriQuery2)
+    async Task HandleAppStateAsync(IStateService.States currentAppState, string initialUriQuery2)
     {
         logger.LogWarning("HandleAppStateAsync: currentAppState {a} and query {q}", currentAppState.ToString(), initialUriQuery2);
         switch (currentAppState)

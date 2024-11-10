@@ -40,21 +40,22 @@
     private static IStateService? staticStateService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
+    public static Uri? InitialUri { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        await base.OnInitializedAsync();
+        // await base.OnInitializedAsync();
         // TODO P1 hack. Instead, create a StaticHelper static class that has injected methods
         staticStateService = stateService;
         staticNavManager = navManager;
         staticLogger = logger;
 
         // Initialize services as needed
-        var uri = navManager.ToAbsoluteUri(navManager.Uri);
+        InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
         var contexts = await UIHelper.GetChromeContexts();
         logger.LogInformation($"Chrome Contexts: {contexts}");
-        await extensionEnvironmentService.Initialize(uri, "unknown");
+        await extensionEnvironmentService.Initialize(InitialUri, "unknown");
         await storageService.Initialize();
         await stateService.Initialize();
         await preferencesService.Initialize();
@@ -66,7 +67,7 @@
         });
 
         // Initialize messaging with service worker
-        await appSwMessagingService.Initialize(uri.Authority);
+        await appSwMessagingService.Initialize(InitialUri.Authority);
 
         await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
 
