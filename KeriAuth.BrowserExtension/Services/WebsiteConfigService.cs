@@ -79,9 +79,24 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         var existingWebsiteConfigOrNothing = websitesResult.Value.WebsiteList.First(w => w.Origin == updatedWebsiteConfig.Origin);
         if (existingWebsiteConfigOrNothing == null)
         {
-            return Result.Fail("website not found");
+            // return Result.Fail("website not found");
+            existingWebsiteConfigOrNothing = updatedWebsiteConfig;
         }
 
+        WebsiteConfigList newList = new([]);
+
+        foreach (var config in websitesResult.Value.WebsiteList)
+        {
+            if (config.Origin == updatedWebsiteConfig.Origin)
+            {
+                newList.WebsiteList.Add(updatedWebsiteConfig);
+            } else
+            {
+                newList.WebsiteList.Add(config);
+            }
+        }
+
+        /*
         // Since Website is a record, you can't modify it directly. Instead, you create a new list of websites.
         var updatedWebsiteList = websitesResult.Value.WebsiteList
             .Where(w => w.Origin != updatedWebsiteConfig.Origin) // Remove the old websiteConfig
@@ -89,6 +104,8 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             .ToList();
 
         var saveResult = await storageService.SetItem<WebsiteConfigList>(new WebsiteConfigList(updatedWebsiteList));
+        */
+        var saveResult = await storageService.SetItem<WebsiteConfigList>(newList);
         if (saveResult.IsFailed)
         {
             return Result.Fail("could not save updated website to storage");

@@ -105,20 +105,21 @@
         else
         {
             SelectedCredentialOrNothing = filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
+            IsAutoSignInCred = ThisWebsiteConfig.IsAutoSignInCredential;
         }
 
         // TODO P3 implement and test ensurance
         // Ensure the SelectedCredentialOrNothing's issuee's value is consistent with the SelectedPrefix
         /*
-            if (SelectedCredentialOrNothing is not null)
+        if (SelectedCredentialOrNothing is not null)
+        {
+        TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
+        if (tv?.Value.ToString() != SelectedPrefix)
             {
-            TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
-            if (tv?.Value.ToString() != SelectedPrefix)
-                {
-                SelectedCredSaidOrNothing = null;
-                SelectedCredentialOrNothing = null;
-                ThisWebsiteConfig = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredSaidOrNothing };
-                await websiteConfigService.Update(ThisWebsiteConfig);
+            SelectedCredSaidOrNothing = null;
+            SelectedCredentialOrNothing = null;
+            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredSaidOrNothing };
+            await websiteConfigService.Update(ThisWebsiteConfig);
         }
         }
         */
@@ -134,36 +135,36 @@
         if (res?.IsSuccess == true)
         {
             IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
-            /*
+        /*
         if (IdentifierHeadlines.Any())
         {
-            await RefreshFromWebsiteConfig();
-            if (ThisWebsiteConfig is null)
-                {
-                throw new Exception("GetInitialHeadlines: website config must not be null here");
-                }
-                                          var newWebsite = ThisWebsiteConfig;
-                                          SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
-                                          ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
-                                          ?? IdentifierHeadlines.First();
-                                          if (SelectedHeadlineOrNothing is null)
-                    {
-                    throw new Exception("GetInitialHeadlines: must set a prefix");
-                }
-                SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
-                var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
+    await RefreshFromWebsiteConfig();
+        if (ThisWebsiteConfig is null)
+        {
+        throw new Exception("GetInitialHeadlines: website config must not be null here");
+            }
+            var newWebsite = ThisWebsiteConfig;
+            SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
+            ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
+            ?? IdentifierHeadlines.First();
+            if (SelectedHeadlineOrNothing is null)
+            {
+            throw new Exception("GetInitialHeadlines: must set a prefix");
+            }
+            SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
+            var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
                 if (updateRes is null || updateRes.IsFailed)
                 {
-                    throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
-                }
-                await RefreshFromWebsiteConfig();
-                StateHasChanged(); // needed?
+                throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
+            }
+            await RefreshFromWebsiteConfig();
+            StateHasChanged(); // needed?
             }
             else
-                {
-                throw new Exception("No Identifiers found");
-            }
-            */
+            {
+            throw new Exception("No Identifiers found");
+        }
+        */
         }
     }
 
@@ -278,7 +279,15 @@
     }
 
     async Task updateIsAutoSignInCred(bool isChecked)
-    { await Task.Delay(0); }
+    {
+        IsAutoSignInCred = isChecked;
+        logger.LogWarning("updateIsAutoSignInCred isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
+        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInCredential != isChecked)
+        {
+            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignInCredential = isChecked };
+            await websiteConfigService.Update(ThisWebsiteConfig);
+        }
+    }
 
     async Task updateIsAutoSignInIdentifier(bool isChecked)
     { await Task.Delay(0); }
@@ -434,8 +443,9 @@
                 <!-- TODO P3 Hiding these options functionality until it is fixed -->
                 <div style="display:none;">
                     <MudCheckBox Label="Default credential for website" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsCredentialRemembered" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
-                    <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
+                
                 </div>
+                <MudCheckBox Label="Automatically sign requests" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
             </MudStack>
         </MudStack>
     }
