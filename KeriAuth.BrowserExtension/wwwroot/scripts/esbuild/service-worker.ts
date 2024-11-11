@@ -350,7 +350,30 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     }
     // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
     connectedPort.onDisconnect.addListener(() => {
-        console.log("SW port closed connection: ", pageCsConnections[connectionId])
+        console.log("SW port closed connection for page connection: ", pageCsConnections[connectionId])
+
+        if (pageCsConnections[connectionId].port.name.substring(0,17) == "blazorAppPort-tab") {
+            // The App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
+            console.warn('KERI Auth SPA closed');
+            for (const key in pageCsConnections) {
+                if (pageCsConnections.hasOwnProperty(key)) {  // Check to filter out inherited properties
+                    const connection : Connection = pageCsConnections[key];
+                    if (connection.tabId != -1) {
+                        const lastGasp = {
+                            type: SwCsMsgType.CANCELED,
+                            
+                            source: "KERIAuth",
+                            error: { code: 501, message: "User closed KERI Auth or canceled pending request" },
+                            
+                        };
+                        connection.port.postMessage(lastGasp);
+                    }
+                }
+            }
+        } else {
+            // The Tab was closed.
+            console.warn('Content Script tab closed or navigated away');
+        }
         delete pageCsConnections[connectionId];
     });
 });
