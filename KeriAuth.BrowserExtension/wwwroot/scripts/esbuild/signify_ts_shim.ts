@@ -233,7 +233,7 @@ export const getSignedHeaders = async (
         // TODO P4 move into utility function for printing headersDict
         // Log each header for better visibility
         if (signedRequest.headers) {
-            console.warn("signify_ts_shim getSignedHeaders: signedRequest.headers details:");
+            console.info("signify_ts_shim getSignedHeaders: signedRequest.headers details:");
             signedRequest.headers.forEach((value, key) => {
                 console.log(`    ${key}: ${value}`);
             });

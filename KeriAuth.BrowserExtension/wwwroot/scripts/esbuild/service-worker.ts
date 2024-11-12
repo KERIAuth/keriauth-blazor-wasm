@@ -266,7 +266,7 @@ function isActionPopupUrlSet(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         chrome.action.getPopup({}, (popupUrl) => {
             if (chrome.runtime.lastError) {
-                console.warn("SW isActionPopupOpen: popupUrl: ", popupUrl);
+                console.info("SW isActionPopupOpen: popupUrl: ", popupUrl);
                 reject(chrome.runtime.lastError);
             } else {
                 resolve(!!popupUrl);
@@ -354,17 +354,15 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
         if (pageCsConnections[connectionId].port.name.substring(0,17) == "blazorAppPort-tab") {
             // The App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
-            console.warn('KERI Auth SPA closed');
+            console.info('KERI Auth SPA closed');
             for (const key in pageCsConnections) {
                 if (pageCsConnections.hasOwnProperty(key)) {  // Check to filter out inherited properties
                     const connection : Connection = pageCsConnections[key];
                     if (connection.tabId != -1) {
                         const lastGasp = {
                             type: SwCsMsgType.CANCELED,
-                            
                             source: "KERIAuth",
                             error: { code: 501, message: "User closed KERI Auth or canceled pending request" },
-                            
                         };
                         connection.port.postMessage(lastGasp);
                     }
@@ -372,7 +370,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             }
         } else {
             // The Tab was closed.
-            console.warn('Content Script tab closed or navigated away');
+            console.info('SW: Content Script tab closed or navigated away');
         }
         delete pageCsConnections[connectionId];
     });
@@ -461,7 +459,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 }
                 break;
             default:
-                console.warn("SW from App: message type not yet handled: ", message);
+                console.info("SW from App: message type not yet handled: ", message);
         }
     }
 };

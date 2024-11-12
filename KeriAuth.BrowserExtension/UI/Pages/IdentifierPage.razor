@@ -256,12 +256,13 @@
         preferencesSubscription?.Dispose();
     }
 
-    async void HandleNextFromPreferencesService(Preferences value)
+    async Task HandleNextFromPreferencesService(Preferences value)
     {
         InitializeOrOnNextPrefs(value);
+        await Task.Delay(0);
     }
 
-    async void HandleErrorFromPreferencesService(Exception error)
+    async Task HandleErrorFromPreferencesService(Exception error)
     {
         logger.LogInformation("Error from PreferencesService: " + error.Message);
         await Task.Delay(0);

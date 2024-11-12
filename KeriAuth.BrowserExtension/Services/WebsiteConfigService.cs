@@ -132,7 +132,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             if (getWebsitesRes.Value is null)
             {
                 // This is the first website configured. Need to first add the Websites collection
-                var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false)).Validate();
+                var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false, false)).Validate();
                 websiteConfigList = new WebsiteConfigList(WebsiteList: [websiteConfig]);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed)
@@ -156,7 +156,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             if (websiteConfigOrNothing is null)
             {
                 logger.LogInformation("Adding websiteConfig for {originUrl}", originUri);
-                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false);
+                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, false);
                 newWebsiteConfig.Validate();
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);

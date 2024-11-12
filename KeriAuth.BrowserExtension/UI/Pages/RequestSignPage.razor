@@ -47,17 +47,26 @@
     [Parameter]
     public string encodedOrigin { get; set; } = "";
 
-    public string RequestId { get; set; } = "";
-
-    public string PayloadJson { get; set; } = "";
-
-    private bool IsDetailShown { get; set; }
-
+    string RequestId { get; set; } = "";
+    string PayloadJson { get; set; } = "";
     Dictionary<string, string> HeadersDict { get; set; } = new();
-    private bool IsInitialized { get; set; }
+    Dictionary<string, object>? SelectedCredential;
+    bool IsDetailShown { get; set; }
+    bool IsInitialized { get; set; }
+    bool IsExpanded { get; set; }
 
+    string AppActivePrefix { get; set; } = string.Empty;
+    List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
     string AuthorityStr => (new Uri(OriginStr)).Authority;
+    enum SignInMode { Credential, Identifier, Prompt }
+    Preferences? Prefs { get; set; }
+    WebsiteConfig? ThisWebsiteConfig { get; set; }
+    List<Dictionary<string, object>> credentials = new();
+    SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
+    IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
+    string SelectedPrefix { get; set; } = "unknown";
+    string SelectedAidAlias { get; set; } = "unknown";
 
     Uri? GetOriginUri()
     {
@@ -73,22 +82,6 @@
         }
     }
 
-    string AppActivePrefix { get; set; } = string.Empty;
-
-    List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
-
-    // TODO P2 should be something like  get => ThisWebsiteConfig?.RememberedPrefixOrNothing == SelectedPrefix;
-    bool IsPrefixRemembered { get; set; }
-    bool IsCredentialRemembered { get; set; }
-    enum SignInMode { Credential, Identifier, Prompt }
-    SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
-
-    IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
-
-    string SelectedPrefix { get; set; } = "unknown";
-    string SelectedAidAlias { get; set; } = "unknown";
-    Preferences? Prefs { get; set; }
-
     async Task SetIsDetailShown(bool isDetailShown)
     {
         IsDetailShown = isDetailShown;
@@ -98,67 +91,16 @@
         return;
     }
 
-    // TODO P2 should be something like  get => ThisWebsiteConfig?.AutoSignInChoice == AutoSignInMode.Identifier;
-    bool IsAutoSignIn { get; set; }
+    bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
 
-    WebsiteConfig? ThisWebsiteConfig { get; set; }
-
-    async Task updateIsCredentialRemembered(bool isChecked)
-    {
-        IsCredentialRemembered = isChecked;
-        // TODO P1 See updateIsPrefixRemembered for how this should be implemented
-        await Task.Delay(0);
-        return;
-    }
-
-    async Task updateIsPrefixRemembered(bool isChecked)
-    {
-        // TODO P2 implementation should just push an update into websiteConfigService, and rest be reactive to that.
-        IsPrefixRemembered = isChecked;
-        Debug.Assert(GetOriginUri() is not null);
-        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
-        if (getOrCreateWebsiteRes.IsFailed)
-        {
-            logger.LogError("Error in websiteService {0}", getOrCreateWebsiteRes.Errors);
-            return;
-        }
-        WebsiteConfig newWebsite = getOrCreateWebsiteRes.Value.websiteConfig1;
-        if (SelectedHeadlineOrNothing is not null)
-        {
-            if (isChecked)
-            {
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = SelectedPrefix };
-            }
-            else
-            {
-                // since the user has chosen to forget this identifier, we will also forget the auto sign in choice
-                // TODO P2 once this UI is made responsive to an IObserver<WebsiteConfig> we can move this logic into the service
-                newWebsite = newWebsite with { RememberedPrefixOrNothing = null, IsAutoSignInIdentifier = false, RememberedCredSaidOrNothing = null, IsAutoSignInCredential = false };
-            }
-            newWebsite.Validate();
-
-            logger.LogInformation("updateIsRemembered: about to update: {0}", newWebsite);
-            var res = await websiteConfigService.Update(newWebsite);
-            if (res is null || res.IsFailed)
-            {
-                throw new Exception($"Error updating website: {res?.Errors}");
-            }
-            Debug.Assert(GetOriginUri() is not null);
-            // await getWebsiteConfig(GetOriginUri()!); // StateHasChanged();
-            return;
-        }
-        else
-        {
-            logger.LogError("updateIsRemembered: Unexpected null Identifier selection");
-        }
-        return;
-    }
+    bool IsAutoSignHeaders => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation($"OnInitialized");
         await getCredentials();
+        await RefreshFromWebsiteConfig();
         Prefs = await preferencesService.GetPreferences();
         IsDetailShown = Prefs.ShowSignRequestDetail;
         IsInitialized = true;
@@ -214,6 +156,9 @@
         }
     }
 
+    // TODO P2 simplify GetInitialHeadlines
+    // Here, GetInitialHeadlines is a overly complex way of getting the alias name of the identifier to sign the headers. Signify-ts and KERIA might 
+    // now be able to sign using the prefix.
     async Task GetInitialHeadlines()
     {
         logger.LogInformation("GetHeadlines...");
@@ -233,10 +178,10 @@
                     logger.LogError("Error in websiteService: {0}", wcRes.Errors);
                     return;
                 }
-                WebsiteConfig newWebsite = wcRes.Value.websiteConfig1;
-                if (newWebsite.RememberedPrefixOrNothing is not null)
+                WebsiteConfig newWebsiteConfig = wcRes.Value.websiteConfig1;
+                if (newWebsiteConfig.RememberedPrefixOrNothing is not null)
                 {
-                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == newWebsite.RememberedPrefixOrNothing);
+                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == newWebsiteConfig.RememberedPrefixOrNothing);
                 }
                 else
                 {
@@ -268,9 +213,7 @@
         this.StateHasChanged();
     }
 
-    List<Dictionary<string, object>> credentials = new();
-
-    private async Task getCredentials()
+    async Task getCredentials()
     {
         // TODO P2 implement filtering to show only the holder's credentials
         // typescript:  client.credentials().list({ filter: { '-a-i': holderAid.prefix } })
@@ -293,9 +236,84 @@
         }
     }
 
-    /*
-    / SignRequest()
-    */
+    async Task updateIsAutoSignHeaders(bool isChecked)
+    {
+        logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
+        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
+        {
+            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
+            await websiteConfigService.Update(ThisWebsiteConfig);
+        }
+        StateHasChanged();
+        // IsAutoSignHeaders will be updated
+    }
+
+    // TODO P2 DRY with similar method in WebsiteConfigDisplay
+    async Task RefreshFromWebsiteConfig()
+    {
+        var originUri = GetOriginUri();
+        if (originUri is null)
+        {
+            throw new Exception($"RefreshThisWebsiteConfig: origin must be set.");
+        }
+
+        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
+        if (getOrCreateWebsiteRes.IsFailed)
+        {
+            throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
+        }
+        var (websiteConfig, isConfigNew) = getOrCreateWebsiteRes.Value;
+        ThisWebsiteConfig = websiteConfig;
+
+        if (isConfigNew)
+        {
+            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedAid;
+            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+            await websiteConfigService.Update(ThisWebsiteConfig);
+        }
+        else
+        {
+            SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+        }
+
+        StateHasChanged();
+        // IsAutoSignHeaders = ThisWebsiteConfig.IsAutoSignHeaders;
+
+        /*
+        FilteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
+        // logger.LogWarning("FilteredCredentials: {i}", FilteredCredentials?.Count() ?? 0);
+
+        SelectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
+
+        if (SelectedCredSaidOrNothing is null)
+        {
+            SelectedCredentialOrNothing = null;
+        }
+        else
+        {
+            SelectedCredentialOrNothing = filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
+            IsAutoSignInCred = ThisWebsiteConfig.IsAutoSignInCredential;
+        }
+
+        // send relevant values to parent (e.g. a page for SignIn or website config)
+        await SendValueToParent();
+        StateHasChanged(); // TODO EE! should not need this to force refresh of filtered credentials?
+        */
+    }
+
+
+
+
+
+
+
+
+
+
+
+    //
+    // SignRequest()
+    //
     async Task SignRequest(SignInMode RequestedSignInMode, string requestId2, string? SelectedName, string payloadJson)
     {
         logger.LogInformation("SignRequest: payloadJson: {d}", payloadJson);
@@ -393,21 +411,19 @@
         }
     }
 
-    private Dictionary<string, object>? SelectedCredential;
-
-    private bool IsExpanded = false;
-
+    /*
     protected override void OnInitialized()
     {
         // SelectedCredential = new Dictionary<string, object>();
     }
+    */
 
-    private void ToggleExpand()
+    void ToggleExpand()
     {
         IsExpanded = !IsExpanded;
     }
 
-    private void SelectCredential(Dictionary<string, object> item)
+    void SelectCredential(Dictionary<string, object> item)
     {
         if (SelectedCredential == item)
         {
@@ -420,9 +436,9 @@
         }
     }
 
-    private string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
+    string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
 
-    private string GetCredentialItemClass(Dictionary<string, object> item)
+    string GetCredentialItemClass(Dictionary<string, object> item)
     {
         return item == SelectedCredential ? "selected-item" : String.Empty;
     }
@@ -434,20 +450,14 @@
             <MudText Typo="Typo.h6">Request to Sign</MudText>
             <MudText Typo="Typo.body1"><em>@AuthorityStr</em></MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                This website authority is requesting KERI Auth to cryptographically sign an HTTP request header that will allow the website to verify your credential.<br />
+                This website authority is requesting KERI Auth, with your approval, to cryptographically sign an HTTP request header that will allow it to validate the credential you used earlier to sign in, then authorize actions.<br />
             </MudText>
             @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevents distracting progressive loading
             {
                 <MudCheckBox Label="Show Details" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)"></MudCheckBox>
                 @if (IsDetailShown)
                 {
-                    /*
-                    <MudText Class="my-3" Typo="Typo.body1">
-                    Details:
-                    </MudText>
-                        */
                     <MudPaper>
-
                         <table class="non-responsive-table">
                             <thead style="text-align:left;">
                                 <tr>
@@ -465,9 +475,9 @@
                                 }
                             </tbody>
                         </table>
-
                     </MudPaper>
-                }  
+                }
+                <MudCheckBox Label="Automatically sign Http Request Headers" style="height: 28px;" Value="@IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSignHeaders(b)" />
             }
         </div>
     </MudStack>
@@ -520,5 +530,4 @@
         .non-responsive-table th {
             font-weight: bold;
         }
-
 </style>

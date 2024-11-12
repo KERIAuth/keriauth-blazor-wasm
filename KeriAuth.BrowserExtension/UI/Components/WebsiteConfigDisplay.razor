@@ -35,7 +35,7 @@
     private List<IdentifierHeadline> IdentifierHeadlines { get; set; } = new();
     private bool IsPrefixRemembered { get; set; }
     private bool IsAutoSignInIdentifier { get; set; }
-    private bool IsAutoSignInCred { get; set; }
+    private bool IsAutoSign { get; set; }
     private bool IsCredentialRemembered { get; set; }
     private IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
     private string SelectedPrefix { get; set; } = "unknown";
@@ -105,24 +105,8 @@
         else
         {
             SelectedCredentialOrNothing = filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
-            IsAutoSignInCred = ThisWebsiteConfig.IsAutoSignInCredential;
+            IsAutoSign = ThisWebsiteConfig.IsAutoSignInCredential;
         }
-
-        // TODO P3 implement and test ensurance
-        // Ensure the SelectedCredentialOrNothing's issuee's value is consistent with the SelectedPrefix
-        /*
-        if (SelectedCredentialOrNothing is not null)
-        {
-        TypedValue? tv = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d");
-        if (tv?.Value.ToString() != SelectedPrefix)
-            {
-            SelectedCredSaidOrNothing = null;
-            SelectedCredentialOrNothing = null;
-            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredSaidOrNothing };
-            await websiteConfigService.Update(ThisWebsiteConfig);
-        }
-        }
-        */
 
         // send relevant values to parent (e.g. a page for SignIn or website config)
         await SendValueToParent();
@@ -135,40 +119,10 @@
         if (res?.IsSuccess == true)
         {
             IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
-        /*
-        if (IdentifierHeadlines.Any())
-        {
-    await RefreshFromWebsiteConfig();
-        if (ThisWebsiteConfig is null)
-        {
-        throw new Exception("GetInitialHeadlines: website config must not be null here");
-            }
-            var newWebsite = ThisWebsiteConfig;
-            SelectedHeadlineOrNothing = IdentifierHeadlines.FirstOrDefault(a => a.Prefix == newWebsite.RememberedPrefixOrNothing)
-            ?? IdentifierHeadlines.FirstOrDefault(a => a.Prefix == AppActivePrefix)
-            ?? IdentifierHeadlines.First();
-            if (SelectedHeadlineOrNothing is null)
-            {
-            throw new Exception("GetInitialHeadlines: must set a prefix");
-            }
-            SelectedPrefix = SelectedHeadlineOrNothing.Prefix;
-            var updateRes = await websiteConfigService.Update(ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix });
-                if (updateRes is null || updateRes.IsFailed)
-                {
-                throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
-            }
-            await RefreshFromWebsiteConfig();
-            StateHasChanged(); // needed?
-            }
-            else
-            {
-            throw new Exception("No Identifiers found");
-        }
-        */
         }
     }
 
-    // TODO move this to a helper
+    // TODO P2 DRY move this filterCredentials to a helper
     List<Dictionary<string, object>>? filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
     {
         if (!filters.Any())
@@ -205,7 +159,14 @@
             throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
         }
         // when changing the prefix, any prior selection of RememberedCred will not be relevant
-        var newWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = prefix, RememberedCredSaidOrNothing = null };
+        IsAutoSign = false;
+        var newWebsiteConfig = ThisWebsiteConfig with
+            {
+                RememberedPrefixOrNothing = prefix,
+                RememberedCredSaidOrNothing = null,
+                IsAutoSignInCredential = IsAutoSign,
+                IsAutoSignInIdentifier = false
+            };
         newWebsiteConfig.Validate();
         var updateRes = await websiteConfigService.Update(newWebsiteConfig);
         if (updateRes is null || updateRes.IsFailed)
@@ -236,9 +197,17 @@
         }
         logger.LogInformation("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
 
-        var newWebsite = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredentialOrNothing, RememberedPrefixOrNothing = SelectedPrefix };
-        newWebsite.Validate();
-        var updateRes = await websiteConfigService.Update(newWebsite);
+        // TODO P0 need to really remember the new credential selection!
+        IsAutoSign = false;
+        var newWebsiteConfig = ThisWebsiteConfig with
+            {
+                RememberedCredSaidOrNothing = rememberedCredSaidOrNothing,
+                RememberedPrefixOrNothing = SelectedPrefix,
+                IsAutoSignInCredential = IsAutoSign,
+                IsAutoSignInIdentifier = IsAutoSign // intentional, since selected cred implies identifier
+            };
+        newWebsiteConfig.Validate();
+        var updateRes = await websiteConfigService.Update(newWebsiteConfig);
         if (updateRes is null || updateRes.IsFailed)
         {
             logger.LogError($"updateSelectedCredential: Error updating website: {updateRes?.Errors}");
@@ -246,8 +215,6 @@
         }
         IsCredListExpanded = false;
         await RefreshFromWebsiteConfig();
-
-
         return;
     }
 
@@ -256,7 +223,6 @@
 
     async Task updateIsPrefixRemembered(bool isPrefixRemembered)
     { await Task.Delay(0); }
-
     async Task getCredentials()
     {
         var res = await signifyClientService.GetCredentials();
@@ -268,29 +234,24 @@
         else
         {
             CredentialsDict = res.Value as List<Dictionary<string, object>>;
-            // Debug.Assert(CredentialsDict is not null);
-            // logger.LogInformation("Credentials: count {res}", CredentialsDict.Count);
-            // foreach (Dictionary<string, object> credential in credentials)
-            // {
-            //     logger.LogInformation("Credential: {credential}", credential);
-            //     logger.LogInformation("Credential title: {credential}", DictionaryConverter.GetValueByPath(credential, "schema.title").Value);
-            // }
         }
     }
 
-    async Task updateIsAutoSignInCred(bool isChecked)
+    async Task updateIsAutoSign(bool isChecked)
     {
-        IsAutoSignInCred = isChecked;
+        IsAutoSign = isChecked;
         logger.LogWarning("updateIsAutoSignInCred isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
-        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignInCredential != isChecked)
+        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
         {
-            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignInCredential = isChecked };
+            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }
     }
 
     async Task updateIsAutoSignInIdentifier(bool isChecked)
-    { await Task.Delay(0); }
+    {
+        await Task.Delay(0);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -299,47 +260,15 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // TODO P2 optimize by moving some of the above into these optimizations:
         if (firstRender)
         {
             // Initial render logic here
-            await GetInitialIdentifierHeadlines(); // TODO EE! move to OnParametersSetAsync?
+            await GetInitialIdentifierHeadlines();
             await getCredentials();
-            await RefreshFromWebsiteConfig(); // TODO EE! move into firstRender section?
-        }
-        else
-        {
-            // Logic for subsequent renders, if needed
+            await RefreshFromWebsiteConfig();
         }
     }
 
-    /*
-    // TODO EE! can get rid of this?
-    async Task GetInitialCredential()
-    {
-        logger.LogWarning("GetInitialCredential");
-        await RefreshFromWebsiteConfig();
-        if (ThisWebsiteConfig is null)
-        {
-            throw new Exception("GetInitialCredential: website config must not be null here");
-        }
-        var selectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
-        logger.LogWarning("GetInitialCredential selectedCredSaidOrNothing: {c}", selectedCredSaidOrNothing);
-        if (selectedCredSaidOrNothing is not null)
-        {
-            // get full credential by said
-            var credRes = await signifyClientService.GetCredential(selectedCredSaidOrNothing);
-            if (credRes.IsSuccess)
-            {
-                logger.LogWarning("GetInitialCredential credRes: {c}", credRes.Value);
-                await updateSelectedCredential(credRes.Value);
-                return;
-            }
-        }
-        await updateSelectedCredential(null);
-        return;
-    }
-    */
     string GetCredentialItemClass(Dictionary<string, object> item)
     {
         return item == SelectedCredentialOrNothing ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1";
@@ -358,7 +287,7 @@
     }
 
     <!-- Select Identifier -->
-    @if (IdentifierHeadlines.Any())  // this prevents loading all at once versus rolling
+    @if (IdentifierHeadlines.Any())  // this causes loading all at once versus rolling
     {
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
@@ -378,7 +307,6 @@
                 </MudSelect>
                 <!-- TODO P3 Hiding these options functionality until it is fixed -->
                 <div style="display:none;">
-                    <MudCheckBox Label="Use as default" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsPrefixRemembered" ValueChanged="async (bool b) => await updateIsPrefixRemembered(b)" />
                     <MudCheckBox Label="Automatically sign in" Disabled="@(SelectedPrefix is null)" style="height: 28px;" Value="@IsAutoSignInIdentifier" ValueChanged="async (bool b) => await updateIsAutoSignInIdentifier(b)" />
                     @if (IsAutoSignInIdentifier && ThisWebsiteConfig is not null)
                     {
@@ -395,7 +323,7 @@
             </MudStack>
         </MudStack>
     }
-    @if (IsCredentialShown && CredentialsDict.Any())
+    @if (IsCredentialShown && CredentialsDict.Any()) // so this section appears all at once versus progressively
     {
         <!-- Select Credential --->
         <MudStack Class="gap-0">
@@ -440,12 +368,7 @@
                         }
                     }
                 </MudPaper>
-                <!-- TODO P3 Hiding these options functionality until it is fixed -->
-                <div style="display:none;">
-                    <MudCheckBox Label="Default credential for website" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsCredentialRemembered" ValueChanged="async (bool b) => await updateIsCredentialRemembered(b)" />
-                
-                </div>
-                <MudCheckBox Label="Automatically sign requests" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSignInCred" ValueChanged="async (bool b) => await updateIsAutoSignInCred(b)" />
+                <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSign" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
             </MudStack>
         </MudStack>
     }

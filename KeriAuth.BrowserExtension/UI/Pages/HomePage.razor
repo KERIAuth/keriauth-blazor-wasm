@@ -68,27 +68,31 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right">0</MudText>
+                        <!-- TODO P2 See filterCredentials in WebsiteConfigDisplay, and move that into a helper -->
+                        <MudText Class="mudtext-half-width-right">0 of 999</MudText>
                     </MudStack>
-                    <MudStack Row>
+
+                    <MudStack Row Style="display:none">
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Multi-Sig Groups</MudLink>
                         </MudText>
                         <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
+
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Configured Websites</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right">0</MudText>
+                        <MudText Class="mudtext-half-width-right">0 of 999</MudText>
                     </MudStack>
-                    <MudStack Row>
+
+                    <MudStack Row Style="display:none">
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">KERI Agent Requests</MudLink>
                         </MudText>
                         <MudText Class="mudtext-half-width-right">0</MudText>
                     </MudStack>
-                    <MudStack Row>
+                    <MudStack Row Style="display:none">
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Notifications</MudLink>
                         </MudText>

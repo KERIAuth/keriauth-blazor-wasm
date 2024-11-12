@@ -9,7 +9,8 @@ namespace KeriAuth.BrowserExtension.Models
         string? rememberedPrefixOrNothing,
         string? rememberedCredSaidOrNothing,
         bool isAutoSignInIdentifier,
-        bool isAutoSignInCredential
+        bool isAutoSignInCredential,
+        bool isAutoSignHeaders
         )
         {
             Origin = origin;
@@ -18,7 +19,7 @@ namespace KeriAuth.BrowserExtension.Models
             RememberedCredSaidOrNothing = rememberedCredSaidOrNothing;
             IsAutoSignInIdentifier = isAutoSignInIdentifier;
             IsAutoSignInCredential = isAutoSignInCredential;
-
+            IsAutoSignHeaders = isAutoSignHeaders;
         }
 
         public WebsiteConfig Validate()
@@ -34,6 +35,12 @@ namespace KeriAuth.BrowserExtension.Models
             if (RememberedCredSaidOrNothing is not null && RememberedPrefixOrNothing is null)
             {
                 throw new ArgumentException("WebsiteConfig constructor with credential set must also have identifier set.");
+            }
+            if (IsAutoSignHeaders && RememberedCredSaidOrNothing is null)
+            {
+
+                throw new ArgumentException("WebsiteConfig constructor with IsAuthoSignHeaders must have a remembered credential.");
+
             }
             return this;
         }
@@ -58,6 +65,9 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("isAutoSignInCredential")]
         public bool IsAutoSignInCredential { get; init; }
+
+        [JsonPropertyName("isAutoSignHeaders")]
+        public bool IsAutoSignHeaders { get; init; }
     }
 
     //public enum AutoSignInMode

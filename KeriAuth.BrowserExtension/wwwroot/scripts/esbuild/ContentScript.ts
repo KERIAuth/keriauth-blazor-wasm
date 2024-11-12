@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
             rurl: ""
         };
 
-        console.log("CS to Page: lastGasp: ", lastGasp);
+        console.log("KeriAuthCs to Page: lastGasp: ", lastGasp);
         // it's possible the tab also closed first, but try to postMessage anyway
 
         postMessageToPage<unknown>(lastGasp);
@@ -179,7 +179,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
         switch (event.data.type) {
             case CsSwMsgType.SIGNIFY_EXTENSION:
                 // Note, the signify-extension notification from page is effectively handled (or premptively assumed) earlier in the code, in the advertiseToPage function
-                console.info("KeriAuthCs message received intentionally ignored of type, event: ", event.data.type, event);
+                console.log("KeriAuthCs from page ignored: {t}", event.data.type);
                 break;
             case CsSwMsgType.SIGN_REQUEST:
             case CsSwMsgType.SIGNIFY_AUTHORIZE:
@@ -203,12 +203,12 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
 
             case CsSwMsgType.CONFIGURE_VENDOR:
-                console.warn(`KeriAuthCs from page: ${event.data.type} not implemented`);
+                console.info(`KeriAuthCs from page: ${event.data.type} not implemented`);
                 break;
 
             case "/signify/get-session-info":
             case "/signify/clear-session":
-                console.warn(`KeriAuthCs: ${event.data.type} not implemented`);
+                console.info(`KeriAuthCs: ${event.data.type} not implemented`);
                 // TODO P2 implement sessions?
                 const msg: KeriAuthMessageData<AuthorizeResult> = {
                     type: "/signify/reply",
@@ -219,9 +219,6 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 }
                 postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
                 break;
-            case CsSwMsgType.SELECT_AUTO_SIGNIN:
-            case CsSwMsgType.VENDOR_INFO:
-            case CsSwMsgType.FETCH_RESOURCE:
             default:
                 console.error("KeriAuthCs from page: handler not implemented for:", event.data);
                 break;
