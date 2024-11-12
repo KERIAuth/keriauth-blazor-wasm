@@ -236,7 +236,7 @@
         }
         logger.LogInformation("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
 
-        var newWebsite = ThisWebsiteConfig with { RememberedCredSaidOrNothing = rememberedCredSaidOrNothing, RememberedPrefixOrNothing = SelectedPrefix };
+        var newWebsite = ThisWebsiteConfig with { RememberedCredSaidOrNothing = SelectedCredentialOrNothing, RememberedPrefixOrNothing = SelectedPrefix };
         newWebsite.Validate();
         var updateRes = await websiteConfigService.Update(newWebsite);
         if (updateRes is null || updateRes.IsFailed)
