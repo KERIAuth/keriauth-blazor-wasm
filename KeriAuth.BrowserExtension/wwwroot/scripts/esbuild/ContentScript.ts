@@ -203,30 +203,21 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
 
             case CsSwMsgType.CONFIGURE_VENDOR:
-                console.warn(`KeriAuthCs from page: ${event.data.type} not yet implemented`);
+                console.warn(`KeriAuthCs from page: ${event.data.type} not implemented`);
                 break;
 
             case "/signify/get-session-info":
-                console.log(`KeriAuthCs from page: ${event.data.type} sessions not implemented`);
-                // TODO P2 implement sessions?
-                postMessageToPage<object>({
-                    type: "/signify/reply",
-                    error: { code: 501, message: "KERIAuth sessions not supported" },
-                    requestId: event?.data?.requestId,
-                    rurl: "", // TODO P2 rurl should not be fixed
-                    source: CsToPageMsgIndicator
-                });
-                break;
             case "/signify/clear-session":
-                console.log(`KeriAuthCs from page: ${event.data.type} sessions not implemented`);
-                // TODO P1 implement sessions?
-                postMessageToPage<object>({
+                console.warn(`KeriAuthCs: ${event.data.type} not implemented`);
+                // TODO P2 implement sessions?
+                const msg: KeriAuthMessageData<AuthorizeResult> = {
                     type: "/signify/reply",
-                    error: { code: 501, message: "KERIAuth sessions not supported" },
-                    requestId: event?.data?.requestId,
-                    // rurl: "", // TODO P2 rurl should not be fixed
-                    source: CsToPageMsgIndicator
-                });
+                    requestId: lastRequestIdFromPage,
+                    payload: {},
+                    error: "KERIAuthCs: sessions not supported",
+                    source: CsToPageMsgIndicator,
+                }
+                postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
                 break;
             case CsSwMsgType.SELECT_AUTO_SIGNIN:
             case CsSwMsgType.VENDOR_INFO:
