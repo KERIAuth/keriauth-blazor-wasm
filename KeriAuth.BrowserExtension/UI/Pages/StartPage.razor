@@ -221,7 +221,7 @@
                     {
                         if (encodedOrigin.FirstOrDefault() is null)
                         {
-                            logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
+                            // logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
                         }
                         else
                         {
@@ -255,7 +255,7 @@
                 }
                 else
                 {
-                    logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery2);
+                    logger.LogInformation("Encoded origin not found in decodedMsg: {dm}", initialUriQuery2);
                 }
                 navManager.NavigateTo(RouteToHome);
                 return true;

@@ -56,12 +56,13 @@
                               InputType="InputType.Password"
                               @bind-Value="@unlockPasscodeModel.Passcode"
                               HelperText="&nbsp;"
+                              ErrorText="&nbsp;"
                               For="@(() => unlockPasscodeModel.Passcode)"
                               Immediate="true" />
             </MudForm>
             <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
             <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            <MudText><span style="font-variant: small-caps;">KeriAuth</span> locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
+            <MudText><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
@@ -108,14 +109,14 @@
     {
         if (args.Key == "Enter")
         {
-            logger.LogWarning("password: 3: ");
+            // logger.LogWarning("password: 3: ");
             await OpenWallet();
         }
     }
 
     private async Task OpenWallet()
     {
-        logger.LogWarning("password: 0: ");
+        // logger.LogInformation("password: 0: ");
         if (unlockPasscodeModel.Passcode is not null)
             await OpenWalletWithPasscode(unlockPasscodeModel.Passcode);
     }
@@ -133,8 +134,6 @@
     private KeriaConnectConfig? keriaConnectConfig;
     private async Task OpenWalletWithPasscode(string password)
     {
-        logger.LogWarning("password: 1: " + password);
-
         // logger.LogInformation("OpenWalletWithPassword");
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
@@ -159,7 +158,6 @@
             throw new InvalidOperationException("KeriaConnectConfig not configured");
         }
 
-        logger.LogWarning("password: " + password);
         if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
         {
             await webExtensionsApi.Storage.Session.Set(new { passcode = password });

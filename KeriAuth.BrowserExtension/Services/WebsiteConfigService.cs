@@ -90,7 +90,8 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             if (config.Origin == updatedWebsiteConfig.Origin)
             {
                 newList.WebsiteList.Add(updatedWebsiteConfig);
-            } else
+            }
+            else
             {
                 newList.WebsiteList.Add(config);
             }

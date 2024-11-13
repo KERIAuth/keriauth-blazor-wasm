@@ -302,7 +302,7 @@
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 CurrentState = updatedState;
                 StateHasChanged();
-                logger.LogWarning("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
+                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
                 navManager.NavigateTo(RouteToStart);
                 break;
             case (_, IStateService.States.AuthenticatedDisconnected):
