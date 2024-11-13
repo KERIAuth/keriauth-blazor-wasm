@@ -35,7 +35,6 @@
     private List<IdentifierHeadline> IdentifierHeadlines { get; set; } = new();
     private bool IsPrefixRemembered { get; set; }
     private bool IsAutoSignInIdentifier { get; set; }
-    private bool IsAutoSign { get; set; }
     private bool IsCredentialRemembered { get; set; }
     private IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
     private string SelectedPrefix { get; set; } = "unknown";
@@ -46,6 +45,8 @@
     private List<Dictionary<string, object>>? FilteredCredentials { get; set; }
 
     private string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
+
+    private bool IsAutoSign => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
 
     Uri? GetOriginUri()
     {
@@ -60,9 +61,12 @@
         }
     }
 
+    /*
+     * Send data back to host of this component, such as the RequestSignInPage or RequestSignPage.
+     */
     async Task SendValueToParent()
     {
-        logger.LogWarning($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
+        logger.LogInformation($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
         await ValueChanged.InvokeAsync((SelectedPrefix, SelectedCredentialOrNothing));
     }
 
@@ -94,7 +98,7 @@
         }
 
         FilteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
-        // logger.LogWarning("FilteredCredentials: {i}", FilteredCredentials?.Count() ?? 0);
+        // logger.LogInformation("FilteredCredentials: {i}", FilteredCredentials?.Count() ?? 0);
 
         SelectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
 
@@ -105,7 +109,7 @@
         else
         {
             SelectedCredentialOrNothing = filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
-            IsAutoSign = ThisWebsiteConfig.IsAutoSignInCredential;
+            // IsAutoSign = ThisWebsiteConfig.IsAutoSignInCredential;
         }
 
         // send relevant values to parent (e.g. a page for SignIn or website config)
@@ -159,7 +163,7 @@
             throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
         }
         // when changing the prefix, any prior selection of RememberedCred will not be relevant
-        IsAutoSign = false;
+        // IsAutoSign = false;
         var newWebsiteConfig = ThisWebsiteConfig with
             {
                 RememberedPrefixOrNothing = prefix,
@@ -198,11 +202,12 @@
         logger.LogInformation("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
 
         // TODO P0 need to really remember the new credential selection!
-        IsAutoSign = false;
+        // IsAutoSign = false;
         var newWebsiteConfig = ThisWebsiteConfig with
             {
                 RememberedCredSaidOrNothing = rememberedCredSaidOrNothing,
                 RememberedPrefixOrNothing = SelectedPrefix,
+                IsAutoSignHeaders = IsAutoSign,
                 IsAutoSignInCredential = IsAutoSign,
                 IsAutoSignInIdentifier = IsAutoSign // intentional, since selected cred implies identifier
             };
@@ -239,24 +244,28 @@
 
     async Task updateIsAutoSign(bool isChecked)
     {
-        IsAutoSign = isChecked;
-        logger.LogWarning("updateIsAutoSignInCred isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
+        // IsAutoSign = isChecked;
+        logger.LogInformation("updateIsAutoSignInCred isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
         if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
         {
             ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }
+        StateHasChanged(); // needed?
     }
 
     async Task updateIsAutoSignInIdentifier(bool isChecked)
     {
         await Task.Delay(0);
+        throw new NotImplementedException("?");
     }
 
+    /*
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
     }
+    */
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

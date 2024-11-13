@@ -247,9 +247,22 @@
     [Parameter]
     public string? Prefix { get; set; }
 
-    private bool IsWaiting { get; set; }
-    private string ActiveAid { get; set; } = string.Empty;
-    private string Identicon { get; set; } = string.Empty;
+    bool IsWaiting { get; set; }
+    string ActiveAid { get; set; } = string.Empty;
+    string Identicon { get; set; } = string.Empty;
+    bool IsTransferrable { get; set; }
+    string Alias { get; set; } = string.Empty;
+    IDisposable? preferencesSubscription;
+    List<CachedAid> cachedAids = new List<CachedAid>();
+    string DialogResult { get; set; } = "unknown";
+
+    record KeyEvent
+    {
+        public int Seq { get; init; }
+        public string EventType { get; init; } = "";
+        public DateTime DateTime { get; init; }
+        public string Details { get; init; } = "";
+    }
 
     public void Dispose()
     {
@@ -268,7 +281,7 @@
         await Task.Delay(0);
     }
 
-    private record Element
+    record Element
     {
         public int Group { get; init; }
         public int GroupThreshold { get; init; }
@@ -277,7 +290,7 @@
         public string? PubKey { get; init; }
     }
 
-    private IEnumerable<Element> Elements = new List<Element>()
+    IEnumerable<Element> Elements = new List<Element>()
     {
         new Element() { Group = 1, GroupThreshold = 3, Weight = 2, Identicon = MakeIdenticon("asdf"), PubKey = "0x1234123411" },
         new Element() { Group = 1, GroupThreshold = 3, Weight = 1, Identicon = MakeIdenticon("asdf3"), PubKey = "0x1234123411" },
@@ -286,7 +299,7 @@
         new Element() { Group = 2, GroupThreshold = 1, Weight = 1, Identicon = MakeIdenticon("asdx1234653sx3"), PubKey = "0x1234123444" }
     };
 
-    private IEnumerable<Element> Elements2 = new List<Element>()
+    IEnumerable<Element> Elements2 = new List<Element>()
     {
         new Element() { Group = 1, GroupThreshold = 4, Weight = 2, Identicon = MakeIdenticon("erty"), PubKey = "0x1234123411777" },
         new Element() { Group = 1, GroupThreshold = 4, Weight = 2, Identicon = MakeIdenticon("rtyurtyu"), PubKey = "0x1234123411888" },
@@ -295,7 +308,7 @@
         new Element() { Group = 1, GroupThreshold = 4, Weight = 1, Identicon = MakeIdenticon("asdx1234653sx3"), PubKey = "0x123412344411" }
     };
 
-    private IEnumerable<KeyEvent> KeyEvents = new List<KeyEvent>()
+    IEnumerable<KeyEvent> KeyEvents = new List<KeyEvent>()
         {
         new KeyEvent() { Seq = 1, EventType = "inception", DateTime = DateTime.Now - new TimeSpan(20,0,0,0), Details = "details" },
         new KeyEvent() { Seq = 2, EventType = "rotate", DateTime = DateTime.Now - new TimeSpan(10,0,0,0), Details = "details" },
@@ -303,14 +316,6 @@
         new KeyEvent() { Seq = 4, EventType = "prod", DateTime = DateTime.Now - new TimeSpan(2,0,0,0), Details = "details" },
         new KeyEvent() { Seq = 5, EventType = "rotate", DateTime = DateTime.Now - new TimeSpan(0,1,0,0), Details = "details" }
     };
-
-    private record KeyEvent
-    {
-        public int Seq { get; init; }
-        public string EventType { get; init; } = "";
-        public DateTime DateTime { get; init; }
-        public string Details { get; init; } = "";
-    }
 
     async Task UpdateKeyState()
     {
@@ -323,18 +328,14 @@
         await Task.Run(() => logger.LogInformation("Completed from PreferencesService"));
     }
 
-    IDisposable? preferencesSubscription;
-
-    List<CachedAid> cachedAids = new List<CachedAid>();
-
     protected override async Task OnInitializedAsync()
     {
         base.OnInitialized();
         await Task.Delay(0); // caller doesn't need to wait
         logger.LogInformation($"OnInitializedAsync");
         preferencesSubscription = preferencesService.Subscribe(
-           onNext: (Preferences value) => HandleNextFromPreferencesService(value),
-           onError: (Exception error) => HandleErrorFromPreferencesService(error),
+           onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+           onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
            onCompleted: () => HandleCompletedFromPreferencesService());
     }
 
@@ -369,9 +370,6 @@
             IsTransferrable = MaybeAidRes.Value.Transferable;
         }
     }
-
-    private bool IsTransferrable { get; set; }
-    private string Alias { get; set; } = string.Empty;
 
     private async Task GetHeadlines()
     {
@@ -408,6 +406,4 @@
         await preferencesService.SetPreferences(prefs2);
         // Other side-effects will be reactive to subscribed updates of Preferences
     }
-
-    private string DialogResult { get; set; } = "unknown";
 }

@@ -147,6 +147,13 @@
             JsonElement requestId = jsonDocument.RootElement.GetProperty("requestId");
             RequestId = requestId.ToString();
 
+
+            if (IsAutoSignHeaders)
+            {
+                await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
+                // TODO P1 notify the user signing is happening, and close?
+            }
+
             return;
         }
         else
@@ -300,16 +307,6 @@
         StateHasChanged(); // TODO EE! should not need this to force refresh of filtered credentials?
         */
     }
-
-
-
-
-
-
-
-
-
-
 
     //
     // SignRequest()
@@ -484,7 +481,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson)">Sign Request</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="(async () => await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson))">Sign Request</MudButton>
     </MudStack>
 </div>
 

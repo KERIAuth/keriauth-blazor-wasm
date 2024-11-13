@@ -61,7 +61,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        // logger.LogInformation($"OnParametersSetAsync");
+        logger.LogInformation($"OnParametersSetAsync");
         await base.OnParametersSetAsync();
 
         // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
@@ -138,7 +138,6 @@
     async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
         // will received prefix and credential via callback from WebsiteConfigDisplay component
-
 
         ReplyMessageData<AuthorizeResult> replyMessageData;
 
@@ -227,21 +226,20 @@
         }
     }
 
+    /*
     protected override void OnInitialized()
     {
         ;
     }
+    */
 
     private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {
-        logger.LogWarning($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
+        logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;
         SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
         StateHasChanged();
     }
-
-    // string? _callbackSelectedPrefix;
-    // Dictionary<string, object>? _callbackSelectedCred;
 
     private bool IsSignInDisabled  
     {
