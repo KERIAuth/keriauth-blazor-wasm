@@ -125,7 +125,7 @@
         initialUriQuery = App.InitialUri?.Query ?? String.Empty;
         // logger.LogInformation($"initialUriQuery: {initialUriQuery}");
         var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogWarning($"initialUriQuery2: {initialUriQuery2}");
+        logger.LogInformation($"initialUriQuery2: {initialUriQuery2}");
         _ = await HandleAppStateAsync(currentAppState, initialUriQuery2);
 
         IsLoading = false;
@@ -134,8 +134,6 @@
     /*
     protected override async Task OnParametersSetAsync()
     {
-        logger.LogInformation("OnParametersSetAsync");
-        await base.OnParametersSetAsync();
     }
     */
 
@@ -147,7 +145,7 @@
 
     async Task<bool> HandleAppStateAsync(IStateService.States currentAppState, string initialUriQuery2)
     {
-        logger.LogWarning("HandleAppStateAsync: currentAppState {a} and query {q}", currentAppState.ToString(), initialUriQuery2);
+        logger.LogInformation("HandleAppStateAsync: currentAppState {a} and query {q}", currentAppState.ToString(), initialUriQuery2);
         switch (currentAppState)
         {
             case IStateService.States.Unconfigured:
@@ -166,7 +164,7 @@
 
                     if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
                     {
-                        logger.LogWarning("attempting to Authenticate with cached passcode...");
+                        logger.LogInformation("attempting to Authenticate with cached passcode...");
                         await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
 
                         // TODO P2 refactor this section onto the ConnectingPage?  RouteToConnecting, so the extension without a KERIA connection might still be useful
@@ -209,7 +207,6 @@
                 }
                 else
                 {
-                    logger.LogWarning("TMP 4 TMP");
                     navManager.NavigateTo(RouteToUnlock);
                     return true;
                 }

@@ -239,7 +239,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
                         // logger.LogWarning("Sending preferences to observer 111");
                         // will send the entire preferences to observers versus only the deltas
                         var res = await GetItem<Preferences>();
-                        if (res.IsFailed)
+                        if (res.IsFailed || res.Value is null)
                         {
                             logger.LogError("Failed to get preferences: {res}", res);
                             return;
