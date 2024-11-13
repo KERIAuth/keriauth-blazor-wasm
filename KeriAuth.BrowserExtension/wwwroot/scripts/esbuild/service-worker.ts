@@ -390,7 +390,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
     // TODO P3 check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
 
     // Send a response to the KeriAuth App
-    // TODO P1 this seems like active feedback?
+    // TODO P2 this seems like active feedback?
     appPort.postMessage({ type: SwCsMsgType.FSW, data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate

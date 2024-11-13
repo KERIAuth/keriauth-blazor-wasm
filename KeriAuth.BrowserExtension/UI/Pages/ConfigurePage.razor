@@ -269,7 +269,7 @@
         ops3BootAndConnect.Reset();
         ops5CreatePersonalAid.Reset();
         ops4ListAids.Reset();
-        // TODO P1 should do a more thorough check of other conditions. See what enables the button(s)
+        // TODO P2 should do a more thorough check of other conditions. See what enables the button(s)
         if (IsValidURLs)
         {
             // TODO P4 since BootUrl is optional, we should check if AdminUrl is reachable
@@ -324,7 +324,7 @@
             StateHasChanged();
 
             // Cache password in session
-            // TODO P1 fix DRY and also set hash?
+            // TODO P2 fix DRY and also set hash?
             await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
 
             ops4ListAids.SetIsRunning();

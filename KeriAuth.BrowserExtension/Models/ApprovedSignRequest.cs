@@ -22,7 +22,7 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("adminUrl")]
         public string AdminUrl { get; init; }
 
-        // TODO P1 Adjust design so service-worker gets the passcode from session storage versus it being passed
+        // TODO P2 Adjust design so service-worker gets the passcode from session storage versus it being passed
         [JsonPropertyName("passcode")]
         public string Passcode { get; init; }
 

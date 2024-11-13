@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 
     port.onDisconnect.addListener((p) => {
+        // TODO P0 Disconnect should not happen regualarlly?
         console.error("KeriAuthCs: Disconnected from service worker. May need to refresh page. Extension might have: 1) auto-locked, 2) been un/re-installed. Port:", p);
 
         // TODO P2 implement reconnection logic, but now with a new uniquePortName?
