@@ -74,6 +74,7 @@
             </div>
 
         </MudStack>
+
         <!-- The AID selector overlay covers entire page -->
         <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
@@ -101,14 +102,18 @@
 
     <!-- MENU DRAWER AND MAIN CONTENT -->
     @{
-        // TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting
+        // TODO P3 the linear gradient background experiment below should either eliminated or make visually good and depending on IsDarkTheme setting
     }
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
-        <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
+        <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuContacts">Websites</MudNavLink>
+                @{
+                            /*
+                        <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+                    */
+                }
                 @{
                     /*
                     <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
@@ -151,12 +156,10 @@
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
     bool HasNewMessages { get; set; }
-
-
     DrawerVariant ActiveDrawerVariant { get; set; }
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
-    Preferences Prefs { get; set; } = new Preferences(); 
+    Preferences Prefs { get; set; } = new Preferences();
 
 
     // reactive properties ...
@@ -181,7 +184,6 @@
     static public IJSObjectReference? utilModule;
     const string miniWidth = "var(--mud-drawer-mini-width-left)";
     const string openWidth = "var(--mud-drawer-width-left)";
-    MudBlazor.MudDrawer? mudDrawerRef;
     string version = "0.0.0";
     string version_name = "unset 33";
 
@@ -229,6 +231,10 @@
             if (ViewsNotRequiringAuth.Contains(ap)) return;
             navManager.NavigateTo(RouteToStart);
         }
+
+        // TODO P2 should be here at all, or in OnInitializedAsync ?
+        // await UpdateMenuDrawerMode(Prefs);
+        // StateHasChanged();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -236,22 +242,6 @@
         await base.OnAfterRenderAsync(firstRender);
         logger.LogInformation("OnAfterRenderAsync");
     }
-
-
-    // Compute the Left position for MainContent depending on the Type of Drawer and its open state
-    // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
-    // async Task UpdateMainContentStyle()
-    // {
-    // TODO P3 Menu: Handle the corner case: if the Panel's Variant is Responsive and left value is not 0, then the left value is negative and off-screen.  Effectively, it is closed.
-    // This can be seen in the dynamic classes for MudDrawer such as "mud-drawer.mud-drawer-responsive.mud-drawer-pos-left.mud-drawer--open"
-    // An implemenentation idea is to compute the MudDrawer's "effectiveOpenState" for how it appears visually.
-    // One could get the html MudDrawer element by id and/or class, and see if its left value is 0 or something else.
-    // See also https://www.syncfusion.com/faq/blazor/javascript-interop/how-do-i-get-an-element-by-id-or-class-in-blazor
-
-    // logger.LogInformation("MainLayout: UpdateMainContentStyle: isMenuDrawerOpen:" + isMenuDrawerOpen + " mudDrawerRef.Variant=" + mudDrawerRef.Variant);
-
-
-    // }
 
     public void Dispose()
     {
@@ -297,12 +287,13 @@
             version_name = manifestData.Version_name;
         }
 
+        Prefs = await preferencesService.GetPreferences();
+        await HandleNextFromPreferencesService(Prefs);
         preferencesSubscription = preferencesService.Subscribe(
             onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService());
 
-        Prefs = await preferencesService.GetPreferences();
         return;
     }
 
@@ -328,6 +319,10 @@
             DrawerVariant.Persistent => prefs.IsPersistentDrawerOpen,
             _ => false
         };
+
+        StateHasChanged();
+
+        logger.LogWarning("tmp {t}  {b}", ActiveDrawerVariant, IsMenuDrawerOpen);
     }
 
     async Task OpenTabAndClosePopUp()
@@ -357,5 +352,7 @@
     async Task ToggleMenuDrawer()
     {
         IsMenuDrawerOpen = !IsMenuDrawerOpen;
+        Prefs = Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
+        await preferencesService.SetPreferences(Prefs);
     }
 }
