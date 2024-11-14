@@ -68,7 +68,7 @@
                 @if (!IsIdenticonHidden)
                 {
                     <MudTooltip Text="@ActiveAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        <MudIcon @onclick="ClickToggleProfilePanel" ViewBox="0 0 100 100" Icon="@ActiveAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                        <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon="@ActiveAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                     </MudTooltip>
                 }
             </div>
@@ -122,7 +122,7 @@
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface">
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent Service</MudNavLink>
-                    <MudNavLink OnClick="async () => await Lock()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                    <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Configuration&hellip;</MudNavLink>
                 </MudNavGroup>
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
@@ -147,18 +147,17 @@
 </MudLayout>
 
 @code {
-    static public IJSObjectReference? utilModule;
-
+    // properties...
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
     bool HasNewMessages { get; set; }
-    string version = "0.0.0";
-    string version_name = "unset 33";
-    MudBlazor.MudDrawer mudDrawerRef = new();
+
+
     DrawerVariant ActiveDrawerVariant { get; set; }
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
-    Preferences Prefs = new Preferences();
+    Preferences Prefs { get; set; } = new Preferences(); 
+
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActiveAid;
@@ -170,13 +169,21 @@
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
-        (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth});",
+        (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
         (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
         (true, DrawerVariant.Persistent) => $"left: {openWidth}; width:calc(100vw - {openWidth}); padding-right: {openWidth};",
         (true, _) => $"left: 0; width:calc(100vw);",
-        (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw);",
-        (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});",
+        (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
+        (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
+
+    // fields
+    static public IJSObjectReference? utilModule;
+    const string miniWidth = "var(--mud-drawer-mini-width-left)";
+    const string openWidth = "var(--mud-drawer-width-left)";
+    MudBlazor.MudDrawer? mudDrawerRef;
+    string version = "0.0.0";
+    string version_name = "unset 33";
 
     public class ManifestData
     {
@@ -188,7 +195,7 @@
     private async Task RefreshConnect()
     {
         // TODO P3 not yet implemented
-        // snackbar.Add("Refreshing connection...", Severity.Info);
+        snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -196,7 +203,7 @@
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
 
-        // TODO P2 Move into OnInitializedAsync() ?
+        // TODO P2 Move into OnInitializedAsync?
         switch (stateService.GetState())
         {
             case IStateService.States.AuthenticatedDisconnected:
@@ -230,20 +237,18 @@
         logger.LogInformation("OnAfterRenderAsync");
     }
 
-    const string miniWidth = "var(--mud-drawer-mini-width-left)";
-    const string openWidth = "var(--mud-drawer-width-left)";
 
     // Compute the Left position for MainContent depending on the Type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
     // async Task UpdateMainContentStyle()
     // {
-        // TODO P3 Menu: Handle the corner case: if the Panel's Variant is Responsive and left value is not 0, then the left value is negative and off-screen.  Effectively, it is closed.
-        // This can be seen in the dynamic classes for MudDrawer such as "mud-drawer.mud-drawer-responsive.mud-drawer-pos-left.mud-drawer--open"
-        // An implemenentation idea is to compute the MudDrawer's "effectiveOpenState" for how it appears visually.
-        // One could get the html MudDrawer element by id and/or class, and see if its left value is 0 or something else.
-        // See also https://www.syncfusion.com/faq/blazor/javascript-interop/how-do-i-get-an-element-by-id-or-class-in-blazor
+    // TODO P3 Menu: Handle the corner case: if the Panel's Variant is Responsive and left value is not 0, then the left value is negative and off-screen.  Effectively, it is closed.
+    // This can be seen in the dynamic classes for MudDrawer such as "mud-drawer.mud-drawer-responsive.mud-drawer-pos-left.mud-drawer--open"
+    // An implemenentation idea is to compute the MudDrawer's "effectiveOpenState" for how it appears visually.
+    // One could get the html MudDrawer element by id and/or class, and see if its left value is 0 or something else.
+    // See also https://www.syncfusion.com/faq/blazor/javascript-interop/how-do-i-get-an-element-by-id-or-class-in-blazor
 
-        // logger.LogInformation("MainLayout: UpdateMainContentStyle: isMenuDrawerOpen:" + isMenuDrawerOpen + " mudDrawerRef.Variant=" + mudDrawerRef.Variant);
+    // logger.LogInformation("MainLayout: UpdateMainContentStyle: isMenuDrawerOpen:" + isMenuDrawerOpen + " mudDrawerRef.Variant=" + mudDrawerRef.Variant);
 
 
     // }
@@ -304,7 +309,7 @@
     async Task ToggleDarkTheme()
     {
         Prefs = Prefs with { IsDarkTheme = !Prefs.IsDarkTheme };
-        App.IsDarkTheme = Prefs.IsDarkTheme;
+        App.IsDarkTheme = Prefs.IsDarkTheme; // TODO P3 App should have its own preference listener
         await preferencesService.SetPreferences(Prefs);
     }
 
@@ -332,11 +337,6 @@
         return;
     }
 
-    async Task Lock()
-    {
-        await App.LockApp();
-    }
-
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
@@ -344,12 +344,12 @@
         await preferencesService.SetPreferences(Prefs);
     }
 
-    private void ClickToggleProfilePanel(MouseEventArgs _)
+    async Task ClickToggleProfilePanel(MouseEventArgs _)
     {
-        ToggleProfilePanel();
+        await ToggleProfilePanel();
     }
 
-    void ToggleProfilePanel()
+    async Task ToggleProfilePanel()
     {
         IsProfilePanelOpen = !IsProfilePanelOpen;
     }
