@@ -18,7 +18,7 @@
                 <MudText Class="mt-3">Theme</MudText>
                 <MudStack Row="true" Style="margin-left:20px;">
                     <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
-                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (a) => await SetAndPersistIsDarkTheme(a)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
                     <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
                 </MudStack>
             </MudStack>
@@ -31,16 +31,6 @@
                             <MudSelectItem Value="@item">@item</MudSelectItem>
                         }
                     </MudSelect>
-                    @{
-                        /*
-                        <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInPopup" ValueChanged="@(async(a) => await SetAndPersistDVIP(a))" Label="In Popup" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
-                        @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInPopup)))
-                        {
-                        <MudSelectItem Value="@item">@item</MudSelectItem>
-                        }
-                        </MudSelect>
-                        */
-                    }
                 </MudStack>
             </MudStack>
         </div>
@@ -63,50 +53,39 @@
         // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
     }
 
-    bool IsDarkTheme { get; set; }
+    bool IsDarkTheme => Prefs.IsDarkTheme;
 
-    MudBlazor.DrawerVariant DrawerVariantInTab { get; set; }
+    MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
 
     async Task Persist()
     {
-        prefs = prefs with
-            {
-                DrawerVariantInTab = DrawerVariantInTab,
-                IsDarkTheme = IsDarkTheme,
-            };
-        await preferencesService.SetPreferences(prefs);
+        await preferencesService.SetPreferences(Prefs);
     }
 
-    async Task SetAndPersistIsDarkTheme(bool? a)
+    async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
     {
-        if (a.HasValue)
-        {
-            IsDarkTheme = a.Value;
-            await Persist();
-        }
+        Prefs = Prefs with { IsDarkTheme = isDarkTheme };
+        await Persist();
     }
 
     async Task SetAndPersistDVIT(DrawerVariant dv)
     {
-        DrawerVariantInTab = dv;
+        Prefs = Prefs with { DrawerVariantInTab = dv };
         await Persist();
     }
 
     IDisposable? preferencesSubscription;
 
-    Preferences prefs { get; set; } = new();
+    Preferences Prefs { get; set; } = new();
 
     public void Dispose()
     {
         preferencesSubscription?.Dispose();
     }
 
-    void HandleNextFromPreferencesService(Preferences value)
+    async Task HandleNextFromPreferencesService(Preferences value)
     {
-        prefs = value;
-        IsDarkTheme = value.IsDarkTheme;
-        DrawerVariantInTab = value.DrawerVariantInTab;
-        logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
+        Prefs = value;
         StateHasChanged();
     }
 
@@ -125,10 +104,10 @@
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
         var prefs = await preferencesService.GetPreferences();
-        HandleNextFromPreferencesService(prefs);
+        await HandleNextFromPreferencesService(prefs);
 
         preferencesSubscription = preferencesService.Subscribe(
-            onNext: (Preferences value) => HandleNextFromPreferencesService(value),
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: (Exception error) => HandleErrorFromPreferencesService(error),
             onCompleted: () => HandleCompletedFromPreferencesService());
     }

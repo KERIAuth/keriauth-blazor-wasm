@@ -49,7 +49,7 @@
                 <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
             </MudText>
             <MudText Style="font-style:italic">autonomous and authentic</MudText>
-            <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors">
+            <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
                 <MudTextField Label="Passcode"
                               @ref="passcodeField"
                               OnKeyDown="@HandleKeyDown"
@@ -62,7 +62,7 @@
             </MudForm>
             <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
             <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            <MudText><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
+            <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">

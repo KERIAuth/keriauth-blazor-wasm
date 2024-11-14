@@ -69,7 +69,8 @@ namespace KeriAuth.BrowserExtension
             RouteToNewRelease,
             RouteToTerms,
             RouteToConfigure,
-            RouteToUnlock
+            RouteToUnlock,
+            RouteToManagePrefs
         ];
 
         public static readonly MudTheme MyCustomTheme = new()
