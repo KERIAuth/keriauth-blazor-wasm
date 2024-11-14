@@ -147,28 +147,31 @@
 </MudLayout>
 
 @code {
+    static public IJSObjectReference? utilModule;
+
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
     bool HasNewMessages { get; set; }
-    string ActiveAid => Prefs?.SelectedAid ?? String.Empty;
-    string ActiveAidIdenticon { get; set; } = "";
-    string ActiveAidTooltip { get; set; } = "";
     string version = "0.0.0";
     string version_name = "unset 33";
     string MainContentStyle { get; set; } = " left:0; ";
-    bool IsAuthenticated => stateService.IsAuthenticated();
     MudBlazor.MudDrawer mudDrawerRef = new();
     DrawerVariant ActiveDrawerVariant { get; set; }
-    static public IJSObjectReference? utilModule;
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
+    Preferences Prefs = new Preferences();
 
+    Object ActiveAidObject => (object)ActiveAid;
+    bool IsAuthenticated => stateService.IsAuthenticated();
+    string ActiveAid => Prefs.SelectedAid;
+    string ActiveAidIdenticon => Helper.Identicon.MakeIdenticon(ActiveAid);
+    string ActiveAidTooltip => IdentifiersHeadlines.Find(x => x.Prefix == ActiveAid)?.Alias ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
 
     public class ManifestData
     {
-        // TODO P2 Get these from chrome.runtime instead
+        // TODO P1 Get these from chrome.runtime instead
         public string Version { get; set; } = "0.0.0";
         public string Version_name { get; set; } = "unset verson name";
     }
@@ -176,23 +179,13 @@
     private async Task RefreshConnect()
     {
         // TODO P3 not yet implemented
-        snackbar.Add("Refreshing connection...", Severity.Info);
-        await Task.Delay(0);
+        // snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
-    /*
     protected override async Task OnParametersSetAsync()
-        {
+    {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
-    }
-    */
-
-    // TODO P2 Move some of this into OnParametersSetAsync?  See the console log for redundant invocations of this
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await base.OnAfterRenderAsync(firstRender);
-        logger.LogInformation("OnAfterRenderAsync");
 
         // TODO P2 Move into OnInitializedAsync() ?
         switch (stateService.GetState())
@@ -206,7 +199,6 @@
                 {
                     IdentifiersHeadlines = res.Value;
                     IdentifiersHeadlines = IdentifiersHeadlines.OrderBy(a => a.Alias).ToList();
-                    // return;
                 }
                 break;
             default:
@@ -223,13 +215,19 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        logger.LogInformation("OnAfterRenderAsync");
+    }
+
+    const string miniWidth = "var(--mud-drawer-mini-width-left)";
+    const string openWidth = "var(--mud-drawer-width-left)";
+
     // Compute the Left position for MainContent depending on the Type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
     async Task UpdateMainContentStyle()
     {
-        const string miniWidth = "var(--mud-drawer-mini-width-left)";
-        const string openWidth = "var(--mud-drawer-width-left)";
-
         // TODO P3 Menu: Handle the corner case: if the Panel's Variant is Responsive and left value is not 0, then the left value is negative and off-screen.  Effectively, it is closed.
         // This can be seen in the dynamic classes for MudDrawer such as "mud-drawer.mud-drawer-responsive.mud-drawer-pos-left.mud-drawer--open"
         // An implemenentation idea is to compute the MudDrawer's "effectiveOpenState" for how it appears visually.
@@ -238,7 +236,7 @@
 
         // logger.LogInformation("MainLayout: UpdateMainContentStyle: isMenuDrawerOpen:" + isMenuDrawerOpen + " mudDrawerRef.Variant=" + mudDrawerRef.Variant);
 
-        MainContentStyle = (IsMenuDrawerOpen, mudDrawerRef.Variant) switch
+        MainContentStyle = (IsMenuDrawerOpen, ActiveDrawerVariant) switch
         {
             (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth});",
             (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
@@ -247,7 +245,6 @@
             (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw);",
             (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});",
         };
-        await Task.Delay(0);
     }
 
     public void Dispose()
@@ -259,9 +256,8 @@
     {
         Prefs = value;
         App.IsDarkTheme = Prefs.IsDarkTheme; // TODO P3 App should have its own listener
-        await UpdateDrawerMode(Prefs);
+        await UpdateMenuDrawerMode(Prefs);
         await UpdateMainContentStyle();
-        await UpdateActiveAid(Prefs.SelectedAid);
         StateHasChanged();
     }
 
@@ -307,9 +303,6 @@
         return;
     }
 
-    Preferences? Prefs;
-    Object ActiveAidObject => (object)ActiveAid;
-
     async Task ToggleDarkTheme()
     {
         var prefs = await preferencesService.GetPreferences();
@@ -318,7 +311,7 @@
         await preferencesService.SetPreferences(prefs);
     }
 
-    async Task UpdateDrawerMode(Preferences prefs)
+    async Task UpdateMenuDrawerMode(Preferences prefs)
     {
         ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
         {
@@ -337,24 +330,6 @@
         await Task.Delay(0);
     }
 
-    Task UpdateActiveAid(string activeAid)
-    {
-        if (string.IsNullOrEmpty(activeAid))
-        {
-            ActiveAidIdenticon = "";
-            ActiveAidTooltip = "";
-            return Task.CompletedTask;
-        }
-        ActiveAidIdenticon = Helper.Identicon.MakeIdenticon(activeAid);
-        var headline = IdentifiersHeadlines.Find(x => x.Prefix == activeAid);
-        if (headline is not null)
-        {
-            ActiveAidTooltip = headline.Alias;
-            return Task.CompletedTask;
-        }
-        return Task.CompletedTask;
-    }
-
     async Task OpenTabAndClosePopUp()
     {
         await UIHelper.NewTabAndClosePopup();
@@ -370,16 +345,14 @@
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        var pref = await preferencesService.GetPreferences();
-        pref = pref with
+        Prefs = Prefs with
             {
                 SelectedAid = prefix
             };
-        await preferencesService.SetPreferences(pref);
-        // Other side-effects will be reactive. See IObserver<Preferences>
+        await preferencesService.SetPreferences(Prefs);
     }
 
-    private void ClickToggleProfilePanel(MouseEventArgs args)
+    private void ClickToggleProfilePanel(MouseEventArgs _)
     {
         ToggleProfilePanel();
     }
@@ -387,12 +360,6 @@
     void ToggleProfilePanel()
     {
         IsProfilePanelOpen = !IsProfilePanelOpen;
-    }
-
-    async Task OpenMenuDrawer()
-    {
-        IsMenuDrawerOpen = true;
-        await UpdateMainContentStyle();
     }
 
     async Task ToggleMenuDrawer()
