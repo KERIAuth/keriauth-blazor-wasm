@@ -177,7 +177,7 @@
     static public IJSObjectReference? utilModule;
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
-    private IDisposable? stateSubscription;
+
     bool IsIdenticonHidden => (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
 
     public class ManifestData
@@ -203,8 +203,8 @@
     // TODO P2 Move some of this into OnParametersSetAsync?  See the console log for redundant invocations of this
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        logger.LogInformation("OnAfterRenderAsync");
         await base.OnAfterRenderAsync(firstRender);
+        logger.LogInformation("OnAfterRenderAsync");
 
         // TODO P2 Move into OnInitializedAsync() ?
         switch (stateService.GetState())
@@ -293,39 +293,7 @@
         logger.LogInformation("Completed from PreferencesService");
     }
 
-    async Task HandleNextFromStateService(IStateService.States updatedState)
-    {
-        
-        switch (CurrentState, updatedState)
-        {
-            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
-            case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
-                CurrentState = updatedState;
-                StateHasChanged();
-                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
-                navManager.NavigateTo(RouteToStart);
-                break;
-            case (_, IStateService.States.AuthenticatedDisconnected):
-            case (_, IStateService.States.AuthenticatedConnected):
-            case (_, _):
-                CurrentState = updatedState;
-                StateHasChanged();
-                break;
-        }
-        await Task.Delay(0);
-    }
 
-    async Task HandleErrorFromStateService(Exception error)
-    {
-        await Task.Delay(0);
-        logger.LogError("Error from stateService: " + error.Message);
-    }
-
-    async Task HandleCompletedFromStateService()
-    {
-        await Task.Delay(0);
-        logger.LogInformation("Completed from stateService");
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -365,11 +333,7 @@
             onCompleted: async () => await HandleCompletedFromPreferencesService());
         await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
-        stateSubscription = stateService.Subscribe(
-            onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
-            onError: async (Exception error) => await HandleErrorFromStateService(error),
-            onCompleted: async () => await HandleCompletedFromStateService());
-        CurrentState = stateService.GetState();
+
 
         return;
     }
@@ -513,6 +477,5 @@
         navManager.NavigateTo(RouteToChat);
     }
 
-    // TODO P3 why not make this always get the current state from stateService?
-    public static IStateService.States CurrentState { get; set; } = IStateService.States.Unknown;
+    
 }

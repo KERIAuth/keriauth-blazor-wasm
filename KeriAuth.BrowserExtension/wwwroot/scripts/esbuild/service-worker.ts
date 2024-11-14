@@ -13,6 +13,10 @@ import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.j
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders } from "./signify_ts_shim.js";
 
+export const ENUMS = {
+    InactivityAlarm: "inactivityAlarm"
+} as const;
+
 // Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
 //
@@ -56,19 +60,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'resetInactivityTimer') {
         // Clear existing alarm and set a new one
         // TODO P0 inactivityDelay should be configurable by user, within a range of 0.5 to 10 minutes
-        chrome.alarms.clear('inactivityAlarm', () => {
-            chrome.alarms.create('inactivityAlarm', { delayInMinutes: 5 });
+        chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
+            chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 0.5 }); // TODO P0 fix
         });
     }
 });
 
 // When inactivityAlarm fires, remove the stored passcode
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'inactivityAlarm') {
+    if (alarm.name === ENUMS.InactivityAlarm) {
         // Inactivity timeout expired
         chrome.storage.session.remove('passcode', () => {
-            // Optionally, send a message to the SPA to lock the app
-            chrome.runtime.sendMessage({ action: 'lockApp' });
+            // Send a message to the SPA(s?) to lock the app
+            try {
+                chrome.runtime.sendMessage({ action: 'lockApp' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log("SW lockApp message send to SPA failed:", chrome.runtime.lastError.message);
+                    } else {
+                        console.log("SW lockApp message send to SPA response: ", response);
+                    }
+                });
+            } catch {
+                console.error("SW could not sendMessage for lockApp");
+            }
         });
     }
 });
@@ -276,12 +290,12 @@ function isActionPopupUrlSet(): Promise<boolean> {
 }
 
 // Object to track the pageCsConnections between the service worker and the content scripts, using the tabId as the key
-interface Connection {
+interface CsConnection {
     port: chrome.runtime.Port;
     tabId: number;
     pageAuthority: string;
 }
-let pageCsConnections: { [key: string]: Connection } = {};
+let pageCsConnections: { [key: string]: CsConnection } = {};
 
 // Listen for and handle port pageCsConnections from content script and Blazor App
 chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
@@ -315,7 +329,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
         // Check if the port is from the Blazor App, based on naming pattern
         if (connectedPort.name.substring(0, 8) === "blazorAppPort".substring(0, 8)) {
             // TODO P3 react to port names that are more descriptive and less likely to conflict if multiple Apps are open
-            // On the first connection, associate this port from the Blazor App with the port from the same tabId?
+            // On the first csConnection, associate this port from the Blazor App with the port from the same tabId?
 
             const appPort = connectedPort;
             console.log(`SW with App via port`, appPort);
@@ -332,7 +346,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             pageCsConnections[appPort.name].pageAuthority = authority || "unknown";
             // console.log(`SW from App: pageCsConnections:`, pageCsConnections);
 
-            // Find the matching connection based on the page authority. TODO P3 should this also be based on the tabId?
+            // Find the matching csConnection based on the page authority. TODO P3 should this also be based on the tabId?
             const cSConnection = findMatchingConnection(pageCsConnections, appPort.name)
             console.log(`SW from App connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
@@ -348,23 +362,28 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             console.error('Invalid port:', connectedPort);
         }
     }
+
     // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
     connectedPort.onDisconnect.addListener(() => {
         console.log("SW port closed connection for page connection: ", pageCsConnections[connectionId])
 
-        if (pageCsConnections[connectionId].port.name.substring(0,17) == "blazorAppPort-tab") {
-            // The App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
-            console.info('KERI Auth SPA closed');
-            for (const key in pageCsConnections) {
-                if (pageCsConnections.hasOwnProperty(key)) {  // Check to filter out inherited properties
-                    const connection : Connection = pageCsConnections[key];
-                    if (connection.tabId != -1) {
+        if (pageCsConnections[connectionId].port?.name.substring(0,17) == "blazorAppPort-tab") {
+            // The extension's App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
+            console.info('SW KERI Auth Extension Popup closed');
+            for (var key in pageCsConnections) {
+                if (pageCsConnections.hasOwnProperty(key)) {
+                    const csConnection : CsConnection = pageCsConnections[key];
+                    if (csConnection.tabId != -1) {
                         const lastGasp = {
-                            type: SwCsMsgType.CANCELED,
-                            source: "KERIAuth",
+                            type: SwCsMsgType.REPLY,
                             error: { code: 501, message: "User closed KERI Auth or canceled pending request" },
+                            payload: {},
                         };
-                        connection.port.postMessage(lastGasp);
+                        try {
+                            csConnection.port.postMessage(lastGasp);
+                        } catch {
+                            console.log("SW could not send lastGasp to closed page connection");
+                        }
                     }
                 }
             }
@@ -376,7 +395,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     });
 });
 
-// Listen for and handle when a tab is closed. Remove related connection from list.
+// Listen for and handle when a tab is closed. Remove related csConnection from list.
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (pageCsConnections[tabId]) {
         console.log("SW tabs.onRemoved: tabId: ", tabId)
@@ -391,7 +410,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
 
     // Send a response to the KeriAuth App
     // TODO P2 this seems like active feedback?
-    appPort.postMessage({ type: SwCsMsgType.FSW, data: `Received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+    appPort.postMessage({ type: SwCsMsgType.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
@@ -548,7 +567,7 @@ function getAuthorityFromOrigin(url: string): string | null {
     return null;
 }
 
-// Find the first matching connection based on the provided key and its page authority value
+// Find the first matching csConnection based on the provided key and its page authority value
 function findMatchingConnection(connections: { [key: string]: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } }, providedKey: string): { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined {
     const providedConnection = connections[providedKey];
     if (!providedConnection) {

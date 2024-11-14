@@ -71,8 +71,8 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
         case SwCsMsgType.REPLY:
             const msg: KeriAuthMessageData<AuthorizeResult> = {
                 type: message.type,
-                requestId: message.requestId,
-                payload: message.payload,
+                requestId: message.requestId, // TODO P0 lastRequestIdFromPage,
+                payload: message.payload, // TODO P0 ?? {},
                 error: message.error,
                 source: CsToPageMsgIndicator,
                 rurl: "" // TODO P2 rurl should not be fixed
@@ -83,18 +83,7 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
             console.log("intentionally ignoring type signify-extension here, as it is handled in advertiseToPage function.")
             break;
         case SwCsMsgType.CANCELED:
-            // last gasp
-            /*
-            const msg2: any = {
-                type: "/signify/reply",
-                error: { code: 404, message: "User canceled request or closed KERI Auth"},
-                source: CsToPageMsgIndicator,
-                requestId: lastRequestIdFromPage,
-                // payload: {},
-                // rurl: ""
-            }
-            postMessageToPage<unknown>(msg2);
-            */
+            // advertiseToPage();
             break;
         default:
             console.error("KeriAuthCs from SW: handler not implemented for message type:", message.type);
@@ -120,13 +109,13 @@ document.addEventListener('DOMContentLoaded', (event) => {
         // TODO P2 implement reconnection logic, but now with a new uniquePortName?
         // handle disconnects, e.g. when a new extension is loaded (but not when a popup is closed)
 
-        // TODO P2 this lastGasp needs work.  See other one in this file
+        // TODO P2 this lastGasp needs work. Should have an typescript interface definition.
         const lastGasp = {
             type: SwCsMsgType.REPLY,
-            requestId: "0726f9ee-e4da-42bb-b3d1-85cada37276c",  // TODO P2 temporary fixed GUID
+            requestId: lastRequestIdFromPage,
             source: CsToPageMsgIndicator,
-            error: { code: 501, message: "User closed KERI Auth or canceled pending request" },
-            rurl: ""
+            payload: {},
+            error: "User closed KERI Auth or canceled pending request",
         };
 
         console.log("KeriAuthCs to Page: lastGasp: ", lastGasp);
@@ -134,16 +123,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
         postMessageToPage<unknown>(lastGasp);
     });
-
-    /*
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        console.log("KeriAuthCs: Extension app is unloading, performing cleanup...");
-        if (message.type === "extensionUnloading") {
-            console.log("KeriAuthCs: Extension app is unloading, performing cleanup...");
-            // Handle cleanup or any actions in the content script
-        }
-    });
-    */
 
     // Send a hello message to the service worker (versus waiting on a triggering message from the page)
     // TODO P3 use a constructor for the message object
@@ -204,7 +183,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 break;
 
             case CsSwMsgType.CONFIGURE_VENDOR:
-                console.info(`KeriAuthCs from page: ${event.data.type} not implemented`);
+                console.info(`KeriAuthCs: ${event.data.type} not implemented`);
                 break;
 
             case "/signify/get-session-info":
@@ -215,7 +194,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                     type: "/signify/reply",
                     requestId: lastRequestIdFromPage,
                     payload: {},
-                    error: "KERIAuthCs: sessions not supported",
+                    error: { code: 501, message: "KERIAuthCs: sessions not supported" },
                     source: CsToPageMsgIndicator,
                 }
                 postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
@@ -226,7 +205,7 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
         }
         // remember the last RequestId, in case of timeout or cancellation
         lastRequestIdFromPage = event?.data?.requestId;
-        console.log("KeriAuthCs remembered RequestId: ", lastRequestIdFromPage);
+        // console.log("KeriAuthCs remembered RequestId: ", lastRequestIdFromPage);
     } catch (error) {
         console.error("KeriAuthCs from page: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
     }

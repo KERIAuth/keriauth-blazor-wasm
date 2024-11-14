@@ -1,10 +1,81 @@
 ﻿@inherits LayoutComponentBase
 
-@using MudBlazor
-@using MudBlazor.Utilities
+@using KeriAuth.BrowserExtension;
+@using KeriAuth.BrowserExtension.Helper;
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.UI.Pages
+@using FluentResults;
+@using System.Diagnostics;
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using System.Reactive.Linq
+@using System.Text.Json
+
+@inject HttpClient http
+@inject IJSRuntime js
+<!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
+@inject NavigationManager navManager
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject IStorageService storageService
+@inject IPreferencesService preferencesService
+@inject ISnackbar snackbar
+@inject IAlarmService alarmService
+@inject ILogger<BaseLayout> logger
+@inject IStateService stateService
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
+// implements IDisposable
 
 <!-- Note that @Body and other body content will be provided by specialized layouts inheriting from this BaseLayout -->
-
 @code {
-   
+    private IDisposable? stateSubscription;
+
+    protected IStateService.States CurrentState => stateService.GetState();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        stateSubscription = stateService.Subscribe(
+        onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
+            onError: async (Exception error) => await HandleErrorFromStateService(error),
+            onCompleted: async () => await HandleCompletedFromStateService());
+       
+    }
+
+
+
+    // TODO P1, Any state change could affect all views, including those for other layouts. E.g. due to an inactivityTimeout on a "dialog". Move this to a common layout base.
+    async Task HandleNextFromStateService(IStateService.States updatedState)
+    {
+        switch (CurrentState, updatedState)
+        {
+            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
+            case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
+                StateHasChanged();
+                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
+                navManager.NavigateTo(RouteToStart);
+                break;
+            case (_, IStateService.States.AuthenticatedDisconnected):
+            case (_, IStateService.States.AuthenticatedConnected):
+            case (_, _):
+                StateHasChanged();
+                break;
+        }
+        await Task.Delay(0);
+    }
+
+    async Task HandleErrorFromStateService(Exception error)
+    {
+        await Task.Delay(0);
+        logger.LogError("Error from stateService: " + error.Message);
+    }
+
+    async Task HandleCompletedFromStateService()
+    {
+        await Task.Delay(0);
+        logger.LogInformation("Completed from stateService");
+    }
 }

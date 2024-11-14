@@ -99,7 +99,7 @@ export interface ReplyMessageData<T = unknown> {
     type: string;
     requestId: string;
     payload?: T;
-    error?: string;
+    error?: unknown;  // e.g. { code: 501, message: "KERIAuthCs: sessions not supported" }
     payloadTypeName?: string;
     source?: string;
 }

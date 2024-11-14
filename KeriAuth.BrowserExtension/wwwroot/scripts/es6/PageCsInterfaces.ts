@@ -120,7 +120,7 @@ export interface MessageData<T = unknown> {
     type: string;
     requestId: string;
     payload?: T;
-    error?: string;
+    error?: unknown;  // e.g. { code: 501, message: "KERIAuthCs: sessions not supported" }
 }
 
 type PendingRequest<T = unknown> = { resolve: (value: T) => void; reject: (reason: Error) => void };
