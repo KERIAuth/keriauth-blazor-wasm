@@ -77,10 +77,10 @@
         <!-- The AID selector overlay covers entire page -->
         <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
-                <MudList @bind-SelectedValue="ActiveAid" Class="bt-sad-4;" Style="padding: 0px">
+                <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
-                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style="@IdentifiersPage.cardClass((string)ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style="@IdentifiersPage.cardClass(ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -150,7 +150,7 @@
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
     bool HasNewMessages { get; set; }
-    object ActiveAid { get; set; } = "";
+    string ActiveAid => Prefs?.SelectedAid ?? String.Empty;
     string ActiveAidIdenticon { get; set; } = "";
     string ActiveAidTooltip { get; set; } = "";
     string version = "0.0.0";
@@ -163,7 +163,7 @@
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
 
-    bool IsIdenticonHidden => (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
+    bool IsIdenticonHidden => (string.IsNullOrEmpty(ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
 
     public class ManifestData
@@ -257,7 +257,12 @@
 
     async Task HandleNextFromPreferencesService(Preferences value)
     {
-        await InitializeOrOnNextPrefs(value);
+        Prefs = value;
+        App.IsDarkTheme = Prefs.IsDarkTheme; // TODO P3 App should have its own listener
+        await UpdateDrawerMode(Prefs);
+        await UpdateMainContentStyle();
+        await UpdateActiveAid(Prefs.SelectedAid);
+        StateHasChanged();
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)
@@ -295,10 +300,15 @@
             onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService());
-        await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+
+        Prefs = await preferencesService.GetPreferences();
+        // await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
         return;
     }
+
+    Preferences? Prefs;
+    Object ActiveAidObject => (object)ActiveAid;
 
     async Task ToggleDarkTheme()
     {
@@ -325,20 +335,6 @@
         };
 
         await Task.Delay(0);
-    }
-
-    async Task InitializeOrOnNextPrefs(Preferences prefs)
-    {
-        // logger.LogInformation("received prefs: " + JsonSerializer.Serialize(prefs));
-        App.IsDarkTheme = prefs.IsDarkTheme;
-        // TODO P4 set the background-image depending on isDarkTheme.
-        ActiveAid = (object)prefs.SelectedAid;
-        await UpdateDrawerMode(prefs);
-        await UpdateMainContentStyle();
-        // logger.LogInformation("setting ActiveAid to {aid}", prefs.SelectedAid);
-        await UpdateActiveAid(prefs.SelectedAid);
-        StateHasChanged();
-        // await Task.Delay(0);
     }
 
     Task UpdateActiveAid(string activeAid)
