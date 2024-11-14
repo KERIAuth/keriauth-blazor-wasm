@@ -59,9 +59,9 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'resetInactivityTimer') {
         // Clear existing alarm and set a new one
-        // TODO P0 inactivityDelay should be configurable by user, within a range of 0.5 to 10 minutes
         chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
-            chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 0.5 }); // TODO P0 fix
+            // TODO P0 get InactivityTimout from stored preferences (cached)
+            chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 0.5 });
         });
     }
 });
@@ -247,7 +247,6 @@ function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
         }
     }
 }
-
 
 // Handle the web page's (Cs's) request for user to select an identifier
 // TODO P2 define type for msg

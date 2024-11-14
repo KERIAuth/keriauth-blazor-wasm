@@ -33,6 +33,14 @@
                     </MudSelect>
                 </MudStack>
             </MudStack>
+
+            <MudStack Row="false">
+                <MudText Class="mt-3">Inactivity Timeout</MudText>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" Label="Value" />
+                    <p>@InactivityTimeoutLabel</p>
+                </MudStack>
+            </MudStack>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
@@ -43,8 +51,8 @@
 
 @code
 {
-    // TODO P2 Add preference for Inactivity Timeout Duration, allowing 0.5 to 5 minutes. Reflect this setting on the Unlock screen.
-
+    // fields and types
+    IDisposable? preferencesSubscription;
     enum DrawerVariantSupportedInTab
     {
         Persistent = MudBlazor.DrawerVariant.Persistent,
@@ -53,8 +61,13 @@
         // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
     }
 
-    bool IsDarkTheme => Prefs.IsDarkTheme;
+    // properties
+    Preferences Prefs { get; set; } = new();
 
+    // reactive properties
+    float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
+    string InactivityTimeoutLabel => InactivityTimeout.ToString() + " " + (InactivityTimeout <= 1.0f ? "minute" : "minutes");
+    bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
 
     async Task Persist()
@@ -74,9 +87,11 @@
         await Persist();
     }
 
-    IDisposable? preferencesSubscription;
-
-    Preferences Prefs { get; set; } = new();
+    async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
+    {
+        Prefs = Prefs with { InactivityTimeoutMinutes = inactivityTimeout };
+        await Persist();
+    }
 
     public void Dispose()
     {

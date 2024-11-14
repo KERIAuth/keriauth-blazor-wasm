@@ -9,13 +9,13 @@ namespace KeriAuth.BrowserExtension.Models
         }
 
         [JsonPropertyName("IsDarkTheme")]
-        public bool IsDarkTheme { get; init; } = false;
+        public bool IsDarkTheme { get; init; }
 
         [JsonPropertyName("SelectedAid")]
-        public string SelectedAid { get; init; } = "";
+        public string SelectedAid { get; init; } = String.Empty;
 
         [JsonPropertyName("IsOptedIntoDataCollection")]
-        public bool IsOptedIntoDataCollection { get; init; } = false;
+        public bool IsOptedIntoDataCollection { get; init; }
 
         [JsonPropertyName("DrawerVariantInPopup")]
         public MudBlazor.DrawerVariant DrawerVariantInPopup { get; init; } = MudBlazor.DrawerVariant.Temporary;
@@ -27,9 +27,12 @@ namespace KeriAuth.BrowserExtension.Models
         public bool IsPersistentDrawerOpen { get; init; }
 
         [JsonPropertyName("SelectedKeriaAlias")]
-        public string SelectedKeriaAlias { get; init; } = "";
+        public string SelectedKeriaAlias { get; init; } = String.Empty;
 
         [JsonPropertyName("ShowSignRequestDetail")]
         public bool ShowSignRequestDetail { get; init; }
+
+        [JsonPropertyName("InactivityTimeoutMinutes")]
+        public float InactivityTimeoutMinutes { get; init; } = 1f;
     }
 }

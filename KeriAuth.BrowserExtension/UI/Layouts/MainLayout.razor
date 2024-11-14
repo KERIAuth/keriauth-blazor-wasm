@@ -319,10 +319,7 @@
             DrawerVariant.Persistent => prefs.IsPersistentDrawerOpen,
             _ => false
         };
-
         StateHasChanged();
-
-        logger.LogWarning("tmp {t}  {b}", ActiveDrawerVariant, IsMenuDrawerOpen);
     }
 
     async Task OpenTabAndClosePopUp()
