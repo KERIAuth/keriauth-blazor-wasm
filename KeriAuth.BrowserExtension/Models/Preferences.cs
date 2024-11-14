@@ -21,7 +21,10 @@ namespace KeriAuth.BrowserExtension.Models
         public MudBlazor.DrawerVariant DrawerVariantInPopup { get; init; } = MudBlazor.DrawerVariant.Temporary;
 
         [JsonPropertyName("DrawerVariantInTab")]
-        public MudBlazor.DrawerVariant DrawerVariantInTab { get; init; } = MudBlazor.DrawerVariant.Temporary;
+        public MudBlazor.DrawerVariant DrawerVariantInTab { get; init; } = MudBlazor.DrawerVariant.Persistent;
+
+        [JsonPropertyName("IsPersistentDrawerOpen")]
+        public bool IsPersistentDrawerOpen { get; init; }
 
         [JsonPropertyName("SelectedKeriaAlias")]
         public string SelectedKeriaAlias { get; init; } = "";

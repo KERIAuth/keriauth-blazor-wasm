@@ -14,7 +14,6 @@
 @using System.Text.Json
 @inject HttpClient http
 @inject IJSRuntime js
-<!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
 @inject NavigationManager navManager
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IStorageService storageService
@@ -109,14 +108,13 @@
     </MudAppBar>
 
     <!-- MENU DRAWER AND MAIN CONTENT -->
-    @{ // TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting 
+    @{
+        // TODO P3 the linear gradient background experiment should either eliminated or make visually good and depending on IsDarkTheme setting
     }
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex;">
         <!--  background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">  -->
         <MudDrawer id="MudDrawer" @ref="mudDrawerRef" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@DrawerMode" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
-                @{/* <MudNavLink Href=@(RouteToRequestSignIn + System.Web.HttpUtility.UrlEncode("https://unset.com") + "/" + System.Web.HttpUtility.UrlEncode("1234567890")) Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Request SignIn</MudNavLink>
-                */}
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
@@ -163,7 +161,6 @@
 @code {
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
-    bool IsInPopup { get; set; }
     bool HasNewMessages { get; set; }
     object ActiveAid { get; set; } = "";
     string ActiveAidIdenticon { get; set; } = "";
@@ -179,6 +176,7 @@
     private IDisposable? preferencesSubscription;
 
     bool IsIdenticonHidden => (string.IsNullOrEmpty((string)ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
+    bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
 
     public class ManifestData
     {
@@ -278,7 +276,6 @@
     async Task HandleNextFromPreferencesService(Preferences value)
     {
         await InitializeOrOnNextPrefs(value);
-        await Task.Delay(0);
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)
@@ -293,8 +290,6 @@
         logger.LogInformation("Completed from PreferencesService");
     }
 
-
-
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -303,19 +298,6 @@
         // Set properties affecting UI layout depending on the hosting environment
         // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
-        switch (extensionEnvironmentService.ExtensionEnvironment)
-        {
-            case ExtensionEnvironment.ActionPopup:
-            case ExtensionEnvironment.BrowserPopup:
-                IsInPopup = true;
-                break;
-            case ExtensionEnvironment.None:
-            case ExtensionEnvironment.Iframe:
-            case ExtensionEnvironment.Extension:
-            default:
-                IsInPopup = false;
-                break;
-        }
 
         // TODO P2 update this to use chrome.runtime.getManifest()
         // Get version info from Manifest file
@@ -328,12 +310,10 @@
         }
 
         preferencesSubscription = preferencesService.Subscribe(
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onNext:  async (Preferences value) => await HandleNextFromPreferencesService(value),
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService());
         await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-
-
 
         return;
     }
@@ -346,10 +326,9 @@
         await preferencesService.SetPreferences(prefs);
     }
 
-    void UpdateDrawerMode(DrawerVariant oldDrawerMode, Preferences prefs)
+    void UpdateDrawerMode(Preferences prefs)
     {
         // set drawerMode based on environment and preferences
-        // TODO P4 move this drawerMode code
         switch (extensionEnvironmentService.ExtensionEnvironment)
         {
             case ExtensionEnvironment.Iframe:
@@ -363,33 +342,12 @@
                 DrawerMode = prefs.DrawerVariantInTab;
                 break;
         }
-        // if the drawer mode has changed, update the UI to reasonable drawer state
-        if (oldDrawerMode != DrawerMode)
+
+        IsMenuDrawerOpen = DrawerMode switch
         {
-            // TODO P4 this might be better if dependant on (oldDrawerMode, drawerMode, isMenuDrawerOpen)
-            switch (DrawerMode)
-            {
-                case DrawerVariant.Mini:
-                    IsMenuDrawerOpen = false;
-                    break;
-                case DrawerVariant.Temporary:
-                    IsMenuDrawerOpen = true;
-                    break;
-                case DrawerVariant.Responsive:
-                    IsMenuDrawerOpen = false;
-                    break;
-                case DrawerVariant.Persistent:
-                default:
-                    break;
-            }
-        }
-        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
-        // TODO P4 persist the isMenuDrawerOpen state in preferences if Persistence drawer mode is selected. Depends on ExtensionEnvironment.
-        // For now, just assume the following:
-        if (DrawerMode == DrawerVariant.Persistent && extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.None)
-        {
-            IsMenuDrawerOpen = true;
-        }
+            DrawerVariant.Persistent => prefs.IsPersistentDrawerOpen,
+            _ => false
+        };
     }
 
     Task InitializeOrOnNextPrefs(Preferences prefs)
@@ -398,7 +356,7 @@
         App.IsDarkTheme = prefs.IsDarkTheme;
         // TODO P4 set the background-image depending on isDarkTheme.
         ActiveAid = (object)prefs.SelectedAid;
-        UpdateDrawerMode(DrawerMode, prefs);
+        UpdateDrawerMode(prefs);
         UpdateMainContentStyle();
         // logger.LogInformation("setting ActiveAid to {aid}", prefs.SelectedAid);
         UpdateActiveAid(prefs.SelectedAid);
@@ -476,6 +434,4 @@
         HasNewMessages = false;
         navManager.NavigateTo(RouteToChat);
     }
-
-    
 }

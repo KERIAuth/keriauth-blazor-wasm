@@ -54,33 +54,23 @@
 @code
 {
     // TODO P2 Add preference for Inactivity Timeout Duration, allowing 0.5 to 5 minutes. Reflect this setting on the Unlock screen.
-    // TODO P2 Add preference for Show Details on Sign Request
+
     enum DrawerVariantSupportedInTab
     {
         Persistent = MudBlazor.DrawerVariant.Persistent,
         Temporary = MudBlazor.DrawerVariant.Temporary,
+        Responsive = MudBlazor.DrawerVariant.Responsive
         // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
-        // TODO P3 Responsive is not yet supported. See other TODOs in this file
-    }
-
-    enum DrawerVariantSupportedInPopup
-    {
-        Temporary = MudBlazor.DrawerVariant.Temporary,
-        // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
-        // Responsive or Persistent don't make sense to support here, given the limited width
     }
 
     bool IsDarkTheme { get; set; }
 
     MudBlazor.DrawerVariant DrawerVariantInTab { get; set; }
 
-    MudBlazor.DrawerVariant DrawerVariantInPopup { get; set; }
-
     async Task Persist()
     {
         prefs = prefs with
             {
-                DrawerVariantInPopup = DrawerVariantInPopup,
                 DrawerVariantInTab = DrawerVariantInTab,
                 IsDarkTheme = IsDarkTheme,
             };
@@ -102,12 +92,6 @@
         await Persist();
     }
 
-    async Task SetAndPersistDVIP(DrawerVariant dv)
-    {
-        DrawerVariantInPopup = dv;
-        await Persist();
-    }
-
     IDisposable? preferencesSubscription;
 
     Preferences prefs { get; set; } = new();
@@ -121,7 +105,6 @@
     {
         prefs = value;
         IsDarkTheme = value.IsDarkTheme;
-        DrawerVariantInPopup = value.DrawerVariantInPopup;
         DrawerVariantInTab = value.DrawerVariantInTab;
         logger.LogInformation("HandleNextFromPreferencesService: IsDarkTheme = " + value.IsDarkTheme);
         StateHasChanged();
