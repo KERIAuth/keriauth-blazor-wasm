@@ -154,13 +154,13 @@
     bool HasNewMessages { get; set; }
     string version = "0.0.0";
     string version_name = "unset 33";
-    string MainContentStyle { get; set; } = " left:0; ";
     MudBlazor.MudDrawer mudDrawerRef = new();
     DrawerVariant ActiveDrawerVariant { get; set; }
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
     Preferences Prefs = new Preferences();
 
+    // reactive properties ...
     Object ActiveAidObject => (object)ActiveAid;
     bool IsAuthenticated => stateService.IsAuthenticated();
     string ActiveAid => Prefs.SelectedAid;
@@ -168,6 +168,15 @@
     string ActiveAidTooltip => IdentifiersHeadlines.Find(x => x.Prefix == ActiveAid)?.Alias ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
+    string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
+    {
+        (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth});",
+        (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
+        (true, DrawerVariant.Persistent) => $"left: {openWidth}; width:calc(100vw - {openWidth}); padding-right: {openWidth};",
+        (true, _) => $"left: 0; width:calc(100vw);",
+        (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw);",
+        (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});",
+    };
 
     public class ManifestData
     {
@@ -226,8 +235,8 @@
 
     // Compute the Left position for MainContent depending on the Type of Drawer and its open state
     // This complexity might be needed because we want to support multiple DrawerVariant's and because of issues such as mentioned here: https://github.com/MudBlazor/MudBlazor/issues/4213
-    async Task UpdateMainContentStyle()
-    {
+    // async Task UpdateMainContentStyle()
+    // {
         // TODO P3 Menu: Handle the corner case: if the Panel's Variant is Responsive and left value is not 0, then the left value is negative and off-screen.  Effectively, it is closed.
         // This can be seen in the dynamic classes for MudDrawer such as "mud-drawer.mud-drawer-responsive.mud-drawer-pos-left.mud-drawer--open"
         // An implemenentation idea is to compute the MudDrawer's "effectiveOpenState" for how it appears visually.
@@ -236,16 +245,8 @@
 
         // logger.LogInformation("MainLayout: UpdateMainContentStyle: isMenuDrawerOpen:" + isMenuDrawerOpen + " mudDrawerRef.Variant=" + mudDrawerRef.Variant);
 
-        MainContentStyle = (IsMenuDrawerOpen, ActiveDrawerVariant) switch
-        {
-            (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth});",
-            (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
-            (true, DrawerVariant.Persistent) => $"left: {openWidth}; width:calc(100vw - {openWidth}); padding-right: {openWidth};",
-            (true, _) => $"left: 0; width:calc(100vw);",
-            (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw);",
-            (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});",
-        };
-    }
+
+    // }
 
     public void Dispose()
     {
@@ -257,7 +258,6 @@
         Prefs = value;
         App.IsDarkTheme = Prefs.IsDarkTheme; // TODO P3 App should have its own listener
         await UpdateMenuDrawerMode(Prefs);
-        await UpdateMainContentStyle();
         StateHasChanged();
     }
 
@@ -298,17 +298,14 @@
             onCompleted: async () => await HandleCompletedFromPreferencesService());
 
         Prefs = await preferencesService.GetPreferences();
-        // await InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-
         return;
     }
 
     async Task ToggleDarkTheme()
     {
-        var prefs = await preferencesService.GetPreferences();
-        prefs = prefs with { IsDarkTheme = !prefs.IsDarkTheme };
-        App.IsDarkTheme = prefs.IsDarkTheme;
-        await preferencesService.SetPreferences(prefs);
+        Prefs = Prefs with { IsDarkTheme = !Prefs.IsDarkTheme };
+        App.IsDarkTheme = Prefs.IsDarkTheme;
+        await preferencesService.SetPreferences(Prefs);
     }
 
     async Task UpdateMenuDrawerMode(Preferences prefs)
@@ -326,8 +323,6 @@
             DrawerVariant.Persistent => prefs.IsPersistentDrawerOpen,
             _ => false
         };
-
-        await Task.Delay(0);
     }
 
     async Task OpenTabAndClosePopUp()
@@ -345,10 +340,7 @@
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        Prefs = Prefs with
-            {
-                SelectedAid = prefix
-            };
+        Prefs = Prefs with { SelectedAid = prefix };
         await preferencesService.SetPreferences(Prefs);
     }
 
@@ -365,6 +357,5 @@
     async Task ToggleMenuDrawer()
     {
         IsMenuDrawerOpen = !IsMenuDrawerOpen;
-        await UpdateMainContentStyle();
     }
 }
