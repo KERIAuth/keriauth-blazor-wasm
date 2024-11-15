@@ -37,7 +37,7 @@
             <MudStack Row="false">
                 <MudText Class="mt-3">Inactivity Timeout</MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
-                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" Label="Value" />
+                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f"/>
                     <p>@InactivityTimeoutLabel</p>
                 </MudStack>
             </MudStack>
