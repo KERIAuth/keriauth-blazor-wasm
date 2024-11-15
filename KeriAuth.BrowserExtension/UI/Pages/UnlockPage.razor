@@ -76,12 +76,13 @@
     MudForm? form;
     private string[] errors = { };
     private PasscodeModel unlockPasscodeModel = new PasscodeModel();
-    private MudTextField<string> passcodeField;
+    private MudTextField<string>? passcodeField;
 
     private async Task SelectAllText()
     {
         await Task.Delay(1); // minor delay to ensure the focus event completes
-        await passcodeField.SelectAsync();
+        if (passcodeField is not null)
+            await passcodeField.SelectAsync();
     }
 
     protected override async Task OnInitializedAsync()

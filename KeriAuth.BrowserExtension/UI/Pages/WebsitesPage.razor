@@ -1,0 +1,136 @@
+﻿@page "/Websites"
+@layout Layouts.MainLayout
+
+@using System.Linq
+@using System.Text.Json
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.UI.Pages
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.AppConfig
+@using System.Diagnostics
+@using Microsoft.AspNetCore.WebUtilities
+@using MudBlazor
+@using FluentResults
+@using System.Web
+@using System.Text.Json.Serialization
+@using System;
+@using System.Collections.Generic;
+
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@inject ILogger<WebsitesPage> logger
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+@inject IWebsiteConfigService websiteConfigService
+@inject IStorageService storageService
+@inject IPreferencesService preferencesService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject IAppSwMessagingService appSwMessagingService
+@inject IJSRuntime jsRuntime
+
+@code {
+
+    /*
+    protected override async Task OnInitializedAsync()
+        {
+        await base.OnInitializedAsync();
+        // logger.LogInformation($"OnInitialized");
+    return;
+    }
+    */
+
+    protected override async Task OnParametersSetAsync()
+    {
+        logger.LogInformation($"OnParametersSetAsync");
+        await base.OnParametersSetAsync();
+
+        var websitesRes = await websiteConfigService.GetList();
+        if (websitesRes is not null && websitesRes.IsSuccess && websitesRes.Value is not null && websitesRes.Value.WebsiteList.Any())
+        {
+            websites = websitesRes.Value.WebsiteList;
+        }
+
+    }
+
+    List<WebsiteConfig> websites = [];
+
+    string SelectedWebsiteOrigin { get; set; } = "select";
+
+    async Task updateSelectedWebsiteConfig(string origin)
+    {
+        logger.LogWarning("updating to {a}", origin);
+        SelectedWebsiteOrigin = origin;
+    }
+
+    string CountLabel => websites.Count() switch
+    {
+        0 => "No websites are configured",
+        1 => "1 website is configured",
+        _ => $"{websites.Count()} websites are configured"
+    };
+
+    // TODO P1 Update the callback signature to just send a complete WebsiteConfig?
+    // TODO P1 Persist the change, then refetch the entire WebsiteConfigList
+
+    private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
+    {
+        logger.LogError($"NOT YET IMPLEMENTED HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
+        StateHasChanged();
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Websites</MudText>
+            
+            <MudText Class="mb-4 pb-4">@CountLabel</MudText>
+            
+            @if (websites.Any())
+            {
+                <MudSelect T="string" Value="SelectedWebsiteOrigin" ValueChanged="async (string origin) => await updateSelectedWebsiteConfig(origin)">
+                    @foreach (WebsiteConfig website in websites)
+                    {
+                        <MudSelectItem T="string" Value="@website.Origin.OriginalString">
+                            <MudText>@website.Origin.OriginalString</MudText>
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSpacer />
+
+                @if (SelectedWebsiteOrigin != "select")
+                {
+                    <MudPaper Class="pa-4 mb-2">
+                        <WebsiteConfigDisplay OriginStr="@SelectedWebsiteOrigin" IsOriginShown="false" IsCredentialShown="true" ValueChanged="HandleValueChanged" />
+                    </MudPaper>
+                }
+            }
+
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <!--
+        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Login" Disabled="IsSignInDisabled" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
+        -->
+    </MudStack>
+</div>
+
+<style>
+    .mud-select .mud-select-input .mud-input-slot {
+        height: auto;
+    }
+
+    .selected-item {
+        border-left: 4px solid blue;
+    }
+</style>

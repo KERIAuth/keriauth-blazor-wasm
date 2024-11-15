@@ -109,10 +109,9 @@
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                
+                <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                 @{
                     /*
-                    <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                     <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
                     <MudNavLink Href=@RouteToNotifications Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">Notifications</MudNavLink>
                     <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
