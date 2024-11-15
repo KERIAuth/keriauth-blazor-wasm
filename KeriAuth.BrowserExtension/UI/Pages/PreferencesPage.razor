@@ -25,8 +25,8 @@
             <MudStack Row="false">
                 <MudText Class="mt-3">Menu Mode</MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
-                    <MudSelect T="MudBlazor.DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
-                        @foreach (MudBlazor.DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
                         {
                             <MudSelectItem Value="@item">@item</MudSelectItem>
                         }
@@ -37,7 +37,7 @@
             <MudStack Row="false">
                 <MudText Class="mt-3">Inactivity Timeout</MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
-                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f"/>
+                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f"/>
                     <p>@InactivityTimeoutLabel</p>
                 </MudStack>
             </MudStack>

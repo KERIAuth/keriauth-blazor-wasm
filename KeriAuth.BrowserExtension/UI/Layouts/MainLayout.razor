@@ -81,7 +81,7 @@
                 <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
-                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style="@IdentifiersPage.cardClass(ActiveAid, identifierHeadline.Prefix)" Class="bt-sad-5">
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.cardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -109,13 +109,10 @@
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                @{
-                            /*
-                        <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
-                    */
-                }
+                
                 @{
                     /*
+                    <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                     <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
                     <MudNavLink Href=@RouteToNotifications Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">Notifications</MudNavLink>
                     <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
