@@ -77,8 +77,8 @@
         _ => $"{websites.Count()} websites are configured"
     };
 
-    // TODO P1 Update the callback signature to just send a complete WebsiteConfig?
-    // TODO P1 Persist the change, then refetch the entire WebsiteConfigList
+    // TODO P0 Update the callback signature to just send a complete WebsiteConfig?
+    // TODO P0 Persist the change, then refetch the entire WebsiteConfigList and return that?
 
     private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {

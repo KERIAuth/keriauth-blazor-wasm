@@ -24,7 +24,7 @@
                 <MudStack Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            KERI Agent
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManageAgents)">KERI Agent</MudLink>
                         </MudText>
                         <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
                             @switch (stateService.GetState())

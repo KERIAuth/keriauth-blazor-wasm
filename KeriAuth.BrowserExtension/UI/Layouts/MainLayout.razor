@@ -119,7 +119,6 @@
                     <MudNavLink Disabled=@(!IsInPopup) OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
                     */
                 }
-
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface">
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent Service</MudNavLink>
