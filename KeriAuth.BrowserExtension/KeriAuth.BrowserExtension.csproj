@@ -89,6 +89,8 @@
 		<TypeScriptCompile Remove="wwwroot\dist\**" />
 		<Content Remove="Services\SignifyService\package-lock.json" />
 		<Content Remove="Services\SignifyService\package.json" />
+		<Content Remove="wwwroot\content\help.html" />
+		<Content Remove="wwwroot\content\licenses.html" />
 		<Content Remove="wwwroot\content\release.html" />
 		<Content Remove="wwwroot\css\site.css" />
 		<Content Remove="wwwroot\images\keri-auth.svg" />
@@ -118,6 +120,12 @@
 		<None Include="..\.editorconfig" Link=".editorconfig" />
 	</ItemGroup>
 	<ItemGroup>
+		<Content Update="wwwroot\content\privacy.html">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Update="wwwroot\content\terms.html">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
 		<Content Update="wwwroot\sounds\beep.mp3">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>

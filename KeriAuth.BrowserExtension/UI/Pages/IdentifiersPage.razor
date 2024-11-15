@@ -21,77 +21,28 @@
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 
-<div id="@this.GetType().Name" class="bt-body-page">
-    <MudStack Class="bt-main">
-        <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Identifiers (@cachedAids.Count)</MudText>
-            @foreach (CachedAid cachedAid in cachedAids)
-            {
-                <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier)">
-                    <MudCard Class="py-0 my-1">
-                        <div class="d-flex" style=@("align-items:center; border-left: " + @cardClass((string)ActiveAid, cachedAid.Prefix))>
-                            <MudTooltip Text="Set Identifier as active" Delay="1000">
-                                <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
-                                    <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                </MudButton>
-                            </MudTooltip>
-                            <MudText Typo="Typo.h6">@cachedAid.Alias</MudText>
-                        </div>
-                    </MudCard>
-                </MudLink>
-            }
-            @if (IsAddingAid)
-            {
-                <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
-                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-                </div>
-            }
-        </div>
-    </MudStack>
-    <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-        <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
-    </MudStack>
-</div>
-
 @code {
-    private bool IsAddingAid { get; set; }
-    private string ActiveAid { get; set; } = string.Empty;
-
-    public void Dispose()
-    {
-        preferencesSubscription?.Dispose();
-    }
-
-    async void HandleNextFromPreferencesService(Preferences value)
-    {
-        await Task.Run(() => InitializeOrOnNextPrefs(value));
-    }
-
-    async void HandleErrorFromPreferencesService(Exception error)
-    {
-        await Task.Run(() => logger.LogInformation("Error from PreferencesService: " + error.Message));
-    }
-
-    async void HandleCompletedFromPreferencesService()
-    {
-        await Task.Run(() => logger.LogInformation("Completed from PreferencesService"));
-    }
-
+    // fields
     IDisposable? preferencesSubscription;
+    string DialogResult { get; set; } = "unknown";
 
-    List<CachedAid> cachedAids = new List<CachedAid>();
+    // properties
+    bool IsAddingAid { get; set; }
+    string? ActiveAid { get; set; }
+    List<CachedAid>? cachedAids { get; set; }
+
+    // reactive properties
+    string CountLabel => (cachedAids is not null) ? "(" + @cachedAids.Count + ")" : "...";
+    public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
 
     protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
-        await Task.Delay(0); // caller doesn't need to wait
+        await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
         preferencesSubscription = preferencesService.Subscribe(
-           onNext: (Preferences value) => HandleNextFromPreferencesService(value),
-           onError: (Exception error) => HandleErrorFromPreferencesService(error),
-           onCompleted: () => HandleCompletedFromPreferencesService());
+           onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+           onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
+           onCompleted: async () => await HandleCompletedFromPreferencesService());
     }
 
     protected override async Task OnParametersSetAsync()
@@ -99,8 +50,33 @@
         await base.OnParametersSetAsync();
         logger.LogInformation($"OnParametersSetAsync");
         var prefs = await preferencesService.GetPreferences();
-        InitializeOrOnNextPrefs(prefs);
+        await InitializeOrOnNextPrefs(prefs);
         await GetHeadlines();
+    }
+
+    protected override async Task OnAfterRenderAsync (bool isFirst)
+    {
+        ;
+    }
+
+    public void Dispose()
+    {
+        preferencesSubscription?.Dispose();
+    }
+
+    async Task HandleNextFromPreferencesService(Preferences prefs)
+    {
+        await InitializeOrOnNextPrefs(prefs);
+    }
+
+    async Task HandleErrorFromPreferencesService(Exception error)
+    {
+        logger.LogInformation("Error from PreferencesService: " + error.Message);
+    }
+
+    async Task HandleCompletedFromPreferencesService()
+    {
+        logger.LogInformation("Completed from PreferencesService");
     }
 
     private async Task GetHeadlines()
@@ -110,7 +86,7 @@
         if (res != null)
         {
             logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
-            cachedAids.Clear();
+            cachedAids = new();
             foreach (var item in res.Value)
             {
                 // logger.LogWarning("adding aid {1}", item.Prefix);
@@ -162,14 +138,11 @@
         StateHasChanged();
     }
 
-    void InitializeOrOnNextPrefs(Preferences prefs)
+    async Task InitializeOrOnNextPrefs(Preferences prefs)
     {
         ActiveAid = prefs.SelectedAid;
-        this.StateHasChanged();
+        StateHasChanged();
     }
-
-    public static string cardClass(string activeAid2, string rowIdentifier) =>
-        (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
 
     // Set ActiveDid based on value of activeDidIdentifier,
     // retrieved from picker or via preferences
@@ -180,6 +153,50 @@
         await preferencesService.SetPreferences(prefs2);
         // Other side-effects will be reactive to subscribed updates of Preferences
     }
-
-    private string DialogResult { get; set; } = "unknown";
 }
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudStack Row="true">
+                <MudText Typo="Typo.h6">Identifiers</MudText>
+                <MudText Typo="Typo.body1">@CountLabel</MudText>
+                <MudTooltip Delay="0.5"
+                            Text="">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
+                </MudTooltip>
+
+            </MudStack>
+
+            @if (cachedAids is not null)
+            {
+                @foreach (CachedAid cachedAid in cachedAids)
+                {
+                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier)">
+                        <MudCard Class="py-0 my-1">
+                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)ActiveAid, cachedAid.Prefix))>
+                                <MudTooltip Text="Set Identifier as active" Delay="1000">
+                                    <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    </MudButton>
+                                </MudTooltip>
+                                <MudText Typo="Typo.h6">@cachedAid.Alias</MudText>
+                            </div>
+                        </MudCard>
+                    </MudLink>
+                }
+            }
+            @if (IsAddingAid)
+            {
+                <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
+                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+                </div>
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
+    </MudStack>
+</div>

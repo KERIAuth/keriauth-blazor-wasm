@@ -12,35 +12,36 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToCredential = "/Credential";  // Add parameter
         public const string RouteToWebsites = "/Websites";
         public const string RouteToWebsite = "/Website";  // Add parameter
-        public const string RouteToContacts = "/Contacts";
+        // public const string RouteToContacts = "/Contacts";
         public const string RouteToStart = "/Start";
         public const string RouteToDelete = "/Delete";
-        public const string RouteToChat = "/Chat";
+        // public const string RouteToChat = "/Chat";
         public const string RouteToNewInstall = "/NewInstall";
-        public const string RouteToReleaseHistory = "/ReleaseHistory";
+        // public const string RouteToReleaseHistory = "/ReleaseHistory";
         public const string RouteToHome = "/Home";
-        public const string RouteToIndex = "/index.html";
+        public const string RouteToIndex = "/index.html"; // Used for reload of App?
         public const string RouteToManagePrefs = "/ManagePreferences";
-        public const string RouteToManageMediators = "/Mediators";
-        public const string RouteToBackup = "/Backup";
+        // public const string RouteToManageMediators = "/Mediators";
+        // public const string RouteToBackup = "/Backup";
+        // public const string RouteToGroups = "/Groups";
+        // public const string RouteToNotifications = "/Notifications";
+        // public const string RouteToSchemas = "/Schemas";
+        public const string RouteToManageAgents = "/KeriAgentService";
+        public const string RouteToWelcome = "/Welcome";
+        public const string RouteToNewRelease = "/NewRelease";
+        public const string RouteToConfigure = "/Configure";
+        public const string RouteToUnlock = "/Unlock";
+        public const string RouteToConnecting = "/Connecting";
+        public const string RouteToRequestSignIn = "/RequestSignIn/"; // intentional trailing / because of query parameters
+        public const string RouteToRequestSign = "/RequestSign/"; // intentional trailing / because of query parameters
+
         public const string RouteToTermsHtml = "content/terms.html";
         public const string RouteToPrivacyHtml = "content/privacy.html";
         public const string RouteToAbout = "content/about.html";
         public const string RouteToHelp = "content/help.html";
-        public const string RouteToLicenses = "content/licenses.html";
-        public const string RouteToRelease = "content/release.html";
-        public const string RouteToGroups = "/Groups";
-        public const string RouteToNotifications = "/Notifications";
-        public const string RouteToSchemas = "/Schemas";
-        public const string RouteToManageAgents = "/KeriAgentService";
-        public const string RouteToWelcome = "/Welcome";
-        public const string RouteToNewRelease = "/NewRelease";
-        public const string RouteToTerms = "/Terms";
-        public const string RouteToConfigure = "/Configure";
-        public const string RouteToUnlock = "/Unlock";
-        public const string RouteToConnecting = "/Connecting";
-        public const string RouteToRequestSignIn = "/RequestSignIn/";
-        public const string RouteToRequestSign = "/RequestSign/";
+        public const string RouteToLicensesHtml = "content/licenses.html";
+        public const string RouteToReleaseHtml = "content/release.html";
+
 
         // Terms Of Service and Privacy Policy hashes for the current release
         public const int TosHash = 343383811;
@@ -64,13 +65,16 @@ namespace KeriAuth.BrowserExtension
             RouteToStart,
             RouteToDelete,
             RouteToNewInstall,
-            RouteToReleaseHistory,
             RouteToWelcome,
             RouteToNewRelease,
-            RouteToTerms,
             RouteToConfigure,
             RouteToUnlock,
-            RouteToManagePrefs
+            RouteToManagePrefs,
+            // These htmls probably don't need to be maintained on this list
+            RouteToReleaseHtml,
+            RouteToTermsHtml,
+            RouteToTermsHtml,
+            RouteToPrivacyHtml
         ];
 
         public static readonly MudTheme MyCustomTheme = new()

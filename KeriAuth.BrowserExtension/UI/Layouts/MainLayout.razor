@@ -81,7 +81,7 @@
                 <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
-                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.cardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
+                        <MudListItem Value="@identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -106,33 +106,22 @@
     }
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
         <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
-            <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto;">
+            <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
-                @{
-                    /*
-                    <MudNavLink Href=@RouteToGroups Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Groups" IconColor="Color.Surface">Groups</MudNavLink>
-                    <MudNavLink Href=@RouteToNotifications Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">Notifications</MudNavLink>
-                    <MudNavLink Href=@RouteToContacts Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Contacts" IconColor="Color.Surface">Contacts</MudNavLink>
-                    <MudNavLink Href=@RouteToSchemas Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Schema" IconColor="Color.Surface">Schemas</MudNavLink>
-                    <MudNavLink Disabled=@(!IsInPopup) OnClick=OpenTabAndClosePopUp Icon="@Icons.Material.Filled.OpenInFull" IconColor="Color.Surface">Pop out to tab</MudNavLink>
-                    */
-                }
-                <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface">
+                <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent Service</MudNavLink>
+                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
-                    <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Configuration&hellip;</MudNavLink>
+                    <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
                 </MudNavGroup>
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
                     <MudNavLink Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
-                    <MudNavLink Href=@RouteToRelease Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Current Release Notes</MudNavLink>
-                    <MudNavLink Href=@RouteToReleaseHistory Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release History</MudNavLink>
-                    <MudNavLink Href=@RouteToTerms Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms of Use</MudNavLink>
-                    <MudNavLink Href=@RouteToPrivacyHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy Policy</MudNavLink>
-                    <MudNavLink Href=@RouteToLicenses Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
-                    <MudNavLink Href=@RouteToReleaseHistory Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">Version @version_name</MudNavLink>
+                    <MudNavLink Href=@RouteToTermsHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>
+                    <MudNavLink Href=@RouteToPrivacyHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy</MudNavLink>
+                    <MudNavLink Href=@RouteToLicensesHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
+                    <MudNavLink Href=@RouteToReleaseHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release<br /><i style="color:var(--mud-palette-action-default);">Version @version_name</i></MudNavLink>
                 </MudNavGroup>
             </MudNavMenu>
         </MudDrawer>
