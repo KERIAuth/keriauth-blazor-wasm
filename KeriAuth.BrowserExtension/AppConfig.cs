@@ -6,31 +6,24 @@ namespace KeriAuth.BrowserExtension
     public static class AppConfig
     {
         // Routes
+        // These must match the fixed @page string values. Could write unit tests to confirm consistency, but can't have a correct-by-construction consistency :-(
         public const string RouteToIdentifiers = "/Identifiers";
         public const string RouteToIdentifier = "/Identifier";  // with optional parameter
         public const string RouteToCredentials = "/Credentials";
-        public const string RouteToCredential = "/Credential";  // Add parameter
         public const string RouteToWebsites = "/Websites";
-        public const string RouteToWebsite = "/Website";  // Add parameter
-        // public const string RouteToContacts = "/Contacts";
         public const string RouteToStart = "/Start";
         public const string RouteToDelete = "/Delete";
-        // public const string RouteToChat = "/Chat";
         public const string RouteToNewInstall = "/NewInstall";
-        // public const string RouteToReleaseHistory = "/ReleaseHistory";
         public const string RouteToHome = "/Home";
         public const string RouteToIndex = "/index.html"; // Used for reload of App?
+        public const string RouteToTermsPage = "/Terms";
         public const string RouteToManagePrefs = "/ManagePreferences";
-        // public const string RouteToManageMediators = "/Mediators";
-        // public const string RouteToBackup = "/Backup";
-        // public const string RouteToGroups = "/Groups";
-        // public const string RouteToNotifications = "/Notifications";
-        // public const string RouteToSchemas = "/Schemas";
         public const string RouteToManageAgents = "/KeriAgentService";
         public const string RouteToWelcome = "/Welcome";
         public const string RouteToNewRelease = "/NewRelease";
         public const string RouteToConfigure = "/Configure";
         public const string RouteToUnlock = "/Unlock";
+        // TODO P1 decide whether a connecting page is needed
         public const string RouteToConnecting = "/Connecting";
         public const string RouteToRequestSignIn = "/RequestSignIn/"; // intentional trailing / because of query parameters
         public const string RouteToRequestSign = "/RequestSign/"; // intentional trailing / because of query parameters
@@ -42,19 +35,12 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToLicensesHtml = "content/licenses.html";
         public const string RouteToReleaseHtml = "content/release.html";
 
-
         // Terms Of Service and Privacy Policy hashes for the current release
         public const int TosHash = 343383811;
         public const int PrivacyHash = 925478292;
 
-        // Idle Timeout
-        public const int IdleDebounceTimeSpanSecs = 5;
-#if DEBUG
-        public const int IdleTimeoutTimeSpanSecs = 300; // don't usually timeout in debug mode except when testing
-#else
-        public const int IdleTimeoutTimeSpanSecs = 300;  // 300s = 5m
-#endif
-        public static int IdleTimeoutTimeSpanMins => (int)Math.Round((Double)(IdleTimeoutTimeSpanSecs / 60), MidpointRounding.AwayFromZero);
+        // TODO P1 view on UnlockPage should use what is set in preferences
+        public static float IdleTimeoutTimeSpanMins = 4.5f; 
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
@@ -70,11 +56,8 @@ namespace KeriAuth.BrowserExtension
             RouteToConfigure,
             RouteToUnlock,
             RouteToManagePrefs,
-            // These htmls probably don't need to be maintained on this list
-            RouteToReleaseHtml,
-            RouteToTermsHtml,
-            RouteToTermsHtml,
-            RouteToPrivacyHtml
+            RouteToTermsPage
+            // Note, non-SPA-App html routes don't need to be maintained on this list
         ];
 
         public static readonly MudTheme MyCustomTheme = new()
