@@ -19,6 +19,7 @@
 @using System.Text.Json.Serialization
 @using System;
 @using System.Collections.Generic;
+@using static KeriAuth.BrowserExtension.Helper.GetNumberFromHash
 
 @inject IStorageService storageService
 @inject IStateService stateService
@@ -104,20 +105,29 @@
             @if (WWebsites is not null && WWebsites.Any())
             {
                 <MudPaper>
-                    <MudTable Items="WWebsites" Hover="true" Striped="true">
+                    <MudTable Items="WWebsites" Hover="false" Striped="true">
                         <HeaderContent>
-                            <MudTh>Website</MudTh>
-                            <MudTh>Automatically Sign Http Request Headers?</MudTh>
-                            <MudTh>Details</MudTh>
-                            <MudTh>Launch</MudTh>
+                            <MudTh Style="width: 55%; white-space: normal; font-weight:600;">Website</MudTh>
+                            <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Identifier</MudTh>
+                            <MudTh Style="width: 15%; white-space: normal; font-weight:600;">Auto-sign Http Request Headers?</MudTh>
+                            <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Edit</MudTh>
+                            <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Launch</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd DataLabel="ID">@context.Origin.OriginalString</MudTd>
-                            <MudTd DataLabel="Name">@(context.IsAutoSignHeaders ? "Yes" : "No")</MudTd>
-                            <MudTd DataLabel="Details">
-                                <MudLink Href="javascript:void(0);" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))">Details</MudLink>
+                            <MudTd DataLabel="Website">@context.Origin.OriginalString</MudTd>
+                            <MudTd DataLabel="Identifier">
+                                @if (context.RememberedPrefixOrNothing is not null)
+                                {
+                                    <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                }
                             </MudTd>
-                            <MudTh><MudLink Href="@context.Origin.OriginalString" Target="_blank">Launch</MudLink></MudTh>
+                            <MudTd DataLabel="Auto-Sign">@(context.IsAutoSignHeaders ? "Yes" : "No")</MudTd>
+                            <MudTd DataLabel="Edit">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Href="javascript:void(0);" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))"></MudIconButton>
+                            </MudTd>
+                            <MudTh DataLabel="Launch">
+                                <MudIconButton Icon="@Icons.Material.Filled.Launch" Href="@context.Origin.OriginalString" Target="@((GetNumberFromHash.HashInt(context.Origin.OriginalString)).ToString())"></MudIconButton>
+                            </MudTh>
                         </RowTemplate>
                     </MudTable>
                 </MudPaper>
