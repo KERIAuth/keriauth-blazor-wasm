@@ -6,9 +6,8 @@ namespace KeriAuth.BrowserExtension
     public static class AppConfig
     {
         // Routes
-        // These must match the fixed @page string values. Could write unit tests to confirm consistency, but can't have a correct-by-construction consistency :-(
+        // TODO P4 These must match the fixed @page string values. Could write unit tests to confirm consistency, but can't have a correct-by-construction consistency :-(
         public const string RouteToIdentifiers = "/Identifiers";
-        public const string RouteToIdentifier = "/Identifier";  // with optional parameter
         public const string RouteToCredentials = "/Credentials";
         public const string RouteToWebsites = "/Websites";
         public const string RouteToStart = "/Start";
@@ -23,11 +22,16 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToNewRelease = "/NewRelease";
         public const string RouteToConfigure = "/Configure";
         public const string RouteToUnlock = "/Unlock";
-        // TODO P1 decide whether a connecting page is needed
+        // TODO P2 decide whether a connecting page is needed
         public const string RouteToConnecting = "/Connecting";
-        public const string RouteToRequestSignIn = "/RequestSignIn/"; // intentional trailing / because of query parameters
-        public const string RouteToRequestSign = "/RequestSign/"; // intentional trailing / because of query parameters
 
+        // route with parameters, with intentional trailing /
+        public const string RouteToIdentifier = "/Identifier";  // check implementation versus assuming ActivePrefix
+        public const string RouteToWebsite = "/Website/";
+        public const string RouteToRequestSignIn = "/RequestSignIn/";
+        public const string RouteToRequestSign = "/RequestSign/";
+
+        // routes to static content
         public const string RouteToTermsHtml = "content/terms.html";
         public const string RouteToPrivacyHtml = "content/privacy.html";
         public const string RouteToAbout = "content/about.html";

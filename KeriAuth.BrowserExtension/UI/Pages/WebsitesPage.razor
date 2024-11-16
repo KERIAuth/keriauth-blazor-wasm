@@ -63,7 +63,8 @@
         {
             WWebsites = websitesRes.Value.WebsiteList;
             SelectedWebsiteOrigin = WWebsites.First().Origin.OriginalString;
-        } else
+        }
+        else
         {
             WWebsites = null;
             SelectedWebsiteOrigin = null;
@@ -86,6 +87,11 @@
         StateHasChanged();
         return;
     }
+
+    async Task navigateToWebsitePage(string origin)
+    {
+        navManager.NavigateTo(AppConfig.RouteToWebsite + HttpUtility.UrlEncode(origin.ToString()));
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -98,41 +104,29 @@
             @if (WWebsites is not null && WWebsites.Any())
             {
                 <MudPaper>
-                    @foreach (WebsiteConfig website in WWebsites)
-                    {
-                        <MudStack Class="pa-4" Style="background-color: lightblue; border: dashed; border-width:thick;">
-                            <WebsiteConfigDisplay OriginStr="@website.Origin.OriginalString" IsOriginShown=true IsCredentialShown=true ValueChanged="@HandleValueChanged" />
-                        </MudStack>
-                    }
+                    <MudTable Items="WWebsites" Hover="true" Striped="true">
+                        <HeaderContent>
+                            <MudTh>Website</MudTh>
+                            <MudTh>Automatically Sign Http Request Headers?</MudTh>
+                            <MudTh>Details</MudTh>
+                            <MudTh>Launch</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID">@context.Origin.OriginalString</MudTd>
+                            <MudTd DataLabel="Name">@(context.IsAutoSignHeaders ? "Yes" : "No")</MudTd>
+                            <MudTd DataLabel="Details">
+                                <MudLink Href="javascript:void(0);" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))">Details</MudLink>
+                            </MudTd>
+                            <MudTh><MudLink Href="@context.Origin.OriginalString" Target="_blank">Launch</MudLink></MudTh>
+                        </RowTemplate>
+                    </MudTable>
                 </MudPaper>
-
-                <hr />
-                @if (SelectedWebsiteOrigin is not null)
-                {
-                    <MudSelect T="string" Value="SelectedWebsiteOrigin" ValueChanged="async (string s) => await UpdateSelectedWebsiteOrigin(s)">
-                        @foreach (WebsiteConfig website in WWebsites)
-                        {
-                            <MudSelectItem T="string" Value="@website.Origin.OriginalString">
-                                <MudText>@website.Origin.OriginalString</MudText>
-                            </MudSelectItem>
-                        }
-                    </MudSelect>
-
-                    {
-                        // TODO P1 This WebsiteConfigDisplay is not updating    
-                    }
-                    <MudPaper Class="pa-4 mb-2">
-                        <WebsiteConfigDisplay OriginStr="@SelectedWebsiteOrigin" IsOriginShown=true IsCredentialShown=true ValueChanged="@HandleValueChanged" />
-                    </MudPaper>
-                }
             }
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
-        <!--
-        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Disabled="IsSignInDisabled" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
-        -->
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+        <MudSpacer></MudSpacer>
     </MudStack>
 </div>
 
