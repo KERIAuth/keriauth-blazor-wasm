@@ -52,13 +52,8 @@
     Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
 
     // reactive properties
-
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
     
-    
-    
-    
-
     /*
     protected override async Task OnInitializedAsync()
     {

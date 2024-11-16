@@ -39,6 +39,7 @@
     List<Dictionary<string, object>>? CredentialsDict { get; set; }
 
     // reactive properties
+    // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
     Dictionary<string, object>? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<Dictionary<string, object>> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<Dictionary<string, object>>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
@@ -48,11 +49,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
+        // await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
         // Initial render prerequisites here
-
-        StateHasChanged(); // needed?
+        await GetInitialIdentifierHeadlines();
+        await getCredentials();
+        await Task.Delay(100); // allow cycles for reactive properties to update
+        await SendValueToParent(); // allows parent to enable or disable Sign In button, for example
         logger.LogInformation("OnInitializedAsync done 1");
     }
 
@@ -60,13 +63,6 @@
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
-        // TODO P1 log parameters here to assure they are set as expected when picker on WebsiteConfigDisplay is updated
-        // Note the identifier headlines and credentials are dependent on OriginStr parameter, so should not be in OnInitializedAsync
-        StateHasChanged(); // needed?, since the following assume current properties
-        await GetInitialIdentifierHeadlines();
-        await getCredentials();
-        StateHasChanged(); // needed?, since the following assume current properties
-        logger.LogInformation("OnInitializedAsync done done");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -78,7 +74,6 @@
             {
                 await RefreshFromWebsiteConfig(OriginUri);
             }
-            StateHasChanged(); // needed?
         }
     }
 
@@ -136,7 +131,7 @@
                 {
                     SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
                     ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
-                    await websiteConfigService.Update(ThisWebsiteConfig);
+                    await UpdateWebsiteConfigAndParent(ThisWebsiteConfig);
                 }
                 else
                 {
@@ -148,11 +143,12 @@
                 throw new Exception("could not RefreshFromWebsiteConfig");
             }
         }
-        StateHasChanged();
+        // StateHasChanged();
         // Update reactive properties dependant on above
-        await Task.Delay(1); // precaution, to let reactive properties recalc for the next call?
+        // await Task.Delay(1); // precaution, to let reactive properties recalc for the next call?
         // send relevant values to parent (e.g. a page for SignIn or website config)
-        await SendValueToParent();
+        // TODO P0 remove this:
+        // await SendValueToParent();
     }
 
     private async Task GetInitialIdentifierHeadlines()
@@ -223,15 +219,14 @@
                 IsAutoSignInIdentifier = false
             };
         newWebsiteConfig.Validate();
-        var updateRes = await websiteConfigService.Update(newWebsiteConfig);
-        if (updateRes is null || updateRes.IsFailed)
-        {
-            throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
-        }
+        await UpdateWebsiteConfigAndParent(newWebsiteConfig);
+
         if (OriginUri is not null)
         {
             await RefreshFromWebsiteConfig(OriginUri);
+            await SendValueToParent(); // may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
         }
+
     }
 
     async Task updateSelectedCredential(Dictionary<string, object>? newSelectedCredential)
@@ -273,16 +268,15 @@
             };
         newWebsiteConfig.Validate();
 
-        var updateRes = await websiteConfigService.Update(newWebsiteConfig);
-        if (updateRes is null || updateRes.IsFailed)
-        {
-            logger.LogError($"updateSelectedCredential: Error updating website: {updateRes?.Errors}");
-            return;
-        }
+        await UpdateWebsiteConfigAndParent(newWebsiteConfig);
+
         IsCredListExpanded = false;
+        // why is any of the following needed?
         if (OriginUri is not null)
         {
             await RefreshFromWebsiteConfig(OriginUri);
+            await Task.Delay(100); // needed? allow time for reactive properties to update
+            await SendValueToParent(); // needed?
         }
         return;
     }
@@ -308,7 +302,7 @@
         if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
         {
             ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
-            await websiteConfigService.Update(ThisWebsiteConfig);
+            await UpdateWebsiteConfigAndParent(ThisWebsiteConfig);
         }
         StateHasChanged(); // needed?
     }
@@ -321,6 +315,14 @@
     string GetIdentifierItemClass(string prefix)
     {
         return prefix == SelectedPrefix ? "selected-item" : String.Empty;
+    }
+
+    async Task UpdateWebsiteConfigAndParent( WebsiteConfig wc)
+    {
+        // TODO P2 evaluate results
+        _ = await websiteConfigService.Update(wc);
+        await Task.Delay(100); // allow reactive properties time to evaluate
+        await SendValueToParent();
     }
 }
 
