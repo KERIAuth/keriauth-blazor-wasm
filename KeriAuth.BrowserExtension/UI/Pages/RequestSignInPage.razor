@@ -42,13 +42,22 @@
 @code {
     [Parameter] public string encodedOrigin { get; set; } = "";
 
-    public string requestId { get; set; } = "";
-
-    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
+    // fields and types
     enum SignInMode { Credential, Identifier, Prompt }
+
+    // properties
+    public string requestId { get; set; } = "";
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string? SelectedPrefix { get; set; }
     Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
+
+    // reactive properties
+
+    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
+    
+    
+    
+    
 
     /*
     protected override async Task OnInitializedAsync()
@@ -131,6 +140,9 @@
             return;
         }
     }
+
+    /* OnAfterRenderAsync(bool isFirst) */
+
 
     /*
     // SignIn()
@@ -225,14 +237,7 @@
             return false;
         }
     }
-
-    /*
-    protected override void OnInitialized()
-    {
-        ;
-    }
-    */
-
+    
     private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {
         logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
