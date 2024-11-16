@@ -59,11 +59,11 @@
                               ErrorText="&nbsp;"
                               For="@(() => unlockPasscodeModel.Passcode)"
                               Immediate="true"
-                              @onfocus="SelectAllText"/>
+                              @onfocus="SelectAllText" />
             </MudForm>
             <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
             <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutTimeSpanMins minutes of inactivity</MudText>
+            <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
@@ -115,6 +115,11 @@
 
     private async Task HandleKeyDown(KeyboardEventArgs args)
     {
+
+        if (args.CtrlKey && args.Key == "`")
+        {
+            await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P2 remove example password for testing
+        }
         if (args.Key == "Enter")
         {
             // logger.LogWarning("password: 3: ");

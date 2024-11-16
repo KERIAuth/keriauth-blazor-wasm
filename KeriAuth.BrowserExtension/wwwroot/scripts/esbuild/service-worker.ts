@@ -60,8 +60,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'resetInactivityTimer') {
         // Clear existing alarm and set a new one
         chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
-            // TODO P0 get InactivityTimout from stored preferences (cached)
-            chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 0.5 });
+            // TODO P1 get InactivityTimout from stored preferences (cached into storage.session).  Confirm this is debounced and has no performance hit with frequently geting the delay preference
+            chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 5.0 });
         });
     }
 });

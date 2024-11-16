@@ -33,6 +33,6 @@ namespace KeriAuth.BrowserExtension.Models
         public bool ShowSignRequestDetail { get; init; }
 
         [JsonPropertyName("InactivityTimeoutMinutes")]
-        public float InactivityTimeoutMinutes { get; init; } = 1f;
+        public float InactivityTimeoutMinutes { get; init; } = AppConfig.IdleTimeoutMins;
     }
 }
