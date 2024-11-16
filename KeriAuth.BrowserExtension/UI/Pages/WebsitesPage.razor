@@ -62,21 +62,29 @@
         if (websitesRes is not null && websitesRes.IsSuccess && websitesRes.Value is not null && websitesRes.Value.WebsiteList.Any())
         {
             WWebsites = websitesRes.Value.WebsiteList;
+            SelectedWebsiteOrigin = WWebsites.First().Origin.OriginalString;
+        } else
+        {
+            WWebsites = null;
+            SelectedWebsiteOrigin = null;
         }
-    }
-
-    async Task updateSelectedWebsiteConfig(string origin)
-    {
-        SelectedWebsiteOrigin = origin;
+        StateHasChanged();
     }
 
     // TODO P0 Update the callback signature to just send a complete WebsiteConfig?
     // TODO P0 Persist the change, then refetch the entire WebsiteConfigList and return that?
-
+    // Handle callback from the WebsiteConfigDisplay
     private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {
         logger.LogError($"NOT YET IMPLEMENTED HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         StateHasChanged();
+    }
+
+    async Task UpdateSelectedWebsiteOrigin(string s)
+    {
+        SelectedWebsiteOrigin = s;
+        StateHasChanged();
+        return;
     }
 }
 
@@ -89,16 +97,30 @@
             </MudStack>
             @if (WWebsites is not null && WWebsites.Any())
             {
-                <MudSelect T="string" Value="SelectedWebsiteOrigin" ValueChanged="async (string origin) => await updateSelectedWebsiteConfig(origin)">
+                <MudPaper>
                     @foreach (WebsiteConfig website in WWebsites)
                     {
-                        <MudSelectItem T="string" Value="@website.Origin.OriginalString">
-                            <MudText>@website.Origin.OriginalString</MudText>
-                        </MudSelectItem>
+                        <MudStack Class="pa-4" Style="background-color: lightblue; border: dashed; border-width:thick;">
+                            <WebsiteConfigDisplay OriginStr="@website.Origin.OriginalString" IsOriginShown=true IsCredentialShown=true ValueChanged="@HandleValueChanged" />
+                        </MudStack>
                     }
-                </MudSelect>
+                </MudPaper>
+
+                <hr />
                 @if (SelectedWebsiteOrigin is not null)
                 {
+                    <MudSelect T="string" Value="SelectedWebsiteOrigin" ValueChanged="async (string s) => await UpdateSelectedWebsiteOrigin(s)">
+                        @foreach (WebsiteConfig website in WWebsites)
+                        {
+                            <MudSelectItem T="string" Value="@website.Origin.OriginalString">
+                                <MudText>@website.Origin.OriginalString</MudText>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    {
+                        // TODO P1 This WebsiteConfigDisplay is not updating    
+                    }
                     <MudPaper Class="pa-4 mb-2">
                         <WebsiteConfigDisplay OriginStr="@SelectedWebsiteOrigin" IsOriginShown=true IsCredentialShown=true ValueChanged="@HandleValueChanged" />
                     </MudPaper>

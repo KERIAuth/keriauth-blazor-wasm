@@ -60,6 +60,7 @@
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
+        // TODO P1 log parameters here to assure they are set as expected when picker on WebsiteConfigDisplay is updated
         // Note the identifier headlines and credentials are dependent on OriginStr parameter, so should not be in OnInitializedAsync
         StateHasChanged(); // needed?, since the following assume current properties
         await GetInitialIdentifierHeadlines();
