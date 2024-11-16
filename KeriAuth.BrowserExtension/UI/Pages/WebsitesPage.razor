@@ -42,7 +42,7 @@
 
     // properties
     List<WebsiteConfig>? WWebsites { get; set; }
-    string SelectedWebsiteOrigin { get; set; } = "select";
+    string? SelectedWebsiteOrigin { get; set; }
 
     // reactive properties
     string CountLabel => (WWebsites is not null) ? "(" + WWebsites.Count() + ")" : "...";
@@ -97,12 +97,10 @@
                         </MudSelectItem>
                     }
                 </MudSelect>
-                <MudSpacer />
-
-                @if (SelectedWebsiteOrigin != "select")
+                @if (SelectedWebsiteOrigin is not null)
                 {
                     <MudPaper Class="pa-4 mb-2">
-                        <WebsiteConfigDisplay OriginStr="@SelectedWebsiteOrigin" IsOriginShown="false" IsCredentialShown="true" ValueChanged="HandleValueChanged" />
+                        <WebsiteConfigDisplay OriginStr="@SelectedWebsiteOrigin" IsOriginShown=true IsCredentialShown=true ValueChanged="@HandleValueChanged" />
                     </MudPaper>
                 }
             }

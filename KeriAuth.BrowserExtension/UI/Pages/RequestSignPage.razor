@@ -216,7 +216,7 @@
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
-        AppActivePrefix = prefs.SelectedAid;
+        AppActivePrefix = prefs.SelectedPrefix;
         this.StateHasChanged();
     }
 
@@ -274,7 +274,7 @@
 
         if (isConfigNew)
         {
-            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedAid;
+            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
             ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }

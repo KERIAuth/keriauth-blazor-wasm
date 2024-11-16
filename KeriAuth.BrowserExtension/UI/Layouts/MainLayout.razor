@@ -149,7 +149,7 @@
     // reactive properties ...
     Object ActiveAidObject => (object)ActiveAid;
     bool IsAuthenticated => stateService.IsAuthenticated();
-    string ActiveAid => Prefs.SelectedAid;
+    string ActiveAid => Prefs.SelectedPrefix;
     string ActiveAidIdenticon => Helper.Identicon.MakeIdenticon(ActiveAid);
     string ActiveAidTooltip => IdentifiersHeadlines.Find(x => x.Prefix == ActiveAid)?.Alias ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
@@ -316,7 +316,7 @@
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        Prefs = Prefs with { SelectedAid = prefix };
+        Prefs = Prefs with { SelectedPrefix = prefix };
         await preferencesService.SetPreferences(Prefs);
     }
 

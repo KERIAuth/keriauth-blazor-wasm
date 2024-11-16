@@ -11,8 +11,8 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("IsDarkTheme")]
         public bool IsDarkTheme { get; init; }
 
-        [JsonPropertyName("SelectedAid")]
-        public string SelectedAid { get; init; } = String.Empty;
+        [JsonPropertyName("SelectedPrefix")]
+        public string SelectedPrefix { get; init; } = String.Empty;
 
         [JsonPropertyName("IsOptedIntoDataCollection")]
         public bool IsOptedIntoDataCollection { get; init; }

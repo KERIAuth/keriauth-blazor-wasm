@@ -356,7 +356,7 @@
 
                 // set the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
                 var prefs = await preferencesService.GetPreferences();
-                prefs = prefs with { SelectedAid = aidRes.Value };
+                prefs = prefs with { SelectedPrefix = aidRes.Value };
                 await preferencesService.SetPreferences(prefs);
 
                 // logger.LogInformation("Identifier: {aid}", aidRes.Value);
@@ -367,7 +367,7 @@
             {
                 // don't need to create another AID, but still need to pick a default one
                 var prefs = await preferencesService.GetPreferences();
-                prefs = prefs with { SelectedAid = identifiers.Aids.First().Prefix };
+                prefs = prefs with { SelectedPrefix = identifiers.Aids.First().Prefix };
                 await preferencesService.SetPreferences(prefs);
 
                 ops5CreatePersonalAid.SetCompletedWithoutErrors(); // ("One or more identifier(s) already exist");

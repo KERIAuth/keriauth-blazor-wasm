@@ -132,7 +132,7 @@
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetHeadlines();
                 var prefs = await preferencesService.GetPreferences();
-                await preferencesService.SetPreferences(prefs with { SelectedAid = res.Value });
+                await preferencesService.SetPreferences(prefs with { SelectedPrefix = res.Value });
             }
         }
         IsAddingAid = false;
@@ -141,7 +141,7 @@
 
     async Task InitializeOrOnNextPrefs(Preferences prefs)
     {
-        ActiveAid = prefs.SelectedAid;
+        ActiveAid = prefs.SelectedPrefix;
         StateHasChanged();
     }
 
@@ -150,7 +150,7 @@
     async Task SetActiveAid(string identifier)
     {
         var prefs2 = await preferencesService.GetPreferences();
-        prefs2 = prefs2 with { SelectedAid = identifier };
+        prefs2 = prefs2 with { SelectedPrefix = identifier };
         await preferencesService.SetPreferences(prefs2);
         // Other side-effects will be reactive to subscribed updates of Preferences
     }

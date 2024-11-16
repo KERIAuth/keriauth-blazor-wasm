@@ -349,7 +349,7 @@
         logger.LogInformation(JsonSerializer.Serialize(prefs));
         if (string.IsNullOrEmpty(Prefix))
         {
-            Prefix = prefs.SelectedAid;
+            Prefix = prefs.SelectedPrefix;
         }
         Identicon = Helper.Identicon.MakeIdenticon(Prefix);
         await GetHeadlines();
@@ -390,7 +390,7 @@
 
     void InitializeOrOnNextPrefs(Preferences prefs)
     {
-        ActiveAid = prefs.SelectedAid;
+        ActiveAid = prefs.SelectedPrefix;
         this.StateHasChanged();
     }
 
@@ -402,7 +402,7 @@
     async Task SetActiveAid(string identifier)
     {
         var prefs2 = await preferencesService.GetPreferences();
-        prefs2 = prefs2 with { SelectedAid = identifier };
+        prefs2 = prefs2 with { SelectedPrefix = identifier };
         await preferencesService.SetPreferences(prefs2);
         // Other side-effects will be reactive to subscribed updates of Preferences
     }

@@ -25,42 +25,47 @@
 @inject NavigationManager navManager
 
 @code {
-    [Parameter] public required string OriginStr { get; init; }
+    [Parameter] public required string? OriginStr { get; init; }
     [Parameter] public required bool IsCredentialShown { get; init; }
     [Parameter] public required bool IsOriginShown { get; init; }
     [Parameter] public EventCallback<(string? selectedPrefix, Dictionary<string, object>? selectedCredential)> ValueChanged { get; init; }
 
     // properties
     bool IsCredListExpanded { get; set; }
-    List<IdentifierHeadline> IdentifierHeadlines { get; set; } = new();
+    List<IdentifierHeadline>? IdentifierHeadlines { get; set; }
     bool IsAutoSignInIdentifier { get; set; }
-    string SelectedPrefix { get; set; } = "unknown";
+    string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
-    List<Dictionary<string, object>> CredentialsDict { get; set; } = new();
+    List<Dictionary<string, object>>? CredentialsDict { get; set; }
 
     // reactive properties
-    Dictionary<string, object>? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
+    Dictionary<string, object>? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
-    List<Dictionary<string, object>>? FilteredCredentials => (CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
+    List<Dictionary<string, object>> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<Dictionary<string, object>>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     bool IsAutoSign => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
+    public Uri? OriginUri => OriginStr is null ? null : TryCreateUri(OriginStr);
 
     protected override async Task OnInitializedAsync()
     {
-        base.OnInitializedAsync();
+        await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
         // Initial render prerequisites here
-        GetInitialIdentifierHeadlines();
-        // StateHasChanged(); // needed?
+
+        StateHasChanged(); // needed?
         logger.LogInformation("OnInitializedAsync done 1");
-        getCredentials();
-        logger.LogInformation("OnInitializedAsync done done");
     }
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
+        // Note the identifier headlines and credentials are dependent on OriginStr parameter, so should not be in OnInitializedAsync
+        StateHasChanged(); // needed?, since the following assume current properties
+        await GetInitialIdentifierHeadlines();
+        await getCredentials();
+        StateHasChanged(); // needed?, since the following assume current properties
+        logger.LogInformation("OnInitializedAsync done done");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -68,20 +73,25 @@
         logger.LogInformation("OnAfterRenderAsync");
         if (firstRender)
         {
-            await RefreshFromWebsiteConfig();
+            if (OriginUri is not null)
+            {
+                await RefreshFromWebsiteConfig(OriginUri);
+            }
             StateHasChanged(); // needed?
         }
     }
 
-    Uri? GetOriginUri()
+
+
+    private Uri? TryCreateUri(string origin)
     {
         try
         {
-            return new Uri(OriginStr);
+            return new Uri(origin);
         }
         catch (Exception ex)
         {
-            logger.LogError("Error parsing OriginStr '{OriginStr}': {Error}", OriginStr, ex);
+            logger.LogError("Error parsing OriginStr '{OriginStr}': {Error}", origin, ex);
             return null;
         }
     }
@@ -92,35 +102,52 @@
     async Task SendValueToParent()
     {
         logger.LogInformation($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
-        await ValueChanged.InvokeAsync((SelectedPrefix, SelectedCredentialOrNothing));
-        StateHasChanged(); // needed?
-    }
 
-    async Task RefreshFromWebsiteConfig()
-    {
-        var originUri = GetOriginUri();
-        if (originUri is null)
+        if (!ValueChanged.HasDelegate)
         {
-            throw new Exception($"RefreshThisWebsiteConfig: origin must be set.");
-        }
-
-        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
-        if (getOrCreateWebsiteRes.IsFailed)
-        {
-            throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
-        }
-        var (newWebsite, isConfigNew) = getOrCreateWebsiteRes.Value;
-        ThisWebsiteConfig = newWebsite;
-
-        if (isConfigNew)
-        {
-            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedAid;
-            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
-            await websiteConfigService.Update(ThisWebsiteConfig);
+            await ValueChanged.InvokeAsync((SelectedPrefix, SelectedCredentialOrNothing));
         }
         else
         {
-            SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+            logger.LogWarning("SendValueToParent has no ValueChagned delegate");
+        }
+        StateHasChanged(); // needed?
+    }
+
+    async Task RefreshFromWebsiteConfig(Uri? originUri)
+    {
+        if (originUri is null)
+        {
+            ThisWebsiteConfig = null;
+            SelectedPrefix = null;
+        }
+        else
+        {
+            try
+            {
+                var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
+                if (getOrCreateWebsiteRes.IsFailed)
+                {
+                    throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
+                }
+                var (newWebsite, isConfigNew) = getOrCreateWebsiteRes.Value;
+                ThisWebsiteConfig = newWebsite;
+
+                if (isConfigNew)
+                {
+                    SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
+                    ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+                    await websiteConfigService.Update(ThisWebsiteConfig);
+                }
+                else
+                {
+                    SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+                }
+            }
+            catch
+            {
+                throw new Exception("could not RefreshFromWebsiteConfig");
+            }
         }
         // send relevant values to parent (e.g. a page for SignIn or website config)
         await SendValueToParent();
@@ -130,19 +157,23 @@
 
     private async Task GetInitialIdentifierHeadlines()
     {
+        logger.LogWarning("GetInitialIdentifierHeadlines() ...");
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res?.IsSuccess == true && res.Value is not null)
         {
             IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
-        } else
+        }
+        else
         {
             throw new Exception("unexpected null identifier Headlines");
         }
         StateHasChanged();
+        logger.LogWarning("GetInitialIdentifierHeadlines() done count: {c}", IdentifierHeadlines?.Count());
     }
 
     // TODO P2 DRY move this filterCredentials to a helper
-    List<Dictionary<string, object>>? filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
+    // TODO P1 Incorporate this use into the Credentials display to (checkbox) Show selected Identifier only, default true
+    List<Dictionary<string, object>> filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
     {
         if (!filters.Any())
         {
@@ -153,13 +184,23 @@
         {
             foreach (var filter in filters)
             {
-                if (DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match)
+                // if (filters.All(filter => DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match))
+                // if (DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match)
+                // {
+                //     filteredCredentials.Add(credDict);
+                //     break;
+                // }
+
+                // include filtered value if any of the filters match (versus all)
+                var value = DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string;
+                if (value != null && value == filter.match)
                 {
                     filteredCredentials.Add(credDict);
                     break;
                 }
             }
         }
+        // logger.LogWarning("filteredCredentials: count: {c} ", filteredCredentials.Count);
         return filteredCredentials;
     }
 
@@ -187,23 +228,40 @@
         {
             throw new Exception($"updateSelectedPrefix: Error updating website: {updateRes?.Errors}");
         }
-        await RefreshFromWebsiteConfig();
+        if (OriginUri is not null)
+        {
+            await RefreshFromWebsiteConfig(OriginUri);
+        }
     }
 
-    private async Task updateSelectedCredential(Dictionary<string, object>? item)
+    async Task updateSelectedCredential(Dictionary<string, object>? newSelectedCredential)
     {
-        if (item is null || !item.Any()) throw new Exception($"updateSelectedCredential: credential should not be null or empty here.");
-        if (ThisWebsiteConfig is null) throw new Exception($"updateSelectedCredential: ThisWebsiteConfig should not be null here.");
-        if (SelectedCredentialOrNothing is null) throw new Exception("unexpected null SelectedCredentialOrNothing");
+        logger.LogWarning("updateSelectedCredential...");
+        if (newSelectedCredential is null || !newSelectedCredential.Any())
+        {
+            logger.LogError($"updateSelectedCredential: credential should not be null or empty here.");
+            return;
+        }
+        if (ThisWebsiteConfig is null)
+        {
+            logger.LogError("updateSelectedCredential: ThisWebsiteConfig should not be null here.");
+            return;
+        }
+        if (newSelectedCredential is null || !newSelectedCredential.Any())
+        {
+            logger.LogError("unexpected null newSelectedCredential");
+            return;
+        }
 
-        var rememberedCredSaidOrNothing = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d")?.Value?.ToString() ?? null;
+        var rememberedCredSaidOrNothing = DictionaryConverter.GetValueByPath(newSelectedCredential, "sad.d")?.Value?.ToString() ?? null;
         if (rememberedCredSaidOrNothing is null)
         {
-            string json = JsonConvert.SerializeObject(SelectedCredentialOrNothing, Formatting.Indented);
+            string json = JsonConvert.SerializeObject(newSelectedCredential, Formatting.Indented);
             logger.LogInformation("updateSelectedCredential set to ~ ", json);
-            throw new Exception($"updateSelectedCredential: Could not find SAID of credential");
+            logger.LogError($"updateSelectedCredential: Could not find SAID of credential");
+            return;
         }
-        logger.LogInformation("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
+        logger.LogWarning("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
 
         var newWebsiteConfig = ThisWebsiteConfig with
             {
@@ -214,6 +272,7 @@
                 IsAutoSignInIdentifier = IsAutoSign // intentional, since selected cred implies identifier
             };
         newWebsiteConfig.Validate();
+
         var updateRes = await websiteConfigService.Update(newWebsiteConfig);
         if (updateRes is null || updateRes.IsFailed)
         {
@@ -221,7 +280,10 @@
             return;
         }
         IsCredListExpanded = false;
-        await RefreshFromWebsiteConfig();
+        if (OriginUri is not null)
+        {
+            await RefreshFromWebsiteConfig(OriginUri);
+        }
         return;
     }
 
@@ -267,9 +329,8 @@
     {
         <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
     }
-
     <!-- Select Identifier -->
-    @if (IdentifierHeadlines.Any())  // this causes loading all at once versus rolling
+    @if (IdentifierHeadlines is not null && IdentifierHeadlines.Any())  // this causes loading all at once versus rolling
     {
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
@@ -290,7 +351,7 @@
             </MudStack>
         </MudStack>
     }
-    @if (IsCredentialShown && CredentialsDict.Any()) // so this section appears all at once versus progressively
+    @if (IsCredentialShown && CredentialsDict is not null && CredentialsDict.Any()) // so this section appears all at once versus progressively
     {
         <!-- Select Credential --->
         <MudStack Class="gap-0">
@@ -320,10 +381,9 @@
                         if (FilteredCredentials is not null && FilteredCredentials.Any())
                         {
                             <MudList Dense="true" T="Dictionary<string, object>">
-                                @foreach (var credential in FilteredCredentials)
+                                @foreach (Dictionary<string, object> credential in FilteredCredentials)
                                 {
-                                    <MudListItem OnClick="@(async () => await updateSelectedCredential(credential))"
-                                                 Class="@GetCredentialItemClass(credential)">
+                                    <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@GetCredentialItemClass(credential)">
                                         <CredentialDisplay credential="@credential" />
                                     </MudListItem>
                                 }
@@ -338,17 +398,7 @@
                 <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSign" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
             </MudStack>
         </MudStack>
-
     }
-    <MudText>
-        SelectedCredentialOrNothing: @((SelectedCredentialOrNothing!.Values.Any()) ? "have selected creds" : "no selected creds")
-    </MudText>
-    <MudText>
-        SelectedCredSaidOrNothing: @SelectedCredSaidOrNothing
-    </MudText>
-    <MudText>
-        FilteredCredentials: @(FilteredCredentials?.Any())
-    </MudText>
 </div>
 
 <style>

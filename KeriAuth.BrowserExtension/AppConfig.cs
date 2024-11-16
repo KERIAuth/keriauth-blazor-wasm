@@ -40,7 +40,7 @@ namespace KeriAuth.BrowserExtension
         public const int PrivacyHash = 925478292;
 
         // TODO P1 view on UnlockPage should use what is set in preferences
-        public static float IdleTimeoutTimeSpanMins = 4.5f; 
+        public static float IdleTimeoutTimeSpanMins = 4.5555f; 
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";

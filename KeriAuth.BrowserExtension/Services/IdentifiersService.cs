@@ -22,27 +22,25 @@ namespace KeriAuth.BrowserExtension.Services
         public async Task<Result<List<IdentifierHeadline>>> GetIdentifierHeadlines()
         {
             logger.Log(ServiceLogLevel, "GetIdentifierHeadlines: Getting identifiers");
-            var res2 = await signifyClientService.GetIdentifiers();
-            if (res2 is null || res2.IsFailed)
+            var identifiersRes = await signifyClientService.GetIdentifiers();
+            if (identifiersRes is null || identifiersRes.IsFailed)
             {
-                var msg = res2!.Errors.First().Message;
+                var msg = identifiersRes!.Errors.First().Message;
                 logger.LogError("GetIdentifierHeadlines: Failed to get identifiers: {msg}", msg);
                 return Result.Fail<List<IdentifierHeadline>>(msg);
             }
-            if (res2.Value is not null && res2.IsSuccess)
+            else
             {
-                logger.Log(ServiceLogLevel, "GetIdentifierHeadlines #: {aids}", res2.Value.Aids.Count);
+                logger.Log(ServiceLogLevel, "GetIdentifierHeadlines #: {aids}", identifiersRes.Value.Aids.Count);
                 var headlines = new List<IdentifierHeadline>();
-
-                foreach (Aid item in res2.Value.Aids)
+                foreach (Aid item in identifiersRes.Value.Aids)
                 {
                     // TODO P3  set the current identifierService in the Headline?
                     var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), logger, storageService);
-                    headlines.Add(new IdentifierHeadline(item.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));
+                    headlines.Add(new IdentifierHeadline(identifierService.cachedAid.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));
                 }
                 return Result.Ok(headlines);
             }
-            return Result.Fail<List<IdentifierHeadline>>("Failed to get identifiers");
         }
 
         public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
