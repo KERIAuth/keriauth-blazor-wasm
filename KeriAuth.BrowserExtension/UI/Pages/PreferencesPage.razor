@@ -28,7 +28,7 @@
                     <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
                         {
-                            <MudSelectItem Value="@item">@item</MudSelectItem>
+                            <MudSelectItem Value="item">@item</MudSelectItem>
                         }
                     </MudSelect>
                 </MudStack>
@@ -116,7 +116,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
         var prefs = await preferencesService.GetPreferences();
         await HandleNextFromPreferencesService(prefs);

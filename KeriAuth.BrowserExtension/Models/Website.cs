@@ -22,6 +22,7 @@ namespace KeriAuth.BrowserExtension.Models
             IsAutoSignHeaders = isAutoSignHeaders;
         }
 
+        /* 
         public WebsiteConfig Validate()
         {
             if (IsAutoSignInIdentifier && RememberedPrefixOrNothing is null)
@@ -38,12 +39,11 @@ namespace KeriAuth.BrowserExtension.Models
             }
             if (IsAutoSignHeaders && RememberedCredSaidOrNothing is null)
             {
-
                 throw new ArgumentException("WebsiteConfig constructor with IsAuthoSignHeaders must have a remembered credential.");
-
             }
             return this;
         }
+        */
 
         [JsonPropertyName("origin")]
         public Uri Origin { get; init; }

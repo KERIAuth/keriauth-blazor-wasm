@@ -2,13 +2,13 @@
 @using KeriAuth.BrowserExtension.Helper
 @using KeriAuth.BrowserExtension.Services
 @using KeriAuth.BrowserExtension.Services.SignifyService
-@using System.Text.Json;
-@using System.Diagnostics;
+@using System.Text.Json
+@using System.Diagnostics
 @using KeriAuth.BrowserExtension.Helper.DictionaryConverters
 @using static KeriAuth.BrowserExtension.Helper.Identicon
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @using MudBlazor
-@using Newtonsoft.Json;
+@using Newtonsoft.Json
 
 @inject ILogger<WebsiteConfigDisplay> logger
 @inject IWebsiteConfigService websiteConfigService
@@ -49,27 +49,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // await base.OnInitializedAsync();
-        logger.LogInformation("OnInitializedAsync");
+        logger.LogInformation("OnInitializedAsync...");
         // Initial render prerequisites here
         await GetInitialIdentifierHeadlines();
         await getCredentials();
         await Task.Delay(100); // allow cycles for reactive properties to update
         await SendValueToParent(); // allows parent to enable or disable Sign In button, for example
-        logger.LogInformation("OnInitializedAsync done 1");
+                                   // StateHasChanged();
+        logger.LogInformation("OnInitializedAsync done");
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        await base.OnParametersSetAsync();
-        logger.LogInformation("OnParametersSetAsync");
+        // logger.LogInformation("OnParametersSetAsync");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        logger.LogInformation("OnAfterRenderAsync");
         if (firstRender)
         {
+            logger.LogInformation("OnAfterRenderAsync");
             if (OriginUri is not null)
             {
                 await RefreshFromWebsiteConfig(OriginUri);
@@ -103,13 +102,14 @@
         }
         else
         {
-            logger.LogWarning("SendValueToParent has no ValueChagned delegate");
+            // logger.LogWarning("SendValueToParent has no ValueChagned delegate");
         }
-        StateHasChanged(); // needed?
+        // StateHasChanged(); // needed?
     }
 
     async Task RefreshFromWebsiteConfig(Uri? originUri)
     {
+        logger.LogInformation("RefreshFromWebsiteConfig: originUri: {i}", originUri.OriginalString);
         if (originUri is null)
         {
             ThisWebsiteConfig = null;
@@ -132,10 +132,14 @@
                     SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
                     ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
                     await UpdateWebsiteConfigAndParent(ThisWebsiteConfig);
+                    // Note above includes StateHasChanged.
+                    return;
                 }
                 else
                 {
                     SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+                    // StateHasChanged(); //?
+                    return;
                 }
             }
             catch
@@ -149,11 +153,12 @@
         // send relevant values to parent (e.g. a page for SignIn or website config)
         // TODO P0 remove this:
         // await SendValueToParent();
+        logger.LogInformation("RefreshFromWebsiteConfig: done");
     }
 
     private async Task GetInitialIdentifierHeadlines()
     {
-        logger.LogWarning("GetInitialIdentifierHeadlines() ...");
+        // logger.LogWarning("GetInitialIdentifierHeadlines() ...");
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res?.IsSuccess == true && res.Value is not null)
         {
@@ -163,8 +168,8 @@
         {
             throw new Exception("unexpected null identifier Headlines");
         }
-        StateHasChanged();
-        logger.LogWarning("GetInitialIdentifierHeadlines() done count: {c}", IdentifierHeadlines?.Count());
+        // StateHasChanged(); // TODO needed?
+        // logger.LogWarning("GetInitialIdentifierHeadlines() done count: {c}", IdentifierHeadlines?.Count());
     }
 
     // TODO P2 DRY move this filterCredentials to a helper
@@ -202,7 +207,8 @@
 
     async Task updateSelectedPrefix(string prefix)
     {
-        logger.LogInformation("updateSelectedPrefix set prefix to ", prefix);
+
+        logger.LogInformation("updateSelectedPrefix set prefix to {p}", prefix);
         IsCredListExpanded = false;
 
         if (ThisWebsiteConfig is null)
@@ -215,18 +221,27 @@
             {
                 RememberedPrefixOrNothing = prefix,
                 RememberedCredSaidOrNothing = null,
-                IsAutoSignInCredential = IsAutoSign,
-                IsAutoSignInIdentifier = false
+                IsAutoSignInCredential = false,
+                IsAutoSignInIdentifier = false,
+                IsAutoSignHeaders = false
             };
-        newWebsiteConfig.Validate();
+        logger.LogInformation("updateSelectedPrefix 2");
+        // _ = newWebsiteConfig.Validate();
+        logger.LogInformation("updateSelectedPrefix 3");
         await UpdateWebsiteConfigAndParent(newWebsiteConfig);
-
+        logger.LogInformation("updateSelectedPrefix updated ConfigAndParent");
         if (OriginUri is not null)
         {
+            await Task.Delay(100); // allow reactive properties to update
             await RefreshFromWebsiteConfig(OriginUri);
+            await Task.Delay(100); // allow reactive properties to update
             await SendValueToParent(); // may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
         }
-
+        logger.LogInformation("updateSelectedPrefix 4");
+        await Task.Delay(100); // tmp?
+        SelectedPrefix = prefix;
+        // StateHasChanged();
+        logger.LogWarning("after updatedSelectedPrefix SelectedPrefix: {p}", SelectedPrefix);
     }
 
     async Task updateSelectedCredential(Dictionary<string, object>? newSelectedCredential)
@@ -266,7 +281,7 @@
                 IsAutoSignInCredential = IsAutoSign,
                 IsAutoSignInIdentifier = IsAutoSign // intentional, since selected cred implies identifier
             };
-        newWebsiteConfig.Validate();
+        // newWebsiteConfig.Validate();
 
         await UpdateWebsiteConfigAndParent(newWebsiteConfig);
 
@@ -293,6 +308,7 @@
         {
             CredentialsDict = res.Value as List<Dictionary<string, object>>;
         }
+        StateHasChanged();
     }
 
     async Task updateIsAutoSign(bool isChecked)
@@ -317,10 +333,11 @@
         return prefix == SelectedPrefix ? "selected-item" : String.Empty;
     }
 
-    async Task UpdateWebsiteConfigAndParent( WebsiteConfig wc)
+    async Task UpdateWebsiteConfigAndParent(WebsiteConfig wc)
     {
         // TODO P2 evaluate results
-        _ = await websiteConfigService.Update(wc);
+        var res = await websiteConfigService.Update(wc);
+        logger.LogInformation("UpdateWebsiteConfigAndParent success: {r}", res.IsSuccess);
         await Task.Delay(100); // allow reactive properties time to evaluate
         await SendValueToParent();
     }
@@ -332,15 +349,16 @@
         <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
     }
     <!-- Select Identifier -->
-    @if (IdentifierHeadlines is not null && IdentifierHeadlines.Any())  // this causes loading all at once versus rolling
+    <!-- assure prerequisites for below are set, and to assure loading all at once versus rolling -->
+    @if (IdentifierHeadlines is not null && IdentifierHeadlines.Any() && CredentialsDict is not null)
     {
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
-                <MudSelect T="string" Value="@SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
                     @foreach (var identifierHeadline in IdentifierHeadlines)
                     {
-                        <MudSelectItem Value="@identifierHeadline.Prefix" Class="@GetIdentifierItemClass(identifierHeadline.Prefix)">
+                        <MudSelectItem T="string" Value="identifierHeadline.Prefix" Class="@GetIdentifierItemClass(identifierHeadline.Prefix)">
                             <MudStack Row Style="align-items:center;">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -352,54 +370,55 @@
                 </MudSelect>
             </MudStack>
         </MudStack>
-    }
-    @if (IsCredentialShown && CredentialsDict is not null && CredentialsDict.Any()) // so this section appears all at once versus progressively
-    {
-        <!-- Select Credential --->
-        <MudStack Class="gap-0">
-            <MudText Class="mt-4" Typo="Typo.h6">Credential</MudText>
-            <MudStack Class="ml-0" Style="gap:0;">
-                <MudPaper Class="pa-0 mr-0">
-                    <!-- Display Selected Credential -->
-                    @if (!IsCredListExpanded)
-                    {
-                        <MudPaper Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded">
-                            @if (SelectedCredentialOrNothing is null)
-                            {
-                                <div style="width:100%; align-content:center;">
-                                    <MudText Class="ml-3">Select</MudText>
-                                </div>
-                            }
-                            else
-                            {
-                                <CredentialDisplay credential="@SelectedCredentialOrNothing" displayDetail="@CredentialDisplay.CredentialDisplayDetail.MinimalWithoutIssuee" />
-                            }
-                            <MudSpacer />
-                            <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
-                        </MudPaper>
-                    }
-                    else
-                    {
-                        if (FilteredCredentials is not null && FilteredCredentials.Any())
+
+        @if (IsCredentialShown && CredentialsDict.Any() && SelectedPrefix is not null )
+        {
+            <!-- Select Credential --->
+            <MudStack Class="gap-0">
+                <MudText Class="mt-4" Typo="Typo.h6">Credential</MudText>
+                <MudStack Class="ml-0" Style="gap:0;">
+                    <MudPaper Class="pa-0 mr-0">
+                        <!-- Display Selected Credential -->
+                        @if (!IsCredListExpanded)
                         {
-                            <MudList Dense="true" T="Dictionary<string, object>">
-                                @foreach (Dictionary<string, object> credential in FilteredCredentials)
+                            <MudPaper Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded">
+                                @if (SelectedCredentialOrNothing is null)
                                 {
-                                    <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@GetCredentialItemClass(credential)">
-                                        <CredentialDisplay credential="@credential" />
-                                    </MudListItem>
+                                    <div style="width:100%; align-content:center;">
+                                        <MudText Class="ml-3">Select</MudText>
+                                    </div>
                                 }
-                            </MudList>
+                                else
+                                {
+                                    <CredentialDisplay credential="@SelectedCredentialOrNothing" displayDetail="@CredentialDisplay.CredentialDisplayDetail.MinimalWithoutIssuee" />
+                                }
+                                <MudSpacer />
+                                <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
+                            </MudPaper>
                         }
                         else
                         {
-                            <MudText>No credentials issued to this identifier.</MudText>
+                            if (FilteredCredentials is not null && FilteredCredentials.Any())
+                            {
+                                <MudList Dense="true" T="Dictionary<string, object>">
+                                    @foreach (Dictionary<string, object> credential in FilteredCredentials)
+                                    {
+                                        <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@GetCredentialItemClass(credential)">
+                                            <CredentialDisplay credential="@credential" />
+                                        </MudListItem>
+                                    }
+                                </MudList>
+                            }
+                            else
+                            {
+                                <MudText>No credentials issued to this identifier.</MudText>
+                            }
                         }
-                    }
-                </MudPaper>
-                <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="@IsAutoSign" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                    </MudPaper>
+                    <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSign" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                </MudStack>
             </MudStack>
-        </MudStack>
+        }
     }
 </div>
 

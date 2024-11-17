@@ -330,7 +330,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
         await Task.Delay(0); // caller doesn't need to wait
         logger.LogInformation($"OnInitializedAsync");
         preferencesSubscription = preferencesService.Subscribe(
@@ -341,7 +340,6 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        await base.OnParametersSetAsync();
         logger.LogInformation($"OnParametersSetAsync");
 
         var prefs = await preferencesService.GetPreferences();

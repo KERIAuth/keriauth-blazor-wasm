@@ -38,7 +38,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
         preferencesSubscription = preferencesService.Subscribe(
            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
@@ -48,7 +47,6 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        await base.OnParametersSetAsync();
         logger.LogInformation($"OnParametersSetAsync");
         var prefs = await preferencesService.GetPreferences();
         await InitializeOrOnNextPrefs(prefs);
@@ -161,7 +159,7 @@
         <div class="bt-main-inside-scroll">
             <MudStack Row="true">
                 <MudText Typo="Typo.h6">Identifiers</MudText>
-                <MudText Typo="Typo.body1">@CountLabel</MudText>
+                <MudText Typo="Typo.h6">@CountLabel</MudText>
                 <MudTooltip Delay="0.5"
                             Text="">
                     <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />

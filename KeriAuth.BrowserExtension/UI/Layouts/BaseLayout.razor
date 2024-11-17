@@ -36,7 +36,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
+        // await base.OnInitializedAsync();
 
         stateSubscription = stateService.Subscribe(
         onNext: async (IStateService.States value) => await HandleNextFromStateService(value),

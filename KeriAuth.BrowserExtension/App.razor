@@ -45,7 +45,6 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        // await base.OnInitializedAsync();
         // TODO P2 hack. Instead, create a StaticHelper static class that has injected methods
         staticStateService = stateService;
         staticNavManager = navManager;

@@ -97,7 +97,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
         logger.LogInformation($"OnInitialized");
         await getCredentials();
         await RefreshFromWebsiteConfig();
@@ -110,7 +109,6 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        await base.OnParametersSetAsync();
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
         await GetInitialHeadlines();
 
@@ -473,7 +471,7 @@
                         </table>
                     </MudPaper>
                 }
-                <MudCheckBox Label="Automatically sign Http Request Headers" style="height: 28px;" Value="@IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSignHeaders(b)" />
+                <MudCheckBox Label="Automatically sign Http Request Headers" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSignHeaders(b)" />
             }
         </div>
     </MudStack>

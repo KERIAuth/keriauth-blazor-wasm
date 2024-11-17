@@ -121,7 +121,6 @@
 @code {
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
         var res = await identifiersService.GetIdentifierHeadlines();
         if (res is not null && res.IsSuccess)

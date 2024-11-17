@@ -50,7 +50,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
         logger.LogInformation($"OnInitializedAsync");
         return;
     }
@@ -58,7 +57,6 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        await base.OnParametersSetAsync();
         var websitesRes = await websiteConfigService.GetList();
         if (websitesRes is not null && websitesRes.IsSuccess && websitesRes.Value is not null && websitesRes.Value.WebsiteList.Any())
         {
@@ -67,7 +65,7 @@
         }
         else
         {
-            WWebsites = null;
+            WWebsites = [];
             SelectedWebsiteOrigin = null;
         }
         StateHasChanged();
@@ -100,7 +98,7 @@
         <div class="bt-main-inside-scroll">
             <MudStack Row="true">
                 <MudText Typo="Typo.h6">Websites</MudText>
-                <MudText Typo="Typo.body1">@CountLabel</MudText>
+                <MudText Typo="Typo.h6">@CountLabel</MudText>
             </MudStack>
             @if (WWebsites is not null && WWebsites.Any())
             {
@@ -123,7 +121,7 @@
                             </MudTd>
                             <MudTd DataLabel="Auto-Sign Http Request Headers?">@(context.IsAutoSignHeaders ? "Yes" : "No")</MudTd>
                             <MudTd DataLabel="Edit">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Href="javascript:void(0);" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))"></MudIconButton>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))"></MudIconButton>
                             </MudTd>
                             <MudTh DataLabel="Launch">
                                 <MudIconButton Icon="@Icons.Material.Filled.Launch" Href="@context.Origin.OriginalString" Target="@((GetNumberFromHash.HashInt(context.Origin.OriginalString)).ToString())"></MudIconButton>

@@ -57,8 +57,7 @@
     /*
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
-        // logger.LogInformation($"OnInitialized");
+        logger.LogInformation($"OnInitialized");
         return;
     }
     */
@@ -66,7 +65,6 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        await base.OnParametersSetAsync();
 
         // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
