@@ -110,7 +110,7 @@
 
     async Task refreshFromWebsiteConfig(Uri? originUri)
     {
-        logger.LogInformation("RefreshFromWebsiteConfig: originUri: {i}", originUri.OriginalString);
+        logger.LogInformation("RefreshFromWebsiteConfig: originUri: {i}", originUri!.OriginalString);
         if (originUri is null)
         {
             ThisWebsiteConfig = null;
