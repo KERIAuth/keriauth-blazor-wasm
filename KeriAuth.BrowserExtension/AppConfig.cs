@@ -10,11 +10,10 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToIdentifiers = "/Identifiers";
         public const string RouteToCredentials = "/Credentials";
         public const string RouteToWebsites = "/Websites";
-        public const string RouteToStart = "/Start";
+        public const string RouteToIndex = "/";
         public const string RouteToDelete = "/Delete";
         public const string RouteToNewInstall = "/NewInstall";
         public const string RouteToHome = "/Home";
-        public const string RouteToIndex = "/index.html"; // Used for reload of App?
         public const string RouteToTermsPage = "/Terms";
         public const string RouteToManagePrefs = "/ManagePreferences";
         public const string RouteToManageAgents = "/KeriAgentService";
@@ -52,7 +51,7 @@ namespace KeriAuth.BrowserExtension
 
         public static readonly List<string> ViewsNotRequiringAuth =
         [
-            RouteToStart,
+            RouteToIndex,
             RouteToDelete,
             RouteToNewInstall,
             RouteToWelcome,

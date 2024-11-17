@@ -73,7 +73,7 @@
                 HasAcknowledgedNewVersion = true
             };
         _ = await storageService.SetItem<OnboardState>(onboardState);
-        navManager.NavigateTo(RouteToStart);
+        navManager.NavigateTo(RouteToIndex);
     }
 
     protected override async Task OnInitializedAsync()

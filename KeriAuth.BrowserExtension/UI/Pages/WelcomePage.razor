@@ -89,7 +89,7 @@
         onboardState = onboardState with { HasAcknowledgedInstall = true };
         await storageService.SetItem(onboardState);
 
-        navManager.NavigateTo(RouteToStart);
+        navManager.NavigateTo(RouteToIndex);
         return;
     }
 

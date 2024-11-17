@@ -140,7 +140,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <!-- Intentionally no back button here -->
         <MudSpacer />
-        <MudButton Disabled="@(!IsKeriaConfigured())" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToStart))" Class="justify-start" data-testid="next">Next</MudButton>
+        <MudButton Disabled="@(!IsKeriaConfigured())" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToIndex))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
 

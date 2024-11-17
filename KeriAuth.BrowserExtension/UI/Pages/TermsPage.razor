@@ -124,6 +124,6 @@
                 PrivacyAgreedUtc = DateTime.UtcNow,
             };
         _ = await storageService.SetItem<OnboardState>(newOnboardState);
-        navManager.NavigateTo(RouteToStart);
+        navManager.NavigateTo(RouteToIndex);
     }
 }

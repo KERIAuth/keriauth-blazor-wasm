@@ -55,8 +55,8 @@
             case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 StateHasChanged();
-                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToStart");
-                navManager.NavigateTo(RouteToStart);
+                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
+                navManager.NavigateTo(RouteToIndex);
                 break;
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
