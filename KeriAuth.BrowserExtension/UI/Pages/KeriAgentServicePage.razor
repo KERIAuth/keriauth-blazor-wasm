@@ -28,12 +28,12 @@
                 <MudTooltip Delay="0.5" Placement="Placement.Bottom"
                             Text="This is a read-only view. You would need to select Delete Configuration from the menu to reset the connection.">
                     <MudStack Row="true">
-                        <MudText Typo="Typo.h6">KERI Agent Service - Connection Configuration</MudText>
-                        <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
+                        <MudText Typo="Typo.h6">KERI Agent Service</MudText>
+                        <!-- <MudIcon Icon=" (at)  Icons.Material.Outlined.Info" Class="bt-info-icon" /> -->
                     </MudStack>
                 </MudTooltip>
             </div>
-            <MudStack Class="d-flex justify-center mt-3">
+            <MudStack Class="d-flex justify-center mt-4">
                 <MudText><b>KERIA Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
                 <MudText><b>KERIA Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
                 <MudText><b>Vendor Support URL:</b> <MudLink Target="blank" Href="http://example.com">http://example.com</MudLink></MudText>

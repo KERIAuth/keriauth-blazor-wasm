@@ -44,19 +44,20 @@
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<Dictionary<string, object>> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<Dictionary<string, object>>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-    bool IsAutoSign => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
-    public Uri? OriginUri => OriginStr is null ? null : TryCreateUri(OriginStr);
+    bool IsAutoSignHeaders => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
+    Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync...");
         // Initial render prerequisites here
-        await GetInitialIdentifierHeadlines();
+        await getInitialIdentifierHeadlines();
         await getCredentials();
-        await Task.Delay(100); // allow cycles for reactive properties to update
-        await SendValueToParent(); // allows parent to enable or disable Sign In button, for example
-                                   // StateHasChanged();
-        logger.LogInformation("OnInitializedAsync done");
+        // allow cycles for reactive properties to update
+        // await Task.Delay(100);
+        // allow parent to enable or disable Sign In button, for example
+        await sendValueToParent();
+        // StateHasChanged();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -71,12 +72,12 @@
             logger.LogInformation("OnAfterRenderAsync");
             if (OriginUri is not null)
             {
-                await RefreshFromWebsiteConfig(OriginUri);
+                await refreshFromWebsiteConfig(OriginUri);
             }
         }
     }
 
-    private Uri? TryCreateUri(string origin)
+    Uri? tryCreateUri(string origin)
     {
         try
         {
@@ -92,7 +93,7 @@
     /*
     * Send data back to host of this component, such as the RequestSignInPage or RequestSignPage.
     */
-    async Task SendValueToParent()
+    async Task sendValueToParent()
     {
         logger.LogInformation($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
 
@@ -107,7 +108,7 @@
         // StateHasChanged(); // needed?
     }
 
-    async Task RefreshFromWebsiteConfig(Uri? originUri)
+    async Task refreshFromWebsiteConfig(Uri? originUri)
     {
         logger.LogInformation("RefreshFromWebsiteConfig: originUri: {i}", originUri.OriginalString);
         if (originUri is null)
@@ -131,7 +132,7 @@
                 {
                     SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
                     ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
-                    await UpdateWebsiteConfigAndParent(ThisWebsiteConfig);
+                    await updateWebsiteConfigAndParent(ThisWebsiteConfig);
                     // Note above includes StateHasChanged.
                     return;
                 }
@@ -156,7 +157,7 @@
         logger.LogInformation("RefreshFromWebsiteConfig: done");
     }
 
-    private async Task GetInitialIdentifierHeadlines()
+    private async Task getInitialIdentifierHeadlines()
     {
         // logger.LogWarning("GetInitialIdentifierHeadlines() ...");
         var res = await identifiersService.GetIdentifierHeadlines();
@@ -228,14 +229,14 @@
         logger.LogInformation("updateSelectedPrefix 2");
         // _ = newWebsiteConfig.Validate();
         logger.LogInformation("updateSelectedPrefix 3");
-        await UpdateWebsiteConfigAndParent(newWebsiteConfig);
+        await updateWebsiteConfigAndParent(newWebsiteConfig);
         logger.LogInformation("updateSelectedPrefix updated ConfigAndParent");
         if (OriginUri is not null)
         {
             await Task.Delay(100); // allow reactive properties to update
-            await RefreshFromWebsiteConfig(OriginUri);
+            await refreshFromWebsiteConfig(OriginUri);
             await Task.Delay(100); // allow reactive properties to update
-            await SendValueToParent(); // may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
+            await sendValueToParent(); // may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
         }
         logger.LogInformation("updateSelectedPrefix 4");
         await Task.Delay(100); // tmp?
@@ -263,35 +264,35 @@
             return;
         }
 
-        var rememberedCredSaidOrNothing = DictionaryConverter.GetValueByPath(newSelectedCredential, "sad.d")?.Value?.ToString() ?? null;
-        if (rememberedCredSaidOrNothing is null)
+        var newCredSaidOrNothing = DictionaryConverter.GetValueByPath(newSelectedCredential, "sad.d")?.Value?.ToString() ?? null;
+        if (newCredSaidOrNothing is null)
         {
             string json = JsonConvert.SerializeObject(newSelectedCredential, Formatting.Indented);
             logger.LogInformation("updateSelectedCredential set to ~ ", json);
             logger.LogError($"updateSelectedCredential: Could not find SAID of credential");
             return;
         }
-        logger.LogWarning("updateSelectedCredential credSaid: ", rememberedCredSaidOrNothing);
+        logger.LogWarning("updateSelectedCredential credSaid: ", newCredSaidOrNothing);
 
         var newWebsiteConfig = ThisWebsiteConfig with
             {
-                RememberedCredSaidOrNothing = rememberedCredSaidOrNothing,
+                RememberedCredSaidOrNothing = newCredSaidOrNothing,
                 RememberedPrefixOrNothing = SelectedPrefix,
-                IsAutoSignHeaders = IsAutoSign,
-                IsAutoSignInCredential = IsAutoSign,
-                IsAutoSignInIdentifier = IsAutoSign // intentional, since selected cred implies identifier
+                IsAutoSignHeaders = IsAutoSignHeaders,
+                IsAutoSignInCredential = IsAutoSignHeaders,
+                IsAutoSignInIdentifier = IsAutoSignHeaders // intentional, since selected cred implies identifier
             };
         // newWebsiteConfig.Validate();
 
-        await UpdateWebsiteConfigAndParent(newWebsiteConfig);
+        await updateWebsiteConfigAndParent(newWebsiteConfig);
 
         IsCredListExpanded = false;
         // why is any of the following needed?
         if (OriginUri is not null)
         {
-            await RefreshFromWebsiteConfig(OriginUri);
+            await refreshFromWebsiteConfig(OriginUri);
             await Task.Delay(100); // needed? allow time for reactive properties to update
-            await SendValueToParent(); // needed?
+            await sendValueToParent(); // needed?
         }
         return;
     }
@@ -318,28 +319,28 @@
         if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
         {
             ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
-            await UpdateWebsiteConfigAndParent(ThisWebsiteConfig);
+            await updateWebsiteConfigAndParent(ThisWebsiteConfig);
         }
         StateHasChanged(); // needed?
     }
 
-    string GetCredentialItemClass(Dictionary<string, object> item)
+    string getCredentialItemClass(Dictionary<string, object> item)
     {
         return item == SelectedCredentialOrNothing ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1";
     }
 
-    string GetIdentifierItemClass(string prefix)
+    string getIdentifierItemClass(string prefix)
     {
         return prefix == SelectedPrefix ? "selected-item" : String.Empty;
     }
 
-    async Task UpdateWebsiteConfigAndParent(WebsiteConfig wc)
+    async Task updateWebsiteConfigAndParent(WebsiteConfig wc)
     {
         // TODO P2 evaluate results
         var res = await websiteConfigService.Update(wc);
         logger.LogInformation("UpdateWebsiteConfigAndParent success: {r}", res.IsSuccess);
         await Task.Delay(100); // allow reactive properties time to evaluate
-        await SendValueToParent();
+        await sendValueToParent();
     }
 }
 
@@ -348,17 +349,18 @@
     {
         <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
     }
-    <!-- Select Identifier -->
+    
     <!-- assure prerequisites for below are set, and to assure loading all at once versus rolling -->
     @if (IdentifierHeadlines is not null && IdentifierHeadlines.Any() && CredentialsDict is not null)
     {
+        <!-- Select Identifier -->
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
                 <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
                     @foreach (var identifierHeadline in IdentifierHeadlines)
                     {
-                        <MudSelectItem T="string" Value="identifierHeadline.Prefix" Class="@GetIdentifierItemClass(identifierHeadline.Prefix)">
+                        <MudSelectItem T="string" Value="identifierHeadline.Prefix" Class="@getIdentifierItemClass(identifierHeadline.Prefix)">
                             <MudStack Row Style="align-items:center;">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -371,7 +373,7 @@
             </MudStack>
         </MudStack>
 
-        @if (IsCredentialShown && CredentialsDict.Any() && SelectedPrefix is not null )
+        @if (IsCredentialShown && CredentialsDict.Any() && SelectedPrefix is not null)
         {
             <!-- Select Credential --->
             <MudStack Class="gap-0">
@@ -403,7 +405,7 @@
                                 <MudList Dense="true" T="Dictionary<string, object>">
                                     @foreach (Dictionary<string, object> credential in FilteredCredentials)
                                     {
-                                        <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@GetCredentialItemClass(credential)">
+                                        <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@getCredentialItemClass(credential)">
                                             <CredentialDisplay credential="@credential" />
                                         </MudListItem>
                                     }
@@ -415,7 +417,7 @@
                             }
                         }
                     </MudPaper>
-                    <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSign" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                    <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
                 </MudStack>
             </MudStack>
         }
