@@ -114,10 +114,13 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
                         useActionPopup(tabId);
                     } else {
                         console.log('SW Permission denied for:', origin);
+                        Utils.createTab(`${location.origin}/index.html?environment=tab`);
                     }
                 });
             } else {
-                useActionPopup(tabId);
+                // if user clicks on the action icon on a page already allowed permission, but for an interaction not initiated from the content script
+                Utils.createTab(`${location.origin}/index.html?environment=tab`);
+                // useActionPopup(tabId);
             }
         });
         // Clear the popup url for the action button, if it is set, so that future use of the action button will also trigger this same handler
@@ -126,7 +129,8 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
     }
     // If the tab is not a web page, open the extension's popup window
     else {
-        createPopupWindow();
+        Utils.createTab(`${location.origin}/index.html?environment=tab`);
+        // createPopupWindow();
         return;
     }
 });

@@ -25,7 +25,7 @@ const UIHelper = () => {
         if (typeof (chrome.tabs) == 'undefined') {
             console.error('UIHelper: chrome.tabs is not available');
         } else {
-            const createProperties = { url: urlString } as chrome.tabs.CreateProperties;
+            const createProperties = { url: urlString  } as chrome.tabs.CreateProperties;
             chrome.tabs.create(createProperties);
         }
     }
