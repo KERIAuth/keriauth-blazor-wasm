@@ -123,19 +123,19 @@ async function createCredentialWithPRF(
         const credential = await retry(async () => {
             logMessage("INFO", "Attempting to create credential...", debug);
             return await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
-        }, retries, 15000); // 15000ms timeout per attempt
+        }, retries, 60000); // 60000ms timeout per attempt  // TODO
 
         const clientExtensionResults = (credential as any).getClientExtensionResults();
-        if (clientExtensionResults?.hmacCreateSecret) {
+        if (clientExtensionResults && clientExtensionResults.hmacCreateSecret) {
             logMessage("INFO", "PRF is supported, CTAP2.1 or higher.", debug);
             return { ok: true, value: credential };
         } else {
-            logMessage("WARN", "PRF not supported. Likely missing CTAP2.1.", debug);
+            logMessage("WARN", "PRF not supported. Ensure the authenticator supports CTAP2.1.", debug);
             return {
                 ok: false,
                 error: {
                     code: ErrorCode.UNSUPPORTED_FEATURE,
-                    message: "CTAP2.1 or higher is required for PRF support."
+                    message: "CTAP2.1 or higher is required for PRF support. Try updating the OS or using a compatible device."
                 }
             };
         }
@@ -222,7 +222,7 @@ async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
 }
 
 // Example usage
-export async function test() {
+export async function test(): Promise<String> {
 
     // example ids:
     // generate a Uint8Array from input of the KERIA connection AID and browser profile finterprint.
@@ -230,20 +230,21 @@ export async function test() {
 
     const user: User = {
         id: id2,
-        name: "user@example.com",
-        displayName: "User Example",
+        name: extensionName, // TODO P2
+        displayName: "User Example",  // TODO P2
     };
 
-    const challenge = await generateChallenge("extensionId...", "weakPassword");
+    const challenge = await generateChallenge("extensionId...", "weakPassword");  // TODO P1
 
-    createCredentialWithPRF(challenge, "rp-extension-id-v1", user, 3, true).then(result => {
-        if (isError(result)) {
-            console.error("Credential creation failed:", result.error.message);
-        } else {
-            console.log("Credential created:", result.value, ". Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key");
+    var result = await createCredentialWithPRF(challenge, "rp-extension-id-v1", user, 3, true);  // TODO P1
+    if (isError(result)) {
+        console.error("Credential creation failed:", result.error.message);
+        return "Credential creation failed:" + result.error.message
+    } else {
+        console.log("Credential created:", result.value, ". Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key");
+        return "Credential created: " + result.value + " . Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key";
 
-        }
-    });
+    }
 }
 
 // Derive a symmetric key from the PRF result
@@ -289,6 +290,7 @@ async function decryptData(encryptedData: ArrayBuffer, key: CryptoKey): Promise<
 }
 
 const extensionName = "KERI Auth";
+const displayName = "KERI Auth displayName"; // TODO P2
 
 async function registerAndEncryptSecret(extensionId: string, weakPassword: string, secret: string): Promise<void> {
     try {
@@ -301,14 +303,14 @@ async function registerAndEncryptSecret(extensionId: string, weakPassword: strin
             rp: { name: extensionName, id: extensionId },
             user: {
                 id: crypto.getRandomValues(new Uint8Array(32)),
-                name: "KERI Auth",
-                displayName: "KERI Auth displayName",
+                name: extensionName,
+                displayName: displayName,
             },
             pubKeyCredParams: [
                 { alg: -7, type: "public-key" },   // ES256
                 { alg: -257, type: "public-key" }  // RS256
             ],
-            timeout: 15000, // 15 seconds
+            timeout: 60000, // 60 seconds  TODO P2
             authenticatorSelection: { userVerification: "required" },
             extensions: { hmacCreateSecret: true }
         };

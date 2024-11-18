@@ -45,23 +45,34 @@
 @code {
     DotNetObjectReference<WebauthnTestPage> _objectReference = default!;
     IJSObjectReference _interopModule = default!;
+    string res { get; set; } = string.Empty;
 
-    async void test()
+    async Task test()
     {
+        res = String.Empty;
         logger.LogInformation("testing...");
         var isPublicKeyCredential = WebauthnCredentialWithPRF.CheckWebAuthnSupport();
         if (!isPublicKeyCredential)
         {
-            logger.LogWarning("Webauthn not adequately supported");
+            // logger.LogWarning("Webauthn not adequately supported");
+            res = res + "\n Webauthn not adequately supported. ";
             return;
         }
-        logger.LogInformation("Webauthn supported");
+        // logger.LogInformation("Webauthn supported");
+        res = res + "\n... Webauthn supported. ";
+        
 
+        await Task.Delay(1000);
+        res = res + "... Creating credential. ";
         var profileId = await WebauthnCredentialWithPRF.GetProfileIdentifier();
         logger.LogInformation("profileId: {s}", profileId);
-
-        WebauthnCredentialWithPRF.Test();
-        logger.LogInformation("call to test() completed");
+        res = res + "\n... profileId: " + profileId;
+        
+        await Task.Delay(1000);
+        res = res + "... Test. ";
+        var res2 = await WebauthnCredentialWithPRF.Test();
+        logger.LogInformation("call to test() completed: {r}", res2);
+        res = res + "\n... Test completed with " + res2;
 
         logger.LogInformation("tests completed");
     }
@@ -71,6 +82,8 @@
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
             <MudButton OnClick="test">Test</MudButton>
+
+            <MudText>@res</MudText>
         </MudStack>
     </div>
 </div>

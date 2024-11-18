@@ -16,7 +16,7 @@ namespace KeriAuth.BrowserExtension.Helper
         internal static partial Task<string> GetProfileIdentifier();
 
         [JSImport("test", "webauthnCredentialWithPRF")]
-        internal static partial void Test();
+        internal static partial Task<string> Test();
 
     }
 }
