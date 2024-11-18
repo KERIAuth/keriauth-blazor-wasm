@@ -111,8 +111,10 @@ async function createCredentialWithPRF(
             name: user.name,
             displayName: user.displayName,
         },
-        // -7 is in IANA COSE Algorithms registry, to represent ECDSA with SHA-256 on the P-256 curve.
-        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+        pubKeyCredParams: [
+            { alg: -7, type: "public-key" },   // ES256
+            { alg: -257, type: "public-key" }  // RS256
+        ],
         authenticatorSelection: { userVerification: "required" },
         extensions: { "hmac-secret": true },
     };
@@ -121,7 +123,7 @@ async function createCredentialWithPRF(
         const credential = await retry(async () => {
             logMessage("INFO", "Attempting to create credential...", debug);
             return await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
-        }, retries, 5000); // 5000ms timeout per attempt
+        }, retries, 15000); // 15000ms timeout per attempt
 
         const clientExtensionResults = (credential as any).getClientExtensionResults();
         if (clientExtensionResults?.hmacCreateSecret) {
@@ -302,7 +304,11 @@ async function registerAndEncryptSecret(extensionId: string, weakPassword: strin
                 name: "KERI Auth",
                 displayName: "KERI Auth displayName",
             },
-            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+            pubKeyCredParams: [
+                { alg: -7, type: "public-key" },   // ES256
+                { alg: -257, type: "public-key" }  // RS256
+            ],
+            timeout: 15000, // 15 seconds
             authenticatorSelection: { userVerification: "required" },
             extensions: { hmacCreateSecret: true }
         };
