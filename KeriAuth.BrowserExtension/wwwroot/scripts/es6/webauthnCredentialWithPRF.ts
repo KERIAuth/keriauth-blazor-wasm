@@ -55,22 +55,12 @@ function validateUser(user: User): Result<void> {
 /**
  * Checks for WebAuthn and PRF feature support.
  */
-export function checkWebAuthnSupport(): void { // TODO Result<void> {
-    //self.PublicKeyCredential;
-    //return;
-    if (self) {
-        console.log("self-full");
-    }
-    if (window) {
-        console.log("window-full");
-    }
+export function checkWebAuthnSupport(): Boolean { // TODO Result<void> {
     if (self.PublicKeyCredential) {
-        console.log("yes PublicKeyCredential");
-        return; // { ok: false, error: { code: ErrorCode.UNSUPPORTED_FEATURE, message: "WebAuthn is not supported in this browser." } };
+        return true;
     }
-    console.log("no PublicKeyCredential");
-    return; // { ok: true, value: undefined };
-    
+    console.log("no PublicKeyCredential support");
+    return false;
 }
 
 /**
@@ -166,7 +156,7 @@ async function createCredentialWithPRF(
 
 // Because chrome.storage.sync is specific per profile and per-extension this identifier will be unique to each profile.
 // This method essentially "fingerprints" a profile.
-async function getProfileIdentifier(): Promise<string> {
+export async function getProfileIdentifier(): Promise<string> {
     return new Promise((resolve) => {
         chrome.storage.sync.get(['KERIAuth_profileIdentifier'], (data) => {
             if (data.profileIdentifier) {
@@ -193,12 +183,48 @@ async function generateChallenge(extensionId: string, weakPassword: string): Pro
     return new Uint8Array(await hash);
 }
 
+// Function to create id2 with a 32-byte hash
+async function createId2(): Promise<Uint8Array> {
+    const prefix = "KERIA-connection-AID.prefix";
+
+    // Assume getProfileIdentifier() is defined and returns a Promise<string>
+    let profileIdentifier: string;
+    try {
+        profileIdentifier = await getProfileIdentifier();
+        if (!profileIdentifier) {
+            throw new Error("Profile identifier cannot be empty.");
+        }
+    } catch (error) {
+        console.error("Error fetching profile identifier:", error);
+        throw error;
+    }
+
+    const fullString = prefix + profileIdentifier;
+    const uint8Array = hashStringToUint8Array(fullString);
+    return uint8Array; // Return the 32-byte hash
+}
+
+async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
+    // Encode the input string to a Uint8Array
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+
+    // Use Web Crypto API to hash the data with SHA-256
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+    // Convert the hash buffer to a Uint8Array
+    const hashArray = new Uint8Array(hashBuffer);
+
+    // Return the 32-byte Uint8Array result
+    return hashArray;
+}
+
 // Example usage
-async function test() {
+export async function test() {
 
     // example ids:
     // generate a Uint8Array from input of the KERIA connection AID and browser profile finterprint.
-    const id2 = new TextEncoder().encode("KERIA-connection-AID.prefix" + await getProfileIdentifier());
+    var id2 = await createId2();
 
     const user: User = {
         id: id2,

@@ -49,21 +49,21 @@
     async void test()
     {
         logger.LogInformation("testing...");
-        /*
-        try
+        var isPublicKeyCredential = WebauthnCredentialWithPRF.CheckWebAuthnSupport();
+        if (!isPublicKeyCredential)
         {
-            _objectReference = DotNetObjectReference.Create(this);
-            _interopModule = await js.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
-            logger.LogInformation("JS module webauthnCredentialWithPRF.js import was successful.");
+            logger.LogWarning("Webauthn not adequately supported");
+            return;
         }
-        catch (Exception ex)
-        {
-            logger.LogError("Failed to import JS module: {e}", ex.Message);
-        }
+        logger.LogInformation("Webauthn supported");
 
-        await _interopModule.InvokeVoidAsync("checkWebAuthnSupport");
-        */
-        WebauthnCredentialWithPRF.CheckWebAuthnSupport();
+        var profileId = await WebauthnCredentialWithPRF.GetProfileIdentifier();
+        logger.LogInformation("profileId: {s}", profileId);
+
+        WebauthnCredentialWithPRF.Test();
+        logger.LogInformation("call to test() completed");
+
+        logger.LogInformation("tests completed");
     }
 }
 

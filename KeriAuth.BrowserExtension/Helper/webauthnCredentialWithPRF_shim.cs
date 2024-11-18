@@ -1,6 +1,7 @@
 ﻿using FluentResults;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KeriAuth.BrowserExtension.Helper
 {
@@ -8,8 +9,14 @@ namespace KeriAuth.BrowserExtension.Helper
     [SupportedOSPlatform("browser")]
     public partial class WebauthnCredentialWithPRF
     {
-        // TODO fix return type. handle the ts Result<Foo> types
         [JSImport("checkWebAuthnSupport", "webauthnCredentialWithPRF")]
-        internal static partial void CheckWebAuthnSupport();
+        internal static partial bool CheckWebAuthnSupport();
+
+        [JSImport("getProfileIdentifier", "webauthnCredentialWithPRF")]
+        internal static partial Task<string> GetProfileIdentifier();
+
+        [JSImport("test", "webauthnCredentialWithPRF")]
+        internal static partial void Test();
+
     }
 }
