@@ -49,6 +49,7 @@
     async void test()
     {
         logger.LogInformation("testing...");
+        /*
         try
         {
             _objectReference = DotNetObjectReference.Create(this);
@@ -61,6 +62,8 @@
         }
 
         await _interopModule.InvokeVoidAsync("checkWebAuthnSupport");
+        */
+        WebauthnCredentialWithPRF.CheckWebAuthnSupport();
     }
 }
 
