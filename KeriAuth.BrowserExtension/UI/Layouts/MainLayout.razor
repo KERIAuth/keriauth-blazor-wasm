@@ -110,12 +110,15 @@
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
+                    <MudNavLink Href=@RouteToWebauthn Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Webauthn</MudNavLink>
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
                 </MudNavGroup>
+
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
                     <MudNavLink Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
                     <MudNavLink Href=@RouteToTermsHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>

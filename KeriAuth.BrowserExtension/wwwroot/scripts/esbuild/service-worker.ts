@@ -12,6 +12,7 @@ import { Utils } from "../es6/uiHelper.js";
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders } from "./signify_ts_shim.js";
+import { checkWebAuthnSupport } from "../es6/webauthnCredentialWithPRF.js";
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"
@@ -51,7 +52,7 @@ self.addEventListener('activate', (event) => {
 // Listen for and handle event when the browser is launched
 chrome.runtime.onStartup.addListener(() => {
     console.log('SW runtime.onStartup');
-    // This handler, for when a new browser profile with the extension installed is first launched, 
+    // This handler, for when a new browser profile with the extension installed is first launched,
     // could potentially be used to set the extension's icon to a "locked" state, for example
 });
 

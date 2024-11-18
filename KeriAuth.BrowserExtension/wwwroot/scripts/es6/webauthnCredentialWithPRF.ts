@@ -1,3 +1,4 @@
+/// <reference types="chrome" />
 interface User {
     id: Uint8Array;
     name: string;
@@ -54,11 +55,22 @@ function validateUser(user: User): Result<void> {
 /**
  * Checks for WebAuthn and PRF feature support.
  */
-function checkWebAuthnSupport(): Result<void> {
-    if (!window.PublicKeyCredential) {
-        return { ok: false, error: { code: ErrorCode.UNSUPPORTED_FEATURE, message: "WebAuthn is not supported in this browser." } };
+export function checkWebAuthnSupport(): void { // TODO Result<void> {
+    //self.PublicKeyCredential;
+    //return;
+    if (self) {
+        console.log("self-full");
     }
-    return { ok: true, value: undefined };
+    if (window) {
+        console.log("window-full");
+    }
+    if (self.PublicKeyCredential) {
+        console.log("yes PublicKeyCredential");
+        return; // { ok: false, error: { code: ErrorCode.UNSUPPORTED_FEATURE, message: "WebAuthn is not supported in this browser." } };
+    }
+    console.log("no PublicKeyCredential");
+    return; // { ok: true, value: undefined };
+    
 }
 
 /**
@@ -87,10 +99,14 @@ async function createCredentialWithPRF(
     retries: number = 3,
     debug: boolean = false
 ): Promise<Result<PublicKeyCredential>> {
+
+    // TODO P0 uncomment
+    /*
     const supportCheck = checkWebAuthnSupport();
     if (isError(supportCheck)) {
         return { ok: false, error: supportCheck.error };
     }
+    */
 
     const userValidation = validateUser(user);
     if (isError(userValidation)) {
@@ -165,9 +181,6 @@ async function getProfileIdentifier(): Promise<string> {
     });
 }
 
-
-
-
 function isError<T>(result: Result<T>): result is { ok: false; error: { code: ErrorCode; message: string } } {
     return result.ok === false;
 }
@@ -179,7 +192,6 @@ async function generateChallenge(extensionId: string, weakPassword: string): Pro
     const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
     return new Uint8Array(await hash);
 }
-
 
 // Example usage
 async function test() {
@@ -290,14 +302,25 @@ async function registerAndEncryptSecret(extensionId: string, weakPassword: strin
         const encryptedSecret = await encryptData(secret, symmetricKey);
 
         // Store the encrypted secret in chrome.storage.local
-        chrome.storage.local.set({ encryptedSecret }, () => {
+        // Ensure `encryptedSecret` is stored as a Uint8Array, not as an ArrayBuffer
+        chrome.storage.local.set({ encryptedSecret: new Uint8Array(encryptedSecret) }, () => {
             console.log("Encrypted secret stored successfully.");
         });
 
         // For testing, retrieve and decrypt the stored secret
-        chrome.storage.local.get("encryptedSecret", async (data) => {
-            const decryptedSecret = await decryptData(data.encryptedSecret, symmetricKey);
-            console.log("Decrypted secret:", decryptedSecret);
+        chrome.storage.local.get("encryptedSecret", (data: { [key: string]: any }) => {
+            // Perform a runtime check to ensure data.encryptedSecret exists and is a Uint8Array
+            if (data.encryptedSecret instanceof Uint8Array) {
+                decryptData(data.encryptedSecret.buffer, symmetricKey)
+                    .then((decryptedSecret) => {
+                        console.log("Decrypted secret:", decryptedSecret);
+                    })
+                    .catch((error) => {
+                        console.error("Decryption failed:", error);
+                    });
+            } else {
+                console.error("No valid encrypted secret found in storage.");
+            }
         });
 
     } catch (error) {
@@ -305,4 +328,3 @@ async function registerAndEncryptSecret(extensionId: string, weakPassword: strin
     }
 }
 
-export { }
