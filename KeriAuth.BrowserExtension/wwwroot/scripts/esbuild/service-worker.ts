@@ -379,8 +379,8 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                     if (csConnection.tabId != -1) {
                         const lastGasp = {
                             type: SwCsMsgType.REPLY,
-                            error: { code: 501, message: "User closed KERI Auth or canceled pending request" },
-                            payload: {},
+                            error: "User closed KERI Auth or canceled pending request",
+                            requestId: 999999,  // TODO P3: maybe this requestId value is filled in by content script?
                         };
                         try {
                             csConnection.port.postMessage(lastGasp);

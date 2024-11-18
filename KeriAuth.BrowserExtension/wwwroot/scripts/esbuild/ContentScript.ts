@@ -109,19 +109,18 @@ document.addEventListener('DOMContentLoaded', (event) => {
         // TODO P2 implement reconnection logic, but now with a new uniquePortName?
         // handle disconnects, e.g. when a new extension is loaded (but not when a popup is closed)
 
-        // TODO P2 this lastGasp needs work. Should have an typescript interface definition.
-        const lastGasp = {
+        // TODO P2 this lastGasp and other errors needs work. Should have an typescript interface definition.
+        const lastGasp: KeriAuthMessageData<AuthorizeResult> = {
             type: SwCsMsgType.REPLY,
             requestId: lastRequestIdFromPage,
             source: CsToPageMsgIndicator,
-            payload: {},
-            error: "User closed KERI Auth or canceled pending request",
+            error: "KERI Auth canceled request, or was disconnected"
         };
 
         console.log("KeriAuthCs to Page: lastGasp: ", lastGasp);
         // it's possible the tab also closed first, but try to postMessage anyway
 
-        postMessageToPage<unknown>(lastGasp);
+        postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(lastGasp);
     });
 
     // Send a hello message to the service worker (versus waiting on a triggering message from the page)
@@ -191,12 +190,11 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                 console.info(`KeriAuthCs: ${event.data.type} not implemented`);
                 // TODO P2 implement sessions?
                 const msg: KeriAuthMessageData<AuthorizeResult> = {
-                    type: "/signify/reply",
+                    type: SwCsMsgType.REPLY,
                     requestId: lastRequestIdFromPage,
-                    payload: {},
-                    error: { code: 501, message: "KERIAuthCs: sessions not supported" },
                     source: CsToPageMsgIndicator,
-                }
+                    error: "KERIAuthCs: sessions not supported",
+                };
                 postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
                 break;
             default:
