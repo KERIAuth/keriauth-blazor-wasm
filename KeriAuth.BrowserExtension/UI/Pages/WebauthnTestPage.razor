@@ -46,6 +46,13 @@
     IJSObjectReference _interopModule = default!;
     string res { get; set; } = string.Empty;
 
+    async Task createCred()
+    {
+        await WebauthnCredentialWithPRF.CreateCred();
+
+    }
+
+
     async Task test()
     {
         res = String.Empty;
@@ -64,8 +71,8 @@
         await Task.Delay(1000);
         res = res + "... Creating credential. ";
         var profileId = await WebauthnCredentialWithPRF.GetProfileIdentifier();
-        logger.LogInformation("profileId: {s}", profileId);
-        res = res + "\n... profileId: " + profileId;
+        // logger.LogInformation("profileId: {s}", profileId);
+        // res = res + "\n... profileId: " + profileId;
         
         await Task.Delay(1000);
         res = res + "... Test. ";
@@ -81,7 +88,7 @@
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
             <MudButton OnClick="test">Test</MudButton>
-
+            <MudButton OnClick="createCred">CreatePasswordless Cred</MudButton>"
             <MudText>@res</MudText>
         </MudStack>
     </div>
