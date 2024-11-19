@@ -1,9 +1,9 @@
 /// <reference types="chrome" />
 
-interface User {
+interface User extends PublicKeyCredentialUserEntity {
     id: Uint8Array;
     name: string;
-    displayName: string;
+    displayName: string; // TODO: required?
 }
 
 type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOptions & {
@@ -27,23 +27,34 @@ interface ResultError {
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
 
-/**
- * Validates the User object, ensuring required fields are non-empty.
- * @param user The User object to validate.
- * @returns Result indicating success or validation error.
- */
-function validateUser(user: User): Result<boolean> {
-    if (!user.name || user.name.trim() === "") {
-        return { ok: false, error: { code: ErrorCode.VALIDATION_ERROR, message: "The 'name' field must be a non-empty string." } };
-    }
-    if (!user.displayName || user.displayName.trim() === "") {
-        return { ok: false, error: { code: ErrorCode.VALIDATION_ERROR, message: "The 'displayName' field must be a non-empty string." } };
-    }
-    if (user.id.byteLength < 16 || user.id.byteLength > 32) {
-        return { ok: false, error: { code: ErrorCode.VALIDATION_ERROR, message: "The 'id' field must be a Uint8Array with a length between 16 and 32 bytes." } };
-    }
-    return { ok: true, value: true };
-}
+// const's used widely in these functions...
+const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
+const KeriAuthExtensionName = "KERI Auth";
+const displayName = "KERI Auth displayName"; // TODO P2
+const KeriAuthRp: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+const pubKeyCredParams: PublicKeyCredentialParameters[] = [
+    { alg: -7, type: "public-key" },   // ES256
+    { alg: -257, type: "public-key" }  // RS256
+];
+const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
+    "hmac-secret": true,
+    "credProps": true, //TODO P1 needed?
+    "prf": {   // See https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-eval within https://w3c.github.io/webauthn/#prf-extension
+        "eval": {
+            "first": new Uint8Array(16)
+        }
+    },
+    // hmacCreateSecret: true,
+};
+
+const makeCredentialTimeout = 60000;
+const authenticatorSelection = {
+    "residentKey": "required",
+    "requireResidentKey": true,
+    // "userVerification": "preferred",
+    // "authenticatorAttachment": "cross-platform"
+};
+
 
 /**
  * Checks for WebAuthn and PRF feature support.
@@ -67,11 +78,6 @@ async function retry<T>(operation: () => Promise<T>, retries: number, timeout: n
     throw new Error("Max retries reached.");
 }
 
-const pubKeyCredParams: PublicKeyCredentialParameters[] = [
-    { alg: -7, type: "public-key" },   // ES256
-    { alg: -257, type: "public-key" }  // RS256
-];
-
 /**
  * Creates a WebAuthn credential with PRF support, if available.
  * @param challenge The Uint8Array challenge.
@@ -93,11 +99,6 @@ async function createCredentialWithPRF(
         };
     }
 
-    const userValidation: Result<boolean> = validateUser(user);
-    if (isError(userValidation)) {
-        return { ok: false, error: userValidation.error };
-    }
-
     // prepare parameters for credential creation
 
     const user2: PublicKeyCredentialUserEntity = {
@@ -105,24 +106,16 @@ async function createCredentialWithPRF(
         name: user.name,
         displayName: user.displayName,
     }
-    const challenge2 = challenge as BufferSource;
-    // window.crypto.getRandomValues(challenge2);  // why here?
-    const extensions: AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
-        "hmac-secret": true, "prf": { "eval": { "first": new Uint8Array(16) } },
-
-    };
-
+    var challenge = await generateChallenge(KeriAuthExtensionName);
     const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = {
-        challenge: challenge2,
+        challenge: challenge,
         rp: KeriAuthRp,
         user: user2,
         pubKeyCredParams: pubKeyCredParams,
-        authenticatorSelection: { userVerification: "required" },
+        authenticatorSelection: { userVerification: "required" }, // TODO P1: can use const authenticatorSelection
         extensions: extensions,
         timeout: 60000 // 60 seconds
     };
-
-
     try {
         const credential: PublicKeyCredential | null = await retry(async () => {
             console.log("Attempting to create credential...");
@@ -207,18 +200,15 @@ function isError<T>(result: Result<T>): result is { ok: false; error: { code: Er
     return result.ok === false;
 }
 
-async function generateChallenge(extensionId: string, weakPassword: string): Promise<Uint8Array> {
+async function generateChallenge(extensionId: string): Promise<Uint8Array> {
     const profileIdentifier = await getProfileIdentifier();
-    // Hash the concatenated inputs to create a unique challenge
-    const concatenatedInput = `${extensionId}:${profileIdentifier}:${weakPassword}`;  // TODO P2 should the KERIA AID be part of this?
+    // TODO P3 pass in profileIdentifier as a param, so this is unit-testable
+    const concatenatedInput = `${extensionId}:${profileIdentifier}`;
     const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
     return new Uint8Array(await hash);
 }
 
-// Function to create id2 with a 32-byte hash
-// Want this not to be only the profileIdentifier hash, but dependant on the KERIA Connection, since the encrypted passcode will be different depending on that.
-async function createId2(): Promise<Uint8Array> {
-    const prefix = "KERIA-connection-AID.prefix";  // TODO P2 see above Want
+async function getOrCreateUserId(): Promise<Uint8Array> {
     let profileIdentifier: string;
     try {
         profileIdentifier = await getProfileIdentifier();
@@ -229,12 +219,13 @@ async function createId2(): Promise<Uint8Array> {
         console.error("Error fetching profile identifier:", error);
         throw error;
     }
-    const fullString = prefix + profileIdentifier;
-    const uint8Array = hashStringToUint8Array(fullString);
-    return uint8Array; // Return the 32-byte hash
+    return hashStringToUint8Array(profileIdentifier);
 }
 
 async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
+    // TODO P1, why not simply use the following:
+    // const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
+
     // Encode the input string to a Uint8Array
     const encoder = new TextEncoder();
     const data = encoder.encode(input);
@@ -251,20 +242,12 @@ async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
 
 // Example usage
 export async function test(): Promise<String> {
-
-    // example ids:
-    // generate a Uint8Array from input of the KERIA connection AID and browser profile fingerprint.
-    var id2 = await createId2();
-    const user: User = {
-        id: id2,
-        name: KeriAuthExtensionName, // TODO P2
-        displayName: "User Example",  // TODO P2
-    };
-    const challenge = await generateChallenge(KeriAuthExtensionId, "weakPassword");  // TODO P1 provide user's password
+    var user = await getOrCreateUser();
+    const challenge = await generateChallenge(KeriAuthExtensionId);
     var result = await createCredentialWithPRF(challenge, user);
     if (isError(result)) {
-        console.error("Credential creation failed #11:", result);
-        return "Credential creation failed #11:" + result.error.message
+        console.error("Credential creation failed #11: already exists?: ", result);
+        return "Credential creation failed #11: already exists?" + result.error.message
     } else {
         console.log("Credential created:", result.value, ". Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key");
         console.log("Credential id might need to be stored: ", result.value.id);
@@ -314,53 +297,55 @@ async function decryptData(encryptedData: ArrayBuffer, key: CryptoKey): Promise<
     );
     return new TextDecoder().decode(decryptedData);
 }
+async function getOrCreateUser(): Promise<User> {
+    let id = await getOrCreateUserId();
+    let user: User;
+    user = {
+        id: id,
+        name: KeriAuthExtensionName,
+        displayName: displayName,
+    };
+    return user;
+}
 
-const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal";
-const KeriAuthExtensionName = "KERI Auth";
-const displayName = "KERI Auth displayName"; // TODO P2
-const KeriAuthRp: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+function verifyClientExtensionResults(clientExtensionResults: any) : void { // todo P0 what type?
+    // TODO P1 should return a Result<X>
+    if (!clientExtensionResults["hmac-secret"]) {
+        throw new Error("hmac-secret is not supported by this authenticator.");
+    }
+    if (!clientExtensionResults["prf"]) {
+        throw new Error("prf is not supported by this authenticator.");
+    }
+}
 
 
-
-async function registerAndEncryptSecret(weakPassword: string, secret: string): Promise<void> {
+// TODO P1, return an interface versus void. Change thrown errors to returns
+async function registerAndEncryptSecret(secret: string): Promise<void> {
     try {
-        // Generate a challenge based on inputs to uniquely identify this request
-        const challenge = await generateChallenge(KeriAuthExtensionName, weakPassword);
+        const challenge = await generateChallenge(KeriAuthExtensionName);
+        var user = await getOrCreateUser();
 
+        // TODO P0 can these options be in one place for the create options?
         // Define WebAuthn public key options
         const publicKey: any = {  // note while this should be of type PublicKeyCredentialCreationOptions, that interface definition does not yet handles the "prf: true" section.
-            challenge,
+            challenge: challenge,
             rp: KeriAuthRp,
-            user: {
-                id: crypto.getRandomValues(new Uint8Array(32)),
-                name: KeriAuthExtensionName,
-                displayName: displayName,
-            },
+            user: user,
             pubKeyCredParams: pubKeyCredParams,
             timeout: 60000, // 60 seconds  TODO P2
-            authenticatorSelection: { userVerification: "required" },
-            extensions: {
-                // hmacCreateSecret: true,
-                "hmac-secret": true,
-                prf: { "eval": { "first": new Uint8Array(16) } },
-            }
+            authenticatorSelection: authenticatorSelection, // { userVerification: "required" }, // TODO P1: can use const authenticatorSelection
+            extensions: extensions,
         };
 
-        // Call navigator.credentials.create to create the WebAuthn credential
         const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
-
         if (!credential) {
             throw new Error("Credential creation failed #12: No credential returned.");
         }
 
-        // Verify that PRF is supported
+        // Verify that hmac and PRF are supported
         const clientExtensionResults = (credential as any).getClientExtensionResults();
-        if (!clientExtensionResults["hmac-secret"]) {
-            throw new Error("hmac-secret is not supported by this authenticator.");
-        }
-        if (!clientExtensionResults["prf"]) {
-            throw new Error("prf is not supported by this authenticator.");
-        }
+
+        verifyClientExtensionResults(clientExtensionResults);
 
         // Use the PRF result as part of the symmetric key derivation
         const prfResult = clientExtensionResults["hmac-secret"];
@@ -382,6 +367,9 @@ async function registerAndEncryptSecret(weakPassword: string, secret: string): P
                 decryptData(data.encryptedSecret.buffer, symmetricKey)
                     .then((decryptedSecret) => {
                         console.log("Decrypted secret:", decryptedSecret);
+                        if (secret != decryptedSecret) {
+                            throw new Error("why?");
+                        }                
                     })
                     .catch((error) => {
                         console.error("Decryption failed:", error);
@@ -390,7 +378,6 @@ async function registerAndEncryptSecret(weakPassword: string, secret: string): P
                 console.error("No valid encrypted secret found in storage.");
             }
         });
-
     } catch (error) {
         console.error("An error occurred:", error);
     }
@@ -442,7 +429,7 @@ export async function createCred() {
     // possible values: <empty>, platform, cross-platform
     let authenticator_attachment = "";
     // possible values: preferred, required, discouraged
-    let user_verification = "preferred";
+    let user_verification = "required";
     // possible values: discouraged, preferred, required
     let residentKey = "discouraged";
 
@@ -481,87 +468,29 @@ export async function createCred() {
     */
 
     //    var challenge2 = coerceToArrayBuffer("challenge", "challengeName");
-
-    const makeCredentialOptions2: any = {
-        "rp": {
-            // "id": "localhost",
-            "name": "FIDO2 Test"
-        },
-        "user": {
-            "name": "KERI Auth", // "xx (Usernameless user created at 11/19/2024 2:11:49 AM)",
-            "id": new Uint8Array(16).buffer,  // or, perhaps just {}.
-            // "displayName": "John Doe"
-        },
-        "challenge": hexToArrayBuffer("7b226e616d65223a2250616e6b616a222c22616765223a32307d"), // Converted to ArrayBuffer
+    var user = await getOrCreateUser();
+    const publicKey: any = {
+        "rp": KeriAuthRp,
+        "user": user,
+        "challenge": hexToArrayBuffer("7b226e616d65223a2250616e6b616a222c22616765223a32307d"), // Converted to ArrayBuffer. // TODO P1 example to real?
         // or new Uint8Array(32);
-        "pubKeyCredParams": [
-            //{
-            //    "type": "public-key",
-            //    "alg": -8
-            //},
-            {
-                "type": "public-key",
-                "alg": -7
-            },
-            {
-                "type": "public-key",
-                "alg": -257
-            },
-            //{
-            //    "type": "public-key",
-            //    "alg": -37
-            //},
-            //{
-            //    "type": "public-key",
-            //    "alg": -35
-            //},
-            //{
-            //    "type": "public-key",
-            //    "alg": -258
-            //},
-            //{
-            //    "type": "public-key",
-            //    "alg": -38
-            //},
-            //{
-            //    "type": "public-key",
-            //    "alg": -36
-            //},
-            //{
-            //    "type": "public-key",
-            //    "alg": -259
-            //},
-            //{
-            //    "type": "public-key",
-            //    "alg": -39
-            //}
-        ],
-        "timeout": 60000,
+        "pubKeyCredParams": pubKeyCredParams,
+        "timeout": makeCredentialTimeout,
         "attestation": "none",
         "attestationFormats": [],
-        "authenticatorSelection": {
-            "residentKey": "required",
-            "requireResidentKey": true,
-            // "userVerification": "preferred",
-            // "authenticatorAttachment": "cross-platform"
-        },
+        "authenticatorSelection": authenticatorSelection,
         "hints": [],
         "excludeCredentials": [],
-        "extensions": {
-            "exts": true,
-            "credProps": true,
-            "prf": { "eval": { "first": new Uint8Array(16) } },  // See https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-eval within https://w3c.github.io/webauthn/#prf-extension
-            "hmac-secret": true
-        }
+        "extensions": extensions,
+        
     }
-    console.log("Credential Options Formatted", makeCredentialOptions2);
+    console.log("Credential Options Formatted", publicKey);
 
     console.log("Creating PublicKeyCredential...");
 
     let newCredential; // : Credential | null;
     try {
-        newCredential = await navigator.credentials.create({
-            publicKey: makeCredentialOptions2
+        newCredential = await navigator.credentials.create({ publicKey  // TODO P1 fix this usage in other .create()'s
         });
     } catch (e) {
         var msg = "Could not create credentials in browser. Probably because the username is already registered with your authenticator. Please change username or authenticator."
