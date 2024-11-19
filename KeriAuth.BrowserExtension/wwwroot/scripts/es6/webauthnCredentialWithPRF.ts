@@ -48,11 +48,11 @@ const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?:
 };
 
 const makeCredentialTimeout = 60000;
-const authenticatorSelection = {
-    "residentKey": "required",
-    "requireResidentKey": true,
-    // "userVerification": "preferred",
-    // "authenticatorAttachment": "cross-platform"
+const authenticatorSelection: AuthenticatorSelectionCriteria = {
+    residentKey: "required",
+    requireResidentKey: true,
+    userVerification: "required",
+    // authenticatorAttachment: "cross-platform" // TODO P2 could make this a user preference
 };
 
 
@@ -112,7 +112,7 @@ async function createCredentialWithPRF(
         rp: KeriAuthRp,
         user: user2,
         pubKeyCredParams: pubKeyCredParams,
-        authenticatorSelection: { userVerification: "required" }, // TODO P1: can use const authenticatorSelection
+        authenticatorSelection: authenticatorSelection,
         extensions: extensions,
         timeout: 60000 // 60 seconds
     };
@@ -332,9 +332,13 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
             rp: KeriAuthRp,
             user: user,
             pubKeyCredParams: pubKeyCredParams,
-            timeout: 60000, // 60 seconds  TODO P2
-            authenticatorSelection: authenticatorSelection, // { userVerification: "required" }, // TODO P1: can use const authenticatorSelection
+            timeout: makeCredentialTimeout,
+            authenticatorSelection: authenticatorSelection,
             extensions: extensions,
+            "attestation": "none",
+            "attestationFormats": [],
+            "hints": [],
+            "excludeCredentials": [],
         };
 
         const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
@@ -383,9 +387,6 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
     }
 }
 
-
-///////////////////////////////
-
 function coerceToArrayBuffer(thing: any, name?: any) {
     if (typeof thing === "string") {
         // base64url to base64
@@ -424,6 +425,7 @@ function hexToArrayBuffer(hex: string): ArrayBuffer {
 }
 export async function createCred() {
 
+    /* 
     // possible values: none, direct, indirect
     let attestation_type = "none";
     // possible values: <empty>, platform, cross-platform
@@ -441,6 +443,7 @@ export async function createCred() {
     data.append('authType', authenticator_attachment);
     data.append('userVerification', user_verification);
     data.append('residentKey', residentKey);
+    */
 
     // send to server for registering
 
@@ -468,21 +471,21 @@ export async function createCred() {
     */
 
     //    var challenge2 = coerceToArrayBuffer("challenge", "challengeName");
+    const challenge = await generateChallenge(KeriAuthExtensionName);
     var user = await getOrCreateUser();
     const publicKey: any = {
         "rp": KeriAuthRp,
         "user": user,
-        "challenge": hexToArrayBuffer("7b226e616d65223a2250616e6b616a222c22616765223a32307d"), // Converted to ArrayBuffer. // TODO P1 example to real?
+        "challenge": challenge, // hexToArrayBuffer("7b226e616d65223a2250616e6b616a222c22616765223a32307d"), // Converted to ArrayBuffer. // TODO P1 example to real?
         // or new Uint8Array(32);
         "pubKeyCredParams": pubKeyCredParams,
         "timeout": makeCredentialTimeout,
         "attestation": "none",
         "attestationFormats": [],
-        "authenticatorSelection": authenticatorSelection,
+        authenticatorSelection: authenticatorSelection,
         "hints": [],
         "excludeCredentials": [],
         "extensions": extensions,
-        
     }
     console.log("Credential Options Formatted", publicKey);
 
