@@ -25,6 +25,180 @@ interface ResultError {
     message: string;
 }
 
+async function saveCredential(credential: StoredCredential): Promise<void> {
+    const storageKey = "credentials";
+
+    // Retrieve the stored credentials
+    const result = await chrome.storage.sync.get(storageKey);
+    console.log("got storageKey: ", result);
+
+    // Check if the key exists and has a value; if not, initialize it to an empty array
+    if (!result[storageKey]) {
+
+        await chrome.storage.sync.set({ [storageKey]: [] });
+    }
+
+    // Safely retrieve the credentials, which is guaranteed to be an array at this point
+    let existingCredentials: StoredCredential[] = result[storageKey] || [];
+
+    // Ensure the credential is JSON-serializable
+    const sanitizedCredential = JSON.parse(JSON.stringify(credential));
+
+    // Add the sanitized credential to the existing credentials
+    existingCredentials.push(sanitizedCredential);
+
+    console.log("Storing credential(s): 4", sanitizedCredential, existingCredentials);
+
+    // Ensure the entire array is JSON-serializable
+    existingCredentials = existingCredentials.map((cred) => JSON.parse(JSON.stringify(cred)));
+
+    // Save the updated credentials back to storage
+    await chrome.storage.sync.set({ [storageKey]: existingCredentials });
+
+    console.log("Storing credential(s): 5: ", existingCredentials);
+}
+
+
+interface StoredCredential {
+    id: Uint8Array;
+    name?: string; // Optional, e.g., to label credentials for a user
+}
+
+// Compare an assertion credential ID against stored credentials
+async function isCredentialIdStored(assertionCredentialId: Uint8Array): Promise<boolean> {
+    const credentials = await loadCredentials();
+    console.log("isCredentialIdStored: stored credentials:", credentials);
+    console.log("isCredentialIdStored: assertionCredentialId:", assertionCredentialId);
+
+
+
+
+    return credentials.some(cred => arraysEqual(cred.id, assertionCredentialId));
+}
+
+// Helper function to compare two Uint8Arrays
+function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+// Load all credentials from chrome.storage.sync
+async function loadCredentials(): Promise<StoredCredential[]> {
+    const result = await chrome.storage.sync.get("credentials");
+    console.warn("loadCredentials get: ", result);
+    return result.credentials || [];
+}
+
+const attestation = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
+
+export async function createAndStoreCredential(): Promise<void> {
+    var user = await getOrCreateUser();
+
+    var rp2 = KeriAuthRp;
+    rp2.id = KeriAuthExtensionId;
+    var excludeCredentials = await getExcludeCredentialsFromCreate();
+    const publicKey: any = { // PublicKeyCredentialCreationOptions = {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: rp2,
+        user: user,
+        pubKeyCredParams: pubKeyCredParams,
+        extensions: extensions,
+        // "excludeCredentials": excludeCredentials,
+        authenticatorSelection: authenticatorSelection,
+        timeout: makeCredentialTimeout,
+        attestation: attestation
+    };
+
+    const credential = await navigator.credentials.create({ publicKey });
+    if (credential && credential instanceof PublicKeyCredential) {
+        const credentialId = new Uint8Array(credential.rawId);
+        await saveCredential({
+            id: credentialId,
+            name: "My Credential" // Add any metadata if needed
+        });
+        console.log("Credential stored successfully.");
+    } else {
+        console.error("Failed to create credential.");
+    }
+
+
+}
+
+
+export async function getAndVerifyAssertion(): Promise<boolean> {
+    const storedCredentials = await loadCredentials();
+
+
+    const allowCredentials = storedCredentials.map(cred => ({
+        id: cred.id,
+        type: "public-key",
+        name: cred.name,
+        // TODO P1 See PublicKeyCredentialRequestOptions https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialRequestOptions#instance_properties
+        transports: ["ble", "hybrid", "internal", "nfc", "usb"]
+    }));
+
+    // TODO P0 remove tests here
+    const credentialId = new Uint8Array([123, 167, 117, 54, 155, 0, 118, 34, 185, 200, 99, 145, 176, 139, 130, 156, 31, 252, 2, 248, 210, 219, 54, 78, 210, 18, 51, 242, 91, 119, 4, 211]);
+    const allowCredentials2 = [
+        {
+            id: credentialId.buffer, // Ensure `id` is an ArrayBuffer
+            type: "public-key"
+        }
+    ];
+
+    console.log("getAndVerifyAssertion allowedCredentials: ", allowCredentials);
+
+    var challenge = await generateChallenge(KeriAuthExtensionName);
+
+    const options: any = { // PublicKeyCredentialRequestOptions = {
+        publicKey: {
+            challenge: challenge, // crypto.getRandomValues(new Uint8Array(32)), // challenge
+            allowCredentials2, // TODO P1.  See above
+            extensions: extensions, // { prf: { inputs: { first: crypto.getRandomValues(new Uint8Array(32)) } } },
+            hints: [
+                "security-key",
+                "client-device",
+                "hybrid"
+            ],
+            // rpID: KeriAuthRp.id, //  ....   // TODO P2 define this for security purposes
+            timeout: makeCredentialTimeout,
+            userVerification: "preferred", // Options: "required", "preferred", "discouraged"
+        }
+    };
+
+    let assertion: Credential | null;
+    try {
+        assertion = await navigator.credentials.get(options);
+        console.log("got assertion: ", assertion);
+    }
+    catch (error: any) {
+        // Handle different types of WebAuthn errors
+        var msg: string;
+        if (error.name === "NotAllowedError") {
+            msg = "Authentication was not allowed or cancelled by the user.";
+        } else if (error.name === "InvalidStateError") {
+            msg = "The security key is not registered with this site.";
+        } else {
+            msg = "An unexpected error occurred: " + error.message;
+        }
+        console.warn(msg);
+        return false;
+    }
+    if (assertion && assertion instanceof PublicKeyCredential) {
+        const assertionId = new Uint8Array(assertion.rawId);
+        console.log("assertionId: ", assertionId);
+        const isStored = await isCredentialIdStored(assertionId);
+        console.log(`Credential verification result: ${isStored}`);
+        return isStored;
+    } else {
+        console.error("Failed to retrieve assertion.");
+        return false;
+    }
+}
+
 type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
 
 // const's used widely in these functions...
@@ -38,21 +212,24 @@ const pubKeyCredParams: PublicKeyCredentialParameters[] = [
 ];
 const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
     "hmac-secret": true,
-    "credProps": true, //TODO P1 needed?
+    // "credProps": true, //TODO P1 needed?  Can't have set true when getting.
     "prf": {   // See https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-eval within https://w3c.github.io/webauthn/#prf-extension
         "eval": {
             "first": new Uint8Array(16)
         }
     },
+    // credProps: true,  // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API/WebAuthn_extensions
+    // minPinLength: true
     // hmacCreateSecret: true,
+
 };
 
 const makeCredentialTimeout = 60000;
 const authenticatorSelection: AuthenticatorSelectionCriteria = {
-    residentKey: "required",
-    requireResidentKey: true,
-    userVerification: "required",
-    // authenticatorAttachment: "cross-platform" // TODO P2 could make this a user preference
+    residentKey: "preferred", // or required
+    // userVerification: "preferred", // Enforce user verification (e.g., biometric, PIN)
+    // authenticatorAttachment: "cross-platform", // note that "platform" is stronger. TODO P2 could make this a user preference
+    // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
 };
 
 
@@ -107,6 +284,7 @@ async function createCredentialWithPRF(
         displayName: user.displayName,
     }
     var challenge = await generateChallenge(KeriAuthExtensionName);
+    const excludeCredentials = await getExcludeCredentialsFromCreate();
     const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = {
         challenge: challenge,
         rp: KeriAuthRp,
@@ -114,6 +292,7 @@ async function createCredentialWithPRF(
         pubKeyCredParams: pubKeyCredParams,
         authenticatorSelection: authenticatorSelection,
         extensions: extensions,
+        // excludeCredentials: excludeCredentials,
         timeout: 60000 // 60 seconds
     };
     try {
@@ -179,7 +358,7 @@ async function createCredentialWithPRF(
 }
 
 
-// Because chrome.storage.sync is specific per profile and per-extension this identifier will be unique to each profile.
+// Because chrome.storage.sync is specific per profile and per-extension this secret identifier will be unique to each profile.
 // This method essentially "fingerprints" a profile.
 export async function getProfileIdentifier(): Promise<string> {
     return new Promise((resolve) => {
@@ -187,7 +366,6 @@ export async function getProfileIdentifier(): Promise<string> {
             if (data.profileIdentifier) {
                 resolve(data.profileIdentifier);
             } else {
-                // Generate a new identifier (e.g., UUID) for this profile
                 const newIdentifier = crypto.randomUUID();
                 chrome.storage.sync.set({ profileIdentifier: newIdentifier });
                 resolve(newIdentifier);
@@ -251,8 +429,9 @@ export async function test(): Promise<String> {
     } else {
         console.log("Credential created:", result.value, ". Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key");
         console.log("Credential id might need to be stored: ", result.value.id);
+        //const myClientExtResults = result.value.getClientExtensionResults();
+        //console.log("Credential authenticationExtensionClientOutputs :", myClientExtResults);
         return "Credential created: " + result.value + " . Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key";
-
     }
 }
 
@@ -308,7 +487,7 @@ async function getOrCreateUser(): Promise<User> {
     return user;
 }
 
-function verifyClientExtensionResults(clientExtensionResults: any) : void { // todo P0 what type?
+function verifyClientExtensionResults(clientExtensionResults: any): void { // todo P0 what type?
     // TODO P1 should return a Result<X>
     if (!clientExtensionResults["hmac-secret"]) {
         throw new Error("hmac-secret is not supported by this authenticator.");
@@ -324,7 +503,7 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
     try {
         const challenge = await generateChallenge(KeriAuthExtensionName);
         var user = await getOrCreateUser();
-
+        var excludeCredentials = await getExcludeCredentialsFromCreate();
         // TODO P0 can these options be in one place for the create options?
         // Define WebAuthn public key options
         const publicKey: any = {  // note while this should be of type PublicKeyCredentialCreationOptions, that interface definition does not yet handles the "prf: true" section.
@@ -335,10 +514,10 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
             timeout: makeCredentialTimeout,
             authenticatorSelection: authenticatorSelection,
             extensions: extensions,
-            "attestation": "none",
+            "attestation": attestation,
             "attestationFormats": [],
             "hints": [],
-            "excludeCredentials": [],
+            // "excludeCredentials": excludeCredentials,
         };
 
         const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
@@ -373,7 +552,7 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
                         console.log("Decrypted secret:", decryptedSecret);
                         if (secret != decryptedSecret) {
                             throw new Error("why?");
-                        }                
+                        }
                     })
                     .catch((error) => {
                         console.error("Decryption failed:", error);
@@ -422,6 +601,16 @@ function coerceToArrayBuffer(thing: any, name?: any) {
 function hexToArrayBuffer(hex: string): ArrayBuffer {
     const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
     return bytes.buffer;
+}
+
+async function getExcludeCredentialsFromCreate() {
+    // TODO P1 Prevent re-registration of the same authenticator to ensure uniqueness:
+    // Prevent re-registration of the same authenticator to ensure uniqueness:
+    return [{
+        // type: "public-key",
+        // id: "<existing-credential-id>"
+        // transports: ["usb", "nfc", "ble", "internal"]
+    }];
 }
 export async function createCred() {
 
@@ -473,6 +662,7 @@ export async function createCred() {
     //    var challenge2 = coerceToArrayBuffer("challenge", "challengeName");
     const challenge = await generateChallenge(KeriAuthExtensionName);
     var user = await getOrCreateUser();
+    var excludeCredentials = await getExcludeCredentialsFromCreate();
     const publicKey: any = {
         "rp": KeriAuthRp,
         "user": user,
@@ -480,11 +670,11 @@ export async function createCred() {
         // or new Uint8Array(32);
         "pubKeyCredParams": pubKeyCredParams,
         "timeout": makeCredentialTimeout,
-        "attestation": "none",
+        "attestation": attestation,
         "attestationFormats": [],
         authenticatorSelection: authenticatorSelection,
         "hints": [],
-        "excludeCredentials": [],
+        // "excludeCredentials": excludeCredentials,
         "extensions": extensions,
     }
     console.log("Credential Options Formatted", publicKey);
@@ -493,7 +683,8 @@ export async function createCred() {
 
     let newCredential; // : Credential | null;
     try {
-        newCredential = await navigator.credentials.create({ publicKey  // TODO P1 fix this usage in other .create()'s
+        newCredential = await navigator.credentials.create({
+            publicKey  // TODO P1 fix this usage in other .create()'s
         });
     } catch (e) {
         var msg = "Could not create credentials in browser. Probably because the username is already registered with your authenticator. Please change username or authenticator."
@@ -509,4 +700,3 @@ export async function createCred() {
         console.log(e);
     }
 }
-

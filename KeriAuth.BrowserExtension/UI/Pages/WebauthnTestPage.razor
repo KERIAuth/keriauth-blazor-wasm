@@ -49,8 +49,21 @@
     async Task createCred()
     {
         await WebauthnCredentialWithPRF.CreateCred();
-
     }
+
+    async Task getAndVerifyAssertion()
+    {
+        var x = await WebauthnCredentialWithPRF.GetAndVerifyAssertion();
+        logger.LogInformation("getAndVerifyAssertion: {x}", x);
+    }
+
+    async Task createAndStoreCredential()
+    {
+        await WebauthnCredentialWithPRF.CreateAndStoreCredential();
+        logger.LogInformation("createAndStoreCredential done");
+    }
+
+    
 
 
     async Task test()
@@ -66,15 +79,15 @@
         }
         // logger.LogInformation("Webauthn supported");
         res = res + "\n... Webauthn supported. ";
-        
 
-        await Task.Delay(1000);
+
+        
         res = res + "... Creating credential. ";
         var profileId = await WebauthnCredentialWithPRF.GetProfileIdentifier();
         // logger.LogInformation("profileId: {s}", profileId);
         // res = res + "\n... profileId: " + profileId;
+
         
-        await Task.Delay(1000);
         res = res + "... Test. ";
         var res2 = await WebauthnCredentialWithPRF.Test();
         logger.LogInformation("call to test() completed: {r}", res2);
@@ -88,8 +101,10 @@
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
             <MudButton OnClick="test">Test</MudButton>
-            <MudButton OnClick="createCred">CreatePasswordless Cred</MudButton>"
-            <MudText>@res</MudText>
+            <hr />
+            <MudButton OnClick="createAndStoreCredential">CreateAndStoreCredential</MudButton>
+            <hr />
+            <MudButton OnClick="getAndVerifyAssertion">getAndVerifyAssertion</MudButton>
         </MudStack>
     </div>
 </div>
