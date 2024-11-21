@@ -95,6 +95,19 @@
 
         logger.LogInformation("tests completed");
     }
+
+
+
+
+
+    async Task test22()
+    {
+        await WebauthnCredentialWithPRF.Test22();
+        
+    }
+
+
+
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -105,6 +118,8 @@
             <MudButton OnClick="createAndStoreCredential">CreateAndStoreCredential</MudButton>
             <hr />
             <MudButton OnClick="getAndVerifyAssertion">getAndVerifyAssertion</MudButton>
+            <hr />
+            <MudButton OnClick="test22">Test22</MudButton>
         </MudStack>
     </div>
 </div>

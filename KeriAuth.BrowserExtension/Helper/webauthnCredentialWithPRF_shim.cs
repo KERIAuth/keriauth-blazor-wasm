@@ -27,5 +27,8 @@ namespace KeriAuth.BrowserExtension.Helper
         [JSImport("createAndStoreCredential", "webauthnCredentialWithPRF")]
         internal static partial Task CreateAndStoreCredential();
 
+        [JSImport("test22", "webauthnCredentialWithPRF")]
+        internal static partial Task Test22();
+        
     }
 }

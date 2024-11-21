@@ -9,6 +9,10 @@ interface User extends PublicKeyCredentialUserEntity {
 type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOptions & {
     extensions?: {
         "hmac-secret"?: boolean;
+
+        prf: {
+            eval: { first: Uint8Array }, // First input to PRF
+        },
     };
 };
 
@@ -117,7 +121,7 @@ export async function createAndStoreCredential(): Promise<void> {
         const credentialId = new Uint8Array(credential.rawId);
         await saveCredential({
             id: credentialId,
-            name: "My Credential" // Add any metadata if needed
+            name: user.name // Same as what the user sees, with the date.
         });
         console.log("Credential stored successfully.");
     } else {
@@ -278,12 +282,14 @@ async function createCredentialWithPRF(
 
     // prepare parameters for credential creation
 
+
+    const createDateString = new Date().toISOString();
     const user2: PublicKeyCredentialUserEntity = {
         id: user.id,
-        name: user.name,
-        displayName: user.displayName,
+        name: `${user.name} 2 ${createDateString}`, //.split('T')[0];,  // TODO P1
+        displayName: `${user.displayName} 2 created on ${createDateString}`,  // TODO P1
     }
-    var challenge = await generateChallenge(KeriAuthExtensionName);
+    var challenge = await generateChallenge(KeriAuthExtensionId);
     const excludeCredentials = await getExcludeCredentialsFromCreate();
     const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = {
         challenge: challenge,
@@ -479,10 +485,11 @@ async function decryptData(encryptedData: ArrayBuffer, key: CryptoKey): Promise<
 async function getOrCreateUser(): Promise<User> {
     let id = await getOrCreateUserId();
     let user: User;
+    const createDateString = new Date().toISOString();
     user = {
         id: id,
-        name: KeriAuthExtensionName,
-        displayName: displayName,
+        name: `${KeriAuthExtensionName}     ${createDateString}`,
+        displayName: `${KeriAuthExtensionName}     ${createDateString}`
     };
     return user;
 }
@@ -501,7 +508,7 @@ function verifyClientExtensionResults(clientExtensionResults: any): void { // to
 // TODO P1, return an interface versus void. Change thrown errors to returns
 async function registerAndEncryptSecret(secret: string): Promise<void> {
     try {
-        const challenge = await generateChallenge(KeriAuthExtensionName);
+        const challenge = await generateChallenge(KeriAuthExtensionId);
         var user = await getOrCreateUser();
         var excludeCredentials = await getExcludeCredentialsFromCreate();
         // TODO P0 can these options be in one place for the create options?
@@ -660,7 +667,7 @@ export async function createCred() {
     */
 
     //    var challenge2 = coerceToArrayBuffer("challenge", "challengeName");
-    const challenge = await generateChallenge(KeriAuthExtensionName);
+    const challenge = await generateChallenge(KeriAuthExtensionId);
     var user = await getOrCreateUser();
     var excludeCredentials = await getExcludeCredentialsFromCreate();
     const publicKey: any = {
@@ -700,3 +707,74 @@ export async function createCred() {
         console.log(e);
     }
 }
+
+
+export async function test22(): Promise<void> {
+
+
+    // FROM ChatGPT 2024-11-21
+    // Credential Creation Request
+    const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = { // PublicKeyCredentialCreationOptions = {
+        // Basic registration parameters
+        challenge: new Uint8Array(32), // Replace with a secure, random value
+        rp: { name: "Example RP" },
+        user: {
+            id: new Uint8Array(16), // Replace with the user's unique ID
+            name: "user@example.com",
+            displayName: "User Example",
+        },
+        pubKeyCredParams: pubKeyCredParams, //  [{ type: "public-key", alg: -7 }], // ECDSA w/ SHA-256
+        extensions: {
+            prf: {
+                eval: { first: new Uint8Array(32) }, // First input to PRF
+            },
+        },
+    };
+
+    // FROM ChatGPT 2024-11-21
+    // Credential Creation Request
+    const credential = await navigator.credentials.create({
+        publicKey: credentialCreationOptions,
+    }) as PublicKeyCredential;
+
+    // FROM ChatGPT 2024-11-21
+    // Accessing the PRF Value:
+    const response = credential.response as AuthenticatorAttestationResponse;
+    const clientExtensions1 = (credential as any).getClientExtensionResults();
+
+    if (clientExtensions1.prf) {
+        const prfValue = clientExtensions1.prf.results?.first; // The PRF-derived value
+        console.log("PRF Value:", prfValue);
+    }
+
+    // From ChatGPT / Assertion Reqeust
+    const assertionRequestOptions: any = { //     PublicKeyCredentialRequestOptions = {
+        challenge: new Uint8Array(32), // Replace with a secure, random value
+        allowCredentials: [
+            {
+                type: "public-key",
+                id: coerceToArrayBuffer( credential.id), // credentialId, // Replace with the user's registered credential ID
+            },
+        ],
+        extensions: {
+            prf: {
+                eval: { first: new Uint8Array(32) }, // First input to PRF
+            },
+        },
+    };
+
+    const assertion = await navigator.credentials.get({
+        publicKey: assertionRequestOptions,
+    }) as PublicKeyCredential;
+
+    // Chat GPT / 
+    // Accessing the PRF Value from Assertion
+    const assertionResponse = assertion.response as AuthenticatorAssertionResponse;
+    const clientExtensions = (assertion as any).getClientExtensionResults();
+
+    if (clientExtensions.prf) {
+        const prfValue = clientExtensions.prf.results?.first; // PRF-derived value
+        console.log("PRF Value:", prfValue);
+    }
+
+};
