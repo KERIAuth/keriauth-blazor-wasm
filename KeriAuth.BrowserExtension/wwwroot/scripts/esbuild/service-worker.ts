@@ -12,6 +12,7 @@ import { Utils } from "../es6/uiHelper.js";
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders } from "./signify_ts_shim.js";
+// import { decode } from '@cbor';
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"

@@ -26,13 +26,32 @@ import { fileURLToPath } from 'url';
             format: 'esm',
             plugins: [
                 alias({
-                    '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs')
+                    '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
                 })
             ],
             loader: {
                 '.ts': 'ts'
             }
         });
+
+        console.log('Building webauthnHmacSecret.js bundle...');
+        await esbuild.build({
+            entryPoints: ['wwwroot/scripts/esbuild/webauthnHmacSecret.ts'],
+            bundle: true,
+            minify: true,
+            outfile: 'wwwroot/scripts/esbuild/webauthnHmacSecret.js',
+            platform: 'browser',
+            format: 'esm',
+            plugins: [
+                alias({
+                    '@cbor': path.resolve(__dirname, 'node_modules/cbor2/lib/decoder.js'),
+                })
+            ],
+            loader: {
+                '.ts': 'ts'
+            }
+        });
+
 
         console.log('Building ContentScript.js bundle...');
         await esbuild.build({

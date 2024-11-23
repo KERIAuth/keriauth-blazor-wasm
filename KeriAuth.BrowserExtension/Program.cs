@@ -1,4 +1,5 @@
 using KeriAuth.BrowserExtension;
+using KeriAuth.BrowserExtension.Helper;
 using KeriAuth.BrowserExtension.Services;
 using KeriAuth.BrowserExtension.Services.SignifyService;
 using Microsoft.AspNetCore.Components.Web;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
+using WebExtensions.Net.Scripting;
 
 // note Program and Main are implicit and static
 
@@ -50,7 +52,8 @@ try
         ("uiHelper", "/scripts/es6/uiHelper.js"),
         ("storageHelper", "/scripts/es6/storageHelper.js"),
         ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
-        ("webauthnCredentialWithPRF", "/scripts/es6/KaleWebauthn.js")
+        ("webauthnCredentialWithPRF", "/scripts/es6/KaleWebauthn.js"),
+        ("webauthnHmacSecret", "/scripts/esbuild/webauthnHmacSecret.js")
     ];
     foreach (var (moduleName, modulePath) in imports)
     {

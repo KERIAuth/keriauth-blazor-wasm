@@ -219,6 +219,7 @@
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\PageCsInterfaces.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\SpaExtensionInterop.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnCredentialWithPRF.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnHmacSecret.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\interopHelper.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\moduleLoader.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />

@@ -110,6 +110,20 @@
     {
         await WebauthnCredentialWithPRF.DeriveSeedMaterial();
     }
+
+    async Task registerCredential()
+    {
+        logger.LogInformation("registerCredential");
+        try
+        {
+            await WebauthnHmacSecret.RegisterCredential();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("exception ", e.Message);
+        }
+    }
+    
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -126,6 +140,11 @@
             <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
             <hr />
             <MudButton OnClick="deriveSeedMaterial">deriveSeedMaterial</MudButton>
+            <hr />
+            <MudButton OnClick="registerCredential">HMAC Secret registerCredential</MudButton>
+
+
+            
         </MudStack>
     </div>
 </div>

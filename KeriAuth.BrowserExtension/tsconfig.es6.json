@@ -20,6 +20,7 @@
     "paths": {
       "*": [ "./node_modules/*" ],
       "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],
+      "@cbor/*":  [ "./node_modules/cbor2/lib/*" ],
       "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ]
     },
     "removeComments": true,
@@ -33,7 +34,6 @@
   },
   "include": [
     "wwwroot/scripts/es6/*.ts"
-    
   ],
   "exclude": [
     
