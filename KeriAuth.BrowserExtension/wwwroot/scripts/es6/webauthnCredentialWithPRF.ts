@@ -8,10 +8,10 @@ interface User extends PublicKeyCredentialUserEntity {
 
 type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOptions & {
     extensions?: {
-        "hmac-secret"?: boolean;
-
+        "hmac-secret": boolean;
         prf: {
-            eval: { first: Uint8Array }, // First input to PRF
+            eval: { first: Uint8Array }, // First input to PRF.  Not ArrayBuffer[]  ?
+            // evalContext?: ArrayBuffer[];   ??
         },
     };
 };
@@ -101,10 +101,10 @@ const attestation = "none"; // TODO P3: "direct" ensures software receives infor
 export async function createAndStoreCredential(): Promise<void> {
     var user = await getOrCreateUser();
 
-    var rp2 = KeriAuthRp;
+    var rp2 = rpForCreate;
     rp2.id = KeriAuthExtensionId;
     var excludeCredentials = await getExcludeCredentialsFromCreate();
-    const publicKey: any = { // PublicKeyCredentialCreationOptions = {
+    const credentialCreationOptions: any = { // PublicKeyCredentialCreationOptions = {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: rp2,
         user: user,
@@ -116,7 +116,7 @@ export async function createAndStoreCredential(): Promise<void> {
         attestation: attestation
     };
 
-    const credential = await navigator.credentials.create({ publicKey });
+    const credential = await navigator.credentials.create({ publicKey: credentialCreationOptions });
     if (credential && credential instanceof PublicKeyCredential) {
         const credentialId = new Uint8Array(credential.rawId);
         await saveCredential({
@@ -167,7 +167,7 @@ export async function getAndVerifyAssertion(): Promise<boolean> {
                 "client-device",
                 "hybrid"
             ],
-            // rpID: KeriAuthRp.id, //  ....   // TODO P2 define this for security purposes
+            // rpID: rpForCreate.id, //  ....   // TODO P2 define this for security purposes
             timeout: makeCredentialTimeout,
             userVerification: "preferred", // Options: "required", "preferred", "discouraged"
         }
@@ -209,17 +209,19 @@ type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
 const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
 const KeriAuthExtensionName = "KERI Auth";
 const displayName = "KERI Auth displayName"; // TODO P2
-const KeriAuthRp: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+const rpForCreate: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
 const pubKeyCredParams: PublicKeyCredentialParameters[] = [
     { alg: -7, type: "public-key" },   // ES256
     { alg: -257, type: "public-key" }  // RS256
 ];
+const first = new Uint8Array(32); // TODO P1: should be random on create, and then stored for subsequent calls?  P0 [1, 2, 3, 4]);
+
 const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
     "hmac-secret": true,
     // "credProps": true, //TODO P1 needed?  Can't have set true when getting.
     "prf": {   // See https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-eval within https://w3c.github.io/webauthn/#prf-extension
         "eval": {
-            "first": new Uint8Array(16)
+            "first": first, // generateChallenge("asdf"), //   new Uint8Array(32)
         }
     },
     // credProps: true,  // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API/WebAuthn_extensions
@@ -289,11 +291,11 @@ async function createCredentialWithPRF(
         name: `${user.name} 2 ${createDateString}`, //.split('T')[0];,  // TODO P1
         displayName: `${user.displayName} 2 created on ${createDateString}`,  // TODO P1
     }
-    var challenge = await generateChallenge(KeriAuthExtensionId);
+    var challenge = crypto.getRandomValues(new Uint8Array(16)); // generateRandomBufferSource(16); //  crypto.getRandomValues( await generateChallenge(KeriAuthExtensionId);
     const excludeCredentials = await getExcludeCredentialsFromCreate();
     const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = {
         challenge: challenge,
-        rp: KeriAuthRp,
+        rp: rpForCreate,
         user: user2,
         pubKeyCredParams: pubKeyCredParams,
         authenticatorSelection: authenticatorSelection,
@@ -513,9 +515,9 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
         var excludeCredentials = await getExcludeCredentialsFromCreate();
         // TODO P0 can these options be in one place for the create options?
         // Define WebAuthn public key options
-        const publicKey: any = {  // note while this should be of type PublicKeyCredentialCreationOptions, that interface definition does not yet handles the "prf: true" section.
+        const credentialCreationOptions: any = {  // note while this should be of type PublicKeyCredentialCreationOptions, that interface definition does not yet handles the "prf: true" section.
             challenge: challenge,
-            rp: KeriAuthRp,
+            rp: rpForCreate,
             user: user,
             pubKeyCredParams: pubKeyCredParams,
             timeout: makeCredentialTimeout,
@@ -527,7 +529,7 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
             // "excludeCredentials": excludeCredentials,
         };
 
-        const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
+        const credential = await navigator.credentials.create({ publicKey: credentialCreationOptions }) as PublicKeyCredential;
         if (!credential) {
             throw new Error("Credential creation failed #12: No credential returned.");
         }
@@ -670,8 +672,8 @@ export async function createCred() {
     const challenge = await generateChallenge(KeriAuthExtensionId);
     var user = await getOrCreateUser();
     var excludeCredentials = await getExcludeCredentialsFromCreate();
-    const publicKey: any = {
-        "rp": KeriAuthRp,
+    const credentialCreationOptions: any = {
+        "rp": rpForCreate,
         "user": user,
         "challenge": challenge, // hexToArrayBuffer("7b226e616d65223a2250616e6b616a222c22616765223a32307d"), // Converted to ArrayBuffer. // TODO P1 example to real?
         // or new Uint8Array(32);
@@ -684,14 +686,14 @@ export async function createCred() {
         // "excludeCredentials": excludeCredentials,
         "extensions": extensions,
     }
-    console.log("Credential Options Formatted", publicKey);
+    console.log("Credential Options Formatted", credentialCreationOptions);
 
     console.log("Creating PublicKeyCredential...");
 
     let newCredential; // : Credential | null;
     try {
         newCredential = await navigator.credentials.create({
-            publicKey  // TODO P1 fix this usage in other .create()'s
+            publicKey: credentialCreationOptions  // TODO P1 fix this usage in other .create()'s
         });
     } catch (e) {
         var msg = "Could not create credentials in browser. Probably because the username is already registered with your authenticator. Please change username or authenticator."
@@ -707,35 +709,82 @@ export async function createCred() {
         console.log(e);
     }
 }
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export async function test22(): Promise<void> {
+    // Generate input for the PRF extension
+    const evalFirstInput = new Uint8Array(32);
+    crypto.getRandomValues(evalFirstInput);
+
+    // Generate a random challenge
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+
+    // Define the extensions with the PRF extension
+    const extensions22: AuthenticationExtensionsClientInputs & {
+        prf: { eval: ArrayBuffer[], evalContext?: ArrayBuffer }
+    } = {
+        prf: {                                    // PRF extension
+            eval: [evalFirstInput],  // PRF evaluation inputs
+            evalContext: new Uint8Array([0x04, 0x05, 0x06]).buffer, // Optional evaluation context
+        }
+    };
 
 
     // FROM ChatGPT 2024-11-21
     // Credential Creation Request
-    const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = { // PublicKeyCredentialCreationOptions = {
+    console.log("challenge: ", challenge);
+    const publicKey: /* PublicKeyCredentialCreationOptionsWithPRF = { /*/ PublicKeyCredentialCreationOptions = {
         // Basic registration parameters
-        challenge: new Uint8Array(32), // Replace with a secure, random value
-        rp: { name: "Example RP" },
+        rp: { name: "Example RP" }, // TODO P0  rpForCreate, // { name: "Example RP" },
         user: {
-            id: new Uint8Array(16), // Replace with the user's unique ID
+            id: new Uint8Array(16), // TODO P0 Replace with the user's unique ID
             name: "user@example.com",
             displayName: "User Example",
         },
-        pubKeyCredParams: pubKeyCredParams, //  [{ type: "public-key", alg: -7 }], // ECDSA w/ SHA-256
-        extensions: {
-            prf: {
-                eval: { first: new Uint8Array(32) }, // First input to PRF
-            },
-        },
+        challenge: challenge.buffer, // new Uint8Array(32), // TODO P0 Replace with a secure, random value
+        pubKeyCredParams: /* pubKeyCredParams,*/ [{ type: "public-key", alg: -7 }], // ECDSA w/ SHA-256
+        extensions: extensions22,
     };
+
+
+
+    console.log("credentialCreationOptions: ", publicKey);
+
 
     // FROM ChatGPT 2024-11-21
     // Credential Creation Request
-    const credential = await navigator.credentials.create({
-        publicKey: credentialCreationOptions,
-    }) as PublicKeyCredential;
+
+    try {
+        const credential = await navigator.credentials.create({
+            publicKey
+        }) as PublicKeyCredential; // TODO P0 or PUblicKeyCredential or any?
+
+        // console.log("navigator: ", navigator);
+        console.log("credential: ", credential);
+
+
+
+        // return;
+        // confirm shape of expected result
+
+        const authenticationExtensionsClientOutputs = credential.getClientExtensionResults();
+        console.log("authenticationExtensionsClientOutputs:", authenticationExtensionsClientOutputs);
+        if (!(authenticationExtensionsClientOutputs as any)?.prf?.enabled) {
+            console.log("authenticationExtensionsClientOutputs or prf or enable not available")
+            return;
+        }
+        return;
+
+        // console.log("clientExtensions2: first:", authenticationExtensionsClientOutputs.prf?.results?.first);
+
+    }
+    catch (error) {
+        console.error("An error occurred during credential creation:", error);
+        return;
+    }
+
+    /*
 
     // FROM ChatGPT 2024-11-21
     // Accessing the PRF Value:
@@ -756,15 +805,20 @@ export async function test22(): Promise<void> {
                 id: coerceToArrayBuffer( credential.id), // credentialId, // Replace with the user's registered credential ID
             },
         ],
+        rp: rpForCreate,
+        
         extensions: {
+            "hmac-secret": true,
             prf: {
-                eval: { first: new Uint8Array(32) }, // First input to PRF
+                eval: { first: new Uint8Array([1, 2, 3, 4])},//   challenge }, // new Uint8Array(32).set([999]) }, // First input to PRF
             },
         },
+        pubKeyCredParams: pubKeyCredParams,
     };
-
+    []
     const assertion = await navigator.credentials.get({
         publicKey: assertionRequestOptions,
+        
     }) as PublicKeyCredential;
 
     // Chat GPT / 
@@ -776,5 +830,6 @@ export async function test22(): Promise<void> {
         const prfValue = clientExtensions.prf.results?.first; // PRF-derived value
         console.log("PRF Value:", prfValue);
     }
-
+    */
 };
+

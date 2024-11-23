@@ -42,8 +42,8 @@
 @inject IWebExtensionsApi webExtensionsApi
 
 @code {
-    DotNetObjectReference<WebauthnTestPage> _objectReference = default!;
-    IJSObjectReference _interopModule = default!;
+    // DotNetObjectReference<WebauthnTestPage> _objectReference = default!;
+    // IJSObjectReference _interopModule = default!;
     string res { get; set; } = string.Empty;
 
     async Task createCred()
@@ -96,18 +96,10 @@
         logger.LogInformation("tests completed");
     }
 
-
-
-
-
     async Task test22()
     {
         await WebauthnCredentialWithPRF.Test22();
-        
     }
-
-
-
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
