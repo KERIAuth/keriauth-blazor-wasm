@@ -8,10 +8,10 @@ interface User extends PublicKeyCredentialUserEntity {
 
 type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOptions & {
     extensions?: {
-        "hmac-secret": boolean;
-        prf: {
-            eval: { first: Uint8Array }, // First input to PRF.  Not ArrayBuffer[]  ?
-            // evalContext?: ArrayBuffer[];   ??
+        "hmac-secret"?: boolean;
+        prf?: true | {
+            eval?: { first: Uint8Array }, // First input to PRF.  Not ArrayBuffer[]  ?
+            evalContext?: ArrayBuffer[];
         },
     };
 };
@@ -216,6 +216,7 @@ const pubKeyCredParams: PublicKeyCredentialParameters[] = [
 ];
 const first = new Uint8Array(32); // TODO P1: should be random on create, and then stored for subsequent calls?  P0 [1, 2, 3, 4]);
 
+
 const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
     "hmac-secret": true,
     // "credProps": true, //TODO P1 needed?  Can't have set true when getting.
@@ -232,8 +233,8 @@ const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?:
 
 const makeCredentialTimeout = 60000;
 const authenticatorSelection: AuthenticatorSelectionCriteria = {
-    residentKey: "preferred", // or required
-    // userVerification: "preferred", // Enforce user verification (e.g., biometric, PIN)
+    // residentKey: "preferred", // or required
+    userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
     // authenticatorAttachment: "cross-platform", // note that "platform" is stronger. TODO P2 could make this a user preference
     // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
 };
@@ -711,70 +712,56 @@ export async function createCred() {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export async function test22(): Promise<void> {
-    // Generate input for the PRF extension
-    const evalFirstInput = new Uint8Array(32);
-    crypto.getRandomValues(evalFirstInput);
 
-    // Generate a random challenge
-    const challenge = new Uint8Array(32);
-    crypto.getRandomValues(challenge);
+export async function registerCredential(): Promise<void> {
 
     // Define the extensions with the PRF extension
     const extensions22: AuthenticationExtensionsClientInputs & {
-        prf: { eval: ArrayBuffer[], evalContext?: ArrayBuffer }
+        prf: { eval?: any /* ArrayBuffer*/, evalContext?: ArrayBuffer }
     } = {
-        prf: {                                    // PRF extension
-            eval: [evalFirstInput],  // PRF evaluation inputs
+        prf: {                                    
+            eval: {
+                first: crypto.getRandomValues(new Uint8Array(12)),
+            },  // PRF evaluation inputs
             evalContext: new Uint8Array([0x04, 0x05, 0x06]).buffer, // Optional evaluation context
         }
     };
 
-
-    // FROM ChatGPT 2024-11-21
     // Credential Creation Request
-    console.log("challenge: ", challenge);
-    const publicKey: /* PublicKeyCredentialCreationOptionsWithPRF = { /*/ PublicKeyCredentialCreationOptions = {
+    
+    const publicKey: any = { // PublicKeyCredentialCreationOptionsWithPRF = { // /*/ PublicKeyCredentialCreationOptions = {
         // Basic registration parameters
-        rp: { name: "Example RP" }, // TODO P0  rpForCreate, // { name: "Example RP" },
+        rp: { name: "Example RP", /* id: 'chrome-extension://pniimiboklghaffelpegjpcgobgamkal' */ }, // TODO P0  rpForCreate, // { name: "Example RP" },
         user: {
-            id: new Uint8Array(16), // TODO P0 Replace with the user's unique ID
+            id: new Uint8Array([5, 6, 7, 8]), // TODO P0 Replace with the user's unique ID
             name: "user@example.com",
             displayName: "User Example",
         },
-        challenge: challenge.buffer, // new Uint8Array(32), // TODO P0 Replace with a secure, random value
-        pubKeyCredParams: /* pubKeyCredParams,*/ [{ type: "public-key", alg: -7 }], // ECDSA w/ SHA-256
+        challenge: crypto.getRandomValues(new Uint8Array(32)), // new Uint8Array(32), // TODO P0 Replace with a secure, random value
+        pubKeyCredParams: pubKeyCredParams, // [{ type: "public-key", alg: -7 }], // ECDSA w/ SHA-256
+        authenticatorSelection: authenticatorSelection,
         extensions: extensions22,
+        attestation: "none"
     };
+    // console.log("credentialCreationOptions: ", publicKey);
 
-
-
-    console.log("credentialCreationOptions: ", publicKey);
-
-
-    // FROM ChatGPT 2024-11-21
-    // Credential Creation Request
-
+    let credential: PublicKeyCredential;
     try {
-        const credential = await navigator.credentials.create({
+        credential = await navigator.credentials.create({
             publicKey
         }) as PublicKeyCredential; // TODO P0 or PUblicKeyCredential or any?
-
-        // console.log("navigator: ", navigator);
         console.log("credential: ", credential);
-
-
 
         // return;
         // confirm shape of expected result
 
-        const authenticationExtensionsClientOutputs = credential.getClientExtensionResults();
-        console.log("authenticationExtensionsClientOutputs:", authenticationExtensionsClientOutputs);
-        if (!(authenticationExtensionsClientOutputs as any)?.prf?.enabled) {
-            console.log("authenticationExtensionsClientOutputs or prf or enable not available")
-            return;
-        }
-        return;
+        //const authenticationExtensionsClientOutputs = credential.getClientExtensionResults();
+        //console.log("authenticationExtensionsClientOutputs:", authenticationExtensionsClientOutputs);
+        //if (!(authenticationExtensionsClientOutputs as any)?.prf?.enabled) {
+        //    console.log("authenticationExtensionsClientOutputs or prf or enable not available ????")
+        //    // return;
+        //}
+        // return;
 
         // console.log("clientExtensions2: first:", authenticationExtensionsClientOutputs.prf?.results?.first);
 
@@ -784,52 +771,159 @@ export async function test22(): Promise<void> {
         return;
     }
 
-    /*
+    // Determine and store the credentialId
+    const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+    console.log("Registered Credential ID:", credentialId);
 
-    // FROM ChatGPT 2024-11-21
-    // Accessing the PRF Value:
-    const response = credential.response as AuthenticatorAttestationResponse;
-    const clientExtensions1 = (credential as any).getClientExtensionResults();
+    chrome.storage.sync.set({ credentialId }, () => {
+        console.log("Stored Credential ID with PRF support.");
+    });
+}
 
-    if (clientExtensions1.prf) {
-        const prfValue = clientExtensions1.prf.results?.first; // The PRF-derived value
-        console.log("PRF Value:", prfValue);
-    }
 
-    // From ChatGPT / Assertion Reqeust
-    const assertionRequestOptions: any = { //     PublicKeyCredentialRequestOptions = {
-        challenge: new Uint8Array(32), // Replace with a secure, random value
-        allowCredentials: [
-            {
+export const authenticateCredential = async (): Promise<void> => {
+    // Retrieve the stored credentialId from chrome.storage.sync
+    chrome.storage.sync.get("credentialId", async (result) => {
+        const credentialIdBase64 = result.credentialId;
+        if (!credentialIdBase64) {
+            console.error("No credential ID found.");
+            return;
+        }
+
+        const credentialId = Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0));
+
+        // Prepare PublicKeyCredentialRequestOptions
+        const options: PublicKeyCredentialRequestOptions = {
+            challenge: crypto.getRandomValues(new Uint8Array(32)), // Random challenge
+            allowCredentials: [{
+                id: credentialId,
                 type: "public-key",
-                id: coerceToArrayBuffer( credential.id), // credentialId, // Replace with the user's registered credential ID
-            },
-        ],
-        rp: rpForCreate,
-        
-        extensions: {
-            "hmac-secret": true,
-            prf: {
-                eval: { first: new Uint8Array([1, 2, 3, 4])},//   challenge }, // new Uint8Array(32).set([999]) }, // First input to PRF
-            },
-        },
-        pubKeyCredParams: pubKeyCredParams,
-    };
-    []
-    const assertion = await navigator.credentials.get({
-        publicKey: assertionRequestOptions,
-        
-    }) as PublicKeyCredential;
+                transports: ["usb", "nfc", "ble", "internal"],
+            }],
+            timeout: 60000,
+            userVerification: "preferred",
+        };
 
-    // Chat GPT / 
-    // Accessing the PRF Value from Assertion
-    const assertionResponse = assertion.response as AuthenticatorAssertionResponse;
-    const clientExtensions = (assertion as any).getClientExtensionResults();
+        // Call WebAuthn API to get the credential assertion
+        const assertion = await navigator.credentials.get({
+            publicKey: options,
+        }) as PublicKeyCredential;
 
-    if (clientExtensions.prf) {
-        const prfValue = clientExtensions.prf.results?.first; // PRF-derived value
-        console.log("PRF Value:", prfValue);
-    }
-    */
+        const authData = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).authenticatorData);
+        const clientDataJSON = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).clientDataJSON);
+        const signature = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).signature);
+
+        // Perform signature validation
+        validateSignature(authData, clientDataJSON, signature, credentialIdBase64);
+    });
 };
+
+const validateSignature = async (
+    authData: Uint8Array,
+    clientDataJSON: Uint8Array,
+    signature: Uint8Array,
+    credentialIdBase64: string
+): Promise<void> => {
+    // Retrieve the public key from storage or other source
+    chrome.storage.sync.get("publicKey", async (result) => {
+        const publicKeyPEM = result.publicKey;
+        if (!publicKeyPEM) {
+            console.error("No public key found for validation.");
+            return;
+        }
+
+        // Convert PEM to CryptoKey
+        const publicKey = await importPublicKey(publicKeyPEM);
+
+        // Construct the data to validate: concatenated authData + clientDataHash
+        const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSON);
+        const dataToValidate = new Uint8Array([...authData, ...new Uint8Array(clientDataHash)]);
+
+        // Verify the signature
+        const isValid = await crypto.subtle.verify(
+            {
+                name: "ECDSA",
+                hash: { name: "SHA-256" },
+            },
+            publicKey,
+            signature,
+            dataToValidate
+        );
+
+        if (isValid) {
+            console.log("Signature is valid!");
+        } else {
+            console.error("Invalid signature.");
+        }
+    });
+};
+
+const importPublicKey = async (pem: string): Promise<CryptoKey> => {
+    // Convert PEM string to ArrayBuffer
+    const pemHeader = "-----BEGIN PUBLIC KEY-----";
+    const pemFooter = "-----END PUBLIC KEY-----";
+    const pemContents = pem
+        .replace(pemHeader, "")
+        .replace(pemFooter, "")
+        .replace(/\s/g, "");
+    const binaryDerString = atob(pemContents);
+    const binaryDer = new Uint8Array(binaryDerString.length);
+    for (let i = 0; i < binaryDerString.length; i++) {
+        binaryDer[i] = binaryDerString.charCodeAt(i);
+    }
+
+    // Import the key
+    return crypto.subtle.importKey(
+        "spki",
+        binaryDer.buffer,
+        {
+            name: "ECDSA",
+            namedCurve: "P-256",
+        },
+        true,
+        ["verify"]
+    );
+};
+
+
+
+
+
+
+
+// Derive Seed Material Using PRF During Authentication
+// Use the PRF extension to derive deterministic key material during authentication.
+
+export const deriveSeedMaterial = async (): Promise<void> => {
+    chrome.storage.sync.get("credentialId", async (result) => {
+        const credentialIdBase64 = result.credentialId;
+        if (!credentialIdBase64) {
+            console.error("No credential ID found.");
+            return;
+        }
+        const options: any /* PublicKeyCredentialRequestOptions */ = {
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
+            allowCredentials: [{
+                id: Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0)),
+                type: "public-key",
+            }],
+            authenticatorSelection: authenticatorSelection,
+            extensions: {
+                prf: {
+                    inputs: [{ type: "hkdf", salt: crypto.getRandomValues(new Uint8Array(16)) }]
+                }
+            },
+        };
+
+        const assertion = await navigator.credentials.get({
+            publicKey: options,
+        }) as PublicKeyCredential;
+        console.log("assertion: ", assertion);
+        console.log("assertion extensionResults :", assertion.getClientExtensionResults());
+        console.log("PRF Output:", (assertion.getClientExtensionResults() as any).prf.outputs);
+    });
+};
+
+
+   
 

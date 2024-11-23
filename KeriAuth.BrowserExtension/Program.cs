@@ -49,7 +49,8 @@ try
         ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
         ("uiHelper", "/scripts/es6/uiHelper.js"),
         ("storageHelper", "/scripts/es6/storageHelper.js"),
-        ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js")
+        ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
+        ("webauthnCredentialWithPRF", "/scripts/es6/KaleWebauthn.js")
     ];
     foreach (var (moduleName, modulePath) in imports)
     {

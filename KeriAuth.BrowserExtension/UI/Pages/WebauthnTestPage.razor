@@ -63,7 +63,7 @@
         logger.LogInformation("createAndStoreCredential done");
     }
 
-    
+
 
 
     async Task test()
@@ -81,13 +81,13 @@
         res = res + "\n... Webauthn supported. ";
 
 
-        
+
         res = res + "... Creating credential. ";
         var profileId = await WebauthnCredentialWithPRF.GetProfileIdentifier();
         // logger.LogInformation("profileId: {s}", profileId);
         // res = res + "\n... profileId: " + profileId;
 
-        
+
         res = res + "... Test. ";
         var res2 = await WebauthnCredentialWithPRF.Test();
         logger.LogInformation("call to test() completed: {r}", res2);
@@ -96,9 +96,19 @@
         logger.LogInformation("tests completed");
     }
 
-    async Task test22()
+    async Task RegisterCredential()
     {
-        await WebauthnCredentialWithPRF.Test22();
+        await WebauthnCredentialWithPRF.RegisterCredential();
+    }
+
+    async Task authenticateCredential()
+    {
+        await WebauthnCredentialWithPRF.AuthenticateCredential();
+    }
+
+    async Task deriveSeedMaterial()
+    {
+        await WebauthnCredentialWithPRF.DeriveSeedMaterial();
     }
 }
 
@@ -111,7 +121,11 @@
             <hr />
             <MudButton OnClick="getAndVerifyAssertion">getAndVerifyAssertion</MudButton>
             <hr />
-            <MudButton OnClick="test22">Test22</MudButton>
+            <MudButton OnClick="RegisterCredential">RegisterCredential</MudButton>
+            <hr />
+            <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
+            <hr />
+            <MudButton OnClick="deriveSeedMaterial">deriveSeedMaterial</MudButton>
         </MudStack>
     </div>
 </div>
