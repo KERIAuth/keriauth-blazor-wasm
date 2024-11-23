@@ -28,7 +28,7 @@
 @if (!ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully && !string.IsNullOrWhiteSpace(ops.ErrorMessage))
 {
 	<MudAlert NoIcon="true" Severity="Severity.Error" ShowCloseIcon>@ops.ErrorMessage</MudAlert>
-	<MudLink Class="mt-2" OnClick='() => navManager.NavigateTo("/Start")'>Refresh</MudLink>
+	<MudLink Class="mt-2" OnClick='() => navManager.NavigateTo(AppConfig.RouteToIndex)'>Refresh</MudLink>
 }
 @code {
 	[Parameter]
