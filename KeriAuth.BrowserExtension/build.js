@@ -34,25 +34,6 @@ import { fileURLToPath } from 'url';
             }
         });
 
-        console.log('Building webauthnHmacSecret.js bundle...');
-        await esbuild.build({
-            entryPoints: ['wwwroot/scripts/esbuild/webauthnHmacSecret.ts'],
-            bundle: true,
-            minify: true,
-            outfile: 'wwwroot/scripts/esbuild/webauthnHmacSecret.js',
-            platform: 'browser',
-            format: 'esm',
-            plugins: [
-                alias({
-                    '@cbor': path.resolve(__dirname, 'node_modules/cbor2/lib/decoder.js'),
-                })
-            ],
-            loader: {
-                '.ts': 'ts'
-            }
-        });
-
-
         console.log('Building ContentScript.js bundle...');
         await esbuild.build({
             entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],

@@ -51,11 +51,13 @@
         await WebauthnCredentialWithPRF.CreateCred();
     }
 
+    /*
     async Task getAndVerifyAssertion()
     {
         var x = await WebauthnCredentialWithPRF.GetAndVerifyAssertion();
         logger.LogInformation("getAndVerifyAssertion: {x}", x);
     }
+    */
 
     async Task createAndStoreCredential()
     {
@@ -110,20 +112,6 @@
     {
         await WebauthnCredentialWithPRF.DeriveSeedMaterial();
     }
-
-    async Task registerCredential()
-    {
-        logger.LogInformation("registerCredential");
-        try
-        {
-            await WebauthnHmacSecret.RegisterCredential();
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine("exception ", e.Message);
-        }
-    }
-    
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -133,18 +121,12 @@
             <hr />
             <MudButton OnClick="createAndStoreCredential">CreateAndStoreCredential</MudButton>
             <hr />
-            <MudButton OnClick="getAndVerifyAssertion">getAndVerifyAssertion</MudButton>
             <hr />
             <MudButton OnClick="RegisterCredential">RegisterCredential</MudButton>
             <hr />
             <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
             <hr />
             <MudButton OnClick="deriveSeedMaterial">deriveSeedMaterial</MudButton>
-            <hr />
-            <MudButton OnClick="registerCredential">HMAC Secret registerCredential</MudButton>
-
-
-            
         </MudStack>
     </div>
 </div>

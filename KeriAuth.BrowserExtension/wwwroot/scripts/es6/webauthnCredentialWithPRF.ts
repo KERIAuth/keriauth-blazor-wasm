@@ -131,7 +131,7 @@ export async function createAndStoreCredential(): Promise<void> {
 
 }
 
-
+/*
 export async function getAndVerifyAssertion(): Promise<boolean> {
     const storedCredentials = await loadCredentials();
 
@@ -202,6 +202,7 @@ export async function getAndVerifyAssertion(): Promise<boolean> {
         return false;
     }
 }
+*/
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
 
