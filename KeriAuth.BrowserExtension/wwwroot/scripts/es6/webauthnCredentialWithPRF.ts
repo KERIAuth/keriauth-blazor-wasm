@@ -221,15 +221,11 @@ const first = new Uint8Array(32); // TODO P1: should be random on create, and th
 const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
     "hmac-secret": true,
     // "credProps": true, //TODO P1 needed?  Can't have set true when getting.
-    "prf": {   // See https://w3c.github.io/webauthn/#dom-authenticationextensionsprfinputs-eval within https://w3c.github.io/webauthn/#prf-extension
+    "prf": {
         "eval": {
-            "first": first, // generateChallenge("asdf"), //   new Uint8Array(32)
+            "first": first,
         }
     },
-    // credProps: true,  // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API/WebAuthn_extensions
-    // minPinLength: true
-    // hmacCreateSecret: true,
-
 };
 
 const makeCredentialTimeout = 60000;
@@ -445,6 +441,7 @@ export async function test(): Promise<String> {
 }
 
 // Derive a symmetric key from the PRF result
+// TODO P0 rewrite deriveSymmetricKey
 async function deriveSymmetricKey(prfResult: ArrayBuffer, challenge: Uint8Array): Promise<CryptoKey> {
     const prfKeyMaterial = await crypto.subtle.importKey("raw", prfResult, "HKDF", false, ["deriveKey"]);
     return crypto.subtle.deriveKey(
@@ -461,6 +458,7 @@ async function deriveSymmetricKey(prfResult: ArrayBuffer, challenge: Uint8Array)
 }
 
 // Encrypt data with a symmetric key
+// TODO P0 rewrite encryptData
 async function encryptData(data: string, key: CryptoKey): Promise<ArrayBuffer> {
     const iv = crypto.getRandomValues(new Uint8Array(12)); // 12-byte IV for AES-GCM
     const encodedData = new TextEncoder().encode(data);
@@ -474,6 +472,7 @@ async function encryptData(data: string, key: CryptoKey): Promise<ArrayBuffer> {
 }
 
 // Decrypt data with a symmetric key
+// TODO P0 rewrite decryptData
 async function decryptData(encryptedData: ArrayBuffer, key: CryptoKey): Promise<string> {
     const encryptedBytes = new Uint8Array(encryptedData);
     const iv = encryptedBytes.slice(0, 12); // Extract the first 12 bytes as IV
@@ -496,7 +495,6 @@ async function getOrCreateUser(): Promise<User> {
     };
     return user;
 }
-
 function verifyClientExtensionResults(clientExtensionResults: any): void { // todo P0 what type?
     // TODO P1 should return a Result<X>
     if (!clientExtensionResults["hmac-secret"]) {
@@ -624,27 +622,9 @@ async function getExcludeCredentialsFromCreate() {
 }
 export async function createCred() {
 
-    /* 
-    // possible values: none, direct, indirect
-    let attestation_type = "none";
-    // possible values: <empty>, platform, cross-platform
-    let authenticator_attachment = "";
-    // possible values: preferred, required, discouraged
-    let user_verification = "required";
-    // possible values: discouraged, preferred, required
-    let residentKey = "discouraged";
+    
 
-    // prepare form post data
-    var data = new FormData();
-    // data.append('username', username);
-    // data.append('displayName', displayName);
-    data.append('attType', attestation_type);
-    data.append('authType', authenticator_attachment);
-    data.append('userVerification', user_verification);
-    data.append('residentKey', residentKey);
-    */
-
-    // send to server for registering
+    
 
     /*
     var makeCredentialOptions = await fetchMakeCredentialOptions(data);
@@ -674,18 +654,17 @@ export async function createCred() {
     var user = await getOrCreateUser();
     var excludeCredentials = await getExcludeCredentialsFromCreate();
     const credentialCreationOptions: any = {
-        "rp": rpForCreate,
-        "user": user,
-        "challenge": challenge, // hexToArrayBuffer("7b226e616d65223a2250616e6b616a222c22616765223a32307d"), // Converted to ArrayBuffer. // TODO P1 example to real?
-        // or new Uint8Array(32);
-        "pubKeyCredParams": pubKeyCredParams,
-        "timeout": makeCredentialTimeout,
-        "attestation": attestation,
-        "attestationFormats": [],
+        rp: rpForCreate,
+        user: user,
+        challenge: challenge,
+        pubKeyCredParams: pubKeyCredParams,
+        timeout: makeCredentialTimeout,
+        attestation: attestation,
+        attestationFormats: [],
         authenticatorSelection: authenticatorSelection,
-        "hints": [],
+        hints: [],
         // "excludeCredentials": excludeCredentials,
-        "extensions": extensions,
+        extensions: extensions,
     }
     console.log("Credential Options Formatted", credentialCreationOptions);
 
@@ -750,7 +729,6 @@ export async function registerCredential(): Promise<void> {
         extensions: extensions22,
         attestation: "none"
     };
-    // console.log("credentialCreationOptions: ", publicKey);
 
     let credential: PublicKeyCredential;
     try {
@@ -758,20 +736,6 @@ export async function registerCredential(): Promise<void> {
             publicKey
         }) as PublicKeyCredential; // TODO P0 or PUblicKeyCredential or any?
         console.log("credential: ", credential);
-
-        // return;
-        // confirm shape of expected result
-
-        //const authenticationExtensionsClientOutputs = credential.getClientExtensionResults();
-        //console.log("authenticationExtensionsClientOutputs:", authenticationExtensionsClientOutputs);
-        //if (!(authenticationExtensionsClientOutputs as any)?.prf?.enabled) {
-        //    console.log("authenticationExtensionsClientOutputs or prf or enable not available ????")
-        //    // return;
-        //}
-        // return;
-
-        // console.log("clientExtensions2: first:", authenticationExtensionsClientOutputs.prf?.results?.first);
-
     }
     catch (error) {
         console.error("An error occurred during credential creation:", error);
@@ -786,7 +750,6 @@ export async function registerCredential(): Promise<void> {
         console.log("Stored Credential ID with PRF support.");
     });
 }
-
 
 export const authenticateCredential = async (): Promise<void> => {
     // Retrieve the stored credentialId from chrome.storage.sync
@@ -824,96 +787,69 @@ export const authenticateCredential = async (): Promise<void> => {
             publicKey: options,
         }) as PublicKeyCredential;
 
-        const auth1ExtensionResults = assertion.getClientExtensionResults();
-        console.log("auth1ExtensionResults: ", auth1ExtensionResults);
-        //   prf: {
-        //     results: {
-        //       first: ArrayBuffer(32),
-        //     }
-        //   }
-        // }
+        const extensionResults = assertion.getClientExtensionResults();
+        console.log("auth1ExtensionResults: ", extensionResults);
 
-        if (!((auth1ExtensionResults as any).prf?.results?.first)) {
+        if (!((extensionResults as any).prf?.results?.first)) {
             console.log("This authenticator is not supported. Did not return PRF results.");
             return;
         }
         console.log("Good, this authenticator supports PRF.");
 
-        //const authData = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).authenticatorData);
-        //const clientDataJSON = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).clientDataJSON);
-        //const signature = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).signature);
-
-        //// Perform signature validation
-        //validateSignature(authData, clientDataJSON, signature, credentialIdBase64);
-    });
-};
-
-const validateSignature = async (
-    authData: Uint8Array,
-    clientDataJSON: Uint8Array,
-    signature: Uint8Array,
-    credentialIdBase64: string
-): Promise<void> => {
-    // Retrieve the public key from storage or other source
-    chrome.storage.sync.get("publicKey", async (result) => {
-        const publicKeyPEM = result.publicKey;
-        if (!publicKeyPEM) {
-            console.error("No public key found for validation.");
-            return;
-        }
-
-        // Convert PEM to CryptoKey
-        const publicKey = await importPublicKey(publicKeyPEM);
-
-        // Construct the data to validate: concatenated authData + clientDataHash
-        const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSON);
-        const dataToValidate = new Uint8Array([...authData, ...new Uint8Array(clientDataHash)]);
-
-        // Verify the signature
-        const isValid = await crypto.subtle.verify(
-            {
-                name: "ECDSA",
-                hash: { name: "SHA-256" },
-            },
-            publicKey,
-            signature,
-            dataToValidate
+        // import the input key material
+        const inputKeyMaterial = new Uint8Array(
+            (extensionResults as any).prf.results.first,
         );
 
-        if (isValid) {
-            console.log("Signature is valid!");
-        } else {
-            console.error("Invalid signature.");
-        }
+
+        // Import the input key material
+        const keyDerivationKey = await crypto.subtle.importKey(
+            "raw",
+            inputKeyMaterial,
+            "HKDF",
+            false,
+            ["deriveKey"],
+        );
+
+        // Derive the encryption key
+        // Never forget what you set this value to or the key can't be
+        // derived later
+        const label = "encryption key";
+        const info = new TextEncoder().encode(label);
+        // `salt` is a required argument for `deriveKey()`, but should
+        // be empty
+        const salt = new Uint8Array();
+        const encryptionKey = await crypto.subtle.deriveKey(
+            { name: "HKDF", info, salt, hash: "SHA-256" },
+            keyDerivationKey,
+            { name: "AES-GCM", length: 256 },
+            // No need for exportability because we can deterministically
+            // recreate this key
+            false,
+            ["encrypt", "decrypt"],
+        );
+
+        // Encrypt the message
+        // Keep track of this `nonce`, you'll need it to decrypt later!
+        // FYI it's not a secret so you don't have to protect it.
+        const nonce = crypto.getRandomValues(new Uint8Array(12));
+        const encrypted = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: nonce },
+            encryptionKey,
+            new TextEncoder().encode("hello readers!"),
+        );
+
+        const decrypted = await crypto.subtle.decrypt(
+            // `nonce` should be the same value used for encrypt()
+            { name: "AES-GCM", iv: nonce },
+            encryptionKey,
+            encrypted,
+        );
+
+        console.log((new TextDecoder()).decode(decrypted));
     });
 };
 
-const importPublicKey = async (pem: string): Promise<CryptoKey> => {
-    // Convert PEM string to ArrayBuffer
-    const pemHeader = "-----BEGIN PUBLIC KEY-----";
-    const pemFooter = "-----END PUBLIC KEY-----";
-    const pemContents = pem
-        .replace(pemHeader, "")
-        .replace(pemFooter, "")
-        .replace(/\s/g, "");
-    const binaryDerString = atob(pemContents);
-    const binaryDer = new Uint8Array(binaryDerString.length);
-    for (let i = 0; i < binaryDerString.length; i++) {
-        binaryDer[i] = binaryDerString.charCodeAt(i);
-    }
-
-    // Import the key
-    return crypto.subtle.importKey(
-        "spki",
-        binaryDer.buffer,
-        {
-            name: "ECDSA",
-            namedCurve: "P-256",
-        },
-        true,
-        ["verify"]
-    );
-};
 
 
 
@@ -921,38 +857,7 @@ const importPublicKey = async (pem: string): Promise<CryptoKey> => {
 
 
 
-// Derive Seed Material Using PRF During Authentication
-// Use the PRF extension to derive deterministic key material during authentication.
 
-export const deriveSeedMaterial = async (): Promise<void> => {
-    chrome.storage.sync.get("credentialId", async (result) => {
-        const credentialIdBase64 = result.credentialId;
-        if (!credentialIdBase64) {
-            console.error("No credential ID found.");
-            return;
-        }
-        const options: any /* PublicKeyCredentialRequestOptions */ = {
-            challenge: crypto.getRandomValues(new Uint8Array(32)),
-            allowCredentials: [{
-                id: Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0)),
-                type: "public-key",
-            }],
-            authenticatorSelection: authenticatorSelection,
-            extensions: {
-                prf: {
-                    inputs: [{ type: "hkdf", salt: crypto.getRandomValues(new Uint8Array(16)) }]
-                }
-            },
-        };
-
-        const assertion = await navigator.credentials.get({
-            publicKey: options,
-        }) as PublicKeyCredential;
-        console.log("assertion: ", assertion);
-        console.log("assertion extensionResults :", assertion.getClientExtensionResults());
-        console.log("PRF Output:", (assertion.getClientExtensionResults() as any).prf.outputs);
-    });
-};
 
 
    

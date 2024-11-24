@@ -108,10 +108,9 @@
         await WebauthnCredentialWithPRF.AuthenticateCredential();
     }
 
-    async Task deriveSeedMaterial()
-    {
-        await WebauthnCredentialWithPRF.DeriveSeedMaterial();
-    }
+
+
+    
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -125,8 +124,6 @@
             <MudButton OnClick="RegisterCredential">RegisterCredential</MudButton>
             <hr />
             <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
-            <hr />
-            <MudButton OnClick="deriveSeedMaterial">deriveSeedMaterial</MudButton>
         </MudStack>
     </div>
 </div>
