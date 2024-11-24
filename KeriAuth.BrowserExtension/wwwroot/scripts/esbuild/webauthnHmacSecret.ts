@@ -81,11 +81,23 @@ export async function registerCredential(): Promise<void> {
             const decodedAttestationObject = decodeCBOR(new Uint8Array(attestationObject));
             console.log('Decoded attestation object:', decodedAttestationObject);
 
+
+
+
+
             const authData = decodedAttestationObject.authData;
-            console.log("registerCredential 5");
+
+
+            // debugging tmp
+            console.log('Auth Data Length:', authData.byteLength);
+            console.log('Auth Data (Hex):', Array.from(new Uint8Array(authData)).map(byte => byte.toString(16).padStart(2, '0')).join(' '));
+
+
+
+            
             // Convert to ArrayBuffer if necessary
             const authDataArrayBuffer = authData instanceof ArrayBuffer ? authData : authData.buffer;
-            console.log("registerCredential 5.5");
+            
             // Extract public key from authData
             const publicKey = extractPublicKeyFromAuthData(authDataArrayBuffer);
             console.log("registerCredential 6");
@@ -102,60 +114,105 @@ export async function registerCredential(): Promise<void> {
 }
 
 function extractPublicKeyFromAuthData(authData: ArrayBuffer): JsonWebKey {
-    console.log("extractPublicKeyFromAuthData authData: ", authData);
-    const authDataView = new DataView(authData);
+    // console.log("extractPublicKeyFromAuthData authData: ", authData);
 
+    console.log('AuthData (Hex):', Array.from(new Uint8Array(authData)).map(byte => byte.toString(16).padStart(2, '0')).join(' '));
+
+
+    const authDataView = new DataView(authData);
+    // console.log("authDataView : ", authDataView);
     let offset = 0;
 
-    // RP ID Hash: 32 bytes
-    const rpIdHash = authData.slice(offset, offset + 32);
-    offset += 32;
+    // Skip RP ID Hash (32 bytes), Flags (1 byte), Sign Count (4 bytes), AAGUID (16 bytes)
+    offset += 32 + 1 + 4 + 16;
 
-    // Flags: 1 byte
-    const flags = authDataView.getUint8(offset);
-    offset += 1;
+    //// RP ID Hash: 32 bytes
+    //const rpIdHash = authData.slice(offset, offset + 32);
+    //console.log('RP ID Hash:', rpIdHash);
+    //offset += 32;
 
-    // Sign Count: 4 bytes
-    const signCount = authDataView.getUint32(offset, false); // Big-endian
-    offset += 4;
+    //// Flags: 1 byte
+    //const flags = authDataView.getUint8(offset);
+    //console.log('Flags:', flags);
+    //offset += 1;
 
-    console.log('RP ID Hash:', rpIdHash);
-    console.log('Flags:', flags);
-    console.log('Sign Count:', signCount);
+    //// Sign Count: 4 bytes
+    //const signCount = authDataView.getUint32(offset, false); // Big-endian
+    //console.log('Sign Count:', signCount);
+    //offset += 4;
 
-    // AAGUID: 16 bytes
-    const aaguid = authData.slice(offset, offset + 16);
-    offset += 16;
+    //// AAGUID: 16 bytes
+    //const aaguid = authData.slice(offset, offset + 16);
+    //console.log('AAGUID:', aaguid);
+    //offset += 16;
 
-    console.log('AAGUID:', aaguid);
+    // Example usage:
+    
+    const offset2 = 53; // Credential ID Length offset
+    const credentialIdLength2 = extractCredentialIdLength(authData, offset2);
+    console.log('Final Credential ID Length:', credentialIdLength2);
 
-    // Credential ID Length: 2 bytes
-    const credentialIdLength = authDataView.getUint16(offset, false); // Big-endian
-    offset += 2;
 
+
+    // Credential ID Length: 2 bytes.  // Note that one code suggestion was to read this as a .getUint16(offset, false) // Big-endian.
+    const credentialIdLength = authDataView.getUint8(offset); 
     console.log('Credential ID Length:', credentialIdLength);
+    offset += 2;
 
     // Credential ID: Variable length
     const credentialId = authData.slice(offset, offset + credentialIdLength);
+    console.log('Credential ID:', credentialId);
+    console.log('Credential ID (Hex):', Array.from(new Uint8Array(credentialId)).map(byte => byte.toString(16).padStart(2, '0')).join(' '));
     offset += credentialIdLength;
 
-    console.log('Credential ID:', credentialId);
+    // console.log("remaining offset, authDataView.byteLength: authData.byteLength:", offset, authDataView.byteLength, authData.byteLength);
 
-    console.log("remaining offset, byteLength: ", offset, authData.byteLength);
+    // TODO P1 next 3 lines are temp test
+    //const publicKeyOffset = offset; // Calculate offset based on Credential ID
+    //const publicKeyBytes2 = authData.slice(publicKeyOffset);
+    //console.log('Public Key Bytes:', new Uint8Array(publicKeyBytes2));
+
 
     // Public Key: Remaining bytes (CBOR-encoded)
     const publicKeyBytes = new Uint8Array(authData.slice(offset));
-
     console.log('Public Key Bytes:', publicKeyBytes);
-
     // Decode the CBOR public key
-    const publicKeyCBOR = decodeCBOR(publicKeyBytes);
+    const publicKeyCBOR = decodeCBOR(publicKeyBytes); // TODO P0 currently throws exception "Extra data in input"
 
     console.log('Public Key (CBOR Decoded):', publicKeyCBOR);
     const jwk = publicKeyCBOR as JsonWebKey;
     console.log('jwk:', jwk);
     return jwk;
 }
+
+
+function extractCredentialIdLength(authData: ArrayBuffer, offset: number): number {
+    const authDataView = new DataView(authData);
+
+    // Log bytes around offset for debugging
+    const bytesAroundOffset = new Uint8Array(authData.slice(offset - 2, offset + 4));
+    console.log('Bytes Around Offset:', Array.from(bytesAroundOffset).map(b => b.toString(16).padStart(2, '0')).join(' '));
+
+    // Attempt to read the Credential ID Length
+    const credentialIdLength = authDataView.getUint16(offset, false); // Big-endian
+    console.log('Credential ID Length (getUint16):', credentialIdLength);
+
+    // Manual parsing for validation
+    const byte1 = authDataView.getUint8(offset);
+    const byte2 = authDataView.getUint8(offset + 1);
+    const manualCredentialIdLength = (byte1 << 8) | byte2; // Big-endian
+
+    console.log('Credential ID Length (manual):', manualCredentialIdLength);
+
+    // Assert both methods produce the same result
+    console.assert(
+        credentialIdLength === manualCredentialIdLength,
+        `Mismatch: getUint16=${credentialIdLength}, manual=${manualCredentialIdLength}`
+    );
+
+    return credentialIdLength;
+}
+
 
 
 // Authenticate using stored credentials
