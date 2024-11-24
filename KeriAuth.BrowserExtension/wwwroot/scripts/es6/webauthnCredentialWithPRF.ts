@@ -713,6 +713,13 @@ export async function createCred() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+/**
+ * This value is for sake of demonstration. Pick 32 random
+ * bytes. `salt` can be static for your site or unique per
+ * credential depending on your needs.
+ */
+const firstSalt: Uint8Array = crypto.getRandomValues(new Uint8Array(12)); // TODO P1 Salt...
+
 export async function registerCredential(): Promise<void> {
 
     // Define the extensions with the PRF extension
@@ -721,7 +728,7 @@ export async function registerCredential(): Promise<void> {
     } = {
         prf: {                                    
             eval: {
-                first: crypto.getRandomValues(new Uint8Array(12)),
+                first: firstSalt,
             },  // PRF evaluation inputs
             evalContext: new Uint8Array([0x04, 0x05, 0x06]).buffer, // Optional evaluation context
         }
@@ -793,15 +800,23 @@ export const authenticateCredential = async (): Promise<void> => {
         const credentialId = Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0));
 
         // Prepare PublicKeyCredentialRequestOptions
-        const options: PublicKeyCredentialRequestOptions = {
-            challenge: crypto.getRandomValues(new Uint8Array(32)), // Random challenge
+        const options: any = { //  PublicKeyCredentialRequestOptions = {
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
             allowCredentials: [{
                 id: credentialId,
                 type: "public-key",
-                transports: ["usb", "nfc", "ble", "internal"],
+                transports: ["usb", "nfc", "ble", "internal"],  // TODO P2 should use the same transport as the saved credential (not just ID)
             }],
+            // rpId is intentionally left blank
             timeout: 60000,
-            userVerification: "preferred",
+            userVerification: "required",
+            extensions: {
+                prf: {
+                    eval: {
+                        first: firstSalt,
+                    },
+                },
+            }
         };
 
         // Call WebAuthn API to get the credential assertion
@@ -809,12 +824,27 @@ export const authenticateCredential = async (): Promise<void> => {
             publicKey: options,
         }) as PublicKeyCredential;
 
-        const authData = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).authenticatorData);
-        const clientDataJSON = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).clientDataJSON);
-        const signature = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).signature);
+        const auth1ExtensionResults = assertion.getClientExtensionResults();
+        console.log("auth1ExtensionResults: ", auth1ExtensionResults);
+        //   prf: {
+        //     results: {
+        //       first: ArrayBuffer(32),
+        //     }
+        //   }
+        // }
 
-        // Perform signature validation
-        validateSignature(authData, clientDataJSON, signature, credentialIdBase64);
+        if (!((auth1ExtensionResults as any).prf?.results?.first)) {
+            console.log("This authenticator is not supported. Did not return PRF results.");
+            return;
+        }
+        console.log("Good, this authenticator supports PRF.");
+
+        //const authData = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).authenticatorData);
+        //const clientDataJSON = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).clientDataJSON);
+        //const signature = new Uint8Array((assertion.response as AuthenticatorAssertionResponse).signature);
+
+        //// Perform signature validation
+        //validateSignature(authData, clientDataJSON, signature, credentialIdBase64);
     });
 };
 

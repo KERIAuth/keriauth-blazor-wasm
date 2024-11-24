@@ -29,7 +29,7 @@ export async function register2() {
                 displayName: "user@localhost",
             },
             pubKeyCredParams: [
-                // { alg: -8, type: "public-key" }, // Ed25519
+                { alg: -8, type: "public-key" }, // Ed25519
                 { alg: -7, type: "public-key" }, // ES256
                 { alg: -257, type: "public-key" }, // RS256
             ],
@@ -49,6 +49,7 @@ export async function register2() {
     console.log(`registering 3...`);
 
     const extensionResults = regCredential.getClientExtensionResults();
+    console.log("extensionResults:", extensionResults);
     // Looking for something like this
     // {
     //   prf: {
