@@ -234,12 +234,11 @@ const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?:
 
 const makeCredentialTimeout = 60000;
 const authenticatorSelection: AuthenticatorSelectionCriteria = {
-    // residentKey: "preferred", // or required
-    userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
-    // authenticatorAttachment: "cross-platform", // note that "platform" is stronger. TODO P2 could make this a user preference
+    // residentKey: "preferred", // or required for more safety
+    // userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
+    authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
     // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
 };
-
 
 /**
  * Checks for WebAuthn and PRF feature support.
