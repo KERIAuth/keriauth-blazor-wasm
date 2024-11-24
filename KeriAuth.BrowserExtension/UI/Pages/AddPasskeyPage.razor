@@ -1,0 +1,125 @@
+﻿@page "/AddAuthenticator"
+@layout Layouts.MainLayout
+
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.UIHelper;
+@using static KeriAuth.BrowserExtension.Services.SignifyService.SignifyServiceConfig
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<UnlockPage> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+@inject IWebExtensionsApi webExtensionsApi
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            ;
+        }
+    }
+
+    async Task RegisterPasskey()
+    {
+        // TODO P1 handle result, and indicate error snackbar or success
+        await WebauthnCredentialWithPRF.RegisterCredential();
+        snackbar.Add("Passkey successfully registered.");
+        navManager.NavigateTo(AppConfig.RouteToIndex);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Register an Authenticator</MudText>
+            <MudStack>
+                <!--
+                <MudText>
+                    To register an authenticator, click <i>Register</i>.
+                </MudText>
+                <MudText Style="text-decoration:underline; font-weight:500;">
+                    Details
+                </MudText>
+                -->
+                <MudText Class="mt-8" Style="font-weight:bold;">
+                    What do I need?
+                </MudText>
+                <MudStack>
+                    <MudText>
+                        You'll need an authenticator that supports the CTAP 2.1 standard. Most modern authenticators meet this, including:
+                    </MudText>
+                    <MudList T="string">
+                        <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                            hardware security keys (e.g., YubiKey, Google Titan);
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                            built-in options like Windows Hello or macOS/iOS Touch ID and Face ID; and
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                            mobile-based authenticators like Android devices with Google Play Services or iPhones running iOS 13.3+.
+                        </MudListItem>
+                    </MudList>
+                </MudStack>
+                <MudText Class="mt-8" Style="font-weight:bold;">
+                    How does this work?
+                </MudText>
+                <MudStack>
+                    <MudText>
+                        You'll follow the prompts during registration.
+                        Once registered, you'll be able to use it to unlock KERI Auth.
+                    </MudText>
+                    <MudText>
+                        The authenticator generates attestation data, which KERI Auth will use to
+                        1) dynamically generate an encryption key that is never stored and is unique to the browser profile, KERI Auth, and the registered authenticator;
+                        2) use that to encrypt/decrypt your passcode; and
+                        3) store the encrypted passcode securely in your current browser profile, which is accessible only to the extension.
+                    </MudText>
+                    <MudText>
+                        Your passcode is not stored by KERI Auth or any authenticator, so <i><b>you must continue to keep your passcode safely stored</b></i> in case an authenticator becomes unavailable or the browser profile and/or this KERI Auth installation is reset.
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await RegisterPasskey())">Register</MudButton>
+    </MudStack>
+</div>

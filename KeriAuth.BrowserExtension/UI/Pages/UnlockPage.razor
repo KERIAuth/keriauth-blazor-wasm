@@ -49,20 +49,45 @@
                 <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
             </MudText>
             <MudText Style="font-style:italic">autonomously authentic</MudText>
-            <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
-                <MudTextField Label="Passcode"
-                              @ref="passcodeField"
-                              OnKeyDown="@HandleKeyDown"
-                              InputType="InputType.Password"
-                              @bind-Value="@unlockPasscodeModel.Passcode"
-                              HelperText="&nbsp;"
-                              ErrorText="&nbsp;"
-                              For="@(() => unlockPasscodeModel.Passcode)"
-                              Immediate="true"
-                              @onfocus="SelectAllText" />
-            </MudForm>
-            <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
-            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+            @if (!IsAuthenticator)
+            {
+                <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
+                    <MudTextField Label="Passcode"
+                                  @ref="passcodeField"
+                                  OnKeyDown="@HandleKeyDown"
+                                  InputType="InputType.Password"
+                                  @bind-Value="@unlockPasscodeModel.Passcode"
+                                  HelperText="&nbsp;"
+                                  ErrorText="&nbsp;"
+                                  For="@(() => unlockPasscodeModel.Passcode)"
+                                  Immediate="true"
+                                  @onfocus="SelectAllText" />
+                </MudForm>
+
+                <MudButton Variant="Variant.Text" Style="text-transform:none" Color="Color.Secondary" OnClick="SetIsAuthenticator">
+                    Or, use an authenticator
+                </MudButton>
+
+                <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
+                <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+            }
+            else
+            {
+                if (RegisteredAuthenticators.Any())
+                {
+                    // TODO P2 could automatically start authentication
+                    <MudText>
+                        @NumberAuthenticatorsLabel registered with this browser profile and KERI Auth. Press Unlock to authenticate with one of them.
+                    </MudText>
+                    <MudButton Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+                }
+                else
+                {
+                    <MudText>
+                        No authenticators are registered.  You'll first need to unlock with your passcode, then navigate to the Authenticators page and register one.
+                    </MudText>
+                }
+            }
             <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
         </MudStack>
     </div>
@@ -71,12 +96,30 @@
 </div>
 
 @code {
-    // private bool IsLocked = true;
+    // fields
     private bool isValid;
     MudForm? form;
     private string[] errors = { };
     private PasscodeModel unlockPasscodeModel = new PasscodeModel();
     private MudTextField<string>? passcodeField;
+
+    // properties
+    bool IsAuthenticator { get; set; }
+    // TODO P2 better as a dictionary?
+    List<string> RegisteredAuthenticators { get; set; } = []; // TODO P1 Implment query against storage.sync
+
+    // reactive properties
+    string NumberAuthenticatorsLabel => RegisteredAuthenticators.Count switch
+    {
+        0 => "No authenticators are",
+        1 => "1 authenticator is",
+        _ => $"{RegisteredAuthenticators.Count} authenticators are"
+    };
+
+    async Task SetIsAuthenticator()
+    {
+        IsAuthenticator = true;
+    }
 
     private async Task SelectAllText()
     {
@@ -108,7 +151,18 @@
     {
         if (firstRender)
         {
-            await passcodeField!.FocusAsync();
+            // TODO P1 test randomness for now:
+            Random random = new Random();
+            bool IsAuthenticator = random.Next(2) == 0; // Generate 0 or 1, 50% chance for each
+            if (IsAuthenticator)
+            {
+                RegisteredAuthenticators = ["asdf1", "asdf33", "1234"];
+            }
+
+            if (!IsAuthenticator)
+            {
+                await passcodeField!.FocusAsync();
+            }
         }
     }
 

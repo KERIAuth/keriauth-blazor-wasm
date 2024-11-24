@@ -20,7 +20,9 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToWelcome = "/Welcome";
         public const string RouteToNewRelease = "/NewRelease";
         public const string RouteToConfigure = "/Configure";
-        public const string RouteToUnlock = "/Webauthn";  // TODO P1
+        public const string RouteToAddAuthenticator = "/AddAuthenticator";
+        public const string RouteToAuthenticators = "/Authenticators";
+        public const string RouteToUnlock = "/Unlock";
         // TODO P2 decide whether a connecting page is needed
         public const string RouteToConnecting = "/Connecting";
         // TODO P2 remove this temporary test
@@ -61,7 +63,8 @@ namespace KeriAuth.BrowserExtension
             RouteToConfigure,
             RouteToUnlock,
             RouteToManagePrefs,
-            RouteToTermsPage
+            RouteToTermsPage,
+            RouteToWebauthn
             // Note, you don't need to add routes to static html (non-SPA-App) here
         ];
 

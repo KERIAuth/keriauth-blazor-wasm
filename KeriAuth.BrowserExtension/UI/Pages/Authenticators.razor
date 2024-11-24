@@ -1,0 +1,92 @@
+﻿@page "/Authenticators"
+
+@using KeriAuth.BrowserExtension.Helper
+@using KeriAuth.BrowserExtension.Models
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services
+@using KeriAuth.BrowserExtension.Services.SignifyService
+@using KeriAuth.BrowserExtension.Services.SignifyService.Models
+@using static KeriAuth.BrowserExtension.AppConfig;
+@using static KeriAuth.BrowserExtension.Helper.Identicon;
+@using System.Diagnostics
+@using System.Text.Json
+
+@using System.Net.Http.Json
+@inject HttpClient httpClient
+
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
+@inject ILogger<IdentifierPage> logger
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+
+@code {
+    // [Parameter]
+    // public string? CredentialId { get; set; }
+
+    // fields
+
+    // properties
+
+    // reactive properties
+    string CountLabel => (RegisteredAuthenticators is not null) ? "(" + RegisteredAuthenticators.Count() + ")" : "...";
+
+    record RegisteredAuthenticator
+    {
+        public string? credential { get; init; }
+        public required string name { get; init; }
+    }
+
+    IEnumerable<RegisteredAuthenticator> RegisteredAuthenticators = new List<RegisteredAuthenticator>()
+    {
+        new RegisteredAuthenticator() { name = "My Blue Yubikey"},
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        logger.LogInformation($"OnParametersSetAsync");
+    }
+
+    async Task AddAuthenticator()
+    {
+        navManager.NavigateTo(AppConfig.RouteToAddAuthenticator);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="d-flex gap-3 bt-main">
+            <div class="bt-main-inside-scroll">
+                <MudStack Row="true">
+                    <MudText Typo="Typo.h6">Authenticators</MudText>
+                    <MudText Typo="Typo.h6">@CountLabel</MudText>
+                </MudStack>
+                @if (RegisteredAuthenticators is not null && RegisteredAuthenticators.Any())
+                {
+                    @foreach (var item in new List<string>() { "1111", "2222" })
+                    {
+                        <MudText>@item</MudText>
+                        <MudButton>Delete</MudButton>
+                    }
+                }
+            </div>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="async () => await AddAuthenticator()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
+    </MudStack>
+</div>
