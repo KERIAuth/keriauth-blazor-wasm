@@ -505,3 +505,5 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/SpaExtensionInterop.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/webauthnCredentialWithPRF.d.ts
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/webauthnCredentialWithPRF.js
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/IRegisteredAuthenticator.d.ts
+/KeriAuth.BrowserExtension/wwwroot/scripts/es6/IRegisteredAuthenticators.d.ts
