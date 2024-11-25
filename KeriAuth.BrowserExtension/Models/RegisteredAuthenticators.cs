@@ -1,6 +1,6 @@
 ﻿namespace KeriAuth.BrowserExtension.Models
 {
-    public class WebsiteInteractionThread
+    public class RegisteredAuthenticators
     {
     }
 }

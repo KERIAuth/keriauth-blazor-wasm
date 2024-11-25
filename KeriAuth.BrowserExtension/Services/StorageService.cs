@@ -165,9 +165,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         List<string> topLevelKeysToRemove =
         [
             // These should not be backed up, in order to force a restore to reset the state of the wallet and authenticate.
-            nameof(AppState),
-            nameof(WalletLogin),
-            nameof(BackupVersion)
+            nameof(AppState)
         ];
         return RemoveKeys(jsonDocument, topLevelKeysToRemove);
     }
@@ -186,16 +184,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         {
             dict.Remove(key);
         }
-
-        // TODO P2 indicate the version of the backupVersion, so we can handle changes in the future. Get the version and version_name from the manifest, if available
-        BackupVersion backupVersion = new()
-        {
-            Version = "0.0.0",
-            VersionName = "0.0.0 datetime commitHash",
-            DateTime = DateTime.UtcNow.ToString("u")
-        };
-        dict.Add(nameof(BackupVersion).ToUpper(), JsonDocument.Parse(JsonSerializer.Serialize(backupVersion)).RootElement);
-
+        
         // Convert back to JSON string
         string filteredJson = JsonSerializer.Serialize(dict);
         return JsonDocument.Parse(filteredJson);
