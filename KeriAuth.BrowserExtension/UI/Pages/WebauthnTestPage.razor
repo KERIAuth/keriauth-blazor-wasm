@@ -47,12 +47,6 @@
         await WebauthnCredentialWithPRF.CreateCred();
     }
 
-    async Task createAndStoreCredential()
-    {
-        await WebauthnCredentialWithPRF.CreateAndStoreCredential();
-        logger.LogInformation("createAndStoreCredential done");
-    }
-
     async Task RegisterCredential()
     {
         await WebauthnCredentialWithPRF.RegisterCredential();
@@ -67,8 +61,6 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
-            <MudButton OnClick="createAndStoreCredential">CreateAndStoreCredential</MudButton>
-            <hr />
             <MudButton OnClick="RegisterCredential">RegisterCredential</MudButton>
             <hr />
             <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
