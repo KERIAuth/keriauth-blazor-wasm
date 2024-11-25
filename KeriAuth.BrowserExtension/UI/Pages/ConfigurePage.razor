@@ -388,6 +388,7 @@
         {
             int tmpHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
             keriaConnectConfig = new KeriaConnectConfig("TBD333", urlModel.AdminUrl, urlModel.BootUrl, tmpHash);
+            // TODO P2 KeriaConnectConfig should be stored in chrome.storage.sync. Multiple changes required.
             var res = await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
             if (res.IsFailed)
             {

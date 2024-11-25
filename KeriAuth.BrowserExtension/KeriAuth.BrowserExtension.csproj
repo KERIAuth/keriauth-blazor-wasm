@@ -257,6 +257,9 @@
 	  <None Remove="wwwroot\scripts\es6\SwAppInterop.ts" />
 	</ItemGroup>
 	<ItemGroup>
-	  <None Remove="wwwroot\scripts\es6\KaleWebauthn.js" />
+	  <None Remove="wwwroot\scripts\es6\IRegisteredAuthenticator.ts" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="wwwroot\scripts\es6\IRegisteredAuthenticators.ts" />
 	</ItemGroup>
 </Project>
