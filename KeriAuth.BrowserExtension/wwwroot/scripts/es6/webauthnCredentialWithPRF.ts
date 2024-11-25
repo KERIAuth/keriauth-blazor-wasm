@@ -725,13 +725,9 @@ export const authenticateCredential = async (): Promise<void> => {
         );
 
         // Derive the encryption key
-        // Never forget what you set this value to or the key can't be
-        // derived later
-        // `salt` is a required argument for `deriveKey()`, but should
-        // be empty
-        const salt = firstSalt;  // TODO P1 should this really be the firstSalt or something else?
         const derivedKeyType = { name: "AES-GCM", length: 256 };
-        const deriveKeyAlgorithm = { name: "HKDF", info: encryptionKeyInfo, salt: salt, hash: "SHA-256" };
+        const kdaSalt = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
+        const deriveKeyAlgorithm = { name: "HKDF", info: encryptionKeyInfo, salt: kdaSalt, hash: "SHA-256" };
 
         const encryptionKey = await crypto.subtle.deriveKey(
             deriveKeyAlgorithm,
