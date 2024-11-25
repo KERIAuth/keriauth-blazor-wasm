@@ -1,28 +1,11 @@
 /// <reference types="chrome" />
 
-import { IRegisteredAuthenticators } from "./IRegisteredAuthenticators.js"
-import { IRegisteredAuthenticator } from "./IRegisteredAuthenticator.js"
-
-interface StoredCredential {
-    id: Uint8Array;
-    name?: string; // Optional, e.g., to ENCRYPTION_KEY_LABEL credentials for a user
-}
-
 interface User extends PublicKeyCredentialUserEntity {
     id: Uint8Array;
     name: string;
     displayName: string; // TODO: required?
 }
 
-type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOptions & {
-    extensions?: {
-        "hmac-secret"?: boolean;
-        prf: true | {
-            eval?: { first: Uint8Array },
-            evalContext?: ArrayBuffer[];
-        },
-    };
-};
 enum ErrorCode {
     VALIDATION_ERROR = "VALIDATION_ERROR",
     UNSUPPORTED_FEATURE = "UNSUPPORTED_FEATURE",
@@ -289,13 +272,13 @@ export const authenticateCredential = async (): Promise<void> => {
             },
         };
 
-        // Call WebAuthn API to get credential assertion from authenticator
+        // Call WebAuthn API to get assertion from authenticator
         const assertion = await navigator.credentials.get({
             publicKey: options,
         }) as PublicKeyCredential;
 
         const extensionResults = assertion.getClientExtensionResults();
-        console.log("auth1ExtensionResults: ", extensionResults);
+        // console.log("auth1ExtensionResults: ", extensionResults);
 
         if (!((extensionResults as any).prf?.results?.first)) {
             console.log("This authenticator is not supported. Did not return PRF results.");

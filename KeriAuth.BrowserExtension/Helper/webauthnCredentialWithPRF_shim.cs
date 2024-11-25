@@ -1,7 +1,5 @@
-﻿using FluentResults;
-using System.Runtime.InteropServices.JavaScript;
+﻿using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KeriAuth.BrowserExtension.Helper
 {

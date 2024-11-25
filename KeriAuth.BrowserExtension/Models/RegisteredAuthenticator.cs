@@ -12,7 +12,7 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("encryptedPasscodeBase64")]
         public string? EncryptedPasscodeBase64 { get; init; }
-        
+
         [JsonPropertyName("registeredUtc")]
         public required DateTime CreationTime { get; init; }
 

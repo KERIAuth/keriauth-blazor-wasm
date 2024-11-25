@@ -184,7 +184,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         {
             dict.Remove(key);
         }
-        
+
         // Convert back to JSON string
         string filteredJson = JsonSerializer.Serialize(dict);
         return JsonDocument.Parse(filteredJson);
