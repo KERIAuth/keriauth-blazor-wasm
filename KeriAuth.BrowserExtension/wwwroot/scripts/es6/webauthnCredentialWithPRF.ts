@@ -207,74 +207,14 @@ async function getExcludeCredentialsFromCreate() {
 /*
  *
  */
-export async function createCred() {
-    /*
-    var makeCredentialOptions = await fetchMakeCredentialOptions(data);
-
-    console.log("Credential Options Object", makeCredentialOptions);
-
-    if (makeCredentialOptions.status === "error") {
-        console.log("Error creating credential options");
-        console.log(makeCredentialOptions.errorMessage);
-        return;
-    }
-
-    // Turn the challenge back into the accepted format of padded base64
-    makeCredentialOptions.challenge = coerceToArrayBuffer(makeCredentialOptions.challenge);
-    // Turn ID into a UInt8Array Buffer for some reason
-    makeCredentialOptions.user.id = coerceToArrayBuffer(makeCredentialOptions.user.id);
-
-    makeCredentialOptions.excludeCredentials = makeCredentialOptions.excludeCredentials.map((c) => {
-        c.id = coerceToArrayBuffer(c.id);
-        return c;
-    });
-    */
-
-    const challenge = await generateChallenge(KERI_AUTH_EXTENSION_ID, await getProfileIdentifier());
-    var user = await getOrCreateUser();
-    var excludeCredentials = await getExcludeCredentialsFromCreate();
-    const credentialCreationOptions: any = {
-        rp: RP_FOR_CREATE,
-        user: user,
-        challenge: challenge,
-        pubKeyCredParams: PUBKEY_CRED_PARAMS,
-        timeout: CREDS_CREATE_TIMEOUT,
-        attestation: CREDENTIALS_CREATE_ATTESTATION,
-        attestationFormats: [],
-        authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
-        // "excludeCredentials": excludeCredentials,
-        extensions: getExtensions(firstSalt),
-    }
-    console.log("Credential Options Formatted", credentialCreationOptions);
-
-    console.log("Creating PublicKeyCredential...");
-
-    let newCredential; // : Credential | null;
-    try {
-        newCredential = await navigator.credentials.create({
-            publicKey: credentialCreationOptions  // TODO P1 fix this usage in other .create()'s
-        });
-    } catch (e) {
-        var msg = "Could not create credentials in browser. Probably because the username is already registered with your authenticator. Please change username or authenticator."
-        console.error(msg, e);
-    }
-    console.log("PublicKeyCredential Created", newCredential);
-
-    try {
-        // TODO store credential (or remake it)
-        // registerNewCredential(newCredential);
-
-    } catch (e) {
-        console.log(e);
-    }
+async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
+    const profileIdentifier = await getProfileIdentifier();
+    // transform guid into 32 byte salt
+    const encoder = new TextEncoder();
+    const guidBytes = encoder.encode(profileIdentifier); // Convert GUID string to Uint8Array
+    const hash = await crypto.subtle.digest('SHA-256', guidBytes)
+    return new Uint8Array(hash); // 32 bytes
 }
-
-/**
- * This value is for sake of demonstration. Pick 32 random
- * bytes. `salt` can be static for your site or unique per
- * credential depending on your needs.
- */
-const firstSalt: Uint8Array = crypto.getRandomValues(new Uint8Array(12)); // TODO P1: should be random on create, and then stored for subsequent calls?  P0 [1, 2, 3, 4]); See Matt's Headroom article
 
 /*
  *
@@ -287,7 +227,7 @@ export async function registerCredential(): Promise<void> {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         pubKeyCredParams: PUBKEY_CRED_PARAMS,
         authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
-        extensions: getExtensions(firstSalt),
+        extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
         timeout: CREDS_CREATE_TIMEOUT,
         attestation: "none"
     };
@@ -343,7 +283,7 @@ export const authenticateCredential = async (): Promise<void> => {
             extensions: {
                 prf: {
                     eval: {
-                        first: firstSalt,
+                        first: await derive32Uint8ArrayFromProfileId(),
                     },
                 },
             },
@@ -391,7 +331,7 @@ export const authenticateCredential = async (): Promise<void> => {
         // Decrypt message
         const decrypted = await decryptWithNounce(encryptionKey, encrypted);
         const decryptedString = (new TextDecoder()).decode(decrypted);
-        
+
         if (stringToEncrypt != decryptedString) {
             throw Error("encryption-decryption mismatch!");
         } else {
@@ -405,7 +345,7 @@ export const authenticateCredential = async (): Promise<void> => {
  */
 // TODO P1 is this redundant with encrptData()?  DRY
 export const encryptWithNounce = async (encryptionKey: CryptoKey, data: BufferSource): Promise<ArrayBuffer> => {
-    
+
     return await crypto.subtle.encrypt(
         getEncryptionAlgorithm(NON_SECRET_NOUNCE),
         encryptionKey,
@@ -417,7 +357,7 @@ export const encryptWithNounce = async (encryptionKey: CryptoKey, data: BufferSo
  *
  */
 // TODO P1 is this redundant with decryptData()?  DRY
- export const decryptWithNounce = (encryptionKey: CryptoKey, encrypted: ArrayBuffer): Promise<ArrayBuffer> => {
+export const decryptWithNounce = (encryptionKey: CryptoKey, encrypted: ArrayBuffer): Promise<ArrayBuffer> => {
     return crypto.subtle.decrypt(
         getEncryptionAlgorithm(NON_SECRET_NOUNCE),
         encryptionKey,
@@ -428,7 +368,7 @@ export const encryptWithNounce = async (encryptionKey: CryptoKey, data: BufferSo
 /*
  *
  */
-const  getEncryptionAlgorithm = (nounce: Uint8Array): AlgorithmIdentifier => {
+const getEncryptionAlgorithm = (nounce: Uint8Array): AlgorithmIdentifier => {
     return { name: "AES-GCM", iv: nounce } as AlgorithmIdentifier;
 };
 
