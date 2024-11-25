@@ -3,6 +3,11 @@
 import { IRegisteredAuthenticators } from "./IRegisteredAuthenticators.js"
 import { IRegisteredAuthenticator } from "./IRegisteredAuthenticator.js"
 
+interface StoredCredential {
+    id: Uint8Array;
+    name?: string; // Optional, e.g., to label credentials for a user
+}
+
 interface User extends PublicKeyCredentialUserEntity {
     id: Uint8Array;
     name: string;
@@ -18,7 +23,6 @@ type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOpti
         },
     };
 };
-
 enum ErrorCode {
     VALIDATION_ERROR = "VALIDATION_ERROR",
     UNSUPPORTED_FEATURE = "UNSUPPORTED_FEATURE",
@@ -32,6 +36,28 @@ interface ResultError {
     message: string;
 }
 
+type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
+
+const credentialsCreateAttestation = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
+const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
+const KeriAuthExtensionName = "KERI Auth";
+const displayName = "KERI Auth displayName"; // TODO P2
+const rpForCreate: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+const pubKeyCredParams: PublicKeyCredentialParameters[] = [
+    { alg: -7, type: "public-key" },   // ES256
+    { alg: -257, type: "public-key" }  // RS256
+];
+const credentialsCreateTimeout = 60000;
+const authenticatorSelectionForCreate: AuthenticatorSelectionCriteria = {
+    // residentKey: "preferred", // or required for more safety
+    // userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
+    authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
+    // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
+};
+
+/*
+ *
+ */
 async function saveCredential(credential: StoredCredential): Promise<void> {
     const storageKey = "credentials";
 
@@ -75,24 +101,20 @@ async function saveCredential(credential: StoredCredential): Promise<void> {
 }
 
 
-interface StoredCredential {
-    id: Uint8Array;
-    name?: string; // Optional, e.g., to label credentials for a user
-}
-
-// Compare an assertion credential ID against stored credentials
+/*
+ * Compare an assertion credential ID against stored credentials
+ */
 async function isCredentialIdStored(assertionCredentialId: Uint8Array): Promise<boolean> {
     const credentials = await loadCredentials();
     console.log("isCredentialIdStored: stored credentials:", credentials);
     console.log("isCredentialIdStored: assertionCredentialId:", assertionCredentialId);
-
-
-
-
     return credentials.some(cred => arraysEqual(cred.id, assertionCredentialId));
 }
 
-// Helper function to compare two Uint8Arrays
+
+/*
+ * Helper function to compare two Uint8Arrays
+ */
 function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
@@ -101,152 +123,28 @@ function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
     return true;
 }
 
-// Load all credentials from chrome.storage.sync
+/*
+ * Load all credentials from chrome.storage.sync
+ */
 async function loadCredentials(): Promise<StoredCredential[]> {
     const result = await chrome.storage.sync.get("credentials");
     console.warn("loadCredentials get: ", result);
     return result.credentials || [];
 }
 
-const attestation = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
-
-export async function createAndStoreCredential(): Promise<void> {
-    var user = await getOrCreateUser();
-
-    var rp2 = rpForCreate;
-    rp2.id = KeriAuthExtensionId;
-    var excludeCredentials = await getExcludeCredentialsFromCreate();
-    const credentialCreationOptions: any = { // PublicKeyCredentialCreationOptions = {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rp: rp2,
-        user: user,
-        pubKeyCredParams: pubKeyCredParams,
-        extensions: extensions,
-        // "excludeCredentials": excludeCredentials,
-        authenticatorSelection: authenticatorSelection,
-        timeout: makeCredentialTimeout,
-        attestation: attestation
-    };
-
-    const credential = await navigator.credentials.create({ publicKey: credentialCreationOptions });
-    if (credential && credential instanceof PublicKeyCredential) {
-        const credentialId = new Uint8Array(credential.rawId);
-        await saveCredential({
-            id: credentialId,
-            name: user.name // Same as what the user sees, with the date.
-        });
-        console.log("Credential stored successfully.");
-    } else {
-        console.error("Failed to create credential.");
-    }
-
-
-}
 
 /*
-export async function getAndVerifyAssertion(): Promise<boolean> {
-    const storedCredentials = await loadCredentials();
-
-
-    const allowCredentials = storedCredentials.map(cred => ({
-        id: cred.id,
-        type: "public-key",
-        name: cred.name,
-        // TODO P1 See PublicKeyCredentialRequestOptions https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialRequestOptions#instance_properties
-        transports: ["ble", "hybrid", "internal", "nfc", "usb"]
-    }));
-
-    // TODO P0 remove tests here
-    const credentialId = new Uint8Array([123, 167, 117, 54, 155, 0, 118, 34, 185, 200, 99, 145, 176, 139, 130, 156, 31, 252, 2, 248, 210, 219, 54, 78, 210, 18, 51, 242, 91, 119, 4, 211]);
-    const allowCredentials2 = [
-        {
-            id: credentialId.buffer, // Ensure `id` is an ArrayBuffer
-            type: "public-key"
-        }
-    ];
-
-    console.log("getAndVerifyAssertion allowedCredentials: ", allowCredentials);
-
-    var challenge = await generateChallenge(KeriAuthExtensionName);
-
-    const options: any = { // PublicKeyCredentialRequestOptions = {
-        publicKey: {
-            challenge: challenge, // crypto.getRandomValues(new Uint8Array(32)), // challenge
-            allowCredentials2, // TODO P1.  See above
-            extensions: extensions, // { prf: { inputs: { first: crypto.getRandomValues(new Uint8Array(32)) } } },
-            hints: [
-                "security-key",
-                "client-device",
-                "hybrid"
-            ],
-            // rpID: rpForCreate.id, //  ....   // TODO P2 define this for security purposes
-            timeout: makeCredentialTimeout,
-            userVerification: "preferred", // Options: "required", "preferred", "discouraged"
+ *
+ */
+const getExtensions = (firstSalt : Uint8Array) /*: (AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any })*/ => {
+    return {
+        "prf": {
+            "eval": {
+                "first": firstSalt,
+            }
         }
     };
-
-    let assertion: Credential | null;
-    try {
-        assertion = await navigator.credentials.get(options);
-        console.log("got assertion: ", assertion);
-    }
-    catch (error: any) {
-        // Handle different types of WebAuthn errors
-        var msg: string;
-        if (error.name === "NotAllowedError") {
-            msg = "Authentication was not allowed or cancelled by the user.";
-        } else if (error.name === "InvalidStateError") {
-            msg = "The security key is not registered with this site.";
-        } else {
-            msg = "An unexpected error occurred: " + error.message;
-        }
-        console.warn(msg);
-        return false;
-    }
-    if (assertion && assertion instanceof PublicKeyCredential) {
-        const assertionId = new Uint8Array(assertion.rawId);
-        console.log("assertionId: ", assertionId);
-        const isStored = await isCredentialIdStored(assertionId);
-        console.log(`Credential verification result: ${isStored}`);
-        return isStored;
-    } else {
-        console.error("Failed to retrieve assertion.");
-        return false;
-    }
 }
-*/
-
-type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
-
-// const's used widely in these functions...
-const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
-const KeriAuthExtensionName = "KERI Auth";
-const displayName = "KERI Auth displayName"; // TODO P2
-const rpForCreate: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
-const pubKeyCredParams: PublicKeyCredentialParameters[] = [
-    { alg: -7, type: "public-key" },   // ES256
-    { alg: -257, type: "public-key" }  // RS256
-];
-const first = new Uint8Array(32); // TODO P1: should be random on create, and then stored for subsequent calls?  P0 [1, 2, 3, 4]);
-
-
-const extensions = { // AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any } = {
-    "hmac-secret": true,
-    // "credProps": true, //TODO P1 needed?  Can't have set true when getting.
-    "prf": {
-        "eval": {
-            "first": first,
-        }
-    },
-};
-
-const makeCredentialTimeout = 60000;
-const authenticatorSelection: AuthenticatorSelectionCriteria = {
-    // residentKey: "preferred", // or required for more safety
-    // userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
-    authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-    // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
-};
 
 /**
  * Checks for WebAuthn support, available only when running in a secure context
@@ -299,8 +197,8 @@ async function createCredentialWithPRF(
         rp: rpForCreate,
         user: user2,
         pubKeyCredParams: pubKeyCredParams,
-        authenticatorSelection: authenticatorSelection,
-        extensions: extensions,
+        authenticatorSelection: authenticatorSelectionForCreate,
+        extensions: getExtensions(firstSalt),
         // excludeCredentials: excludeCredentials,
         timeout: 60000 // 60 seconds
     };
@@ -364,9 +262,10 @@ async function createCredentialWithPRF(
     }
 }
 
-
-// Because chrome.storage.sync is specific per profile and per-extension this secret identifier will be unique to each profile.
-// This method essentially "fingerprints" a profile.
+/*
+ * Because chrome.storage.sync is specific per profile and per-extension this secret identifier will be unique to each profile.
+ * This method essentially "fingerprints" a profile.
+ */
 export async function getProfileIdentifier(): Promise<string> {
     return new Promise((resolve) => {
         chrome.storage.sync.get(['profileIdentifier'], (data) => {
@@ -381,10 +280,16 @@ export async function getProfileIdentifier(): Promise<string> {
     });
 }
 
+/*
+ *
+ */
 function isError<T>(result: Result<T>): result is { ok: false; error: { code: ErrorCode; message: string } } {
     return result.ok === false;
 }
 
+/*
+ *
+ */
 async function generateChallenge(extensionId: string): Promise<Uint8Array> {
     const profileIdentifier = await getProfileIdentifier();
     // TODO P3 pass in profileIdentifier as a param, so this is unit-testable
@@ -393,6 +298,9 @@ async function generateChallenge(extensionId: string): Promise<Uint8Array> {
     return new Uint8Array(await hash);
 }
 
+/*
+ *
+ */
 async function getOrCreateUserId(): Promise<Uint8Array> {
     let profileIdentifier: string;
     try {
@@ -407,6 +315,9 @@ async function getOrCreateUserId(): Promise<Uint8Array> {
     return hashStringToUint8Array(profileIdentifier);
 }
 
+/*
+ *
+ */
 async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
     // TODO P1, why not simply use the following:
     // const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
@@ -425,8 +336,11 @@ async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
     return hashArray;
 }
 
-// Derive a symmetric key from the PRF result
-// TODO P0 rewrite deriveSymmetricKey
+/*
+ * Derive a symmetric key from the PRF result
+ * // TODO P0 rewrite deriveSymmetricKey
+ */
+
 async function deriveSymmetricKey(prfResult: ArrayBuffer, challenge: Uint8Array): Promise<CryptoKey> {
     const prfKeyMaterial = await crypto.subtle.importKey("raw", prfResult, "HKDF", false, ["deriveKey"]);
     return crypto.subtle.deriveKey(
@@ -442,8 +356,10 @@ async function deriveSymmetricKey(prfResult: ArrayBuffer, challenge: Uint8Array)
     );
 }
 
-// Encrypt data with a symmetric key
-// TODO P0 rewrite encryptData
+/*
+ * Encrypt data with a symmetric key
+ * // TODO P0 rewrite encryptData
+ */
 async function encryptData(data: string, key: CryptoKey): Promise<ArrayBuffer> {
     const iv = crypto.getRandomValues(new Uint8Array(12)); // 12-byte IV for AES-GCM
     const encodedData = new TextEncoder().encode(data);
@@ -456,11 +372,13 @@ async function encryptData(data: string, key: CryptoKey): Promise<ArrayBuffer> {
     return new Uint8Array([...iv, ...new Uint8Array(encryptedData)]).buffer;
 }
 
-// Decrypt data with a symmetric key
-// TODO P0 rewrite decryptData
+/*
+ * // Decrypt data with a symmetric key
+ * // TODO P0 rewrite decryptData
+ */
 async function decryptData(encryptedData: ArrayBuffer, key: CryptoKey): Promise<string> {
     const encryptedBytes = new Uint8Array(encryptedData);
-    const iv = encryptedBytes.slice(0, 12); // Extract the first 12 bytes as IV
+    const iv = encryptedBytes.slice(0, 12); // Extract the firstSalt 12 bytes as IV
     const ciphertext = encryptedBytes.slice(12); // Remaining bytes are the ciphertext
     const decryptedData = await crypto.subtle.decrypt(
         { name: "AES-GCM", iv },
@@ -469,6 +387,10 @@ async function decryptData(encryptedData: ArrayBuffer, key: CryptoKey): Promise<
     );
     return new TextDecoder().decode(decryptedData);
 }
+
+/*
+ *
+ */
 async function getOrCreateUser(): Promise<User> {
     let id = await getOrCreateUserId();
     let user: User;
@@ -480,6 +402,10 @@ async function getOrCreateUser(): Promise<User> {
     };
     return user;
 }
+
+/*
+ *
+ */
 function verifyClientExtensionResults(clientExtensionResults: any): void { // todo P0 what type?
     // TODO P1 should return a Result<X>
     if (!clientExtensionResults["hmac-secret"]) {
@@ -490,8 +416,9 @@ function verifyClientExtensionResults(clientExtensionResults: any): void { // to
     }
 }
 
-
-// TODO P1, return an interface versus void. Change thrown errors to returns
+/*
+ * // TODO P1, return an interface versus void. Change thrown errors to returns
+ */
 async function registerAndEncryptSecret(secret: string): Promise<void> {
     try {
         const challenge = await generateChallenge(KeriAuthExtensionId);
@@ -504,10 +431,10 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
             rp: rpForCreate,
             user: user,
             pubKeyCredParams: pubKeyCredParams,
-            timeout: makeCredentialTimeout,
-            authenticatorSelection: authenticatorSelection,
-            extensions: extensions,
-            "attestation": attestation,
+            timeout: credentialsCreateTimeout,
+            authenticatorSelection: authenticatorSelectionForCreate,
+            extensions: getExtensions(firstSalt),
+            "attestation": credentialsCreateAttestation,
             "attestationFormats": [],
             "hints": [],
             // "excludeCredentials": excludeCredentials,
@@ -559,6 +486,9 @@ async function registerAndEncryptSecret(secret: string): Promise<void> {
     }
 }
 
+/*
+ *
+ */
 function coerceToArrayBuffer(thing: any, name?: any) {
     if (typeof thing === "string") {
         // base64url to base64
@@ -591,11 +521,18 @@ function coerceToArrayBuffer(thing: any, name?: any) {
     return thing;
 };
 
+
+/*
+ *
+ */
 function hexToArrayBuffer(hex: string): ArrayBuffer {
     const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
     return bytes.buffer;
 }
 
+/*
+ *
+ */
 async function getExcludeCredentialsFromCreate() {
     // TODO P1 Prevent re-registration of the same authenticator to ensure uniqueness:
     // Prevent re-registration of the same authenticator to ensure uniqueness:
@@ -605,12 +542,11 @@ async function getExcludeCredentialsFromCreate() {
         // transports: ["usb", "nfc", "ble", "internal"]
     }];
 }
+
+/*
+ *
+ */
 export async function createCred() {
-
-    
-
-    
-
     /*
     var makeCredentialOptions = await fetchMakeCredentialOptions(data);
 
@@ -621,7 +557,6 @@ export async function createCred() {
         console.log(makeCredentialOptions.errorMessage);
         return;
     }
-
 
     // Turn the challenge back into the accepted format of padded base64
     makeCredentialOptions.challenge = coerceToArrayBuffer(makeCredentialOptions.challenge);
@@ -643,13 +578,13 @@ export async function createCred() {
         user: user,
         challenge: challenge,
         pubKeyCredParams: pubKeyCredParams,
-        timeout: makeCredentialTimeout,
-        attestation: attestation,
+        timeout: credentialsCreateTimeout,
+        attestation: credentialsCreateAttestation,
         attestationFormats: [],
-        authenticatorSelection: authenticatorSelection,
+        authenticatorSelection: authenticatorSelectionForCreate,
         hints: [],
         // "excludeCredentials": excludeCredentials,
-        extensions: extensions,
+        extensions: getExtensions(firstSalt),
     }
     console.log("Credential Options Formatted", credentialCreationOptions);
 
@@ -674,44 +609,29 @@ export async function createCred() {
         console.log(e);
     }
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 /**
  * This value is for sake of demonstration. Pick 32 random
  * bytes. `salt` can be static for your site or unique per
  * credential depending on your needs.
  */
-const firstSalt: Uint8Array = crypto.getRandomValues(new Uint8Array(12)); // TODO P1 Salt...
+const firstSalt: Uint8Array = crypto.getRandomValues(new Uint8Array(12)); // TODO P1: should be random on create, and then stored for subsequent calls?  P0 [1, 2, 3, 4]); See Matt's Headroom article
 
+/*
+ *
+ */
 export async function registerCredential(): Promise<void> {
 
-    // Define the extensions with the PRF extension
-    const extensions22: AuthenticationExtensionsClientInputs & {
-        prf: { eval?: any /* ArrayBuffer*/, evalContext?: ArrayBuffer }
-    } = {
-        prf: {                                    
-            eval: {
-                first: firstSalt,
-            },  // PRF evaluation inputs
-            evalContext: new Uint8Array([0x04, 0x05, 0x06]).buffer, // Optional evaluation context
-        }
-    };
-
     // Credential Creation Request
-    
     const publicKey: any = { // PublicKeyCredentialCreationOptionsWithPRF = { // /*/ PublicKeyCredentialCreationOptions = {
         // Basic registration parameters
-        rp: { name: "Example RP", /* id: 'chrome-extension://pniimiboklghaffelpegjpcgobgamkal' */ }, // TODO P0  rpForCreate, // { name: "Example RP" },
-        user: {
-            id: new Uint8Array([5, 6, 7, 8]), // TODO P0 Replace with the user's unique ID
-            name: "user@example.com",
-            displayName: "User Example",
-        },
-        challenge: crypto.getRandomValues(new Uint8Array(32)), // new Uint8Array(32), // TODO P0 Replace with a secure, random value
-        pubKeyCredParams: pubKeyCredParams, // [{ type: "public-key", alg: -7 }], // ECDSA w/ SHA-256
-        authenticatorSelection: authenticatorSelection,
-        extensions: extensions22,
+        rp: rpForCreate,
+        user: await getOrCreateUser(),
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        pubKeyCredParams: pubKeyCredParams,
+        authenticatorSelection: authenticatorSelectionForCreate,
+        extensions: getExtensions(firstSalt),
+        timeout: credentialsCreateTimeout,
         attestation: "none"
     };
 
@@ -719,13 +639,14 @@ export async function registerCredential(): Promise<void> {
     try {
         credential = await navigator.credentials.create({
             publicKey
-        }) as PublicKeyCredential; // TODO P0 or PUblicKeyCredential or any?
+        }) as PublicKeyCredential;
         console.log("credential: ", credential);
     }
     catch (error) {
         console.error("An error occurred during credential creation:", error);
         return;
     }
+
 
     // Determine and store the credentialId
     const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
@@ -736,6 +657,9 @@ export async function registerCredential(): Promise<void> {
     });
 }
 
+/*
+ *
+ */
 export const authenticateCredential = async (): Promise<void> => {
     // Retrieve the stored credentialId from chrome.storage.sync
     chrome.storage.sync.get("credentialId", async (result) => {
@@ -803,7 +727,7 @@ export const authenticateCredential = async (): Promise<void> => {
         const info = new TextEncoder().encode(label);
         // `salt` is a required argument for `deriveKey()`, but should
         // be empty
-        const salt = new Uint8Array();
+        const salt = firstSalt;  // TODO P1 should this really be the firstSalt or something else?
         const encryptionKey = await crypto.subtle.deriveKey(
             { name: "HKDF", info, salt, hash: "SHA-256" },
             keyDerivationKey,
@@ -834,16 +758,3 @@ export const authenticateCredential = async (): Promise<void> => {
         console.log((new TextDecoder()).decode(decrypted));
     });
 };
-
-
-
-
-
-
-
-
-
-
-
-   
-
