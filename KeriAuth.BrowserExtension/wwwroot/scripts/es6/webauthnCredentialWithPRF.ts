@@ -5,7 +5,7 @@ import { IRegisteredAuthenticator } from "./IRegisteredAuthenticator.js"
 
 interface StoredCredential {
     id: Uint8Array;
-    name?: string; // Optional, e.g., to label credentials for a user
+    name?: string; // Optional, e.g., to encryptionKeyLabel credentials for a user
 }
 
 interface User extends PublicKeyCredentialUserEntity {
@@ -17,8 +17,8 @@ interface User extends PublicKeyCredentialUserEntity {
 type PublicKeyCredentialCreationOptionsWithPRF = PublicKeyCredentialCreationOptions & {
     extensions?: {
         "hmac-secret"?: boolean;
-        prf?: true | {
-            eval?: { first: Uint8Array }, // First input to PRF.  Not ArrayBuffer[]  ?
+        prf: true | {
+            eval?: { first: Uint8Array },
             evalContext?: ArrayBuffer[];
         },
     };
@@ -38,10 +38,11 @@ interface ResultError {
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
 
+const nonSecretNounce = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 const credentialsCreateAttestation = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
 const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
 const KeriAuthExtensionName = "KERI Auth";
-const displayName = "KERI Auth displayName"; // TODO P2
+const displayName = "KERI Auth";
 const rpForCreate: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
 const pubKeyCredParams: PublicKeyCredentialParameters[] = [
     { alg: -7, type: "public-key" },   // ES256
@@ -54,6 +55,9 @@ const authenticatorSelectionForCreate: AuthenticatorSelectionCriteria = {
     authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
     // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
 };
+const encryptionKeyLabel = "encryption key";
+const encryptionKeyInfo = new TextEncoder().encode(encryptionKeyLabel);
+
 
 /*
  *
@@ -136,7 +140,7 @@ async function loadCredentials(): Promise<StoredCredential[]> {
 /*
  *
  */
-const getExtensions = (firstSalt : Uint8Array) /*: (AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any })*/ => {
+const getExtensions = (firstSalt: Uint8Array) /*: (AuthenticationExtensionsClientInputs & { "hmac-secret"?: boolean, "prf"?: any })*/ => {
     return {
         "prf": {
             "eval": {
@@ -723,38 +727,59 @@ export const authenticateCredential = async (): Promise<void> => {
         // Derive the encryption key
         // Never forget what you set this value to or the key can't be
         // derived later
-        const label = "encryption key";
-        const info = new TextEncoder().encode(label);
         // `salt` is a required argument for `deriveKey()`, but should
         // be empty
         const salt = firstSalt;  // TODO P1 should this really be the firstSalt or something else?
+        const derivedKeyType = { name: "AES-GCM", length: 256 };
+        const deriveKeyAlgorithm = { name: "HKDF", info: encryptionKeyInfo, salt: salt, hash: "SHA-256" };
+
         const encryptionKey = await crypto.subtle.deriveKey(
-            { name: "HKDF", info, salt, hash: "SHA-256" },
+            deriveKeyAlgorithm,
             keyDerivationKey,
-            { name: "AES-GCM", length: 256 },
-            // No need for exportability because we can deterministically
-            // recreate this key
-            false,
+            derivedKeyType,
+            false,  // should not be exportable, since we will re-derive this
             ["encrypt", "decrypt"],
         );
 
-        // Encrypt the message
-        // Keep track of this `nonce`, you'll need it to decrypt later!
-        // FYI it's not a secret so you don't have to protect it.
-        const nonce = crypto.getRandomValues(new Uint8Array(12));
+        // Encrypt message
         const encrypted = await crypto.subtle.encrypt(
-            { name: "AES-GCM", iv: nonce },
+            getEncryptionAlgorithm(nonSecretNounce),
             encryptionKey,
             new TextEncoder().encode("hello readers!"),
         );
 
+        // Decrypt message
         const decrypted = await crypto.subtle.decrypt(
-            // `nonce` should be the same value used for encrypt()
-            { name: "AES-GCM", iv: nonce },
+            getEncryptionAlgorithm(nonSecretNounce),
             encryptionKey,
             encrypted,
         );
-
         console.log((new TextDecoder()).decode(decrypted));
     });
+};
+
+/*
+ *
+ */
+ export const decryptWithNounce = (encryptionKey: CryptoKey, encrypted: ArrayBuffer): Promise<ArrayBuffer> => {
+    return crypto.subtle.decrypt(
+        getEncryptionAlgorithm(nonSecretNounce),
+        encryptionKey,
+        encrypted,
+    );
+};
+
+/*
+ *
+ */
+const  getEncryptionAlgorithm = (nounce: Uint8Array): AlgorithmIdentifier => {
+    return { name: "AES-GCM", iv: nounce } as AlgorithmIdentifier;
+};
+
+/*
+ *
+ */
+const getDeriveKeyAlgorithm = (salt: Uint8Array): AlgorithmIdentifier => {
+    const deriveKeyAlgorithm = { name: "HKDF", encryptionKeyInfo, salt, hash: "SHA-256" };
+    return deriveKeyAlgorithm;
 };
