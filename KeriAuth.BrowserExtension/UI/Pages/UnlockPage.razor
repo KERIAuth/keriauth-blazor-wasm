@@ -49,7 +49,7 @@
                 <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
             </MudText>
             <MudText Style="font-style:italic">autonomously authentic</MudText>
-            @if (!CanUseAuthenticator)
+            @if (!ShouldUseAuthenticator)
             {
                 <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
                     <MudTextField Label="Passcode"
@@ -64,9 +64,12 @@
                                   @onfocus="SelectAllText" />
                 </MudForm>
 
-                <MudButton Variant="Variant.Text" Style="text-transform:none" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
-                    Or, use an authenticator
-                </MudButton>
+                @if (CanUseAuthenticator)
+                {
+                    <MudButton Variant="Variant.Text" Style="text-transform:none" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
+                        Or, use an authenticator
+                    </MudButton>
+                }
 
                 <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
                 <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
@@ -101,7 +104,7 @@
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
-    bool WantsToUseAuthenticator { get; set; }
+    bool WantsToUseAuthenticator { get; set; } = true; // TODO P2 should remember setting this on the chrome.storage.local, since this desire may be different from machine to machine
 
     // reactive properties
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
@@ -110,8 +113,8 @@
         1 => "1 authenticator is",
         _ => $"{RAS.Authenticators.Count} authenticators are"
     };
-    bool CanUseAuthenticator => /* RAS.Authenticators.Any()  && */ WantsToUseAuthenticator;
-
+    bool CanUseAuthenticator => RAS.Authenticators.Any();
+    bool ShouldUseAuthenticator => CanUseAuthenticator && WantsToUseAuthenticator;
 
     protected override async Task OnInitializedAsync()
     {
@@ -136,22 +139,25 @@
         if (jsonRAs.TryGetProperty("authenticators", out JsonElement registeredAuthenticators)
             && registeredAuthenticators.ValueKind == JsonValueKind.Object)
         {
+            logger.LogInformation("OnInitializedAsync found and parsed registeredAuthenticators {r}", registeredAuthenticators);
             RAS = registeredAuthenticators.Deserialize<RegisteredAuthenticators>() ?? RAS;
             StateHasChanged();
-            if (CanUseAuthenticator)
+            if (ShouldUseAuthenticator)
             {
                 // assume the user will want to use a registered if available
                 WantsToUseAuthenticator = true;
             }
+        } else
+        {
+            logger.LogInformation("OnInitializedAsync did not find registeredAuthenticators");
         }
-
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            if (!CanUseAuthenticator)
+            if (!ShouldUseAuthenticator)
             {
                 await passcodeField!.FocusAsync();
             }
@@ -169,7 +175,6 @@
         if (passcodeField is not null)
             await passcodeField.SelectAsync();
     }
-
 
     private async Task HandleKeyDown(KeyboardEventArgs args)
     {
@@ -227,7 +232,6 @@
         {
             await webExtensionsApi.Storage.Session.Set(new { passcode = password });
             await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
-
             await stateService.Authenticate(false);
             // logger.LogWarning("returned from Authenticate. pausing...");
             var connectRes = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);

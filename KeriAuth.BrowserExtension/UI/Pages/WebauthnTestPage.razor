@@ -42,60 +42,15 @@
 @inject IWebExtensionsApi webExtensionsApi
 
 @code {
-    // DotNetObjectReference<WebauthnTestPage> _objectReference = default!;
-    // IJSObjectReference _interopModule = default!;
-    string res { get; set; } = string.Empty;
-
     async Task createCred()
     {
         await WebauthnCredentialWithPRF.CreateCred();
     }
 
-    /*
-    async Task getAndVerifyAssertion()
-    {
-        var x = await WebauthnCredentialWithPRF.GetAndVerifyAssertion();
-        logger.LogInformation("getAndVerifyAssertion: {x}", x);
-    }
-    */
-
     async Task createAndStoreCredential()
     {
         await WebauthnCredentialWithPRF.CreateAndStoreCredential();
         logger.LogInformation("createAndStoreCredential done");
-    }
-
-
-
-
-    async Task test()
-    {
-        res = String.Empty;
-        logger.LogInformation("testing...");
-        var isPublicKeyCredential = WebauthnCredentialWithPRF.CheckWebAuthnSupport();
-        if (!isPublicKeyCredential)
-        {
-            // logger.LogWarning("Webauthn not adequately supported");
-            res = res + "\n Webauthn not adequately supported. ";
-            return;
-        }
-        // logger.LogInformation("Webauthn supported");
-        res = res + "\n... Webauthn supported. ";
-
-
-
-        res = res + "... Creating credential. ";
-        var profileId = await WebauthnCredentialWithPRF.GetProfileIdentifier();
-        // logger.LogInformation("profileId: {s}", profileId);
-        // res = res + "\n... profileId: " + profileId;
-
-
-        res = res + "... Test. ";
-        var res2 = await WebauthnCredentialWithPRF.Test();
-        logger.LogInformation("call to test() completed: {r}", res2);
-        res = res + "\n... Test completed with " + res2;
-
-        logger.LogInformation("tests completed");
     }
 
     async Task RegisterCredential()
@@ -107,19 +62,12 @@
     {
         await WebauthnCredentialWithPRF.AuthenticateCredential();
     }
-
-
-
-    
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
-            <MudButton OnClick="test">Test</MudButton>
-            <hr />
             <MudButton OnClick="createAndStoreCredential">CreateAndStoreCredential</MudButton>
-            <hr />
             <hr />
             <MudButton OnClick="RegisterCredential">RegisterCredential</MudButton>
             <hr />

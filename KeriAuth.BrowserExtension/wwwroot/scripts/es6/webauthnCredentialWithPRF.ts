@@ -1,5 +1,8 @@
 /// <reference types="chrome" />
 
+import { IRegisteredAuthenticators } from "./IRegisteredAuthenticators.js"
+import { IRegisteredAuthenticator } from "./IRegisteredAuthenticator.js"
+
 interface User extends PublicKeyCredentialUserEntity {
     id: Uint8Array;
     name: string;
@@ -38,8 +41,17 @@ async function saveCredential(credential: StoredCredential): Promise<void> {
 
     // Check if the key exists and has a value; if not, initialize it to an empty array
     if (!result[storageKey]) {
-
         await chrome.storage.sync.set({ [storageKey]: [] });
+
+        // TODO P1 also set a fake credential in the newer record structure. Currently assumes only one is supported
+        const newRA: IRegisteredAuthenticator = {
+            name: "new RA",
+            credential: "base64credential",
+            registeredUtc: new Date().toISOString(),
+            lastUpdatedUtc: new Date().toISOString()
+        };
+        const RAS: IRegisteredAuthenticators = { ["authenticators"]: [newRA] };
+        await chrome.storage.sync.set(RAS);
     }
 
     // Safely retrieve the credentials, which is guaranteed to be an array at this point
@@ -237,15 +249,9 @@ const authenticatorSelection: AuthenticatorSelectionCriteria = {
 };
 
 /**
- * Checks for WebAuthn and PRF feature support.
+ * Checks for WebAuthn support, available only when running in a secure context
  */
-export function checkWebAuthnSupport(): boolean {
-    if (self.PublicKeyCredential) {
-        return true;
-    }
-    console.log("no PublicKeyCredential support");
-    return false;
-}
+export const isWebauthnSupported = (): boolean => !!self.PublicKeyCredential;
 
 /**
  * Helper function to retry an asynchronous operation with a timeout.
@@ -273,15 +279,13 @@ async function createCredentialWithPRF(
     debug: boolean = false
 ): Promise<Result<PublicKeyCredential>> {
 
-    if (!checkWebAuthnSupport()) {
+    if (!isWebauthnSupported()) {
         return {
             ok: false, error: { code: ErrorCode.UNSUPPORTED_FEATURE, message: "no PublicKeyCredential support" }
         };
     }
 
     // prepare parameters for credential creation
-
-
     const createDateString = new Date().toISOString();
     const user2: PublicKeyCredentialUserEntity = {
         id: user.id,
@@ -346,7 +350,6 @@ async function createCredentialWithPRF(
                 }
             }
         }
-
     } catch (error: unknown) {
         // Type checking for error to determine if it has a message property
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -359,7 +362,6 @@ async function createCredentialWithPRF(
             }
         };
     }
-
 }
 
 
@@ -421,23 +423,6 @@ async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
 
     // Return the 32-byte Uint8Array result
     return hashArray;
-}
-
-// Example usage
-export async function test(): Promise<String> {
-    var user = await getOrCreateUser();
-    const challenge = await generateChallenge(KeriAuthExtensionId);
-    var result = await createCredentialWithPRF(challenge, user);
-    if (isError(result)) {
-        console.error("Credential creation failed #11: already exists?: ", result);
-        return "Credential creation failed #11: already exists?" + result.error.message
-    } else {
-        console.log("Credential created:", result.value, ". Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key");
-        console.log("Credential id might need to be stored: ", result.value.id);
-        //const myClientExtResults = result.value.getClientExtensionResults();
-        //console.log("Credential authenticationExtensionClientOutputs :", myClientExtResults);
-        return "Credential created: " + result.value + " . Can use this PRF result concatenated with the hashed challenge to derive the final symetric encryption key";
-    }
 }
 
 // Derive a symmetric key from the PRF result
