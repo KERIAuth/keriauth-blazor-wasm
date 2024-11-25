@@ -5,7 +5,7 @@ import { IRegisteredAuthenticator } from "./IRegisteredAuthenticator.js"
 
 interface StoredCredential {
     id: Uint8Array;
-    name?: string; // Optional, e.g., to encryptionKeyLabel credentials for a user
+    name?: string; // Optional, e.g., to ENCRYPTION_KEY_LABEL credentials for a user
 }
 
 interface User extends PublicKeyCredentialUserEntity {
@@ -38,26 +38,29 @@ interface ResultError {
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
 
-const nonSecretNounce = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-const credentialsCreateAttestation = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
-const KeriAuthExtensionId = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
-const KeriAuthExtensionName = "KERI Auth";
-const displayName = "KERI Auth";
-const rpForCreate: PublicKeyCredentialRpEntity = { name: KeriAuthExtensionName }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
-const pubKeyCredParams: PublicKeyCredentialParameters[] = [
+// Constant fixed properties
+const NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+const CREDENTIALS_CREATE_ATTESTATION = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
+const KERI_AUTH_EXTENSION_ID = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
+const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
+const DISPLAY_NAME = "KERI Auth";
+const RP_FOR_CREATE: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+const PUBKEY_CRED_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -7, type: "public-key" },   // ES256
     { alg: -257, type: "public-key" }  // RS256
 ];
-const credentialsCreateTimeout = 60000;
-const authenticatorSelectionForCreate: AuthenticatorSelectionCriteria = {
+const CREDS_CREATE_TIMEOUT = 60000;
+const AUTHENTICATOR_SELECTION_FOR_CREATE: AuthenticatorSelectionCriteria = {
     // residentKey: "preferred", // or required for more safety
     // userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
     authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
     // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
 };
-const encryptionKeyLabel = "encryption key";
-const encryptionKeyInfo = new TextEncoder().encode(encryptionKeyLabel);
-
+const ENCRYPTION_KEY_LABEL = "encryption key";
+const ENCRYPTION_KEY_INFO = new TextEncoder().encode(ENCRYPTION_KEY_LABEL);
+const DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
+const KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
+const DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPTION_KEY_INFO, salt: KDA_SALT, hash: "SHA-256" };
 
 /*
  *
@@ -194,14 +197,14 @@ async function createCredentialWithPRF(
         name: `${user.name} 2 ${createDateString}`, //.split('T')[0];,  // TODO P1
         displayName: `${user.displayName} 2 created on ${createDateString}`,  // TODO P1
     }
-    var challenge = crypto.getRandomValues(new Uint8Array(16)); // generateRandomBufferSource(16); //  crypto.getRandomValues( await generateChallenge(KeriAuthExtensionId);
+    var challenge = crypto.getRandomValues(new Uint8Array(16)); // generateRandomBufferSource(16); //  crypto.getRandomValues( await generateChallenge(KERI_AUTH_EXTENSION_ID);
     const excludeCredentials = await getExcludeCredentialsFromCreate();
     const credentialCreationOptions: PublicKeyCredentialCreationOptionsWithPRF = {
         challenge: challenge,
-        rp: rpForCreate,
+        rp: RP_FOR_CREATE,
         user: user2,
-        pubKeyCredParams: pubKeyCredParams,
-        authenticatorSelection: authenticatorSelectionForCreate,
+        pubKeyCredParams: PUBKEY_CRED_PARAMS,
+        authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
         extensions: getExtensions(firstSalt),
         // excludeCredentials: excludeCredentials,
         timeout: 60000 // 60 seconds
@@ -294,9 +297,7 @@ function isError<T>(result: Result<T>): result is { ok: false; error: { code: Er
 /*
  *
  */
-async function generateChallenge(extensionId: string): Promise<Uint8Array> {
-    const profileIdentifier = await getProfileIdentifier();
-    // TODO P3 pass in profileIdentifier as a param, so this is unit-testable
+async function generateChallenge(extensionId: string, profileIdentifier: string): Promise<Uint8Array> {
     const concatenatedInput = `${extensionId}:${profileIdentifier}`;
     const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
     return new Uint8Array(await hash);
@@ -401,8 +402,8 @@ async function getOrCreateUser(): Promise<User> {
     const createDateString = new Date().toISOString();
     user = {
         id: id,
-        name: `${KeriAuthExtensionName}     ${createDateString}`,
-        displayName: `${KeriAuthExtensionName}     ${createDateString}`
+        name: `${KERI_AUTH_EXTENSION_NAME}     ${createDateString}`,
+        displayName: `${KERI_AUTH_EXTENSION_NAME}     ${createDateString}`
     };
     return user;
 }
@@ -425,20 +426,20 @@ function verifyClientExtensionResults(clientExtensionResults: any): void { // to
  */
 async function registerAndEncryptSecret(secret: string): Promise<void> {
     try {
-        const challenge = await generateChallenge(KeriAuthExtensionId);
+        const challenge = await generateChallenge(KERI_AUTH_EXTENSION_ID, await getProfileIdentifier());
         var user = await getOrCreateUser();
         var excludeCredentials = await getExcludeCredentialsFromCreate();
         // TODO P0 can these options be in one place for the create options?
         // Define WebAuthn public key options
         const credentialCreationOptions: any = {  // note while this should be of type PublicKeyCredentialCreationOptions, that interface definition does not yet handles the "prf: true" section.
             challenge: challenge,
-            rp: rpForCreate,
+            rp: RP_FOR_CREATE,
             user: user,
-            pubKeyCredParams: pubKeyCredParams,
-            timeout: credentialsCreateTimeout,
-            authenticatorSelection: authenticatorSelectionForCreate,
+            pubKeyCredParams: PUBKEY_CRED_PARAMS,
+            timeout: CREDS_CREATE_TIMEOUT,
+            authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
             extensions: getExtensions(firstSalt),
-            "attestation": credentialsCreateAttestation,
+            "attestation": CREDENTIALS_CREATE_ATTESTATION,
             "attestationFormats": [],
             "hints": [],
             // "excludeCredentials": excludeCredentials,
@@ -573,20 +574,18 @@ export async function createCred() {
     });
     */
 
-    //    var challenge2 = coerceToArrayBuffer("challenge", "challengeName");
-    const challenge = await generateChallenge(KeriAuthExtensionId);
+    const challenge = await generateChallenge(KERI_AUTH_EXTENSION_ID, await getProfileIdentifier());
     var user = await getOrCreateUser();
     var excludeCredentials = await getExcludeCredentialsFromCreate();
     const credentialCreationOptions: any = {
-        rp: rpForCreate,
+        rp: RP_FOR_CREATE,
         user: user,
         challenge: challenge,
-        pubKeyCredParams: pubKeyCredParams,
-        timeout: credentialsCreateTimeout,
-        attestation: credentialsCreateAttestation,
+        pubKeyCredParams: PUBKEY_CRED_PARAMS,
+        timeout: CREDS_CREATE_TIMEOUT,
+        attestation: CREDENTIALS_CREATE_ATTESTATION,
         attestationFormats: [],
-        authenticatorSelection: authenticatorSelectionForCreate,
-        hints: [],
+        authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
         // "excludeCredentials": excludeCredentials,
         extensions: getExtensions(firstSalt),
     }
@@ -629,13 +628,13 @@ export async function registerCredential(): Promise<void> {
     // Credential Creation Request
     const publicKey: any = { // PublicKeyCredentialCreationOptionsWithPRF = { // /*/ PublicKeyCredentialCreationOptions = {
         // Basic registration parameters
-        rp: rpForCreate,
+        rp: RP_FOR_CREATE,
         user: await getOrCreateUser(),
         challenge: crypto.getRandomValues(new Uint8Array(32)),
-        pubKeyCredParams: pubKeyCredParams,
-        authenticatorSelection: authenticatorSelectionForCreate,
+        pubKeyCredParams: PUBKEY_CRED_PARAMS,
+        authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
         extensions: getExtensions(firstSalt),
-        timeout: credentialsCreateTimeout,
+        timeout: CREDS_CREATE_TIMEOUT,
         attestation: "none"
     };
 
@@ -692,7 +691,7 @@ export const authenticateCredential = async (): Promise<void> => {
                         first: firstSalt,
                     },
                 },
-            }
+            },
         };
 
         // Call WebAuthn API to get the credential assertion
@@ -707,59 +706,62 @@ export const authenticateCredential = async (): Promise<void> => {
             console.log("This authenticator is not supported. Did not return PRF results.");
             return;
         }
-        console.log("Good, this authenticator supports PRF.");
-
-        // import the input key material
-        const inputKeyMaterial = new Uint8Array(
-            (extensionResults as any).prf.results.first,
-        );
-
 
         // Import the input key material
+        const keyData = new Uint8Array(
+            (extensionResults as any).prf.results.first,
+        );
         const keyDerivationKey = await crypto.subtle.importKey(
             "raw",
-            inputKeyMaterial,
+            keyData,
             "HKDF",
             false,
             ["deriveKey"],
         );
 
         // Derive the encryption key
-        const derivedKeyType = { name: "AES-GCM", length: 256 };
-        const kdaSalt = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
-        const deriveKeyAlgorithm = { name: "HKDF", info: encryptionKeyInfo, salt: kdaSalt, hash: "SHA-256" };
-
         const encryptionKey = await crypto.subtle.deriveKey(
-            deriveKeyAlgorithm,
+            DERIVE_KEY_ALGO,
             keyDerivationKey,
-            derivedKeyType,
+            DERIVE_KEY_TYPE,
             false,  // should not be exportable, since we will re-derive this
             ["encrypt", "decrypt"],
         );
 
+        // TODO P2 test follow that can later be moved into unit tests
         // Encrypt message
-        const encrypted = await crypto.subtle.encrypt(
-            getEncryptionAlgorithm(nonSecretNounce),
-            encryptionKey,
-            new TextEncoder().encode("hello readers!"),
-        );
+        const stringToEncrypt = "hello!";
+        const encrypted = await encryptWithNounce(encryptionKey, new TextEncoder().encode(stringToEncrypt));
 
         // Decrypt message
-        const decrypted = await crypto.subtle.decrypt(
-            getEncryptionAlgorithm(nonSecretNounce),
-            encryptionKey,
-            encrypted,
-        );
-        console.log((new TextDecoder()).decode(decrypted));
+        const decrypted = await decryptWithNounce(encryptionKey, encrypted);
+        const decryptedString = (new TextDecoder()).decode(decrypted);
+        
+        if (stringToEncrypt != decryptedString) {
+            throw Error("encryption-decryption mismatch!");
+        } else {
+            console.log(decryptedString);
+        }
     });
 };
 
 /*
  *
  */
+export const encryptWithNounce = async (encryptionKey: CryptoKey, data: BufferSource) : Promise<ArrayBuffer> => {
+    return await crypto.subtle.encrypt(
+        getEncryptionAlgorithm(NON_SECRET_NOUNCE),
+        encryptionKey,
+        data,
+    );
+}
+
+/*
+ *
+ */
  export const decryptWithNounce = (encryptionKey: CryptoKey, encrypted: ArrayBuffer): Promise<ArrayBuffer> => {
     return crypto.subtle.decrypt(
-        getEncryptionAlgorithm(nonSecretNounce),
+        getEncryptionAlgorithm(NON_SECRET_NOUNCE),
         encryptionKey,
         encrypted,
     );
@@ -776,6 +778,6 @@ const  getEncryptionAlgorithm = (nounce: Uint8Array): AlgorithmIdentifier => {
  *
  */
 const getDeriveKeyAlgorithm = (salt: Uint8Array): AlgorithmIdentifier => {
-    const deriveKeyAlgorithm = { name: "HKDF", encryptionKeyInfo, salt, hash: "SHA-256" };
+    const deriveKeyAlgorithm = { name: "HKDF", ENCRYPTION_KEY_INFO, salt, hash: "SHA-256" };
     return deriveKeyAlgorithm;
 };
