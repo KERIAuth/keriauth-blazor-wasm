@@ -14,36 +14,36 @@ enum ErrorCode {
     UNKNOWN_ERROR = "UNKNOWN_ERROR",
 }
 
-interface ResultError {
-    code: ErrorCode;
-    message: string;
-}
-
-type Result<T> = { ok: true; value: T } | { ok: false; error: ResultError };
+// TODO P2 move this to shared utility typescript file
+export type FluentResult<T> = {
+    isSuccess: boolean;
+    errors: string[];
+    value?: T;
+};
 
 // Constant fixed properties
-const NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-const CREDENTIALS_CREATE_ATTESTATION = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
-const KERI_AUTH_EXTENSION_ID = "pniimiboklghaffelpegjpcgobgamkal"; // TODO P1 get the extensionId from chrome.runtime...
 const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
-const DISPLAY_NAME = "KERI Auth";
-const RP_FOR_CREATE: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
-const PUBKEY_CRED_PARAMS: PublicKeyCredentialParameters[] = [
+const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+const CREDS_CREATE_ATTESTATION = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
+const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -7, type: "public-key" },   // ES256
     { alg: -257, type: "public-key" }  // RS256
 ];
 const CREDS_CREATE_TIMEOUT = 60000;
-const AUTHENTICATOR_SELECTION_FOR_CREATE: AuthenticatorSelectionCriteria = {
+const CREDS_GET_TIMEOUT = 60000;
+const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
+    // TODO P2 Set these authenticator selection criteria to strongest levels, then allow user to lower the requirements in preferences.
     // residentKey: "preferred", // or required for more safety
     // userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
     authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
     // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
 };
-const ENCRYPTION_KEY_LABEL = "encryption key";
-const ENCRYPTION_KEY_INFO = new TextEncoder().encode(ENCRYPTION_KEY_LABEL);
-const DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
-const KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
-const DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPTION_KEY_INFO, salt: KDA_SALT, hash: "SHA-256" };
+const ENCRYPT_KEY_LABEL = "asdf";
+const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
+const ENCRYPT_DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
+const ENCRYPT_NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+const ENCRYPT_KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
+const ENCRYPT_DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: "SHA-256" };
 
 /*
  * Helper function to compare two Uint8Arrays
@@ -86,9 +86,8 @@ async function retry<T>(operation: () => Promise<T>, retries: number, timeout: n
 }
 
 
-
 /*
- * Because chrome.storage.sync is specific per profile and per-extension this secret identifier will be unique to each profile.
+ * Because chrome.storage.sync is specific per browser profile and per-extension, this is a secret identifier will be unique to each profile.
  * This method essentially "fingerprints" a profile.
  */
 export async function getProfileIdentifier(): Promise<string> {
@@ -103,13 +102,6 @@ export async function getProfileIdentifier(): Promise<string> {
             }
         });
     });
-}
-
-/*
- *
- */
-function isError<T>(result: Result<T>): result is { ok: false; error: { code: ErrorCode; message: string } } {
-    return result.ok === false;
 }
 
 /*
@@ -202,29 +194,45 @@ async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
 /*
  *
  */
-export async function registerCredential(): Promise<void> {
-    const publicKey: any = { // PublicKeyCredentialCreationOptionsWithPRF = { // /*/ PublicKeyCredentialCreationOptions = {
-        // Basic registration parameters
-        rp: RP_FOR_CREATE,
+export async function registerCredentialJ(): Promise<string> {
+    const options: any = { // PublicKeyCredentialCreationOptionsWithPRF = { // /*/ PublicKeyCredentialCreationOptions = {
+        rp: CREDS_CREATE_RP,
         user: await getOrCreateUser(),
         challenge: crypto.getRandomValues(new Uint8Array(32)),
-        pubKeyCredParams: PUBKEY_CRED_PARAMS,
-        authenticatorSelection: AUTHENTICATOR_SELECTION_FOR_CREATE,
+        pubKeyCredParams: CREDS_PUBKEY_PARAMS,
+        authenticatorSelection: CREDS_CREATE_AUTHENTICATOR_SELECTION,
         extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
         timeout: CREDS_CREATE_TIMEOUT,
-        attestation: "none"
+        attestation: CREDS_CREATE_ATTESTATION
     };
 
     let credential: PublicKeyCredential;
     try {
         credential = await navigator.credentials.create({
-            publicKey
+            publicKey: options
         }) as PublicKeyCredential;
-        console.log("credential: ", credential);
+        console.log("registerCredentialJ: credential: ", credential);
     }
     catch (error) {
-        console.error("An error occurred during credential creation:", error);
-        return;
+        console.error("registerCredentialJ: An error occurred during credential creation:", error);
+        const result = {
+            isSuccess: false,
+            errors: ["error occurred during credential creation"] //, error as string]
+        } as FluentResult<void>;
+        var ret = JSON.stringify(result);
+        console.log("registerCredentialJ ret:", ret)
+        return ret
+    }
+
+    if (!credential) {
+        console.info("registerCredentialJ: no credential returned");
+        const result = {
+            isSuccess: false,
+            errors: ["no credential returned from authenticator"],
+        } as FluentResult<void>;
+        var ret = JSON.stringify(result);
+        console.log("registerCredentialJ ret:", ret)
+        return ret; // TODO P0 include credential;
     }
 
     // TODO P1 remove the following after credential is returned
@@ -235,92 +243,107 @@ export async function registerCredential(): Promise<void> {
         console.log("Stored Credential ID with PRF support.");
     });
 
-    return; // credential;
+    console.info("registerCredentialJ: cred stored");
+    const result = {
+        isSuccess: true,
+        errors: [],
+    } as FluentResult<void>;
+    var ret = JSON.stringify(result);
+    console.log("registerCredentialJ ret:", ret)
+
+    return ret; // TODO P0 include credential;
 }
 
 /*
  *
  */
-export const authenticateCredential = async (): Promise<void> => {
+export const authenticateCredential = async (): Promise<string> => {
     // Retrieve the stored credentialId from chrome.storage.sync
-    chrome.storage.sync.get("credentialId", async (result) => {
-        const credentialIdBase64 = result.credentialId;
-        if (!credentialIdBase64) {
-            console.error("No credential ID found.");
-            return;
-        }
+    const result = await chrome.storage.sync.get("credentialId");
 
-        const credentialId = Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0));
 
-        // Prepare PublicKeyCredentialRequestOptions
-        const options: any = { //  PublicKeyCredentialRequestOptions = {
-            challenge: crypto.getRandomValues(new Uint8Array(32)),
-            allowCredentials: [{
-                id: credentialId,
-                type: "public-key",
-                transports: ["usb", "nfc", "ble", "internal"],  // TODO P2 should use the same transport as the saved credential (not just ID)
-            }],
-            // rpId is intentionally left blank
-            timeout: 60000,
-            userVerification: "required",
-            extensions: {
-                prf: {
-                    eval: {
-                        first: await derive32Uint8ArrayFromProfileId(),
-                    },
+
+
+
+    const credentialIdBase64 = result.credentialId;
+    if (!credentialIdBase64) {
+        console.error("No credential ID found.");
+        return "no cred found";
+    }
+
+    const credentialId = Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0));
+
+    // Prepare PublicKeyCredentialRequestOptions
+    const options: any = { //  PublicKeyCredentialRequestOptions = {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{
+            id: credentialId,
+            type: "public-key",
+            transports: ["usb", "nfc", "ble", "internal"],  // TODO P2 should use the same transport as the saved credential (not just ID)
+        }],
+        // rpId is intentionally left blank
+        timeout: CREDS_GET_TIMEOUT,
+        userVerification: "required",
+        extensions: {
+            prf: {
+                eval: {
+                    first: await derive32Uint8ArrayFromProfileId(),
                 },
             },
-        };
+        },
+    };
 
-        // Call WebAuthn API to get assertion from authenticator
-        const assertion = await navigator.credentials.get({
-            publicKey: options,
-        }) as PublicKeyCredential;
+    // Call WebAuthn API to get assertion from authenticator
+    const assertion = await navigator.credentials.get({
+        publicKey: options,
+    }) as PublicKeyCredential;
 
-        const extensionResults = assertion.getClientExtensionResults();
-        // console.log("auth1ExtensionResults: ", extensionResults);
+    const extensionResults = assertion.getClientExtensionResults();
+    // console.log("auth1ExtensionResults: ", extensionResults);
 
-        if (!((extensionResults as any).prf?.results?.first)) {
-            console.log("This authenticator is not supported. Did not return PRF results.");
-            return;
-        }
+    if (!((extensionResults as any).prf?.results?.first)) {
+        console.log("This authenticator is not supported. Did not return PRF results.");
+        // return "authenticator not supported";
+    }
 
-        // Import the input key material generated by assertion
-        const keyData = new Uint8Array(
-            (extensionResults as any).prf.results.first,
-        );
-        const keyDerivationKey = await crypto.subtle.importKey(
-            "raw",
-            keyData,
-            "HKDF",
-            false,
-            ["deriveKey"],
-        );
+    // Import the input key material generated by assertion
+    const keyData = new Uint8Array(
+        (extensionResults as any).prf.results.first,
+    );
+    const keyDerivationKey = await crypto.subtle.importKey(
+        "raw",
+        keyData,
+        "HKDF",
+        false,
+        ["deriveKey"],
+    );
 
-        // Derive the encryption key
-        const encryptionKey = await crypto.subtle.deriveKey(
-            DERIVE_KEY_ALGO,
-            keyDerivationKey,
-            DERIVE_KEY_TYPE,
-            false,  // should not be exportable, since we will re-derive this
-            ["encrypt", "decrypt"],
-        );
+    // Derive the encryption key
+    const encryptionKey = await crypto.subtle.deriveKey(
+        ENCRYPT_DERIVE_KEY_ALGO,
+        keyDerivationKey,
+        ENCRYPT_DERIVE_KEY_TYPE,
+        false,  // should not be exportable, since we will re-derive this
+        ["encrypt", "decrypt"],
+    );
 
-        // TODO P2 test follow that can later be moved into unit tests
-        // Encrypt message
-        const stringToEncrypt = "hello!";
-        const encrypted = await encryptWithNounce(encryptionKey, new TextEncoder().encode(stringToEncrypt));
+    // TODO P2 test follow that can later be moved into unit tests
+    // Encrypt message
+    const stringToEncrypt = "hello!";
+    const encrypted = await encryptWithNounce(encryptionKey, new TextEncoder().encode(stringToEncrypt));
 
-        // Decrypt message
-        const decrypted = await decryptWithNounce(encryptionKey, encrypted);
-        const decryptedString = (new TextDecoder()).decode(decrypted);
+    // Decrypt message
+    const decrypted = await decryptWithNounce(encryptionKey, encrypted);
+    const decryptedString = (new TextDecoder()).decode(decrypted);
 
-        if (stringToEncrypt != decryptedString) {
-            throw Error("encryption-decryption mismatch!");
-        } else {
-            console.log(decryptedString);
-        }
-    });
+    if (stringToEncrypt != decryptedString) {
+        throw Error("encryption-decryption mismatch!");
+    } else {
+        console.log(decryptedString);
+    }
+
+    // TODO P0
+    return "end";
 };
 
 /*
@@ -330,7 +353,7 @@ export const authenticateCredential = async (): Promise<void> => {
 export const encryptWithNounce = async (encryptionKey: CryptoKey, data: BufferSource): Promise<ArrayBuffer> => {
 
     return await crypto.subtle.encrypt(
-        getEncryptionAlgorithm(NON_SECRET_NOUNCE),
+        getEncryptionAlgorithm(ENCRYPT_NON_SECRET_NOUNCE),
         encryptionKey,
         data,
     );
@@ -342,7 +365,7 @@ export const encryptWithNounce = async (encryptionKey: CryptoKey, data: BufferSo
 // TODO P1 is this redundant with decryptData()?  DRY
 export const decryptWithNounce = (encryptionKey: CryptoKey, encrypted: ArrayBuffer): Promise<ArrayBuffer> => {
     return crypto.subtle.decrypt(
-        getEncryptionAlgorithm(NON_SECRET_NOUNCE),
+        getEncryptionAlgorithm(ENCRYPT_NON_SECRET_NOUNCE),
         encryptionKey,
         encrypted,
     );
@@ -359,6 +382,6 @@ const getEncryptionAlgorithm = (nounce: Uint8Array): AlgorithmIdentifier => {
  *
  */
 const getDeriveKeyAlgorithm = (salt: Uint8Array): AlgorithmIdentifier => {
-    const deriveKeyAlgorithm = { name: "HKDF", ENCRYPTION_KEY_INFO, salt, hash: "SHA-256" };
+    const deriveKeyAlgorithm = { name: "HKDF", ENCRYPT_KEY_INFO, salt, hash: "SHA-256" };
     return deriveKeyAlgorithm;
 };

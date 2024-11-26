@@ -57,9 +57,15 @@
 
     async Task RegisterPasskey()
     {
-        // TODO P1 handle result, and indicate error snackbar or success
-        await WebauthnCredentialWithPRF.RegisterCredential();
-        snackbar.Add("Passkey successfully registered.");
+        var res = await WebauthnCredentialWithPRF.RegisterCredential();
+        if (res.IsFailed)
+        {
+            snackbar.Add("Passkey not created", Severity.Warning);
+            logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
+        } else
+        {
+            snackbar.Add("Passkey successfully registered.");
+        }
         navManager.NavigateTo(AppConfig.RouteToIndex);
     }
 }

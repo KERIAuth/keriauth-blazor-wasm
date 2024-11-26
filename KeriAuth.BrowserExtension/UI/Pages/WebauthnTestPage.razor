@@ -49,7 +49,15 @@
 
     async Task RegisterCredential()
     {
-        await WebauthnCredentialWithPRF.RegisterCredential();
+        var res = await WebauthnCredentialWithPRF.RegisterCredential();
+        if (res.IsFailed)
+        {
+            logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
+            snackbar.Add("Passkey not created", Severity.Warning);
+        } else
+        {
+            snackbar.Add("Passkey created", Severity.Success);
+        }
     }
 
     async Task authenticateCredential()

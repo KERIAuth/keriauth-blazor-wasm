@@ -41,57 +41,6 @@
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
 
-<div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main" style="justify-content:center;">
-        <MudStack Class="d-flex justify-center pa-0" Style="text-align:center;">
-            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-            <MudText Typo="Typo.h5">
-                <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
-            </MudText>
-            <MudText Style="font-style:italic">autonomously authentic</MudText>
-            @if (!ShouldUseAuthenticator)
-            {
-                <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
-                    <MudTextField Label="Passcode"
-                                  @ref="passcodeField"
-                                  OnKeyDown="@HandleKeyDown"
-                                  InputType="InputType.Password"
-                                  @bind-Value="@unlockPasscodeModel.Passcode"
-                                  HelperText="&nbsp;"
-                                  ErrorText="&nbsp;"
-                                  For="@(() => unlockPasscodeModel.Passcode)"
-                                  Immediate="true"
-                                  @onfocus="SelectAllText" />
-                </MudForm>
-
-                @if (CanUseAuthenticator)
-                {
-                    <MudButton Variant="Variant.Text" Style="text-transform:none" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
-                        Or, use an authenticator
-                    </MudButton>
-                }
-
-                <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
-                <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            }
-            else
-            {
-                // TODO P2 could automatically start authentication
-                <MudText>
-                    @NumberAuthenticatorsLabel registered with this browser profile and KERI Auth. Press Unlock to authenticate with one of them.
-                </MudText>
-                <MudButton Class="mt-0" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-                <MudButton Variant="Variant.Text" Style="text-transform:none" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(false)">
-                    Or, use your passcode
-                </MudButton>
-            }
-            <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
-        </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-    </MudStack>
-</div>
-
 @code {
     // fields
     private bool isValid;
@@ -105,15 +54,23 @@
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
     bool WantsToUseAuthenticator { get; set; } = true; // TODO P2 should remember setting this on the chrome.storage.local, since this desire may be different from machine to machine
+    bool IsAuthenticatorRegistered { get; set; }
 
     // reactive properties
-    string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
+    string NumberAuthenticatorsLabel => IsAuthenticatorRegistered switch
     {
+        true => "1 authenticator is",
+        false => "No authenticators are"
+    };
+    /*
+    string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
+        {
         0 => "No authenticators are",
         1 => "1 authenticator is",
         _ => $"{RAS.Authenticators.Count} authenticators are"
     };
-    bool CanUseAuthenticator => RAS.Authenticators.Any();
+    */
+    bool CanUseAuthenticator => IsAuthenticatorRegistered; // TODO P0 tmp RAS.Authenticators.Any();
     bool ShouldUseAuthenticator => CanUseAuthenticator && WantsToUseAuthenticator;
 
     protected override async Task OnInitializedAsync()
@@ -134,6 +91,14 @@
             await stateService.Unauthenticate();
         }
 
+        // TODO P0 tmp for demo
+        // check if there is already credentialId
+        var jsonCredId = await webExtensionsApi!.Storage.Sync.Get("credentialId");
+        if (jsonCredId.GetRawText().Length > 5) //  .TryGetBytesFromBase64(out byte[]? bytes))
+        {
+            IsAuthenticatorRegistered = true;
+        }
+
         // check if there are already registeredAuthenticators
         var jsonRAs = await webExtensionsApi!.Storage.Sync.Get("registeredAuthenticators");
         if (jsonRAs.TryGetProperty("authenticators", out JsonElement registeredAuthenticators)
@@ -147,7 +112,8 @@
                 // assume the user will want to use a registered if available
                 WantsToUseAuthenticator = true;
             }
-        } else
+        }
+        else
         {
             logger.LogInformation("OnInitializedAsync did not find registeredAuthenticators");
         }
@@ -167,6 +133,11 @@
     async Task SetWantToUseAuthenticator(bool b)
     {
         WantsToUseAuthenticator = b;
+        if (!b)
+        {
+            await Task.Delay(1);
+            await passcodeField.FocusAsync();
+        }
     }
 
     private async Task SelectAllText()
@@ -180,12 +151,20 @@
     {
         if (args.CtrlKey && args.Key == "`")
         {
-            await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P2 remove example password for testing
+            await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
         }
         if (args.Key == "Enter")
         {
             await OpenWallet();
         }
+    }
+
+    private async Task UnlockWithAuthenticator()
+    {
+        // TODO P0 re-write
+        await WebauthnCredentialWithPRF.AuthenticateCredential();
+        await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
+        return;
     }
 
     private async Task OpenWallet()
@@ -259,3 +238,56 @@
         }
     }
 }
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main" style="justify-content:center;">
+        <MudStack Class="d-flex justify-center pa-0" Style="text-align:center;">
+            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+            <MudText Typo="Typo.h5">
+                <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
+            </MudText>
+            <MudText Style="font-style:italic">autonomously authentic</MudText>
+            <div style="padding: 16px;"/>
+            @if (!ShouldUseAuthenticator)
+            {
+                <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
+                    <MudTextField Label="Passcode"
+                                  @ref="passcodeField"
+                                  OnKeyDown="@HandleKeyDown"
+                                  InputType="InputType.Password"
+                                  @bind-Value="@unlockPasscodeModel.Passcode"
+                                  HelperText="&nbsp;"
+                                  ErrorText="&nbsp;"
+                                  For="@(() => unlockPasscodeModel.Passcode)"
+                                  Immediate="true"
+                                  @onfocus="SelectAllText" />
+                </MudForm>
+
+
+                @if (false || CanUseAuthenticator)
+                {
+                    <MudButton Variant="Variant.Text" Style="text-transform:none; " Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
+                        Use my authenticator instead
+                    </MudButton>
+                }
+
+                <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
+                <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Style="text-transform: unset !important; width: max-content; align-self:center;" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
+            }
+            else // should use authenticator
+            {
+                // TODO P2 could automatically start authentication
+                <MudText>
+                    @NumberAuthenticatorsLabel registered with KERI Auth on this browser profile.
+                </MudText>
+                <MudButton Disabled="!CanUseAuthenticator" Variant="Variant.Filled" Color="Color.Primary" Style="text-transform: unset !important; width:max-content; align-self:center;" OnClick="async () => await UnlockWithAuthenticator()">Unlock with authenticator</MudButton>
+                <MudButton Variant="Variant.Text" Style="text-transform:none; align-self:center;" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(false)">
+                    Use my passcode instead
+                </MudButton>
+            }
+            <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
+        </MudStack>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+    </MudStack>
+</div>
