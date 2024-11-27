@@ -59,15 +59,15 @@
     // reactive properties
     string NumberAuthenticatorsLabel => IsAuthenticatorRegistered switch
     {
-        true => "1 authenticator is",
-        false => "No authenticators are"
+        true => "1 authenticator registered",
+        false => "No authenticators registered"
     };
     /*
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
         {
-        0 => "No authenticators are",
-        1 => "1 authenticator is",
-        _ => $"{RAS.Authenticators.Count} authenticators are"
+        0 => "No authenticators registered",
+        1 => "1 authenticator registered",
+        _ => $"{RAS.Authenticators.Count} authenticators registered"
     };
     */
     bool CanUseAuthenticator => IsAuthenticatorRegistered; // TODO P0 tmp RAS.Authenticators.Any();
@@ -241,53 +241,61 @@
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
-        <MudStack Class="d-flex justify-center pa-0" Style="text-align:center;">
-            <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
-            <MudText Typo="Typo.h5">
-                <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
-            </MudText>
-            <MudText Style="font-style:italic">autonomously authentic</MudText>
-            <div style="padding: 16px;"/>
-            @if (!ShouldUseAuthenticator)
-            {
-                <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
-                    <MudTextField Label="Passcode"
-                                  @ref="passcodeField"
-                                  OnKeyDown="@HandleKeyDown"
-                                  InputType="InputType.Password"
-                                  @bind-Value="@unlockPasscodeModel.Passcode"
-                                  HelperText="&nbsp;"
-                                  ErrorText="&nbsp;"
-                                  For="@(() => unlockPasscodeModel.Passcode)"
-                                  Immediate="true"
-                                  @onfocus="SelectAllText" />
-                </MudForm>
-
-
-                @if (false || CanUseAuthenticator)
+        <MudStack Class="d-flex justify-center pa-0" Style="text-align:center; flex-direction: column;">
+            <MudStack Style="flex: 1; display:flex; justify-content: center; align-items: center;">
+                <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+                <MudText Typo="Typo.h5">
+                    <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
+                </MudText>
+                <MudText Style="font-style:italic">autonomously authentic</MudText>
+            </MudStack>
+            <MudStack Style="justify-content: end; min-height:124px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
+                @if (ShouldUseAuthenticator)
                 {
-                    <MudButton Variant="Variant.Text" Style="text-transform:none; " Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
-                        Use my authenticator instead
-                    </MudButton>
+                    // TODO P2 could automatically start authentication
+                    <MudText>
+                        @NumberAuthenticatorsLabel
+                    </MudText>
+                }
+                else // passcode
+                {
+                    <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
+                        <MudTextField Label="Passcode"
+                                      @ref="passcodeField"
+                                      OnKeyDown="@HandleKeyDown"
+                                      InputType="InputType.Password"
+                                      @bind-Value="@unlockPasscodeModel.Passcode"
+                                      HelperText="&nbsp;"
+                                      ErrorText="&nbsp;"
+                                      For="@(() => unlockPasscodeModel.Passcode)"
+                                      Immediate="true"
+                                      @onfocus="SelectAllText" />
+                    </MudForm>
                 }
 
-                <!-- lengh test below is to avoid a minor UI issue of the Unlock button temporarily enabling while entering initial characters -->
-                <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Style="text-transform: unset !important; width: max-content; align-self:center;" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">Unlock</MudButton>
-            }
-            else // should use authenticator
-            {
-                // TODO P2 could automatically start authentication
-                <MudText>
-                    @NumberAuthenticatorsLabel registered with KERI Auth on this browser profile.
-                </MudText>
-                <MudButton Disabled="!CanUseAuthenticator" Variant="Variant.Filled" Color="Color.Primary" Style="text-transform: unset !important; width:max-content; align-self:center;" OnClick="async () => await UnlockWithAuthenticator()">Unlock with authenticator</MudButton>
-                <MudButton Variant="Variant.Text" Style="text-transform:none; align-self:center;" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(false)">
-                    Use my passcode instead
-                </MudButton>
-            }
-            <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
+                <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
+            </MudStack>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer />
+        @if (ShouldUseAuthenticator)
+        {
+            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(false)">
+                Use passcode
+            </MudButton>
+            <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
+                Unlock with authenticator
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
+                Use authenticator
+            </MudButton>
+            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">
+                Unlock
+            </MudButton>
+        }
     </MudStack>
 </div>

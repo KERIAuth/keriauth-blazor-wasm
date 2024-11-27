@@ -55,18 +55,18 @@
         }
     }
 
-    async Task RegisterPasskey()
+    async Task RegisterAuthenticator()
     {
         var res = await WebauthnCredentialWithPRF.RegisterCredential();
         if (res.IsFailed)
         {
-            snackbar.Add("Passkey not created", Severity.Warning);
+            snackbar.Add("Authenticator not registered", Severity.Warning);
             logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
         } else
         {
-            snackbar.Add("Passkey successfully registered.");
+            snackbar.Add("Authenticator successfully registered.");
         }
-        navManager.NavigateTo(AppConfig.RouteToIndex);
+        navManager.NavigateTo(AppConfig.RouteToAuthenticators); // TODO P3 or wherever thay came from
     }
 }
 
@@ -126,6 +126,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await RegisterPasskey())">Register</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await RegisterAuthenticator())">Register</MudButton>
     </MudStack>
 </div>

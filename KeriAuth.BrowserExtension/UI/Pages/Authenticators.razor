@@ -10,6 +10,9 @@
 @using static KeriAuth.BrowserExtension.Helper.Identicon;
 @using System.Diagnostics
 @using System.Text.Json
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using JsBind.Net
 
 @using System.Net.Http.Json
 @inject HttpClient httpClient
@@ -26,6 +29,8 @@
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
+@inject IWebExtensionsApi webExtensionsApi
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @code {
     // [Parameter]
@@ -34,6 +39,7 @@
     // fields
 
     // properties
+
 
     // reactive properties
     string CountLabel => (RegisteredAuthenticators is not null) ? "(" + RegisteredAuthenticators.Count() + ")" : "...";
@@ -46,12 +52,19 @@
 
     IEnumerable<RegisteredAuthenticator> RegisteredAuthenticators = new List<RegisteredAuthenticator>()
     {
-        new RegisteredAuthenticator() { name = "My Blue Yubikey"},
+        // 
     };
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var x = await webExtensionsApi.Storage.Sync.Get("credentialId");
+
+        if (x.GetRawText().Length > 5) //  .TryGetBytesFromBase64(out byte[]? bytes))
+        {
+            RegisteredAuthenticators.Append(new RegisteredAuthenticator() { name = "Authenticator added " + DateTime.UtcNow.ToString() });
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -75,9 +88,9 @@
                 </MudStack>
                 @if (RegisteredAuthenticators is not null && RegisteredAuthenticators.Any())
                 {
-                    @foreach (var item in new List<string>() { "1111", "2222" })
+                    @foreach (var ra in RegisteredAuthenticators)
                     {
-                        <MudText>@item</MudText>
+                        <MudText>@ra.name</MudText>
                         <MudButton>Delete</MudButton>
                     }
                 }

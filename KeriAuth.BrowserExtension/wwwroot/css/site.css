@@ -122,6 +122,14 @@
     height: var(--bt-buttontray-height);
 }
 
+.bt-button-wrap {
+    text-transform: unset !important; 
+    width: max-content; 
+    align-self:center;
+    line-height: normal;
+    height: -webkit-fill-available;
+}
+
 .bt-chatbox {
     height: var(--bt-chatbox-height);
 }

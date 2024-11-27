@@ -47,16 +47,16 @@
         await WebauthnCredentialWithPRF.CreateCred();
     }
 
-    async Task RegisterCredential()
+    async Task RegisterAuthenticator()
     {
         var res = await WebauthnCredentialWithPRF.RegisterCredential();
         if (res.IsFailed)
         {
             logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
-            snackbar.Add("Passkey not created", Severity.Warning);
+            snackbar.Add("Could not register authenticator", Severity.Warning);
         } else
         {
-            snackbar.Add("Passkey created", Severity.Success);
+            snackbar.Add("Successfully registered authenticator", Severity.Success);
         }
     }
 
@@ -69,7 +69,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
-            <MudButton OnClick="RegisterCredential">RegisterCredential</MudButton>
+            <MudButton OnClick="RegisterAuthenticator">RegisterCredential</MudButton>
             <hr />
             <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
         </MudStack>
