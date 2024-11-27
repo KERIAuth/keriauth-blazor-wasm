@@ -28,6 +28,7 @@
 @using System.Linq
 @using System.Text
 @using System.Security.Cryptography
+@using MudBlazor
 
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
@@ -136,18 +137,19 @@
         if (!b)
         {
             await Task.Delay(1);
-            await passcodeField.FocusAsync();
+            if (passcodeField is not null)
+                await passcodeField.FocusAsync();
         }
     }
 
-    private async Task SelectAllText()
+    async Task SelectAllText()
     {
         await Task.Delay(1); // minor delay to ensure the focus event completes
         if (passcodeField is not null)
             await passcodeField.SelectAsync();
     }
 
-    private async Task HandleKeyDown(KeyboardEventArgs args)
+    async Task HandleKeyDown(KeyboardEventArgs args)
     {
         if (args.CtrlKey && args.Key == "`")
         {
@@ -159,7 +161,7 @@
         }
     }
 
-    private async Task UnlockWithAuthenticator()
+    async Task UnlockWithAuthenticator()
     {
         // TODO P0 re-write
         await WebauthnCredentialWithPRF.AuthenticateCredential();
@@ -167,14 +169,14 @@
         return;
     }
 
-    private async Task OpenWallet()
+    async Task OpenWallet()
     {
         if (unlockPasscodeModel.Passcode is not null)
             await OpenWalletWithPasscode(unlockPasscodeModel.Passcode);
     }
 
     // TODO P3 DRY with ConfigureView
-    private class PasscodeModel
+    class PasscodeModel
     {
         [Required]
         [StringLength(21, ErrorMessage = "Passcode must be 21 characters", MinimumLength = 21)]
@@ -182,7 +184,7 @@
         public string Passcode { get; set; } = "";
     }
 
-    private async Task OpenWalletWithPasscode(string password)
+    async Task OpenWalletWithPasscode(string password)
     {
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
@@ -272,7 +274,6 @@
                                       @onfocus="SelectAllText" />
                     </MudForm>
                 }
-
                 <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
             </MudStack>
         </MudStack>

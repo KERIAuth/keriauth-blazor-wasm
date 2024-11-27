@@ -10,45 +10,6 @@
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
 
-<div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main">
-        <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Preferences</MudText>
-            <MudStack>
-                <MudText Class="mt-3">Theme</MudText>
-                <MudStack Row="true" Style="margin-left:20px;">
-                    <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
-                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
-                    <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
-                </MudStack>
-            </MudStack>
-            <MudStack Row="false">
-                <MudText Class="mt-3">Menu Mode</MudText>
-                <MudStack Row="false" Style="width:200px; margin-left:20px;">
-                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
-                        @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
-                        {
-                            <MudSelectItem Value="item">@item</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudStack>
-            </MudStack>
-
-            <MudStack Row="false">
-                <MudText Class="mt-3">Inactivity Timeout</MudText>
-                <MudStack Row="false" Style="width:200px; margin-left:20px;">
-                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f"/>
-                    <p>@InactivityTimeoutLabel</p>
-                </MudStack>
-            </MudStack>
-        </div>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-        <MudSpacer />
-    </MudStack>
-</div>
-
 @code
 {
     // fields and types
@@ -63,12 +24,29 @@
 
     // properties
     Preferences Prefs { get; set; } = new();
+    // TODO set these criteria to enums and use those
+    string userVerification { get; set; } = "required";
+    string residentKey { get; set; } = "discouraged";
+    string authenticatorAttachment { get; set; } = "undefined";
+    string attestation { get; set; } = "direct";
 
     // reactive properties
     float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
     string InactivityTimeoutLabel => InactivityTimeout.ToString() + " " + (InactivityTimeout <= 1.0f ? "minute" : "minutes");
     bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+        var prefs = await preferencesService.GetPreferences();
+        await HandleNextFromPreferencesService(prefs);
+
+        preferencesSubscription = preferencesService.Subscribe(
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onError: (Exception error) => HandleErrorFromPreferencesService(error),
+            onCompleted: () => HandleCompletedFromPreferencesService());
+    }
 
     async Task Persist()
     {
@@ -113,16 +91,124 @@
     {
         logger.LogInformation("Completed from PreferencesService");
     }
-
-    protected override async Task OnInitializedAsync()
-    {
-        logger.LogInformation("OnInitializedAsync");
-        var prefs = await preferencesService.GetPreferences();
-        await HandleNextFromPreferencesService(prefs);
-
-        preferencesSubscription = preferencesService.Subscribe(
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-            onError: (Exception error) => HandleErrorFromPreferencesService(error),
-            onCompleted: () => HandleCompletedFromPreferencesService());
-    }
 }
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Preferences</MudText>
+            <MudStack>
+                <MudText Class="bt-pref-group-label0">Theme</MudText>
+                <MudStack Row="true" Style="margin-left:20px;">
+                    <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
+                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
+                </MudStack>
+            </MudStack>
+            <MudStack Row="false">
+                <MudText Class="bt-pref-group-label0">Menu Mode</MudText>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
+                        {
+                            <MudSelectItem Value="item">@item</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+            </MudStack>
+
+            <MudStack Row="false">
+                <MudText Class="bt-pref-group-label0">
+                    Inactivity Timeout</MudText>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" />
+                    <p>@InactivityTimeoutLabel</p>
+                </MudStack>
+            </MudStack>
+
+            <MudStack Row="false" Class="pt-3 gap-0">
+                <MudText Class="bt-pref-group-label0">
+                    Authenticator Requirements
+                </MudText>
+                <MudStack Row="false" Class="bt-pref-stack1">
+                    <MudText Class="bt-pref-group-label1">
+                        Authenticator Selection
+                    </MudText>
+
+                    <MudText Class="bt-pref-group-label2">User Verification</MudText>
+                    <MudRadioGroup T="string" @bind-Value="userVerification" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("required") Class="bt-pref-radio">Required</MudRadio>
+                        <MudRadio Value=@("preferred") Class="bt-pref-radio">Attempted ("preferred")</MudRadio>
+                        <MudRadio Value=@("discouraged") Class="bt-pref-radio">Skipped ("discouraged")</MudRadio>
+                    </MudRadioGroup>
+
+                    <MudText Class="bt-pref-group-label2">
+                        Resident Key
+                    </MudText>
+                    <MudRadioGroup T="string" @bind-Value="residentKey" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("required") Class="bt-pref-radio">Required</MudRadio>
+                        <MudRadio Value=@("preferred") Class="bt-pref-radio">Preferred</MudRadio>
+                        <MudRadio Value=@("discouraged") Class="bt-pref-radio">Discouraged</MudRadio>
+                    </MudRadioGroup>
+
+                    <MudText Class="bt-pref-group-label2">
+                        Preferred Modality
+                    </MudText>
+                    <MudRadioGroup T="string" @bind-Value="authenticatorAttachment" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("platform") Class="bt-pref-radio">Platform</MudRadio>
+                        <MudRadio Value=@("cross-platform") Class="bt-pref-radio">Cross-Platform</MudRadio>
+                        <MudRadio Value=@("undefined") Class="bt-pref-radio">No Preference ("undefined")</MudRadio>
+                    </MudRadioGroup>
+                </MudStack>
+
+                <MudStack Row="false" Class="bt-pref-stack1">
+                    <MudText Class="bt-pref-group-label1">
+                        Attestation of Authenticator's Provenance
+                    </MudText>
+                    <MudRadioGroup T="string" @bind-Value="attestation" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("enterprise") Class="bt-pref-radio">Full Attestation of Individual Device ("enterprise")</MudRadio>
+                        <MudRadio Value=@("direct") Class="bt-pref-radio">Full Attestation ("direct")</MudRadio>
+                        <MudRadio Value=@("indirect") Class="bt-pref-radio">Attestation Allowing Anonymity ("indirect")</MudRadio>
+                        <MudRadio Value=@("none") Class="bt-pref-radio">None</MudRadio>
+                    </MudRadioGroup>
+                </MudStack>
+
+            </MudStack>
+
+
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+    </MudStack>
+</div>
+
+<style>
+    .bt-pref-radiogroup {
+        padding-left: 60px;
+    }
+
+    .bt-pref-radio {
+    }
+
+    .bt-pref-group-label0 {
+        font-weight: bold;
+        padding-top: 16px;
+    }
+
+    .bt-pref-group-label1 {
+        padding-left: 10px;
+    }
+
+    .bt-pref-group-label2 {
+        padding-left: 40px;
+    }
+
+    .bt-pref-stack1 {
+        width:auto; 
+        margin-left:20px; 
+        gap:0;
+    }
+    
+</style>
