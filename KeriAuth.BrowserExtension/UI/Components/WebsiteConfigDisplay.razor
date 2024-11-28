@@ -55,7 +55,7 @@
         await getCredentials();
         // allow cycles for reactive properties to update
         // await Task.Delay(100);
-        // allow parent to enable or disable Sign In button, for example
+        // inform parent so it can enable or disable Sign In button, for example
         await sendValueToParent();
         // StateHasChanged();
     }
@@ -417,7 +417,7 @@
                             }
                         }
                     </MudPaper>
-                    <MudCheckBox Label="Automatically sign Http Request Headers" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                    <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
                 </MudStack>
             </MudStack>
         }

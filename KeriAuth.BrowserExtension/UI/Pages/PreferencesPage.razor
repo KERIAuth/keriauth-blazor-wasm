@@ -98,7 +98,9 @@
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Preferences</MudText>
             <MudStack>
-                <MudText Class="bt-pref-group-label0">Theme</MudText>
+                <MudText Class="bt-pref-group-label0">
+                    Theme
+                </MudText>
                 <MudStack Row="true" Style="margin-left:20px;">
                     <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
                     <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
@@ -106,7 +108,9 @@
                 </MudStack>
             </MudStack>
             <MudStack Row="false">
-                <MudText Class="bt-pref-group-label0">Menu Mode</MudText>
+                <MudText Class="bt-pref-group-label0">
+                    Menu Mode
+                </MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
                     <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
@@ -119,7 +123,8 @@
 
             <MudStack Row="false">
                 <MudText Class="bt-pref-group-label0">
-                    Inactivity Timeout</MudText>
+                    Inactivity Timeout
+                </MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
                     <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" />
                     <p>@InactivityTimeoutLabel</p>
@@ -135,7 +140,9 @@
                         Authenticator Selection
                     </MudText>
 
-                    <MudText Class="bt-pref-group-label2">User Verification</MudText>
+                    <MudText Class="bt-pref-group-label2">
+                        User Verification
+                    </MudText>
                     <MudRadioGroup T="string" @bind-Value="userVerification" Class="bt-pref-radiogroup">
                         <MudRadio Value=@("required") Class="bt-pref-radio">Required</MudRadio>
                         <MudRadio Value=@("preferred") Class="bt-pref-radio">Attempted ("preferred")</MudRadio>
@@ -172,10 +179,13 @@
                         <MudRadio Value=@("none") Class="bt-pref-radio">None</MudRadio>
                     </MudRadioGroup>
                 </MudStack>
-
             </MudStack>
-
-
+            <MudStack Row="false" Class="pt-3 gap-0">
+                <MudText Class="bt-pref-group-label0">
+                    See also...
+                </MudText>
+                <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Interaction options per website</MudLink>
+            </MudStack>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
@@ -206,9 +216,8 @@
     }
 
     .bt-pref-stack1 {
-        width:auto; 
-        margin-left:20px; 
-        gap:0;
+        width: auto;
+        margin-left: 20px;
+        gap: 0;
     }
-    
 </style>

@@ -62,7 +62,8 @@
         {
             snackbar.Add("Authenticator not registered", Severity.Warning);
             logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
-        } else
+        }
+        else
         {
             snackbar.Add("Authenticator successfully registered.");
         }
@@ -120,6 +121,10 @@
                         Your passcode is not stored by KERI Auth or any authenticator, so <i><b>you must continue to keep your passcode safely stored</b></i> in case an authenticator becomes unavailable or the browser profile and/or this KERI Auth installation is reset.
                     </MudText>
                 </MudStack>
+                <MudText Class="bt-pref-group-label0">
+                    See also:
+                </MudText>
+                <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManagePrefs)">Authenticator Requirements in Preferences</MudLink>
             </MudStack>
         </div>
     </MudStack>
