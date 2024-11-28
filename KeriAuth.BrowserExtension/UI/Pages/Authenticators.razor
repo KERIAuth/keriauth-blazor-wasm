@@ -8,6 +8,7 @@
 @using KeriAuth.BrowserExtension.Services.SignifyService.Models
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using static KeriAuth.BrowserExtension.Helper.Identicon;
+@using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @using System.Diagnostics
 @using System.Text.Json
 @using WebExtensions.Net
@@ -16,15 +17,12 @@
 
 @using System.Net.Http.Json
 @inject HttpClient httpClient
-
-
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@using static KeriAuth.BrowserExtension.Helper.PreviousPage
-@inject ILogger<IdentifierPage> logger
+@inject ILogger<Authenticators> logger
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
@@ -41,35 +39,35 @@
     // properties
 
 
-    // reactive properties
-    string CountLabel => (RegisteredAuthenticators is not null) ? "(" + RegisteredAuthenticators.Count() + ")" : "...";
-
-    record RegisteredAuthenticator
+    public record RegisteredAuthenticator
     {
         public string? credential { get; init; }
         public required string name { get; init; }
     }
+    List<RegisteredAuthenticator> RegisteredAuthenticators = new List<RegisteredAuthenticator>();
 
-    IEnumerable<RegisteredAuthenticator> RegisteredAuthenticators = new List<RegisteredAuthenticator>()
-    {
-        // 
-    };
+    // reactive properties
+    string CountLabel => "(" + RegisteredAuthenticators.Count + ")";
+
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        var x = await webExtensionsApi.Storage.Sync.Get("credentialId");
-
-        if (x.GetRawText().Length > 5) //  .TryGetBytesFromBase64(out byte[]? bytes))
-        {
-            RegisteredAuthenticators.Append(new RegisteredAuthenticator() { name = "Authenticator added " + DateTime.UtcNow.ToString() });
-        }
     }
 
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var jsonElement = await webExtensionsApi.Storage.Sync.Get("credentialId");
+        logger.LogWarning("jsonElement: {j}", jsonElement);
+        if (jsonElement.GetRawText().Length > 5) //  .TryGetBytesFromBase64(out byte[]? bytes))
+        {
+            logger.LogWarning("jsonElement length > 5");
+            RegisteredAuthenticators.Add(new RegisteredAuthenticator() { name = "Authenticator added " + DateTime.UtcNow.ToString() });
+            logger.LogWarning("ras: {r}", RegisteredAuthenticators.ToArray());
+        }
+        StateHasChanged();
     }
 
     async Task AddAuthenticator()
@@ -86,14 +84,16 @@
                     <MudText Typo="Typo.h6">Authenticators</MudText>
                     <MudText Typo="Typo.h6">@CountLabel</MudText>
                 </MudStack>
-                @if (RegisteredAuthenticators is not null && RegisteredAuthenticators.Any())
-                {
-                    @foreach (var ra in RegisteredAuthenticators)
+                <MudStack Class="pt-8">
+                    @if (RegisteredAuthenticators.Any())
                     {
-                        <MudText>@ra.name</MudText>
-                        <MudButton>Delete</MudButton>
+                        @foreach (RegisteredAuthenticator ra in RegisteredAuthenticators)
+                        {
+                            <MudText>@ra.name</MudText>
+                            <MudButton>Delete</MudButton>
+                        }
                     }
-                }
+                </MudStack>
             </div>
         </div>
     </MudStack>
