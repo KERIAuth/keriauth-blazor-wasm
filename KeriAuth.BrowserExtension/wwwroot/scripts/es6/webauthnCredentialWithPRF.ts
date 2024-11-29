@@ -61,7 +61,11 @@ function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
  */
 const getExtensions = (firstSalt: Uint8Array): any => {
     return {
-        "prf": true
+        "prf": {
+            "eval": {
+                "first": firstSalt,
+            }
+        }
     };
 }
 
