@@ -134,9 +134,6 @@
         }
     }
 
-    /* OnAfterRenderAsync(bool isFirst) */
-
-
     /*
     // SignIn()
     */
@@ -289,10 +286,10 @@
                     </MudStack>
                     break;
                 case SignInMode.Identifier:
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" ValueChanged="HandleValueChanged" />
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="HandleValueChanged" />
                     break;
                 case SignInMode.Credential:
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" ValueChanged="HandleValueChanged" />
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="HandleValueChanged" />
                     break;
                 default:
                     <MudText>Unsupported SignInMode: @RequestedSignInMode</MudText>

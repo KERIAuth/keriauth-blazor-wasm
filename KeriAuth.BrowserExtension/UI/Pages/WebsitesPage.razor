@@ -123,9 +123,9 @@
                             <MudTd DataLabel="Edit">
                                 <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))"></MudIconButton>
                             </MudTd>
-                            <MudTh DataLabel="Launch">
+                            <MudTd DataLabel="Launch">
                                 <MudIconButton Icon="@Icons.Material.Filled.Launch" Href="@context.Origin.OriginalString" Target="@((GetNumberFromHash.HashInt(context.Origin.OriginalString)).ToString())"></MudIconButton>
-                            </MudTh>
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
                 </MudPaper>

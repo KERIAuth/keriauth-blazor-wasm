@@ -28,6 +28,7 @@
     [Parameter] public required string? OriginStr { get; init; }
     [Parameter] public required bool IsCredentialShown { get; init; }
     [Parameter] public required bool IsOriginShown { get; init; }
+    [Parameter] public required bool IsAutoSignShown { get; init; }
     [Parameter] public EventCallback<(string? selectedPrefix, Dictionary<string, object>? selectedCredential)> ValueChanged { get; init; }
 
     // properties
@@ -349,7 +350,7 @@
     {
         <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
     }
-    
+
     <!-- assure prerequisites for below are set, and to assure loading all at once versus rolling -->
     @if (IdentifierHeadlines is not null && IdentifierHeadlines.Any() && CredentialsDict is not null)
     {
@@ -417,7 +418,10 @@
                             }
                         }
                     </MudPaper>
-                    <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                    @if (IsAutoSignShown)
+                    {
+                        <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                    }
                 </MudStack>
             </MudStack>
         }

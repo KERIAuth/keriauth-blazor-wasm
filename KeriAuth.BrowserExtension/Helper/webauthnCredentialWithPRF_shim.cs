@@ -43,7 +43,7 @@ namespace KeriAuth.BrowserExtension.Helper
                 {
                     return Result.Fail(new FluentResults.Error("Deserialization resulted in a null object."));
                 }
-                Console.WriteLine($"intermediateResult: {intermediateResult.ToString()}");
+                Console.WriteLine($"intermediateResult: {intermediateResult}");
                 Console.WriteLine($"intermediateResult: {intermediateResult.ToResult()}");
 
                 // Convert intermediate result to FluentResults Result
@@ -79,7 +79,7 @@ namespace KeriAuth.BrowserExtension.Helper
     class IntermediateResult
     {
         public bool IsSuccess { get; set; }
-        public List<string> Errors { get; set; } = new();
+        public List<string> Errors { get; set; } = [];
     }
 
 }
