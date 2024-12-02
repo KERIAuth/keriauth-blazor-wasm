@@ -50,15 +50,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            ;
-        }
     }
 
     async Task RegisterAuthenticatorAndAttest()
     {
-        var res = await webauthnService.RegisterAttestStoreAuthenticator("asdf");
+        // TODO P1 update this flow to inform user there are two expected interactions with the authenticator: setup and verification
+        var res = await webauthnService.RegisterAttestStoreAuthenticator();
         if (res.IsFailed)
         {
             snackbar.Add("Authenticator not registered", Severity.Warning);
@@ -66,9 +63,9 @@
         }
         else
         {
-            snackbar.Add("Authenticator successfully registered.");
+            snackbar.Add("Authenticator successfully registered.", Severity.Success);
         }
-        navManager.NavigateTo(AppConfig.RouteToAuthenticators); // TODO P3 or wherever thay came from
+        navManager.NavigateTo(AppConfig.RouteToAuthenticators); // TODO P3 or back wherever they came from
     }
 }
 
@@ -113,13 +110,14 @@
                         Once registered, you'll be able to use it to unlock KERI Auth.
                     </MudText>
                     <MudText>
-                        The authenticator generates attestation data, which KERI Auth will use to
-                        1) dynamically generate an encryption key that is never stored and is unique to the browser profile, KERI Auth, and the registered authenticator;
-                        2) use that to encrypt/decrypt your passcode; and
-                        3) store the encrypted passcode securely in your current browser profile, which is accessible only to the extension.
+                        1) KERI Auth interacts with the authenticator, sending it data unique to your browser profile.
+                        2) The authenticator uses the unique data it received plus hardware-specific key material to generate data with its Pseudo-random Function (PRF).
+                        1) KERI Auth dynamically generates an encryption key that is not stored and is unique to the browser profile, KERI Auth, and the registered authenticator;
+                        2) It uses that to encrypt/decrypt your passcode; and
+                        3) It stores the encrypted passcode securely in your current browser profile, which is accessible only to the extension.
                     </MudText>
                     <MudText>
-                        Your passcode is not stored by KERI Auth or any authenticator, so <i><b>you must continue to keep your passcode safely stored</b></i> in case an authenticator becomes unavailable or the browser profile and/or this KERI Auth installation is reset.
+                        Your passcode is not stored by KERI Auth or any authenticator, so <i><b>you must continue to keep your passcode safely stored</b></i> in the event an authenticator becomes unavailable or the browser profile and/or this KERI Auth installation is reset.
                     </MudText>
                 </MudStack>
                 <MudText Class="bt-pref-group-label0">

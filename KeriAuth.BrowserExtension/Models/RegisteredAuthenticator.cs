@@ -18,6 +18,5 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("lastUpdatedUtc")]
         public DateTime LastUpdatedUtc { get; init; } = DateTime.UtcNow;
-
     }
 }

@@ -63,8 +63,7 @@ namespace KeriAuth.BrowserExtension
             RouteToConfigure,
             RouteToUnlock,
             RouteToManagePrefs,
-            RouteToTermsPage,
-            RouteToWebauthn
+            RouteToTermsPage
             // Note, you don't need to add routes to static html (non-SPA-App) here
         ];
 

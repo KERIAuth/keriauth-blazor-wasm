@@ -113,7 +113,7 @@
 
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
                     <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
-                    <MudNavLink Href=@RouteToWebauthn Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Webauthn</MudNavLink>
+                    <MudNavLink Href=@RouteToWebauthn Icon="@Icons.Material.Filled.SettingsApplications" Disabled="@(!IsAuthenticated)" IconColor="Color.Surface">Webauthn</MudNavLink>
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
@@ -191,9 +191,8 @@
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
-        logger.LogInformation("OnParametersSetAsync");
+        // logger.LogInformation("OnParametersSetAsync");
 
-        // TODO P2 Move into OnInitializedAsync?
         switch (stateService.GetState())
         {
             case IStateService.States.AuthenticatedDisconnected:
@@ -227,8 +226,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await base.OnAfterRenderAsync(firstRender);
-        logger.LogInformation("OnAfterRenderAsync");
+        // await base.OnAfterRenderAsync(firstRender);
+        // logger.LogInformation("OnAfterRenderAsync");
     }
 
     public void Dispose()

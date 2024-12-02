@@ -41,6 +41,7 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
+@inject IWebauthnService webauthnService
 
 @code {
     // fields
@@ -164,7 +165,8 @@
     async Task UnlockWithAuthenticator()
     {
         // TODO P0 re-write
-        await WebauthnCredentialWithPRF.AuthenticateCredential();
+        // await WebauthnCredentialWithPRF.AuthenticateCredential();
+        var x = await webauthnService.AuthenticateCredential("", []);
         await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
         return;
     }

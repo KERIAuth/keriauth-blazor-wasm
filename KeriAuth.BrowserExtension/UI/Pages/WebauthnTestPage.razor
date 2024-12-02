@@ -47,7 +47,7 @@
 @code {
     async Task RegisterAuthenticatorAndAttest()
     {
-        var res = await webauthnService.RegisterAttestStoreAuthenticator("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
+        var res = await webauthnService.RegisterAttestStoreAuthenticator();
         if (res.IsFailed)
         {
             snackbar.Add("Authenticator not registered", Severity.Warning);
@@ -55,7 +55,7 @@
         }
         else
         {
-            snackbar.Add("Authenticator successfully registered.");
+            snackbar.Add("Authenticator successfully registered.", Severity.Success);
         }
         navManager.NavigateTo(AppConfig.RouteToAuthenticators); // TODO P3 or wherever thay came from
     }

@@ -33,18 +33,17 @@ export const CREDS_CREATE_TIMEOUT = 60000;
 export const CREDS_GET_TIMEOUT = 60000;
 export const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
     // TODO P2 Set these authenticator selection criteria to strongest levels, then allow user to lower the requirements in preferences.
-    // residentKey: "preferred", // or required for more safety
-    // userVerification: "required", // Enforce user verification (e.g., biometric, PIN)
-    // authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-    // "requireResidentKey": true,           // For passwordless and hardware-backed credentials
+    residentKey: "required", // preferred, or required for more safety
+    userVerification: "required", // preferred or required. Enforce user verification (e.g., biometric, PIN)
+    authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
+    "requireResidentKey": true,           // True for passwordless and hardware-backed credentials
 };
-export const ENCRYPT_KEY_LABEL = "asdf";
+export const ENCRYPT_KEY_LABEL = "KERI Auth";
 export const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
 export const ENCRYPT_DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
 export const ENCRYPT_NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 export const ENCRYPT_KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
 export const ENCRYPT_DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: "SHA-256" };
-export const CREDS_CREATE_EXT = { prf: { eval: true } };
 
 /*
  * Helper function to compare two Uint8Arrays
@@ -115,7 +114,7 @@ async function generateChallenge(extensionId: string, profileIdentifier: string)
 }
 
 /*
- *
+ * Get a UserId based on the randomly generated browser profile ID
  */
 async function getOrCreateUserId(): Promise<Uint8Array> {
     let profileIdentifier: string;
@@ -168,26 +167,32 @@ async function getOrCreateUser(): Promise<User> {
 }
 
 /*
- *
+ *  Get array of excluded credentials in order to prevent re-registration of the same authenticator to ensure uniqueness
  */
-async function getExcludeCredentialsFromCreate() {
-    // TODO P1 Prevent re-registration of the same authenticator to ensure uniqueness:
-    // Prevent re-registration of the same authenticator to ensure uniqueness:
-    return [{
-        // type: "public-key",
-        // id: "<existing-credential-id>"
-        // transports: ["usb", "nfc", "ble", "internal"]
-    }];
+function getExcludeCredentialsFromCreate(credentialIds: string[], transports: string[]): PublicKeyCredentialDescriptor[] {
+    const pkcds = [] as PublicKeyCredentialDescriptor[];
+    for (const credentialId in credentialIds) {
+        const encoder = new TextEncoder();
+        const credIdUint8Array = encoder.encode(credentialId);
+        const pkcd = {
+            id: credIdUint8Array,
+            transports: transports as AuthenticatorTransport[],
+            type: "public-key"
+        } as PublicKeyCredentialDescriptor;
+        pkcds.push(pkcd);
+    }
+    return pkcds;
 }
 
 /*
- *
+ * Transform the browser profileId into a salt
  */
 async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
     const profileIdentifier = await getProfileIdentifier();
     // transform guid into 32 byte salt
     const encoder = new TextEncoder();
-    const guidBytes = encoder.encode(profileIdentifier); // Convert GUID string to Uint8Array
+    // Convert GUID string to Uint8Array
+    const guidBytes = encoder.encode(profileIdentifier);
     const hash = await crypto.subtle.digest('SHA-256', guidBytes)
     return new Uint8Array(hash); // 32 bytes
 }
@@ -201,15 +206,15 @@ export interface CredentialWithPRF {
 /*
  *
  */
-export async function registerCredential(): Promise<CredentialWithPRF> {
+export async function registerCredential(registeredCredIds : string[]): Promise<CredentialWithPRF> {
     try {
-        const options: any = { // PublicKeyCredentialCreationOptionsWithPRF = { // /*/ PublicKeyCredentialCreationOptions = {
+        const options: PublicKeyCredentialCreationOptions = {
             rp: CREDS_CREATE_RP,
             user: await getOrCreateUser(),
             challenge: crypto.getRandomValues(new Uint8Array(32)),
             pubKeyCredParams: CREDS_PUBKEY_PARAMS,
             authenticatorSelection: CREDS_CREATE_AUTHENTICATOR_SELECTION,
-            // excludeCredentials: getExcludeCredentialsFromCreate(),  // TODO P1 avoid re-creating credentials for same RP and User
+            excludeCredentials: getExcludeCredentialsFromCreate( registeredCredIds, ["usb", "nfc", "ble", "internal"] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
             extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
             timeout: CREDS_CREATE_TIMEOUT,
             attestation: CREDS_CREATE_ATTESTATION

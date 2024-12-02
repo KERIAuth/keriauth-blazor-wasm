@@ -2,14 +2,26 @@
 using JsBind.Net;
 using KeriAuth.BrowserExtension.Helper;
 using Microsoft.JSInterop;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using WebExtensions.Net;
 using KeriAuth.BrowserExtension.Models;
 using static KeriAuth.BrowserExtension.UI.Pages.Authenticators;
 using System.Security.Cryptography;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using WebExtensions.Net.ExtensionTypes;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using System.Net.NetworkInformation;
+using System.Diagnostics;
+using Blazor.BrowserExtension;
+using Microsoft.AspNetCore.WebUtilities;
+using System.Web;
+using WebExtensions.Net.Runtime;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using static System.Net.WebRequestMethods;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 
 namespace KeriAuth.BrowserExtension.Services
@@ -28,13 +40,13 @@ namespace KeriAuth.BrowserExtension.Services
             _logger = logger;
         }
 
-        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync()
+        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds)
         {
             try
             {
                 // Attempt to call the JavaScript function and map to the CredentialWithPRF type
                 _interopModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
-                var credential = await _interopModule.InvokeAsync<CredentialWithPRF>("registerCredential");
+                var credential = await _interopModule.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds);
                 return Result.Ok(credential);
             }
             catch (JSException jsEx)
@@ -63,7 +75,6 @@ namespace KeriAuth.BrowserExtension.Services
             //}
         };
 
-
         public async Task<Result<string>> AuthenticateCredential(string credentialIdBase64, string[] transports)
         {
             try
@@ -88,10 +99,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
         }
 
-
-
-
-        public async Task<Result<string>> RegisterAttestStoreAuthenticator(string passcode)
+        public async Task<Result<string>> RegisterAttestStoreAuthenticator()
         {
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
             var webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);  // TODO P2 why isn't this in the constructor?
@@ -104,9 +112,14 @@ namespace KeriAuth.BrowserExtension.Services
                 ras = t;
             }
 
+            List<string> registeredCredIds = new();
+            foreach (var registeredAuthenticator in ras.Authenticators)
+            {
+                registeredCredIds.Add(registeredAuthenticator.CredentialBase64);
+            }
+
             // Register
-            // TODO P1 pass in list of CredentialIDs of already created creds for this RP and User.
-            var credentialRet = await RegisterCredentialAsync(/* credentials */);
+            var credentialRet = await RegisterCredentialAsync(registeredCredIds);
             if (credentialRet is null || credentialRet.IsFailed)
             {
                 return Result.Fail("Failed to register authenticator 333");
@@ -121,150 +134,101 @@ namespace KeriAuth.BrowserExtension.Services
             }
 
 
-
-
-            // Encrypt passcode
-            var encryptKey = encryptKeyBase64Ret.Value;
-            _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
-
-            // Step 1: Adjust the raw key to ensure 32 bytes (256 bits)
-            byte[] rawKeyBytes = Encoding.UTF8.GetBytes(encryptKey);
-
-            // Truncate or pad the key to exactly 32 bytes
-            byte[] adjustedKeyBytes = new byte[32];
-            Buffer.BlockCopy(rawKeyBytes, 0, adjustedKeyBytes, 0, Math.Min(rawKeyBytes.Length, 32));
-
-            // Step 2: Convert the adjusted raw key to Base64
-            string encryptKeyBase64 = Convert.ToBase64String(adjustedKeyBytes);
-            _logger.LogWarning("encryptKeyBase64 adjusted length (chars): {b}", encryptKeyBase64.Length);
-
-            // Step 3: Convert the passcode to Base64
-            byte[] plainBytes = Encoding.UTF8.GetBytes(passcode);
-            string passcodeBase64 = Convert.ToBase64String(plainBytes);
-
-            // Step 4: Call JavaScript function
-            var encryptedBase64 = await _interopModule.InvokeAsync<string>("encryptWithNounce", encryptKeyBase64, passcodeBase64);
-            // Convert the Base64 string back to a byte array
-            byte[] encryptedPasscodeBytes = Convert.FromBase64String(encryptedBase64);
-
-            // Log the result or use it // TODO P0 remove
-            _logger.LogWarning("Encrypted Passcode Bytes: {b}", BitConverter.ToString(encryptedPasscodeBytes));
-
-
-            var keyBytes = Convert.FromBase64String(encryptKeyBase64);
-            Console.WriteLine($"Key length in bytes: {keyBytes.Length}");
-            if (keyBytes.Length != 16 && keyBytes.Length != 32)
+            // Get the passcode from session storage
+            var passcodeElement = await webExtensionsApi.Storage.Session.Get("passcode");
+            if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
             {
-                throw new InvalidOperationException("Encryption key must be 16 or 32 bytes.");
-            }
+                var passcode = passcodeElement2.GetString();
+                if (passcode is null)
+                {
+                    return Result.Fail("no passcode is cached");
+                }
 
-            var encryptedBytes = Convert.FromBase64String(encryptedBase64);
-            Console.WriteLine($"Encrypted data length: {encryptedBytes.Length}");
-            if (encryptedBytes.Length == 0)
-            {
-                throw new InvalidOperationException("Encrypted data is empty or invalid.");
-            }
+                // Encrypt passcode
+                var encryptKey = encryptKeyBase64Ret.Value;
+                // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
+
+                // Step 1: Adjust the raw key to ensure 32 bytes (256 bits)
+                byte[] rawKeyBytes = Encoding.UTF8.GetBytes(encryptKey);
+
+                // Truncate or pad the key to exactly 32 bytes
+                byte[] adjustedKeyBytes = new byte[32];
+                Buffer.BlockCopy(rawKeyBytes, 0, adjustedKeyBytes, 0, Math.Min(rawKeyBytes.Length, 32));
+
+                // Step 2: Convert the adjusted raw key to Base64
+                string encryptKeyBase64 = Convert.ToBase64String(adjustedKeyBytes);
+                // _logger.LogWarning("encryptKeyBase64 adjusted length (chars): {b}", encryptKeyBase64.Length);
+
+                // Step 3: Convert the passcode to Base64
+                byte[] plainBytes = Encoding.UTF8.GetBytes(passcode);
+                string passcodeBase64 = Convert.ToBase64String(plainBytes);
+
+                // Step 4: Call JavaScript function
+                var encryptedBase64 = await _interopModule.InvokeAsync<string>("encryptWithNounce", encryptKeyBase64, passcodeBase64);
+
+                // Convert the Base64 string back to a byte array
+                // byte[] encryptedPasscodeBytes = Convert.FromBase64String(encryptedBase64);
+                // Log the result or use it // TODO P0 remove
+                // _logger.LogWarning("Encrypted Passcode Bytes: {b}", BitConverter.ToString(encryptedPasscodeBytes));
 
 
-            var decryptedPasscode = await _interopModule.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedBase64);
+                var keyBytes = Convert.FromBase64String(encryptKeyBase64);
+                Console.WriteLine($"Key length in bytes: {keyBytes.Length}");
+                if (keyBytes.Length != 16 && keyBytes.Length != 32)
+                {
+                    throw new InvalidOperationException("Encryption key must be 16 or 32 bytes.");
+                }
+
+                var encryptedBytes = Convert.FromBase64String(encryptedBase64);
+                Console.WriteLine($"Encrypted data length: {encryptedBytes.Length}");
+                if (encryptedBytes.Length == 0)
+                {
+                    throw new InvalidOperationException("Encrypted data is empty or invalid.");
+                }
+
+                var decryptedPasscode = await _interopModule.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedBase64);
+
+                // TODO P0 tmp test to compare encrypt and decrypt
+
+                // Step 1: Decode the Base64 string into a byte array
+                byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
+
+                // Step 2: Convert the byte array into a plaintext string
+                string plainText = Encoding.UTF8.GetString(dataBytes);
 
 
+                // _logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainText, passcode);
+                if (plainText != passcode)
+                {
+                    // _logger.LogError("passcode failed to encrypt-decrypt");
+                    return Result.Fail("passcode failed to encrypt-decrypt");
+                }
+                else
+                {
+                    // _logger.LogWarning("encrypt-decrypt passed");
+                }
 
+                // append the new registered authenticator to prepare for storage
+                var creationTime = DateTime.UtcNow;
+                var newRA = new Models.RegisteredAuthenticator()
+                {
+                    CreationTime = creationTime,
+                    LastUpdatedUtc = creationTime,
+                    CredentialBase64 = credentialRet.Value.CredentialID,
+                    EncryptedPasscodeBase64 = encryptedBase64,
+                    Name = $"Authenticator registered on {creationTime:R}"
+                };
+                ras.Authenticators.Add(newRA);
 
+                // store it
+                await webExtensionsApi.Storage.Sync.Set(ras);
 
-            // TODO P0 tmp test to compare encrypt and decrypt
-
-            // Step 1: Decode the Base64 string into a byte array
-            byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
-
-            // Step 2: Convert the byte array into a plaintext string
-            string plainText = Encoding.UTF8.GetString(dataBytes);
-
-
-            _logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainText, passcode);
-            if (plainText != passcode)
-            {
-                _logger.LogError("passcode failed to encrypt-decrypt");
-                return Result.Fail("passcode failed to encrypt-decrypt");
+                return Result.Ok(newRA.Name);
             }
             else
             {
-                _logger.LogWarning("encrypt-decrypt passed");
+                return Result.Fail("failed to retreive passcode from cache");
             }
-
-            // append the new registered authenticator to prepare for storage
-            var creationTime = DateTime.UtcNow;
-            var newRA = new Models.RegisteredAuthenticator()
-            {
-                CreationTime = creationTime,
-                LastUpdatedUtc = creationTime,
-                CredentialBase64 = credentialRet.Value.CredentialID,
-                EncryptedPasscodeBase64 = encryptedBase64,
-                Name = $"Authenticator registered on {creationTime:R}"
-            };
-            ras.Authenticators.Add(newRA);
-
-            // store it
-            await webExtensionsApi.Storage.Sync.Set(ras);
-
-            return Result.Ok(newRA.Name);
         }
     }
-
-    /*
-    public class SymmetricEncryption
-    {
-        // Encrypt a string using AES
-        public static string EncryptString(string plainText, byte[] encryptionKey)
-        {
-            if (string.IsNullOrEmpty(plainText)) throw new ArgumentNullException(nameof(plainText));
-            if (encryptionKey == null || encryptionKey.Length != 32) // AES-256 requires a 256-bit (32-byte) key
-                throw new ArgumentException("Encryption key must be a 256-bit (32-byte) array.", nameof(encryptionKey));
-
-            using Aes aes = Aes.Create();
-            aes.Key = encryptionKey;
-            aes.GenerateIV(); // Generate a random IV
-
-            using MemoryStream memoryStream = new MemoryStream();
-            // Write the IV at the beginning of the stream
-            memoryStream.Write(aes.IV, 0, aes.IV.Length);
-
-            using (CryptoStream cryptoStream = new(memoryStream, aes.CreateEncryptor(), CryptoStreamMode.Write))
-            {
-                byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
-                cryptoStream.Write(plainBytes, 0, plainBytes.Length);
-                cryptoStream.FlushFinalBlock();
-            }
-
-            // Convert the encrypted data and IV to a Base64 string
-            return Convert.ToBase64String(memoryStream.ToArray());
-        }
-
-        // Decrypt a string using AES
-        public static string DecryptString(string cipherText, byte[] encryptionKey)
-        {
-            if (string.IsNullOrEmpty(cipherText)) throw new ArgumentNullException(nameof(cipherText));
-            if (encryptionKey == null || encryptionKey.Length != 32) // AES-256 requires a 256-bit (32-byte) key
-                throw new ArgumentException("Encryption key must be a 256-bit (32-byte) array.", nameof(encryptionKey));
-
-            byte[] cipherBytes = Convert.FromBase64String(cipherText);
-
-            using Aes aes = Aes.Create();
-            aes.Key = encryptionKey;
-
-            // Extract the IV from the beginning of the ciphertext
-            byte[] iv = new byte[aes.BlockSize / 8];
-            Array.Copy(cipherBytes, 0, iv, 0, iv.Length);
-            aes.IV = iv;
-
-            // Create a stream for the remaining ciphertext (after the IV)
-            using MemoryStream memoryStream = new(cipherBytes, iv.Length, cipherBytes.Length - iv.Length);
-            using CryptoStream cryptoStream = new(memoryStream, aes.CreateDecryptor(), CryptoStreamMode.Read);
-            using StreamReader streamReader = new(cryptoStream, Encoding.UTF8);
-            return streamReader.ReadToEnd();
-        }
-    }
-    */
-
-
 }
