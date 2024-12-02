@@ -40,38 +40,40 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
+@inject IWebauthnService webauthnService
+@inject IJsRuntimeAdapter jsra
+@inject ILogger<WebauthnService> loggerForWAS
 
 @code {
-    async Task createCred()
+    async Task RegisterAuthenticatorAndAttest()
     {
-        await WebauthnCredentialWithPRF.CreateCred();
-    }
-
-    async Task RegisterAuthenticator()
-    {
-        var res = await WebauthnCredentialWithPRF.RegisterCredential();
+        var res = await webauthnService.RegisterAttestStoreAuthenticator("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
         if (res.IsFailed)
         {
+            snackbar.Add("Authenticator not registered", Severity.Warning);
             logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
-            snackbar.Add("Could not register authenticator", Severity.Warning);
-        } else
-        {
-            snackbar.Add("Successfully registered authenticator", Severity.Success);
         }
+        else
+        {
+            snackbar.Add("Authenticator successfully registered.");
+        }
+        navManager.NavigateTo(AppConfig.RouteToAuthenticators); // TODO P3 or wherever thay came from
     }
 
     async Task authenticateCredential()
     {
-        await WebauthnCredentialWithPRF.AuthenticateCredential();
+        return;
+        // TODO P0 retrieve all credentials and pass in their Ids and merged transports (or an everything set)
+        // var res = await webauthnService.AuthenticateCredential(credentialIdBase64, transports);
     }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main" style="justify-content:center;">
         <MudStack>
-            <MudButton OnClick="RegisterAuthenticator">RegisterCredential</MudButton>
+            <MudButton OnClick="RegisterAuthenticatorAndAttest">Register Authenticator And Attest</MudButton>
             <hr />
-            <MudButton OnClick="authenticateCredential">authenticateCredential</MudButton>
+            <MudButton OnClick="authenticateCredential">authenticate Credential</MudButton>
         </MudStack>
     </div>
 </div>
