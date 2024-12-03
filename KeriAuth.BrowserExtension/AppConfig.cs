@@ -25,8 +25,6 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToUnlock = "/Unlock";
         // TODO P2 decide whether a connecting page is needed
         public const string RouteToConnecting = "/Connecting";
-        // TODO P2 remove this temporary test
-        public const string RouteToWebauthn = "/Webauthn";
 
         // route with parameters, with intentional trailing /
         public const string RouteToIdentifier = "/Identifier";  // check implementation versus assuming ActivePrefix

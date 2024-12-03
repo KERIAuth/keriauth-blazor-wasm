@@ -312,9 +312,8 @@ namespace KeriAuth.BrowserExtension.Services
             {
                 return Result.Fail($"Could not decrypt passcode based on webauthn credential");
             }
-            // TODO P0 remove
-            logger.LogWarning("passcode {p}", decryptedPasscode);
-            return Result.Ok("passcode");
+            // logger.LogWarning("passcode {p}", decryptedPasscode);
+            return Result.Ok(decryptedPasscode);
         }
     }
 }

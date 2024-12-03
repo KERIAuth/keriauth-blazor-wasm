@@ -59,20 +59,13 @@
     bool IsAuthenticatorRegistered { get; set; }
 
     // reactive properties
-    string NumberAuthenticatorsLabel => IsAuthenticatorRegistered switch
-    {
-        true => "1 authenticator registered",
-        false => "No authenticators registered"
-    };
-    /*
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
         {
         0 => "No authenticators registered",
         1 => "1 authenticator registered",
         _ => $"{RAS.Authenticators.Count} authenticators registered"
     };
-    */
-    bool CanUseAuthenticator => IsAuthenticatorRegistered; // TODO P0 tmp RAS.Authenticators.Any();
+    bool CanUseAuthenticator => RAS.Authenticators.Any();
     bool ShouldUseAuthenticator => CanUseAuthenticator && WantsToUseAuthenticator;
 
     protected override async Task OnInitializedAsync()
@@ -102,12 +95,10 @@
         }
 
         // check if there are already registeredAuthenticators
-        var jsonRAs = await webExtensionsApi!.Storage.Sync.Get("registeredAuthenticators");
-        if (jsonRAs.TryGetProperty("authenticators", out JsonElement registeredAuthenticators)
-            && registeredAuthenticators.ValueKind == JsonValueKind.Object)
+        var res2 = await webauthnService.getRegisteredAuthenticators();
+        if (res2 is not null)
         {
-            logger.LogInformation("OnInitializedAsync found and parsed registeredAuthenticators {r}", registeredAuthenticators);
-            RAS = registeredAuthenticators.Deserialize<RegisteredAuthenticators>() ?? RAS;
+            RAS = res2;
             StateHasChanged();
             if (ShouldUseAuthenticator)
             {
@@ -164,10 +155,13 @@
 
     async Task UnlockWithAuthenticator()
     {
-        // TODO P0 re-write
-        // await WebauthnCredentialWithPRF.AuthenticateCredential();
-        var x = await webauthnService.AuthenticateCredential([""]);
-        await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
+        var passcodeRes = await webauthnService.AuthenticateAKnownCredential();
+        if (passcodeRes is null || passcodeRes.IsFailed)
+        {
+            snackbar.Add("Failed to authenticate", Severity.Warning);
+            return;
+        }
+        await OpenWalletWithPasscode(passcodeRes.Value);
         return;
     }
 
