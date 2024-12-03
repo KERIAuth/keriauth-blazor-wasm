@@ -197,14 +197,16 @@ async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
     return new Uint8Array(hash); // 32 bytes
 }
 
+// Note name and types/shape needs to align with definition in IWeebauthnService
 export interface CredentialWithPRF {
-    credentialID: string; // Base64-encoded Credential ID
+    credentialID: string; // Base64Url-encoded Credential ID
     transports: string[]; // Array of transport types (e.g., "usb", "nfc", "ble", "internal")
 }
 
 
 /*
- *
+ * Register a credential with a user-chosen authenticator, restricting it from re-registering one of the previously stored credential. 
+ * Returns the new credentialId or throws.
  */
 export async function registerCredential(registeredCredIds : string[]): Promise<CredentialWithPRF> {
     try {
@@ -229,17 +231,23 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
         }
 
         // Extract credential ID and transport
-        const credentialID = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+        const credentialID = toBase64Url(credential.rawId);
+        // const credentialID = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+
+        console.warn("registerCredential: credentialId ArrayBuffer: ", credential.rawId);
+        // console.warn("registerCredential: credentialId Uint8Array: ", new Uint8Array(credential.rawId));
+        console.warn("registerCredential: credentialId base64Url: ", credentialID);
+
 
         const transports = (credential.response as AuthenticatorAttestationResponse).getTransports?.(); //  ?? [];
-        console.warn("Supported transports: ", transports);
+        // console.warn("Supported transports: ", transports);
 
 
         // Return a JSON-serializable object friendly for JSInterop
         return {
             credentialID, // Base64-encoded credential ID
-            transports,   // Array of transport types (e.g., "usb", "nfc", "ble", "internal")
-        }; // as CredentialWithPRF;
+            transports,   // Potentially empty array of transport types (e.g., "usb", "nfc", "ble", "internal")
+        } as CredentialWithPRF;
 
     } catch (error) {
         console.warn("registerCredential error: ", error);
@@ -247,23 +255,94 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
     }
 }
 
+
+function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
+    // Normalize the Base64Url string to Base64
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+
+    // Pad the Base64 string with '=' to make its length a multiple of 4
+    while (base64.length % 4 !== 0) {
+        base64 += '=';
+    }
+
+    // Decode Base64 to binary string
+    const binaryString = atob(base64);
+
+    // Create an ArrayBuffer and populate it with binary data
+    const len = binaryString.length;
+    const buffer = new ArrayBuffer(len);
+    const uint8Array = new Uint8Array(buffer);
+    for (let i = 0; i < len; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+    }
+
+    return buffer;
+}
+
+/*
+*
+*/
+function toBase64Url(buffer: ArrayBuffer): string {
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    // Convert Base64 to Base64-URL
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+
+/*
+ *  convert a base64 string to a Uint8Array
+ */
+function base64UrlToUint8Array(base64Url: string): Uint8Array {
+    // Replace Base64-URL specific characters to standard Base64 characters
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+
+    // Calculate the required padding (Base64 strings must be a multiple of 4 in length)
+    const paddingNeeded = (4 - (base64.length % 4)) % 4;
+
+    // Append '=' characters to make the string length a multiple of 4
+    const paddedBase64 = base64 + (paddingNeeded ? '='.repeat(paddingNeeded) : '');
+
+    // Decode the Base64 string to binary
+    const binary = atob(paddedBase64);
+
+    // Convert binary string to Uint8Array
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
+
+
 /*
  *
  */
-export async function authenticateCredential(credentialIdBase64: string, transports: string[]): Promise<string> {
+export async function authenticateCredential(credentialIdBase64s: string[]): Promise<string> {
     try {
-        const credentialId = Uint8Array.from(atob(credentialIdBase64), c => c.charCodeAt(0));
+        // construct array of allowed credentials
+        const allowCredentials: PublicKeyCredentialDescriptor[] = [];
+        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", "internal"]; // TODO P2 should use the same transports as the union of all saved credential transports
 
-        // Prepare PublicKeyCredentialRequestOptions
-        const options: any = { //  PublicKeyCredentialRequestOptions = {
-            challenge: crypto.getRandomValues(new Uint8Array(32)),
-            allowCredentials: [{
+        // console.warn("credentialIdBase64s: ", credentialIdBase64s);
+        for (const credentialIdBase64Url of credentialIdBase64s) {
+            // console.warn("credentialIdBase64Url: ", credentialIdBase64Url);
+            const credentialId = base64UrlToArrayBuffer(credentialIdBase64Url);
+            console.warn("credentialId ArrayBuffer: ", credentialId);
+            allowCredentials.push({
                 id: credentialId,
                 type: "public-key",
-                transports: transports, //  ["usb", "nfc", "ble", "internal"],  // TODO P2 should use the same transport as the saved credential (not just ID)
-            }],
-            // rpId is intentionally left blank, since webauthn will observe this at runtime
-            // user is intentionally left blank, since authenticator can find this based on credentialId
+                transports: transports as AuthenticatorTransport[],
+            } as PublicKeyCredentialDescriptor);
+        }
+        console.warn("authenticateCredential: allowCredentials: ", allowCredentials);
+
+        // Prepare PublicKeyCredentialRequestOptions
+        const options: PublicKeyCredentialRequestOptions & { extensions: { prf: any } } = {
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
+            allowCredentials: allowCredentials,
+            // rpId and user are intentionally blank, since authenticator will have this stored based on credentialId
             timeout: CREDS_GET_TIMEOUT,
             userVerification: "required",
             extensions: {
@@ -324,12 +403,10 @@ export async function authenticateCredential(credentialIdBase64: string, transpo
     }
 }
 
-
-
 /*
-
-
-// TODO P2 test follow that can later be moved into unit tests
+ *
+ *
+// TODO P2 move into unit tests
 // Encrypt message
 const stringToEncrypt = "hello!";
 const encrypted = await encryptWithNounce(encryptionKey, new TextEncoder().encode(stringToEncrypt));
@@ -343,12 +420,7 @@ if (stringToEncrypt != decryptedString) {
 } else {
     console.log(decryptedString);
 }
-
-// TODO P0
-return "end";
-};
 */
-
 
 /*
  *
@@ -357,7 +429,6 @@ async function exportCryptoKeyToUint8Array(key: CryptoKey): Promise<Uint8Array> 
     const exported = await crypto.subtle.exportKey("raw", key);
     return new Uint8Array(exported); // Convert ArrayBuffer to Uint8Array
 }
-
 
 /*
  *
@@ -389,10 +460,8 @@ export const encryptWithNounce = async (
     );
 
     // Perform the encryption
-
     const algorithm = getEncryptionAlgorithm(ENCRYPT_NON_SECRET_NOUNCE);
-    console.log("Decryption algorithm:", algorithm);
-
+    // console.log("algorithm:", algorithm);
     const encryptedArrayBuffer = await crypto.subtle.encrypt(
         algorithm,
         encryptionKey,
@@ -402,6 +471,7 @@ export const encryptWithNounce = async (
     // Convert the ArrayBuffer to a Base64 string
     const encryptedBytes = new Uint8Array(encryptedArrayBuffer);
     const base64Encrypted = btoa(String.fromCharCode(...encryptedBytes));
+
     return base64Encrypted;
 };
 

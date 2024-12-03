@@ -166,7 +166,7 @@
     {
         // TODO P0 re-write
         // await WebauthnCredentialWithPRF.AuthenticateCredential();
-        var x = await webauthnService.AuthenticateCredential("", []);
+        var x = await webauthnService.AuthenticateCredential([""]);
         await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
         return;
     }

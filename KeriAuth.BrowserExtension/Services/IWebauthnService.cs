@@ -9,8 +9,9 @@ namespace KeriAuth.BrowserExtension.Services
 
         Task<Result<string>> RegisterAttestStoreAuthenticator();
 
-        Task<Result<string>> AuthenticateCredential(string credentialIdBase64, string[] transports);
+        Task<Result<string>> AuthenticateCredential(List<string> credentialIdBase64);
     }
 
-    public record CredentialWithPRF(string CredentialID, string[] Transports);
+    // shape and names need to align with 
+    public record CredentialWithPRF(string CredentialId, string[] Transports);
 }

@@ -22,22 +22,22 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using static System.Net.WebRequestMethods;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using MudBlazor;
 
 
 namespace KeriAuth.BrowserExtension.Services
 {
-    public class WebauthnService : IWebauthnService
+    public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<WebauthnService> logger) : IWebauthnService
     {
-        private readonly IJSRuntime _jsRuntime;
-        private IJSObjectReference _interopModule = default!;
-        private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
-        private readonly ILogger<WebauthnService> _logger;
+        private readonly IJSRuntime _jsRuntime = jsRuntime;
+        private static IJSObjectReference? _interopModule;
+        private readonly IJsRuntimeAdapter _jsRuntimeAdapter = jsRuntimeAdapter;
+        private readonly ILogger<WebauthnService> _logger = logger;
 
-        public WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<WebauthnService> logger)
+        async Task<IJSObjectReference> InitializeModule()
         {
-            _jsRuntime = jsRuntime;
-            _jsRuntimeAdapter = jsRuntimeAdapter;
-            _logger = logger;
+            _interopModule ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
+            return _interopModule;
         }
 
         public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds)
@@ -45,8 +45,9 @@ namespace KeriAuth.BrowserExtension.Services
             try
             {
                 // Attempt to call the JavaScript function and map to the CredentialWithPRF type
-                _interopModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
-                var credential = await _interopModule.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds);
+                var im = await InitializeModule();
+                var credential = await im.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds);
+                logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
             }
             catch (JSException jsEx)
@@ -75,13 +76,14 @@ namespace KeriAuth.BrowserExtension.Services
             //}
         };
 
-        public async Task<Result<string>> AuthenticateCredential(string credentialIdBase64, string[] transports)
+        public async Task<Result<string>> AuthenticateCredential(List<string> credentialIdBase64s)
         {
+            logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
             try
             {
-                // Attempt to call the JavaScript function and map to the CredentialWithPRF type
-                _interopModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
-                var encryptKeyBase64 = await _interopModule.InvokeAsync<string>("authenticateCredential", credentialIdBase64, transports);
+                // Attempt to authenticate the credential and re-compute the encryption key
+                var im = await InitializeModule();
+                var encryptKeyBase64 = await im.InvokeAsync<string>("authenticateCredential", credentialIdBase64s);
                 return Result.Ok(encryptKeyBase64);
             }
             catch (JSException jsEx)
@@ -124,15 +126,20 @@ namespace KeriAuth.BrowserExtension.Services
             {
                 return Result.Fail("Failed to register authenticator 333");
             }
-            var credential = credentialRet.Value;
+            CredentialWithPRF credential = credentialRet.Value;
+
+            string credentialIdBase64Url = credential.CredentialId;
+
+            logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
+            List<string> xx = [];
+            xx.Add(credentialIdBase64Url);
 
             // Get attestation from authenticator
-            var encryptKeyBase64Ret = await AuthenticateCredential(credential.CredentialID, credential.Transports);
+            var encryptKeyBase64Ret = await AuthenticateCredential(xx);
             if (encryptKeyBase64Ret is null || encryptKeyBase64Ret.IsFailed)
             {
                 return Result.Fail("Failed to verify with authenticator 444");
             }
-
 
             // Get the passcode from session storage
             var passcodeElement = await webExtensionsApi.Storage.Session.Get("passcode");
@@ -148,10 +155,10 @@ namespace KeriAuth.BrowserExtension.Services
                 var encryptKey = encryptKeyBase64Ret.Value;
                 // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
 
-                // Step 1: Adjust the raw key to ensure 32 bytes (256 bits)
+                // Step 1: Adjust the raw key to ensure 32 credentialIdBytes (256 bits)
                 byte[] rawKeyBytes = Encoding.UTF8.GetBytes(encryptKey);
 
-                // Truncate or pad the key to exactly 32 bytes
+                // Truncate or pad the key to exactly 32 credentialIdBytes
                 byte[] adjustedKeyBytes = new byte[32];
                 Buffer.BlockCopy(rawKeyBytes, 0, adjustedKeyBytes, 0, Math.Min(rawKeyBytes.Length, 32));
 
@@ -164,7 +171,8 @@ namespace KeriAuth.BrowserExtension.Services
                 string passcodeBase64 = Convert.ToBase64String(plainBytes);
 
                 // Step 4: Call JavaScript function
-                var encryptedBase64 = await _interopModule.InvokeAsync<string>("encryptWithNounce", encryptKeyBase64, passcodeBase64);
+                var im = await InitializeModule();
+                var encryptedBase64 = await im.InvokeAsync<string>("encryptWithNounce", encryptKeyBase64, passcodeBase64);
 
                 // Convert the Base64 string back to a byte array
                 // byte[] encryptedPasscodeBytes = Convert.FromBase64String(encryptedBase64);
@@ -186,7 +194,7 @@ namespace KeriAuth.BrowserExtension.Services
                     throw new InvalidOperationException("Encrypted data is empty or invalid.");
                 }
 
-                var decryptedPasscode = await _interopModule.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedBase64);
+                var decryptedPasscode = await im.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedBase64);
 
                 // TODO P0 tmp test to compare encrypt and decrypt
 
@@ -214,7 +222,7 @@ namespace KeriAuth.BrowserExtension.Services
                 {
                     CreationTime = creationTime,
                     LastUpdatedUtc = creationTime,
-                    CredentialBase64 = credentialRet.Value.CredentialID,
+                    CredentialBase64 = credentialRet.Value.CredentialId,
                     EncryptedPasscodeBase64 = encryptedBase64,
                     Name = $"Authenticator registered on {creationTime:R}"
                 };
