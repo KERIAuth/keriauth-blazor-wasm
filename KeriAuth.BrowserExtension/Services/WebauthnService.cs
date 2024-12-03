@@ -1,29 +1,11 @@
 ﻿using FluentResults;
 using JsBind.Net;
-using KeriAuth.BrowserExtension.Helper;
+using KeriAuth.BrowserExtension.Models;
 using Microsoft.JSInterop;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using WebExtensions.Net;
-using KeriAuth.BrowserExtension.Models;
-using static KeriAuth.BrowserExtension.UI.Pages.Authenticators;
-using System.Security.Cryptography;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using WebExtensions.Net.ExtensionTypes;
 using JsonSerializer = System.Text.Json.JsonSerializer;
-using System.Net.NetworkInformation;
-using System.Diagnostics;
-using Blazor.BrowserExtension;
-using Microsoft.AspNetCore.WebUtilities;
-using System.Web;
-using WebExtensions.Net.Runtime;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using static System.Net.WebRequestMethods;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using MudBlazor;
-
 
 namespace KeriAuth.BrowserExtension.Services
 {

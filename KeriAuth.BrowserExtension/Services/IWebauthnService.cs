@@ -1,5 +1,4 @@
 ﻿using FluentResults;
-using KeriAuth.BrowserExtension.Helper;
 
 namespace KeriAuth.BrowserExtension.Services
 {
