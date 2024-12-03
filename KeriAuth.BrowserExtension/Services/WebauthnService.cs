@@ -11,14 +11,11 @@ namespace KeriAuth.BrowserExtension.Services
 {
     public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<WebauthnService> logger) : IWebauthnService
     {
-        private readonly IJSRuntime _jsRuntime = jsRuntime;
         private static IJSObjectReference? _interopModule;
-        private readonly IJsRuntimeAdapter _jsRuntimeAdapter = jsRuntimeAdapter;
-        private readonly ILogger<WebauthnService> _logger = logger;
 
         async Task<IJSObjectReference> InitializeModule()
         {
-            _interopModule ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
+            _interopModule ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
             return _interopModule;
         }
 
@@ -95,7 +92,7 @@ namespace KeriAuth.BrowserExtension.Services
         {
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
             // TODO P2 DRY
-            var webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);  // TODO P2 why isn't this in the constructor?
+            var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);  // TODO P2 why isn't this in the constructor?
             var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
             RegisteredAuthenticators ras = new();
             // if there are stored registered authenticators, start with that list
@@ -122,11 +119,11 @@ namespace KeriAuth.BrowserExtension.Services
             string credentialIdBase64Url = credential.CredentialId;
 
             logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
-            List<string> xx = [];
-            xx.Add(credentialIdBase64Url);
+            List<string> credentialIds = [];
+            credentialIds.Add(credentialIdBase64Url);
 
             // Get attestation from authenticator
-            var encryptKeyBase64Ret = await AuthenticateCredential(xx);
+            var encryptKeyBase64Ret = await AuthenticateCredential(credentialIds);
             if (encryptKeyBase64Ret is null || encryptKeyBase64Ret.IsFailed)
             {
                 return Result.Fail("Failed to verify with authenticator 444");
@@ -142,6 +139,7 @@ namespace KeriAuth.BrowserExtension.Services
                     return Result.Fail("no passcode is cached");
                 }
 
+                // TODO P2 DRY
                 // Encrypt passcode
                 var encryptKey = encryptKeyBase64Ret.Value.EncryptKey;
                 // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
@@ -164,12 +162,6 @@ namespace KeriAuth.BrowserExtension.Services
                 // Step 4: Call JavaScript function
                 var im = await InitializeModule();
                 var encryptedBase64 = await im.InvokeAsync<string>("encryptWithNounce", encryptKeyBase64, passcodeBase64);
-
-                // Convert the Base64 string back to a byte array
-                // byte[] encryptedPasscodeBytes = Convert.FromBase64String(encryptedBase64);
-                // Log the result or use it // TODO P0 remove
-                // _logger.LogWarning("Encrypted Passcode Bytes: {b}", BitConverter.ToString(encryptedPasscodeBytes));
-
 
                 var keyBytes = Convert.FromBase64String(encryptKeyBase64);
                 Console.WriteLine($"Key length in bytes: {keyBytes.Length}");
@@ -194,7 +186,6 @@ namespace KeriAuth.BrowserExtension.Services
 
                 // Step 2: Convert the byte array into a plaintext string
                 string plainText = Encoding.UTF8.GetString(dataBytes);
-
 
                 // _logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainText, passcode);
                 if (plainText != passcode)
@@ -234,11 +225,11 @@ namespace KeriAuth.BrowserExtension.Services
         {
             // get registered authenticators from sync storage
             // TODO P2 DRY
-            var webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
+            var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
             var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
             RegisteredAuthenticators ras = new();
             // if there are stored registered authenticators, start with that list
-            RegisteredAuthenticators t = JsonSerializer.Deserialize<RegisteredAuthenticators>(jsonElement, jsonSerializerOptions);
+            RegisteredAuthenticators? t = JsonSerializer.Deserialize<RegisteredAuthenticators>(jsonElement, jsonSerializerOptions);
             if (t is not null)
             {
                 ras = t;
