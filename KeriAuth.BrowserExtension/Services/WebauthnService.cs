@@ -221,10 +221,8 @@ namespace KeriAuth.BrowserExtension.Services
             }
         }
 
-        public async Task<Result<string>> AuthenticateAKnownCredential()
+        public async Task<RegisteredAuthenticators> getRegisteredAuthenticators()
         {
-            // get registered authenticators from sync storage
-            // TODO P2 DRY
             var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
             var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
             RegisteredAuthenticators ras = new();
@@ -234,6 +232,17 @@ namespace KeriAuth.BrowserExtension.Services
             {
                 ras = t;
             }
+            else
+            {
+                ras = new RegisteredAuthenticators();
+            }
+            return ras;
+        }
+
+        public async Task<Result<string>> AuthenticateAKnownCredential()
+        {
+            RegisteredAuthenticators ras = await getRegisteredAuthenticators();
+
             if (ras is null || ras.Authenticators.Count == 0)
             {
                 logger.LogWarning("no registered authenticators");

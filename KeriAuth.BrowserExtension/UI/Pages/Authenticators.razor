@@ -29,6 +29,7 @@
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject IWebauthnService webauthnService
 
 @code {
     // [Parameter]
@@ -44,10 +45,10 @@
         public string? credential { get; init; }
         public required string name { get; init; }
     }
-    List<RegisteredAuthenticator> RegisteredAuthenticators = new List<RegisteredAuthenticator>();
+    RegisteredAuthenticators RegisteredAuthenticators = new RegisteredAuthenticators();
 
     // reactive properties
-    string CountLabel => "(" + RegisteredAuthenticators.Count + ")";
+    string CountLabel => "(" + RegisteredAuthenticators.Authenticators.Count + ")";
 
 
     protected override async Task OnInitializedAsync()
@@ -58,15 +59,7 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        var jsonElement = await webExtensionsApi.Storage.Sync.Get("credentialId");
-        logger.LogWarning("jsonElement: {j}", jsonElement);
-        if (jsonElement.GetRawText().Length > 5) //  .TryGetBytesFromBase64(out byte[]? bytes))
-        {
-            logger.LogWarning("jsonElement length > 5");
-            RegisteredAuthenticators.Add(new RegisteredAuthenticator() { name = "Authenticator added " + DateTime.UtcNow.ToString() });
-            logger.LogWarning("ras: {r}", RegisteredAuthenticators.ToArray());
-        }
+        RegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
         StateHasChanged();
     }
 
@@ -85,12 +78,13 @@
                     <MudText Typo="Typo.h6">@CountLabel</MudText>
                 </MudStack>
                 <MudStack Class="pt-8">
-                    @if (RegisteredAuthenticators.Any())
+                    @if (RegisteredAuthenticators.Authenticators.Any())
                     {
-                        @foreach (RegisteredAuthenticator ra in RegisteredAuthenticators)
+                        @foreach (var ra in RegisteredAuthenticators.Authenticators)
                         {
-                            <MudText>@ra.name</MudText>
+                            <MudText>Name: @ra.Name</MudText>
                             <MudButton>Delete</MudButton>
+                            <MudButton>Rename</MudButton>
                         }
                     }
                 </MudStack>

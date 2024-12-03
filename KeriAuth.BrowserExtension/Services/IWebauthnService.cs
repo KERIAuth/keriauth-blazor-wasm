@@ -1,4 +1,5 @@
 ﻿using FluentResults;
+using KeriAuth.BrowserExtension.Models;
 
 namespace KeriAuth.BrowserExtension.Services
 {
@@ -11,6 +12,9 @@ namespace KeriAuth.BrowserExtension.Services
         Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64);
 
         Task<Result<string>> AuthenticateAKnownCredential();
+
+        Task<RegisteredAuthenticators> getRegisteredAuthenticators();
+
     }
 
     // shape and names need to align with that in webauthn....ts

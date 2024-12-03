@@ -18,5 +18,7 @@ namespace KeriAuth.BrowserExtension.Models
 
         [JsonPropertyName("lastUpdatedUtc")]
         public DateTime LastUpdatedUtc { get; init; } = DateTime.UtcNow;
+
+        // TODO P2 create a last successfuly used property? Perhaps as a separate structure in storage
     }
 }
