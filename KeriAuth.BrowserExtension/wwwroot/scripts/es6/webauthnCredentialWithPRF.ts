@@ -319,7 +319,7 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
 /*
  *
  */
-export async function authenticateCredential(credentialIdBase64s: string[]): Promise<string> {
+export async function authenticateCredential(credentialIdBase64s: string[]): Promise<AuthenticateCredResult> {
     try {
         // construct array of allowed credentials
         const allowCredentials: PublicKeyCredentialDescriptor[] = [];
@@ -395,13 +395,24 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
 
 
         // Convert Uint8Array to Base64 string
-        return btoa(String.fromCharCode(...Uint8ArrayEncryptKey));
+        const encryptKey = btoa(String.fromCharCode(...Uint8ArrayEncryptKey));
+        const credentialIdbase64Url = toBase64Url(assertion.rawId);
+        return { credentialId: credentialIdbase64Url, encryptKey: encryptKey } as AuthenticateCredResult;
+
 
     } catch (error) {
         console.error("authenticateCredential threw error: ", error);
         throw error;
     }
 }
+
+
+// Note name and types/shape needs to align with definition in IWeebauthnService
+export interface AuthenticateCredResult {
+    credentialId: string; // Base64Url-encoded Credential ID
+    encryptKey: string; // Base64 of encrypt key
+}
+
 
 /*
  *
@@ -484,6 +495,10 @@ export const decryptWithNounce = async (
     encryptionKeyBase64: string, // Base64 string for the encryption key
     encryptedBase64: string      // Base64 string for the encrypted data
 ): Promise<string> => {
+
+    console.warn("encryptionKeyBase64: ", encryptionKeyBase64);
+    console.warn("encryptedBase64: ", encryptedBase64);
+
     // Decode the Base64 key into a Uint8Array
     const keyBytes = Uint8Array.from(atob(encryptionKeyBase64), c => c.charCodeAt(0));
 
@@ -510,15 +525,19 @@ export const decryptWithNounce = async (
     // Decrypt the data
     const algorithm = getEncryptionAlgorithm(ENCRYPT_NON_SECRET_NOUNCE);
     console.log("Decryption algorithm:", algorithm);
-    const decryptedArrayBuffer = await crypto.subtle.decrypt(
-        algorithm,
-        encryptionKey,
-        encryptedBytes
-    );
-
-    // Convert the decrypted ArrayBuffer into a string
-    const decryptedText = new TextDecoder().decode(decryptedArrayBuffer);
-    return decryptedText;
+    try {
+        const decryptedArrayBuffer = await crypto.subtle.decrypt(
+            algorithm,
+            encryptionKey,
+            encryptedBytes
+        );
+        // Convert the decrypted ArrayBuffer into a string
+        const decryptedText = (new TextDecoder()).decode(decryptedArrayBuffer);
+        return decryptedText;
+    } catch (error) {
+        console.log("could not decrypt and decode");
+        throw (error);
+    }
 };
 
 /*

@@ -62,6 +62,8 @@
 
     async Task authenticateCredential()
     {
+        var res = await webauthnService.AuthenticateAKnownCredential();
+        logger.LogWarning("authenticateCredential: {r}",  res);
         return;
         // TODO P0 retrieve all credentials and pass in their Ids and merged transports (or an everything set)
         // var res = await webauthnService.AuthenticateCredential(credentialIdBase64, transports);

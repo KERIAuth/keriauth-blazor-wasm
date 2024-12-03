@@ -76,15 +76,23 @@ namespace KeriAuth.BrowserExtension.Services
             //}
         };
 
-        public async Task<Result<string>> AuthenticateCredential(List<string> credentialIdBase64s)
+        public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64s)
         {
             logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
             try
             {
                 // Attempt to authenticate the credential and re-compute the encryption key
                 var im = await InitializeModule();
-                var encryptKeyBase64 = await im.InvokeAsync<string>("authenticateCredential", credentialIdBase64s);
-                return Result.Ok(encryptKeyBase64);
+                var authenticateCredResult = await im.InvokeAsync<AuthenticateCredResult>("authenticateCredential", credentialIdBase64s);
+
+                if (authenticateCredResult is not null)
+                {
+                    return Result.Ok(authenticateCredResult);
+                }
+                else
+                {
+                    return Result.Fail("failed to authenticate credential");
+                }
             }
             catch (JSException jsEx)
             {
@@ -104,6 +112,7 @@ namespace KeriAuth.BrowserExtension.Services
         public async Task<Result<string>> RegisterAttestStoreAuthenticator()
         {
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
+            // TODO P2 DRY
             var webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);  // TODO P2 why isn't this in the constructor?
             var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
             RegisteredAuthenticators ras = new();
@@ -152,7 +161,7 @@ namespace KeriAuth.BrowserExtension.Services
                 }
 
                 // Encrypt passcode
-                var encryptKey = encryptKeyBase64Ret.Value;
+                var encryptKey = encryptKeyBase64Ret.Value.EncryptKey;
                 // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
 
                 // Step 1: Adjust the raw key to ensure 32 credentialIdBytes (256 bits)
@@ -237,6 +246,93 @@ namespace KeriAuth.BrowserExtension.Services
             {
                 return Result.Fail("failed to retreive passcode from cache");
             }
+        }
+
+        public async Task<Result<string>> AuthenticateAKnownCredential()
+        {
+            // get registered authenticators from sync storage
+            // TODO P2 DRY
+            var webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
+            var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
+            RegisteredAuthenticators ras = new();
+            // if there are stored registered authenticators, start with that list
+            RegisteredAuthenticators t = JsonSerializer.Deserialize<RegisteredAuthenticators>(jsonElement, jsonSerializerOptions);
+            if (t is not null)
+            {
+                ras = t;
+            }
+            if (ras is null || ras.Authenticators.Count == 0)
+            {
+                logger.LogWarning("no registered authenticators");
+                return Result.Fail("no registered authenticators");
+            }
+
+            List<string> registeredCredIds = [];
+            foreach (var registeredAuthenticator in ras.Authenticators)
+            {
+                registeredCredIds.Add(registeredAuthenticator.CredentialBase64);
+            }
+
+            var authenticateCredResult = await AuthenticateCredential(registeredCredIds);
+
+            if (authenticateCredResult is null || authenticateCredResult.IsFailed)
+            {
+                logger.LogWarning("Failed to get result from authenticator");
+                return Result.Fail("Failed to get result from authenticator");
+            }
+
+            // TODO P0 decrypt passcode from the matching authenticator
+            logger.LogWarning("success value: {s}", authenticateCredResult.Value);
+
+            string? decryptedPasscode = null;
+            IJSObjectReference im = await InitializeModule();
+            foreach (var registeredCred in ras.Authenticators)
+                if (registeredCred.CredentialBase64 == authenticateCredResult.Value.CredentialId)
+                {
+                    try
+                    {
+                        // TODO DRY with similar code elsewhere in this file
+                        // Encrypt passcode
+                        var encryptKey = authenticateCredResult.Value.EncryptKey;
+                        // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
+
+                        // Step 1: Adjust the raw key to ensure 32 credentialIdBytes (256 bits)
+                        byte[] rawKeyBytes = Encoding.UTF8.GetBytes(encryptKey);
+
+                        // Truncate or pad the key to exactly 32 credentialIdBytes
+                        byte[] adjustedKeyBytes = new byte[32];
+                        Buffer.BlockCopy(rawKeyBytes, 0, adjustedKeyBytes, 0, Math.Min(rawKeyBytes.Length, 32));
+
+                        // Step 2: Convert the adjusted raw key to Base64
+                        string encryptKeyBase64 = Convert.ToBase64String(adjustedKeyBytes);
+                        // _logger.LogWarning("encryptKeyBase64 adjusted length (chars): {b}", encryptKeyBase64.Length);
+
+
+                        decryptedPasscode = await im.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, registeredCred.EncryptedPasscodeBase64);
+                        logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
+                        // Step 1: Decode the Base64 string into a byte array
+                        byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
+
+                        // Step 2: Convert the byte array into a plaintext string
+                        string plainText = Encoding.UTF8.GetString(dataBytes);
+                        logger.LogWarning("plainText {p}", plainText);
+
+                        decryptedPasscode = plainText; // TODO P1 better naming of variables, not overloaded
+                        break;
+                    }
+                    catch
+                    {
+                        return Result.Fail("Could not decrypt");
+                    }
+                }
+
+            if (string.IsNullOrEmpty(decryptedPasscode))
+            {
+                return Result.Fail($"Could not decrypt passcode based on webauthn credential");
+            }
+            // TODO P0 remove
+            logger.LogWarning("passcode {p}", decryptedPasscode);
+            return Result.Ok("passcode");
         }
     }
 }
