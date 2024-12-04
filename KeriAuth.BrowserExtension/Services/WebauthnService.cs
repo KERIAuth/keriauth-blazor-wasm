@@ -42,7 +42,7 @@ namespace KeriAuth.BrowserExtension.Services
                 // Attempt to call the JavaScript function and map to the CredentialWithPRF type
                 await Initialize();
                 var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds);
-                logger.LogWarning("credential: {c}", credential);
+                // logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
             }
             catch (JSException jsEx)
@@ -213,7 +213,7 @@ namespace KeriAuth.BrowserExtension.Services
                         return Result.Fail("passcode failed to encrypt-decrypt");
                     }
 
-                    // Append the new registered authenticator to prepare for storage
+                    // Append the new registered authenticator and prepare set for storage
                     var creationTime = DateTime.UtcNow;
                     var newRA = new Models.RegisteredAuthenticator()
                     {
@@ -221,7 +221,7 @@ namespace KeriAuth.BrowserExtension.Services
                         LastUpdatedUtc = creationTime,
                         CredentialBase64 = credentialRet.Value.CredentialId,
                         EncryptedPasscodeBase64 = encryptedPasscodeBase64,
-                        Name = $"Authenticator registered on {creationTime:R}"
+                        Name = $"Unnamed Authenticator"
                     };
                     registeredAuthenticators.Authenticators.Add(newRA);
 

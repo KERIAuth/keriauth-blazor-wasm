@@ -14,6 +14,7 @@
 @using WebExtensions.Net
 @using WebExtensions.Net.Runtime
 @using JsBind.Net
+@using System.Linq;
 
 @using System.Net.Http.Json
 @inject HttpClient httpClient
@@ -45,27 +46,78 @@
         public string? credential { get; init; }
         public required string name { get; init; }
     }
-    RegisteredAuthenticators RegisteredAuthenticators = new RegisteredAuthenticators();
+
+    RegisteredAuthenticators MyRegisteredAuthenticators = new RegisteredAuthenticators();
 
     // reactive properties
-    string CountLabel => "(" + RegisteredAuthenticators.Authenticators.Count + ")";
+    string CountLabel => "(" + MyRegisteredAuthenticators.Authenticators.Count + ")";
 
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+        // TODO P2 does this need to be recreated here?
+        webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
     }
 
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        RegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
+        MyRegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
         StateHasChanged();
     }
 
     async Task AddAuthenticator()
     {
         navManager.NavigateTo(AppConfig.RouteToAddAuthenticator);
+    }
+
+    async Task rename(string newName, string credentialBase64)
+    {
+        if (newName.Length == 0)
+        {
+            return;
+        }
+        var updatedAuthenticators = new RegisteredAuthenticators()
+            {
+                Authenticators = MyRegisteredAuthenticators.Authenticators
+                        .Select(auth => auth.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
+                            ? auth with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
+                            : auth)
+                        .ToList()
+            };
+        await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
+        snackbar.Add("Successfully renamed authenticator", Severity.Success);
+        // update page's collection
+        MyRegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
+    }
+
+    async Task delete(string credentialBase64)
+    {
+        var updatedAuthenticators = new RegisteredAuthenticators()
+            {
+                Authenticators = MyRegisteredAuthenticators.Authenticators
+                                .Where(auths => auths.CredentialBase64.GetHashCode() != credentialBase64.GetHashCode())
+                                .ToList()
+            };
+        await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
+        snackbar.Add("Successfully removed authenticator registration", Severity.Success);
+        // update page's collection
+        MyRegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
+    }
+
+    async Task test(string credentialBase64)
+    {
+        var authCredResult = await webauthnService.AuthenticateCredential([credentialBase64]);
+        if (authCredResult.IsSuccess) {
+            // TODO P2 do a complete decription test
+            logger.LogWarning("tested, sort-of, but not the passcode encryption: {e}", authCredResult.ValueOrDefault);
+            snackbar.Add("test successful", Severity.Success);
+        } else
+        {
+            snackbar.Add("test failed", Severity.Warning);
+        }
+        return;
     }
 }
 
@@ -78,14 +130,21 @@
                     <MudText Typo="Typo.h6">@CountLabel</MudText>
                 </MudStack>
                 <MudStack Class="pt-8">
-                    @if (RegisteredAuthenticators.Authenticators.Any())
+                    @if (MyRegisteredAuthenticators.Authenticators.Any())
                     {
-                        @foreach (var ra in RegisteredAuthenticators.Authenticators)
+                        @foreach (var ra in MyRegisteredAuthenticators.Authenticators)
                         {
-                            <MudText>Name: @ra.Name</MudText>
-                            <MudButton>Delete</MudButton>
-                            <MudButton>Rename</MudButton>
-                            <MudButton>Test</MudButton>
+                            <MudCard>
+                                <MudCardContent Style="pb-0 mb-0">
+                                    <MudTextField Value="@ra.Name" HelperText="" Label="" DebounceInterval="1500" OnDebounceIntervalElapsed="@(async (newName) => await rename(newName, ra.CredentialBase64))" />
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
+                                </MudCardContent>
+                                <MudCardActions Style="justify-content:flex-end; padding:0;">
+                                    <MudButton OnClick="async () => await test(ra.CredentialBase64)">Test</MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" OnClick="async () => await delete(ra.CredentialBase64)">Delete</MudIconButton>
+                                </MudCardActions>
+                            </MudCard>
                         }
                     }
                 </MudStack>

@@ -318,7 +318,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
                 transports: transports as AuthenticatorTransport[],
             } as PublicKeyCredentialDescriptor);
         }
-        console.warn("authenticateCredential: allowCredentials: ", allowCredentials);
+        // console.warn("authenticateCredential: allowCredentials: ", allowCredentials);
 
         // Prepare PublicKeyCredentialRequestOptions
         const options: PublicKeyCredentialRequestOptions & { extensions: { prf: any } } = {
@@ -502,11 +502,11 @@ export const decryptWithNounce = async (
 
     // Decode the Base64 encrypted data into a Uint8Array
     const encryptedBytes = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
-    console.log("Encrypted data byte length:", encryptedBytes.length);
+    // console.log("Encrypted data byte length:", encryptedBytes.length);
 
     // Decrypt the data
     const algorithm = getEncryptionAlgorithm(ENCRYPT_NON_SECRET_NOUNCE);
-    console.log("Decryption algorithm:", algorithm);
+    // console.log("Decryption algorithm:", algorithm);
     try {
         const decryptedArrayBuffer = await crypto.subtle.decrypt(
             algorithm,
