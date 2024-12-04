@@ -50,6 +50,7 @@
     private string[] errors = { };
     private PasscodeModel unlockPasscodeModel = new PasscodeModel();
     private MudTextField<string>? passcodeField;
+    private MudButton? unlockWithAuthenticatorButton;
     private string openWalletError = string.Empty;
     private KeriaConnectConfig? keriaConnectConfig;
 
@@ -59,7 +60,7 @@
 
     // reactive properties
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
-        {
+    {
         0 => "No authenticators registered",
         1 => "1 authenticator registered",
         _ => $"{RAS.Authenticators.Count} authenticators registered"
@@ -105,24 +106,21 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (ShouldUseAuthenticator)
         {
-            if (!ShouldUseAuthenticator)
-            {
+            if (unlockWithAuthenticatorButton is not null)
+                await unlockWithAuthenticatorButton.FocusAsync();
+        }
+        else
+        {
+            if (passcodeField is not null)
                 await passcodeField!.FocusAsync();
-            }
         }
     }
 
     async Task SetWantToUseAuthenticator(bool b)
     {
         PrefersToUseAuthenticator = b;
-        if (!b)
-        {
-            await Task.Delay(1);
-            if (passcodeField is not null)
-                await passcodeField.FocusAsync();
-        }
     }
 
     async Task SelectAllText()
@@ -270,7 +268,7 @@
             <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(false)">
                 Use passcode
             </MudButton>
-            <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
+            <MudButton @ref="unlockWithAuthenticatorButton" Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
                 Unlock
             </MudButton>
         }
