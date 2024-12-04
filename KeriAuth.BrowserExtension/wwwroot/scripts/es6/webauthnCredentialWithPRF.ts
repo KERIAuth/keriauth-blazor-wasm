@@ -134,21 +134,7 @@ async function getOrCreateUserId(): Promise<Uint8Array> {
  *
  */
 async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
-    // TODO P1, why not simply use the following:
-    // const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
-
-    // Encode the input string to a Uint8Array
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
-
-    // Use Web Crypto API to hash the data with SHA-256
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-
-    // Convert the hash buffer to a Uint8Array
-    const hashArray = new Uint8Array(hashBuffer);
-
-    // Return the 32-byte Uint8Array result
-    return hashArray;
+    return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input)));
 }
 
 /*
