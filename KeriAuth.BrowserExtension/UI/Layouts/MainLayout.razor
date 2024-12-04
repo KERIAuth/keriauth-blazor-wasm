@@ -26,119 +26,14 @@
 @inject ISignifyClientService signifyClientService
 @implements IDisposable
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" @bind-IsDarkMode="@App.IsDarkTheme" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider Style="z-index:9999" />
-
-<MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
-    <!-- APP BAR -->
-    <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
-        <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleMenuDrawer" Style="padding-left: 5px;" data-testid="menuHamburger" />
-            <MudButton Href="@RouteToIndex" Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
-                <img src="images/512_keri_logo.png" alt="Icon" style="width: 24px; height: 24px;" />
-                <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
-            </MudButton>
-
-            <MudSpacer />
-            <!-- KERIA Connected Indicator -->
-            <div style="align-self:center; height: 35px; margin-right: -8px;">
-                @if (IsAuthenticated)
-                {
-                    <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        @if (CurrentState == IStateService.States.AuthenticatedDisconnected)
-                        {
-                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
-                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />
-                            </MudPaper>
-                        }
-                        else
-                        {
-                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
-                                <MudIcon Icon="@Icons.Material.Filled.Link" @onclick="async () => await RefreshConnect()" />
-                            </MudPaper>
-                        }
-                    </MudTooltip>
-                }
-            </div>
-
-            <!-- Current Identifier Identicon -->
-            <div style="align-self:center; height: 35px; margin-right: -8px;">
-                @if (!IsIdenticonHidden)
-                {
-                    <MudTooltip Text="@ActiveAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon="@ActiveAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                    </MudTooltip>
-                }
-            </div>
-
-        </MudStack>
-
-        <!-- The AID selector overlay covers entire page -->
-        <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
-            <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
-                <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
-                    @foreach (var identifierHeadline in IdentifiersHeadlines)
-                    {
-                        <MudListItem Value="identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
-                            <MudStack Row="true">
-                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                <div class="bt-sad-2" style="display:contents;">
-                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
-                                </div>
-                            </MudStack>
-                        </MudListItem>
-                        <MudDivider DividerType="DividerType.Inset" />
-                    }
-                </MudList>
-                <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end" Style="padding-right:8px;">
-                    <MudSpacer></MudSpacer>
-                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href=@RouteToIdentifiers>Manage Identifiers</MudButton>
-                </MudStack>
-            </div>
-        </MudOverlay>
-    </MudAppBar>
-
-    <!-- MENU DRAWER AND MAIN CONTENT -->
-    @{
-        // TODO P3 the linear gradient background experiment below should either eliminated or make visually good and depending on IsDarkTheme setting
-    }
-    <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
-        <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
-            <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">
-                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
-                <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
-
-                <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
-                    <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
-                    <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
-                    <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
-                    <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
-                </MudNavGroup>
-
-                <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
-                    <MudNavLink Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
-                    <MudNavLink Href=@RouteToTermsHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>
-                    <MudNavLink Href=@RouteToPrivacyHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy</MudNavLink>
-                    <MudNavLink Href=@RouteToLicensesHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
-                    <MudNavLink Href=@RouteToReleaseHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release<br /><i style="color:var(--mud-palette-action-default);">Version @version_name</i></MudNavLink>
-                </MudNavGroup>
-            </MudNavMenu>
-        </MudDrawer>
-
-        <!-- MAIN CONTENT -->
-        <MudMainContent Class="bt-main-content" Style="@MainContentStyle">
-            <MudContainer MaxWidth="MaxWidth.Large" Style="height:inherit; min-height:inherit; padding-left:0; padding-right:0;">
-                @Body
-            </MudContainer>
-        </MudMainContent>
-    </MudDrawerContainer>
-</MudLayout>
-
 @code {
+    // fields...
+    static public IJSObjectReference? utilModule;
+    const string miniWidth = "var(--mud-drawer-mini-width-left)";
+    const string openWidth = "var(--mud-drawer-width-left)";
+    string version = "0.0.0";
+    string version_name = "unset 33";
+
     // properties...
     bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
@@ -147,7 +42,6 @@
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     private IDisposable? preferencesSubscription;
     Preferences Prefs { get; set; } = new Preferences();
-
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActiveAid;
@@ -166,13 +60,6 @@
         (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-
-    // fields
-    static public IJSObjectReference? utilModule;
-    const string miniWidth = "var(--mud-drawer-mini-width-left)";
-    const string openWidth = "var(--mud-drawer-width-left)";
-    string version = "0.0.0";
-    string version_name = "unset 33";
 
     public class ManifestData
     {
@@ -218,10 +105,6 @@
             if (ViewsNotRequiringAuth.Contains(ap)) return;
             navManager.NavigateTo(RouteToIndex);
         }
-
-        // TODO P2 should be here at all, or in OnInitializedAsync ?
-        // await UpdateMenuDrawerMode(Prefs);
-        // StateHasChanged();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -340,3 +223,115 @@
         await preferencesService.SetPreferences(Prefs);
     }
 }
+
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" @bind-IsDarkMode="@App.IsDarkTheme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider Style="z-index:9999" />
+
+<MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
+    <!-- APP BAR -->
+    <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
+        <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleMenuDrawer" Style="padding-left: 5px;" data-testid="menuHamburger" />
+            <MudButton Href="@RouteToIndex" Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
+                <img src="images/512_keri_logo.png" alt="Icon" style="width: 24px; height: 24px;" />
+                <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
+            </MudButton>
+
+            <MudSpacer />
+            <!-- KERIA Connected Indicator -->
+            <div style="align-self:center; height: 35px; margin-right: -8px;">
+                @if (IsAuthenticated)
+                {
+                    <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
+                        @if (CurrentState == IStateService.States.AuthenticatedDisconnected)
+                        {
+                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
+                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
+                                <MudIcon Icon="@Icons.Material.Filled.Link" @onclick="async () => await RefreshConnect()" />
+                            </MudPaper>
+                        }
+                    </MudTooltip>
+                }
+            </div>
+
+            <!-- Current Identifier Identicon -->
+            <div style="align-self:center; height: 35px; margin-right: -8px;">
+                @if (!IsIdenticonHidden)
+                {
+                    <MudTooltip Text="@ActiveAidTooltip" Arrow="true" Placement="Placement.Left" Delay="1000">
+                        <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon="@ActiveAidIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                    </MudTooltip>
+                }
+            </div>
+
+        </MudStack>
+
+        <!-- The AID selector overlay covers entire page -->
+        <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
+            <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
+                <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
+                    @foreach (var identifierHeadline in IdentifiersHeadlines)
+                    {
+                        <MudListItem Value="identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
+                            <MudStack Row="true">
+                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <div class="bt-sad-2" style="display:contents;">
+                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                </div>
+                            </MudStack>
+                        </MudListItem>
+                        <MudDivider DividerType="DividerType.Inset" />
+                    }
+                </MudList>
+                <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end" Style="padding-right:8px;">
+                    <MudSpacer></MudSpacer>
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href=@RouteToIdentifiers>Manage Identifiers</MudButton>
+                </MudStack>
+            </div>
+        </MudOverlay>
+    </MudAppBar>
+
+    <!-- MENU DRAWER AND MAIN CONTENT -->
+    @{
+        // TODO P3 the linear gradient background experiment below should either eliminated or make visually good and depending on IsDarkTheme setting
+    }
+    <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
+        <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
+            <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">
+                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
+                <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
+                <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+
+                <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
+                    <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
+                    <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
+                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
+                    <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                    <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
+                </MudNavGroup>
+
+                <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
+                    <MudNavLink Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
+                    <MudNavLink Href=@RouteToTermsHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>
+                    <MudNavLink Href=@RouteToPrivacyHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy</MudNavLink>
+                    <MudNavLink Href=@RouteToLicensesHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
+                    <MudNavLink Href=@RouteToReleaseHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release<br /><i style="color:var(--mud-palette-action-default);">Version @version_name</i></MudNavLink>
+                </MudNavGroup>
+            </MudNavMenu>
+        </MudDrawer>
+
+        <!-- MAIN CONTENT -->
+        <MudMainContent Class="bt-main-content" Style="@MainContentStyle">
+            <MudContainer MaxWidth="MaxWidth.Large" Style="height:inherit; min-height:inherit; padding-left:0; padding-right:0;">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudDrawerContainer>
+</MudLayout>
