@@ -127,6 +127,10 @@ namespace KeriAuth.BrowserExtension.Services
             await Initialize();
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
             var registeredAuthenticators = await getRegisteredAuthenticators();
+
+            
+
+
             if (registeredAuthenticators is null)
             {
                 throw new ArgumentNullException(nameof(registeredAuthenticators));
