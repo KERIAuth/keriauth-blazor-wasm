@@ -232,16 +232,12 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
 
         // Extract credential ID and transport
         const credentialID = toBase64Url(credential.rawId);
-        // const credentialID = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
-
-        console.warn("registerCredential: credentialId ArrayBuffer: ", credential.rawId);
+        // console.warn("registerCredential: credentialId ArrayBuffer: ", credential.rawId);
         // console.warn("registerCredential: credentialId Uint8Array: ", new Uint8Array(credential.rawId));
-        console.warn("registerCredential: credentialId base64Url: ", credentialID);
-
+        // console.warn("registerCredential: credentialId base64Url: ", credentialID);
 
         const transports = (credential.response as AuthenticatorAttestationResponse).getTransports?.(); //  ?? [];
         // console.warn("Supported transports: ", transports);
-
 
         // Return a JSON-serializable object friendly for JSInterop
         return {
@@ -329,7 +325,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
         for (const credentialIdBase64Url of credentialIdBase64s) {
             // console.warn("credentialIdBase64Url: ", credentialIdBase64Url);
             const credentialId = base64UrlToArrayBuffer(credentialIdBase64Url);
-            console.warn("credentialId ArrayBuffer: ", credentialId);
+            // console.warn("credentialId ArrayBuffer: ", credentialId);
             allowCredentials.push({
                 id: credentialId,
                 type: "public-key",
@@ -496,13 +492,13 @@ export const decryptWithNounce = async (
     encryptedBase64: string      // Base64 string for the encrypted data
 ): Promise<string> => {
 
-    console.warn("encryptionKeyBase64: ", encryptionKeyBase64);
-    console.warn("encryptedBase64: ", encryptedBase64);
+    // console.warn("encryptionKeyBase64: ", encryptionKeyBase64);
+    // console.warn("encryptedBase64: ", encryptedBase64);
 
     // Decode the Base64 key into a Uint8Array
     const keyBytes = Uint8Array.from(atob(encryptionKeyBase64), c => c.charCodeAt(0));
 
-    console.log("Key byte length:", keyBytes.length);
+    // console.log("Key byte length:", keyBytes.length);
     if (keyBytes.length !== 16 && keyBytes.length !== 32) {
         throw new Error("Encryption key must be 16 or 32 bytes.");
     }

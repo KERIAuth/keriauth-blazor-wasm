@@ -33,22 +33,20 @@ export const bootAndConnect = async (
 ): Promise<string> => {
     _client = null;
     await ready();
-    console.debug(`signify_ts_shim: bootAndConnect: creating client...`);
+    // console.debug(`signify_ts_shim: bootAndConnect: creating client...`);
     _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
 
     try {
         await _client.connect();
-        console.debug("signify_ts_shim: client connected");
+        // console.debug("signify_ts_shim: client connected");
     } catch {
         const res = await _client.boot();
         if (!res.ok) throw new Error();
         await _client.connect();
-        console.debug("signify_ts_shim: client booted and connected");
+        // console.debug("signify_ts_shim: client booted and connected");
     }
-    console.log('signify_ts_shim: client', {
-        agent: _client.agent?.pre,
-        controller: _client.controller.pre
-    });
+    // note that uncommengint the next line might expose the passkey
+    // console.log('signify_ts_shim: client', {agent: _client.agent?.pre,controller: _client.controller.pre});
     const state = await getState();
     console.debug(`signify_ts_shim: bootAndConnect: connected`);
     console.assert(state?.controller?.state?.i != null, "controller id is null"); // TODO P2 throw exception?
