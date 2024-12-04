@@ -45,9 +45,7 @@
        
     }
 
-
-
-    // TODO P1, Any state change could affect all views, including those for other layouts. E.g. due to an inactivityTimeout on a "dialog". Move this to a common layout base.
+    // TODO P2, Any state change could affect all views, including those for other layouts. E.g. due to an inactivityTimeout on a "dialog". Move this to a common layout base.
     async Task HandleNextFromStateService(IStateService.States updatedState)
     {
         switch (CurrentState, updatedState)

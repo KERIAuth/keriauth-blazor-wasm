@@ -71,8 +71,8 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
         case SwCsMsgType.REPLY:
             const msg: KeriAuthMessageData<AuthorizeResult> = {
                 type: message.type,
-                requestId: message.requestId, // TODO P0 lastRequestIdFromPage,
-                payload: message.payload, // TODO P0 ?? {},
+                requestId: message.requestId, // TODO P2 lastRequestIdFromPage,
+                payload: message.payload, // TODO P2 ?? {},
                 error: message.error,
                 source: CsToPageMsgIndicator,
                 rurl: "" // TODO P2 rurl should not be fixed
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 
     port.onDisconnect.addListener((p) => {
-        // TODO P0 Disconnect should not happen regualarlly?
+        // TODO P2 Disconnect should not happen regualarlly?
         console.error("KeriAuthCs: Disconnected from service worker. May need to refresh page. Extension might have: 1) auto-locked, 2) been un/re-installed. Port:", p);
 
         // TODO P2 implement reconnection logic, but now with a new uniquePortName?

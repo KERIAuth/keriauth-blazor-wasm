@@ -149,12 +149,6 @@
                 throw new Exception("could not RefreshFromWebsiteConfig");
             }
         }
-        // StateHasChanged();
-        // Update reactive properties dependant on above
-        // await Task.Delay(1); // precaution, to let reactive properties recalc for the next call?
-        // send relevant values to parent (e.g. a page for SignIn or website config)
-        // TODO P0 remove this:
-        // await SendValueToParent();
         logger.LogInformation("RefreshFromWebsiteConfig: done");
     }
 
@@ -175,7 +169,7 @@
     }
 
     // TODO P2 DRY move this filterCredentials to a helper
-    // TODO P1 Incorporate this use into the Credentials display to (checkbox) Show selected Identifier only, default true
+    // TODO P2 Incorporate this use into the Credentials display to (checkbox) Show selected Identifier only, default true
     List<Dictionary<string, object>> filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
     {
         if (!filters.Any())

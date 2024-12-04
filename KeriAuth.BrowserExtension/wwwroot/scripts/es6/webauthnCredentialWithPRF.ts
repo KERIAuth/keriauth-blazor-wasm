@@ -3,7 +3,7 @@
 interface User extends PublicKeyCredentialUserEntity {
     id: Uint8Array;
     name: string;
-    displayName: string; // TODO: required?
+    displayName: string;
 }
 
 enum ErrorCode {

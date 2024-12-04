@@ -137,7 +137,7 @@
             if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
             {
                 await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
-                // TODO P1 notify the user signing is happening, and close?
+                // TODO P2 notify the user signing is happening, and close?
             }
             return;
         }

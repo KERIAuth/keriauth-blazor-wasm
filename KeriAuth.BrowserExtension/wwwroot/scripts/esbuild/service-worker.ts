@@ -61,7 +61,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'resetInactivityTimer') {
         // Clear existing alarm and set a new one
         chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
-            // TODO P1 get InactivityTimout from stored preferences (cached into storage.session).  Confirm this is debounced and has no performance hit with frequently geting the delay preference
+            // TODO P2 get InactivityTimout from stored preferences (cached into storage.session).  Confirm this is debounced and has no performance hit with frequently geting the delay preference
             chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 5.0 });
         });
     }
@@ -264,7 +264,7 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         const tabId = Number(csTabPort.sender.tab.id);
         //chrome.action.setBadgeText({ text: "3", tabId: tabId });
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        // TODO P1 Could alternately implement the msg passing via messaging versus the URL
+        // TODO P2 Could alternately implement the msg passing via messaging versus the URL
         // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
 
         // TODO P2 add msgRequestId?

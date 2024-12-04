@@ -54,7 +54,7 @@
 
     async Task RegisterAuthenticatorAndAttest()
     {
-        // TODO P1 update this flow to inform user there are two expected interactions with the authenticator: setup and verification
+        // TODO P2 update this flow to inform user there are two expected interactions with the authenticator: setup and verification
         var res = await webauthnService.RegisterAttestStoreAuthenticator();
         if (res.IsFailed)
         {

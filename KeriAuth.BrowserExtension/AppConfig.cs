@@ -44,7 +44,7 @@ namespace KeriAuth.BrowserExtension
         public const int TosHash = 343383811;
         public const int PrivacyHash = 925478292;
 
-        // TODO P1 view on UnlockPage should use what is set in preferences
+        // TODO P2 view on UnlockPage should use what is set in preferences
         public static float IdleTimeoutMins = 5f;
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
