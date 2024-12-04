@@ -55,8 +55,7 @@
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
-    bool WantsToUseAuthenticator { get; set; } = true; // TODO P2 should remember setting this on the chrome.storage.local, since this desire may be different from machine to machine
-    bool IsAuthenticatorRegistered { get; set; }
+    bool PrefersToUseAuthenticator { get; set; } = true; // TODO P2 should remember setting this on the chrome.storage.local, since this desire may be different from machine to machine
 
     // reactive properties
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
@@ -66,7 +65,7 @@
         _ => $"{RAS.Authenticators.Count} authenticators registered"
     };
     bool CanUseAuthenticator => RAS.Authenticators.Any();
-    bool ShouldUseAuthenticator => CanUseAuthenticator && WantsToUseAuthenticator;
+    bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,14 +85,6 @@
             await stateService.Unauthenticate();
         }
 
-        // TODO P0 tmp for demo
-        // check if there is already credentialId
-        var jsonCredId = await webExtensionsApi!.Storage.Sync.Get("credentialId");
-        if (jsonCredId.GetRawText().Length > 5) //  .TryGetBytesFromBase64(out byte[]? bytes))
-        {
-            IsAuthenticatorRegistered = true;
-        }
-
         // check if there are already registeredAuthenticators
         var res2 = await webauthnService.getRegisteredAuthenticators();
         if (res2 is not null)
@@ -103,7 +94,7 @@
             if (ShouldUseAuthenticator)
             {
                 // assume the user will want to use a registered if available
-                WantsToUseAuthenticator = true;
+                PrefersToUseAuthenticator = true;
             }
         }
         else
@@ -125,7 +116,7 @@
 
     async Task SetWantToUseAuthenticator(bool b)
     {
-        WantsToUseAuthenticator = b;
+        PrefersToUseAuthenticator = b;
         if (!b)
         {
             await Task.Delay(1);
@@ -171,7 +162,6 @@
             await OpenWalletWithPasscode(unlockPasscodeModel.Passcode);
     }
 
-    // TODO P3 DRY with ConfigureView
     class PasscodeModel
     {
         [Required]
@@ -185,7 +175,7 @@
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
         {
-            // TODO P3: This should not happen. Log and handle better
+            // This should not happen. Could log and handle better
             logger.LogWarning($"Unexpected AppState {currentState}");
             await stateService.Initialize();
             await stateService.Configure();
@@ -250,7 +240,6 @@
             <MudStack Style="justify-content: end; min-height:124px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUseAuthenticator)
                 {
-                    // TODO P2 could automatically start authentication
                     <MudText>
                         @NumberAuthenticatorsLabel
                     </MudText>
