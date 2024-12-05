@@ -48,6 +48,7 @@
     public string encodedOrigin { get; set; } = "";
 
     // fields
+    private MudButton? signRequestButton;
 
     // properties
     string RequestId { get; set; } = "";
@@ -148,6 +149,20 @@
         }
     }
 
+    //
+    //
+    //
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && signRequestButton is not null)
+        {
+            await signRequestButton.FocusAsync();
+        }
+    }
+
+    //
+    //
+    //
     Uri? GetOriginUri()
     {
         try
@@ -449,6 +464,25 @@
     {
         return item == SelectedCredential ? "selected-item" : String.Empty;
     }
+
+    //
+    //
+    //
+    private async Task SignRequestHandler()
+    {
+        await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
+    }
+
+    //
+    //
+    //
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Code == "NumpadEnter")
+        {
+            await SignRequestHandler();
+        }
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -491,7 +525,14 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Variant="Variant.Filled" Color="Color.Primary" OnClick="(async () => await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson))">Sign Request</MudButton>
+        <MudButton @ref="signRequestButton"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SignRequestHandler"
+                   @onkeydown="HandleKeyDown">
+            Sign Request
+        </MudButton>
     </MudStack>
 </div>
 

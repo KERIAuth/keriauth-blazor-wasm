@@ -44,6 +44,7 @@
 
     // fields and types
     enum SignInMode { Credential, Identifier, Prompt }
+    private MudButton? signInButton;
 
     // properties
     public string requestId { get; set; } = "";
@@ -53,14 +54,10 @@
 
     // reactive properties
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
-    
-    /*
+
     protected override async Task OnInitializedAsync()
     {
-        logger.LogInformation($"OnInitialized");
-        return;
     }
-    */
 
     protected override async Task OnParametersSetAsync()
     {
@@ -118,8 +115,10 @@
                         break;
                     default:
                         logger.LogInformation("Unknown message type: {0}", type);
-                        return;
+                        break;
                 }
+                await SetSignInFocus();
+                return;
             }
             else
             {
@@ -131,6 +130,23 @@
         {
             logger.LogError("Could not find UriQuery content containing outter \"message\".");
             return;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // if (firstRender)
+        {
+            await SetSignInFocus();
+        }
+    }
+
+    async Task SetSignInFocus()
+    {
+        if (signInButton is not null)
+        {
+            logger.LogWarning("setting focus on Sign In button");
+            await signInButton.FocusAsync();
         }
     }
 
@@ -191,6 +207,7 @@
                 return;
         }
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
+        await Task.Delay(100);
         UIHelper.CloseWindow();
     }
 
@@ -227,16 +244,17 @@
             return false;
         }
     }
-    
-    private void HandleValueChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
+
+    private async Task HandleIdOrCredChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {
         logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;
         SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
         StateHasChanged();
+        await SetSignInFocus();
     }
 
-    private bool IsSignInDisabled  
+    private bool IsSignInDisabled
     {
         get
         {
@@ -253,6 +271,26 @@
             }
         }
     }
+
+    //
+    //
+    //
+    private async Task SignInHandler()
+    {
+        await SignIn(RequestedSignInMode, requestId);
+    }
+
+    //
+    //
+    //
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Code == "NumpadEnter")
+        {
+            await SignInHandler();
+        }
+    }
+
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -286,10 +324,10 @@
                     </MudStack>
                     break;
                 case SignInMode.Identifier:
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="HandleValueChanged" />
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                     break;
                 case SignInMode.Credential:
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="HandleValueChanged" />
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                     break;
                 default:
                     <MudText>Unsupported SignInMode: @RequestedSignInMode</MudText>
@@ -299,7 +337,15 @@
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Login" Disabled="IsSignInDisabled" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await SignIn(RequestedSignInMode, requestId))">Sign In</MudButton>
+        <MudButton @ref="signInButton"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   Disabled="IsSignInDisabled"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SignInHandler"
+                   @onkeydown="HandleKeyDown">
+            Sign In
+        </MudButton>
     </MudStack>
 </div>
 
