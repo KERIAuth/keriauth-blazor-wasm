@@ -52,7 +52,7 @@ function postMessageToPage<T>(msg2: T): void {
 }
 
 // Handle messages from the extension
-function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chrome.runtime.Port): void {
+function handleMessageFromServiceWorker(message: MessageData<unknown>): void {
     // TODO P3 move this into its own function for readability
     console.log("KeriAuthCs from SW:", message);
 
@@ -66,7 +66,7 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
 
     switch (message.type) {
         case SwCsMsgType.HELLO:
-            window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event, port));
+            window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event));
             break;
         case SwCsMsgType.REPLY:
             const msg: KeriAuthMessageData<AuthorizeResult> = {
@@ -92,52 +92,43 @@ function handleMessageFromServiceWorker(message: MessageData<unknown>, port: chr
 }
 
 let lastRequestIdFromPage: string = "unset";
+let portWithSw: chrome.runtime.Port;
 
-// ensure content script responds to changes in the page even if it was injected after the page load.
-document.addEventListener('DOMContentLoaded', (event) => {
-    const port = chrome.runtime.connect({ name: uniquePortName });
+function createPort(withHandshake: boolean): void {
+    console.log(`KeriAuthCs to SW: (re-)creating port`);
+    portWithSw = chrome.runtime.connect({ name: uniquePortName });
     // console.log("KeriAuthCs to SW connected port:", port);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
-    port.onMessage.addListener((message: MessageData<unknown>) => handleMessageFromServiceWorker(message, port));
+    portWithSw.onMessage.addListener((message: MessageData<unknown>) => handleMessageFromServiceWorker(message));
 
-
-    port.onDisconnect.addListener((p) => {
-        // TODO P2 Disconnect should not happen regualarlly?
-        console.error("KeriAuthCs: Disconnected from service worker. May need to refresh page. Extension might have: 1) auto-locked, 2) been un/re-installed. Port:", p);
-
-        // TODO P2 implement reconnection logic, but now with a new uniquePortName?
-        // handle disconnects, e.g. when a new extension is loaded (but not when a popup is closed)
-
-        // TODO P2 this lastGasp and other errors needs work. Should have an typescript interface definition.
-        const lastGasp: KeriAuthMessageData<AuthorizeResult> = {
-            type: SwCsMsgType.REPLY,
-            requestId: lastRequestIdFromPage,
-            source: CsToPageMsgIndicator,
-            error: "KERI Auth canceled request, or was disconnected"
-        };
-
-        console.log("KeriAuthCs to Page: lastGasp: ", lastGasp);
-        // it's possible the tab also closed first, but try to postMessage anyway
-
-        postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(lastGasp);
+    portWithSw.onDisconnect.addListener((p) => {
+        // disconnect will typically happen when the service-worker becomes inactive
+        console.info("KeriAuthCs: Port with service-worker was disconnected, likely due to SW going inactive.");
+        portWithSw = null;
     });
 
-    // Send a hello message to the service worker (versus waiting on a triggering message from the page)
-    // TODO P3 use a constructor for the message object
-    const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
-    console.log("KeriAuthCs to SW:", helloMsg);
-    port.postMessage(helloMsg);
+    if (withHandshake) {
+        // Send a hello message to the service worker (versus waiting on a triggering message from the page)
+        // TODO P3 use a constructor for the message object
+        const helloMsg: ICsSwMsg = { type: CsSwMsgType.SIGNIFY_EXTENSION };
+        console.log("KeriAuthCs to SW:", helloMsg);
+        portWithSw.postMessage(helloMsg);
+        // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
+        // TODO P3 hack - find a more deterministic approach vs delay?
+        setTimeout(advertiseToPage, 500);
+    }
+}
 
-    // Delay call of advertiseToPage so that polaris-web module to be loaded and ready to receive the message.
-    // TODO P3 hack - find a more deterministic approach vs delay?
-    setTimeout(advertiseToPage, 500);
+// ensure content script responds to changes in the page even if it was injected after the page load.
+document.addEventListener('DOMContentLoaded', (event) => {
+    createPort(true);
 });
 
 /*
 // Handle messages from the page
 */
-function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.runtime.Port) {
+function handleWindowMessage(event: MessageEvent<EventData>) {
     // console.log("KeriAuthCs handleWindowMessage event:", event);
 
     // Check if the payload is sent from the current window and is safe to process
@@ -166,7 +157,6 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
             case CsSwMsgType.SELECT_AUTHORIZE_AID:
                 try {
                     if (event.data.payload?.headers) {
-                        // TODO P3 create a headers print utility function
                         console.log("KeriAuthCs from page payload headers: ");
                         const hs: Headers = event.data.payload?.headers;
                         for (const pair of hs.entries()) {
@@ -174,7 +164,13 @@ function handleWindowMessage(event: MessageEvent<EventData>, portWithSw: chrome.
                         }
                     }
                     console.log(`KeriAuthCs to SW:`, event.data);
+
+                    // since the portWithSw may have disconnected when the service-worker transitioned to inactive state, we may need to recreate it here
+                    if (portWithSw === null) {
+                        createPort(true);
+                    } 
                     portWithSw.postMessage(event.data);
+
                 } catch (error) {
                     console.error("KeriAuthCs to SW: error sending message {event.data} {e}:", event.data, error);
                     return;

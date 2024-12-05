@@ -308,28 +308,6 @@
         }
 
         StateHasChanged();
-        // IsAutoSignHeaders = ThisWebsiteConfig.IsAutoSignHeaders;
-
-        /*
-        FilteredCredentials = filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
-        // logger.LogWarning("FilteredCredentials: {i}", FilteredCredentials?.Count() ?? 0);
-
-        SelectedCredSaidOrNothing = ThisWebsiteConfig.RememberedCredSaidOrNothing;
-
-        if (SelectedCredSaidOrNothing is null)
-        {
-            SelectedCredentialOrNothing = null;
-        }
-        else
-        {
-            SelectedCredentialOrNothing = filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
-            IsAutoSignInCred = ThisWebsiteConfig.IsAutoSignInCredential;
-        }
-
-        // send relevant values to parent (e.g. a page for SignIn or website config)
-        await SendValueToParent();
-        StateHasChanged(); // TODO P2 should not need this to force refresh of filtered credentials?
-        */
     }
 
     //
