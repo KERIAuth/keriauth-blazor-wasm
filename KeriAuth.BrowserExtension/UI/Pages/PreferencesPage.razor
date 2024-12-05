@@ -121,7 +121,8 @@
                 </MudStack>
             </MudStack>
 
-            <MudStack Row="false">
+            <!-- display none until feature is implemented -->
+            <MudStack Style="display:none !important;" Row="false">
                 <MudText Class="bt-pref-group-label0">
                     Inactivity Timeout
                 </MudText>
@@ -131,7 +132,8 @@
                 </MudStack>
             </MudStack>
 
-            <MudStack Row="false" Class="pt-3 gap-0">
+            <!-- display none for now until this UX is sorted and features implemented -->
+            <MudStack Style="display:none !important;"  Row="false" Class="pt-3 gap-0">
                 <MudText Class="bt-pref-group-label0">
                     Authenticator Requirements
                 </MudText>
@@ -184,7 +186,7 @@
                 <MudText Class="bt-pref-group-label0">
                     See also...
                 </MudText>
-                <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Interaction options per website</MudLink>
+                <MudLink Style="margin-left:20px;"  OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Interaction options per website</MudLink>
             </MudStack>
         </div>
     </div>

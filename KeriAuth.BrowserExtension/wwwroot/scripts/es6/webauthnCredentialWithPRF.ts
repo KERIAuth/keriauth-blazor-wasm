@@ -36,7 +36,7 @@ export const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteri
     residentKey: "required", // preferred, or required for more safety
     userVerification: "required", // preferred or required. Enforce user verification (e.g., biometric, PIN)
     authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-    "requireResidentKey": true,           // True for passwordless and hardware-backed credentials
+    requireResidentKey: true,           // True for passwordless and hardware-backed credentials
 };
 export const ENCRYPT_KEY_LABEL = "KERI Auth";
 export const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
@@ -194,7 +194,7 @@ async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
 // Note name and types/shape needs to align with definition in IWeebauthnService
 export interface CredentialWithPRF {
     credentialID: string; // Base64Url-encoded Credential ID
-    transports: string[]; // Array of transport types (e.g., "usb", "nfc", "ble", "internal")
+    transports: string[]; // Array of transport types (e.g., ["usb", "nfc", "ble", "internal", "hybrid"])
 }
 
 
@@ -213,7 +213,7 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
             challenge: challenge,
             pubKeyCredParams: CREDS_PUBKEY_PARAMS,
             authenticatorSelection: CREDS_CREATE_AUTHENTICATOR_SELECTION,
-            excludeCredentials: getExcludeCredentialsFromCreate( registeredCredIds, ["usb", "nfc", "ble", "internal", "hybrid"] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
+            excludeCredentials: getExcludeCredentialsFromCreate( registeredCredIds, ["usb", "nfc", "ble", /*"internal" , "hybrid" */] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
             extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
             timeout: CREDS_CREATE_TIMEOUT,
             attestation: CREDS_CREATE_ATTESTATION
@@ -325,7 +325,6 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
 }
 
 
-
 /*
  *
  */
@@ -333,7 +332,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
     try {
         // construct array of allowed credentials
         const allowCredentials: PublicKeyCredentialDescriptor[] = [];
-        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", "internal"]; // TODO P2 should use the same transports as the union of all saved credential transports
+        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", /*"internal", "hybrid" */]; // TODO P2 should use the same transports as the union of all saved credential transports
 
         // console.warn("credentialIdBase64s: ", credentialIdBase64s);
         for (const credentialIdBase64Url of credentialIdBase64s) {
@@ -402,7 +401,6 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
         );
 
         const Uint8ArrayEncryptKey = await exportCryptoKeyToUint8Array(encryptionKey);
-
 
         // Convert Uint8Array to Base64 string
         const encryptKey = btoa(String.fromCharCode(...Uint8ArrayEncryptKey));
