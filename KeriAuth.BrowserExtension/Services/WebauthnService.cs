@@ -128,9 +128,6 @@ namespace KeriAuth.BrowserExtension.Services
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
             var registeredAuthenticators = await getRegisteredAuthenticators();
 
-            
-
-
             if (registeredAuthenticators is null)
             {
                 throw new ArgumentNullException(nameof(registeredAuthenticators));
@@ -150,7 +147,7 @@ namespace KeriAuth.BrowserExtension.Services
                 return Result.Fail("Failed to register authenticator 333");
             }
 
-            // Now that it is registered, we need to confirm that with user, and get the encrypt key, derrived from the PRF attestation
+            // Now that authenticator is registered, we need to confirm that with user, and get the encrypt key that is derrived from the PRF attestation
             // First, some prep
             CredentialWithPRF credential = credentialRet.Value;
             string credentialIdBase64Url = credential.CredentialId;
@@ -158,7 +155,7 @@ namespace KeriAuth.BrowserExtension.Services
             List<string> credentialIds = [];
             credentialIds.Add(credentialIdBase64Url);
 
-            // Now, get the attestation from same authenticator
+            // Get the attestation from same authenticator
             var encryptKeyBase64Ret = await AuthenticateCredential(credentialIds);
             if (encryptKeyBase64Ret is null || encryptKeyBase64Ret.IsFailed)
             {
@@ -206,7 +203,7 @@ namespace KeriAuth.BrowserExtension.Services
                         throw new InvalidOperationException("Encrypted data is empty or invalid.");
                     }
 
-                    // TODO P2 remove temporary test to compare encrypt and decrypt
+                    // TODO P2 remove this temporary test to compare encrypt and decrypt
                     var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedPasscodeBase64);
                     byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
                     string plainTextPasscode = Encoding.UTF8.GetString(dataBytes);

@@ -33,10 +33,10 @@ export const CREDS_CREATE_TIMEOUT = 60000;
 export const CREDS_GET_TIMEOUT = 60000;
 export const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
     // TODO P2 Set these authenticator selection criteria to strongest levels, then allow user to lower the requirements in preferences.
-    residentKey: "required", // preferred, or required for more safety
+    residentKey: "preferred", //"required", // preferred, or required for more safety
     userVerification: "required", // preferred or required. Enforce user verification (e.g., biometric, PIN)
-    authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-    requireResidentKey: true,           // True for passwordless and hardware-backed credentials
+    // authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
+    requireResidentKey: false,           // True for passwordless and hardware-backed credentials
 };
 export const ENCRYPT_KEY_LABEL = "KERI Auth";
 export const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
@@ -213,7 +213,7 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
             challenge: challenge,
             pubKeyCredParams: CREDS_PUBKEY_PARAMS,
             authenticatorSelection: CREDS_CREATE_AUTHENTICATOR_SELECTION,
-            excludeCredentials: getExcludeCredentialsFromCreate( registeredCredIds, ["usb", "nfc", "ble", /*"internal" , "hybrid" */] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
+            excludeCredentials: getExcludeCredentialsFromCreate( registeredCredIds, ["usb", "nfc", "ble", "internal" , "hybrid"] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
             extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
             timeout: CREDS_CREATE_TIMEOUT,
             attestation: CREDS_CREATE_ATTESTATION
@@ -332,7 +332,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
     try {
         // construct array of allowed credentials
         const allowCredentials: PublicKeyCredentialDescriptor[] = [];
-        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", /*"internal", "hybrid" */]; // TODO P2 should use the same transports as the union of all saved credential transports
+        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", "internal", "hybrid"]; // TODO P2 should use the same transports as the union of all saved credential transports?
 
         // console.warn("credentialIdBase64s: ", credentialIdBase64s);
         for (const credentialIdBase64Url of credentialIdBase64s) {
@@ -365,14 +365,14 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
 
         // Call WebAuthn API to get assertion from authenticator
         const assertion: PublicKeyCredential | null = await navigator.credentials.get({ publicKey: options }) as PublicKeyCredential;
-
         if (!assertion) {
             console.error("Did not get assertion from authenticator. May have timed out.");
             throw Error("Did not get assertion from authenticator. May have timed out.")
         }
+        const credentialIdbase64Url = toBase64Url(assertion.rawId);
 
+        // Get the PRF results
         const extensionResults = assertion.getClientExtensionResults();
-
         if (!((extensionResults as any).prf?.results?.first)) {
             console.log("This authenticator is not supported. Did not return PRF results.");
             throw Error("This authenticator is not supported. Did not return PRF results.");
@@ -383,30 +383,27 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
             (extensionResults as any).prf.results.first,
         ) as BufferSource;
 
-        const keyDerivationKey = await crypto.subtle.importKey(
+        // Derive the encryption key
+        const keyDerivationCryptoKey = await crypto.subtle.importKey(
             "raw",
             keyData,
             "HKDF",
             false,
             ["deriveKey"],
         );
-
-        // Derive the encryption key
-        const encryptionKey = await crypto.subtle.deriveKey(
+        const encryptCryptoKey = await crypto.subtle.deriveKey(
             ENCRYPT_DERIVE_KEY_ALGO,
-            keyDerivationKey,
+            keyDerivationCryptoKey,
             ENCRYPT_DERIVE_KEY_TYPE,
             true,
             ["encrypt", "decrypt"],
         );
 
-        const Uint8ArrayEncryptKey = await exportCryptoKeyToUint8Array(encryptionKey);
+        // convert encryptCryptoKey to more convenient format for C# interop
+        const Uint8ArrayEncryptKey = await exportCryptoKeyToUint8Array(encryptCryptoKey);
+        const encryptKeyBase64 = btoa(String.fromCharCode(...Uint8ArrayEncryptKey));
 
-        // Convert Uint8Array to Base64 string
-        const encryptKey = btoa(String.fromCharCode(...Uint8ArrayEncryptKey));
-        const credentialIdbase64Url = toBase64Url(assertion.rawId);
-        return { credentialId: credentialIdbase64Url, encryptKey: encryptKey } as AuthenticateCredResult;
-
+        return { credentialId: credentialIdbase64Url, encryptKey: encryptKeyBase64 } as AuthenticateCredResult;
 
     } catch (error) {
         console.error("authenticateCredential threw error: ", error);
@@ -415,31 +412,11 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
 }
 
 
-// Note name and types/shape needs to align with definition in IWeebauthnService
+// Note name and types/shape needs to align with definition in IWebauthnService
 export interface AuthenticateCredResult {
     credentialId: string; // Base64Url-encoded Credential ID
     encryptKey: string; // Base64 of encrypt key
 }
-
-
-/*
- *
- *
-// TODO P2 move into unit tests
-// Encrypt message
-const stringToEncrypt = "hello!";
-const encrypted = await encryptWithNounce(encryptionKey, new TextEncoder().encode(stringToEncrypt));
-
-// Decrypt message
-const decrypted = await decryptWithNounce(encryptionKey, encrypted);
-const decryptedString = (new TextDecoder()).decode(decrypted);
-
-if (stringToEncrypt != decryptedString) {
-    throw Error("encryption-decryption mismatch!");
-} else {
-    console.log(decryptedString);
-}
-*/
 
 /*
  *
@@ -495,7 +472,6 @@ export const encryptWithNounce = async (
 };
 
 
-
 /*
  *
  */
@@ -514,8 +490,6 @@ export const decryptWithNounce = async (
     if (keyBytes.length !== 16 && keyBytes.length !== 32) {
         throw new Error("Encryption key must be 16 or 32 bytes.");
     }
-
-
 
     // Import the CryptoKey
     const encryptionKey = await crypto.subtle.importKey(
