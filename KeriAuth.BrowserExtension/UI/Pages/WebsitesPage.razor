@@ -105,14 +105,13 @@
                 <MudPaper>
                     <MudTable Items="WWebsites" Hover="false" Striped="true">
                         <HeaderContent>
-                            <MudTh Style="width: 55%; white-space: normal; font-weight:600;">Website</MudTh>
+                            <MudTh Style="width: 65%; white-space: normal; font-weight:600;">Website</MudTh>
                             <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Identifier</MudTh>
                             <MudTh Style="width: 15%; white-space: normal; font-weight:600;">Auto-sign Http Request Headers that have no side effects?</MudTh>
                             <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Edit</MudTh>
-                            <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Launch</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd DataLabel="Website">@context.Origin.OriginalString</MudTd>
+                            <MudTd DataLabel="Website"><MudLink Href="@context.Origin.OriginalString" Target="@((GetNumberFromHash.HashInt(context.Origin.OriginalString)).ToString())">@context.Origin.OriginalString</MudLink></MudTd>
                             <MudTd DataLabel="Identifier">
                                 @if (context.RememberedPrefixOrNothing is not null)
                                 {
@@ -122,9 +121,6 @@
                             <MudTd DataLabel="AutoSign">@(context.IsAutoSignHeaders ? "Yes" : "No")</MudTd>
                             <MudTd DataLabel="Edit">
                                 <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))"></MudIconButton>
-                            </MudTd>
-                            <MudTd DataLabel="Launch">
-                                <MudIconButton Icon="@Icons.Material.Filled.Launch" Href="@context.Origin.OriginalString" Target="@((GetNumberFromHash.HashInt(context.Origin.OriginalString)).ToString())"></MudIconButton>
                             </MudTd>
                         </RowTemplate>
                     </MudTable>
