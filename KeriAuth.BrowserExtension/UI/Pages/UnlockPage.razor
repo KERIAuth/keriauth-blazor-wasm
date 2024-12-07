@@ -45,14 +45,15 @@
 
 @code {
     // fields
-    private bool isValid;
+    bool isValid;
     MudForm? form;
-    private string[] errors = { };
-    private PasscodeModel unlockPasscodeModel = new PasscodeModel();
-    private MudTextField<string>? passcodeField;
-    private MudButton? unlockWithAuthenticatorButton;
-    private string openWalletError = string.Empty;
-    private KeriaConnectConfig? keriaConnectConfig;
+    string[] errors = { };
+    PasscodeModel unlockPasscodeModel = new PasscodeModel();
+    MudTextField<string>? passcodeField;
+    MudButton? unlockWithAuthenticatorButton;
+    string openWalletError = string.Empty;
+    KeriaConnectConfig? keriaConnectConfig;
+    static bool hasAutoStartedAuthentictor; // static here to survive inactivity timeout lock with good UX
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
@@ -94,7 +95,7 @@
             StateHasChanged();
             if (ShouldUseAuthenticator)
             {
-                // assume the user will want to use a registered if available
+                // TODO P3 assume the user will want to use a registered if available?
                 PrefersToUseAuthenticator = true;
             }
         }
@@ -104,12 +105,19 @@
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
         if (ShouldUseAuthenticator)
         {
-            if (unlockWithAuthenticatorButton is not null)
+            if (unlockWithAuthenticatorButton is not null) {
                 await unlockWithAuthenticatorButton.FocusAsync();
+                // if the user can and should use an authenticator, just start that UX flow, but only once. 
+                if (!hasAutoStartedAuthentictor)
+                {
+                    hasAutoStartedAuthentictor = true;
+                    await UnlockWithAuthenticator();
+                }
+            }
         }
         else
         {
