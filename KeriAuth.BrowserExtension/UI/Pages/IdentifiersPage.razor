@@ -131,7 +131,7 @@
             {
                 @foreach (CachedAid cachedAid in cachedAids)
                 {
-                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier)">
+                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + cachedAid.Prefix)">
                         <MudCard Class="py-0 my-1">
                             <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)(ActiveAid ?? ""), cachedAid.Prefix))>
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">

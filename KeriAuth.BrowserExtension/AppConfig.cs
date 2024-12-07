@@ -27,7 +27,7 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToConnecting = "/Connecting";
 
         // route with parameters, with intentional trailing /
-        public const string RouteToIdentifier = "/Identifier";  // check implementation versus assuming ActivePrefix
+        public const string RouteToIdentifier = "/Identifier/";
         public const string RouteToWebsite = "/Website/";
         public const string RouteToRequestSignIn = "/RequestSignIn/";
         public const string RouteToRequestSign = "/RequestSign/";

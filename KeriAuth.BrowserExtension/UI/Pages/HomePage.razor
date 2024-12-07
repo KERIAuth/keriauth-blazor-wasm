@@ -132,7 +132,7 @@
                 <MudStack Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row Style="align-items:center;">
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Selected Identifier</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier + Prefs.SelectedPrefix)">Selected Identifier</MudLink>
                         </MudText>
                         <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:38px;">
                             @if (!string.IsNullOrEmpty(SelectedIdenticon))
