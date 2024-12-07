@@ -83,12 +83,10 @@
         if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
         {
             version = versionElement.ToString();
-            logger.LogWarning("version: {v}", versionElement);
         }
         if (manifestJsonElement.TryGetProperty("version_name", out JsonElement version_nameElement) && version_nameElement.ValueKind == JsonValueKind.String)
         {
             version_name = version_nameElement.ToString();
-            logger.LogWarning("version: {v}", version_nameElement);
         }
     }
 
