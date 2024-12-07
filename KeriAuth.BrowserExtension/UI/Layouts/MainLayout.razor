@@ -12,6 +12,9 @@
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using System.Reactive.Linq
 @using System.Text.Json
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using JsBind.Net
 @inject HttpClient http
 @inject IJSRuntime js
 @inject NavigationManager navManager
@@ -24,7 +27,8 @@
 @inject IStateService stateService
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
-
+@inject IWebExtensionsApi webExtensionsApi
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @code {
     [CascadingParameter]
@@ -40,7 +44,7 @@
     // properties...
     bool IsProfilePanelOpen { get; set; }
     DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
-    // TODO P1 refactor DRY usages of getIdentifierHeadlines in multiple pages and dependent properties into App.
+    // TODO P2 refactor DRY usages of getIdentifierHeadlines in multiple pages and dependent properties into App.
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
     bool IsMenuDrawerOpen { get; set; }
 
@@ -62,12 +66,30 @@
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
 
-    public class ManifestData
+
+    protected override async Task OnInitializedAsync()
     {
-        // TODO P2 See https://github.com/mingyaulee/WebExtensions.Net
-        // TODO P2 Get these from chrome.runtime instead
-        public string Version { get; set; } = "0.0.0";
-        public string Version_name { get; set; } = "unset verson name";
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+
+        // Set properties affecting UI layout depending on the hosting environment
+        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
+        logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
+
+        // Get version info from Manifest file
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var extensionId = webExtensionsApi.Runtime.Id;
+        var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
+        if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
+        {
+            version = versionElement.ToString();
+            logger.LogWarning("version: {v}", versionElement);
+        }
+        if (manifestJsonElement.TryGetProperty("version_name", out JsonElement version_nameElement) && version_nameElement.ValueKind == JsonValueKind.String)
+        {
+            version_name = version_nameElement.ToString();
+            logger.LogWarning("version: {v}", version_nameElement);
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -123,26 +145,7 @@
         // logger.LogInformation("OnAfterRenderAsync");
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        await base.OnInitializedAsync();
-        logger.LogInformation("OnInitializedAsync");
 
-        // Set properties affecting UI layout depending on the hosting environment
-        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
-        logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
-
-        // TODO P2 update this to use chrome.runtime.getManifest()
-        // Get version info from Manifest file
-        const string manifestFilePath = "./manifest.json";
-        var manifestData = await http.GetFromJsonAsync<ManifestData>(manifestFilePath);
-        if (manifestData is not null)
-        {
-            version = manifestData.Version;
-            version_name = manifestData.Version_name;
-        }
-        return;
-    }
 
     async Task OpenTabAndClosePopUp()
     {
