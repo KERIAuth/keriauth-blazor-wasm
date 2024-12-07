@@ -2,7 +2,6 @@
 using JsBind.Net;
 using KeriAuth.BrowserExtension.Models;
 using Microsoft.JSInterop;
-using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using WebExtensions.Net;
@@ -294,7 +293,8 @@ namespace KeriAuth.BrowserExtension.Services
             // logger.LogWarning("success value: {s}", authenticateCredResult.Value);
 
             // Find the registered authenticator matching the credentialID, decrypt its encrypted passcode, and return that
-            foreach (var registeredCred in ras.Authenticators) { 
+            foreach (var registeredCred in ras.Authenticators)
+            {
                 if (registeredCred.CredentialBase64 == authenticateCredResult.Value.CredentialId)
                 {
                     try
