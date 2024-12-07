@@ -100,6 +100,7 @@
 
         await GetHeadlines();
 
+        // TODO P3 move this comment to a better place...
         // Use Alias (versus Prefix) to get the full Identifier.
         // Its awkward that the underlying signify-ts get() method does not seem to accept a Prefix value, even though the code implies that
         // Root issue might be how the underlying KERIA hab is storing it. signify-ts tests all seem to have Alias names
@@ -116,16 +117,12 @@
     {
         logger.LogInformation("GetHeadlines");
         var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
-        if (identifierHeadlinesRes != null)
+        if (identifierHeadlinesRes != null && identifierHeadlinesRes.IsSuccess)
         {
-            logger.LogInformation("GetIdentifierHeadlines: {1}", identifierHeadlinesRes.Value.Count);
-            MyIdentifierHeadlines.Clear();
-            foreach (var item in identifierHeadlinesRes.Value)
-            {
-                // logger.LogWarning("adding aid {1}", item.Prefix);
-                MyIdentifierHeadlines.Add(new IdentifierHeadline(item.Prefix, item.Alias, Guid.NewGuid()));
-            }
-            MyIdentifierHeadlines = MyIdentifierHeadlines.OrderBy(a => a.Alias).ToList();
+            MyIdentifierHeadlines = identifierHeadlinesRes.Value;
+        } else
+        {
+            logger.LogError("Could not get IdentifierHeadlines");
         };
     }
 
