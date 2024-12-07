@@ -30,10 +30,10 @@
 
     // properties
     bool IsAddingAid { get; set; }
-    List<CachedAid>? cachedAids { get; set; }
+    List<IdentifierHeadline>? MyIdentifierHeadlines { get; set; }
 
     // reactive properties
-    string CountLabel => (cachedAids is not null) ? "(" + @cachedAids.Count + ")" : "...";
+    string CountLabel => (MyIdentifierHeadlines is not null) ? "(" + MyIdentifierHeadlines.Count + ")" : "...";
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
     string ActiveAid => Prefs.SelectedPrefix;
 
@@ -55,13 +55,13 @@
         if (res != null)
         {
             logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
-            cachedAids = new();
+            MyIdentifierHeadlines = new();
             foreach (var item in res.Value)
             {
                 // logger.LogWarning("adding aid {1}", item.Prefix);
-                cachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
+                MyIdentifierHeadlines.Add(new IdentifierHeadline(item.Prefix, item.Alias, Guid.NewGuid()));
             }
-            cachedAids = cachedAids.OrderBy(a => a.Alias).ToList();
+            MyIdentifierHeadlines = MyIdentifierHeadlines.OrderBy(a => a.Alias).ToList();
         };
     }
 
@@ -127,19 +127,19 @@
 
             </MudStack>
 
-            @if (cachedAids is not null)
+            @if (MyIdentifierHeadlines is not null)
             {
-                @foreach (CachedAid cachedAid in cachedAids)
+                @foreach (IdentifierHeadline identifierHeadline in MyIdentifierHeadlines)
                 {
-                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + cachedAid.Prefix)">
+                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + identifierHeadline.Prefix)">
                         <MudCard Class="py-0 my-1">
-                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)(ActiveAid ?? ""), cachedAid.Prefix))>
+                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)(ActiveAid ?? ""), identifierHeadline.Prefix))>
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">
-                                    <MudButton OnClick="async () => await SetActiveAid(cachedAid.Prefix)">
-                                        <MudIcon ViewBox="0 0 100 100" Icon="@cachedAid.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    <MudButton OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)">
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@identifierHeadline.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                     </MudButton>
                                 </MudTooltip>
-                                <MudText Typo="Typo.h6">@cachedAid.Alias</MudText>
+                                <MudText Typo="Typo.h6">@identifierHeadline.Alias</MudText>
                             </div>
                         </MudCard>
                     </MudLink>

@@ -94,13 +94,6 @@
         await preferencesService.SetPreferences(newPrefs);
     }
 
-    /*
-    protected override async Task OnAfterRenderAsync(bool isFirst)
-        {
-        logger.LogInformation($"OnAfterRenderAsync");
-    }
-    */
-
     public void Dispose()
     {
         preferencesSubscription?.Dispose();
@@ -109,9 +102,7 @@
     async Task HandleNextFromPreferencesService(Preferences value)
     {
         Prefs = value;
-        // await UpdateMenuDrawerMode(Prefs);
-        StateHasChanged(); // trigger updates to pages dependent on properties in App
-        logger.LogWarning("Updated Prefs");
+        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)

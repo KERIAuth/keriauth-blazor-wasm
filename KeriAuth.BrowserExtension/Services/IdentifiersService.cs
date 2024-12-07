@@ -37,7 +37,7 @@ namespace KeriAuth.BrowserExtension.Services
                 {
                     // TODO P3  set the current identifierService in the Headline?
                     var identifierService = new IdentifierService(item.Prefix, item.Name, Guid.NewGuid(), logger, storageService);
-                    headlines.Add(new IdentifierHeadline(identifierService.cachedAid.Prefix, identifierService.cachedAid.Alias, Guid.NewGuid()));
+                    headlines.Add(new IdentifierHeadline(identifierService.identifierHeadline.Prefix, identifierService.identifierHeadline.Alias, Guid.NewGuid()));
                 }
                 return Result.Ok(headlines);
             }
