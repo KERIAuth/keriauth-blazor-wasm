@@ -61,9 +61,29 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         return Result.Ok();
     }
 
-    public Task<Result> Delete(Uri originUri)
+    public async Task<Result> Delete(Uri originUri)
     {
-        throw new NotImplementedException();
+        var websitesResult = await GetList();
+        if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null)
+        {
+            Debug.Assert(websitesResult is not null, "websitesResult != null");
+            // logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
+            return Result.Fail("Update: could not fetch websites from storage");
+        }
+
+        var newWebsites = websitesResult.Value.WebsiteList
+            .Where((ww) => ww.Origin != originUri);
+
+        var wcl = new WebsiteConfigList(new List<WebsiteConfig>(newWebsites));
+
+        var saveResult = await storageService.SetItem<WebsiteConfigList>(wcl);
+        if (saveResult.IsFailed)
+        {
+            return Result.Fail("could not save updated websites to storage");
+        }
+
+        // logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(wcl));
+        return Result.Ok();
     }
 
     public async Task<Result> Update(WebsiteConfig updatedWebsiteConfig)
@@ -93,7 +113,8 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             }
             else
             {
-                newList.WebsiteList.Add(config);
+                var newConfig = config with { IsAutoSignSafeHeaders = true }; // auto-sign GETs
+                newList.WebsiteList.Add(newConfig);
             }
         }
 
@@ -134,7 +155,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             {
                 // This is the first website configured. Need to first add the Websites collection
                 // var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false, false)).Validate();
-                websiteConfigList = new WebsiteConfigList(WebsiteList: [new WebsiteConfig(originUri, [], null, null, false, false, false)]);
+                websiteConfigList = new WebsiteConfigList(WebsiteList: [new WebsiteConfig(originUri, [], null, null, false, false, true)]);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed)
                 {
@@ -157,7 +178,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             if (websiteConfigOrNothing is null)
             {
                 logger.LogInformation("Adding websiteConfig for {originUrl}", originUri);
-                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, false);
+                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, true);
                 // newWebsiteConfig.Validate();
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);

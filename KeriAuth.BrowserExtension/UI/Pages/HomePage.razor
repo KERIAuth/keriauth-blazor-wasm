@@ -5,6 +5,8 @@
 @using KeriAuth.BrowserExtension.Models
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using static KeriAuth.BrowserExtension.Helper.Identicon;
+@using KeriAuth.BrowserExtension.UI.Components
+@using KeriAuth.BrowserExtension.Services.SignifyService
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IExtensionEnvironmentService extensionEnvironmentService
@@ -12,8 +14,76 @@
 @inject IStateService stateService
 @inject ILogger<HomePage> logger
 @inject IdentifiersService identifiersService
-@inject IPreferencesService preferencesService
+@inject IWebsiteConfigService websiteConfigService
+@inject ISignifyClientService signifyClientService;
+
 @using MudBlazor
+
+@code {
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
+
+    // fields
+    int identifiersCount = 0;
+
+    // properties
+    IdentifierHeadline? SelectedIdentifierHeadline { get; set; }
+    int NumWebsites { get; set; } = 0;
+    List<Dictionary<string, object>> Credentials = [];
+
+    // reactive properties
+    List<Dictionary<string, object>> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix)]);
+    int NumCredentialsThisIdentifier => FilteredCredentials.Count();
+    string SelectedPrefix => Prefs.SelectedPrefix;
+    string SelectedIdenticon => MakeIdenticon(SelectedPrefix);
+    string SelectedAlias => SelectedIdentifierHeadline?.Alias ?? "";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res is not null && res.IsSuccess)
+        {
+            identifiersCount = res.Value.Count();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var x = await websiteConfigService.GetList();
+        if (x.IsSuccess && x.Value is not null)
+        {
+            NumWebsites = x.Value.WebsiteList.Count();
+        }
+        else
+        {
+            NumWebsites = 0;
+        }
+
+        // Handle effects of value of Prefs updates
+        var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
+        if (identifierHeadlinesRes is not null && identifierHeadlinesRes.IsSuccess)
+        {
+            SelectedIdentifierHeadline = identifierHeadlinesRes.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedPrefix).First();
+        }
+
+        // Get credentials for the number of credentials
+        // TODO P2 See filterCredentials in WebsiteConfigDisplay, and move that into a helper
+        {
+            var res = await signifyClientService.GetCredentials();
+            if (res.IsFailed || res.Value is null)
+            {
+                logger.LogWarning($"Error: {res.Errors}");
+                return;
+            }
+            else
+            {
+                Credentials = res.Value as List<Dictionary<string, object>>;
+            }
+        }
+    }
+}
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -50,6 +120,13 @@
                         </MudText>
                         <MudText Class="mudtext-half-width-right">@identifiersCount</MudText>
                     </MudStack>
+
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Websites</MudLink>
+                        </MudText>
+                        <MudText Class="mudtext-half-width-right">@NumWebsites</MudText>
+                    </MudStack>
                 </MudStack>
 
                 <MudStack Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
@@ -58,45 +135,19 @@
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Selected Identifier</MudLink>
                         </MudText>
                         <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:38px;">
-                            @if(!string.IsNullOrEmpty(SelectedIdenticon)) {
-                            <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                            <MudText>@SelectedAlias</MudText>
+                            @if (!string.IsNullOrEmpty(SelectedIdenticon))
+                            {
+                                <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <MudText>@SelectedAlias</MudText>
                             }
                         </MudStack>
                     </MudStack>
+
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
                         </MudText>
-                        <!-- TODO P2 See filterCredentials in WebsiteConfigDisplay, and move that into a helper -->
-                        <MudText Class="mudtext-half-width-right">0 of 999</MudText>
-                    </MudStack>
-
-                    <MudStack Row style="display:none !important;">
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier)">Multi-Sig Groups</MudLink>
-                        </MudText>
-                        <MudText Class="mudtext-half-width-right">0</MudText>
-                    </MudStack>
-
-                    <MudStack Row>
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Websites</MudLink>
-                        </MudText>
-                        <MudText Class="mudtext-half-width-right">0 of 999</MudText>
-                    </MudStack>
-
-                    <MudStack Row style="display:none !important;">
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">KERI Agent Requests</MudLink>
-                        </MudText>
-                        <MudText Class="mudtext-half-width-right">0</MudText>
-                    </MudStack>
-                    <MudStack Row style="display:none !important;">
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Notifications</MudLink>
-                        </MudText>
-                        <MudText Class="mudtext-half-width-right">0</MudText>
+                        <MudText Class="mudtext-half-width-right">@NumCredentialsThisIdentifier</MudText>
                     </MudStack>
                 </MudStack>
             </MudStack>
@@ -118,68 +169,3 @@
         text-align: left
     }
 </style>
-@code {
-    protected override async Task OnInitializedAsync()
-    {
-        logger.LogInformation($"OnInitializedAsync");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res is not null && res.IsSuccess)
-        {
-            identifiersCount = res.Value.Count();
-        }
-
-        preferencesService.Subscribe<Preferences>(
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
-            onCompleted: async () => await HandleCompletedFromPreferencesService()
-        );
-
-        var preferences = await preferencesService.GetPreferences();
-        await InitialOrNextPreference(preferences);
-    }
-
-    private int identifiersCount = 0;
-
-    private async Task HandleNextFromPreferencesService(Preferences value)
-    {
-        await InitialOrNextPreference(value);
-    }
-    private async Task HandleErrorFromPreferencesService(Exception error)
-    {
-        await Task.Delay(0);
-        logger.LogError("HandleErrorFromPreferencesService");
-    }
-    private async Task HandleCompletedFromPreferencesService()
-    {
-        await Task.Delay(0);
-        logger.LogError("HandleCompletedFromPreferencesService");
-    }
-
-    private string SelectedPrefix { get; set; } = "";
-    private string SelectedAlias { get; set; } = "";
-    private string SelectedIdenticon { get; set; } = "";
-
-    private async Task InitialOrNextPreference(Preferences value)
-    {
-        logger.LogInformation("InitialOrNextPreference");
-        SelectedPrefix = value.SelectedPrefix;
-        SelectedAlias = "";
-        SelectedIdenticon = "";
-        var res = await identifiersService.GetIdentifierHeadlines();
-        // TODO P3 above needed to populate the cache, to enable GetIdentifierService ?
-        if (res is not null && res.IsSuccess)
-        {
-            var headline = res.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedPrefix).First();
-            if (headline is not null)
-            {
-                SelectedAlias = headline.Alias;
-                SelectedIdenticon = MakeIdenticon(SelectedPrefix);
-            }
-        }
-        else
-        {
-            logger.LogError("InitialOrNextPreference: failed to get IdentifierHeadlines");
-        }
-        StateHasChanged();
-    }
-}

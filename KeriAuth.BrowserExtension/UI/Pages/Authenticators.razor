@@ -112,10 +112,10 @@
         if (authCredResult.IsSuccess) {
             // TODO P2 do a complete decription test
             logger.LogWarning("tested, sort-of, but not the passcode encryption: {e}", authCredResult.ValueOrDefault);
-            snackbar.Add("test successful", Severity.Success);
+            snackbar.Add("Successfully tested", Severity.Success);
         } else
         {
-            snackbar.Add("test failed", Severity.Warning);
+            snackbar.Add("Failed test", Severity.Warning);
         }
         return;
     }

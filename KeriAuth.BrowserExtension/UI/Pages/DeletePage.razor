@@ -49,14 +49,9 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
+            // TODO P2 also need to clear Sync and Session here
             await storageService.Clear();
-            RestartBlazorApp(RouteToIndex);
-            // TODO P4 consider the following instead:
-            // NavManager.NavigateTo(RouteToIndex, new NavigationOptions()
-            //     {
-            //         ForceLoad = true,
-            //         ReplaceHistoryEntry = true
-            //     });
+            RestartBlazorApp("index.html"); // intentionally not RouteToIndex
         } else
         {
             navManager.NavigateTo(RouteToHome);

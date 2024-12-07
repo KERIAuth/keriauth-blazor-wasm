@@ -24,9 +24,12 @@
 @inject IStateService stateService
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
-@implements IDisposable
+
 
 @code {
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
+
     // fields...
     static public IJSObjectReference? utilModule;
     const string miniWidth = "var(--mud-drawer-mini-width-left)";
@@ -35,13 +38,11 @@
     string version_name = "unset 33";
 
     // properties...
-    bool IsMenuDrawerOpen { get; set; }
     bool IsProfilePanelOpen { get; set; }
-    bool HasNewMessages { get; set; }
-    DrawerVariant ActiveDrawerVariant { get; set; }
+    DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
+    // TODO P1 refactor DRY usages of getIdentifierHeadlines in multiple pages and dependent properties into App.
     List<IdentifierHeadline> IdentifiersHeadlines { get; set; } = [];
-    private IDisposable? preferencesSubscription;
-    Preferences Prefs { get; set; } = new Preferences();
+    bool IsMenuDrawerOpen { get; set; }
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActiveAid;
@@ -55,7 +56,7 @@
     {
         (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
         (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
-        (true, DrawerVariant.Persistent) => $"left: {openWidth}; width:calc(100vw - {openWidth}); padding-right: {openWidth};",
+        (true, DrawerVariant.Persistent) => $" width:calc(100vw - {openWidth}); ",
         (true, _) => $"left: 0; width:calc(100vw);",
         (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
@@ -67,12 +68,6 @@
         // TODO P2 Get these from chrome.runtime instead
         public string Version { get; set; } = "0.0.0";
         public string Version_name { get; set; } = "unset verson name";
-    }
-
-    private async Task RefreshConnect()
-    {
-        // TODO P3 not yet implemented
-        snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -98,6 +93,21 @@
                 break;
         }
 
+        // determine drawer varient depending and open state depending on context. 
+        // TODO P4 This could be moved into App or BaseLayout and be cascaded, unless specific to this layout
+        ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
+        {
+            ExtensionEnvironment.Iframe or ExtensionEnvironment.BrowserPopup or ExtensionEnvironment.ActionPopup
+                => Prefs.DrawerVariantInPopup,
+            ExtensionEnvironment.None or ExtensionEnvironment.Extension or _
+                => Prefs.DrawerVariantInTab
+        };
+        IsMenuDrawerOpen = ActiveDrawerVariant switch
+        {
+            DrawerVariant.Persistent => Prefs.IsPersistentDrawerOpen,
+            _ => false
+        };
+
         // If not currently authenticated and are now on a page that requires authentication, then redirect to Start
         if (!IsAuthenticated)
         {
@@ -111,31 +121,6 @@
     {
         // await base.OnAfterRenderAsync(firstRender);
         // logger.LogInformation("OnAfterRenderAsync");
-    }
-
-    public void Dispose()
-    {
-        preferencesSubscription?.Dispose();
-    }
-
-    async Task HandleNextFromPreferencesService(Preferences value)
-    {
-        Prefs = value;
-        App.IsDarkTheme = Prefs.IsDarkTheme; // TODO P3 App should have its own listener
-        await UpdateMenuDrawerMode(Prefs);
-        StateHasChanged();
-    }
-
-    async Task HandleErrorFromPreferencesService(Exception error)
-    {
-        await Task.Delay(0);
-        logger.LogError("Error from PreferencesService: " + error.Message);
-    }
-
-    async Task HandleCompletedFromPreferencesService()
-    {
-        await Task.Delay(0);
-        logger.LogInformation("Completed from PreferencesService");
     }
 
     protected override async Task OnInitializedAsync()
@@ -156,40 +141,7 @@
             version = manifestData.Version;
             version_name = manifestData.Version_name;
         }
-
-        Prefs = await preferencesService.GetPreferences();
-        await HandleNextFromPreferencesService(Prefs);
-        preferencesSubscription = preferencesService.Subscribe(
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
-            onCompleted: async () => await HandleCompletedFromPreferencesService());
-
         return;
-    }
-
-    async Task ToggleDarkTheme()
-    {
-        Prefs = Prefs with { IsDarkTheme = !Prefs.IsDarkTheme };
-        App.IsDarkTheme = Prefs.IsDarkTheme; // TODO P3 App should have its own preference listener
-        await preferencesService.SetPreferences(Prefs);
-    }
-
-    async Task UpdateMenuDrawerMode(Preferences prefs)
-    {
-        ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
-        {
-            ExtensionEnvironment.Iframe or ExtensionEnvironment.BrowserPopup or ExtensionEnvironment.ActionPopup
-                => prefs.DrawerVariantInPopup,
-            ExtensionEnvironment.None or ExtensionEnvironment.Extension or _
-                => prefs.DrawerVariantInTab
-        };
-
-        IsMenuDrawerOpen = ActiveDrawerVariant switch
-        {
-            DrawerVariant.Persistent => prefs.IsPersistentDrawerOpen,
-            _ => false
-        };
-        StateHasChanged();
     }
 
     async Task OpenTabAndClosePopUp()
@@ -202,8 +154,8 @@
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        Prefs = Prefs with { SelectedPrefix = prefix };
-        await preferencesService.SetPreferences(Prefs);
+        var newPrefs = App.Prefs with { SelectedPrefix = prefix };
+        await preferencesService.SetPreferences(newPrefs);
     }
 
     async Task ClickToggleProfilePanel(MouseEventArgs _)
@@ -219,12 +171,19 @@
     async Task ToggleMenuDrawer()
     {
         IsMenuDrawerOpen = !IsMenuDrawerOpen;
-        Prefs = Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
-        await preferencesService.SetPreferences(Prefs);
+        var newPrefs = Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
+        await preferencesService.SetPreferences(newPrefs);
+    }
+
+    private async Task RefreshConnect()
+    {
+        // TODO P3 not yet implemented
+        snackbar.Add("Refreshing connection...", Severity.Info);
     }
 }
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" @bind-IsDarkMode="@App.IsDarkTheme" />
+
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="Prefs.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />

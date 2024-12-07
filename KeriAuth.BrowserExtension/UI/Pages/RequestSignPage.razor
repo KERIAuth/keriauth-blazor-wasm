@@ -76,7 +76,7 @@
        string.Equals(header.Key, "method", StringComparison.OrdinalIgnoreCase) &&
        SafeMethods.Contains(header.Value));
     bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
-    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     static readonly HashSet<string> SafeMethods = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -255,8 +255,6 @@
     //
     async Task getCredentials()
     {
-        // TODO P2 implement filtering to show only the holder's credentials
-        // typescript:  client.credentials().list({ filter: { '-a-i': holderAid.prefix } })
         var res = await signifyClientService.GetCredentials();
         if (res.IsFailed || res.Value is null)
         {
@@ -268,27 +266,21 @@
             credentials = res.Value as List<Dictionary<string, object>>;
             Debug.Assert(credentials is not null);
             logger.LogInformation("Credentials: count {res}", credentials.Count);
-            // foreach (Dictionary<string, object> credential in credentials)
-            // {
-            //     logger.LogInformation("Credential: {credential}", credential);
-            //     logger.LogInformation("Credential title: {credential}", DictionaryConverter.GetValueByPath(credential, "schema.title").Value);
-            // }
         }
     }
 
     //
     //
     //
-    async Task updateIsAutoSignHeaders(bool isChecked)
+    async Task updateIsAutoSignSafeHeaders(bool isChecked)
     {
         logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
-        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
+        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignSafeHeaders != isChecked)
         {
-            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
+            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignSafeHeaders = isChecked };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }
         StateHasChanged();
-        // IsAutoSignHeaders will be updated
     }
 
     //
@@ -344,7 +336,7 @@
         if (SelectedName is null)
         {
             var msg = "SelectedName must not be null here";
-            snackbar.Add(msg);
+            snackbar.Add(msg, Severity.Error);
             logger.LogError(msg);
             await Task.Delay(8000);
             return;
@@ -356,7 +348,7 @@
         {
             var msg = "Config must not be null here";
             logger.LogError(msg);
-            snackbar.Add(msg);
+            snackbar.Add(msg, Severity.Error);
             await Task.Delay(8000);
             return;
         }
@@ -378,7 +370,7 @@
             else
             {
                 var msg = "Passcode must not be null here";
-                snackbar.Add(msg);
+                snackbar.Add(msg, Severity.Error);
                 logger.LogError(msg);
                 await Task.Delay(8000);
                 return;
@@ -518,7 +510,7 @@
                         </table>
                     </MudPaper>
                 }
-                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignHeaders(b)" />
+                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" />
             }
         </div>
     </MudStack>

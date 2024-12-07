@@ -45,7 +45,7 @@
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<Dictionary<string, object>> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<Dictionary<string, object>>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-    bool IsAutoSignHeaders => ThisWebsiteConfig?.IsAutoSignHeaders ?? false;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
 
     protected override async Task OnInitializedAsync()
@@ -170,7 +170,7 @@
 
     // TODO P2 DRY move this filterCredentials to a helper
     // TODO P2 Incorporate this use into the Credentials display to (checkbox) Show selected Identifier only, default true
-    List<Dictionary<string, object>> filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
+    public static List<Dictionary<string, object>> filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
     {
         if (!filters.Any())
         {
@@ -219,7 +219,7 @@
                 RememberedCredSaidOrNothing = null,
                 IsAutoSignInCredential = false,
                 IsAutoSignInIdentifier = false,
-                IsAutoSignHeaders = false
+                IsAutoSignSafeHeaders = false
             };
         logger.LogInformation("updateSelectedPrefix 2");
         // _ = newWebsiteConfig.Validate();
@@ -273,9 +273,9 @@
             {
                 RememberedCredSaidOrNothing = newCredSaidOrNothing,
                 RememberedPrefixOrNothing = SelectedPrefix,
-                IsAutoSignHeaders = IsAutoSignHeaders,
-                IsAutoSignInCredential = IsAutoSignHeaders,
-                IsAutoSignInIdentifier = IsAutoSignHeaders // intentional, since selected cred implies identifier
+                IsAutoSignSafeHeaders = IsAutoSignSafeHeaders,
+                IsAutoSignInCredential = IsAutoSignSafeHeaders,
+                IsAutoSignInIdentifier = IsAutoSignSafeHeaders // intentional, since selected cred implies identifier
             };
         // newWebsiteConfig.Validate();
 
@@ -311,9 +311,9 @@
     {
         // IsAutoSign = isChecked;
         logger.LogInformation("updateIsAutoSignInCred isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
-        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignHeaders != isChecked)
+        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignSafeHeaders != isChecked)
         {
-            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignHeaders = isChecked };
+            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignSafeHeaders = isChecked };
             await updateWebsiteConfigAndParent(ThisWebsiteConfig);
         }
         StateHasChanged(); // needed?
@@ -414,7 +414,7 @@
                     </MudPaper>
                     @if (IsAutoSignShown)
                     {
-                        <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                        <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
                     }
                 </MudStack>
             </MudStack>

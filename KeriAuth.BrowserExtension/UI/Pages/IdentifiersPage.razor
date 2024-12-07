@@ -9,7 +9,6 @@
 @using static KeriAuth.BrowserExtension.AppConfig;
 @using System.Diagnostics
 
-@implements IDisposable;
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
@@ -23,59 +22,30 @@
 @inject ISnackbar snackbar
 
 @code {
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
+
     // fields
-    IDisposable? preferencesSubscription;
     string DialogResult { get; set; } = "unknown";
 
     // properties
     bool IsAddingAid { get; set; }
-    string? ActiveAid { get; set; }
     List<CachedAid>? cachedAids { get; set; }
 
     // reactive properties
     string CountLabel => (cachedAids is not null) ? "(" + @cachedAids.Count + ")" : "...";
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
+    string ActiveAid => Prefs.SelectedPrefix;
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        preferencesSubscription = preferencesService.Subscribe(
-           onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-           onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
-           onCompleted: async () => await HandleCompletedFromPreferencesService());
     }
 
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        var prefs = await preferencesService.GetPreferences();
-        await InitializeOrOnNextPrefs(prefs);
         await GetHeadlines();
-    }
-
-    protected override async Task OnAfterRenderAsync (bool isFirst)
-    {
-        ;
-    }
-
-    public void Dispose()
-    {
-        preferencesSubscription?.Dispose();
-    }
-
-    async Task HandleNextFromPreferencesService(Preferences prefs)
-    {
-        await InitializeOrOnNextPrefs(prefs);
-    }
-
-    async Task HandleErrorFromPreferencesService(Exception error)
-    {
-        logger.LogInformation("Error from PreferencesService: " + error.Message);
-    }
-
-    async Task HandleCompletedFromPreferencesService()
-    {
-        logger.LogInformation("Completed from PreferencesService");
     }
 
     private async Task GetHeadlines()
@@ -137,20 +107,10 @@
         StateHasChanged();
     }
 
-    async Task InitializeOrOnNextPrefs(Preferences prefs)
-    {
-        ActiveAid = prefs.SelectedPrefix;
-        StateHasChanged();
-    }
-
-    // Set ActiveDid based on value of activeDidIdentifier,
-    // retrieved from picker or via preferences
     async Task SetActiveAid(string identifier)
     {
-        var prefs2 = await preferencesService.GetPreferences();
-        prefs2 = prefs2 with { SelectedPrefix = identifier };
-        await preferencesService.SetPreferences(prefs2);
-        // Other side-effects will be reactive to subscribed updates of Preferences
+        var newPrefs = Prefs with { SelectedPrefix = identifier };
+        await preferencesService.SetPreferences(newPrefs);
     }
 }
 

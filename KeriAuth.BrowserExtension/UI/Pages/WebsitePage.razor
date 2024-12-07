@@ -57,6 +57,19 @@
     {
         ;
     }
+
+    async Task Delete()
+    {
+        var res = await websiteConfigService.Delete(new Uri(OriginStr));
+        if (res is not null && res.IsSuccess)
+        {
+            snackbar.Add("Successfully deleted website config", Severity.Success);
+            await GoBack(js);
+        } else
+        {
+            snackbar.Add("Failed to delete website config", Severity.Error);
+        }
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -69,5 +82,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer></MudSpacer>
+        <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" OnClick="Delete">Delete</MudIconButton>
     </MudStack>
 </div>

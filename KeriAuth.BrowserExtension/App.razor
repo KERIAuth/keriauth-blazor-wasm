@@ -22,25 +22,27 @@
 @inject IStateService stateService
 @inject IAppSwMessagingService appSwMessagingService
 
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-    </Found>
-    <NotFound>
-        <PageTitle>Loading application assembly...</PageTitle>
-        <LayoutView>
-            <h1>Page not found</h1>
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
-
 @code {
-    public static bool IsDarkTheme { get; set; }
+    // fields
     private static IStateService? staticStateService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
+    private IDisposable? preferencesSubscription;
+
+    // properties
+    public static Preferences Prefs { get; set; } = new Preferences();  // TODO P2 refactor code currently in MainLayout to here
     public static Uri? InitialUri { get; set; }
+
+    // reactive properties
+    public static bool IsDarkTheme => Prefs.IsDarkTheme;
+    public static bool IsDarkTheme2
+    {
+        get => Prefs.IsDarkTheme;
+        set
+        {
+            // TODO P4 actually set the theme
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -58,6 +60,14 @@
         await storageService.Initialize();
         await stateService.Initialize();
         await preferencesService.Initialize();
+
+        Prefs = await preferencesService.GetPreferences();
+        await HandleNextFromPreferencesService(Prefs);
+        preferencesSubscription = preferencesService.Subscribe(
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
+            onCompleted: async () => await HandleCompletedFromPreferencesService());
+
 
         // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>
@@ -77,12 +87,44 @@
         return;
     }
 
+    public async Task ToggleDarkTheme()
+    {
+        var newPrefs = Prefs with { IsDarkTheme = !Prefs.IsDarkTheme };
+        // App.Prefs = Prefs; // TODO P3 App should have its own preference listener and pick this up
+        await preferencesService.SetPreferences(newPrefs);
+    }
+
     /*
     protected override async Task OnAfterRenderAsync(bool isFirst)
-    {
+        {
         logger.LogInformation($"OnAfterRenderAsync");
     }
     */
+
+    public void Dispose()
+    {
+        preferencesSubscription?.Dispose();
+    }
+
+    async Task HandleNextFromPreferencesService(Preferences value)
+    {
+        Prefs = value;
+        // await UpdateMenuDrawerMode(Prefs);
+        StateHasChanged(); // trigger updates to pages dependent on properties in App
+        logger.LogWarning("Updated Prefs");
+    }
+
+    async Task HandleErrorFromPreferencesService(Exception error)
+    {
+        await Task.Delay(0);
+        logger.LogError("Error from PreferencesService: " + error.Message);
+    }
+
+    async Task HandleCompletedFromPreferencesService()
+    {
+        await Task.Delay(0);
+        logger.LogInformation("Completed from PreferencesService");
+    }
 
     [JSInvokableAttribute("LockApp")]
     public static async Task LockApp()
@@ -97,3 +139,18 @@
         return;
     }
 }
+
+<CascadingValue Value="Prefs">
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        </Found>
+        <NotFound>
+            <PageTitle>Loading application assembly...</PageTitle>
+            <LayoutView>
+                <h1>Page not found</h1>
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingValue>

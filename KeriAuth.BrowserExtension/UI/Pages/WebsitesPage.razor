@@ -118,7 +118,7 @@
                                     <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                 }
                             </MudTd>
-                            <MudTd DataLabel="AutoSign">@(context.IsAutoSignHeaders ? "Yes" : "No")</MudTd>
+                            <MudTd DataLabel="AutoSign">@(context.IsAutoSignSafeHeaders ? "Yes" : "No")</MudTd>
                             <MudTd DataLabel="Edit">
                                 <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => navigateToWebsitePage(@context.Origin.OriginalString))"></MudIconButton>
                             </MudTd>
@@ -127,7 +127,7 @@
                 </MudPaper>
             } else
             {
-                <MudText>After navigating to a website supporting the Signify protocol and then interacting with this extension, the website will be listed here.</MudText>
+                <MudText>After navigating to a website supporting KERI browser extensions and then interacting with this extension, the website will be listed here.</MudText>
             }
         </div>
     </MudStack>
