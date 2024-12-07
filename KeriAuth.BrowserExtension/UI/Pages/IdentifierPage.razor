@@ -81,14 +81,14 @@
 
     // properties
     bool IsWaiting { get; set; }
+    // TODO add IsTransferrable is needed, then add this to IdentifierHeadline and make it reactive
     bool IsTransferrable { get; set; }
-    string Alias { get; set; } = string.Empty;
-    List<CachedAid> CachedAids { get; set; } = new List<CachedAid>();
+    List<IdentifierHeadline> MyIdentifierHeadlines { get; set; } = [];
     string DialogResult { get; set; } = "unknown";
 
     // reactive properties
-    // string ActiveAid => Prefs.SelectedPrefix;
-    string Identicon => Helper.Identicon.MakeIdenticon(Prefix);
+    string? Identicon => MyIdentifierHeadlines.FirstOrDefault(a => a.Prefix == Prefix)?.Identicon;
+    string? AliasOrNothing => MyIdentifierHeadlines.FirstOrDefault(a => a.Prefix == Prefix)?.Alias;
 
     protected override async Task OnInitializedAsync()
     {
@@ -99,27 +99,11 @@
         logger.LogInformation($"OnParametersSetAsync");
 
         await GetHeadlines();
-        var AliasOrNothing = CachedAids.FirstOrDefault(a => a.Prefix == Prefix)?.Alias;
-        if (AliasOrNothing is not null)
-        {
-            Alias = AliasOrNothing;
-        }
 
         // Use Alias (versus Prefix) to get the full Identifier.
         // Its awkward that the underlying signify-ts get() method does not seem to accept a Prefix value, even though the code implies that
         // Root issue might be how the underlying KERIA hab is storing it. signify-ts tests all seem to have Alias names
         // https://github.com/WebOfTrust/signify-ts/blob/f368351f976ceeefc19082fc8351adbb359c4e77/src/keri/app/aiding.ts#L116
-        var MaybeAidRes = await signifyClientService.GetIdentifier(Alias);
-        if (MaybeAidRes is null || MaybeAidRes.IsFailed)
-        {
-            logger.LogWarning("GetIdentifier failed: {1}", MaybeAidRes?.Errors.ToArray().ToString() ?? "unknown error");
-        }
-        else
-        {
-            // TODO P4 intentionaly overwrite Prefix with the one from the response ?
-            Prefix = MaybeAidRes.Value.Prefix;
-            IsTransferrable = MaybeAidRes.Value.Transferable;
-        }
     }
 
     async Task UpdateKeyState()
@@ -131,17 +115,17 @@
     private async Task GetHeadlines()
     {
         logger.LogInformation("GetHeadlines");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res != null)
+        var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
+        if (identifierHeadlinesRes != null)
         {
-            logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
-            CachedAids.Clear();
-            foreach (var item in res.Value)
+            logger.LogInformation("GetIdentifierHeadlines: {1}", identifierHeadlinesRes.Value.Count);
+            MyIdentifierHeadlines.Clear();
+            foreach (var item in identifierHeadlinesRes.Value)
             {
                 // logger.LogWarning("adding aid {1}", item.Prefix);
-                CachedAids.Add(new CachedAid(item.Prefix, item.Alias, Guid.NewGuid()));
+                MyIdentifierHeadlines.Add(new IdentifierHeadline(item.Prefix, item.Alias, Guid.NewGuid()));
             }
-            CachedAids = CachedAids.OrderBy(a => a.Alias).ToList();
+            MyIdentifierHeadlines = MyIdentifierHeadlines.OrderBy(a => a.Alias).ToList();
         };
     }
 
@@ -150,10 +134,7 @@
 
     async Task SetActiveAid(string identifier)
     {
-        var prefs2 = await preferencesService.GetPreferences();
-        prefs2 = prefs2 with { SelectedPrefix = identifier };
-        await preferencesService.SetPreferences(prefs2);
-        // Other side-effects will be reactive to subscribed updates of Preferences
+        await preferencesService.SetPreferences(Prefs with { SelectedPrefix = identifier });
     }
 }
 
@@ -172,7 +153,7 @@
                     <MudStack Style="width:100%; word-break: break-all">
                         <MudStack Row>
                             <MudTooltip Text="Alias" Delay="1000">
-                                <MudText Style="font-weight:bold">@Alias</MudText>
+                                <MudText Style="font-weight:bold">@AliasOrNothing</MudText>
                             </MudTooltip>
                             <MudSpacer />
                             <!-- TODO P3 Intentionally not displaying the Edit icon until "rename Alias" feature is supported -->

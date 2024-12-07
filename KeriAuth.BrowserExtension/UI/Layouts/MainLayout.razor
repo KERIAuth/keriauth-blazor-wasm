@@ -48,7 +48,7 @@
     Object ActiveAidObject => (object)ActiveAid;
     bool IsAuthenticated => stateService.IsAuthenticated();
     string ActiveAid => Prefs.SelectedPrefix;
-    string ActiveAidIdenticon => Helper.Identicon.MakeIdenticon(ActiveAid);
+    string ActiveAidIdenticon => IdentifiersHeadlines.Find(x => x.Prefix == ActiveAid)?.Identicon ?? "";
     string ActiveAidTooltip => IdentifiersHeadlines.Find(x => x.Prefix == ActiveAid)?.Alias ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActiveAid) || stateService.GetState() == IStateService.States.Unauthenticated);
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
