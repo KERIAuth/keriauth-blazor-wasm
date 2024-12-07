@@ -12,8 +12,11 @@
 
 @code
 {
+    // most values on this page are reactive to changes via preferencesServices subscription in App
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
+
     // fields and types
-    IDisposable? preferencesSubscription;
     enum DrawerVariantSupportedInTab
     {
         Persistent = MudBlazor.DrawerVariant.Persistent,
@@ -23,7 +26,7 @@
     }
 
     // properties
-    Preferences Prefs { get; set; } = new();
+
     // TODO set these criteria to enums and use those
     string userVerification { get; set; } = "required";
     string residentKey { get; set; } = "discouraged";
@@ -39,57 +42,26 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
-        var prefs = await preferencesService.GetPreferences();
-        await HandleNextFromPreferencesService(prefs);
-
-        preferencesSubscription = preferencesService.Subscribe(
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-            onError: (Exception error) => HandleErrorFromPreferencesService(error),
-            onCompleted: () => HandleCompletedFromPreferencesService());
     }
 
-    async Task Persist()
+    async Task Persist(Preferences prefs)
     {
-        await preferencesService.SetPreferences(Prefs);
+        await preferencesService.SetPreferences(prefs);
     }
 
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
     {
-        Prefs = Prefs with { IsDarkTheme = isDarkTheme };
-        await Persist();
+        await Persist(Prefs with { IsDarkTheme = isDarkTheme });
     }
 
     async Task SetAndPersistDVIT(DrawerVariant dv)
     {
-        Prefs = Prefs with { DrawerVariantInTab = dv };
-        await Persist();
+        await Persist(Prefs with { DrawerVariantInTab = dv });
     }
 
     async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
     {
-        Prefs = Prefs with { InactivityTimeoutMinutes = inactivityTimeout };
-        await Persist();
-    }
-
-    public void Dispose()
-    {
-        preferencesSubscription?.Dispose();
-    }
-
-    async Task HandleNextFromPreferencesService(Preferences value)
-    {
-        Prefs = value;
-        StateHasChanged();
-    }
-
-    void HandleErrorFromPreferencesService(Exception error)
-    {
-        logger.LogInformation("Error from PreferencesService: " + error.Message);
-    }
-
-    void HandleCompletedFromPreferencesService()
-    {
-        logger.LogInformation("Completed from PreferencesService");
+        await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
     }
 }
 
@@ -133,7 +105,7 @@
             </MudStack>
 
             <!-- display none for now until this UX is sorted and features implemented -->
-            <MudStack Style="display:none !important;"  Row="false" Class="pt-3 gap-0">
+            <MudStack Style="display:none !important;" Row="false" Class="pt-3 gap-0">
                 <MudText Class="bt-pref-group-label0">
                     Authenticator Requirements
                 </MudText>
@@ -188,7 +160,7 @@
                 <MudText Class="bt-pref-group-label0">
                     See also...
                 </MudText>
-                <MudLink Style="margin-left:20px;"  OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Interaction options per website</MudLink>
+                <MudLink Style="margin-left:20px;" OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Interaction options per website</MudLink>
             </MudStack>
         </div>
     </div>
