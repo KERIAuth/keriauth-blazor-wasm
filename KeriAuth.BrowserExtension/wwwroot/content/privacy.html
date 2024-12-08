@@ -5,13 +5,287 @@
     <title>Privacy Policy</title>
 </head>
 <body>
-    <h1>Privacy Policy</h1>
+    <h1>
+        Privacy Policy
+        <br />
+        LivelyGig LLC
+    </h1>
 
     <h2>Introduction</h2>
     <p>
-        TBD
+        This Privacy Policy relates to data from your use of products and services provided by LivelyGig LLC ("we", "our", or "us"), including those branded as KERI Auth.
+        By using our products or services, you agree to the collection, use, and sharing of information in accordance with this policy.
     </p>
+
+    <h2>Scope</h2>
+    <p>
+        More specifically, this policy relates to data from your use of the following products and services:
+        <em>KERI Auth Browser Extension</em> and <em>KERIAuth.com Website and Web Applications</em>.
+        The scope of this policy is limited to information collected or received by us through your use of these products and services.
+        This policy does not apply to any third-party websites, products, or services, even if they are referenced from our products or services.
+    </p>
+
+    <h2>Data Collected</h2>
+    <p>Your privacy is important to us. Below, we outline the specific types of data we may collect from our various products and services:</p>
+    <h3>1. KERI Auth Browser Extension ("Extension")</h3>
+    <ul>
+        <li>
+            <strong>Stored within the Extension</strong>:
+            The Extension stores personal data and relationships among the following types of data:
+            <ul>
+                <li>configuration data referencing a KERI Agent Service (KERIA), a service provided by you or a third-party;</li>
+                <li>a cryptographic hash of your passcode to your KERI Agent;</li>
+                <li>registration of webauthn authenticators;</li>
+                <li>your application usage preferences; and</li>
+                <li>a list of compatible websites, with which you and KERI Auth have interacted, including related preferences.</li>
+            </ul>
+            This data is stored on your device(s) using the chrome.storage API, and it is protected by the browser to minimize its visibility beyond the extension's code.
+
+            We do not receive, store, or intend to store any of your information on our infrastructure.
+            If you explicitly send us data, such as emailing a log file or screenshot in the context of customer support, we may retain that information.
+        </li>
+        <li>
+            <strong>Browser-Synchronized Storage per Profile:</strong>
+            <ul>
+                <li>The Extension stores its registration of webauthn authenticators in Sync storage, and this information is synchronized across the same browser profile (when you are logged in to that profile) on multiple machines.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Synchronized by Webauthn Providers:</strong>
+            <ul>
+                <li>Some "hybrid" webauthn authenticators and providers can synchronize their authenticator keys within their ecosystem, such as iCloud Keychain and Google Password Manager.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Stored by You:</strong>
+            You are responsible for backing up and securing your passcode for your KERI Agent.
+        </li>
+        <li>
+            <strong>Stored by Others:</strong>
+            A vendor of your choice, or perhaps you, will provide a KERI Agent Service (KERIA), which will store your identifiers and credentials with encryption keys derived from the passcode under your control.
+        </li>
+        <li>
+            <!-- See https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-application-insights-for-extensions -->
+            <strong>Extension Usage Telemetry:</strong>
+            We do not collect any usage data, including client telemetry for your actions, errors, performance, usage, features, or environment.
+            It is our intention to continue this policy posture.
+            If we change this policy in the future, the release update process will notify you of that and provide you with an opportunity whether to continue using the Extension.
+        </li>
+        <li>
+            <strong>Other Data not Collected:</strong>
+            We do not collect, nor do we store any of the following data:
+            <ul>
+                <li>
+                    Browsing history;
+                </li>
+                <li>
+                    Search history;
+                </li>
+                <li>
+                    Information about websites you visit;
+                </li>
+                <li>
+                    Information about how you use the internet;
+                </li>
+                <li>
+                    Information about your interactions with websites; and
+                </li>
+                <li>
+                    Information about your interactions with applications, including those on your device.
+                </li>
+            </ul>
+        </li>
+        <li>
+            <strong>Extension Permissions</strong>:
+            The browser and/or Extension will prompt you to grant it permissions for a website prior to modifying any of its pages, as needed to enable integrations with it such as for authenticating ("sign in") or authorizing (signing).
+            In addition, the extension declares and uses the following extension manifest permissions listed below, for the reasons stated:
+            <ul>
+                <li>
+                    <em>activeTab</em>: to enable the extension to interact with the current web page you are viewing.
+                </li>
+                <li>
+                    <em>clipboardWrite</em>: to enable the extension to copy data to your clipboard.
+                </li>
+                <li>
+                    <em>scripting</em>: to enable the extension to inject content scripts into web pages.
+                    A content script is used to enable the extension's user interface to interact with the web page.
+                    Once a content script is injected into the web page's DOM, it has access to that and the JavaScript environment of the page.
+                </li>
+                <li>
+                    <em>storage</em>: to enable the extension to store data in your browser's storage.
+                </li>
+            </ul>
+            For more information about these permissions, please see the Chrome Extension documentation for <a href="https://developer.chrome.com/docs/extensions/mv3/declare_permissions/#permissions" target="_blank">Declare Permissions</a>.
+            <br />
+        </li>
+    </ul>
+    <h3>2. KERIAuth.com Website and Web Applications</h3>
+    <ul>
+        <li>
+            <strong>Cookies</strong>: We may use cookies and other tracking technologies to collect and store your information. You can control the use of cookies through your browser settings.</p>
+        </li>
+        <li>
+            <strong>Server and HTTP logs</strong>: These logs may include the following data:
+            <ul>
+                <li>
+                    The IP address of the network you are using; and
+                </li>
+                <li>
+
+                    The location of the network you are using.
+                </li>
+            </ul>
+            This log data is stored in databases or log files for the web application or hosting infrastructure.
+            It is protected by the hosting services to minimize its visibility beyond the web application or hosting infrastructure.
+        </li>
+    </ul>
+    <h3>3. For all Services</h3>
+    <ul>
+        <li>
+            <strong>Google Web Fonts</strong>:
+            For uniform representation of fonts, the Extension and other services may use web fonts provided by Google.
+            When you open a page, your browser loads the required web fonts into your browser cache to display texts and fonts correctly.
+            For this purpose, your browser has to establish a direct connection to Google servers.
+            Google thus can become aware that our web page or Extension was accessed via your IP address.
+            The use of Google Web fonts is chosen in the interest of a uniform and attractive presentation of our website.
+            This constitutes a justified interest pursuant to Art. 6 (1) (f) DSGVO.
+            If your browser does not support web fonts, a standard font is used by your computer.
+            Further information about handling user data can be found at <a href="https://developers.google.com/fonts/faq" target="_blank">https://developers.google.com/fonts/faq</a>
+            and in Google’s privacy policy at <a href="https://www.google.com/policies/privacy/" target="_blank">https://www.google.com/policies/privacy/</a>.
+        </li>
+        <li>
+            <strong>Support Interactions</strong>:
+            If you contact our support team, we may collect and store any information you provide, such as your name, email address, social account handle, and the contents of your support request, including troubleshooting data and feedback.
+        </li>
+        <li>
+            <strong>Transmission of data</strong>:
+            Any transmission of data will occur over a secure connection (e.g., HTTPS).
+        </li>
+    </ul>
+
+    <h2>Use of Data</h2>
+    <p>
+        We may use the information we collect for the following purposes:
+        <ul>
+            <li>
+                <strong>To provide and improve our extension:</strong> We use the information to provide the features and functionality of our extension, to troubleshoot and resolve issues, and to improve the overall user experience.
+            </li>
+            <li>
+                <strong>To respond to user requests:</strong> We use the information to respond to your inquiries, requests, and comments.
+            </li>
+            <li>
+                <strong>To protect our rights and interests:</strong>
+                We use the information to protect our rights and interests,
+                as well as the rights and interests of our users and any other person,
+                as well as to enforce this Privacy Policy and our Terms of Use agreements.
+            </li>
+        </ul>
+    </p>
+
+    <h2>Information Sharing</h2>
+    <p>
+        We may share your information with third parties in the following circumstances:
+        <ul>
+            <li>
+                <strong>Service Providers:</strong>
+                We may share your information with service providers who help with the operation of our extension,
+                such as hosting providers.
+            </li>
+            <li>
+                <strong>Law Enforcement:</strong>
+                We may share your information with law enforcement agencies if required by law or in response to a legal request.
+            </li>
+        </ul>
+    </p>
+    <p>
+        We will not sell or publicly disclose your personal and private information,
+        including authentication, payment, or financial information.
+    </p>
+
+    <h2>Limited Use Disclosure for the Extension</h2>
+    <p>
+        <ul>
+            <li>
+                We use your data exclusively to provide and improve the core functionalities.
+            </li>
+            <li>
+                We do not sell your data to third parties.
+            </li>
+            <li>
+                We do not use your data to display third-party advertisements.
+            </li>
+            <li>
+                We will not transfer your data to unrelated services or third parties,
+                unless to comply with legal obligations or in case of a change of ownership where the successor adheres to the same commitments.
+            </li>
+            <li>
+                <!-- The following sentence is required verbatim from Google's Chrome Web Store:-->
+                The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
+                For details, see
+                <a href="https://chrome.google.com/docs/webstore/program-policies/limited-use" target="_blank">Chrome's Limited Use Policy</a> published on November 1, 2022.
+        </ul>
+    </p>
+
+    <h2>Data Retention Statement</h2>
+    <p>
+        At LivelyGig LLC, we value the trust you place in us whenever you share your personal data.
+        We are committed to minimizing our data footprint and storing your data only as long as necessary to fulfill the purposes for which it was collected.
+        While we are working towards establishing a detailed data retention policy, please know that:
+        <ul>
+            <li>
+                We will review and evaluate the necessity of data we store, ensuring it is kept only for the periods required to serve its intended purpose or to meet our legal, regulatory, and contractual obligations.
+            </li>
+            <li>
+                We are dedicated to implementing industry best practices regarding data retention and deletion.
+            </li>
+            <li>
+                As a principle, once the purpose for which the data was collected has been fulfilled, and there's no compelling reason to keep it, we take steps to securely remove or anonymize it from our systems.
+            </li>
+            <li>
+                We are in the process of setting specific retention periods for different data types, and once finalized, we will update this policy to reflect those details.
+            </li>
+        </ul>
+    </p>
+    <p>
+        Should you have any concerns or queries about how we handle your data, please do not hesitate to contact us at support@livelygig.com.
+    </p>
+
+    <h2>User Rights</h2>
+    <p>
+        You have the following rights with respect to your information:
+        <ul>
+            <li>
+                <strong>Access:</strong> You have the right to access the information we hold about you.
+            </li>
+            <li>
+                <strong>Update:</strong> You have the right to update your information if it is inaccurate or incomplete.
+                <br />
+            </li>
+            <li>
+                <strong>Delete:</strong> You have the right to request the deletion of your information.
+            </li>
+        </ul>
+    </p>
+    <p>To exercise these rights, please contact us at support@livelygig.com.</p>
+
+    <h2>Security Practices</h2>
+    <p>
+        We take reasonable measures to protect your information from unauthorized access, disclosure, or alteration.
+        However, no method of transmission over the internet or electronic storage is 100% secure, so we cannot guarantee its absolute security.
+    </p>
+
+    <h2>Changes to the Privacy Policy</h2>
+    <p>
+        We may update this Privacy Policy from time to time.
+        We will notify you of any changes by posting the updated Privacy Policy in our products and services.
+        The latest version of the Privacy Policy is also available at <a href="https://github.com/KERIAuth/keriauth-blazor-wasm/blob/main/KeriAuth.BrowserExtension/wwwroot/content/privacy.html" target="_blank">https://github.com/KERIAuth/keriauth-blazor-wasm/blob/main/KeriAuth.BrowserExtension/wwwroot/content/privacy.html</a>.
+        Your continued use of our products or services after the posting of the updated Privacy Policy will constitute your acceptance of the changes.
+    </p>
+
+    <h2>Contact Information</h2>
+    <p>If you have any questions or concerns about this Privacy Policy, please contact us at support@livelygig.com.</p>
+
     <br />
-    <p>This Privacy Policy is effective as of <p>Updated 2023-12-19.</p>
+    <p>This Privacy Policy is effective as of 2024-12-07.</p>
 </body>
 </html>
