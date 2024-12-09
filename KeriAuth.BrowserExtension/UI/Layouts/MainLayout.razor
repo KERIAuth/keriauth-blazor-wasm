@@ -66,7 +66,6 @@
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
 
-
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -228,17 +227,16 @@
                     </MudTooltip>
                 }
             </div>
-
         </MudStack>
 
-        <!-- The AID selector overlay covers entire page -->
+        <!-- The Identifier Selector overlay covers entire page -->
         <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
                 <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
                         <MudListItem Value="identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
-                            <MudStack Row="true">
+                            <MudStack Row="true" Style="diaplay:inline-flex !important; align-items:center;">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
                                     <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
