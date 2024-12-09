@@ -134,7 +134,8 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
     // Check if the payload is sent from the current window and is safe to process
     if (window.location.href.indexOf(event.origin) !== 0 && event.source !== window) {
         // Reject likely malicious messages, such as those that might be sent by a malicious extension (Cross-Extension Communication).
-        console.warn('KeriAuthCs ignoring potentially malicious message event:', event);
+        // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
+        console.info('KeriAuthCs ignoring potentially malicious message event:', event);
         return;
     }
 
@@ -194,13 +195,15 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 postMessageToPage<KeriAuthMessageData<AuthorizeResult>>(msg);
                 break;
             default:
-                console.error("KeriAuthCs from page: handler not implemented for:", event.data);
+                // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
+                console.info("KeriAuthCs from page: handler not implemented for:", event.data);
                 break;
         }
         // remember the last RequestId, in case of timeout or cancellation
         lastRequestIdFromPage = event?.data?.requestId;
         // console.log("KeriAuthCs remembered RequestId: ", lastRequestIdFromPage);
     } catch (error) {
-        console.error("KeriAuthCs from page: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
+        // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
+        console.info("KeriAuthCs from page: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
     }
 };
