@@ -5,23 +5,11 @@
 @using KeriAuth.BrowserExtension.Services
 @using System.Text.Json;
 
-<MudDialog>
-    <DialogContent>
-        <MudText Typo="Typo.h6">@prompt</MudText>
-        <MudText Typo="Typo.h6">@prompt2</MudText>
-        <MudTextField @bind-Value="InputText" Label="Input" Variant="Variant.Outlined" />
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Add</MudButton>
-        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Filled">Cancel</MudButton>
-    </DialogActions>
-</MudDialog>
 
 @code {
     [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
     private string? InputText { get; set; }
-    private static string prompt = @"Enter a unique alias, e.g.,";
-    private static string prompt2 = @"<Your Name> as <Role> at <Organization>";
+    private static string prompt = @"Enter a unique alias,";
 
     private void Submit()
     {
@@ -34,3 +22,14 @@
     }
 }
 
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6">@prompt</MudText>
+        <MudText Typo="Typo.h6">@AppConfig.ExampleAlias</MudText>
+        <MudTextField @bind-Value="InputText" Label="Input" Variant="Variant.Outlined" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Add</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Filled">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>

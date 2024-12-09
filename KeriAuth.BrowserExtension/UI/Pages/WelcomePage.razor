@@ -42,9 +42,17 @@
 @inject ISnackbar snackbar
 
 @code {
+    MudButton? buttonRef;
+
     protected override async Task OnInitializedAsync()
     {
         // logger.LogInformation("OnInitializedAsync");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        if (/* isFirstRender && */ buttonRef is not null)
+            await buttonRef.FocusAsync();
     }
 
     private async Task AcknowledgeWelcome()
@@ -97,6 +105,6 @@
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
+        <MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
 </div>

@@ -51,6 +51,8 @@ namespace KeriAuth.BrowserExtension
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
         public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
 
+        public const string ExampleAlias = "e.g. Maria Garcia as Compliance Analyst at Prime Industries";
+
         public static readonly List<string> ViewsNotRequiringAuth =
         [
             RouteToIndex,

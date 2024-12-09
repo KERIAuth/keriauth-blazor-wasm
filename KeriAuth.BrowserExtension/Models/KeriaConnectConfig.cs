@@ -25,16 +25,16 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("PasscodeHash")]
         public int PasscodeHash { get; init; }
 
-        public bool IsConfigured()
+        public bool IsAdminUrlConfigured()
         {
             if (string.IsNullOrEmpty(KeriaConnectAlias)
                 || PasscodeHash == 0
                 || string.IsNullOrEmpty(AdminUrl)
                 || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)
                       && (adminUriResult.Scheme == Uri.UriSchemeHttp || adminUriResult.Scheme == Uri.UriSchemeHttps))
-                || string.IsNullOrEmpty(BootUrl)
-                || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? bootUriResult)
-                      && (bootUriResult.Scheme == Uri.UriSchemeHttp || bootUriResult.Scheme == Uri.UriSchemeHttps))
+                //|| string.IsNullOrEmpty(BootUrl)
+                //|| !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? bootUriResult)
+                //      && (bootUriResult.Scheme == Uri.UriSchemeHttp || bootUriResult.Scheme == Uri.UriSchemeHttps))
                 )
             {
                 return false;

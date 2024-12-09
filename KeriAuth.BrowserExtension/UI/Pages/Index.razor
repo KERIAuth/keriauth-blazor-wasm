@@ -118,7 +118,7 @@
         {
             keriaConnectConfig = configRes.Value;
         }
-        if (!keriaConnectConfig.IsConfigured())
+        if (!keriaConnectConfig.IsAdminUrlConfigured())
         {
             navManager.NavigateTo(RouteToConfigure);
             return;

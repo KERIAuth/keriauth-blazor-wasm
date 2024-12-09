@@ -35,8 +35,6 @@
         public string AdminUrl { get; set; } = AppConfig.DefaultKeriaAdminUrl;
 
         // TODO P2 see potential password needed for the boot endpoint: https://github.com/WebOfTrust/keria/issues/327
-        // TODO P4 consider implementing a custom checker NullableUrl(ErrorMessage = "...")
-        // [Url(ErrorMessage = "Enter KERIA Boot URL")]
         public string? BootUrl { get; set; } = AppConfig.DefaultKeriaBootUrl;
     }
 
@@ -70,15 +68,17 @@
             BootUrl = AppConfig.DefaultKeriaBootUrl
         };
     PasscodeModel configuredPasscodeModel = new PasscodeModel();
+    private MudButton? nextButton;
 
 
     // properties
-    KeriaConnectConfig? keriaConnectConfig { get; set; }
+    KeriaConnectConfig? KeriaConnectConfig { get; set; }
     static string InitialAlias { get; set; } = "";
     string RandomPasscode { get; set; } = "";
     bool IsPasscodeCopyConfirmed { get; set; }
     bool IsUsingExistingPasscode { get; set; } = true;
     bool IsProcessing { get; set; }
+    bool IsConnected { get; set; }
     Preset PresetChoice
     {
         get
@@ -110,20 +110,17 @@
                 && RandomPasscode == configuredPasscodeModel.Passcode
                 && IsPasscodeCopyConfirmed)
         );
-    bool IsKeriaConfigured => (keriaConnectConfig is not null) && keriaConnectConfig.IsConfigured();
+    bool IsKeriaConfigured => (KeriaConnectConfig is not null) && KeriaConnectConfig.IsAdminUrlConfigured();
     string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you already have account)" : "Boot URL";
-
 
 
     protected override async Task OnInitializedAsync()
     {
-        // logger.LogInformation("OnInitializedAsync");
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
     }
 
     async Task SetIsNewAccount(bool isNewAccount)
     {
-        // logger.LogInformation("SetUseExistingPasscodeAsync");
         IsUsingExistingPasscode = !isNewAccount;
         RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
         // clear in case radio is toggled after passcode is copied, entered
@@ -133,15 +130,8 @@
         await Copy2Clipboard(RandomPasscode);
     }
 
-    void HandleOnBlur()
-    {
-        // This method will be triggered when the text field loses focus
-        // You can check for validity here if needed
-    }
-
     async Task<bool> ConnectToKeria()
     {
-        logger.LogWarning("ConnectToKeria");
         ops1LivenessCheck.Reset();
         ops2HealthCheck.Reset();
         ops3BootMaybeAndConnect.Reset();
@@ -163,7 +153,7 @@
             if (!postResult.IsSuccess)
             {
                 var message = $"KERIA service is not reachable";
-                logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
+                // logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
                 ops1LivenessCheck.SetCompletedWithError(message);
                 return false;
             }
@@ -174,7 +164,7 @@
             // check if KERIA is reporting as healthy
             ops2HealthCheck.SetIsRunning();
             StateHasChanged();
-            // TODO P3 move this into service code
+            // TODO P3 move this into service or helper code
             var httpClientService2 = new HttpClientService(new HttpClient());
             var postResult2 = await httpClientService2.GetJsonAsync<String>($"{urlModel.BootUrl}/health");
             if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
@@ -190,7 +180,7 @@
             }
         }
 
-        // Create a new KERIA client, and on success cache passcode
+        // Create a new KERIA client, and on success cache the passcode
         ops3BootMaybeAndConnect.SetIsRunning();
         StateHasChanged();
         var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", !IsUsingExistingPasscode);
@@ -202,7 +192,6 @@
         }
         ops3BootMaybeAndConnect.SetCompletedWithoutErrors();
         await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
-        // await stateService.Configure();
         StateHasChanged();
 
         // GetIdentifiers
@@ -216,12 +205,11 @@
             return false;
         }
         var identifiers = identifiersRes.Value;
-        // logger.LogWarning("Identifiers: {identifiers}", identifiers.ToString());
-        // identifiers.ToList().ForEach(i => logger.LogInformation($"Identifiers: {i}"));
         ops4ListAids.SetCompletedWithoutErrors();
         StateHasChanged();
 
         // If there are no Identifiers, create one
+        var prefs = await preferencesService.GetPreferences();
         if (identifiers.Aids.Count == 0)
         {
             ops5CreatePersonalAid.SetIsRunning();
@@ -234,38 +222,31 @@
                 return false;
             }
             // set the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
-            var prefs = await preferencesService.GetPreferences();
             await preferencesService.SetPreferences(prefs with { SelectedPrefix = aidRes.Value });
-            // logger.LogInformation("Identifier: {aid}", aidRes.Value);
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
-            StateHasChanged();
         }
         else
         {
             // we don't need to create another AID, but still pick a default one
-            var prefs = await preferencesService.GetPreferences();
             await preferencesService.SetPreferences(prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
-            ops5CreatePersonalAid.SetCompletedWithoutErrors();
-            StateHasChanged();
         }
-
-
+        if (nextButton is not null)
+            await nextButton.FocusAsync();
         return true;
     }
 
     async Task StoreHashAndConnect()
     {
-        // logger.LogWarning("StoreHashAndConnect");
         // Since user has confirmed the passcode, we can now hash it and store it once the connection is successful
         IsProcessing = true;
-        var isConnected = await ConnectToKeria();
-        // logger.LogWarning("StoreHashAndConnect back from ConnectToKeria: {r}", isConnected);
-        if (isConnected)
+        await Task.Delay(1); // allow UI to update
+        IsConnected = await ConnectToKeria();
+        if (IsConnected)
         {
-            int tmpHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
-            keriaConnectConfig = new KeriaConnectConfig("TBD333", urlModel.AdminUrl, urlModel.BootUrl, tmpHash);
+            int passcodeHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
+            KeriaConnectConfig = new KeriaConnectConfig("TBD333", urlModel.AdminUrl, urlModel.BootUrl, passcodeHash);
             // TODO P2 KeriaConnectConfig should be stored in chrome.storage.sync. Multiple changes required.
-            var res = await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
+            var res = await storageService.SetItem<KeriaConnectConfig>(KeriaConnectConfig);
             if (res.IsFailed)
             {
                 logger.LogError("Failed to store connection details");
@@ -274,11 +255,17 @@
             }
             await stateService.Configure();
             await stateService.Authenticate(true);
-            navManager.NavigateTo(RouteToHome);
+            StateHasChanged();
+            logger.LogWarning("KeriConnectConfig {c}", KeriaConnectConfig); // TODO P0 remove
+            logger.LogWarning("IsKeriaConfigured {c}", IsKeriaConfigured); // TODO P0 remove
+            if (nextButton is not null) {
+                logger.LogWarning("focusing..."); // TODO P0 remove
+                await nextButton.FocusAsync();
+            }
             return;
         }
         snackbar.Add("Failed to connect to KERI Agent Service", Severity.Warning);
-        await Task.Delay(8000); // TODO P1 tmp
+        return;
     }
 }
 
@@ -297,14 +284,12 @@
                 <MudTextField Label="Agent URL"
                               @bind-Value="@urlModel.AdminUrl"
                               For="@(() => urlModel.AdminUrl)"
-                              Immediate="true"
-                              OnBlur="@HandleOnBlur" />
+                              Immediate="true" />
                 <MudTextField Label="@BootUrlLabel"
                               Required="!IsUsingExistingPasscode"
                               @bind-Value="@urlModel.BootUrl"
                               For="@(() => urlModel.BootUrl)"
-                              Immediate="true"
-                              OnBlur="@HandleOnBlur" />
+                              Immediate="true" />
                 <MudText Typo="Typo.h6">Your KERI Agent Account</MudText>
                 <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
@@ -320,12 +305,8 @@
                                   InputType="InputType.Password"
                                   @bind-Value="@configuredPasscodeModel.Passcode"
                                   For="@(() => configuredPasscodeModel.Passcode)"
-                                  Immediate="true"
-                                  OnBlur="@HandleOnBlur" />
-
-                    // TODO P3 consider adding a Loading Button while connecting. See https://mudblazor.com/components/button#loading-button
-
-                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await StoreHashAndConnect())" Disabled="@(!IsValidNewInfo || IsKeriaConfigured )" Color="Color.Primary">Connect</MudButton>
+                                  Immediate="true" />
+                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="StoreHashAndConnect" Disabled="@(!IsValidNewInfo || IsKeriaConfigured )" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
                 {
@@ -342,8 +323,7 @@
                                       InputType="InputType.Password"
                                       @bind-Value="@configuredPasscodeModel.Passcode"
                                       For="@(() => configuredPasscodeModel.Passcode)"
-                                      Immediate="true"
-                                      OnBlur="@HandleOnBlur" />
+                                      Immediate="true" />
                         @if (@configuredPasscodeModel.Passcode.Length != 21)
                         {
                             <MudText></MudText>
@@ -360,8 +340,8 @@
                                           @bind-Value="@InitialAlias"
                                           spellcheck="false"
                                           Immediate="true"
-                                          HelperText="e.g. <Your name> as <Role name> at <Organization>" />
-                            <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="@(async () => await StoreHashAndConnect())" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary"><MudText>Connect and Create Initial Identifier</MudText></MudButton>
+                                          HelperText="@AppConfig.ExampleAlias" />
+                            <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="StoreHashAndConnect" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary"><MudText>Connect and Create Initial Identifier</MudText></MudButton>
                         }
                     }
                 }
@@ -376,7 +356,10 @@
                         }
                         <OperationDisplayComponent ops="@ops3BootMaybeAndConnect"></OperationDisplayComponent>
                         <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                        @if (!IsUsingExistingPasscode)
+                        {
+                            <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                        }
                     </MudStack>
                 }
             </MudStack>
@@ -385,6 +368,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <!-- Intentionally no back button here -->
         <MudSpacer />
-        <MudButton Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToIndex))" Class="justify-start" data-testid="next">Next</MudButton>
+        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToIndex))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
