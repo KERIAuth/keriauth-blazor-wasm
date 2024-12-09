@@ -49,11 +49,11 @@
 
     // fields
     static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
-    static readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERI Agent Service liveness", "Live");
-    static readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERI Agent Service health", "Healthy");
-    static readonly OperationDisplay ops3BootMaybeAndConnect = new OperationDisplay("Reconnecting to or establishing new connection", "Connected");
-    static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Identifiers retrieved");
-    static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created personal identifier");
+    static readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERI Agent Service liveness", "Estalished KERIA connection");
+    static readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
+    static readonly OperationDisplay ops3BootMaybeAndConnect = new OperationDisplay("Connecting", "Connected");
+    static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
+    static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
     static List<Preset> presetAgents = new List<Preset>
     {
         new Preset("localhost", AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl),
