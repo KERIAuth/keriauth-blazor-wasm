@@ -47,8 +47,10 @@
             <MudText Typo="Typo.body1">
                 The version of software has been updated.
             </MudText>
-            <MudText>For release history, see </MudText>
-            <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHtml)">release history</MudButton>
+            <div style="display:hidden;">
+                <MudText>For release history, see </MudText>
+                <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHtml)">release history</MudButton>
+            </div>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">

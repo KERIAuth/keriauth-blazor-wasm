@@ -41,42 +41,12 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
-<div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main">
-        <MudStack>
-            <MudText Typo="Typo.body1">
-                Thank you for installing KERI Auth.
-                Enjoy exploring our features and capabilities.
-                <br />
-                This pre-release supports the following features:
-            </MudText>
-            <MudContainer>
-                <ul style="list-style-type:circle;">
-                    <li>Configure a connection with a KERI Agent Service of your choosing</li>
-                    <li>Create one or more KERI identifiers</li>
-                    <li>Select your current KERI identifier</li>
-                    <li>View credentials issued to your identifiers</li>
-                    <li>
-                        Visit websites supporting KERI's Signify protocol, and:
-                        <ul style="list-style-type:circle; margin-left:10px;">
-                            <li>Launch this extension</li>
-                            <li>Authenticate ("sign in") with your KERI identifier</li>
-                            <li>Authorize ("sign in") with a credential you've received</li>
-                        </ul>
-                    </li>
-                    <li>More features coming soon!</li>
-                </ul>
-            </MudContainer>
-            <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
-        </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
-</div>
-
 @code {
+    protected override async Task OnInitializedAsync()
+    {
+        // logger.LogInformation("OnInitializedAsync");
+    }
+
     private async Task AcknowledgeWelcome()
     {
         var res = await storageService.GetItem<OnboardState>();
@@ -92,9 +62,42 @@
         navManager.NavigateTo(RouteToIndex);
         return;
     }
-
-    protected override async Task OnInitializedAsync()
-    {
-        logger.LogInformation("OnInitializedAsync");
-    }
 }
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Welcome</MudText>
+            <MudStack>
+                <MudText Typo="Typo.body1">
+                    Thank you for installing KERI Auth.
+                    Enjoy exploring our features and capabilities.
+                    <br />
+                    This pre-release supports the following features:
+                </MudText>
+                <MudContainer>
+                    <ul style="list-style-type:circle;">
+                        <li>Configure a connection with a KERI Agent Service of your choosing</li>
+                        <li>Create one or more KERI identifiers</li>
+                        <li>Select your current KERI identifier</li>
+                        <li>View credentials issued to your identifiers</li>
+                        <li>
+                            Visit websites supporting KERI's Signify protocol, and:
+                            <ul style="list-style-type:circle; margin-left:10px;">
+                                <li>Launch this extension</li>
+                                <li>Authenticate ("sign in") with your KERI identifier</li>
+                                <li>Authorize ("sign in") with a credential you've received</li>
+                            </ul>
+                        </li>
+                        <li>More features coming soon!</li>
+                    </ul>
+                </MudContainer>
+                <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
+            </MudStack>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer></MudSpacer>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
+    </MudStack>
+</div>
