@@ -9,6 +9,8 @@
 @inject ILogger<DeletePage> logger
 @using static KeriAuth.BrowserExtension.Helper.PreviousPage
 @using static KeriAuth.BrowserExtension.Helper.UIHelper
+@inject IWebExtensionsApi webExtensionsApi
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -30,6 +32,11 @@
 </div>
 
 @code {
+    protected override async Task OnInitializedAsync()
+    {
+        webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
+    }
+
     private async Task DeleteWallet()
     {
         bool isRemoveConfirmed;
@@ -45,13 +52,14 @@
                      CloseOnEscapeKey = true,
                  }
          );
-        // TODO P3 delete confirmation should not delete when a return is entered.
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            // TODO P2 also need to clear Sync and Session here
-            await storageService.Clear();
-            RestartBlazorApp("index.html"); // intentionally not RouteToIndex
+            await webExtensionsApi.Storage.Local.Clear();
+            await webExtensionsApi.Storage.Sync.Clear();
+            await webExtensionsApi.Storage.Session.Clear();
+
+            RestartBlazorApp("index.html"); // intentionally index.html and not not RouteToIndex
         } else
         {
             navManager.NavigateTo(RouteToHome);
