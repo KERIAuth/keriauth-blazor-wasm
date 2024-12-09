@@ -138,16 +138,46 @@ async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
 }
 
 /*
+ *  Generate a 6 digit hash number from a string
+ */
+async function generateSixDigitNumber(id: string): Promise<string> {
+    // Combine the input with a fixed string and encode it as a Uint8Array
+    const data = new TextEncoder().encode(id + "fixed");
+
+    // Hash the data using SHA-256
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+    // Convert the hash to a hexadecimal string manually
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(byte => (byte < 16 ? "0" : "") + byte.toString(16)).join("");
+
+    // Use a subset of the hash to create a 6-digit number
+    const hashSegment = hashHex.slice(0, 10); // Take the first 10 hex digits
+    const numericValue = parseInt(hashSegment, 16) % 1000000; // Convert to a number and mod to 6 digits
+
+    // Ensure it's exactly 6 digits by manually padding with zeros
+    const sixDigitNumber = numericValue.toString();
+    const paddedNumber = sixDigitNumber.length < 6
+        ? "0".repeat(6 - sixDigitNumber.length) + sixDigitNumber
+        : sixDigitNumber;
+
+    return paddedNumber;
+}
+
+/*
  *
  */
 async function getOrCreateUser(): Promise<User> {
     let id = await getOrCreateUserId();
     let user: User;
-    // const createDateString = new Date().toISOString();
+    // create a friendly name that is derrived from the profileId
+    // TODO P3 could display this value in the AuthenticatorsPage
+    let namestring = await generateSixDigitNumber(id.toString());
+    let name: string = `${KERI_AUTH_EXTENSION_NAME + " (" + namestring + ")"}`; // fixed for same profile
     user = {
         id: id,
-        name: `${KERI_AUTH_EXTENSION_NAME}`, // want this to be fixed     ${createDateString}`,
-        displayName: `${KERI_AUTH_EXTENSION_NAME}` // want this to be fixed     ${createDateString}`
+        name: name,
+        displayName: name,
     };
     return user;
 }
