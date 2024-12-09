@@ -51,7 +51,7 @@ namespace KeriAuth.BrowserExtension
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
         public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
 
-        public const string ExampleAlias = "e.g. Maria Garcia as Compliance Analyst at Prime Industries";
+        public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
 
         public static readonly List<string> ViewsNotRequiringAuth =
         [
@@ -64,7 +64,7 @@ namespace KeriAuth.BrowserExtension
             RouteToUnlock,
             RouteToManagePrefs,
             RouteToTermsPage
-            // Note, you don't need to add routes to static html (non-SPA-App) here
+            // Note, we don't need to add routes to static html (non-SPA-App) here
         ];
 
         public static readonly MudTheme MyCustomTheme = new()
