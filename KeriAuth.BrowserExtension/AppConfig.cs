@@ -41,8 +41,8 @@ namespace KeriAuth.BrowserExtension
 		public const string RouteToReleaseHtml = "content/release.html";
 
 		// Terms Of Service and Privacy Policy hashes for the current release
-		public const int TosHash = 1316701227;
-		public const int PrivacyHash = 1251669842;
+		public const double TosHash = 1470787834;
+		public const float PrivacyHash = 1251669842;
 
 		// TODO P2 view on UnlockPage should use what is set in preferences
 		public static float IdleTimeoutMins = 5f;
