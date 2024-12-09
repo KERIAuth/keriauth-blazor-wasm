@@ -126,6 +126,12 @@
 		<Content Update="wwwroot\content\terms.html">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
+		<Content Update="wwwroot\scripts\es6\inactivityHelpers.js">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Update="wwwroot\scripts\es6\interopHelper.js">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
 		<Content Update="wwwroot\sounds\beep.mp3">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
@@ -215,7 +221,7 @@
 	<ItemGroup>
 	  <TypeScriptCompile Remove="wwwroot\scripts\ContentScript.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\global.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\inactivityHelpers.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\interopHelper.d.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\PageCsInterfaces.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\SpaExtensionInterop.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnCredentialWithPRF.ts" />
@@ -261,5 +267,8 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <None Remove="wwwroot\scripts\es6\IRegisteredAuthenticators.ts" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="wwwroot\scripts\es6\inactivityHelpers.ts" />
 	</ItemGroup>
 </Project>

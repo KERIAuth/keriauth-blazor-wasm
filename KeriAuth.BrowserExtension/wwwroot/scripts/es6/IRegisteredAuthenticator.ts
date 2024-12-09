@@ -14,3 +14,4 @@ export interface IRegisteredAuthenticator {
     //  The UTC time when this record was last updated.
     lastUpdatedUtc: string; // DateTime maps to ISO 8601 string in JSON.
 }
+
