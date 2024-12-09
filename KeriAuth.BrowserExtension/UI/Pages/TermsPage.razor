@@ -138,16 +138,31 @@
         border-width: 2px;
         position: relative;
     }
+
     .bt-terms-button {
         color: var(--mud-palette-primary);
         justify-content: right;
-        position:relative;
-        border-radius:unset;
-        top:55px;
+        position: relative;
+        border-radius: unset;
+        top: 55px;
         margin-top: -55px;
         z-index: 999;
     }
+
     .bt-terms-markup {
+        all: unset;
         position: relative;
     }
+
+        .bt-terms-markup ul, .bt-terms-markup ol {
+            margin: revert;
+            padding: revert;
+            list-style: disc;
+        }
+
+        .bt-terms-markup li {
+            all: revert;
+            margin-top: 0.5em;
+        }
+
 </style>
