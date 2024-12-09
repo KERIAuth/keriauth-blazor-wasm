@@ -145,14 +145,14 @@
     {
         if (signInButton is not null)
         {
-            logger.LogWarning("setting focus on Sign In button");
+            logger.LogInformation("setting focus on Sign In button");
             await signInButton.FocusAsync();
         }
     }
 
     /*
-    // SignIn()
-    */
+     * SignIn()
+     */
     async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
         // will received prefix and credential via callback from WebsiteConfigDisplay component

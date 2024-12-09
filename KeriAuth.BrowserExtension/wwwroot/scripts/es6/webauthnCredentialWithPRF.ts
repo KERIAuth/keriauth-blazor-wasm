@@ -15,35 +15,35 @@ enum ErrorCode {
 }
 
 // TODO P2 move this to shared utility typescript file
-export type FluentResult<T> = {
+type FluentResult<T> = {
     isSuccess: boolean;
     errors: string[];
     value?: T;
 };
 
 // Constant fixed properties
-export const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
-export const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
-export const CREDS_CREATE_ATTESTATION = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
-export const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
+const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
+const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
+const CREDS_CREATE_ATTESTATION = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
+const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -7, type: "public-key" },   // ES256
     { alg: -257, type: "public-key" }  // RS256
 ];
-export const CREDS_CREATE_TIMEOUT = 60000;
-export const CREDS_GET_TIMEOUT = 60000;
-export const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
+const CREDS_CREATE_TIMEOUT = 60000;
+const CREDS_GET_TIMEOUT = 60000;
+const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
     // TODO P2 Set these authenticator selection criteria to strongest levels, then allow user to lower the requirements in preferences.
     residentKey: "preferred", //"required", // preferred, or required for more safety
     userVerification: "required", // preferred or required. Enforce user verification (e.g., biometric, PIN)
     // authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
     requireResidentKey: false,           // True for passwordless and hardware-backed credentials
 };
-export const ENCRYPT_KEY_LABEL = "KERI Auth";
-export const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
-export const ENCRYPT_DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
-export const ENCRYPT_NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-export const ENCRYPT_KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
-export const ENCRYPT_DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: "SHA-256" };
+const ENCRYPT_KEY_LABEL = "KERI Auth";
+const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
+const ENCRYPT_DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
+const ENCRYPT_NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+const ENCRYPT_KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
+const ENCRYPT_DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: "SHA-256" };
 
 /*
  * Helper function to compare two Uint8Arrays
@@ -72,7 +72,7 @@ const getExtensions = (firstSalt: Uint8Array): any => {
 /**
  * Checks for WebAuthn support, available only when running in a secure context
  */
-export const isWebauthnSupported = (): boolean => !!self.PublicKeyCredential;
+const isWebauthnSupported = (): boolean => !!self.PublicKeyCredential;
 
 /**
  * Helper function to retry an asynchronous operation with a timeout.
@@ -192,7 +192,7 @@ async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
 }
 
 // Note name and types/shape needs to align with definition in IWeebauthnService
-export interface CredentialWithPRF {
+interface CredentialWithPRF {
     credentialID: string; // Base64Url-encoded Credential ID
     transports: string[]; // Array of transport types (e.g., ["usb", "nfc", "ble", "internal", "hybrid"])
 }
@@ -413,7 +413,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
 
 
 // Note name and types/shape needs to align with definition in IWebauthnService
-export interface AuthenticateCredResult {
+interface AuthenticateCredResult {
     credentialId: string; // Base64Url-encoded Credential ID
     encryptKey: string; // Base64 of encrypt key
 }
