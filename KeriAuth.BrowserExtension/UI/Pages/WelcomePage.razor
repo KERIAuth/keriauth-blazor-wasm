@@ -42,7 +42,13 @@
 @inject ISnackbar snackbar
 
 @code {
-    MudButton? buttonRef;
+    // fields
+    MudButton? nextButton;
+
+    // properties
+
+    // reactive properties
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,11 +57,11 @@
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        if (/* isFirstRender && */ buttonRef is not null)
-            await buttonRef.FocusAsync();
+        if (/* isFirstRender && */ nextButton is not null)
+            await nextButton.FocusAsync();
     }
 
-    private async Task AcknowledgeWelcome()
+    async Task AcknowledgeWelcome()
     {
         var res = await storageService.GetItem<OnboardState>();
         // logger.LogWarning("pre-stored OnboardStateRes: {s}", res);
@@ -85,18 +91,18 @@
                     <ol>
                         <li>Configure a connection with a KERI Agent Service (KERIA) of your choosing</li>
                         <ul>
-                            <li>As a usage prerequisite, you'll need to arrange access to a KERIA instance provided by a vendor or that you host.</li>
-                            <li>Use a passcode established with your KERIA vendor, or create a new passcode if permitted.</li>
+                            <li>As a usage prerequisite, you'll need to arrange access to a KERIA instance provided by a vendor, or host an instance yourself</li>
+                            <li>Use a passcode you previously created with your KERIA connection, or create a new passcode if permitted by the provider</li>
                         </ul>
                         <li>Create one or more identifiers</li>
                         <li>Select your current identifier</li>
                         <li>View credentials issued to your identifiers</li>
                         <li>Visit websites supporting KERI's polaris-web / signify protocol:
                             <ul>
-                                <li>First, allow KERI Auth to interact with the current web page by pressing the extension's action icon (in the top-right corner of your browser's window or click the extension/puzzle piece icon).</li>
-                                <li>Follow instructions on the web page.</li>
+                                <li>First, youll allow KERI Auth to interact with the current web page by pressing the extension's action icon (in the top-right corner of your browser's window or click the extension/puzzle piece icon)</li>
+                                <li>Follow instructions on the web page</li>
                                 <li>Sign In with one of your KERI identifiers or credentials</li>
-                                <li>Authorize access to website resources when prompted (signing Http Request Headers)</li>
+                                <li>Authorize access to website resources when prompted (to sign HTTP Request Headers)</li>
                             </ul>
                         </li>
                     </ol>
@@ -107,6 +113,6 @@
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer></MudSpacer>
-        <MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
+        <MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await AcknowledgeWelcome())" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
