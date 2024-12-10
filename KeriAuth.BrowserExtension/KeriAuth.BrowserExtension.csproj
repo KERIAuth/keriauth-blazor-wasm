@@ -92,6 +92,7 @@
 		<Content Remove="wwwroot\content\help.html" />
 		<Content Remove="wwwroot\content\licenses.html" />
 		<Content Remove="wwwroot\content\release.html" />
+		<Content Remove="wwwroot\content\release_history.html" />
 		<Content Remove="wwwroot\css\site.css" />
 		<Content Remove="wwwroot\images\keri-auth.svg" />
 		<Content Remove="wwwroot\images\LogoHorizontal.svg" />

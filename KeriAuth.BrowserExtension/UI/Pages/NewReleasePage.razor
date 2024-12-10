@@ -40,11 +40,23 @@
 @inject ISnackbar snackbar
 
 @code {
+    // fields
     MudButton? buttonRef;
+    const string releaseUrlPath = "content/release.html";
+    static MarkupString releaseMarkup = new("Placeholder for Release Notes");
+    const string releaseHistoryUrlPath = "content/release_history.html";
+    static MarkupString releaseHistoryMarkup = new("Placeholder for Release Notes");
+
+    // properties
+
+    // reactive properties
+
 
     protected override async Task OnInitializedAsync()
     {
-        logger.LogInformation("OnInitializedAsync");
+        // logger.LogInformation("OnInitializedAsync");
+        releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
+        releaseHistoryMarkup = new MarkupString(await http.GetStringAsync(releaseHistoryUrlPath));
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -53,7 +65,7 @@
             await buttonRef.FocusAsync();
     }
 
-    private async Task AckNewRelease()
+    async Task AckNewRelease()
     {
         var res = await storageService.GetItem<OnboardState>();
         if (res.IsFailed || res.Value is null)
@@ -70,17 +82,29 @@
     }
 }
 
+
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <MudStack>
             <MudText Typo="Typo.h6">Updated Release</MudText>
-            <MudText Typo="Typo.body1">
-                The version of software has been updated.
-            </MudText>
-            <div style="display:hidden;">
-                <MudText>For release history, see </MudText>
-                <MudButton Variant="Variant.Text" OnClick="() => navManager.NavigateTo(RouteToReleaseHtml)">release history</MudButton>
-            </div>
+            <MudStack Style="gap:0;">
+                <MudText Typo="Typo.body1">
+                    The software version of KERI Auth has been recently installed or updated.
+                    You can review the current Release Notes and Release History below.
+                </MudText>
+                <MudStack Class="d-flex bt-terms-section">
+                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
+                    <div class="bt-terms-markup">
+                        @(releaseMarkup)
+                    </div>
+                </MudStack>
+                <MudStack Class="d-flex bt-terms-section">
+                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseHistoryUrlPath" Target="_blank" Class="bt-terms-button" />
+                    <div class="bt-terms-markup">
+                        @(releaseHistoryMarkup)
+                    </div>
+                </MudStack>
+            </MudStack>
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
