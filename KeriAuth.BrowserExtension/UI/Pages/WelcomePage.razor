@@ -78,27 +78,29 @@
             <MudText Typo="Typo.h6">Welcome</MudText>
             <MudStack>
                 <MudText Typo="Typo.body1">
-                    Thank you for installing KERI Auth.
-                    Enjoy exploring our features and capabilities.
-                    <br />
-                    This beta release supports the following features:
+                    Thank you for installing the KERI Auth browser extension.
+                    This beta release provides the following features:
                 </MudText>
-                <MudContainer>
-                    <ul style="list-style-type:circle;">
+                <MudText Class="bt-terms-markup mud-typography mud-typography-body1" >
+                    <ol>
                         <li>Configure a connection with a KERI Agent Service (KERIA) of your choosing</li>
-                        <li>Create one or more KERI identifiers</li>
-                        <li>Select your current KERI identifier</li>
+                        <ul>
+                            <li>As a usage prerequisite, you'll need to arrange access to a KERIA instance provided by a vendor or that you host.</li>
+                            <li>Use a passcode established with your KERIA vendor, or create a new passcode if permitted.</li>
+                        </ul>
+                        <li>Create one or more identifiers</li>
+                        <li>Select your current identifier</li>
                         <li>View credentials issued to your identifiers</li>
-                        <li>
-                            Visit websites supporting KERI's Signify protocol, and:
-                            <ul style="list-style-type:circle; margin-left:10px;">
-                                <li>Launch this extension</li>
-                                <li>Sign In with your KERI identifier or a credential</li>
-                                <li>Authorize access to websites resources by signing Http Request Headers, presented with a credential you have</li>
+                        <li>Visit websites supporting KERI's polaris-web / signify protocol:
+                            <ul>
+                                <li>First, allow KERI Auth to interact with the current web page by pressing the extension's action icon (in the top-right corner of your browser's window or click the extension/puzzle piece icon).</li>
+                                <li>Follow instructions on the web page.</li>
+                                <li>Sign In with one of your KERI identifiers or credentials</li>
+                                <li>Authorize access to website resources when prompted (signing Http Request Headers)</li>
                             </ul>
                         </li>
-                    </ul>
-                </MudContainer>
+                    </ol>
+                </MudText>
                 <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
             </MudStack>
         </div>
