@@ -106,6 +106,11 @@ function createPort(withHandshake: boolean): void {
         // disconnect will typically happen when the service-worker becomes inactive
         console.info("KeriAuthCs: Port with service-worker was disconnected, likely due to SW going inactive.");
         portWithSw = null;
+        // TODO P2 may need to attempt to reconnect here, e.g.:
+        //setTimeout(() => {
+        //    console.log("Reconnecting...");
+        //    createPort(false); // or true ?
+        //}, 1000);
     });
 
     if (withHandshake) {
