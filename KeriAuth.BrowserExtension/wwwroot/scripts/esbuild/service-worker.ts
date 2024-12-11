@@ -59,10 +59,24 @@ chrome.runtime.onStartup.addListener(() => {
 // Handle messages from app (other than via port)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'resetInactivityTimer') {
-        // Clear existing alarm and set a new one
-        chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
-            // TODO P2 get InactivityTimout from stored preferences (cached into storage.session).  Confirm this is debounced and has no performance hit with frequently geting the delay preference
-            chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: 5.0 });
+        // Default inactivity timeout
+        let inactivityTimeoutMinutes = 5.0;
+
+        // Get the user setting from session storage
+        chrome.storage.session.get(['inactivityTimeoutMinutes'], (result) => {
+            if (result.inactivityTimeoutMinutes !== undefined) {
+                const timeout = parseFloat(result.inactivityTimeoutMinutes);
+                if (!isNaN(timeout)) {
+                    inactivityTimeoutMinutes = timeout; // Assign the value from storage
+                }
+            }
+
+            // console.warn("Resetting inactivity timer to", inactivityTimeoutMinutes);
+
+            // Clear existing alarm and set a new one
+            chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
+                chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: inactivityTimeoutMinutes });
+            });
         });
     }
 });

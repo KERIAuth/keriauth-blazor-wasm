@@ -202,7 +202,7 @@
                 @if (IsAuthenticated)
                 {
                     <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        @if (CurrentState == IStateService.States.AuthenticatedDisconnected)
+                        @if (stateService.GetState() == IStateService.States.AuthenticatedDisconnected)
                         {
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
                                 <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />

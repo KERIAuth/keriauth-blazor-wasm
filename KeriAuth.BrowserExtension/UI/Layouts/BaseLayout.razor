@@ -29,51 +29,8 @@
 
 <!-- Note that @Body and other body content will be provided by specialized layouts inheriting from this BaseLayout -->
 @code {
-    private IDisposable? stateSubscription;
-
-    protected IStateService.States CurrentState => stateService.GetState();
-
     protected override async Task OnInitializedAsync()
     {
         // await base.OnInitializedAsync();
-
-        stateSubscription = stateService.Subscribe(
-        onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
-            onError: async (Exception error) => await HandleErrorFromStateService(error),
-            onCompleted: async () => await HandleCompletedFromStateService());
-       
-    }
-
-    // TODO P2, Any state change could affect all views, including those for other layouts. E.g. due to an inactivityTimeout on a "dialog". Move this to a common layout base.
-    async Task HandleNextFromStateService(IStateService.States updatedState)
-    {
-        switch (CurrentState, updatedState)
-        {
-            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
-            case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
-                // TODO: P1 check inactivity timeout
-                // StateHasChanged();
-                // logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
-                // navManager.NavigateTo(RouteToIndex);
-                // break;
-            case (_, IStateService.States.AuthenticatedDisconnected):
-            case (_, IStateService.States.AuthenticatedConnected):
-            case (_, _):
-                StateHasChanged();
-                break;
-        }
-        await Task.Delay(0);
-    }
-
-    async Task HandleErrorFromStateService(Exception error)
-    {
-        await Task.Delay(0);
-        logger.LogError("Error from stateService: " + error.Message);
-    }
-
-    async Task HandleCompletedFromStateService()
-    {
-        await Task.Delay(0);
-        logger.LogInformation("Completed from stateService");
     }
 }

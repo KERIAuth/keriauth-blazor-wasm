@@ -1,18 +1,22 @@
 ﻿
 namespace KeriAuth.BrowserExtension.Services;
+
+using JsBind.Net;
 using KeriAuth.BrowserExtension.Models;
+using WebExtensions.Net;
 
-
-public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>
+public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>
 {
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
     private readonly IStorageService storageService = storageService;
     // private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
     private IDisposable? stateSubscription;
+    private WebExtensionsApi? webExtensionsApi;
 
     public async Task Initialize()
     {
         stateSubscription = storageService.Subscribe(this);
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         await Task.Delay(0);
     }
 
@@ -60,10 +64,14 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     public async Task SetPreferences(Preferences preferences)
     {
         await storageService.SetItem<Preferences>(preferences);
-        // See IObserver<Preferences>.OnNext(Preferences value) for pushing updates to overservers
-        //
-        //foreach (var observer in preferencesObservers)
-        //    observer.OnNext(preferences);
+
+        // since we also use InactivityTimeoutMinutes very frequently, we also want this in fast session storage
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", preferences.InactivityTimeoutMinutes } };
+        await webExtensionsApi.Storage.Session.Set(data);
+        // and reset the current inactivityTimeout to immediately pick up the new value, which might be shorter than the currently active one
+        await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+
         return;
     }
 

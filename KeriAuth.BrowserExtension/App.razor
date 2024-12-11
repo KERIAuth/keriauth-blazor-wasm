@@ -23,11 +23,13 @@
 @inject IAppSwMessagingService appSwMessagingService
 
 @code {
-    // fields
+        // fields
     private static IStateService? staticStateService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
     private IDisposable? preferencesSubscription;
+    private IDisposable? stateSubscription;
+    private WebExtensionsApi? webExtensionsApi;
 
     // properties
     public static Preferences Prefs { get; set; } = new Preferences();  // TODO P2 refactor code currently in MainLayout to here
@@ -43,6 +45,7 @@
             // TODO P4 actually set the theme
         }
     }
+    public IStateService.States CurrentState => stateService.GetState();
 
     protected override async Task OnInitializedAsync()
     {
@@ -69,6 +72,12 @@
             onCompleted: async () => await HandleCompletedFromPreferencesService());
 
 
+        stateSubscription = stateService.Subscribe(
+            onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
+            onError: async (Exception error) => await HandleErrorFromStateService(error),
+            onCompleted: async () => await HandleCompletedFromStateService()
+        );
+
         // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>
         {
@@ -84,7 +93,43 @@
 
         // await jsRuntime.InvokeVoidAsync("setupUnloadListener");
 
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", Prefs.InactivityTimeoutMinutes } };
+        await webExtensionsApi.Storage.Session.Set( data );
+
         return;
+    }
+
+
+    async Task HandleNextFromStateService(IStateService.States updatedState)
+    {
+        switch (CurrentState, updatedState)
+        {
+            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
+            case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
+                StateHasChanged();
+                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
+                navManager.NavigateTo(RouteToIndex);
+                break;
+            case (_, IStateService.States.AuthenticatedDisconnected):
+            case (_, IStateService.States.AuthenticatedConnected):
+            case (_, _):
+                StateHasChanged();
+                break;
+        }
+        await Task.Delay(0);
+    }
+
+    async Task HandleErrorFromStateService(Exception error)
+    {
+        await Task.Delay(0);
+        logger.LogError("Error from stateService: " + error.Message);
+    }
+
+    async Task HandleCompletedFromStateService()
+    {
+        await Task.Delay(0);
+        logger.LogInformation("Completed from stateService");
     }
 
     public async Task ToggleDarkTheme()

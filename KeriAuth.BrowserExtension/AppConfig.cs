@@ -44,8 +44,8 @@ namespace KeriAuth.BrowserExtension
         public const double TosHash = 1470787834;
         public const float PrivacyHash = 1251669842;
 
-        // TODO P2 view on UnlockPage should use what is set in preferences
-        public const float IdleTimeoutMins = 5f;
+        // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup        
+        public const float IdleTimeoutMins = 5.0f;
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";

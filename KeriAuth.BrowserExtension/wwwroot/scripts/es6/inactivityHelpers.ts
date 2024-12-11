@@ -9,6 +9,7 @@ function subscribeToUserInteractions() {
 }
 
 function resetInactivityTimer() {
+    // console.log("resetInactivityTimer inactivityHelper");
     chrome.runtime.sendMessage({ action: 'resetInactivityTimer' });
 }
 
