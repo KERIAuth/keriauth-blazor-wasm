@@ -113,7 +113,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             }
             else
             {
-                var newConfig = config with { IsAutoSignSafeHeaders = true }; // auto-sign GETs
+                var newConfig = config with { IsAutoSignSafeHeaders = true };
                 newList.WebsiteList.Add(newConfig);
             }
         }

@@ -45,7 +45,7 @@
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<Dictionary<string, object>> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<Dictionary<string, object>>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
     Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
 
     protected override async Task OnInitializedAsync()
@@ -132,7 +132,7 @@
                 if (isConfigNew)
                 {
                     SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
-                    ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+                    ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, IsAutoSignSafeHeaders = true };
                     await updateWebsiteConfigAndParent(ThisWebsiteConfig);
                     // Note above includes StateHasChanged.
                     return;
@@ -212,14 +212,13 @@
             throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
         }
         // when changing the prefix, any prior selection of RememberedCred will not be relevant
-        // IsAutoSign = false;
         var newWebsiteConfig = ThisWebsiteConfig with
             {
                 RememberedPrefixOrNothing = prefix,
                 RememberedCredSaidOrNothing = null,
                 IsAutoSignInCredential = false,
                 IsAutoSignInIdentifier = false,
-                IsAutoSignSafeHeaders = false
+                IsAutoSignSafeHeaders = true
             };
         logger.LogInformation("updateSelectedPrefix 2");
         // _ = newWebsiteConfig.Validate();
@@ -236,13 +235,10 @@
         logger.LogInformation("updateSelectedPrefix 4");
         await Task.Delay(100); // tmp?
         SelectedPrefix = prefix;
-        // StateHasChanged();
-        logger.LogWarning("after updatedSelectedPrefix SelectedPrefix: {p}", SelectedPrefix);
     }
 
     async Task updateSelectedCredential(Dictionary<string, object>? newSelectedCredential)
     {
-        logger.LogWarning("updateSelectedCredential...");
         if (newSelectedCredential is null || !newSelectedCredential.Any())
         {
             logger.LogError($"updateSelectedCredential: credential should not be null or empty here.");
@@ -267,22 +263,21 @@
             logger.LogError($"updateSelectedCredential: Could not find SAID of credential");
             return;
         }
-        logger.LogWarning("updateSelectedCredential credSaid: ", newCredSaidOrNothing);
+        // logger.LogWarning("updateSelectedCredential credSaid: ", newCredSaidOrNothing);
 
         var newWebsiteConfig = ThisWebsiteConfig with
             {
                 RememberedCredSaidOrNothing = newCredSaidOrNothing,
                 RememberedPrefixOrNothing = SelectedPrefix,
                 IsAutoSignSafeHeaders = IsAutoSignSafeHeaders,
-                IsAutoSignInCredential = IsAutoSignSafeHeaders,
-                IsAutoSignInIdentifier = IsAutoSignSafeHeaders // intentional, since selected cred implies identifier
+                IsAutoSignInCredential = true,
+                IsAutoSignInIdentifier = true,
             };
-        // newWebsiteConfig.Validate();
 
         await updateWebsiteConfigAndParent(newWebsiteConfig);
 
         IsCredListExpanded = false;
-        // why is any of the following needed?
+        // TODO P43 why is any of the following needed?
         if (OriginUri is not null)
         {
             await refreshFromWebsiteConfig(OriginUri);

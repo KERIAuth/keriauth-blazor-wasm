@@ -49,6 +49,12 @@
 
     // fields
     private MudButton? signRequestButton;
+    static readonly HashSet<string> SafeMethods = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "GET",
+        "HEAD",
+        "OPTIONS"
+    };
 
     // properties
     string RequestId { get; set; } = "";
@@ -76,14 +82,8 @@
        string.Equals(header.Key, "method", StringComparison.OrdinalIgnoreCase) &&
        SafeMethods.Contains(header.Value));
     bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
-    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-    static readonly HashSet<string> SafeMethods = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "GET",
-        "HEAD",
-        "OPTIONS"
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -204,7 +204,7 @@
             IdentifierHeadlines = IdentifierHeadlines.OrderBy(a => a.Alias).ToList();
             if (IdentifierHeadlines.Count > 0)
             {
-                Debug.Assert(GetOriginUri() is not null);
+                Debug.Assert(GetOriginUri() is not null); // TODO P2 convert to a throw
                 var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
                 logger.LogInformation("GetHeadlines: getOrCreateWebsite: {0}", JsonSerializer.Serialize(wcRes));
                 if (wcRes.IsFailed)
@@ -274,7 +274,7 @@
     //
     async Task updateIsAutoSignSafeHeaders(bool isChecked)
     {
-        logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
+        // logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
         if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignSafeHeaders != isChecked)
         {
             ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignSafeHeaders = isChecked };
@@ -483,9 +483,9 @@
             <MudText Typo="Typo.h6">Request to Sign</MudText>
             <MudText Typo="Typo.body1"><em>@AuthorityStr</em></MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                This website authority is requesting KERI Auth, with your approval, to cryptographically sign an HTTP request header that will allow it to validate the credential you used earlier to sign in, then authorize actions.<br />
+                This website authority is requesting KERI Auth, with your approval, to cryptographically sign an HTTP Request Header, which will then allow it to validate the credential you used earlier to sign in, then authorize actions.<br />
             </MudText>
-            @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevents distracting progressive loading
+            @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevent distracting progressive loading
             {
                 <MudCheckBox Label="Show Details" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)"></MudCheckBox>
                 @if (IsDetailShown)
