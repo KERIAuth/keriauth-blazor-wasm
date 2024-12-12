@@ -385,12 +385,12 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     connectedPort.onDisconnect.addListener(() => {
         console.log("SW port closed connection for page connection: ", pageCsConnections[connectionId])
 
-        if (pageCsConnections[connectionId].port?.name.substring(0,17) == "blazorAppPort-tab") {
+        if (pageCsConnections[connectionId].port?.name.substring(0, 17) == "blazorAppPort-tab") {
             // The extension's App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
             console.info('SW KERI Auth Extension Popup closed');
             for (var key in pageCsConnections) {
                 if (pageCsConnections.hasOwnProperty(key)) {
-                    const csConnection : CsConnection = pageCsConnections[key];
+                    const csConnection: CsConnection = pageCsConnections[key];
                     if (csConnection.tabId != -1) {
                         const lastGasp = {
                             type: SwCsMsgType.REPLY,
@@ -427,38 +427,45 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
     // TODO P3 check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
 
     // Send a response to the KeriAuth App
-    // TODO P2 this seems like active feedback?
     appPort.postMessage({ type: SwCsMsgType.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
         console.log("SW from App: handling App message of type: ", message.type);
-        // note the following may expose a passcode
-        // console.log("SW from App: handling App message data: ", message.data);
         switch (message.type) {
             case SwCsMsgType.REPLY:
                 cSConnection.port.postMessage(message);
                 break;
             case "ApprovedSignRequest":
+                // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
                 try {
-                    // TODO P0 EE! don't hardcode agentUrl and passcode, but pass these in as an argument for now.
-                    const jsonSignifyClient = await connect("https://keria-dev.rootsid.cloud/admin", "Ap31Xt-FGcNXpkxmBYMQn");
-                    const payload = message.payload;
-                    const initHeaders: { [key: string]: string } = { method: payload.requestMethod, path: payload.requestUrl };
-                    const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.requestUrl, payload.requestMethod, initHeaders, payload.selectedName);
-                    console.log("SW: signedRequest: ", headers);
-
-                    const signedHeaderResult = {
-                        type: SwCsMsgType.REPLY,
-                        requestId: message.requestId,
-                        payload: { headers },
-                        rurl: payload.requestUrl
-                    };
-                    console.log("SW from App: signedHeaderResult", signedHeaderResult);
-                    cSConnection.port.postMessage(signedHeaderResult);
-                    break;
+                    const result = await chrome.storage.local.get(['KeriaConnectConfig']);
+                    if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
+                        const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
+                        const result2 = await chrome.storage.session.get(['passcode']);
+                        if (result2.passcode) {
+                            const jsonSignifyClient = await connect(adminUrl, result2.passcode);
+                            const payload = message.payload;
+                            const initHeaders: { [key: string]: string } = { method: payload.requestMethod, path: payload.requestUrl };
+                            const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.requestUrl, payload.requestMethod, initHeaders, payload.selectedName);
+                            const signedHeaderResult = {
+                                type: SwCsMsgType.REPLY,
+                                requestId: message.requestId,
+                                payload: { headers },
+                                rurl: payload.requestUrl
+                            };
+                            console.log("SW from App: signedHeaderResult", signedHeaderResult);
+                            cSConnection.port.postMessage(signedHeaderResult);
+                        }
+                        else {
+                            throw new Error("unexpected no passcode");
+                        }
+                    }
+                    else {
+                        throw new Error("unexpected no config or AdminUrl");
+                    }
                 }
-                catch(error) {
+                catch (error) {
                     console.error("Sw from App: service-worker: ApprovedSignRequest: ", error);
                 }
                 break;

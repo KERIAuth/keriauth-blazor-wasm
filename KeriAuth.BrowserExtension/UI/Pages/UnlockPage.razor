@@ -140,10 +140,6 @@
 
     async Task HandleKeyDown(KeyboardEventArgs args)
     {
-        if (args.CtrlKey && args.Key == "`")
-        {
-            await OpenWalletWithPasscode("Ap31Xt-FGcNXpkxmBYMQn"); // TODO P1 remove example password for testing
-        }
         if (args.Key == "Enter")
         {
             await OpenWallet();
