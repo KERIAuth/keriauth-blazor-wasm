@@ -256,12 +256,6 @@
             await stateService.Configure();
             await stateService.Authenticate(true);
             StateHasChanged();
-            logger.LogWarning("KeriConnectConfig {c}", KeriaConnectConfig); // TODO P0 remove
-            logger.LogWarning("IsKeriaConfigured {c}", IsKeriaConfigured); // TODO P0 remove
-            if (nextButton is not null) {
-                logger.LogWarning("focusing..."); // TODO P0 remove
-                await nextButton.FocusAsync();
-            }
             return;
         }
         snackbar.Add("Failed to connect to KERI Agent Service", Severity.Warning);
