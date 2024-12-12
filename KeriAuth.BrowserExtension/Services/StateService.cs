@@ -151,7 +151,6 @@ public class StateService : IStateService
         stateMachine.Configure(States.AuthenticatedConnected)
             .OnEntryAsync(async () => await OnEntryAuthenticatedConnected())
             .Ignore(Triggers.ToAuthenticatedConnected)
-            .Permit(Triggers.ToInitializing, States.Initializing)
             .Permit(Triggers.ToUnauthenticated, States.Unauthenticated)
             .Permit(Triggers.ToAuthenticatedDisconnected, States.AuthenticatedDisconnected)
             .Permit(Triggers.ToInitializing, States.Initializing);
