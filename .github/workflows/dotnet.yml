@@ -33,7 +33,7 @@ jobs:
 
     - name: Zip artifacts
       run: |
-        cd /home/home/runner/work/keriauth-blazor-wasm/keriauth-blazor-wasm/KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/
+        cd /home/runner/work/keriauth-blazor-wasm/keriauth-blazor-wasm/KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/
         zip -r /home/runner/work/KeriAuth.zip *
       
     - name: Upload build artifacts
