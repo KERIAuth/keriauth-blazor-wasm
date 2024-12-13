@@ -33,7 +33,7 @@ chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.Ins
             break;
         case "update":
             // This event could also be triggered from user hitting Reload on the browser's Extensions page
-            // TODO P3 Allow the index page to know whether the version of the cache is not the new manifest's version?
+            // TODO P1 Allow the index page to know whether the version of the cache is not the new manifest's version?
             urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
             Utils.createTab(urlString);
             break;

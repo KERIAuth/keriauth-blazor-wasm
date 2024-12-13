@@ -75,6 +75,7 @@
         // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
 
+        // TODO P3 DRY with this in other locations including Index, NewReleasePage. Move to App.
         // Get version info from Manifest file
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         var extensionId = webExtensionsApi.Runtime.Id;
@@ -236,7 +237,7 @@
                     @foreach (var identifierHeadline in IdentifiersHeadlines)
                     {
                         <MudListItem Value="identifierHeadline.Prefix" OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActiveAid, identifierHeadline.Prefix)) Class="bt-sad-5">
-                            <MudStack Row="true" Style="diaplay:inline-flex !important; align-items:center;">
+                            <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">
                                 <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
                                     <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>

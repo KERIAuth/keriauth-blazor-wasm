@@ -18,6 +18,8 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using Blazor.BrowserExtension
+@using System.Web
+@using Microsoft.AspNetCore.WebUtilities
 @using WebExtensions.Net
 @using WebExtensions.Net.Runtime
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
@@ -37,6 +39,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ISnackbar snackbar
 
 @code {
@@ -46,8 +49,12 @@
     static MarkupString releaseMarkup = new("Placeholder for Release Notes");
     const string releaseHistoryUrlPath = "content/release_history.html";
     static MarkupString releaseHistoryMarkup = new("Placeholder for Release Notes");
+    private WebExtensionsApi? webExtensionsApi;
 
     // properties
+    string ManifestVersion { get; set; } = "unset";
+    string? PriorVersion { get; set; }
+    OnboardState? MyOnboardState { get; set; }
 
     // reactive properties
 
@@ -57,6 +64,24 @@
         // logger.LogInformation("OnInitializedAsync");
         releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
         releaseHistoryMarkup = new MarkupString(await http.GetStringAsync(releaseHistoryUrlPath));
+
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+
+        // Get version info from Manifest file
+        // TODO P3 Refactor some of this and similar in Mainlayout and NewReleases into App, and pass into Layouts or Pages needing this as parameters
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
+        if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
+        {
+            ManifestVersion = versionElement.ToString();
+        }
+
+        var res = await storageService.GetItem<OnboardState>();
+        if (res.IsFailed || res.Value is null)
+        {
+            throw new Exception("Failed to get OnboardState");
+        }
+        MyOnboardState = res.Value;
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -67,17 +92,11 @@
 
     async Task AckNewRelease()
     {
-        var res = await storageService.GetItem<OnboardState>();
-        if (res.IsFailed || res.Value is null)
-        {
-            throw new Exception("Failed to get OnboardState");
-        }
-        var onboardState = res.Value;
-        onboardState = onboardState with
+        MyOnboardState = MyOnboardState! with
             {
-                HasAcknowledgedNewVersion = true
+                AcknowledgedInstalledVersion = ManifestVersion
             };
-        _ = await storageService.SetItem<OnboardState>(onboardState);
+        _ = await storageService.SetItem<OnboardState>(MyOnboardState);
         navManager.NavigateTo(RouteToIndex);
     }
 }
@@ -89,7 +108,13 @@
             <MudText Typo="Typo.h6">Updated Release</MudText>
             <MudStack Style="gap:0;">
                 <MudText Typo="Typo.body1">
-                    The software version of KERI Auth has been recently installed or updated.
+                    @if(MyOnboardState is null || MyOnboardState.AcknowledgedInstalledVersion is null)
+                    {
+                        <p>KERI Auth has been installed with version @ManifestVersion.</p>
+                    } else
+                    {
+                        <p>KERI Auth has been recently updated from version @MyOnboardState.AcknowledgedInstalledVersion to @ManifestVersion.</p>
+                    }
                     You can review the current Release Notes and Release History below.
                 </MudText>
                 <MudStack Class="d-flex bt-terms-section">
@@ -108,8 +133,6 @@
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-            -->
         <MudSpacer></MudSpacer>
         <MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => AckNewRelease())" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>

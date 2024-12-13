@@ -7,8 +7,8 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("HasAcknowledgedInstall")]
         public bool HasAcknowledgedInstall { get; init; }
 
-        [JsonPropertyName("HasAcknowledgedNewVersion")]
-        public bool HasAcknowledgedNewVersion { get; init; }
+        [JsonPropertyName("AcknowledgedInstalledVersion")]
+        public string? AcknowledgedInstalledVersion { get; init; }
 
         [JsonPropertyName("TosAgreedUtc")]
         public DateTime? TosAgreedUtc { get; init; }
@@ -25,7 +25,7 @@ namespace KeriAuth.BrowserExtension.Models
         public bool IsInstallOnboarded()
         {
             return (HasAcknowledgedInstall
-                && HasAcknowledgedNewVersion
+                && AcknowledgedInstalledVersion is not null
                 && TosAgreedUtc is not null
                 && TosAgreedHash == AppConfig.TosHash
                 && PrivacyAgreedUtc is not null

@@ -142,7 +142,7 @@
     {
         if (args.Key == "Enter")
         {
-            await OpenWallet();
+            await HandleUnlock();
         }
     }
 
@@ -154,14 +154,14 @@
             snackbar.Add("Failed to authenticate", Severity.Warning);
             return;
         }
-        await OpenWalletWithPasscode(passcodeRes.Value);
+        await UnlockWithPasscode(passcodeRes.Value);
         return;
     }
 
-    async Task OpenWallet()
+    async Task HandleUnlock()
     {
         if (unlockPasscodeModel.Passcode is not null)
-            await OpenWalletWithPasscode(unlockPasscodeModel.Passcode);
+            await UnlockWithPasscode(unlockPasscodeModel.Passcode);
     }
 
     class PasscodeModel
@@ -172,7 +172,7 @@
         public string Passcode { get; set; } = "";
     }
 
-    async Task OpenWalletWithPasscode(string password)
+    async Task UnlockWithPasscode(string password)
     {
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
@@ -281,7 +281,7 @@
             <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
                 Use authenticator
             </MudButton>
-            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await OpenWallet()">
+            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
                 Unlock
             </MudButton>
         }
