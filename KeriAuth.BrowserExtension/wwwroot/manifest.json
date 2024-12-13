@@ -31,7 +31,7 @@
     "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals"
   },
   "default_locale": "en",
-  "description": "Authenticate and authorize with websites supporting KERI and compatible credentials.",
+  "description": "Sign in and authorize actions with websites supporting decentralized identity using Signify, KERI, ACDC, and GLEIF's vLEI ecosystem.",
   "icons": {
     "512": "images/512_keri_logo.png"
   },
@@ -46,7 +46,7 @@
   ],
   "options_ui": {
     "page": "index.html",
-    "open_in_tab":  true
+    "open_in_tab": true
   },
   "permissions": [
     "activeTab",
