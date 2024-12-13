@@ -40,6 +40,7 @@ import fs from 'fs';
             console.error(`No write permissions for directory: ${outputDir}`, err);
         }
 
+        console.log('Building signify_ts_shim.js bundle...');
         await esbuild.build({
             entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
             bundle: true,
@@ -47,6 +48,7 @@ import fs from 'fs';
             outfile: 'wwwroot/scripts/esbuild/signify_ts_shim.js',
             platform: 'browser',
             format: 'esm',
+            logLevel: 'debug',
             plugins: [
                 alias({
                     '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
@@ -65,6 +67,7 @@ import fs from 'fs';
             outfile: 'wwwroot/scripts/esbuild/ContentScript.js',
             platform: 'browser',
             format: 'esm',
+            logLevel: 'debug',
             loader: {
                 '.ts': 'ts'
             }
@@ -78,12 +81,13 @@ import fs from 'fs';
             outfile: 'wwwroot/scripts/esbuild/service-worker.js',
             platform: 'browser',
             format: 'esm',
+            logLevel: 'debug',
             loader: {
                 '.ts': 'ts'
             }
         });
 
-        console.log('All builds completed successfully.');
+        console.log('Completed esbuilds.');
 
     } catch (error) {
         console.error('Build failed:', error);
