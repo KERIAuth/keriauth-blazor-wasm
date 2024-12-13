@@ -5,8 +5,12 @@
 import { strict } from 'assert';
 import path from 'path'; // Use ES module syntax for path import
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 (async () => {
+    console.log('Current working directory:', process.cwd());
+    console.log('Environment variables:', process.env);
+
     const esbuild = (await import('esbuild')).default;
     const alias = (await import('esbuild-plugin-alias')).default;
 
@@ -17,6 +21,25 @@ import { fileURLToPath } from 'url';
     try {
         console.log('current directory: ', process.cwd());
         console.log('Building signify_ts_shim.js bundle...');
+        console.log('Entry point absolute path:', path.resolve(process.cwd(), 'wwwroot/scripts/esbuild/signify_ts_shim.ts'));
+        console.log('Output file absolute path:', path.resolve(process.cwd(), 'wwwroot/scripts/esbuild/signify_ts_shim.js'));
+
+        // Ensure the output directory exists
+        const outputDir = path.resolve(process.cwd(), 'wwwroot/scripts/esbuild');
+        if (!fs.existsSync(outputDir)) {
+            console.error(`Output directory does not exist: ${outputDir}`);
+        } else {
+            console.log(`Output directory exists: ${outputDir}`);
+        }
+
+        // Ensure write permissions
+        try {
+            fs.accessSync(outputDir, fs.constants.W_OK);
+            console.log(`Write permissions confirmed for directory: ${outputDir}`);
+        } catch (err) {
+            console.error(`No write permissions for directory: ${outputDir}`, err);
+        }
+
         await esbuild.build({
             entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
             bundle: true,
