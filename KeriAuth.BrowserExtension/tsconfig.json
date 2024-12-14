@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "noEmit": true,
     "allowJs": true,
     "skipLibCheck": true,
     "noErrorTruncation": true,
@@ -9,6 +8,5 @@
     "strict": true,
     "removeComments": true
   },
-  "include": [],
-  "exclude": [ "**/*" ]
+  "include": []
 }

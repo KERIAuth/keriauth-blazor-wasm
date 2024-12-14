@@ -16,7 +16,7 @@
     "moduleResolution": "node",
     "noEmit": false,
     "noFallthroughCasesInSwitch": true,
-    "outDir": ".",
+    "outDir": "./dist",
     "paths": {
       "*": [ "./node_modules/*" ],
       "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],

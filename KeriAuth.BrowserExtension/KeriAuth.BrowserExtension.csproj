@@ -98,6 +98,7 @@
 		<Content Remove="wwwroot\images\LogoHorizontal.svg" />
 		<Content Remove="wwwroot\manifest.webmanifest" />
 		<Content Remove="wwwroot\scripts\app.js" />
+		<Content Remove="wwwroot\scripts\es6\tsconfig.es6.tsbuildinfo" />
 		<Content Remove="wwwroot\scripts\KeriaTest - Copy.js" />
 		<Content Remove="wwwroot\scripts\tmp - Copy.js" />
 		<Content Remove="wwwroot\_locales\en\messages.json" />
@@ -127,40 +128,7 @@
 		<Content Update="wwwroot\content\terms.html">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
-		<Content Update="wwwroot\scripts\es6\ExCsInterfaces.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\inactivityHelpers.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\interopHelper.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\IRegisteredAuthenticator.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\IRegisteredAuthenticators.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\moduleLoader.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\PageCsInterfaces.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\SpaExtensionInterop.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\storageHelper.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\SwAppInterop.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\uiHelper.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\scripts\es6\webauthnCredentialWithPRF.js">
+		<Content Update="dist\wwwroot\scripts\es6\*.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
 		<Content Update="wwwroot\scripts\esbuild\ContentScript.js">
@@ -183,20 +151,56 @@
 		<None Update="wwwroot\manifest.json">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="wwwroot\scripts\es6\global.d.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\inactivityHelpers.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\IRegisteredAuthenticator.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\IRegisteredAuthenticators.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\PageCsInterfaces.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\SpaExtensionInterop.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\SwAppInterop.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\tsconfig.es6.tsbuildinfo">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
 		<None Update="wwwroot\scripts\es6\uiHelper.js">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\webauthnCredentialWithPRF.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 	<ItemGroup>
 		<TypeScriptCompile Update="wwwroot\KeriAuth.BrowserExtensionBrowserExtension.lib.module.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\es6\ExCsInterfaces.ts">
+		<None Update="wwwroot\scripts\es6\ExCsInterfaces.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\es6\uiHelper.ts">
+		</None>
+		<None Update="wwwroot\scripts\es6\interopHelper.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
+		</None>
+		<None Update="wwwroot\scripts\es6\moduleLoader.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\storageHelper.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="wwwroot\scripts\es6\uiHelper.ts">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
 		<TypeScriptCompile Update="wwwroot\scripts\esbuild\ContentScript.ts">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</TypeScriptCompile>
@@ -249,7 +253,7 @@
 		<Message Text="VersionName: Not replaced, since not in VS" Importance="high" />
 		<!-- Note that attempting to invoke RegexReplace in MSBuild Azure pipelines may yield errors MSB4801 and MSB4175 -->
 	</Target>
-	<Target Name="InstallDependencies" BeforeTargets="PreBuildEvent">
+	<Target Name="InstallDependencies" BeforeTargets="BuildFrontend">
 		<Exec Command="npm install" />
 	</Target>
 	<Target Name="BuildFrontend" BeforeTargets="PreBuildEvent">
@@ -260,10 +264,19 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <TypeScriptCompile Remove="wwwroot\scripts\ContentScript.d.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\ExCsInterfaces.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\global.d.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\inactivityHelpers.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\interopHelper.d.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\interopHelper.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\IRegisteredAuthenticator.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\IRegisteredAuthenticators.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\moduleLoader.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\PageCsInterfaces.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\SpaExtensionInterop.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\storageHelper.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\SwAppInterop.ts" />
+	  <TypeScriptCompile Remove="wwwroot\scripts\es6\uiHelper.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnCredentialWithPRF.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnHmacSecret.ts" />
 	  <TypeScriptCompile Remove="wwwroot\scripts\interopHelper.d.ts" />
