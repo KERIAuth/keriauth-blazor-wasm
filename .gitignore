@@ -513,3 +513,4 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/log.txt
 /KeriAuth.BrowserExtension/dist/wwwroot/scripts/es6
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/inactivityHelpers.d.ts
+/KeriAuth.BrowserExtension/dist/tsconfig.es6.tsbuildinfo
