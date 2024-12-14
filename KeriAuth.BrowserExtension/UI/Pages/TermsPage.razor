@@ -41,82 +41,81 @@
 @inject ISnackbar snackbar
 
 @code {
-    // fields
-    private OnboardState? onboardState;
-    const string termsUrlPath = "content/terms.html";
-    const string privacyUrlPath = "content/privacy.html";
-    static MarkupString termsMarkup = new("Placeholder for Terms of Use");
-    static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
+	// fields
+	private OnboardState? onboardState;
+	const string termsUrlPath = "content/terms.html";
+	const string privacyUrlPath = "content/privacy.html";
+	static MarkupString termsMarkup = new("Placeholder for Terms of Use");
+	static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
 
-    // properties
-    bool IsTermsAgreed { get; set; }
+	// properties
+	bool IsTermsAgreed { get; set; }
 
-    // reactive properties
-    int termsMarkupHash => HashInt(termsMarkup.Value);
-    int privacyMarkupHash => HashInt(privacyMarkup.Value);
+	// reactive properties
+	int termsMarkupHash => HashInt(termsMarkup.Value);
+	int privacyMarkupHash => HashInt(privacyMarkup.Value);
 
-    protected override async Task OnInitializedAsync()
-    {
-        // logger.LogInformation("OnInitializedAsync");
-        termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
-        privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
+	protected override async Task OnInitializedAsync()
+	{
+		// logger.LogInformation("OnInitializedAsync");
+		termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
+		privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
 
-        var res = await storageService.GetItem<OnboardState>();
-        if (res.IsFailed)
-        {
-            throw new InvalidOperationException("Failed to get OnboardState");
-        }
-        onboardState = res.Value;
-    }
+		var res = await storageService.GetItem<OnboardState>();
+		if (res.IsFailed)
+		{
+			throw new InvalidOperationException("Failed to get OnboardState");
+		}
+		onboardState = res.Value;
+	}
 
-    private async Task OnTermsAgreed()
-    {
-        if (onboardState is null)
-        {
-            throw new InvalidOperationException("OnboardState is null");
-        }
-        var newOnboardState = onboardState with
-            {
-                TosAgreedHash = termsMarkupHash,
-                TosAgreedUtc = DateTime.UtcNow,
-                PrivacyAgreedHash = privacyMarkupHash,
-                PrivacyAgreedUtc = DateTime.UtcNow,
-            };
-        _ = await storageService.SetItem<OnboardState>(newOnboardState);
-        navManager.NavigateTo(RouteToIndex);
-    }
+	private async Task OnTermsAgreed()
+	{
+		if (onboardState is null)
+		{
+			throw new InvalidOperationException("OnboardState is null");
+		}
+		var newOnboardState = onboardState with
+			{
+				TosAgreedHash = termsMarkupHash,
+				TosAgreedUtc = DateTime.UtcNow,
+				PrivacyAgreedHash = privacyMarkupHash,
+				PrivacyAgreedUtc = DateTime.UtcNow,
+			};
+		_ = await storageService.SetItem<OnboardState>(newOnboardState);
+		StateHasChanged();
+		navManager.NavigateTo(RouteToIndex);
+	}
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main">
-        <MudStack>
-            <MudText Typo="Typo.h6">Terms</MudText>
-            <MudSpacer />
-            <MudText Style="font-weight:bold">Please review and agree to the Terms of Use and Privacy Policy (collectively, the "Terms")</MudText>
-            <MudStack Style="gap:0;">
-                <MudStack Class="d-flex bt-terms-section">
-                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
-                    <div class="bt-terms-markup">
-                        @(termsMarkup)
-                    </div>
-                </MudStack>
-                <MudStack Class="d-flex bt-terms-section">
-                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
-                    <div class="bt-terms-markup">
-                        @(privacyMarkup)
-                    </div>
-                </MudStack>
-                <MudDivider />
-                <MudStack class="d-flex mt-5 justify-end" Style="align-items:center;">
-                    <MudCheckBox @bind-Value="IsTermsAgreed" data-testid="tosCheckbox" Style="user-select: none; color:var(--mud-palette-primary)">I agree to these Terms</MudCheckBox>
-                </MudStack>
-            </MudStack>
-        </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
-        -->
-        <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
+	<div class="d-flex gap-3 bt-main">
+		<MudStack>
+			<MudText Typo="Typo.h6">Terms</MudText>
+			<MudSpacer />
+			<MudText Style="font-weight:bold">Please review and agree to the Terms of Use and Privacy Policy (collectively, the "Terms")</MudText>
+			<MudStack Style="gap:0;">
+				<MudStack Class="d-flex bt-terms-section">
+					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
+					<div class="bt-terms-markup">
+						@(termsMarkup)
+					</div>
+				</MudStack>
+				<MudStack Class="d-flex bt-terms-section">
+					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
+					<div class="bt-terms-markup">
+						@(privacyMarkup)
+					</div>
+				</MudStack>
+				<MudDivider />
+				<MudStack class="d-flex mt-5 justify-end" Style="align-items:center;">
+					<MudCheckBox @bind-Value="IsTermsAgreed" data-testid="tosCheckbox" Style="user-select: none; color:var(--mud-palette-primary)">I agree to these Terms</MudCheckBox>
+				</MudStack>
+			</MudStack>
+		</MudStack>
+	</div>
+	<MudStack Row="true" class="bt-button-tray">
+		<MudSpacer></MudSpacer>
+		<MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
+	</MudStack>
 </div>

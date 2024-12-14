@@ -43,97 +43,109 @@
 @inject ISnackbar snackbar
 
 @code {
-    // fields
-    MudButton? buttonRef;
-    const string releaseUrlPath = "content/release.html";
-    static MarkupString releaseMarkup = new("Placeholder for Release Notes");
-    const string releaseHistoryUrlPath = "content/release_history.html";
-    static MarkupString releaseHistoryMarkup = new("Placeholder for Release Notes");
-    private WebExtensionsApi? webExtensionsApi;
+	// fields
+	MudButton? buttonRef;
+	const string releaseUrlPath = "content/release.html";
+	static MarkupString releaseMarkup = new("Placeholder for Release Notes");
+	const string releaseHistoryUrlPath = "content/release_history.html";
+	static MarkupString releaseHistoryMarkup = new("Placeholder for Release Notes");
+	private WebExtensionsApi? webExtensionsApi;
 
-    // properties
-    string ManifestVersion { get; set; } = "unset";
-    string? PriorVersion { get; set; }
-    OnboardState? MyOnboardState { get; set; }
+	// properties
+	string ManifestVersion { get; set; } = "unset";
+	string? PriorVersion { get; set; }
+	OnboardState? MyOnboardState { get; set; }
 
-    // reactive properties
+	// reactive properties
 
 
-    protected override async Task OnInitializedAsync()
-    {
-        // logger.LogInformation("OnInitializedAsync");
-        releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
-        releaseHistoryMarkup = new MarkupString(await http.GetStringAsync(releaseHistoryUrlPath));
+	protected override async Task OnInitializedAsync()
+	{
+		// logger.LogInformation("OnInitializedAsync");
+		releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
+		releaseHistoryMarkup = new MarkupString(await http.GetStringAsync(releaseHistoryUrlPath));
 
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+		webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
-        // Get version info from Manifest file
-        // TODO P3 Refactor some of this and similar in Mainlayout and NewReleases into App, and pass into Layouts or Pages needing this as parameters
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
-        if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
-        {
-            ManifestVersion = versionElement.ToString();
-        }
+		// Get version info from Manifest file
+		// TODO P3 Refactor some of this and similar in Mainlayout and NewReleases into App, and pass into Layouts or Pages needing this as parameters
+		webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+		var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
+		if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
+		{
+			ManifestVersion = versionElement.ToString();
+		}
 
-        var res = await storageService.GetItem<OnboardState>();
-        if (res.IsFailed || res.Value is null)
-        {
-            throw new Exception("Failed to get OnboardState");
-        }
-        MyOnboardState = res.Value;
-    }
+		var res = await storageService.GetItem<OnboardState>();
+		if (res.IsFailed || res.Value is null)
+		{
+			throw new Exception("Failed to get OnboardState");
+		}
+		MyOnboardState = res.Value;
+	}
 
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
-    {
-        if (/* isFirstRender && */ buttonRef is not null)
-            await buttonRef.FocusAsync();
-    }
+	protected override async Task OnAfterRenderAsync(bool isFirstRender)
+	{
+		if (/* isFirstRender && */ buttonRef is not null)
+			await buttonRef.FocusAsync();
+	}
 
-    async Task AckNewRelease()
-    {
-        MyOnboardState = MyOnboardState! with
-            {
-                AcknowledgedInstalledVersion = ManifestVersion
-            };
-        _ = await storageService.SetItem<OnboardState>(MyOnboardState);
-        navManager.NavigateTo(RouteToIndex);
-    }
+	async Task AckNewRelease()
+	{
+		MyOnboardState = MyOnboardState! with
+			{
+				AcknowledgedInstalledVersion = ManifestVersion
+			};
+		_ = await storageService.SetItem<OnboardState>(MyOnboardState);
+		navManager.NavigateTo(RouteToIndex);
+	}
 }
 
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main">
-        <MudStack>
-            <MudText Typo="Typo.h6">Updated Release</MudText>
-            <MudStack Style="gap:0;">
-                <MudText Typo="Typo.body1">
-                    @if(MyOnboardState is null || MyOnboardState.AcknowledgedInstalledVersion is null)
-                    {
-                        <p>KERI Auth has been installed with version @ManifestVersion.</p>
-                    } else
-                    {
-                        <p>KERI Auth has been recently updated from version @MyOnboardState.AcknowledgedInstalledVersion to @ManifestVersion.</p>
-                    }
-                    You can review the current Release Notes and Release History below.
-                </MudText>
-                <MudStack Class="d-flex bt-terms-section">
-                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
-                    <div class="bt-terms-markup">
-                        @(releaseMarkup)
-                    </div>
-                </MudStack>
-                <MudStack Class="d-flex bt-terms-section">
-                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseHistoryUrlPath" Target="_blank" Class="bt-terms-button" />
-                    <div class="bt-terms-markup">
-                        @(releaseHistoryMarkup)
-                    </div>
-                </MudStack>
-            </MudStack>
-        </MudStack>
-    </div>
-    <MudStack Row="true" class="bt-button-tray">
-        <MudSpacer></MudSpacer>
-        <MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => AckNewRelease())" Class="justify-end" data-testid="next">Next</MudButton>
-    </MudStack>
+	<div class="d-flex gap-3 bt-main">
+		<MudStack Style="max-width:-webkit-fill-available">
+			<MudText Typo="Typo.h6">Updated Release</MudText>
+			<MudSpacer />
+
+			@if (MyOnboardState is null || MyOnboardState.AcknowledgedInstalledVersion is null)
+			{
+				<MudText>
+					KERI Auth has been installed with version @ManifestVersion.
+				</MudText>
+			}
+			else
+			{
+				<MudText>
+					KERI Auth has been recently updated from version @MyOnboardState.AcknowledgedInstalledVersion to @ManifestVersion.
+				</MudText>
+			}
+			<MudText>
+				You can review the current Release Notes and Release History below.
+			</MudText>
+
+			<MudStack Style="gap:0;">
+				<MudStack Class="d-flex bt-terms-section">
+					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
+					<div class="bt-terms-markup">
+						@(releaseMarkup)
+					</div>
+				</MudStack>
+				<MudStack Class="d-flex bt-terms-section">
+					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseHistoryUrlPath" Target="_blank" Class="bt-terms-button" />
+					<div class="bt-terms-markup">
+						@(releaseHistoryMarkup)
+					</div>
+				</MudStack>
+				<MudStack class="d-flex mt-5 justify-end" Style="align-items:center;">
+					<!-- placeholder for potential width alignment -->
+				</MudStack>
+
+			</MudStack>
+		</MudStack>
+	</div>
+	<MudStack Row="true" class="bt-button-tray">
+		<MudSpacer></MudSpacer>
+		<MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => AckNewRelease())" Class="justify-end" data-testid="next">Next</MudButton>
+	</MudStack>
 </div>
