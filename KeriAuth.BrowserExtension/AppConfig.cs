@@ -41,8 +41,8 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToReleaseHtml = "content/release.html";
 
         // Terms Of Service and Privacy Policy hashes for the current release
-        public const double TosHash = 1470787834;
-        public const float PrivacyHash = 1251669842;
+        public const double TosHash = 1644273683;
+        public const float PrivacyHash = 28424392;
 
         // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup        
         public const float IdleTimeoutMins = 5.0f;
