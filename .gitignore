@@ -511,3 +511,4 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/IRegisteredAuthenticators.js
 /KeriAuth.BrowserExtension/wwwroot/scripts/es6/PageCsInterfaces.js
 /KeriAuth.BrowserExtension/log.txt
+/KeriAuth.BrowserExtension/dist/wwwroot/scripts/es6
