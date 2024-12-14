@@ -63,7 +63,7 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        MyRegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
+        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
         StateHasChanged();
     }
 
@@ -89,7 +89,7 @@
         await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
         snackbar.Add("Successfully renamed authenticator", Severity.Success);
         // update page's collection
-        MyRegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
+        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
     }
 
     async Task delete(string credentialBase64)
@@ -103,7 +103,7 @@
         await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
         snackbar.Add("Successfully removed authenticator registration", Severity.Success);
         // update page's collection
-        MyRegisteredAuthenticators = await webauthnService.getRegisteredAuthenticators();
+        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
     }
 
     async Task test(string credentialBase64)

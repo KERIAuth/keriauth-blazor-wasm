@@ -1,6 +1,5 @@
 ﻿using FluentResults;
 using KeriAuth.BrowserExtension.Helper;
-using KeriAuth.BrowserExtension.Helper.DictionaryConverters;
 using KeriAuth.BrowserExtension.Services.SignifyService.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
@@ -310,14 +309,14 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             return Result.Fail($"Could not find credential with said {said}");
         }
 
+        readonly JsonSerializerOptions jsonSerializerOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new DictionaryConverter() }
+        };
+
         public async Task<Result<List<Dictionary<string, object>>>> GetCredentials()
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                Converters = { new DictionaryConverter() }
-            };
-
             try
             {
                 var jsonString = await GetCredentialsList();
@@ -326,7 +325,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 {
                     return Result.Fail("GetCredentials returned null");
                 }
-                var credentials = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, options);
+                var credentials = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
                 if (credentials is null)
                 {
                     return Result.Fail("SignifyClientService: GetCredentials: Failed to deserialize Credentials");
@@ -359,14 +358,14 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
             await Task.Delay(0);
             throw new NotImplementedException();
             /*
-            logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, initHeadersDict.ToString(), prefix);
+            logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` Prefix: `{p}`", origin, rurl, method, initHeadersDict.ToString(), Prefix);
             try
             {
                 var jsonInputHeaders = System.Text.Json.JsonSerializer.Serialize(initHeadersDict);
                 logger.LogInformation("SignRequestHeader: jsonInputHeaders: `{i}`", jsonInputHeaders);
-                logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` prefix: `{p}`", origin, rurl, method, jsonInputHeaders, prefix);
+                logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` Prefix: `{p}`", origin, rurl, method, jsonInputHeaders, Prefix);
 
-                var signedHeadersAsJsonBase64 = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, prefix);
+                var signedHeadersAsJsonBase64 = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, Prefix);
                 logger.LogInformation("SignRequestHeader: signedHeadersAsJsonBase64: {s}", signedHeadersAsJsonBase64);
 
                 // Step 1: Decode the Base64 string

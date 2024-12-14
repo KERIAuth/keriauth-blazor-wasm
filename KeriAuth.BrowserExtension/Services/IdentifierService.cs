@@ -15,7 +15,7 @@ namespace KeriAuth.BrowserExtension.Services
         }
 
         public readonly IdentifierHeadline identifierHeadline;
-        // private readonly string prefix;
+        // private readonly string Prefix;
         public readonly string alias;
         public readonly Guid keriaConnectionGuid;
 

@@ -30,7 +30,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
     /*  Example returned from signify_ts_shim.ts getAID(name) method:
         {
     "name": "gleif",
-    "prefix": "EKgkNRu1ogZYBtnCsExp8a_ZB5BDRKFBwUqF_6bdPGwh",
+    "Prefix": "EKgkNRu1ogZYBtnCsExp8a_ZB5BDRKFBwUqF_6bdPGwh",
     "salty": {
         "sxlt": "1AAHWr_qBwkmQSpALxpN3XkUIA3aNmvclDEchkE_QaTWiGolrAtYkM-4qF-Mtk_yIkzju_OrEuPwDukoI2d_0fjUkHxzWdri0pzk",
         "pidx": 0,

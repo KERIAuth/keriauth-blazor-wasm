@@ -96,13 +96,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("Update: could not fetch websites from storage");
         }
 
-        var existingWebsiteConfigOrNothing = websitesResult.Value.WebsiteList.First(w => w.Origin == updatedWebsiteConfig.Origin);
-        if (existingWebsiteConfigOrNothing == null)
-        {
-            // return Result.Fail("website not found");
-            existingWebsiteConfigOrNothing = updatedWebsiteConfig;
-        }
-
+        var existingWebsiteConfigOrNothing = websitesResult.Value.WebsiteList.First(w => w.Origin == updatedWebsiteConfig.Origin) ?? updatedWebsiteConfig;
         WebsiteConfigList newList = new([]);
 
         foreach (var config in websitesResult.Value.WebsiteList)

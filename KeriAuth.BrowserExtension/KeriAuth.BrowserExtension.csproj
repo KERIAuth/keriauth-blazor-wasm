@@ -35,6 +35,7 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<!-- Typescript compile will be invoked explicity, not with the standard build -->
 		<TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
+		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
 	</PropertyGroup>
 	<ItemGroup>
 		<TrimmableAssembly Include="NBitcoin" />

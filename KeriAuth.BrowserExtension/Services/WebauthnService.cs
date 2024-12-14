@@ -103,7 +103,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
         }
 
-        private string getEncryptKeyBase64(string encryptKey)
+        private static string GetEncryptKeyBase64(string encryptKey)
         {
             // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
 
@@ -125,7 +125,7 @@ namespace KeriAuth.BrowserExtension.Services
         {
             await Initialize();
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
-            var registeredAuthenticators = await getRegisteredAuthenticators();
+            var registeredAuthenticators = await GetRegisteredAuthenticators();
 
             if (registeredAuthenticators is null)
             {
@@ -175,7 +175,7 @@ namespace KeriAuth.BrowserExtension.Services
 
                     // Encrypt the passcode with the encryptKey generated with the help of PRF from the authenticator
                     // First, convert the encrypt key to Base64
-                    var encryptKeyBase64 = getEncryptKeyBase64(encryptKeyBase64Ret.Value.EncryptKey);
+                    var encryptKeyBase64 = GetEncryptKeyBase64(encryptKeyBase64Ret.Value.EncryptKey);
 
                     // Convert the passcode to Base64
                     byte[] plainBytes = Encoding.UTF8.GetBytes(passcode);
@@ -247,12 +247,12 @@ namespace KeriAuth.BrowserExtension.Services
             }
         }
 
-        public async Task<RegisteredAuthenticators> getRegisteredAuthenticators()
+        public async Task<RegisteredAuthenticators> GetRegisteredAuthenticators()
         {
             await Initialize();
             var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
             var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
-            RegisteredAuthenticators ras = new();
+            RegisteredAuthenticators ras;
             // if there are stored registered authenticators, start with that list
             RegisteredAuthenticators? t = JsonSerializer.Deserialize<RegisteredAuthenticators>(jsonElement, jsonSerializerOptions);
             if (t is not null)
@@ -269,7 +269,7 @@ namespace KeriAuth.BrowserExtension.Services
         public async Task<Result<string>> AuthenticateAKnownCredential()
         {
             await Initialize();
-            RegisteredAuthenticators ras = await getRegisteredAuthenticators();
+            RegisteredAuthenticators ras = await GetRegisteredAuthenticators();
 
             if (ras is null || ras.Authenticators.Count == 0)
             {
@@ -299,7 +299,7 @@ namespace KeriAuth.BrowserExtension.Services
                 {
                     try
                     {
-                        string encryptKeyBase64 = getEncryptKeyBase64(authenticateCredResult.Value.EncryptKey);
+                        string encryptKeyBase64 = GetEncryptKeyBase64(authenticateCredResult.Value.EncryptKey);
                         var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, registeredCred.EncryptedPasscodeBase64);
                         // logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
                         byte[] decryptedPasscodeBytes = Convert.FromBase64String(decryptedPasscode);

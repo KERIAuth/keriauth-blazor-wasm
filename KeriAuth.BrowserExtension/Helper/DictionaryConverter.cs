@@ -2,7 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace KeriAuth.BrowserExtension.Helper.DictionaryConverters
+namespace KeriAuth.BrowserExtension.Helper
 {
     public class TypedValue(object value, Type type)
     {

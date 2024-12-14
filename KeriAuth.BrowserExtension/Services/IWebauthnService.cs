@@ -13,7 +13,7 @@ namespace KeriAuth.BrowserExtension.Services
 
         Task<Result<string>> AuthenticateAKnownCredential();
 
-        Task<RegisteredAuthenticators> getRegisteredAuthenticators();
+        Task<RegisteredAuthenticators> GetRegisteredAuthenticators();
 
     }
 

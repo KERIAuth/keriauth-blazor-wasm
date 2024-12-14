@@ -88,7 +88,7 @@
         }
 
         // check if there are already registeredAuthenticators
-        var res2 = await webauthnService.getRegisteredAuthenticators();
+        var res2 = await webauthnService.GetRegisteredAuthenticators();
         if (res2 is not null)
         {
             RAS = res2;
