@@ -136,7 +136,7 @@
                         {
                             <MudCard>
                                 <MudCardContent Style="pb-0 mb-0">
-                                    <MudTextField Value="@ra.Name" HelperText="" Label="" DebounceInterval="2000" OnDebounceIntervalElapsed="@(async (newName) => await rename(newName, ra.CredentialBase64))" />
+                                    <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" />
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
                                 </MudCardContent>
