@@ -47,10 +47,10 @@ try
 {
     // Adding imports of modules here for use via [JSImport] attributes in C# classes
     List<(string, string)> imports = [
-        ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
-        ("uiHelper", "/scripts/es6/uiHelper.js"),
-        ("storageHelper", "/scripts/es6/storageHelper.js"),
-        ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js")
+        ("signify_ts_shim", "dist/wwwroot/scripts/esbuild/signify_ts_shim.js"),
+        ("uiHelper", "dist/wwwroot/scripts/es6/uiHelper.js"),
+        ("storageHelper", "dist/wwwroot/scripts/es6/storageHelper.js"),
+        ("webauthnCredentialWithPRF", "dist/wwwroot/scripts/es6/webauthnCredentialWithPRF.js")
     ];
     foreach (var (moduleName, modulePath) in imports)
     {

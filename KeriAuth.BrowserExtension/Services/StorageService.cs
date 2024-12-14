@@ -55,7 +55,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             logger.Log(ServiceLogLevel, "Registering handler for storage change event");
 
             // Set up to listen for storage changes.  Could alternately have implemented this in the background script and/or https://github.com/mingyaulee/WebExtensions.Net
-            IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/storageHelper.js");
+            IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "dist/wwwroot/scripts/es6/storageHelper.js");
             await _module.InvokeVoidAsync("addStorageChangeListener", _dotNetObjectRef);
         }
         catch (Exception e)

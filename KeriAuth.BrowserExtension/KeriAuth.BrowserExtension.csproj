@@ -41,7 +41,7 @@
 		<TrimmableAssembly Include="NBitcoin" />
 	</ItemGroup>
 	<ItemGroup>
-		<ServiceWorker Include="wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
+		<ServiceWorker Include="dist\wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Blazor.BrowserExtension" Version="2.0.0" />
@@ -99,7 +99,6 @@
 		<Content Remove="wwwroot\images\LogoHorizontal.svg" />
 		<Content Remove="wwwroot\manifest.webmanifest" />
 		<Content Remove="wwwroot\scripts\app.js" />
-		<Content Remove="wwwroot\scripts\es6\tsconfig.es6.tsbuildinfo" />
 		<Content Remove="wwwroot\scripts\KeriaTest - Copy.js" />
 		<Content Remove="wwwroot\scripts\tmp - Copy.js" />
 		<Content Remove="wwwroot\_locales\en\messages.json" />
@@ -132,13 +131,13 @@
 		<Content Update="dist\wwwroot\scripts\es6\*.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
-		<Content Update="wwwroot\scripts\esbuild\ContentScript.js">
+		<Content Update="dist\wwwroot\scripts\esbuild\ContentScript.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
-		<Content Update="wwwroot\scripts\esbuild\service-worker.js">
+		<Content Update="dist\wwwroot\scripts\esbuild\service-worker.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
-		<Content Update="wwwroot\scripts\esbuild\signify_ts_shim.js">
+		<Content Update="dist\wwwroot\scripts\esbuild\signify_ts_shim.js">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
 		<Content Update="wwwroot\sounds\beep.mp3">
@@ -171,9 +170,6 @@
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
 		<None Update="wwwroot\scripts\es6\SwAppInterop.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\tsconfig.es6.tsbuildinfo">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
 		<None Update="wwwroot\scripts\es6\uiHelper.js">
@@ -235,6 +231,34 @@
 			</Code>
 		</Task>
 	</UsingTask>
+
+
+
+	<Target Name="CopyTypescriptFilesOne" AfterTargets="Build">
+		<!-- Ensure the 'dist' directory exists -->
+		<ItemGroup>
+			<CompiledScripts Include="dist\wwwroot\scripts\es6\*.*" />
+		</ItemGroup>
+
+		<!-- Copy compiled scripts to the appropriate directory -->
+		<Copy SourceFiles="@(CompiledScripts)"
+			  DestinationFolder="$(OutputPath)\wwwroot\scripts\es6"
+			  SkipUnchangedFiles="false" />
+	</Target>
+	<Target Name="CopyTypescriptFiles" AfterTargets="CopyTypescriptCompiledFiles2">
+		<!-- Ensure the 'dist' directory exists -->
+		<ItemGroup>
+			<CompiledScripts Include="dist\wwwroot\scripts\esbuild\*.*" />
+		</ItemGroup>
+
+		<!-- Copy compiled scripts to the appropriate directory -->
+		<Copy SourceFiles="@(CompiledScripts)"
+			  DestinationFolder="$(OutputPath)\wwwroot\scripts\esbuild"
+			  SkipUnchangedFiles="false" />
+	</Target>
+	
+	
+	
 	<!-- Compute a VersionName Specific and friendly build identifier with date and build flavor -->
 	<Target Name="ComputeVersionName" AfterTargets="Build">
 		<CreateProperty Value="Dev $(Configuration)-build $([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss'))Z">

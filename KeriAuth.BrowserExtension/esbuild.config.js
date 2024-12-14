@@ -16,7 +16,7 @@ async function buildAll() {
         entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
         bundle: true,
         minify: true,
-        outfile: 'wwwroot/scripts/esbuild/signify_ts_shim.js',
+        outfile: 'dist/wwwroot/scripts/esbuild/signify_ts_shim.js',
         platform: 'browser',
         format: 'esm',
         plugins: [
@@ -32,7 +32,7 @@ async function buildAll() {
         entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
         bundle: true,
         minify: true,
-        outfile: 'wwwroot/scripts/esbuild/ContentScript.js',
+        outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js',
         platform: 'browser',
         format: 'esm',
         loader: { '.ts': 'ts' },
@@ -43,9 +43,14 @@ async function buildAll() {
         entryPoints: ['wwwroot/scripts/esbuild/service-worker.ts'],
         bundle: true,
         minify: true,
-        outfile: 'wwwroot/scripts/esbuild/service-worker.js',
+        outfile: 'dist/wwwroot/scripts/esbuild/service-worker.js',
         platform: 'browser',
         format: 'esm',
+        plugins: [
+            alias({
+                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
+            })
+        ],
         loader: { '.ts': 'ts' },
     });
 

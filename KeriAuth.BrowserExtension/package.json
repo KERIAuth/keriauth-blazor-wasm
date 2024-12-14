@@ -4,7 +4,7 @@
   "description": "KERI Auth Browser Extension",
   "main": "index.js",
   "scripts": {
-    "build:es6": "tsc --project tsconfig.es6.json --listEmittedFiles",
+    "build:es6": "tsc --project tsconfig.json --listEmittedFiles",
     "bundle:esbuild": "node esbuild.config.js",
     "build": "npm run build:es6 && npm run bundle:esbuild"
   },

@@ -16,7 +16,7 @@ namespace KeriAuth.BrowserExtension.Services
             try
             {
                 _objectReference = DotNetObjectReference.Create(this);
-                _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
+                _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "dist/wwwroot/scripts/es6/SwAppInterop.js");
 
                 if (_interopModule != null)
                 {

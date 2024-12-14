@@ -10,7 +10,7 @@
   },
   "author": "https://keriauth.com",
   "background": {
-    "service_worker": "scripts/esbuild/service-worker.js",
+    "service_worker": "dist/wwwroot/scripts/esbuild/service-worker.js",
     "type": "module"
   },
   "content_scripts": [
@@ -20,7 +20,7 @@
         "http://*/*"
       ],
       "js": [
-        "scripts/esbuild/ContentScript.js"
+        "dist/wwwroot/scripts/esbuild/ContentScript.js"
       ],
       "run_at": "document_start",
       "type": "module"

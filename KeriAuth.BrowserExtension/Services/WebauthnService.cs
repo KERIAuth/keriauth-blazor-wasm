@@ -20,7 +20,7 @@ namespace KeriAuth.BrowserExtension.Services
             try
             {
                 webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
-                interopModule ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/webauthnCredentialWithPRF.js");
+                interopModule ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "dist/wwwroot/scripts/es6/webauthnCredentialWithPRF.js");
             }
             catch (JSException jsEx)
             {
@@ -237,7 +237,7 @@ namespace KeriAuth.BrowserExtension.Services
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex.Message);
+                    logger.LogError("{m}", ex.Message);
                     return Result.Fail(ex.ToString());
                 }
             }
