@@ -155,6 +155,8 @@
             return;
         }
         await UnlockWithPasscode(passcodeRes.Value);
+        // prevent auto-start of authenticator unlock prompting in this app instance's future after a timeout
+        hasAutoStartedAuthentictor = true;
         return;
     }
 
