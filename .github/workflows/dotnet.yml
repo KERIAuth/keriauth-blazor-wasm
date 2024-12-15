@@ -27,6 +27,8 @@ jobs:
       
     - name: Build
       run: dotnet build --configuration Release --no-restore
+      env:
+       GITHUB_SHA: ${{ github.sha }}
       
     - name: Test
       run: dotnet test --configuration Release --no-build --verbosity normal
