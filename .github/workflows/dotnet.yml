@@ -24,6 +24,9 @@ jobs:
         
     - name: Restore dependencies
       run: dotnet restore
+
+    - name: Debug Environment Variables
+      run: echo "GITHUB_SHA=$GITHUB_SHA"
       
     - name: Build
       run: dotnet build --configuration Release --no-restore
