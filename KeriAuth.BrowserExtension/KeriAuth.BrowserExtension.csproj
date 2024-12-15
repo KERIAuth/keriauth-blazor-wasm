@@ -32,11 +32,10 @@
     <DefineConstants>DEBUG</DefineConstants>
   </PropertyGroup>
 
-  <!--  -->
+  <!-- -->
   <ItemGroup>
     <ServiceWorker Include="dist\wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
   </ItemGroup>
-
 
   <!-- Package References -->
   <ItemGroup>
@@ -96,7 +95,7 @@
   </Target>
 
   <Target Name="CopyEs6Javascript" AfterTargets="Build">
-    <!-- Ensure the dist directory exists -->
+    <!-- Ensure the 'dist' directory exists -->
     <ItemGroup>
       <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.*" />
     </ItemGroup>
@@ -118,68 +117,5 @@
 			  DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild"
 			  SkipUnchangedFiles="false" />
   </Target>
-
-
-
-
-
-  <!-- Regex utility for help with modifying manifest file -->
-  <UsingTask TaskName="RegexReplace" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-    <ParameterGroup>
-      <FileToModify ParameterType="System.String" Required="true" />
-      <PatternToMatch ParameterType="System.String" Required="true" />
-      <ReplacementText ParameterType="System.String" Required="true" />
-    </ParameterGroup>
-    <Task>
-      <Reference Include="System.Core" />
-      <Using Namespace="System" />
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Text.RegularExpressions" />
-      <Code Type="Fragment" Language="cs">
-        <![CDATA[
-               File.WriteAllText(
-                  FileToModify, 
-                  Regex.Replace(
-                     File.ReadAllText(FileToModify), 
-                     PatternToMatch, 
-                     ReplacementText
-                  )
-               );
-            ]]>
-      </Code>
-    </Task>
-  </UsingTask>
-
-  <!-- Compute a VersionName Specific and friendly build identifier with date and build flavor -->
-  <Target Name="ComputeVersionName" AfterTargets="Build">
-    <CreateProperty Value="Dev $(Configuration)-build $([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss'))Z">
-      <Output PropertyName="VersionName" TaskParameter="Value" />
-    </CreateProperty>
-
-    <!-- use short CommitHash environment variable set when running in context of Github action -->
-    <CreateProperty Value="-$(CommitHash)">
-      <Output PropertyName="VersionName2" TaskParameter="Value" />
-    </CreateProperty>
-  </Target>
-
-  <!-- When building in VS environment, append to version_name in built manifest.json file. Otherwise, just copy the manifest.json -->
-  <!-- Could also consider conditions such as Condition="'$(BUILD_BUILDID)' == ''" if wanting to check if running in Azure pipelines  -->
-  <!-- Remember that the manifest.json source file is not modified here, so these effects are not seen when running the program inside of VS with AspNetCore or IISExpress, versus installing as an extension -->
-  <Target Name="ReplaceTextWithRegex1" Condition="'$(BuildingInsideVisualStudio)' == 'true'" AfterTargets="ComputeVersionName">
-    <Message Text="VersionName: $(VersionName)" Importance="high" />
-    <RegexReplace FileToModify="$(OutDir)\browserextension\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName)&quot;" />
-    <RegexReplace FileToModify="$(OutDir)\wwwroot\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName)&quot;" />
-  </Target>
-  <Target Name="ReplaceTextWithRegex2" Condition="'$(BuildingInsideVisualStudio)' == ''" AfterTargets="ComputeVersionName">
-    <Message Text="VersionName: Not replaced, since not in VS" Importance="high" />
-    <RegexReplace FileToModify="$(OutDir)\browserextension\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName2)&quot;" />
-    <RegexReplace FileToModify="$(OutDir)\wwwroot\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName2)&quot;" />
-  </Target>
-  
-  
-  
-  
-  
-  
 
 </Project>
