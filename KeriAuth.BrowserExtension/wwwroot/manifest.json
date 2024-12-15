@@ -5,8 +5,7 @@
       "16": "images/16_keri_logo.png",
       "48": "images/48_keri_logo.png",
       "128": "images/128_keri_logo.png"
-    },
-    "comment: no default_popup": "service-worker will respond to action.onClicked"
+    }
   },
   "author": "https://keriauth.com",
   "background": {
@@ -30,7 +29,7 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'"
   },
   "default_locale": "en",
-  "description": "Sign in and authorize actions with websites supporting decentralized identity using Signify, KERI, ACDC, and GLEIF's vLEI ecosystem.",
+  "description": "Authenticate with websites using the decentralized trust of KERI and ACDC, plus centralized roots of trust including GLEIF vLEIs.",
   "icons": {
     "512": "images/512_keri_logo.png"
   },
