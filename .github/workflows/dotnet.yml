@@ -11,7 +11,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +31,41 @@ jobs:
       run: echo "SHORT_COMMIT_HASH=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
 
     - name: Build with MSBuild
-      run: dotnet build --configuration Release --no-restore /p:CommitHash=$SHORT_COMMIT_HASH
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Post-build compute release_name for manifest.json
+      id: get_version_wwwroot
+      run: |
+          # Extract the version value from wwwroot/manifest.json
+          version=$(jq -r '.version' wwwroot/manifest.json)
+          echo "version=$version" >> $GITHUB_ENV  # Save the version to the environment variable
+          echo "Version extracted from wwwroot/manifest.json: $version"
+
+    - name: Modify version_name in wwwroot/manifest.json
+      run: |
+         # Get the version string from the environment variable
+         new_version_name="${{ env.version }}-${{ env.commit_hash }}"
+         
+         # Modify the version_name in the wwwroot/manifest.json file
+         jq --arg new_version_name "$new_version_name" \
+            '.version_name = $new_version_name' \
+            wwwroot/manifest.json > temp.json && mv temp.json wwwroot/manifest.json
+
+    - name: Modify version_name in browserextension/wwwroot/manifest.json
+      run: |
+          # Get the version string from the environment variable
+          new_version_name="${{ env.version }}-${{ env.commit_hash }}"
+          
+          # Modify the version_name in the browserextension/wwwroot/manifest.json file
+          jq --arg new_version_name "$new_version_name" \
+             '.version_name = $new_version_name' \
+             browserextension/wwwroot/manifest.json > temp.json && mv temp.json browserextension/wwwroot/manifest.json
+
+    - name: Display modified version_name
+      run: |
+          # Display the modified manifest files to confirm the changes
+          cat wwwroot/manifest.json
+          cat browserextension/wwwroot/manifest.json
 
     - name: Test
       run: dotnet test --configuration Release --no-build --verbosity normal
