@@ -120,16 +120,6 @@
 		<Exec Command="npm run build" />
 	</Target>
 
-	<Target Name="ComputeVersionName" AfterTargets="Build">
-		<CreateProperty Value="Dev $(Configuration)-build $([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss'))Z">
-			<Output PropertyName="VersionName" TaskParameter="Value" />
-		</CreateProperty>
-	</Target>
-
-	<Target Name="ReplaceTextWithRegex" AfterTargets="ComputeVersionName" Condition="'$(BuildingInsideVisualStudio)' == 'true'">
-		<RegexReplace FileToModify="$(OutDir)\wwwroot\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName)&quot;" />
-	</Target>
-
 	<Target Name="CopyEs6Javascript" AfterTargets="Build">
 		<!-- Ensure the 'dist' directory exists -->
 		<ItemGroup>
