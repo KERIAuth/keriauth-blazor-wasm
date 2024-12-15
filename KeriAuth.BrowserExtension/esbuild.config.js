@@ -54,7 +54,7 @@ async function buildAll() {
         loader: { '.ts': 'ts' },
     });
 
-    console.log('All builds completed successfully.');
+    console.log('All esbuild builds completed.');
 }
 
 buildAll().catch(err => {
