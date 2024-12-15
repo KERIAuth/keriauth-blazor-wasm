@@ -47,7 +47,7 @@
   ],
   "short_name": "KERI Auth",
   "version": "0.2.0",
-  "version_name": "0.2.0 Beta",
+  "version_name": "0.2.0-local",
   "web_accessible_resources": [
     {
       "resources": [
