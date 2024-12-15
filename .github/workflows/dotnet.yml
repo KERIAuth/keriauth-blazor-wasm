@@ -27,12 +27,13 @@ jobs:
 
     - name: Debug Environment Variables
       run: echo "GITHUB_SHA=$GITHUB_SHA"
-      
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-      env:
-       GITHUB_SHA: ${{ github.sha }}
-      
+
+    - name: Set short commit hash
+      run: echo "SHORT_COMMIT_HASH=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
+    - name: Build with MSBuild
+      run: dotnet build --configuration Release --no-restore /p:CommitHash=$SHORT_COMMIT_HASH
+
     - name: Test
       run: dotnet test --configuration Release --no-build --verbosity normal
 
