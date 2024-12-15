@@ -27,8 +27,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'",
-    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'"
   },
   "default_locale": "en",
   "description": "Sign in and authorize actions with websites supporting decentralized identity using Signify, KERI, ACDC, and GLEIF's vLEI ecosystem.",
