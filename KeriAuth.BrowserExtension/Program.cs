@@ -47,10 +47,10 @@ try
 {
     // Adding imports of modules here for use via [JSImport] attributes in C# classes
     List<(string, string)> imports = [
-        ("signify_ts_shim", "dist/wwwroot/scripts/esbuild/signify_ts_shim.js"),
-        ("uiHelper", "dist/wwwroot/scripts/es6/uiHelper.js"),
-        ("storageHelper", "dist/wwwroot/scripts/es6/storageHelper.js"),
-        ("webauthnCredentialWithPRF", "dist/wwwroot/scripts/es6/webauthnCredentialWithPRF.js")
+        ("uiHelper", "/scripts/es6/uiHelper.js"),
+        ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
+        ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
+        ("storageHelper", "/scripts/es6/storageHelper.js")
     ];
     foreach (var (moduleName, modulePath) in imports)
     {
@@ -60,12 +60,12 @@ try
 }
 catch (Microsoft.JSInterop.JSException e)
 {
-    logger.LogError("Program: Initialize: JSInterop.JSException: {e}", e.StackTrace);
+    logger.LogError("Program: Initialize: JSInterop.JSException: {e}{s}", e.Message, e.StackTrace);
     return;
 }
 catch (System.Runtime.InteropServices.JavaScript.JSException e)
 {
-    logger.LogError("Program: Initialize: JSException: {e}", e.StackTrace);
+    logger.LogError("Program: Initialize: JSException: {e}{s}", e.Message, e.StackTrace);
     return;
 }
 catch (Exception e)

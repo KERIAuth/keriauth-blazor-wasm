@@ -1,6 +1,7 @@
 ﻿using KeriAuth.BrowserExtension.Models;
 using Microsoft.JSInterop;
 using System.Text.Json;
+using WebExtensions.Net.Scripting;
 
 namespace KeriAuth.BrowserExtension.Services
 {
@@ -16,8 +17,7 @@ namespace KeriAuth.BrowserExtension.Services
             try
             {
                 _objectReference = DotNetObjectReference.Create(this);
-                _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "dist/wwwroot/scripts/es6/SwAppInterop.js");
-
+                _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
                 if (_interopModule != null)
                 {
                     logger.LogInformation("JS module SwAppInterop.js import was successful.");
@@ -26,9 +26,15 @@ namespace KeriAuth.BrowserExtension.Services
                     _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
                 }
             }
+            catch (JSException e)
+            {
+                logger.LogError("Failed to import JS module: {e} StackTrace: {s}", e.Message, e.StackTrace);
+                throw;
+            }
             catch (Exception ex)
             {
                 logger.LogError("Failed to import JS module: {e}", ex.Message);
+                throw;
             }
         }
 

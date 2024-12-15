@@ -1,16 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
-	<PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<TypeScriptTarget>ESNext</TypeScriptTarget>
-		<TypeScriptNoImplicitAny>True</TypeScriptNoImplicitAny>
-		<TypeScriptRemoveComments>True</TypeScriptRemoveComments>
-		<TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
-	</PropertyGroup>
-	<PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<TypeScriptTarget>ESNext</TypeScriptTarget>
-		<TypeScriptNoImplicitAny>True</TypeScriptNoImplicitAny>
-		<TypeScriptRemoveComments>True</TypeScriptRemoveComments>
-		<TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
-	</PropertyGroup>
+
+	<!-- General Project Properties -->
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
 		<Nullable>enable</Nullable>
@@ -22,24 +12,28 @@
 		<ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
 		<UserSecretsId>a9c476ac-e8c5-4c90-958c-5eb50eb97385</UserSecretsId>
 		<RootNamespace>KeriAuth.BrowserExtension</RootNamespace>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<DefineConstants>ASSERTIONS</DefineConstants>
-		<NoWarn>1998</NoWarn>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<DefineConstants>ASSERTIONS</DefineConstants>
-		<NoWarn>1998</NoWarn>
-	</PropertyGroup>
-	<PropertyGroup>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<!-- Typescript compile will be invoked explicity, not with the standard build -->
 		<TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
 		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
 	</PropertyGroup>
-	<ItemGroup>
-		<TrimmableAssembly Include="NBitcoin" />
-	</ItemGroup>
+
+	<!-- Debug and Release Specific Properties -->
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU' or '$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<TypeScriptTarget>ESNext</TypeScriptTarget>
+		<TypeScriptNoImplicitAny>True</TypeScriptNoImplicitAny>
+		<TypeScriptRemoveComments>True</TypeScriptRemoveComments>
+		<TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
+		<DefineConstants>ASSERTIONS</DefineConstants>
+		<NoWarn>1998</NoWarn>
+	</PropertyGroup>
+
+	<!-- Debug-Specific Properties -->
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<DefineConstants>DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Package References -->
+
 	<ItemGroup>
 		<ServiceWorker Include="dist\wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
 	</ItemGroup>
@@ -70,142 +64,28 @@
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.10" PrivateAssets="all" />
 		<PackageReference Include="WebExtensions.Net.Extensions.DependencyInjection" Version="3.0.0" />
 	</ItemGroup>
+
+	<!-- Trimmable Assemblies -->
 	<ItemGroup>
-		<None Include="wwwroot\**\*" CopyToOutputDirectory="Always" />
-		<Compile Remove="bin\**" />
-		<Compile Remove="wwwroot\dist\**" />
-		<Content Remove="obj\**" />
-		<Content Remove="dist\**" />
-		<Content Remove="wwwroot\dist\**" />
-		<EmbeddedResource Remove="bin\**" />
-		<EmbeddedResource Remove="dist\**" />
-		<EmbeddedResource Remove="wwwroot\dist\**" />
-		<None Remove="bin\**" />
-		<None Remove="obj\**" />
-		<None Remove="dist\**" />
-		<None Remove="wwwroot\dist\**" />
-		<TypeScriptCompile Remove="bin\**" />
-		<TypeScriptCompile Remove="dist\**" />
-		<TypeScriptCompile Remove="node_modules\**" />
-		<TypeScriptCompile Remove="wwwroot\dist\**" />
-		<Content Remove="Services\SignifyService\package-lock.json" />
-		<Content Remove="Services\SignifyService\package.json" />
-		<Content Remove="wwwroot\content\help.html" />
-		<Content Remove="wwwroot\content\licenses.html" />
-		<Content Remove="wwwroot\content\release.html" />
-		<Content Remove="wwwroot\content\release_history.html" />
-		<Content Remove="wwwroot\css\site.css" />
-		<Content Remove="wwwroot\images\keri-auth.svg" />
-		<Content Remove="wwwroot\images\LogoHorizontal.svg" />
-		<Content Remove="wwwroot\manifest.webmanifest" />
-		<Content Remove="wwwroot\scripts\app.js" />
-		<Content Remove="wwwroot\scripts\KeriaTest - Copy.js" />
-		<Content Remove="wwwroot\scripts\tmp - Copy.js" />
-		<Content Remove="wwwroot\_locales\en\messages.json" />
-		<None Remove="Properties\launchSettings.json" />
-		<None Remove="wwwroot\scripts\interopHelper.d.ts" />
-		<None Remove="wwwroot\scripts\interopHelper.ts" />
-		<None Remove="wwwroot\scripts\moduleLoader.d.ts" />
-		<None Remove="wwwroot\scripts\moduleLoader.ts" />
-		<None Remove="wwwroot\scripts\node_imports.ts" />
-		<None Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />
-		<None Remove="wwwroot\scripts\registerInactivityEvents.ts" />
-		<None Remove="wwwroot\scripts\service-worker.d.ts" />
-		<None Remove="wwwroot\scripts\service-worker.ts" />
-		<None Remove="wwwroot\scirpts\ui-utilities.ts" />
-		<None Remove="wwwroot\scripts\IntegratedScript.ts" />
-		<None Remove="wwwroot\scripts\signify_ts_shim.d.ts" />
-		<None Remove="wwwroot\scripts\uiHelper.d.ts" />
-		<None Remove="wwwroot\scripts\uiHelper.ts" />
+		<TrimmableAssembly Include="NBitcoin" />
 	</ItemGroup>
+
+	<!-- Content Files -->
 	<ItemGroup>
-		<None Include="..\.editorconfig" Link=".editorconfig" />
+		<Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
+		<Content Update="wwwroot\content\terms.html" CopyToOutputDirectory="Always" />
+		<Content Update="dist\wwwroot\scripts\esbuild\*.js" CopyToOutputDirectory="Always" />
+		<Content Update="dist\wwwroot\scripts\es6\*.js" CopyToOutputDirectory="Always" />
+		<Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
+
+	<!-- TypeScript and Non-Included Scripts -->
 	<ItemGroup>
-		<Content Update="wwwroot\content\privacy.html">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\content\terms.html">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="dist\wwwroot\scripts\es6\*.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="dist\wwwroot\scripts\esbuild\ContentScript.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="dist\wwwroot\scripts\esbuild\service-worker.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="dist\wwwroot\scripts\esbuild\signify_ts_shim.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Update="wwwroot\sounds\beep.mp3">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
+		<None Remove="wwwroot\scripts\**\*.d.ts" />
+		<None Remove="wwwroot\scripts\**\*.ts" />
 	</ItemGroup>
-	<ItemGroup>
-		<None Update="wwwroot\App.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\manifest.json">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\global.d.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\inactivityHelpers.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\IRegisteredAuthenticator.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\IRegisteredAuthenticators.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\PageCsInterfaces.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\SpaExtensionInterop.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\SwAppInterop.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\uiHelper.js">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\webauthnCredentialWithPRF.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-	<ItemGroup>
-		<TypeScriptCompile Update="wwwroot\KeriAuth.BrowserExtensionBrowserExtension.lib.module.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
-		<None Update="wwwroot\scripts\es6\ExCsInterfaces.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\interopHelper.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\moduleLoader.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\storageHelper.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<None Update="wwwroot\scripts\es6\uiHelper.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</None>
-		<TypeScriptCompile Update="wwwroot\scripts\esbuild\ContentScript.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
-		<TypeScriptCompile Update="wwwroot\scripts\esbuild\service-worker.ts">
-		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</TypeScriptCompile>
-	</ItemGroup>
-	<!-- Regex utility for help with modifying manifest file -->
+
+	<!-- Custom MSBuild Task -->
 	<UsingTask TaskName="RegexReplace" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
 		<ParameterGroup>
 			<FileToModify ParameterType="System.String" Required="true" />
@@ -219,134 +99,60 @@
 			<Using Namespace="System.Text.RegularExpressions" />
 			<Code Type="Fragment" Language="cs">
 				<![CDATA[
-               File.WriteAllText(
-                  FileToModify, 
-                  Regex.Replace(
-                     File.ReadAllText(FileToModify), 
-                     PatternToMatch, 
-                     ReplacementText
-                  )
-               );
-            ]]>
+        File.WriteAllText(
+          FileToModify, 
+          Regex.Replace(
+            File.ReadAllText(FileToModify), 
+            PatternToMatch, 
+            ReplacementText
+          )
+        );
+        ]]>
 			</Code>
 		</Task>
 	</UsingTask>
 
-
-
-	<Target Name="CopyTypescriptFilesOne" AfterTargets="Build">
-		<!-- Ensure the 'dist' directory exists -->
-		<ItemGroup>
-			<CompiledScripts Include="dist\wwwroot\scripts\es6\*.*" />
-		</ItemGroup>
-
-		<!-- Copy compiled scripts to the appropriate directory -->
-		<Copy SourceFiles="@(CompiledScripts)"
-			  DestinationFolder="$(OutputPath)\wwwroot\scripts\es6"
-			  SkipUnchangedFiles="false" />
+	<!-- Build Tasks -->
+	<Target Name="InstallDependencies" BeforeTargets="BuildFrontend">
+		<Exec Command="npm install" />
 	</Target>
-	<Target Name="CopyTypescriptFiles" AfterTargets="CopyTypescriptCompiledFiles2">
-		<!-- Ensure the 'dist' directory exists -->
-		<ItemGroup>
-			<CompiledScripts Include="dist\wwwroot\scripts\esbuild\*.*" />
-		</ItemGroup>
 
-		<!-- Copy compiled scripts to the appropriate directory -->
-		<Copy SourceFiles="@(CompiledScripts)"
-			  DestinationFolder="$(OutputPath)\wwwroot\scripts\esbuild"
-			  SkipUnchangedFiles="false" />
+	<Target Name="BuildFrontend" BeforeTargets="PreBuildEvent">
+		<Exec Command="npm run build" />
 	</Target>
-	
-	
-	
-	<!-- Compute a VersionName Specific and friendly build identifier with date and build flavor -->
+
 	<Target Name="ComputeVersionName" AfterTargets="Build">
 		<CreateProperty Value="Dev $(Configuration)-build $([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss'))Z">
 			<Output PropertyName="VersionName" TaskParameter="Value" />
 		</CreateProperty>
 	</Target>
-	<!-- When building in VS environment, append to version_name in built manifest.json file. Otherwise, just copy the manifest.json -->
-	<!-- Could also consider conditions such as Condition="'$(BUILD_BUILDID)' == ''" if wanting to check if running in Azure pipelines  -->
-	<!-- Remember that the manifest.json source file is not modified here, so these effects are not seen when running the program inside of VS with AspNetCore or IISExpress, versus installing as an extension -->
-	<Target Name="ReplaceTextWithRegex1" Condition="'$(BuildingInsideVisualStudio)' == 'true'" AfterTargets="ComputeVersionName">
-		<Message Text="VersionName: $(VersionName)" Importance="high" />
-		<!-- this first OutDir is the test framework -->
-		<RegexReplace FileToModify="$(OutDir)\browserextension\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName)&quot;" />
+
+	<Target Name="ReplaceTextWithRegex" AfterTargets="ComputeVersionName" Condition="'$(BuildingInsideVisualStudio)' == 'true'">
 		<RegexReplace FileToModify="$(OutDir)\wwwroot\manifest.json" PatternToMatch="&quot;version_name&quot;: &quot;(\d+\.\d+\.\d+).*&quot;" ReplacementText="&quot;version_name&quot;: &quot;$1 $(VersionName)&quot;" />
 	</Target>
-	<Target Name="ReplaceTextWithRegex2" Condition="'$(BuildingInsideVisualStudio)' == ''" AfterTargets="ComputeVersionName">
-		<Message Text="VersionName: Not replaced, since not in VS" Importance="high" />
-		<!-- Note that attempting to invoke RegexReplace in MSBuild Azure pipelines may yield errors MSB4801 and MSB4175 -->
+
+	<Target Name="CopyEs6Javascript" AfterTargets="Build">
+		<!-- Ensure the 'dist' directory exists -->
+		<ItemGroup>
+			<CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.*" />
+		</ItemGroup>
+
+		<!-- Copy compiled scripts to the appropriate directory -->
+		<Copy SourceFiles="@(CompiledEs6Scripts)"
+			  DestinationFolder="$(OutputPath)\browserextension\scripts\es6"
+			  SkipUnchangedFiles="false" />
 	</Target>
-	<Target Name="InstallDependencies" BeforeTargets="BuildFrontend">
-		<Exec Command="npm install" />
+
+	<Target Name="CopyEsBuildJavascript" AfterTargets="Build">
+		<!-- Ensure the 'dist' directory exists -->
+		<ItemGroup>
+			<CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.*" />
+		</ItemGroup>
+
+		<!-- Copy compiled scripts to the appropriate directory -->
+		<Copy SourceFiles="@(CompiledEsBuildScripts)"
+			  DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild"
+			  SkipUnchangedFiles="false" />
 	</Target>
-	<Target Name="BuildFrontend" BeforeTargets="PreBuildEvent">
-		<Exec Command="npm run build" />
-	</Target>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\uiHelper.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <TypeScriptCompile Remove="wwwroot\scripts\ContentScript.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\ExCsInterfaces.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\global.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\inactivityHelpers.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\interopHelper.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\interopHelper.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\IRegisteredAuthenticator.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\IRegisteredAuthenticators.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\moduleLoader.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\PageCsInterfaces.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\SpaExtensionInterop.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\storageHelper.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\SwAppInterop.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\uiHelper.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnCredentialWithPRF.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\es6\webauthnHmacSecret.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\interopHelper.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\moduleLoader.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\service-worker.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\signify_ts_shim.d.ts" />
-	  <TypeScriptCompile Remove="wwwroot\scripts\uiHelper.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\signify_ts_shim.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\service-worker.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\registerInactivityEvents.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\moduleLoader.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\interopHelper.d.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\appsettings.json" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Page Include="Properties\launchSettings.json">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </Page>
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\storageHelper.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\es6\SwAppInterop.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\es6\IRegisteredAuthenticator.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\es6\IRegisteredAuthenticators.ts" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Remove="wwwroot\scripts\es6\inactivityHelpers.ts" />
-	</ItemGroup>
+
 </Project>
