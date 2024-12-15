@@ -17,7 +17,7 @@
     {
       "matches": [
         "https://*/*",
-        "http://*/*"
+        "http://localhost/*"
       ],
       "js": [
         "scripts/esbuild/ContentScript.js"
@@ -37,20 +37,16 @@
   "manifest_version": 3,
   "minimum_chrome_version": "127",
   "name": "KERI Auth",
-  "optional_host_permissions": [
-    "https://*/*",
-    "http://*/*"
-  ],
-  "optional_permissions": [
-  ],
   "options_ui": {
     "page": "index.html",
     "open_in_tab": true
   },
+  "optional_permissions": [
+    "clipboardWrite"
+  ],
   "permissions": [
     "activeTab",
     "alarms",
-    "clipboardWrite",
     "storage"
   ],
   "short_name": "KERI Auth",
