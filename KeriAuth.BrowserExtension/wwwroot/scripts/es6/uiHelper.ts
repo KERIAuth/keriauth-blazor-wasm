@@ -30,37 +30,8 @@ const UIHelper = () => {
         }
     }
 
-    const copy2Clipboard = async (text: string): Promise<void> => {
-        // permissions are only relevant when running in the context of an extension (versus development mode when testing in Kestral ASP.NET Core, for example)
-        if (chrome.permissions && typeof chrome.permissions.contains === 'function') {
-            // Various browsers support different defaults for permissions. Some implicitly grant permission, or was previously granted
-            chrome.permissions.contains({ permissions: ["clipboardWrite"] }, (isClipboardPermitted: boolean) => {
-                console.log('UIHelper: copy2Clipboard: isClipboardPermitted: ', isClipboardPermitted);
-                if (!isClipboardPermitted) {
-                    // Request permission from the user
-                    chrome.permissions.request(
-                        {
-                            permissions: ["clipboardWrite"]
-                        }, (isGranted: boolean) => {
-                            if (isGranted) {
-                                console.log('UI-UTILITIES: Clipboard permission granted');
-                            } else {
-                                console.log('UI-UTILITIES: Clipboard permission denied');
-                                return;
-                            }
-                        }
-                    );
-                };
-            });
-        }
-        navigator.clipboard.writeText(text).then(
-            function () {
-                console.log('UIHelper: Copied to clipboard');
-            }, function (err) {
-                console.error('UIHelper: Could not copy to clipboard: ', err);
-            }
-        );
-    }
+    const copy2Clipboard = async (text: string): Promise<void> =>
+        navigator.clipboard.writeText(text);
 
     const restartBlazorApp = (routeToIndex: string): void => {
         window.location.href = routeToIndex;

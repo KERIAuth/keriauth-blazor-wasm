@@ -41,9 +41,6 @@
     "page": "index.html",
     "open_in_tab": true
   },
-  "optional_permissions": [
-    "clipboardWrite"
-  ],
   "permissions": [
     "activeTab",
     "alarms",
