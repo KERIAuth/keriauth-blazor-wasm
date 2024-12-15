@@ -518,3 +518,4 @@ FodyWeavers.xsd
 /KeriAuth.BrowserExtension/dist/wwwroot/scripts/esbuild/service-worker.js
 /KeriAuth.BrowserExtension/dist/wwwroot/scripts/esbuild/signify_ts_shim.js
 /KeriAuth.BrowserExtension/dist/tsconfig.tsbuildinfo
+/KeriAuth.BrowserExtension/commit_hash.txt
