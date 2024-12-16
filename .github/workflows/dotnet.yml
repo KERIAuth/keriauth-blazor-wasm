@@ -14,75 +14,90 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
-        
+
     - name: Restore dependencies
       run: dotnet restore
 
     - name: Debug Environment Variables
       run: echo "GITHUB_SHA=$GITHUB_SHA"
 
-    - name: Set short commit hash
-      run: |
-          echo "SHORT_COMMIT_HASH=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
-
-    - name: Print short commit hash
-      run: |
-          echo "Short Commit Hash: $SHORT_COMMIT_HASH"
-
     - name: Build with MSBuild
       run: dotnet build --configuration Release --no-restore
 
-    - name: Post-build compute release_name for manifest.json
-      id: get_version_wwwroot
+    - name: Extract version from manifest.json
+      id: extract_version
       run: |
-          # Extract the version value from manifest.json
-          version=$(jq -r '.version' KeriAuth.BrowserExtension/wwwroot/manifest.json)
-          echo "version=$version" >> $GITHUB_ENV  # Save the version to the environment variable
+        manifest_path="KeriAuth.BrowserExtension/wwwroot/manifest.json"
+        if [[ -f "$manifest_path" ]]; then
+          version=$(jq -r '.version' "$manifest_path")
+          echo "version=$version" >> $GITHUB_ENV
           echo "Version extracted from manifest.json: $version"
+        else
+          echo "Error: manifest.json not found at $manifest_path"
+          exit 1
+        fi
 
-    - name: Modify version_name in wwwroot/manifest.json
+    - name: Set short commit hash
       run: |
-         # Get the version string from the environment variable
-         new_version_name="${{ env.version }}-${{ env.short_commit_hash }}"
-         
-         # Modify the version_name in the wwwroot/manifest.json file
-         jq --arg new_version_name "$new_version_name" \
-            '.version_name = $new_version_name' \
-            KeriAuth.BrowserExtension/wwwroot/manifest.json > temp.json && mv temp.json KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json
+        SHORT_COMMIT_HASH=$(echo "$GITHUB_SHA" | cut -c1-7)
+        echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $GITHUB_ENV
+        echo "Short Commit Hash: ${{ env.SHORT_COMMIT_HASH }}"
 
-    - name: Modify version_name in browserextension/wwwroot/manifest.json
+    - name: Modify version_name in manifest.json
       run: |
-          # Get the version string from the environment variable
-          new_version_name="${{ env.version }}-${{ env.short_commit_hash }}"
-          
-          # Modify the version_name in the browserextension/wwwroot/manifest.json file
-          jq --arg new_version_name "$new_version_name" \
-             '.version_name = $new_version_name' \
-             KeriAuth.BrowserExtension/wwwroot/manifest.json > temp.json && mv temp.json KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json
+        new_version_name="${{ env.version }}-${{ env.SHORT_COMMIT_HASH }}"
+        echo "New Version Name: $new_version_name"
+        for file in \
+          KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json \
+          KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json; do
+          if [[ -f "$file" ]]; then
+            jq --arg new_version_name "$new_version_name" \
+              '.version_name = $new_version_name' "$file" > temp.json
+            mv temp.json "$file"
+            echo "Updated $file with version_name: $new_version_name"
+          else
+            echo "Warning: File $file not found, skipping..."
+          fi
+        done
 
     - name: Display modified version_name
       run: |
-          # Display the modified manifest files to confirm the changes
-          cat KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json
-          cat KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json
+        for file in \
+          KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json \
+          KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json; do
+          if [[ -f "$file" ]]; then
+            echo "Contents of $file:"
+            cat "$file"
+          else
+            echo "Warning: File $file not found, skipping..."
+          fi
+        done
 
-    - name: Test
+    - name: Run tests
       run: dotnet test --configuration Release --no-build --verbosity normal
 
     - name: Zip artifacts
       run: |
-        cd /home/runner/work/keriauth-blazor-wasm/keriauth-blazor-wasm/KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/
-        zip -r /home/runner/work/KeriAuth.zip *
-      
+        build_dir="$GITHUB_WORKSPACE/KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/"
+        artifact_path="$GITHUB_WORKSPACE/KeriAuth.zip"
+        if [[ -d "$build_dir" ]]; then
+          cd "$build_dir"
+          zip -r "$artifact_path" *
+          echo "Artifacts zipped to $artifact_path"
+        else
+          echo "Error: Build directory $build_dir not found"
+          exit 1
+        fi
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
-        path: /home/runner/work/KeriAuth.zip
-      
+        path: ${{ github.workspace }}/KeriAuth.zip
