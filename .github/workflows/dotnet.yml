@@ -89,8 +89,10 @@ jobs:
     - name: Zip artifacts
       run: |
         build_dir="$GITHUB_WORKSPACE/KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/"
-        artifact_suffix="${{ env.version }}-${{ env.SHORT_COMMIT_HASH }}-$(date -u +"%Y-%m-%d")"
-        artifact_path="$GITHUB_WORKSPACE/KeriAuth-${artifact_suffix}.zip"
+        artifact_suffix="${{ env.version }}"
+        # "-${{ env.SHORT_COMMIT_HASH }}-$(date -u +"%Y-%m-%d")"
+        artifact_path="$GITHUB_WORKSPACE/KeriAuth.zip"
+        # "-${artifact_suffix}.zip"
         if [[ -d "$build_dir" ]]; then
           cd "$build_dir"
           zip -r "$artifact_path" *
