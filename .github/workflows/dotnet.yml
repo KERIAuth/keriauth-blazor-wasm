@@ -36,20 +36,20 @@ jobs:
     - name: Post-build compute release_name for manifest.json
       id: get_version_wwwroot
       run: |
-          # Extract the version value from wwwroot/manifest.json
-          version=$(jq -r '.version' KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json)
+          # Extract the version value from manifest.json
+          version=$(jq -r '.version' KeriAuth.BrowserExtension/wwwroot/manifest.json)
           echo "version=$version" >> $GITHUB_ENV  # Save the version to the environment variable
-          echo "Version extracted from KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json: $version"
+          echo "Version extracted from manifest.json: $version"
 
     - name: Modify version_name in wwwroot/manifest.json
       run: |
          # Get the version string from the environment variable
          new_version_name="${{ env.version }}-${{ env.commit_hash }}"
          
-         # Modify the version_name in the KeriAuth.BrowserExtension/wwwroot/manifest.json file
+         # Modify the version_name in the wwwroot/manifest.json file
          jq --arg new_version_name "$new_version_name" \
             '.version_name = $new_version_name' \
-            wwwroot/manifest.json > temp.json && mv temp.json KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json
+            KeriAuth.BrowserExtension/wwwroot/manifest.json > temp.json && mv temp.json KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json
 
     - name: Modify version_name in browserextension/wwwroot/manifest.json
       run: |
@@ -59,7 +59,7 @@ jobs:
           # Modify the version_name in the browserextension/wwwroot/manifest.json file
           jq --arg new_version_name "$new_version_name" \
              '.version_name = $new_version_name' \
-             browserextension/wwwroot/manifest.json > temp.json && mv temp.json KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json
+             KeriAuth.BrowserExtension/wwwroot/manifest.json > temp.json && mv temp.json KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json
 
     - name: Display modified version_name
       run: |
