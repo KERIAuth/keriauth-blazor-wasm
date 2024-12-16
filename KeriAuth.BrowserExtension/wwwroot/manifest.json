@@ -56,7 +56,9 @@
         "scripts/app.js",
         "scripts/es6/SwAppInterop.js"
       ],
-      "matches": [ "<all_urls>" ]
+      "matches": [
+        "chrome-extension://*/*"
+      ]
     }
   ]
 }
