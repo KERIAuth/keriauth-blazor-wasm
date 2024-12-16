@@ -112,8 +112,7 @@
     {
         var authCredResult = await webauthnService.AuthenticateCredential([credentialBase64]);
         if (authCredResult.IsSuccess) {
-            // TODO P2 do a complete decription test
-            logger.LogWarning("tested, sort-of, but not the passcode encryption: {e}", authCredResult.ValueOrDefault);
+            // TODO P2 do a complete decryption test
             snackbar.Add("Successfully tested", Severity.Success);
         } else
         {
