@@ -49,7 +49,7 @@ jobs:
         SHORT_COMMIT_HASH=$(echo "$GITHUB_SHA" | cut -c1-7)
         echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $GITHUB_ENV
         echo "Short Commit Hash: ${{ env.SHORT_COMMIT_HASH }}"
-        CURRENT_DATETIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+        CURRENT_DATETIME=$(date -u +"%Y-%m-%d")
         echo "CURRENT_DATETIME=$CURRENT_DATETIME" >> $GITHUB_ENV
         echo "Current Date-Time: $CURRENT_DATETIME"
 
@@ -89,7 +89,8 @@ jobs:
     - name: Zip artifacts
       run: |
         build_dir="$GITHUB_WORKSPACE/KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/"
-        artifact_path="$GITHUB_WORKSPACE/KeriAuth.zip"
+        artifact_suffix="${{ env.version }}-${{ env.SHORT_COMMIT_HASH }}-$(date -u +"%Y-%m-%d")"
+        artifact_path="$GITHUB_WORKSPACE/KeriAuth-${artifact_suffix}.zip"
         if [[ -d "$build_dir" ]]; then
           cd "$build_dir"
           zip -r "$artifact_path" *
