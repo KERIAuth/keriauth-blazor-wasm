@@ -49,10 +49,13 @@ jobs:
         SHORT_COMMIT_HASH=$(echo "$GITHUB_SHA" | cut -c1-7)
         echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $GITHUB_ENV
         echo "Short Commit Hash: ${{ env.SHORT_COMMIT_HASH }}"
+        CURRENT_DATETIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+        echo "CURRENT_DATETIME=$CURRENT_DATETIME" >> $GITHUB_ENV
+        echo "Current Date-Time: $CURRENT_DATETIME"
 
     - name: Modify version_name in manifest.json
       run: |
-        new_version_name="${{ env.version }}-${{ env.SHORT_COMMIT_HASH }}"
+        new_version_name="${{ env.version }}-${{ env.SHORT_COMMIT_HASH }}-${{ env.CURRENT_DATETIME }}"
         echo "New Version Name: $new_version_name"
         for file in \
           KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json \
