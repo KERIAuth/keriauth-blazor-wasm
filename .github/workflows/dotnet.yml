@@ -55,11 +55,11 @@ jobs:
 
     - name: Modify version_name in manifest.json
       run: |
-        new_version_name="${{ env.version }}-${{ env.SHORT_COMMIT_HASH }}-${{ env.CURRENT_DATETIME }}"
+        new_version_name="${{ env.version }} ${{ env.SHORT_COMMIT_HASH }} ${{ env.CURRENT_DATETIME }}"
         echo "New Version Name: $new_version_name"
         for file in \
           KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json \
-          KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json; do
+          KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/manifest.json; do
           if [[ -f "$file" ]]; then
             jq --arg new_version_name "$new_version_name" \
               '.version_name = $new_version_name' "$file" > temp.json
