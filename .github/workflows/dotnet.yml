@@ -71,7 +71,7 @@ jobs:
       run: |
         for file in \
           KeriAuth.BrowserExtension/bin/Release/net8.0/wwwroot/manifest.json \
-          KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/wwwroot/manifest.json; do
+          KeriAuth.BrowserExtension/bin/Release/net8.0/browserextension/manifest.json; do
           if [[ -f "$file" ]]; then
             echo "Contents of $file:"
             cat "$file"
