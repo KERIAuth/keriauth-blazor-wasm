@@ -99,9 +99,10 @@ jobs:
           echo "Error: Build directory $build_dir not found"
           exit 1
         fi
+        echo "ARTIFACT_PATH=$artifact_path" >> $GITHUB_ENV
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
-        path: ${{ github.workspace }}/KeriAuth.zip
+        path: ${{ env.ARTIFACT_PATH }}
