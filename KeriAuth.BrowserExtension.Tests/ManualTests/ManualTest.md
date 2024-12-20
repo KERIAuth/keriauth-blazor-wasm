@@ -1,12 +1,9 @@
-# https://github.com/KERIAuth/keriauth-blazor-wasm/issues/68
-
-
-# Product Install and Basic Flow Testing
+# KERI Auth Product Install and Happy Path Testing
 
 
 ## A. Download a test report
 1. Download a test report, which you will later upload and submit
-    1. From a browser tab, download the [Banca_Marentina_report_to_EBA_2024-12-31.zip](./reports/Banca_Marentina_report_to_EBA_2024-12-31.zip), and store it locally.
+    1. From a browser tab, download the [Banca_Marentina_report_to_EBA_2024-12-31.zip](./Reports/Banca_Marentina_report_to_EBA_2024-12-31.zip), and store it locally.
 
 ## B. Product Install
 
@@ -33,19 +30,19 @@
     1. Press Connect
 
     <!-- Configure -->
-        ![Image7](images/image7.png)
+    ![Image7](images/image7.png)
 
 1. You’ll now see this Dashboard screen:
 
     <!-- Home -->
     ![Image1](images/image1.png)
 
-1. You may explore features on the menu
+1. You may explore features via the menu
 
 
 ## C. Pin the KERI Auth extension action icon
 
-1. From the browser extension icon area, pin the KERI Auth action icon
+1. From the browser extension icon area, pin the KERI Auth action button
 
     <!-- action icon pin -->
     ![Image4](images/image4.png)
@@ -60,11 +57,11 @@
 
 1. When seeing the popup, if it is locked, you may need to 
 
-    1. enter the same passcode as earlier:
+    1. Enter the same passcode as earlier.
     1. Press Unlock.
 
-    <!-- success after Sign In -->
-    ![Image8](images/image8.png)
+    <!-- Unlock in Popup -->
+    ![Image6](images/image6.png)
 
 1. Select the Identifier called “role” and the second credential on the list:
     <!-- Request to Sign In -->
@@ -72,7 +69,10 @@
 
 1. Press Sign In. 
     * If you see a spinning cursor, the website has timed out. You’ll need to refresh the page and repeat these steps above.
-    * A successful interaction should result in the following UX:
+    * A successful interaction should result in the following:
+
+    <!-- success after Sign In -->
+    ![Image8](images/image8.png)
 
 1. Navigate to Reports
 
@@ -91,8 +91,6 @@
 
       
 
-<!-- Unlock in Popup -->
-![Image6](images/image6.png)
 
 
 
