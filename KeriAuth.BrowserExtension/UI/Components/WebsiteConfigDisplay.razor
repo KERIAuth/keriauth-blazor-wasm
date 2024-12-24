@@ -346,7 +346,7 @@
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
-                <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)">
+                <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)" Placeholder="Select">
                     @foreach (var identifierHeadline in IdentifierHeadlines)
                     {
                         <MudSelectItem T="string" Value="identifierHeadline.Prefix" Class="@getIdentifierItemClass(identifierHeadline.Prefix)">
