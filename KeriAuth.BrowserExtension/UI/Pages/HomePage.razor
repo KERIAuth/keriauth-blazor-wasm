@@ -91,7 +91,7 @@
             <MudText Typo="Typo.h6">Dashboard</MudText>
             <MudStack AlignItems="AlignItems.Center" Class="mudstack-full-width">
 
-                <MudStack Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:10px;">
+                <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManageAgents)">KERI Agent</MudLink>
@@ -100,16 +100,16 @@
                             @switch (stateService.GetState())
                             {
                                 case IStateService.States.AuthenticatedConnected:
-                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                                    <MudText Typo="Typo.body2">Connected</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Class="bt-home-status-icon"></MudIcon>
+                                    <MudText Typo="Typo.body1">Connected</MudText>
                                     break;
                                 case IStateService.States.AuthenticatedDisconnected:
-                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
-                                    <MudText Typo="Typo.body2">Disconnected</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
+                                    <MudText Typo="Typo.body1">Disconnected</MudText>
                                     break;
                                 default:
-                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error"></MudIcon>
-                                    <MudText Typo="Typo.body2">Disconnected - Other</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
+                                    <MudText Typo="Typo.body1">Disconnected - Other</MudText>
                                     break;
                             }
                         </div>
@@ -118,18 +118,18 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right">@identifiersCount</MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@identifiersCount</MudText>
                     </MudStack>
 
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Websites</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right">@NumWebsites</MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@NumWebsites</MudText>
                     </MudStack>
                 </MudStack>
 
-                <MudStack Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
+                <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row Style="align-items:center;">
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier + Prefs.SelectedPrefix)">Selected Identifier</MudLink>
@@ -138,7 +138,7 @@
                             @if (!string.IsNullOrEmpty(SelectedIdenticon))
                             {
                                 <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
-                                <MudText>@SelectedAlias</MudText>
+                                <MudText Style="overflow-wrap: anywhere;">@SelectedAlias</MudText>
                             }
                         </MudStack>
                     </MudStack>
@@ -147,7 +147,7 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right">@NumCredentialsThisIdentifier</MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@NumCredentialsThisIdentifier</MudText>
                     </MudStack>
                 </MudStack>
             </MudStack>
@@ -167,5 +167,19 @@
     .mudtext-half-width-right {
         width: 50%;
         text-align: left
+    }
+
+    .bt-home-status-number {
+        padding-left:13px;
+    }
+
+    .bt-home-status-icon {
+        margin-left:5px;
+        margin-right:18px;
+        padding-left:0px;
+    }
+
+    .bt-home-background-box {
+        border-radius:12px;
     }
 </style>
