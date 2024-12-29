@@ -21,7 +21,8 @@
       "*": [ "./node_modules/*" ],
       "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],
       "@cbor/*": [ "./node_modules/cbor2/lib/*" ],
-      "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ]
+      "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ],
+      "@signify-polaris-web/*": [ ".node_modules/signify-polaris-web/dist/*" ]
     },
     "removeComments": true,
     "resolveJsonModule": true,
