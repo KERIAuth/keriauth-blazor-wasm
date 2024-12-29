@@ -255,42 +255,43 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
                 case "GET":
                 case "HEAD":
                 case "OPTIONS":
-                    // If tab is requesting a safe request, then don't launch an action popup
-                    // we are ignoring the "use safe headers flag" and just doing it
-                    // this approach assumes we know the selected identifier and credential from website config
+                    try {
+                        // If tab is requesting a safe request, then don't launch an action popup
+                        // we are ignoring the "use safe headers flag" here and just doing it
+                        // this approach assumes we know the selected identifier and credential from website config
 
-                    // check if there is a passcode in session, which indicates app is unlocked
-                    const result = await chrome.storage.session.get(['passcode']);
-                    if (result.passcode) {
-                        // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
-                        console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
-                        const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
+                        // check if there is a passcode in session, which indicates app is unlocked
+                        const result = await chrome.storage.session.get(['passcode']);
+                        if (result.passcode) {
+                            // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
+                            // console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
+                            const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
 
-                        // add to message with additional properties of origin and selectedName. Could alternately add these to message if updated everywhere needed
-                        (message as any).payload.origin = csTabPort.sender.origin;
-                        const websiteConfig = await getWebsiteConfigByOrigin(csTabPort.sender.origin);
-                        console.warn("SW handleSignRequest websiteConfig:", websiteConfig);
-                        // TODO P1 add error handling above and if name below is null
+                            // add to message with additional properties of origin and selectedName. Could alternately add these to message if updated everywhere needed
+                            (message as any).payload.origin = csTabPort.sender.origin;
+                            const websiteConfig = await getWebsiteConfigByOrigin(csTabPort.sender.origin);
+                            // console.warn("SW handleSignRequest websiteConfig:", websiteConfig);
+                            // TODO P2 add better error handling above and if name below is null
 
-
-
-                        const result = await chrome.storage.local.get(['KeriaConnectConfig']);
-                        if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
-                            const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
-                            const passcodeRes = await chrome.storage.session.get(['passcode']);
-                            if (passcodeRes.passcode) {
-                                const jsonSignifyClient = await connect(adminUrl, passcodeRes.passcode);
-                                // console.warn("SW handleSignRequest jsonSignifyClient:", jsonSignifyClient);
-                                const name = await getNameByPrefix(websiteConfig.rememberedPrefixOrNothing);
-                                (message as any).payload.selectedName = name;
-                                console.warn("SW handleSignRequest message:", message);
-                                await signReqSendToTab(message, cSConnection);
-
-                                return;
+                            const result = await chrome.storage.local.get(['KeriaConnectConfig']);
+                            if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
+                                const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
+                                const passcodeRes = await chrome.storage.session.get(['passcode']);
+                                if (passcodeRes.passcode) {
+                                    const jsonSignifyClient = await connect(adminUrl, passcodeRes.passcode);
+                                    // console.warn("SW handleSignRequest jsonSignifyClient:", jsonSignifyClient);
+                                    const name = await getNameByPrefix(websiteConfig.rememberedPrefixOrNothing);
+                                    (message as any).payload.selectedName = name;
+                                    console.warn("SW handleSignRequest message:", message);
+                                    await signReqSendToTab(message, cSConnection);
+                                    return;
+                                }
                             }
                         }
+                        // intentionally falling through to next case to useActionPopup
+                    } catch (error) {
+                        console.error("handleSignRequest error on method ", message.payload.method, " error:", error);
                     }
-                    // intentionally falling through to next case
                     
                 default:
                     try {
@@ -307,7 +308,6 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
         }
     }
 }
-
 
 function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
     return new Promise((resolve, reject) => {
