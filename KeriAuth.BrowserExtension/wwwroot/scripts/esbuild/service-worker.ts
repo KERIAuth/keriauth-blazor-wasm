@@ -7,7 +7,7 @@
 // using cache from prior releases, etc. See advice in
 // https://www.oreilly.com/library/view/building-progressive-web/9781491961643/ch04.html
 
-import MessageSender = chrome.runtime.MessageSender;
+// import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "../es6/uiHelper.js";
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
@@ -237,35 +237,91 @@ function serializeAndEncode(obj: any): string {
     return encodedString;
 }
 
-function handleSignRequest(payload: any, csTabPort: chrome.runtime.Port) {
+async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
-    console.log("SW handleSignRequest: ", payload);
+    console.log("SW handleSignRequest: ", message);
 
-    // TODO P3 should check if a popup is already open, and if so, bring it into focus.
-    // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
-    if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
+    if (csTabPort.sender?.tab?.id) {
         const tabId = Number(csTabPort.sender.tab.id);
-        //chrome.action.setBadgeText({ text: "3", tabId: tabId });
-        //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
-        // TODO P3 Could alternately implement the payload passing via messaging versus the URL
-        // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
+        // TODO P3 Could alternately implement the message passing via messaging versus the URL
 
         // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
-        console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", payload, "origin: ", jsonOrigin);
-        const encodedMsg = serializeAndEncode(payload);
+        console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", message, "origin: ", jsonOrigin);
+        const encodedMsg = serializeAndEncode(message);
+        
+        if (message.payload?.method) {
+            switch (message.payload.method) {
+                case "GET":
+                case "HEAD":
+                case "OPTIONS":
+                    // If tab is requesting a safe request, then don't launch an action popup 
+                    // TODO P0 handle without any popup. Need to add more checks here about unlock state, etc.
+                    // we are ignoring the "use safe headers flag and just doing it"
+                    // this approach assumes we know the selected identifier and credential from website config
+                    console.warn("SW handleSignRequest: safe...");
 
-        try {
-            useActionPopup(tabId, [
-                { key: "message", value: encodedMsg },
-                { key: "origin", value: jsonOrigin },
-                { key: "popupType", value: "SignRequest" }]);
-        }
-        catch (error) {
-            console.error("SW handleSignRequest: error invoking useActionPopup: ", error);
+                    // TODO P0 temporary hack to use first connection
+                    console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
+                    const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
+                    
+
+
+                    // add to message with additional properties
+
+                    (message as any).payload.origin = csTabPort.sender.origin;
+                    const websiteConfig = await getWebsiteConfigByOrigin(csTabPort.sender.origin);
+                    // TODO P1 add error handling above
+                    // TODO P0 fix the following to use alias
+                    (message as any).payload.selectedName = "role"; // websiteConfig?.rememberedPrefixOrNothing;
+
+                    console.warn("SW handleSignRequest message:", message);
+
+
+                    await signReqSendToTab(message, cSConnection);
+                    return;
+                default:
+                    try {
+                        useActionPopup(tabId, [
+                            { key: "message", value: encodedMsg },
+                            { key: "origin", value: jsonOrigin },
+                            { key: "popupType", value: "SignRequest" }]);
+                        return;
+                    }
+                    catch (error) {
+                        console.error("SW handleSignRequest: error invoking useActionPopup: ", error);
+                    };
+            }
         }
     }
 }
+
+
+function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.get("WebsiteConfigList", (result) => {
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+                return;
+            }
+
+            // Check if the result contains the Websites array
+            const websites = result?.WebsiteConfigList?.Websites;
+
+            if (Array.isArray(websites)) {
+                // Find the object matching the provided origin
+                const matchingWebsite = websites.find(
+                    (website) => website.origin === origin
+                );
+                resolve(matchingWebsite);
+            } else {
+                // Resolve with undefined if Websites array is not found
+                resolve(undefined);
+            }
+        });
+    });
+}
+
 
 // Handle the web page's (Cs's) request for user to select an identifier
 // TODO P2 define type for msg
@@ -313,6 +369,7 @@ interface CsConnection {
     tabId: number;
     pageAuthority: string;
 }
+
 let pageCsConnections: { [key: string]: CsConnection } = {};
 
 // Listen for and handle port pageCsConnections from content script and Blazor App
@@ -329,6 +386,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
     console.log("SW tabId: ", tabId);
     // store the port for this tab in the pageCsConnections object. Assume 1:1
+    // TODO P2 check assumption above?
     pageCsConnections[connectionId] = { port: connectedPort, tabId: tabId, pageAuthority: "?" };
     console.log(`SW ${Object.keys(pageCsConnections).length} connections after update: `, pageCsConnections);
 
@@ -341,7 +399,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
         console.log(`SW with CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
-        cSPort.onMessage.addListener((message: ICsSwMsg) => handleMessageFromPageCs(message, cSPort, tabId, connectionId));
+        cSPort.onMessage.addListener(async (message: ICsSwMsg) => await handleMessageFromPageCs(message, cSPort, tabId, connectionId));
 
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
@@ -421,6 +479,40 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     };
 });
 
+async function signReqSendToTab(message: any, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } ) {
+    // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
+    try {
+        const result = await chrome.storage.local.get(['KeriaConnectConfig']);
+        if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
+            const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
+            const result2 = await chrome.storage.session.get(['passcode']);
+            if (result2.passcode) {
+                const jsonSignifyClient = await connect(adminUrl, result2.passcode);
+                const payload = message.payload;
+                const initHeaders: { [key: string]: string } = { method: payload.method, path: payload.url };
+                const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.url, payload.method, initHeaders, payload.selectedName);
+                const signedHeaderResult = {
+                    type: SwCsMsgType.REPLY,
+                    requestId: message.requestId,
+                    payload: { headers },
+                    rurl: payload.requestUrl
+                };
+                console.log("SW signReqSendToTab: signedHeaderResult", signedHeaderResult);
+                cSConnection.port.postMessage(signedHeaderResult);
+            }
+            else {
+                throw new Error("SW signReqSendToTab: unexpected no passcode");
+            }
+        }
+        else {
+            throw new Error("SW signReqSendToTab: unexpected no config or AdminUrl");
+        }
+    }
+    catch (error) {
+        console.error("SW signReqSendToTab:", error);
+    }
+}
+
 async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string): Promise<void> {
 
     console.log(`SW from App message, port:`, message, appPort);
@@ -437,37 +529,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 cSConnection.port.postMessage(message);
                 break;
             case "ApprovedSignRequest":
-                // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
-                try {
-                    const result = await chrome.storage.local.get(['KeriaConnectConfig']);
-                    if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
-                        const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
-                        const result2 = await chrome.storage.session.get(['passcode']);
-                        if (result2.passcode) {
-                            const jsonSignifyClient = await connect(adminUrl, result2.passcode);
-                            const payload = message.payload;
-                            const initHeaders: { [key: string]: string } = { method: payload.requestMethod, path: payload.requestUrl };
-                            const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.requestUrl, payload.requestMethod, initHeaders, payload.selectedName);
-                            const signedHeaderResult = {
-                                type: SwCsMsgType.REPLY,
-                                requestId: message.requestId,
-                                payload: { headers },
-                                rurl: payload.requestUrl
-                            };
-                            console.log("SW from App: signedHeaderResult", signedHeaderResult);
-                            cSConnection.port.postMessage(signedHeaderResult);
-                        }
-                        else {
-                            throw new Error("unexpected no passcode");
-                        }
-                    }
-                    else {
-                        throw new Error("unexpected no config or AdminUrl");
-                    }
-                }
-                catch (error) {
-                    console.error("Sw from App: service-worker: ApprovedSignRequest: ", error);
-                }
+                await signReqSendToTab(message, cSConnection);
                 break;
             case "/KeriAuth/signify/replyCredential":
                 try {
@@ -508,7 +570,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
     }
 };
 
-function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
+async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
     console.log("SW from CS: message", message);
 
     // assure tab is still connected  
@@ -519,10 +581,10 @@ function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port,
             case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
                 handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
-            case CsSwMsgType.SIGN_DATA:
-            // TODO P2 request user to sign data (or request?)
+            // case CsSwMsgType.SIGN_DATA:
+            // TODO P1 request user to sign data (or request?)
             case CsSwMsgType.SIGN_REQUEST:
-                handleSignRequest(message as any, pageCsConnections[connectionId].port);
+                await handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
             case CsSwMsgType.SIGNIFY_EXTENSION:
                 pageCsConnections[connectionId].tabId = tabId;

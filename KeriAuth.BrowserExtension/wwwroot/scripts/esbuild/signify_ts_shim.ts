@@ -183,7 +183,7 @@ export async function getCredential(
 // inspired by https://github.com/WebOfTrust/signify-browser-extension/blob/d51ba75a3258a7a29267044235b915e1d0444075/src/pages/background/services/signify.ts#L307
 /**
    * @param origin - origin url from where request is being made -- required
-   * @param rurl - resource url that the request is being made to -- required
+   * @param url - resource url that the request is being made to -- required
    * @param method - http method of the request -- default GET
    * @param headersDict - initialHeaders object of the request -- default empty
    * @param signin - signin object containing identifier or credential -- required
@@ -191,12 +191,12 @@ export async function getCredential(
    */
 export const getSignedHeaders = async (
     origin: string,
-    rurl: string,   // used? or should be in headers by this time?
-    method: string, // used? or should be in headers by this time?
+    url: string,
+    method: string,
     headersDict: { [key: string]: string },
     aidName: string,
 ): Promise<{ [key: string]: string }> => {
-    console.log("signify_ts_shim getSignedHeaders: params: origin: ", origin, " rurl:", rurl, " method:", method, " aidname", aidName);
+    console.log("signify_ts_shim getSignedHeaders: params: origin: ", origin, " url:", url, " method:", method, " aidname", aidName);
     console.log("signify_ts_shim getSignedHeaders: params: headers:...");
     "ApprovedSignRequest"    
     for (const key in headersDict) {
@@ -224,7 +224,7 @@ export const getSignedHeaders = async (
             method: method,
             headers: headersDict
         };
-        const signedRequest: Request = await client.createSignedRequest(aidName, rurl, requestInit);
+        const signedRequest: Request = await client.createSignedRequest(aidName, url, requestInit);
         //resetTimeoutAlarm();
         console.log("signify_ts_shim getSignedHeaders: signedRequest:", signedRequest);
 

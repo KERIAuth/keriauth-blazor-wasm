@@ -7,11 +7,11 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("origin")]
         public string Origin { get; init; }
 
-        [JsonPropertyName("requestUrl")]
-        public string RequestUrl { get; init; }
+        [JsonPropertyName("url")]
+        public string Url { get; init; }
 
-        [JsonPropertyName("requestMethod")]
-        public string RequestMethod { get; init; }
+        [JsonPropertyName("method")]
+        public string Method { get; init; }
 
         [JsonPropertyName("headers")]
         public Dictionary<string, string>? InitHeaders { get; init; }
@@ -26,13 +26,13 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("passcode")]
         public string Passcode { get; init; }
 
-        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string requestUrl, string requestMethod, Dictionary<string, string>? initHeaders, string selectedName)
+        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string url, string method, Dictionary<string, string>? initHeaders, string selectedName)
         {
             this.Passcode = passcode;
             this.AdminUrl = adminUrl;
             Origin = origin;
-            RequestUrl = requestUrl;
-            RequestMethod = requestMethod;
+            Url = url;
+            Method = method;
             this.InitHeaders = initHeaders;
             SelectedName = selectedName;
         }

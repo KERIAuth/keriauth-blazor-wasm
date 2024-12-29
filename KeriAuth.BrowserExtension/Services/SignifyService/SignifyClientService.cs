@@ -357,43 +357,6 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
         {
             await Task.Delay(0);
             throw new NotImplementedException();
-            /*
-            logger.LogInformation("SignRequestHeader: origin: `{o}` rurl: `{r}` method: `{m}` inputHeaders: `{i}` Prefix: `{p}`", origin, rurl, method, initHeadersDict.ToString(), Prefix);
-            try
-            {
-                var jsonInputHeaders = System.Text.Json.JsonSerializer.Serialize(initHeadersDict);
-                logger.LogInformation("SignRequestHeader: jsonInputHeaders: `{i}`", jsonInputHeaders);
-                logger.LogInformation("SignRequestHeader: invoke params: origin: `{o}` rurl: `{r}` method: `{m}` jsonInputHeaders: `{i}` Prefix: `{p}`", origin, rurl, method, jsonInputHeaders, Prefix);
-
-                var signedHeadersAsJsonBase64 = await Signify_ts_shim.GetSignedHeadersWithJsonHeaders(origin, rurl, method, jsonInputHeaders, Prefix);
-                logger.LogInformation("SignRequestHeader: signedHeadersAsJsonBase64: {s}", signedHeadersAsJsonBase64);
-
-                // Step 1: Decode the Base64 string
-                byte[] jsonBytes = Convert.FromBase64String(signedHeadersAsJsonBase64);
-                string jsonString = Encoding.UTF8.GetString(jsonBytes);
-                logger.LogInformation("SignRequestHeader: signedHeaders as jsonString: {p}", jsonString);
-
-                // Step 2: Parse the JSON string to JObject for a structured representation
-                // wrap to return a Request-like object
-                JObject jsonObject = JObject.Parse("{ headers: " + jsonString + "}");
-
-                // Step 3: Pretty print the JSON object
-                string json = JsonConvert.SerializeObject(jsonObject, Formatting.Indented);
-                logger.LogInformation("SignRequestHeader: signedHeaders as json-like: {p}", json);
-
-                return Result.Ok(json);
-            }
-            catch (JSException e)
-            {
-                logger.LogWarning("SignRequestHeader: JSException: {e}", e);
-                return Result.Fail<string>("SignifyClientService: SignRequestHeader: Exception: " + e);
-            }
-            catch (Exception e)
-            {
-                logger.LogWarning("SignRequestHeader: Exception: {e}", e);
-                return Result.Fail<string>("SignifyClientService: SignRequestHeader: Exception: " + e);
-            }
-            */
         }
     }
 }

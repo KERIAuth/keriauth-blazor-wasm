@@ -130,8 +130,8 @@ export interface ISignin {
 
 export interface ApprovedSignRequest {
     originStr: string;
-    rUrl: string;
-    rMethod: string;
+    url: string;
+    method: string;
     // not using type of Headers or Map<string, string> because of serialization issues.
     initHeadersDict?: { [key: string]: string };  
     selectedName: string;
