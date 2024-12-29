@@ -146,6 +146,27 @@ export const getAID = async (name: string): Promise<string> => {
     }
 }
 
+export interface IIdentifier {
+    name?: string;
+    prefix: string;
+}
+
+// TODO P1 also implement getIdentifierByPrefix and refactor this:
+export const getNameByPrefix = async (prefix: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client!;
+        const identifiers = await client.identifiers().list();  
+        // console.warn("getNameByPrefix identifiers:", identifiers);
+        const aid = identifiers.aids.find((i: any) => i.prefix === prefix) as IIdentifier;
+        // console.warn("getNameByPrefix aid:", aid);
+        return aid.name;
+    } catch (error) {
+        console.error("signify_ts_shim: getPrefixByName: name, error:", name, error);
+        throw error;
+    }
+}
+
 export async function getCredentialsList(
     // filter: object
 ): Promise<string> {  // TODO P3 define the return type?

@@ -11,7 +11,7 @@
 import { Utils } from "../es6/uiHelper.js";
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
-import { connect, getSignedHeaders } from "./signify_ts_shim.js";
+import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim.js";
 // import { decode } from '@cbor';
 
 export const ENUMS = {
@@ -249,37 +249,49 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", message, "origin: ", jsonOrigin);
         const encodedMsg = serializeAndEncode(message);
-        
+
         if (message.payload?.method) {
             switch (message.payload.method) {
                 case "GET":
                 case "HEAD":
                 case "OPTIONS":
-                    // If tab is requesting a safe request, then don't launch an action popup 
-                    // TODO P0 handle without any popup. Need to add more checks here about unlock state, etc.
-                    // we are ignoring the "use safe headers flag and just doing it"
+                    // If tab is requesting a safe request, then don't launch an action popup
+                    // we are ignoring the "use safe headers flag" and just doing it
                     // this approach assumes we know the selected identifier and credential from website config
-                    console.warn("SW handleSignRequest: safe...");
 
-                    // TODO P0 temporary hack to use first connection
-                    console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
-                    const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
+                    // check if there is a passcode in session, which indicates app is unlocked
+                    const result = await chrome.storage.session.get(['passcode']);
+                    if (result.passcode) {
+                        // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
+                        console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
+                        const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
+
+                        // add to message with additional properties of origin and selectedName. Could alternately add these to message if updated everywhere needed
+                        (message as any).payload.origin = csTabPort.sender.origin;
+                        const websiteConfig = await getWebsiteConfigByOrigin(csTabPort.sender.origin);
+                        console.warn("SW handleSignRequest websiteConfig:", websiteConfig);
+                        // TODO P1 add error handling above and if name below is null
+
+
+
+                        const result = await chrome.storage.local.get(['KeriaConnectConfig']);
+                        if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
+                            const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
+                            const passcodeRes = await chrome.storage.session.get(['passcode']);
+                            if (passcodeRes.passcode) {
+                                const jsonSignifyClient = await connect(adminUrl, passcodeRes.passcode);
+                                // console.warn("SW handleSignRequest jsonSignifyClient:", jsonSignifyClient);
+                                const name = await getNameByPrefix(websiteConfig.rememberedPrefixOrNothing);
+                                (message as any).payload.selectedName = name;
+                                console.warn("SW handleSignRequest message:", message);
+                                await signReqSendToTab(message, cSConnection);
+
+                                return;
+                            }
+                        }
+                    }
+                    // intentionally falling through to next case
                     
-
-
-                    // add to message with additional properties
-
-                    (message as any).payload.origin = csTabPort.sender.origin;
-                    const websiteConfig = await getWebsiteConfigByOrigin(csTabPort.sender.origin);
-                    // TODO P1 add error handling above
-                    // TODO P0 fix the following to use alias
-                    (message as any).payload.selectedName = "role"; // websiteConfig?.rememberedPrefixOrNothing;
-
-                    console.warn("SW handleSignRequest message:", message);
-
-
-                    await signReqSendToTab(message, cSConnection);
-                    return;
                 default:
                     try {
                         useActionPopup(tabId, [
@@ -479,7 +491,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     };
 });
 
-async function signReqSendToTab(message: any, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } ) {
+async function signReqSendToTab(message: any, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string }) {
     // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
     try {
         const result = await chrome.storage.local.get(['KeriaConnectConfig']);
