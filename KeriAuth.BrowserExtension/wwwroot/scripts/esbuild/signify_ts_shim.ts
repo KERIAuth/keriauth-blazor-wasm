@@ -151,18 +151,27 @@ export interface IIdentifier {
     prefix: string;
 }
 
-// TODO P1 also implement getIdentifierByPrefix and refactor this:
-export const getNameByPrefix = async (prefix: string): Promise<string> => {
+export async function getNameByPrefix(prefix: string): Promise<string> {
+    try {
+        const aid = await getIdentifierByPrefix(prefix);
+        return aid.name;
+    } catch (error) {
+        console.error("signify_ts_shim: getPrefixByName: prefix, error:", prefix, error);
+        throw error;
+    }
+}
+
+export async function getIdentifierByPrefix(prefix: string): Promise<IIdentifier> {
     try {
         validateClient();
         const client: SignifyClient = _client!;
-        const identifiers = await client.identifiers().list();  
+        const identifiers = await client.identifiers().list();
         // console.warn("getNameByPrefix identifiers:", identifiers);
         const aid = identifiers.aids.find((i: any) => i.prefix === prefix) as IIdentifier;
         // console.warn("getNameByPrefix aid:", aid);
-        return aid.name;
+        return aid;
     } catch (error) {
-        console.error("signify_ts_shim: getPrefixByName: name, error:", name, error);
+        console.error("signify_ts_shim: getIdentifierByPrefix: prefix, error:", prefix, error);
         throw error;
     }
 }
