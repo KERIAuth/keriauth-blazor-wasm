@@ -226,39 +226,25 @@ export const getSignedHeaders = async (
     headersDict: { [key: string]: string },
     aidName: string,
 ): Promise<{ [key: string]: string }> => {
-    console.log("signify_ts_shim getSignedHeaders: params: origin: ", origin, " url:", url, " method:", method, " aidname", aidName);
+    console.log("signify_ts_shim getSignedHeaders: params: origin: ", origin, " url:", url, " method:", method, " aidname:", aidName);
+
     console.log("signify_ts_shim getSignedHeaders: params: headers:...");
-    "ApprovedSignRequest"    
     for (const key in headersDict) {
         if (headersDict.hasOwnProperty(key)) {
             console.log(`  Header: ${key} = ${headersDict[key]}`);
         }
     }
 
-    // in case the client is not connected, try to connect
-    //const connected = await isConnected();
-    // connected is false, it means the client session timed out or disconnected by user
-    //if (!connected) {
     validateClient();
-    //}
-
     const client: SignifyClient = _client!;
-
-    //const session = await sessionService.get({ tabId, origin });
-    //await sessionService.incrementRequestCount(tabId);
-    //if (!session) {
-    //    throw new Error("Session not found");
-    //}
     try {
         const requestInit: RequestInit = {
             method: method,
             headers: headersDict
         };
         const signedRequest: Request = await client.createSignedRequest(aidName, url, requestInit);
-        //resetTimeoutAlarm();
         console.log("signify_ts_shim getSignedHeaders: signedRequest:", signedRequest);
 
-        // TODO P4 move into utility function for printing headersDict
         // Log each header for better visibility
         if (signedRequest.headers) {
             console.info("signify_ts_shim getSignedHeaders: signedRequest.headers details:");
@@ -309,18 +295,12 @@ export function parseHeaders(headersJson: string | null): Headers {
 }
 
 function headersToJsonBase64(headers: Headers): string {
-    // Step 1: Convert Headers to a key-value object
     const headersObject: { [key: string]: string } = {};
     headers.forEach((value, key) => {
         headersObject[key] = value;
     });
-
-    // Step 2: Convert the object to a JSON string
     const jsonString = JSON.stringify(headersObject);
-
-    // Step 3: Convert JSON string to Base64 using btoa()
     const base64String = btoa(jsonString);
-
     return base64String;
 }
 

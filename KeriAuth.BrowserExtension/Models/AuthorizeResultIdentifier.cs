@@ -6,13 +6,18 @@ namespace KeriAuth.BrowserExtension.Models
     {
         [JsonConstructor]
         public AuthorizeResultIdentifier(
-            string prefix
+            string prefix,
+            string alias
             )
         {
             this.Prefix = prefix;
+            this.Alias = alias;
         }
 
         [JsonPropertyName("prefix")]
         public string Prefix { get; }
+        
+        [JsonPropertyName("alias")]
+        public string Alias { get; }
     }
 }

@@ -50,6 +50,7 @@
     public string requestId { get; set; } = "";
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string? SelectedPrefix { get; set; }
+    string? SelectedAlias { get; set; }
     Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
 
     // reactive properties
@@ -150,9 +151,9 @@
         }
     }
 
-    /*
+     /*
      * SignIn()
-     */
+    */
     async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
         // will received Prefix and credential via callback from WebsiteConfigDisplay component
@@ -163,13 +164,13 @@
         {
             case SignInMode.Identifier:
                 logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
-                if (SelectedPrefix is null)
+                if (SelectedPrefix is null || SelectedAlias is null)
                 {
                     throw (new Exception("SelectedPrefix is null"));
                 }
                 replyMessageData = new(
                     "/signify/reply",
-                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix)),
+                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)),
                     requestId: requestId2
                 );
                 break;
@@ -199,7 +200,7 @@
                 logger.LogInformation("SignIn with Credential: sad: {0}", credential2.sad.d);
                 replyMessageData = new(
                     type: "/KeriAuth/signify/replyCredential",
-                    payload: new AuthorizeResult(new AuthorizeResultCredential(JsonSerializer.Serialize(credential2), cesr), null),
+                    payload: new AuthorizeResult(new AuthorizeResultCredential(JsonSerializer.Serialize(credential2), cesr), new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)),
                     requestId: requestId2
                 );
                 break;
@@ -245,10 +246,11 @@
         }
     }
 
-    private async Task HandleIdOrCredChanged((string selectedPrefix, Dictionary<string, object>? selectedCredentialOrNothing) value)
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, Dictionary<string, object>? selectedCredentialOrNothing) value)
     {
         logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;
+        SelectedAlias = value.selectedAlias;
         SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
         StateHasChanged();
         await SetSignInFocus();

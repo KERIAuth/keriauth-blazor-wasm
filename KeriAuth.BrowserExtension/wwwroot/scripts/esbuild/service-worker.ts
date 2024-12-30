@@ -11,7 +11,7 @@
 import { Utils } from "../es6/uiHelper.js";
 import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
-import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim.js";
+import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
 // import { decode } from '@cbor';
 // import { SignDataArgs, SignDataResult } from "@signify-polaris-web";
 
@@ -238,6 +238,35 @@ function serializeAndEncode(obj: any): string {
     return encodedString;
 }
 
+
+async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
+    // check if there is a passcode in session, which indicates app is unlocked
+    const result = await chrome.storage.session.get(['passcode']);
+    if (result.passcode) {
+        // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
+        // console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
+        const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
+
+        // add to message with additional properties of origin and selectedName. Could alternately add these to message if updated everywhere needed
+
+        const websiteConfig = await getWebsiteConfigByOrigin(origin);
+        // console.warn("SW handleSignRequest websiteConfig:", websiteConfig);
+        // TODO P2 add better error handling above and if name below is null
+
+        const result = await chrome.storage.local.get(['KeriaConnectConfig']);
+        if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
+            const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
+            const passcodeRes = await chrome.storage.session.get(['passcode']);
+            if (passcodeRes.passcode) {
+                const jsonSignifyClient = await connect(adminUrl, passcodeRes.passcode);
+                // console.warn("SW handleSignRequest jsonSignifyClient:", jsonSignifyClient);
+                const name = await getNameByPrefix(websiteConfig.rememberedPrefixOrNothing);
+                return name;
+            }
+        }
+    }
+}
+
 async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
     console.log("SW handleSignRequest: ", message);
@@ -257,43 +286,21 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
                 case "HEAD":
                 case "OPTIONS":
                     try {
-                        // If tab is requesting a safe request, then don't launch an action popup
-                        // we are ignoring the "use safe headers flag" here and just doing it
-                        // this approach assumes we know the selected identifier and credential from website config
+                        // If tab is requesting a safe request, then don't launch an action popup.
+                        // We are ignoring the "use safe headers flag" here and just doing it.
 
-                        // check if there is a passcode in session, which indicates app is unlocked
-                        const result = await chrome.storage.session.get(['passcode']);
-                        if (result.passcode) {
-                            // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
-                            // console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
-                            const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
-
-                            // add to message with additional properties of origin and selectedName. Could alternately add these to message if updated everywhere needed
-                            (message as any).payload.origin = csTabPort.sender.origin;
-                            const websiteConfig = await getWebsiteConfigByOrigin(csTabPort.sender.origin);
-                            // console.warn("SW handleSignRequest websiteConfig:", websiteConfig);
-                            // TODO P2 add better error handling above and if name below is null
-
-                            const result = await chrome.storage.local.get(['KeriaConnectConfig']);
-                            if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
-                                const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
-                                const passcodeRes = await chrome.storage.session.get(['passcode']);
-                                if (passcodeRes.passcode) {
-                                    const jsonSignifyClient = await connect(adminUrl, passcodeRes.passcode);
-                                    // console.warn("SW handleSignRequest jsonSignifyClient:", jsonSignifyClient);
-                                    const name = await getNameByPrefix(websiteConfig.rememberedPrefixOrNothing);
-                                    (message as any).payload.selectedName = name;
-                                    console.warn("SW handleSignRequest message:", message);
-                                    await signReqSendToTab(message, cSConnection);
-                                    return;
-                                }
-                            }
+                        // This approach assumes we know the selected identifier and credential from website config, created during a prior sign-in
+                        const identifierName = await getIdentifierNameForCurrentTab(csTabPort.sender.origin);
+                        if (identifierName) {
+                            (message as any).payload.selectedName = identifierName;
+                            console.log("SW handleSignRequest message:", message);
+                            await signReqSendToTab(message, csTabPort);
+                            return;
                         }
-                        // intentionally falling through to next case to useActionPopup
+                        // intentionally falling through to default case now
                     } catch (error) {
                         console.error("handleSignRequest error on method ", message.payload.method, " error:", error);
                     }
-                    
                 default:
                     try {
                         useActionPopup(tabId, [
@@ -492,8 +499,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     };
 });
 
-async function signReqSendToTab(message: any, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string }) {
-    // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
+// Connect so that shim will work as expected
+async function connectToKeria(): Promise<boolean> {
     try {
         const result = await chrome.storage.local.get(['KeriaConnectConfig']);
         if (result.KeriaConnectConfig && result.KeriaConnectConfig.AdminUrl) {
@@ -501,24 +508,38 @@ async function signReqSendToTab(message: any, cSConnection: { port: chrome.runti
             const result2 = await chrome.storage.session.get(['passcode']);
             if (result2.passcode) {
                 const jsonSignifyClient = await connect(adminUrl, result2.passcode);
-                const payload = message.payload;
-                const initHeaders: { [key: string]: string } = { method: payload.method, path: payload.url };
-                const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.url, payload.method, initHeaders, payload.selectedName);
-                const signedHeaderResult = {
-                    type: SwCsMsgType.REPLY,
-                    requestId: message.requestId,
-                    payload: { headers },
-                    rurl: payload.requestUrl
-                };
-                console.log("SW signReqSendToTab: signedHeaderResult", signedHeaderResult);
-                cSConnection.port.postMessage(signedHeaderResult);
-            }
-            else {
-                throw new Error("SW signReqSendToTab: unexpected no passcode");
+                return true;
             }
         }
         else {
-            throw new Error("SW signReqSendToTab: unexpected no config or AdminUrl");
+            console.error("could not connect to KERIA with config and passcode.");
+            return false;
+        }
+    } catch (error) {
+        console.error("Could not connect to KERIA: ", error)
+        return false;
+    }
+}
+
+async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
+    // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
+    try {
+        if (await connectToKeria()) {
+            const payload = message.payload;
+            const initHeaders: { [key: string]: string } = { method: payload.method, path: payload.url };
+            console.warn("tmp signReqSendToTab message: ", message);
+            const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.url, payload.method, initHeaders, payload.selectedName);
+            const signedHeaderResult = {
+                type: SwCsMsgType.REPLY,
+                requestId: message.requestId,
+                payload: { headers },
+                rurl: payload.requestUrl
+            };
+            console.log("SW signReqSendToTab: signedHeaderResult", signedHeaderResult);
+            port.postMessage(signedHeaderResult);
+        }
+        else {
+            throw new Error("SW signReqSendToTab: unexpected KERIA availability or passcode issue");
         }
     }
     catch (error) {
@@ -542,24 +563,42 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 cSConnection.port.postMessage(message);
                 break;
             case "ApprovedSignRequest":
-                await signReqSendToTab(message, cSConnection);
+                await signReqSendToTab(message, cSConnection.port);
                 break;
             case "/KeriAuth/signify/replyCredential":
                 try {
                     const credObject = JSON.parse(message.payload.credential.rawJson);
                     const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
-                    const authorizeResultCredential = { credential: { raw: credObject, cesr: message.payload.credential.cesr }, expiry: expiry };
-                    const authorizeResult = {
-                        type: SwCsMsgType.REPLY,
-                        requestId: message.requestId,
-                        payload: authorizeResultCredential,
-                        rurl: ""  // TODO P2 rurl should not be fixed
-                    };
-                    console.log("SW from App: authorizeResult", authorizeResult);
-                    cSConnection.port.postMessage(authorizeResult);
+
+                    // TODO P2 Why fake urls here and below for rurl?
+                    const isConnected = await connectToKeria();
+                    if (isConnected) {
+                        const headers = await getSignedHeaders("example.com", "https://example.com", "GET", credObject, message.payload.identifier.alias);
+                        const authorizeResultCredential =
+                        {
+                            credential:
+                            {
+                                raw: credObject,
+                                cesr: message.payload.credential.cesr
+                            },
+                            expiry: expiry,
+                            headers: headers
+                        };
+                        const authorizeResult = {
+                            type: SwCsMsgType.REPLY,
+                            requestId: message.requestId,
+                            payload: authorizeResultCredential,
+                            rurl: ""
+                        };
+                        console.log("SW from App: authorizeResult", authorizeResult);
+                        cSConnection.port.postMessage(authorizeResult);
+                    } else {
+                        throw Error("could not connect");
+                        // TODO P2 do a graceful replyCancel instead
+                    }
                 }
                 catch (error) {
-                    console.error("SW from App: error parsing credential: ", error);
+                    console.error("SW: error processing ", message.type as string, ": ", error);
                 }
                 break;
             case "/KeriAuth/signify/replyCancel":
@@ -574,7 +613,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                     cSConnection.port.postMessage(cancelResult);
                 }
                 catch (error) {
-                    console.error("SW from App: error parsing credential: ", error);
+                    console.error("SW: error processing ", message.type as string, ": ", error);
                 }
                 break;
             default:
