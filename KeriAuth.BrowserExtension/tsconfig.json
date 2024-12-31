@@ -21,8 +21,7 @@
       "*": [ "./node_modules/*" ],
       "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],
       "@cbor/*": [ "./node_modules/cbor2/lib/*" ],
-      "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ],
-      "@signify-polaris-web/*": [ ".node_modules/signify-polaris-web/dist/*" ]
+      "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ]
     },
     "removeComments": true,
     "resolveJsonModule": true,
@@ -34,7 +33,9 @@
     "types": [ "vite/client", "node", "chrome" ]
   },
   "include": [
-    "wwwroot/scripts/es6/*.ts"
+    "wwwroot/scripts/es6/*.ts",
+    "wwwroot/scripts/types/polaris-web-client.d.ts",
+    "/node_modules/vite/types" 
   ],
   "exclude": [
 

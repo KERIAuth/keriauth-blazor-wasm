@@ -12,9 +12,21 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "../es6/PageCsInterfaces.js"
+} from "../types/polaris-web-client"
 
-import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, ReplyMessageData, ApprovedSignRequest } from "../es6/ExCsInterfaces.js";
+import {
+    CsSwMsgType,
+    IExCsMsgHello,
+    SwCsMsgType,
+    ISwCsMsg,
+    ICsSwMsg,
+    CsToPageMsgIndicator,
+    KeriAuthMessageData,
+    ISignin,
+    ICredential,
+    ReplyMessageData,
+    ApprovedSignRequest
+} from "../es6/ExCsInterfaces.js";
 
 interface DotNetObjectReference<T = any> {
     invokeMethodAsync: (methodName: string, ...args: any[]) => Promise<void>;

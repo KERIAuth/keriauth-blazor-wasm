@@ -12,7 +12,7 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "../es6/PageCsInterfaces.js"
+} from "../types/polaris-web-client"
 
 export interface ICsSwMsg {
     type: string

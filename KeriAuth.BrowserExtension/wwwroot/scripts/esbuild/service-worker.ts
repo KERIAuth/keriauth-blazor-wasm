@@ -13,7 +13,6 @@ import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.j
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
 // import { decode } from '@cbor';
-// import { SignDataArgs, SignDataResult } from "@signify-polaris-web";
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"

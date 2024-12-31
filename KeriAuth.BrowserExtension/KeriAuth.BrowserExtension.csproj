@@ -87,6 +87,9 @@
     <None Remove="wwwroot\scripts\**\*.d.ts" />
     <None Remove="wwwroot\scripts\**\*.ts" />
   </ItemGroup>
+  <ItemGroup>
+    <TypeScriptCompile Remove="wwwroot\scripts\es6\polaris-web-client.d.ts" />
+  </ItemGroup>
 
   <!-- Build Tasks -->
   <Target Name="InstallDependencies" BeforeTargets="BuildFrontend">
