@@ -34,7 +34,15 @@ chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.Ins
             break;
         case "update":
             // This event could also be triggered from user hitting Reload on the browser's Extensions page
-            // TODO P1 Allow the index page to know whether the version of the cache is not the new manifest's version?
+            // TODO P2 Allow the index page to know whether the version of the cache is not the new manifest's version. Implement UI update notice there.
+            // Could also implement something like the following:
+            // Get the previous version
+            const previousVersion = installDetails.previousVersion;
+            // Get the current version from the manifest
+            const currentVersion = chrome.runtime.getManifest().version;
+            console.log(`Extension updated from version ${previousVersion} to ${currentVersion}.`);
+            // if (previousVersion !== currentVersion) {
+            // Logic for handling the version change
             urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
             Utils.createTab(urlString);
             break;
