@@ -93,10 +93,14 @@
     {
         logger.LogInformation($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
 
-        if (ValueChanged.HasDelegate)
+        if (ValueChanged.HasDelegate && IdentifierHeadlines is not null)
         {
-            var selectedAlias = IdentifierHeadlines!.Find(x => x.Prefix == SelectedPrefix)!.Alias;
-            await ValueChanged.InvokeAsync((SelectedPrefix, selectedAlias, SelectedCredentialOrNothing));
+            var selectedIdentifierHeadline = IdentifierHeadlines.Find(x => x.Prefix == SelectedPrefix);
+            if (selectedIdentifierHeadline is not null)
+            {
+                var selectedAlias = selectedIdentifierHeadline.Alias;
+                await ValueChanged.InvokeAsync((SelectedPrefix, selectedAlias, SelectedCredentialOrNothing));
+            }
         }
     }
 

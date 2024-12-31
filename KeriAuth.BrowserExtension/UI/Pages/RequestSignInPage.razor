@@ -151,9 +151,9 @@
         }
     }
 
-     /*
-     * SignIn()
-    */
+    /*
+    * SignIn()
+       */
     async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
         // will received Prefix and credential via callback from WebsiteConfigDisplay component
@@ -192,7 +192,7 @@
                 var credential2 = JsonSerializer.Deserialize<ICredential>(json, options);
 
                 logger.LogInformation("SignIn with Credential: {0}", credential2);
-                if (credential2 is null)
+                if (credential2 is null || SelectedPrefix is null || SelectedAlias is null)
                 {
                     throw (new Exception("Credential is null"));
                 };
