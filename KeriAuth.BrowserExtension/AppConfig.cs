@@ -15,6 +15,7 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToNewInstall = "/NewInstall";
         public const string RouteToHome = "/Home";
         public const string RouteToTermsPage = "/Terms";
+        public const string RouteToPrivacyPage = "/Privacy";
         public const string RouteToManagePrefs = "/ManagePreferences";
         public const string RouteToManageAgents = "/KeriAgentService";
         public const string RouteToWelcome = "/Welcome";
@@ -26,7 +27,7 @@ namespace KeriAuth.BrowserExtension
         // TODO P2 decide whether a connecting page is needed
         public const string RouteToConnecting = "/Connecting";
 
-        // route with parameters, with intentional trailing /
+        // routes with parameters, with intentional trailing /
         public const string RouteToIdentifier = "/Identifier/";
         public const string RouteToWebsite = "/Website/";
         public const string RouteToRequestSignIn = "/RequestSignIn/";
@@ -59,7 +60,8 @@ namespace KeriAuth.BrowserExtension
             RouteToConfigure,
             RouteToUnlock,
             RouteToManagePrefs,
-            RouteToTermsPage
+            RouteToTermsPage,
+            RouteToPrivacyPage
             // Note, we don't need to add routes to static html (non-SPA-App) here
         ];
 

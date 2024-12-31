@@ -72,6 +72,9 @@
 
   <!-- Content Files -->
   <ItemGroup>
+    <Content Update="UI\Pages\PrivacyPage.razor">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
     <Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
     <Content Update="wwwroot\content\terms.html" CopyToOutputDirectory="Always" />
     <Content Update="dist\wwwroot\scripts\esbuild\*.js" CopyToOutputDirectory="Always" />
@@ -101,9 +104,7 @@
     </ItemGroup>
 
     <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledEs6Scripts)"
-			  DestinationFolder="$(OutputPath)\browserextension\scripts\es6"
-			  SkipUnchangedFiles="false" />
+    <Copy SourceFiles="@(CompiledEs6Scripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\es6" SkipUnchangedFiles="false" />
   </Target>
 
   <Target Name="CopyEsBuildJavascript" AfterTargets="Build">
@@ -113,9 +114,7 @@
     </ItemGroup>
 
     <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledEsBuildScripts)"
-			  DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild"
-			  SkipUnchangedFiles="false" />
+    <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild" SkipUnchangedFiles="false" />
   </Target>
 
 </Project>
