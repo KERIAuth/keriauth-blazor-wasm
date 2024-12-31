@@ -11,7 +11,18 @@ interface EventData {
     [key: string]: any;
 }
 
-import { CsSwMsgType, IExCsMsgHello, SwCsMsgType, ISwCsMsg, ICsSwMsg, CsToPageMsgIndicator, KeriAuthMessageData, ISignin, ICredential, } from "../es6/ExCsInterfaces.js";
+import {
+    CsSwMsgType,
+    IExCsMsgHello,
+    SwCsMsgType,
+    ISwCsMsg,
+    ICsSwMsg,
+    CsToPageMsgIndicator,
+    KeriAuthMessageData,
+    ISignin,
+    ICredential
+} from "../es6/ExCsInterfaces.js";
+
 import {
     AuthorizeResultCredential,
     AuthorizeArgs,
@@ -24,7 +35,7 @@ import {
     SignRequestResult,
     ConfigureVendorArgs,
     MessageData
-} from "../es6/PageCsInterfaces.js"
+} from "../types/polaris-web-client";
 
 // Function to generate a unique and unguessable identifier for the port name for communications between the content script and the extension
 function generateUniqueIdentifier(): string {
@@ -174,7 +185,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                     // since the portWithSw may have disconnected when the service-worker transitioned to inactive state, we may need to recreate it here
                     if (portWithSw === null) {
                         createPort(true);
-                    } 
+                    }
                     portWithSw.postMessage(event.data);
 
                 } catch (error) {
