@@ -89,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Remove="wwwroot\scripts\es6\polaris-web-client.d.ts" />
+    <TypeScriptCompile Remove="wwwroot\scripts\types\types.ts" />
   </ItemGroup>
 
   <!-- Build Tasks -->

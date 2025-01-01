@@ -59,7 +59,7 @@ namespace KeriAuth.BrowserExtension.Services
         public void ReceiveMessage(string message)
         {
             // Handle the message received from the service worker
-            logger.LogInformation("AppSwMessagineService from SW: {m}", message);
+            logger.LogInformation("AppSwMessagingService from SW: {m}", message);
             OnNext(message);
         }
 

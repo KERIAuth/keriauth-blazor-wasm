@@ -66,6 +66,8 @@
     const string termsUrlPath = "content/terms.html";
     const string privacyUrlPath = "content/privacy.html";
 
+
+
     protected override async Task OnInitializedAsync()
     {
         // IsLoading = true;
@@ -103,12 +105,22 @@
         int termsMarkupHash = GetNumberFromHash.HashInt(termsMarkup.Value);
         int privacyMarkupHash = GetNumberFromHash.HashInt(privacyMarkup.Value);
 
+
+        // Determine whether there was an update e.g. via a push from Chrome Web Store. See service-worker.ts
+        // for how the following is placed into storage
+        bool isUpdated = false;
+        var updateDetailsRes = await storageService.GetItem<UpdateDetails>();
+        if (updateDetailsRes.IsSuccess && updateDetailsRes.Value is not null)
+        {
+            isUpdated = true;
+        }
+
         // Handle (re-)onboarding conditions if needed
         if (!onboardState.IsInstallOnboarded() ||
+            isUpdated ||
             onboardState.AcknowledgedInstalledVersion != CurrentVersion ||
             onboardState.TosAgreedHash != termsMarkupHash ||
-            onboardState.PrivacyAgreedHash != privacyMarkupHash ||
-            isUpdated)
+            onboardState.PrivacyAgreedHash != privacyMarkupHash)
         {
             if (!onboardState.HasAcknowledgedInstall)
             {
@@ -116,7 +128,7 @@
                 return;
             }
 
-            if (onboardState.AcknowledgedInstalledVersion != CurrentVersion)
+            if (onboardState.AcknowledgedInstalledVersion != CurrentVersion || isUpdated)
             {
                 navManager.NavigateTo(RouteToNewRelease);
                 return;

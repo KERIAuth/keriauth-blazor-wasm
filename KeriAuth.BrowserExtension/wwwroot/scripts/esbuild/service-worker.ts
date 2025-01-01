@@ -13,6 +13,7 @@ import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.j
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
 // import { decode } from '@cbor';
+import { UpdateDetails } from "../types/types.js";
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"
@@ -27,23 +28,23 @@ chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.Ins
     let urlString = "";
     switch (installDetails.reason) {
         case "install":
-            // TODO P2 Update Onboarding UI
             urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}`;
             Utils.createTab(urlString);
             break;
         case "update":
-            // This event could also be triggered from user hitting Reload on the browser's Extensions page
-            // TODO P2 Allow the index page to know whether the version of the cache is not the new manifest's version. Implement UI update notice there.
-            // Could also implement something like the following:
-            // Get the previous version
+            // This will be triggered by a Chrome Web Store push,
+            // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
             const previousVersion = installDetails.previousVersion;
-            // Get the current version from the manifest
             const currentVersion = chrome.runtime.getManifest().version;
             console.log(`Extension updated from version ${previousVersion} to ${currentVersion}.`);
-            // if (previousVersion !== currentVersion) {
-            // Logic for handling the version change
-            urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}&priorVersion=${encodeURIComponent(installDetails.previousVersion!)}`;
-            Utils.createTab(urlString);
+            // Save update information for later use on user's next normal activity
+            const updateDetails: UpdateDetails = {
+                reason: installDetails.reason,
+                previousVersion: previousVersion,
+                currentVersion: currentVersion,
+                timestamp: new Date().toISOString(),
+            };
+            await chrome.storage.local.set({ UpdateDetails: updateDetails });
             break;
         case "chrome_update":
         case "shared_module_update":
