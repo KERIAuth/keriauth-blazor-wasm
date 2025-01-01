@@ -107,7 +107,8 @@
         if (!onboardState.IsInstallOnboarded() ||
             onboardState.AcknowledgedInstalledVersion != CurrentVersion ||
             onboardState.TosAgreedHash != termsMarkupHash ||
-            onboardState.PrivacyAgreedHash != privacyMarkupHash)
+            onboardState.PrivacyAgreedHash != privacyMarkupHash ||
+            isUpdated)
         {
             if (!onboardState.HasAcknowledgedInstall)
             {
