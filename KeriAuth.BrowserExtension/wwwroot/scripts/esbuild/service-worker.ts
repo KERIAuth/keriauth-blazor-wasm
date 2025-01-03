@@ -79,8 +79,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     inactivityTimeoutMinutes = timeout; // Assign the value from storage
                 }
             }
-
-            // console.warn("Resetting inactivity timer to", inactivityTimeoutMinutes);
+            // console.warn("Reset inactivity timer to", inactivityTimeoutMinutes);
 
             // Clear existing alarm and set a new one
             chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
@@ -355,7 +354,7 @@ function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
 // TODO P2 define type for msg
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the msg
-    console.log("SW handleSelectIdentifier: ", msg);
+    console.log("SW handleSelectAuthorize: ", msg);
     // TODO P3 should check if a popup is already open, and if so, bring it into focus.
     // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
@@ -367,7 +366,7 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
 
         // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
-        console.log("SW handleSelectIdentifier: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
+        console.log("SW handleSelectAuthorize: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
 
         const encodedMsg = serializeAndEncode(msg);
 
@@ -627,6 +626,8 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
             default:
                 console.info("SW from App: message type not yet handled: ", message);
         }
+    } else {
+        console.info("SW cSConnection was closed, so cannot send to CS");
     }
 };
 
@@ -636,22 +637,22 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
     // assure tab is still connected  
     if (pageCsConnections[connectionId]) {
         switch (message.type) {
-            case CsSwMsgType.SELECT_AUTHORIZE:
-            case CsSwMsgType.SELECT_AUTHORIZE_AID:
-            case CsSwMsgType.SELECT_AUTHORIZE_CREDENTIAL:
+            case CsSwMsgType.POLARIS_SIGNIFY_AUTHORIZE:
+            case CsSwMsgType.POLARIS_SELECT_AUTHORIZE_AID:
+            case CsSwMsgType.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
                 handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
             // case CsSwMsgType.SIGN_DATA:
             // TODO P1 request user to sign data (or request?)
-            case CsSwMsgType.SIGN_REQUEST:
+            case CsSwMsgType.POLARIS_SIGN_REQUEST:
                 await handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
-            case CsSwMsgType.SIGNIFY_EXTENSION:
+            case CsSwMsgType.POLARIS_SIGNIFY_EXTENSION: // TODO P0 Ping
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
                 const response: IExCsMsgHello = {
-                    type: SwCsMsgType.HELLO,
+                    type: SwCsMsgType.HELLO,  // TODO P0 Pong
                     requestId: message.requestId,
                     payload: {}
                 };

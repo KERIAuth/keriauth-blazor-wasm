@@ -1,18 +1,6 @@
 ﻿// Common definitions for content script and service-worker.
 
-import {
-    AuthorizeResultCredential,
-    AuthorizeArgs,
-    AuthorizeResultIdentifier,
-    AuthorizeResult,
-    SignDataArgs,
-    SignDataResultItem,
-    SignDataResult,
-    SignRequestArgs,
-    SignRequestResult,
-    ConfigureVendorArgs,
-    MessageData
-} from "../types/polaris-web-client"
+import * as Polaris from "../types/polaris-web-client"
 
 export interface ICsSwMsg {
     type: string
@@ -22,21 +10,18 @@ export interface ICsSwMsg {
 
 // Message types from Page to CS, which may be then forwarded to the extension service-worker.  Aka "EVENT_TYPE" in the polaris-web code."
 export enum CsSwMsgType {
-    AUTHORIZE_AUTO_SIGNIN = "/signify/authorize-auto-signin",
-    AUTO_SIGNIN_SIG = "auto-signin-sig",
-    CONFIGURE_VENDOR = "/signify/configure-vendor",
-    DOMCONTENTLOADED = "document-loaded",
-    FETCH_RESOURCE = "fetch-resource",
-    SELECT_AUTHORIZE = "/signify/authorize",
-    SELECT_AUTO_SIGNIN = "select-auto-signin",
-    SELECT_AUTHORIZE_CREDENTIAL = "/signify/authorize/credential",
-    SELECT_ID_CRED = "select-aid-or-credential",
-    SELECT_AUTHORIZE_AID = "/signify/authorize/aid",
-    SIGN_DATA = "/signify/sign-data",
-    SIGN_REQUEST = "/signify/sign-request",
-    SIGNIFY_AUTHORIZE = "/signify/authorize",
-    SIGNIFY_EXTENSION = "signify-extension",
-    VENDOR_INFO = "vendor-info",
+    POLARIS_SIGNIFY_EXTENSION = "signify-extension",
+    POLARIS_SIGNIFY_EXTENSION_CLIENT = "signify-extension-client",
+    POLARIS_CONFIGURE_VENDOR = "/signify/configure-vendor",
+    POLARIS_SIGNIFY_AUTHORIZE = "/signify/authorize",
+    POLARIS_SELECT_AUTHORIZE_AID = "/signify/authorize/aid",
+    POLARIS_SELECT_AUTHORIZE_CREDENTIAL = "/signify/authorize/credential",
+    POLARIS_SIGN_DATA = "/signify/sign-data",
+    POLARIS_SIGN_REQUEST = "/signify/sign-request",
+    POLARIS_GET_SESSION_INFO = "/signify/get-session-info",
+    POLARIS_CLEAR_SESSION = "/signify/clear-session",
+    POLARIS_CREATE_DATA_ATTESTATION = "/signify/credential/create/data-attestation",
+    POLARIS_GET_CREDENTIAL = "/signify/credential/get"
 }
 
 // Message types from Extension to CS (and typically forward to Page and sometimes of type FooResponse)
@@ -52,7 +37,7 @@ export enum SwCsMsgType {
     CANCELED = "canceled",
     REPLY = "/signify/reply",
     FSW = "fromServiceWorker",
-    SE = "signify-extension"
+    // SE = "signify-extension"
 }
 
 export interface IExCsMsgHello extends ISwCsMsg {
@@ -106,9 +91,9 @@ export interface ReplyMessageData<T = unknown> {
 
 export const CsToPageMsgIndicator = "KeriAuthCs";
 
-export interface KeriAuthMessageData<T = unknown> extends MessageData<T> {
+// This interface helps shape ContentScript messages to tab
+export interface KeriAuthToPolarisMessageData<T> extends Polaris.MessageData<T> {
     source: typeof CsToPageMsgIndicator;
-    rurl?: string;
 }
 
 // Signing related types from signify-browser-extension config/types.ts. Here because we don't want dependencies on signify-browser-extension,

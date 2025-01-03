@@ -21,7 +21,7 @@ import {
     ISwCsMsg,
     ICsSwMsg,
     CsToPageMsgIndicator,
-    KeriAuthMessageData,
+    KeriAuthToPolarisMessageData,
     ISignin,
     ICredential,
     ReplyMessageData,

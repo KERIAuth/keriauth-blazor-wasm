@@ -171,7 +171,7 @@
                 replyMessageData = new(
                     "/signify/reply",
                     new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)),
-                    requestId: requestId2
+                    requestId: requestId
                 );
                 break;
             case SignInMode.Credential:
@@ -201,7 +201,7 @@
                 replyMessageData = new(
                     type: "/KeriAuth/signify/replyCredential",
                     payload: new AuthorizeResult(new AuthorizeResultCredential(JsonSerializer.Serialize(credential2), cesr), new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)),
-                    requestId: requestId2
+                    requestId: requestId
                 );
                 break;
             default:
