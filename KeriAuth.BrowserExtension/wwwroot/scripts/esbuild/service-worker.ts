@@ -9,7 +9,7 @@
 
 // import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "../es6/uiHelper.js";
-import { CsSwMsgType, IExCsMsgHello, SwCsMsgType } from "../es6/ExCsInterfaces.js";
+import { CsSwMsgEnum, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
 import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
 // import { decode } from '@cbor';
@@ -420,7 +420,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
     // First check if the port is from a content script and its pattern
     const cSPortNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
     if (cSPortNamePattern.test(connectedPort.name)) {
-        const cSPort: chrome.runtime.Port = connectedPort;
+        const cSPort: chrome.runtime.Port | null = connectedPort;
         // TODO P2 test and update assumptions of having a longrunning port established, especially when sending.  With back-forward cache (bfcache), ports can get suspended or terminated, leading to errors such as:
         // "Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the msg channel is closed."
         console.log(`SW with CS via port`, cSPort);
@@ -459,7 +459,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             console.log("SW adding onMessage listener for App port... done", appPort);
 
             // Send an initial msg from SW to App
-            appPort.postMessage({ type: SwCsMsgType.FSW, data: 'Service worker connected' });
+            appPort.postMessage({ type: SwCsMsgEnum.FSW, data: 'Service worker connected' });
 
         } else {
             console.error('Invalid port:', connectedPort);
@@ -478,7 +478,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
                     const csConnection: CsConnection = pageCsConnections[key];
                     if (csConnection.tabId != -1) {
                         const lastGasp = {
-                            type: SwCsMsgType.REPLY,
+                            type: SwCsMsgEnum.REPLY,
                             error: "User closed KERI Auth or canceled pending request",
                             requestId: 999999,  // TODO P3: maybe this requestId value is filled in by content script?
                         };
@@ -534,10 +534,10 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
         if (await connectToKeria()) {
             const payload = message.payload;
             const initHeaders: { [key: string]: string } = { method: payload.method, path: payload.url };
-            console.warn("tmp signReqSendToTab message: ", message);
+            // console.warn("tmp signReqSendToTab message: ", message);
             const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.url, payload.method, initHeaders, payload.selectedName);
             const signedHeaderResult = {
-                type: SwCsMsgType.REPLY,
+                type: SwCsMsgEnum.REPLY,
                 requestId: message.requestId,
                 payload: { headers },
                 rurl: payload.requestUrl
@@ -560,13 +560,13 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
     // TODO P3 check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
 
     // Send a response to the KeriAuth App
-    appPort.postMessage({ type: SwCsMsgType.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+    appPort.postMessage({ type: SwCsMsgEnum.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
         console.log("SW from App: handling App message of type: ", message.type);
         switch (message.type) {
-            case SwCsMsgType.REPLY:
+            case SwCsMsgEnum.REPLY:
                 cSConnection.port.postMessage(message);
                 break;
             case "ApprovedSignRequest":
@@ -592,7 +592,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                             headers: headers
                         };
                         const authorizeResult = {
-                            type: SwCsMsgType.REPLY,
+                            type: SwCsMsgEnum.REPLY,
                             requestId: message.requestId,
                             payload: authorizeResultCredential,
                             rurl: ""
@@ -611,7 +611,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
             case "/KeriAuth/signify/replyCancel":
                 try {
                     const cancelResult = {
-                        type: SwCsMsgType.REPLY,
+                        type: SwCsMsgEnum.REPLY,
                         requestId: message.requestId,
                         payload: {},
                         rurl: ""
@@ -637,25 +637,26 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
     // assure tab is still connected  
     if (pageCsConnections[connectionId]) {
         switch (message.type) {
-            case CsSwMsgType.POLARIS_SIGNIFY_AUTHORIZE:
-            case CsSwMsgType.POLARIS_SELECT_AUTHORIZE_AID:
-            case CsSwMsgType.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
+            case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
+            case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
+            case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
                 handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
-            // case CsSwMsgType.SIGN_DATA:
+            // case CsSwMsgEnum.SIGN_DATA:
             // TODO P1 request user to sign data (or request?)
-            case CsSwMsgType.POLARIS_SIGN_REQUEST:
+            case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
                 await handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
-            case CsSwMsgType.POLARIS_SIGNIFY_EXTENSION: // TODO P0 Ping
+            case CsSwMsgEnum.PING:
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
-                const response: IExCsMsgHello = {
-                    type: SwCsMsgType.HELLO,  // TODO P0 Pong
+                const response: ISwCsMsgPong = {
+                    type: SwCsMsgEnum.PONG,
                     requestId: message.requestId,
                     payload: {}
                 };
+                console.log("SW to CS: ", SwCsMsgEnum.PONG)
                 cSPort.postMessage(response);
                 break;
             default:

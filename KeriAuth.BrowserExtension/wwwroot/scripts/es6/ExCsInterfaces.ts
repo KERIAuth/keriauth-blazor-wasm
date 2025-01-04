@@ -9,7 +9,7 @@ export interface ICsSwMsg {
 }
 
 // Message types from Page to CS, which may be then forwarded to the extension service-worker.  Aka "EVENT_TYPE" in the polaris-web code."
-export enum CsSwMsgType {
+export enum CsSwMsgEnum {
     POLARIS_SIGNIFY_EXTENSION = "signify-extension",
     POLARIS_SIGNIFY_EXTENSION_CLIENT = "signify-extension-client",
     POLARIS_CONFIGURE_VENDOR = "/signify/configure-vendor",
@@ -21,27 +21,27 @@ export enum CsSwMsgType {
     POLARIS_GET_SESSION_INFO = "/signify/get-session-info",
     POLARIS_CLEAR_SESSION = "/signify/clear-session",
     POLARIS_CREATE_DATA_ATTESTATION = "/signify/credential/create/data-attestation",
-    POLARIS_GET_CREDENTIAL = "/signify/credential/get"
+    POLARIS_GET_CREDENTIAL = "/signify/credential/get",
+    PING = "ping"
 }
 
 // Message types from Extension to CS (and typically forward to Page and sometimes of type FooResponse)
 export interface ISwCsMsg {
-    type: string // SwCsMsgType
+    type: string // SwCsMsgEnum  // TODO P2 typof SwCsMsgEnum ?
     requestId?: string // response to this requestId
     payload?: object
     error?: string
 }
 
-export enum SwCsMsgType {
-    HELLO = "hello",
+export enum SwCsMsgEnum {
+    PONG = "pong",
     CANCELED = "canceled",
     REPLY = "/signify/reply",
-    FSW = "fromServiceWorker",
-    // SE = "signify-extension"
+    FSW = "fromServiceWorker"
 }
 
-export interface IExCsMsgHello extends ISwCsMsg {
-    type: SwCsMsgType.HELLO
+export interface ISwCsMsgPong extends ISwCsMsg {
+    type: SwCsMsgEnum.PONG
 }
 
 // This IIdentifier is used in the context of responses from the extension service-worker, CS, to page
@@ -89,11 +89,11 @@ export interface ReplyMessageData<T = unknown> {
     source?: string;
 }
 
-export const CsToPageMsgIndicator = "KeriAuthCs";
+export const CsTabMsgTag = "KeriAuthCs";
 
 // This interface helps shape ContentScript messages to tab
-export interface KeriAuthToPolarisMessageData<T> extends Polaris.MessageData<T> {
-    source: typeof CsToPageMsgIndicator;
+export interface CsTabMsgData<T> extends Polaris.MessageData<T> {
+    source: typeof CsTabMsgTag;
 }
 
 // Signing related types from signify-browser-extension config/types.ts. Here because we don't want dependencies on signify-browser-extension,

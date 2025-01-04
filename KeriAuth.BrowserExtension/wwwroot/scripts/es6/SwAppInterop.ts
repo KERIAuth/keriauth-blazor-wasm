@@ -1,29 +1,9 @@
 ﻿/// <reference types="chrome" />
 
-import {
-    AuthorizeResultCredential,
-    AuthorizeArgs,
-    AuthorizeResultIdentifier,
-    AuthorizeResult,
-    SignDataArgs,
-    SignDataResultItem,
-    SignDataResult,
-    SignRequestArgs,
-    SignRequestResult,
-    ConfigureVendorArgs,
-    MessageData
-} from "../types/polaris-web-client"
+import * as PW from "../types/polaris-web-client"
 
 import {
-    CsSwMsgType,
-    IExCsMsgHello,
-    SwCsMsgType,
-    ISwCsMsg,
-    ICsSwMsg,
-    CsToPageMsgIndicator,
-    KeriAuthToPolarisMessageData,
-    ISignin,
-    ICredential,
+    SwCsMsgEnum,
     ReplyMessageData,
     ApprovedSignRequest
 } from "../es6/ExCsInterfaces.js";
@@ -47,7 +27,7 @@ export const SwAppInteropModule = {
             port.onMessage.addListener((message) => {
                 console.log("SwAppInterop received port message: ", message);
                 // TODO P2 message types fromApp vs fromServiceWorker?
-                if (message && message.type === SwCsMsgType.FSW) {
+                if (message && message.type === SwCsMsgEnum.FSW) {
                     dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
                 }
             });
@@ -71,12 +51,12 @@ export const SwAppInteropModule = {
             switch (payloadTypeName) {
                 case "CancelResult":
                     // TODO P2 AuthorizeResult type is the closest match to CancelResult at the moment.
-                    const msgCancelResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
+                    const msgCancelResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<PW.AuthorizeResult>;
                     console.log("SwAppInteropModule.sendMessageToServiceWorker messageData3: ", msgCancelResult);
                     port.postMessage(msgCancelResult);
                     break;
                 case "AuthorizeResult":
-                    const msgAuthorizeResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<AuthorizeResult>;
+                    const msgAuthorizeResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<PW.AuthorizeResult>;
                     console.log("SwAppInteropModule.sendMessageToServiceWorker messageData2: ", msgAuthorizeResult);
                     port.postMessage(msgAuthorizeResult);
                     break;
@@ -86,7 +66,7 @@ export const SwAppInteropModule = {
                     port.postMessage(msgApprovedSignRequest);
                     break;
                 case "SignedRequestResult":
-                    const msgSignRequestResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<SignRequestResult>;
+                    const msgSignRequestResult = JSON.parse(jsonReplyMessageData) as ReplyMessageData<PW.SignRequestResult>;
                     console.log("SwAppInteropModule.sendMessageToServiceWorker messageData5: ", msgSignRequestResult);
                     port.postMessage(msgSignRequestResult);
                     break;
