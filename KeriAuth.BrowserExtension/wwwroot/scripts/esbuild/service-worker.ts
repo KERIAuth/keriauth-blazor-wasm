@@ -1,27 +1,17 @@
 ﻿/// <reference types="chrome" />
 
-// TODO P2 Import Polyfill for the side effect of defining a global 'browser' object vs chrome.
-// import * as _ from "/content/Blazor.BrowserExtension/lib/browser-polyfill.min.js";
-
-// TODO P2 Prior to release, cache management needs to be more explicit in order to avoid
-// using cache from prior releases, etc. See advice in
-// https://www.oreilly.com/library/view/building-progressive-web/9781491961643/ch04.html
-
-// import MessageSender = chrome.runtime.MessageSender;
 import { Utils } from "../es6/uiHelper.js";
-import { CsSwMsgEnum, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
-import { ICsSwMsg } from "../es6/ExCsInterfaces.js";
+import { CsSwMsgEnum, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
-// import { decode } from '@cbor';
 import { UpdateDetails } from "../types/types.js";
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"
 } as const;
 
-// Note the handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
+// Note the runtime handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
 // For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
-//
+
 // Listen for and handle a new install or update of the extension
 chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.InstalledDetails) => {
     console.log("SW InstalledDetails: ", installDetails);
@@ -76,10 +66,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (result.inactivityTimeoutMinutes !== undefined) {
                 const timeout = parseFloat(result.inactivityTimeoutMinutes);
                 if (!isNaN(timeout)) {
-                    inactivityTimeoutMinutes = timeout; // Assign the value from storage
+                    inactivityTimeoutMinutes = timeout;
                 }
             }
-            // console.warn("Reset inactivity timer to", inactivityTimeoutMinutes);
 
             // Clear existing alarm and set a new one
             chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
@@ -113,8 +102,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Listen for and handle the browser action being clicked
 chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
-    // Note since the extension is a browser action, it needs to be able to access the current tab's URL, but with activeTab permission and not tabs permission
-    // In our design, the default_action should not be defined in manifest.json, since we want to handle the click event in the service worker
+    // Note since the extension is a browser action, it needs to be able to access the current tab's URL,
+    // but with activeTab permission and not tabs permission.
+    // In our design, the default_action is not defined in manifest.json, 
+    // since we want to handle the click event in the service worker depending on UX state.
 
     console.log("SW clicked on action button while on tab: ", tab);
 
@@ -150,63 +141,12 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
         chrome.action.setPopup({ popup: "", tabId: tab.id });
         return;
     }
-    // If the tab is not a web page, open the extension's popup window
     else {
+        // The tab is not a usual tab here?
         Utils.createTab(`${location.origin}/index.html?environment=tab`);
-        // createPopupWindow();
         return;
     }
 });
-
-let popupWindow: chrome.windows.Window | null = null;
-
-// If a popup window is already open, bring it into focus; otherwise, create a new one
-// TODO P3 each popupWindow should be associated with a tab?  Add a tabId parameter?
-function usePopupWindow() {
-    console.log("SW usePopupWindow");
-    if (popupWindow && popupWindow.id) {
-        isWindowOpen(popupWindow.id).then((isOpen) => {
-            if (isOpen && popupWindow && typeof popupWindow.id === 'number') {
-                focusWindow(popupWindow.id);
-                return;
-            } else {
-                createPopupWindow();
-            }
-        });
-    }
-    else {
-        createPopupWindow();
-    }
-}
-
-// Create a new popup window (versus an action popup)
-// TODO P3 each popupWindow should be associated with a tab?  Add a tabId parameter?
-function createPopupWindow() {
-    console.log("SW createPopupWindow");
-    // TODO P3 Rather than having a fixed position, it would be better to compute this left position
-    // based on the windows's or device's availableWidth,
-    // as well as knowing on which monitor it belongs (versus assuming the primary monitor).
-    // This fix is involved, since it may require "system.display" permission in manifest, and
-    // additional messaging exchange between the background and injected content script.
-    // Also need to handle (and ideally avoid) potential exceptions if the window is too big 
-    // for the screen or attempted to be placed off the screen.
-    const popupWindowCreateData = Object.freeze({
-        type: "popup",
-        url: chrome.runtime.getURL("/index.html?environment=BrowserPopup"),
-        height: 638,
-        width: 390,
-        top: 100,
-        left: 100
-    }) as chrome.windows.CreateData
-    chrome.windows.create(popupWindowCreateData, (newWindow) => {
-        if (newWindow) {
-            console.log("SW new extension popup window created");
-            newWindow.alwaysOnTop = true;
-            newWindow.state = "normal";
-            popupWindow = newWindow;
-        }
-    });
-}
 
 // Use the action popup to interact with the user for the current tab (if it is a web page)
 function useActionPopup(tabId: number, queryParams: { key: string, value: string }[] = []) {
@@ -224,20 +164,6 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     chrome.action.setPopup({ popup: "", tabId: tabId });
 }
 
-// Bring the window (e.g. an extension popupWindow) to focus.  requires windows permission in the manifest ?
-function focusWindow(windowId: number): void {
-    chrome.windows.update(windowId, { focused: true });
-}
-
-// Check if the window (e.g. an extension popupWindow) is open, e.g. to avoid opening multiple windows
-async function isWindowOpen(windowId: number): Promise<boolean> {
-    return new Promise((resolve) => {
-        chrome.tabs.query({ windowId }, (tabs) => {
-            resolve(tabs.length > 0);
-        });
-    });
-}
-
 function serializeAndEncode(obj: any): string {
     // TODO P2 assumes the payload obj is simple
     const jsonString: string = JSON.stringify(obj);
@@ -247,7 +173,7 @@ function serializeAndEncode(obj: any): string {
 
 
 async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
-    // check if there is a passcode in session, which indicates app is unlocked
+    // check if there is a passcode in session storage, which indicates app is unlocked
     const result = await chrome.storage.session.get(['passcode']);
     if (result.passcode) {
         // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
@@ -274,6 +200,7 @@ async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
     }
 }
 
+// TODO P2 type of any is a code smell
 async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
     console.log("SW handleSignRequest: ", message);
@@ -282,7 +209,6 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
         const tabId = Number(csTabPort.sender.tab.id);
         // TODO P3 Could alternately implement the message passing via messaging versus the URL
 
-        // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSignRequest: tabId: ", tabId, "payload value: ", message, "origin: ", jsonOrigin);
         const encodedMsg = serializeAndEncode(message);
@@ -294,6 +220,7 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
                 case "OPTIONS":
                     try {
                         // If tab is requesting a safe request, then don't launch an action popup.
+                        // TODO P2 clean up website config preferences about "use safe headers"
                         // We are ignoring the "use safe headers flag" here and just doing it.
 
                         // This approach assumes we know the selected identifier and credential from website config, created during a prior sign-in
@@ -350,8 +277,8 @@ function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
 }
 
 
-// Handle the web page's (Cs's) request for user to select an identifier
-// TODO P2 define type for msg
+// Handle the tab content script's request for user to select an identifier
+// TODO P2 define type for msg. Use of any is a code smell.
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
     // TODO P3 Implement the logic for handling the msg
     console.log("SW handleSelectAuthorize: ", msg);
@@ -363,13 +290,9 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
         //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
         // TODO P2 Could alternately implement the msg passing via messaging versus the URL
         // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
-
-        // TODO P2 add msgRequestId?
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
         console.log("SW handleSelectAuthorize: tabId: ", tabId, "message value: ", msg, "origin: ", jsonOrigin);
-
         const encodedMsg = serializeAndEncode(msg);
-
         useActionPopup(tabId, [{ key: "message", value: encodedMsg }, { key: "origin", value: jsonOrigin }, { key: "popupType", value: "SelectAuthorize" }]);
     } else {
         console.warn("SW handleSelectIdentifier: no tabId found")
@@ -434,8 +357,10 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             // TODO P3 react to port names that are more descriptive and less likely to conflict if multiple Apps are open
             // On the first csConnection, associate this port from the Blazor App with the port from the same tabId?
 
+            // TODO P2 There could potentially be many appPorts?, if multiple tabs were open in same browser profile.
+            // The interactions are currently (2025-01-03) not being isolated between each tab
             const appPort = connectedPort;
-            console.log(`SW with App via port`, appPort);
+            console.log(`SW with App via port`, appPort); // just the Action Popup?
             // Get get the authority from the tab's origin
             let url = "unknown"
             if (appPort.sender?.url) {
@@ -453,7 +378,8 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             const cSConnection = findMatchingConnection(pageCsConnections, appPort.name)
             console.log(`SW from App connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
-            // Add a listener for messages from the App, where the handler can process and forward to the content script as appropriate.
+            // Add a listener for messages from the App, 
+            // where the handler can process and forward to the tab's content script as appropriate.
             console.log("SW adding onMessage listener for App port, csConnection, tabId, connectionId", appPort, cSConnection, tabId, connectionId);
             appPort.onMessage.addListener(async (message) => await handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
             console.log("SW adding onMessage listener for App port... done", appPort);
@@ -507,6 +433,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Connect so that shim will work as expected
+// TODO P2 should only have one "signify-service" like connection? Perhaps add support for multiple tabs with potentially
+// different selected identifiers first, before concluding this design.
 async function connectToKeria(): Promise<boolean> {
     try {
         const result = await chrome.storage.local.get(['KeriaConnectConfig']);
@@ -528,8 +456,9 @@ async function connectToKeria(): Promise<boolean> {
     }
 }
 
+// TODO P2 type of any is a code smell
 async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
-    // retrieve stored adminUrl and passcode, then create signifyClient, then sign Http Request Headers, then send to CS
+    // Assure connection to KERIA, then sign Http Request Headers, then send to CS
     try {
         if (await connectToKeria()) {
             const payload = message.payload;
@@ -546,7 +475,7 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
             port.postMessage(signedHeaderResult);
         }
         else {
-            throw new Error("SW signReqSendToTab: unexpected KERIA availability or passcode issue");
+            throw new Error("SW signReqSendToTab: unexpected KERIA non-availability or passcode issue");
         }
     }
     catch (error) {
@@ -557,15 +486,16 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
 async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string): Promise<void> {
 
     console.log(`SW from App message, port:`, message, appPort);
-    // TODO P3 check for nonexistance of appPort.sender?.tab, which would indicate a msg from a non-tab source
 
     // Send a response to the KeriAuth App
+    // TODO P3 is this unecessary noise, or helpful for debugging?
     appPort.postMessage({ type: SwCsMsgEnum.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
         console.log("SW from App: handling App message of type: ", message.type);
         switch (message.type) {
+            // TODO P2 update and define consistent message type enums here
             case SwCsMsgEnum.REPLY:
                 cSConnection.port.postMessage(message);
                 break;
@@ -574,6 +504,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 break;
             case "/KeriAuth/signify/replyCredential":
                 try {
+                    // TODO P2 Improve typing.  E.g., const msg = message as TypeFoo<DataBar>
                     const credObject = JSON.parse(message.payload.credential.rawJson);
                     const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
 
@@ -581,6 +512,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                     const isConnected = await connectToKeria();
                     if (isConnected) {
                         const headers = await getSignedHeaders("example.com", "https://example.com", "GET", credObject, message.payload.identifier.alias);
+                        // TODO P2 constrain to a type
                         const authorizeResultCredential =
                         {
                             credential:
@@ -591,6 +523,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                             expiry: expiry,
                             headers: headers
                         };
+                        // TODO P2 constrain to a type
                         const authorizeResult = {
                             type: SwCsMsgEnum.REPLY,
                             requestId: message.requestId,
@@ -610,6 +543,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 break;
             case "/KeriAuth/signify/replyCancel":
                 try {
+                    // TODO P2 constrain to a type
                     const cancelResult = {
                         type: SwCsMsgEnum.REPLY,
                         requestId: message.requestId,
@@ -642,9 +576,8 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
             case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
                 handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
-            // case CsSwMsgEnum.SIGN_DATA:
-            // TODO P1 request user to sign data (or request?)
             case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
+                // TODO P2 any is a code smell
                 await handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
             case CsSwMsgEnum.PING:
@@ -659,6 +592,8 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
                 console.log("SW to CS: ", SwCsMsgEnum.PONG)
                 cSPort.postMessage(response);
                 break;
+            case CsSwMsgEnum.POLARIS_SIGN_DATA:
+                // TODO P1 request user to sign data (or request?)
             default:
                 console.warn("SW from CS: message type not yet handled: ", message);
         }
@@ -668,6 +603,7 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
 }
 
 // Create a URL with the provided base URL and query parameters, verifying that the keys are well-formed
+// TODO P3 would base64 encoding be better?
 function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: string, value: string }[]): string {
     const url = new URL(chrome.runtime.getURL(baseUrl));
     const params = new URLSearchParams();
@@ -691,6 +627,7 @@ function isValidKey(key: string): boolean {
 }
 
 // Based on the provided url and key, extract key's decoded value from the query string
+// TODO P3 would base64 encoding be better?
 function getQueryParameter(url: string, key: string): string | null {
     const parsedUrl = new URL(url);
     const params = new URLSearchParams(parsedUrl.search);

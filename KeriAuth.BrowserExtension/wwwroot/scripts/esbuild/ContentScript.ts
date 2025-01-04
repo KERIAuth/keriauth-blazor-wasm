@@ -33,18 +33,18 @@ let uniquePortName: string;
 let portWithSw: chrome.runtime.Port | null;
 
 // Add a listener for messages and create port with SW
-console.info("CS adding message listener and creating port with SW");
+console.info("KeriAuthCs adding message listener and creating port with SW");
 window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event));
 createPortWithSw();
 
 // Observe URL changes in an SPA.Just log it for now to help with debugging issues.
 window.addEventListener('popstate', () => {
-    console.info("CS popstate change:", window.location.href);
+    console.info("KeriAuthCs popstate change:", window.location.href);
 });
 
 // Add listener for when DOMContentLoaded
 document.addEventListener('DOMContentLoaded', (event) => {
-    console.info(`CS ${event.type} ${window.location.href}`);
+    console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
 });
 
 
@@ -103,7 +103,7 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
             break;
 
         default:
-            console.error("KeriAuthCs: handler not implemented for message type:", message.type);
+            console.error("KeriAuthCs handler not implemented for message type:", message.type);
             break;
     }
 }
@@ -124,7 +124,7 @@ function createPortWithSw(): void {
 
     portWithSw.onDisconnect.addListener((p) => {
         // disconnect will typically happen when the service-worker becomes inactive
-        console.info("KeriAuthCs: Port with service-worker was disconnected, likely due to SW going inactive.");
+        console.info("KeriAuthCs Port with service-worker was disconnected, likely due to SW going inactive.");
         portWithSw = null;
     });
 
@@ -207,7 +207,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
 
             case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR:
                 const configureVendorArgsMessage = event.data.payload as PW.MessageData<PW.ConfigureVendorArgs>;
-                console.info(`KeriAuthCs: ${event.data.type} not implemented`, configureVendorArgsMessage);
+                console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
                 const msg3: CsTabMsgData<PW.AuthorizeResult> = {
                     source: CsTabMsgTag,
                     type: SwCsMsgEnum.REPLY,
@@ -225,7 +225,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
             case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
                 try {
                     const authorizeRequestMessage = event.data as PW.MessageData<PW.AuthorizeArgs>;
-                    console.info(`KeriAuthCs: ${authorizeRequestMessage.type}:`, authorizeRequestMessage);
+                    console.info(`KeriAuthCs ${authorizeRequestMessage.type}:`, authorizeRequestMessage);
 
                     // TODO P2 this could be simplified with the correct type above?
                     // only relevant for POLARIS_SIGN_REQUEST ?
@@ -257,24 +257,24 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
 
             case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION:
                 const createDataAttestationMessage = event.data as PW.MessageData<PW.CreateCredentialArgs>;
-                console.info("KeriAuthCs: handler not implemented for:", event.data.type, createDataAttestationMessage);
+                console.info("KeriAuthCs handler not implemented for:", event.data.type, createDataAttestationMessage);
                 break;
 
             case CsSwMsgEnum.POLARIS_GET_CREDENTIAL:
-                console.info("KeriAuthCs: handler not implemented for:", event.data.type, event.data);
+                console.info("KeriAuthCs handler not implemented for:", event.data.type, event.data);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGN_DATA:
                 const signDataArgsMsg = event.data as PW.MessageData<PW.SignDataArgs>;
-                console.info("KeriAuthCs: handler not implemented for:", signDataArgsMsg.type, signDataArgsMsg);
+                console.info("KeriAuthCs handler not implemented for:", signDataArgsMsg.type, signDataArgsMsg);
                 break;
 
             default:
-                console.info("KeriAuthCs: handler not implemented for:", event.data.type, event.data);
+                console.info("KeriAuthCs handler not implemented for:", event.data.type, event.data);
                 break;
         }
     } catch (error) {
         // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
-        console.info("KeriAuthCs: error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
+        console.info("KeriAuthCs error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
     }
 };
