@@ -22,7 +22,7 @@ export enum CsSwMsgEnum {
     POLARIS_CLEAR_SESSION = "/signify/clear-session",
     POLARIS_CREATE_DATA_ATTESTATION = "/signify/credential/create/data-attestation",
     POLARIS_GET_CREDENTIAL = "/signify/credential/get",
-    PING = "ping"
+    INIT = "init"
 }
 
 // Message types from Extension to CS (and typically forward to Page and sometimes of type FooResponse)
@@ -34,14 +34,14 @@ export interface ISwCsMsg {
 }
 
 export enum SwCsMsgEnum {
-    PONG = "pong",
+    READY = "ready",
     CANCELED = "canceled",
     REPLY = "/signify/reply",
     FSW = "fromServiceWorker"
 }
 
 export interface ISwCsMsgPong extends ISwCsMsg {
-    type: SwCsMsgEnum.PONG
+    type: SwCsMsgEnum.READY
 }
 
 // This IIdentifier is used in the context of responses from the extension service-worker, CS, to page

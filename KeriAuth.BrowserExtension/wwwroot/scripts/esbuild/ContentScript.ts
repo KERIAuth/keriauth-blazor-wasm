@@ -77,7 +77,7 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
 
     console.info(`KeriAuthCs from SW: ${message.type}`, message);
     switch (message.type) {
-        case SwCsMsgEnum.PONG:
+        case SwCsMsgEnum.READY:
             break;
 
         case SwCsMsgEnum.REPLY:
@@ -129,9 +129,9 @@ function createPortWithSw(): void {
     });
 
     // Send a ping message to the service worker to help complete the setup of connection port
-    const pingMsg: ICsSwMsg = { type: CsSwMsgEnum.PING };
-    console.log("KeriAuthCs to SW Ping:", pingMsg);
-    portWithSw.postMessage(pingMsg);
+    const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
+    console.log("KeriAuthCs to SW Init:", initMsg);
+    portWithSw.postMessage(initMsg);
 }
 
 /*

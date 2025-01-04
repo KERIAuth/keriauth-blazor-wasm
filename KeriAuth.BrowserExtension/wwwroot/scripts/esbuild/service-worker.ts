@@ -580,16 +580,16 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
                 // TODO P2 any is a code smell
                 await handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
-            case CsSwMsgEnum.PING:
+            case CsSwMsgEnum.INIT:
                 pageCsConnections[connectionId].tabId = tabId;
                 const url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
                 const response: ISwCsMsgPong = {
-                    type: SwCsMsgEnum.PONG,
+                    type: SwCsMsgEnum.READY,
                     requestId: message.requestId,
                     payload: {}
                 };
-                console.log("SW to CS: ", SwCsMsgEnum.PONG)
+                console.log("SW to CS: ", SwCsMsgEnum.READY)
                 cSPort.postMessage(response);
                 break;
             case CsSwMsgEnum.POLARIS_SIGN_DATA:
