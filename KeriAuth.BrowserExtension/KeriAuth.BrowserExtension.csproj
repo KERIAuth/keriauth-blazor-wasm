@@ -77,15 +77,24 @@
     </Content>
     <Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
     <Content Update="wwwroot\content\terms.html" CopyToOutputDirectory="Always" />
-    <Content Update="dist\wwwroot\scripts\esbuild\*.js" CopyToOutputDirectory="Always" />
-    <Content Update="dist\wwwroot\scripts\es6\*.js" CopyToOutputDirectory="Always" />
     <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- TypeScript and Non-Included Scripts -->
   <ItemGroup>
+    <Compile Remove="bin\**" />
+    <Compile Remove="dist\**" />
+    <Content Remove="bin\**" />
+    <Content Remove="dist\**" />
+    <EmbeddedResource Remove="bin\**" />
+    <EmbeddedResource Remove="dist\**" />
+    <None Remove="bin\**" />
+    <None Remove="dist\**" />
     <None Remove="wwwroot\scripts\**\*.d.ts" />
     <None Remove="wwwroot\scripts\**\*.ts" />
+    <TypeScriptCompile Remove="bin\**" />
+    <TypeScriptCompile Remove="dist\**" />
+    <TypeScriptCompile Remove="node_modules\**" />
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Remove="wwwroot\scripts\es6\polaris-web-client.d.ts" />
