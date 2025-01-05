@@ -17,7 +17,8 @@ import {
     SwCsMsgEnum,
     ICsSwMsg,
     CsTabMsgTag,
-    CsTabMsgData
+    CsTabMsgData,
+    CsTabMsgDataData
 } from "../es6/ExCsInterfaces.js";
 
 import * as PW from "../types/polaris-web-client";
@@ -62,7 +63,7 @@ function generateUniqueIdentifier(): string {
  * 
  */
 function postMessageToPage<T>(msg: T): void {
-    console.log("KeriAuthCs to tab:", (msg as CsTabMsgData<T>).type, msg);
+    console.log(`KeriAuthCs to tab: ${(msg as CsTabMsgData<T>).type}`, { msg });
     window.postMessage(msg, currentOrigin);
 }
 
@@ -75,46 +76,55 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
         return;
     }
 
-    console.info(`KeriAuthCs from SW: ${message.type}`, message);
+    console.groupCollapsed(`KeriAuthCs from SW: ${message.type}`);
+    console.log(message);
     switch (message.type) {
         case SwCsMsgEnum.READY:
             break;
 
         case SwCsMsgEnum.REPLY:
-            const msg: CsTabMsgData<PW.AuthorizeResult> = {
-                source: CsTabMsgTag,
-                type: message.type,
-                requestId: message.requestId,
-                payload: message.payload,
-                error: message.error,
+            if (message.error) {
+                const errorMsg: CsTabMsgData<null> = {
+                    source: CsTabMsgTag,
+                    type: message.type,
+                    requestId: message.requestId,
+                    error: String(message.error),
+                }
+                postMessageToPage<CsTabMsgData<null>>(errorMsg);
+            } else {
+                const msg: CsTabMsgData<PW.AuthorizeResult> = {
+                    source: CsTabMsgTag,
+                    type: message.type,
+                    requestId: message.requestId,
+                    payload: message.payload
+                }
+                postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(msg);
             }
-            postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(msg);
             break;
 
-        case SwCsMsgEnum.CANCELED:
-            const msg2: CsTabMsgData<PW.AuthorizeResult> = {
+        case SwCsMsgEnum.REPLY_CANCELED:
+            const canceledMsg: CsTabMsgData<null> = {
                 source: CsTabMsgTag,
-                type: message.type,
+                type: SwCsMsgEnum.REPLY,
                 requestId: message.requestId,
-                payload: null,
-                error: "KERI Auth: User canceled or operation timed out.",
+                error: message.error,
             }
-            postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(msg2);
+            postMessageToPage<CsTabMsgData<null>>(canceledMsg);
             break;
 
         default:
-            console.error("KeriAuthCs handler not implemented for message type:", message.type);
+            console.error(`KeriAuthCs handler not implemented for message type ${message.type}`);
             break;
     }
+    console.groupEnd();
 }
-
 
 
 /*
  * 
  */
 function createPortWithSw(): void {
-    console.log(`KeriAuthCs to SW: creating port`);
+    console.groupCollapsed(`KeriAuthCs to SW: creating port`);
     uniquePortName = generateUniqueIdentifier();
     portWithSw = chrome.runtime.connect({ name: uniquePortName });
     console.log("KeriAuthCs to SW connected port:", portWithSw);
@@ -132,6 +142,7 @@ function createPortWithSw(): void {
     const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
     console.log("KeriAuthCs to SW Init:", initMsg);
     portWithSw.postMessage(initMsg);
+    console.groupEnd();
 }
 
 /*
@@ -142,7 +153,7 @@ function assurePortAndSend(msg: any) {
         console.info(`KeriAuthCs re-createPortWithCs()`);
         createPortWithSw();
     }
-    console.info(`KeriAuthCs to SW postMessage:`, msg);
+    console.info(`KeriAuthCs to SW: postMessage:`, msg);
     portWithSw.postMessage(msg);
 }
 
@@ -157,66 +168,63 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
 
     // Ignore messages not sent from current window
     if (window.location.href.indexOf(event.origin) !== 0 && event.source !== window) {
-        // console.info('KeriAuthCs from tab: ignoring message event from other window:', event.data);
         return;
     }
 
     // Ignore messages from Cs sent to the Tab (instead of from Tab)
     if (event.data.source == CsTabMsgTag) {
-        // console.info("KeriAuthCs ignoring message from source, event data: ", event.data);
         return;
     }
 
     // handle messages from current tab
-    console.info(`KeriAuthCs from tab:`, event.data.type, event.data,);
+    console.groupCollapsed(`KeriAuthCs from tab: ${event.data.type}`);
+    console.log(event.data);
     try {
         const requestId = (event.data as PW.MessageData<any>).requestId;
         switch (event.data.type) {
             case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT:
-                const extensionMessage2: any = {
+                const extensionClientMsg: CsTabMsgDataData<{ extensionId: string }> = {
                     source: CsTabMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
                     requestId: requestId
                 }
-                postMessageToPage<unknown>(extensionMessage2);
+                postMessageToPage<CsTabMsgDataData<{ extensionId: string }>>(extensionClientMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION:
-                const extensionMessage: any = {
+                const extensionMessage: CsTabMsgDataData<{ extensionId: string }> = {
                     source: CsTabMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
                     requestId: requestId
                 }
-                postMessageToPage<unknown>(extensionMessage);
+                postMessageToPage<CsTabMsgDataData<{ extensionId: string }>>(extensionMessage);
                 break;
 
             case CsSwMsgEnum.POLARIS_GET_SESSION_INFO:
                 const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 const authorizeResult: PW.AuthorizeResult = {};
                 // TODO P2 implement sessions?
-                const msg: CsTabMsgData<PW.AuthorizeResult> = {
+                const sessionInfoMsg: CsTabMsgData<null> = {
                     source: CsTabMsgTag,
                     type: SwCsMsgEnum.REPLY,
                     requestId: requestId,
-                    error: "KERIAuthCs: sessions not supported",  // note that including error string appears to be processed as null in polaris-web
+                    error: "KERIAuthCs: sessions not supported",
                 };
-                postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(msg);
+                postMessageToPage<CsTabMsgData<null>>(sessionInfoMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR:
                 const configureVendorArgsMessage = event.data.payload as PW.MessageData<PW.ConfigureVendorArgs>;
                 console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
-                const msg3: CsTabMsgData<PW.AuthorizeResult> = {
+                const configVendorMsg: CsTabMsgData<null> = {
                     source: CsTabMsgTag,
                     type: SwCsMsgEnum.REPLY,
                     requestId: requestId,
-                    // TODO P2 the type definition doesn't appear to handled what may used in signify-browser-extension, e.g.:
-                    // error: { code: 503, message: error?.message },
-                    error: "KERIAuthCs: configure-vendor not supported",  // note that including error string appears to be processed as null in polaris-web
+                    error: "KERIAuthCs: configure-vendor not supported",
                 };
-                postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(msg3);
+                postMessageToPage<CsTabMsgData<null>>(configVendorMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
@@ -224,13 +232,13 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
             case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
             case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
                 try {
-                    const authorizeRequestMessage = event.data as PW.MessageData<PW.AuthorizeArgs>;
+                    const authorizeRequestMessage = event.data as PW.MessageData<null>;
                     console.info(`KeriAuthCs ${authorizeRequestMessage.type}:`, authorizeRequestMessage);
 
                     // TODO P2 this could be simplified with the correct type above?
                     // only relevant for POLARIS_SIGN_REQUEST ?
                     if (event.data.payload?.headers) {
-                        console.log("KeriAuthCs from tab payload headers: ");
+                        console.log("KeriAuthCs payload headers: ");
                         const hs: Headers = event.data.payload?.headers;
                         for (const pair of hs.entries()) {
                             console.log(` ${pair[0]}: ${pair[1]}`);
@@ -257,24 +265,25 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
 
             case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION:
                 const createDataAttestationMessage = event.data as PW.MessageData<PW.CreateCredentialArgs>;
-                console.info("KeriAuthCs handler not implemented for:", event.data.type, createDataAttestationMessage);
+                console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, { createDataAttestationMessage });
                 break;
 
             case CsSwMsgEnum.POLARIS_GET_CREDENTIAL:
-                console.info("KeriAuthCs handler not implemented for:", event.data.type, event.data);
+                console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGN_DATA:
                 const signDataArgsMsg = event.data as PW.MessageData<PW.SignDataArgs>;
-                console.info("KeriAuthCs handler not implemented for:", signDataArgsMsg.type, signDataArgsMsg);
+                console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
                 break;
 
             default:
-                console.info("KeriAuthCs handler not implemented for:", event.data.type, event.data);
+                console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
                 break;
         }
     } catch (error) {
         // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
         console.info("KeriAuthCs error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
     }
+    console.groupEnd();
 };

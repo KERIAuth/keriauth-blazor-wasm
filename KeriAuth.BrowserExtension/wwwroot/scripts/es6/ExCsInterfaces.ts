@@ -35,7 +35,7 @@ export interface ISwCsMsg {
 
 export enum SwCsMsgEnum {
     READY = "ready",
-    CANCELED = "canceled",
+    REPLY_CANCELED = "reply_canceled",
     REPLY = "/signify/reply",
     FSW = "fromServiceWorker"
 }
@@ -91,10 +91,16 @@ export interface ReplyMessageData<T = unknown> {
 
 export const CsTabMsgTag = "KeriAuthCs";
 
-// This interface helps shape ContentScript messages to tab
+// This interface helps shape ContentScript messages to tab that may have a payload, error
 export interface CsTabMsgData<T> extends Polaris.MessageData<T> {
     source: typeof CsTabMsgTag;
 }
+
+// This interface helps shape ContentScript messages to tab that will have no payload, but may have a data or error property
+export interface CsTabMsgDataData<T> extends CsTabMsgData<null> {
+    data?: T;
+}
+
 
 // Signing related types from signify-browser-extension config/types.ts. Here because we don't want dependencies on signify-browser-extension,
 // and ISignin is not defined in polaris-web/types.

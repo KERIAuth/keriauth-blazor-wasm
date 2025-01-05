@@ -376,6 +376,8 @@
                 return;
             }
         }
+        // TODO P2 find a better way to prevent race condition, such as putting isPendingKeira flag in service-worker
+        await Task.Delay(3000); // Need to wait here to assure the above message makes it through signing and to CS before the port is closed.
         UIHelper.CloseWindow();
     }
 

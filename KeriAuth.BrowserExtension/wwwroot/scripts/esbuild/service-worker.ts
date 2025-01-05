@@ -1,7 +1,7 @@
 ﻿/// <reference types="chrome" />
 
 import { Utils } from "../es6/uiHelper.js";
-import { CsSwMsgEnum, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
+import { CsSwMsgEnum, CsTabMsgData, CsTabMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
 import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
 import { UpdateDetails } from "../types/types.js";
 
@@ -402,14 +402,15 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             for (var key in pageCsConnections) {
                 if (pageCsConnections.hasOwnProperty(key)) {
                     const csConnection: CsConnection = pageCsConnections[key];
-                    if (csConnection.tabId != -1) {
+                    if (csConnection.tabId != -1 && PendingRequestId) {
                         const lastGasp = {
                             type: SwCsMsgEnum.REPLY,
+                            requestId: PendingRequestId,
                             error: "User closed KERI Auth or canceled pending request",
-                            requestId: 999999,  // TODO P3: maybe this requestId value is filled in by content script?
                         };
                         try {
                             csConnection.port.postMessage(lastGasp);
+                            PendingRequestId = null;
                         } catch {
                             console.log("SW could not send lastGasp to closed page connection");
                         }
@@ -473,6 +474,7 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
             };
             console.log("SW signReqSendToTab: signedHeaderResult", signedHeaderResult);
             port.postMessage(signedHeaderResult);
+            PendingRequestId = null;
         }
         else {
             throw new Error("SW signReqSendToTab: unexpected KERIA non-availability or passcode issue");
@@ -527,11 +529,11 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         const authorizeResult = {
                             type: SwCsMsgEnum.REPLY,
                             requestId: message.requestId,
-                            payload: authorizeResultCredential,
-                            rurl: ""
+                            payload: authorizeResultCredential
                         };
                         console.log("SW from App: authorizeResult", authorizeResult);
                         cSConnection.port.postMessage(authorizeResult);
+                        PendingRequestId = null;
                     } else {
                         throw Error("could not connect");
                         // TODO P2 do a graceful replyCancel instead
@@ -543,15 +545,15 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 break;
             case "/KeriAuth/signify/replyCancel":
                 try {
-                    // TODO P2 constrain to a type
-                    const cancelResult = {
-                        type: SwCsMsgEnum.REPLY,
+                    const cancelResult: CsTabMsgData<null> = {
+                        type: SwCsMsgEnum.REPLY_CANCELED,
+                        source: CsTabMsgTag,
                         requestId: message.requestId,
-                        payload: {},
-                        rurl: ""
+                        error: "Canceled or timed out"
                     };
                     console.log("SW from App: authorizeResult", cancelResult);
                     cSConnection.port.postMessage(cancelResult);
+                    PendingRequestId = null;
                 }
                 catch (error) {
                     console.error("SW: error processing ", message.type as string, ": ", error);
@@ -565,8 +567,12 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
     }
 };
 
+let PendingRequestId: string | null;
+
 async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
     console.log("SW from CS: message", message);
+
+    PendingRequestId = message.requestId;
 
     // assure tab is still connected  
     if (pageCsConnections[connectionId]) {
@@ -591,6 +597,7 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
                 };
                 console.log("SW to CS: ", SwCsMsgEnum.READY)
                 cSPort.postMessage(response);
+                PendingRequestId = null;
                 break;
             case CsSwMsgEnum.POLARIS_SIGN_DATA:
                 // TODO P1 request user to sign data (or request?)
