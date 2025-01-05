@@ -33,21 +33,23 @@ import * as PW from "../types/polaris-web-client";
 let uniquePortName: string;
 let portWithSw: chrome.runtime.Port | null;
 
+
+console.groupCollapsed("KeriAuthCs initializing");
+
 // Add a listener for messages and create port with SW
-console.info("KeriAuthCs adding message listener and creating port with SW");
 window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event));
 createPortWithSw();
 
-// Observe URL changes in an SPA.Just log it for now to help with debugging issues.
-window.addEventListener('popstate', () => {
-    console.info("KeriAuthCs popstate change:", window.location.href);
+// Observe URL changes in an SPA. Log if helpful for debugging issues.
+window.addEventListener('popstate', (event) => {
+    // console.info("KeriAuthCs ${event.type} ${window.location.href}`);
 });
 
-// Add listener for when DOMContentLoaded
+// Add listener for when DOMContentLoaded. Log if helpful for debugging issues.
 document.addEventListener('DOMContentLoaded', (event) => {
-    console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
+    // console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
 });
-
+console.groupEnd();
 
 /*
  * Generate a unique and unguessable identifier for the port name for communications between the content script and the extension
@@ -63,7 +65,7 @@ function generateUniqueIdentifier(): string {
  * 
  */
 function postMessageToPage<T>(msg: T): void {
-    console.log(`KeriAuthCs to tab: ${(msg as CsTabMsgData<T>).type}`, { msg });
+    console.log(`KeriAuthCs→Tab: ${(msg as CsTabMsgData<T>).type}`, { msg });
     window.postMessage(msg, currentOrigin);
 }
 
@@ -72,11 +74,11 @@ function postMessageToPage<T>(msg: T): void {
  */
 function handleMsgFromSW(message: PW.MessageData<unknown>): void {
     if (!message.type) {
-        console.error("KeriAuthCs from SW: type not found in message:", message);
+        console.error("KeriAuthCs←SW: type not found in message:", message);
         return;
     }
 
-    console.groupCollapsed(`KeriAuthCs from SW: ${message.type}`);
+    console.groupCollapsed(`KeriAuthCs←SW: ${message.type}`);
     console.log(message);
     switch (message.type) {
         case SwCsMsgEnum.READY:
@@ -124,10 +126,10 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
  * 
  */
 function createPortWithSw(): void {
-    console.groupCollapsed(`KeriAuthCs to SW: creating port`);
+    console.groupCollapsed(`KeriAuthCs→SW: creating port`);
     uniquePortName = generateUniqueIdentifier();
     portWithSw = chrome.runtime.connect({ name: uniquePortName });
-    console.log("KeriAuthCs to SW connected port:", portWithSw);
+    console.log("KeriAuthCs→SW connected port:", portWithSw);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
     portWithSw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromSW(message));
@@ -140,7 +142,7 @@ function createPortWithSw(): void {
 
     // Send a ping message to the service worker to help complete the setup of connection port
     const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
-    console.log("KeriAuthCs to SW Init:", initMsg);
+    console.log("KeriAuthCs→SW Init:", initMsg);
     portWithSw.postMessage(initMsg);
     console.groupEnd();
 }
@@ -153,7 +155,7 @@ function assurePortAndSend(msg: any) {
         console.info(`KeriAuthCs re-createPortWithCs()`);
         createPortWithSw();
     }
-    console.info(`KeriAuthCs to SW: postMessage:`, msg);
+    console.info(`KeriAuthCs→SW: postMessage:`, msg);
     portWithSw.postMessage(msg);
 }
 
@@ -177,7 +179,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
     }
 
     // handle messages from current tab
-    console.groupCollapsed(`KeriAuthCs from tab: ${event.data.type}`);
+    console.groupCollapsed(`KeriAuthCs←Tab: ${event.data.type}`);
     console.log(event.data);
     try {
         const requestId = (event.data as PW.MessageData<any>).requestId;
@@ -246,7 +248,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                     }
                     assurePortAndSend(event.data);
                 } catch (error) {
-                    console.error("KeriAuthCs to SW: error sending message {event.data} {e}:", event.data, error);
+                    console.error("KeriAuthCs→SW: error sending message {event.data} {e}:", event.data, error);
                     return;
                 }
                 break;
