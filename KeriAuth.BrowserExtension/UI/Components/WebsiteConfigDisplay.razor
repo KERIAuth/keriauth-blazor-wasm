@@ -91,6 +91,7 @@
     */
     async Task sendValueToParent()
     {
+        StateHasChanged(); // update reactive properties
         logger.LogInformation($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
 
         if (ValueChanged.HasDelegate && IdentifierHeadlines is not null)
@@ -222,13 +223,12 @@
         logger.LogInformation("updateSelectedPrefix updated ConfigAndParent");
         if (OriginUri is not null)
         {
-            await Task.Delay(100); // allow reactive properties to update
+            StateHasChanged(); // update reactive properties
             await refreshFromWebsiteConfig(OriginUri);
-            await Task.Delay(100); // allow reactive properties to update
             await sendValueToParent(); // may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
         }
         logger.LogInformation("updateSelectedPrefix 4");
-        await Task.Delay(100); // tmp?
+        StateHasChanged(); // update reactive properties
         SelectedPrefix = prefix;
     }
 
@@ -276,7 +276,7 @@
         if (OriginUri is not null)
         {
             await refreshFromWebsiteConfig(OriginUri);
-            await Task.Delay(100); // needed? allow time for reactive properties to update
+            StateHasChanged(); // update reactive properties
             await sendValueToParent(); // needed?
         }
         return;
@@ -324,7 +324,6 @@
         // TODO P2 evaluate results
         var res = await websiteConfigService.Update(wc);
         logger.LogInformation("UpdateWebsiteConfigAndParent success: {r}", res.IsSuccess);
-        await Task.Delay(100); // allow reactive properties time to evaluate
         await sendValueToParent();
     }
 }
