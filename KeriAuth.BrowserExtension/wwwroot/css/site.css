@@ -163,6 +163,7 @@
     border-style: solid none solid none;
     border-width: 2px;
     position: relative;
+    margin-right:16px;
 }
 
 .bt-terms-button {
