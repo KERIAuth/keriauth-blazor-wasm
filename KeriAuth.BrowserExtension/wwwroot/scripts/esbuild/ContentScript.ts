@@ -3,8 +3,6 @@
 // This ContentScript is inserted into tabs after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension service-worker.
 
-const currentOrigin = window.location.origin;
-
 // windows message event data
 // TODO P2 better imported form somewhere?
 interface EventData {
@@ -30,9 +28,9 @@ import * as PW from "../types/polaris-web-client";
 // TODO P2 clarify naming consistency and use of: tab, page (including DOM and properties), document (high-level properties), and DOM
 
 // Unique port name for communications between the content script and the extension
+const currentOrigin = window.location.origin;
 let uniquePortName: string;
 let portWithSw: chrome.runtime.Port | null;
-
 
 console.groupCollapsed("KeriAuthCs initializing");
 
@@ -40,13 +38,13 @@ console.groupCollapsed("KeriAuthCs initializing");
 window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event));
 createPortWithSw();
 
-// Observe URL changes in an SPA. Log if helpful for debugging issues.
+// Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
 window.addEventListener('popstate', (event) => {
-    // console.info("KeriAuthCs ${event.type} ${window.location.href}`);
+    console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
 });
 
 // Add listener for when DOMContentLoaded. Log if helpful for debugging issues.
-document.addEventListener('DOMContentLoaded', (event) => {
+document.addEventListener('DOMContentLoaded', (_) => {
     // console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
 });
 console.groupEnd();
@@ -114,6 +112,18 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
             postMessageToPage<CsTabMsgData<null>>(canceledMsg);
             break;
 
+        case SwCsMsgEnum.APP_CLOSED:
+            if (message.requestId) {
+                const appClosedMsg: CsTabMsgData<null> = {
+                    source: CsTabMsgTag,
+                    type: SwCsMsgEnum.REPLY,
+                    requestId: message.requestId, // might be null
+                    error: message.error,
+                }
+                postMessageToPage<CsTabMsgData<null>>(appClosedMsg);
+            }
+            break;
+
         default:
             console.error(`KeriAuthCs handler not implemented for message type ${message.type}`);
             break;
@@ -134,7 +144,7 @@ function createPortWithSw(): void {
     // register to receive and handle messages from the extension (and indirectly also from the web page)
     portWithSw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromSW(message));
 
-    portWithSw.onDisconnect.addListener((p) => {
+    portWithSw.onDisconnect.addListener((_) => {
         // disconnect will typically happen when the service-worker becomes inactive
         console.info("KeriAuthCs Port with service-worker was disconnected, likely due to SW going inactive.");
         portWithSw = null;
@@ -205,8 +215,8 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 break;
 
             case CsSwMsgEnum.POLARIS_GET_SESSION_INFO:
-                const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
-                const authorizeResult: PW.AuthorizeResult = {};
+                // const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
+                // const authorizeResult: PW.AuthorizeResult = {};
                 // TODO P2 implement sessions?
                 const sessionInfoMsg: CsTabMsgData<null> = {
                     source: CsTabMsgTag,
@@ -254,7 +264,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 break;
 
             case CsSwMsgEnum.POLARIS_CLEAR_SESSION:
-                const authorizeArgsMessage3 = event.data as PW.MessageData<PW.AuthorizeArgs>;
+                // const authorizeArgsMessage3 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // Although sessions are not implemented, we can respond as expected when Clear is requested
                 const clearResult: CsTabMsgData<PW.AuthorizeResult> = {
                     source: CsTabMsgTag,

@@ -2,49 +2,32 @@
 
 import { Utils } from "../es6/uiHelper.js";
 import { CsSwMsgEnum, CsTabMsgData, CsTabMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
-import { connect, getSignedHeaders, getNameByPrefix, getIdentifierByPrefix } from "./signify_ts_shim.js";
+import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim.js";
 import { UpdateDetails } from "../types/types.js";
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"
 } as const;
 
-// Note the runtime handlers are triggered in order: // runtime.onInstalled, this.activating, this.activated, and then others
-// For details, see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/runtime#events
+// interface for objects to track the pageCsConnections between the service worker and the content scripts, using the tabId as the key
+interface CsConnection {
+    port: chrome.runtime.Port;
+    tabId: number;
+    pageAuthority: string;
+}
+
+let pendingRequestId: string | null = null;
+let pendingRequestPort: chrome.runtime.Port | null = null;
+let pageCsConnections: { [key: string]: CsConnection } = {};
+let isWaitingOnKeria: boolean = false;
 
 // Listen for and handle a new install or update of the extension
 chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.InstalledDetails) => {
-    console.log("SW InstalledDetails: ", installDetails);
-    let urlString = "";
-    switch (installDetails.reason) {
-        case "install":
-            urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}`;
-            Utils.createTab(urlString);
-            break;
-        case "update":
-            // This will be triggered by a Chrome Web Store push,
-            // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
-            const previousVersion = installDetails.previousVersion;
-            const currentVersion = chrome.runtime.getManifest().version;
-            console.log(`Extension updated from version ${previousVersion} to ${currentVersion}.`);
-            // Save update information for later use on user's next normal activity
-            const updateDetails: UpdateDetails = {
-                reason: installDetails.reason,
-                previousVersion: previousVersion,
-                currentVersion: currentVersion,
-                timestamp: new Date().toISOString(),
-            };
-            await chrome.storage.local.set({ UpdateDetails: updateDetails });
-            break;
-        case "chrome_update":
-        case "shared_module_update":
-        default:
-            break;
-    }
+    await handleOnInstalled(installDetails);
 });
 
 // Listen for and handle the activation event, such as to clean up old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', (_) => {
     console.log('SW activated');
 });
 
@@ -55,8 +38,14 @@ chrome.runtime.onStartup.addListener(() => {
     // could potentially be used to set the extension's icon to a "locked" state, for example
 });
 
+// Listen for and handle port pageCsConnections from content script and Blazor App
+chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
+    await handleOnConnect(connectedPort)
+});
+
+
 // Handle messages from app (other than via port)
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'resetInactivityTimer') {
         // Default inactivity timeout
         let inactivityTimeoutMinutes = 5.0;
@@ -100,8 +89,56 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 
-// Listen for and handle the browser action being clicked
-chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
+// Listen for and handle the extension's action button being clicked
+chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => handleActionOnClicked(tab));
+
+// Listen for and handle when a tab is closed. Remove related csConnection from list.
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (pageCsConnections[tabId]) {
+        console.log("SW tabs.onRemoved: tabId: ", tabId)
+        delete pageCsConnections[tabId]
+    };
+});
+
+////////////////////////////////////////////////////////
+
+/*
+ * handle a new install or update of the extension
+ */
+async function handleOnInstalled(installDetails: chrome.runtime.InstalledDetails) {
+    console.log("SW InstalledDetails: ", installDetails);
+    let urlString = "";
+    switch (installDetails.reason) {
+        case "install":
+            urlString = `${location.origin}/index.html?environment=tab&reason=${installDetails.reason}`;
+            Utils.createTab(urlString);
+            break;
+        case "update":
+            // This will be triggered by a Chrome Web Store push,
+            // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
+            const previousVersion = installDetails.previousVersion;
+            const currentVersion = chrome.runtime.getManifest().version;
+            console.log(`SW Extension updated from version ${previousVersion} to ${currentVersion}.`);
+            // Save update information for later use on user's next normal activity
+            const updateDetails: UpdateDetails = {
+                reason: installDetails.reason,
+                previousVersion: previousVersion,
+                currentVersion: currentVersion,
+                timestamp: new Date().toISOString(),
+            };
+            await chrome.storage.local.set({ UpdateDetails: updateDetails });
+            break;
+        case "chrome_update":
+        case "shared_module_update":
+        default:
+            break;
+    }
+};
+
+/*
+ *
+ */
+function handleActionOnClicked(tab: chrome.tabs.Tab) {
     // Note since the extension is a browser action, it needs to be able to access the current tab's URL,
     // but with activeTab permission and not tabs permission.
     // In our design, the default_action is not defined in manifest.json, 
@@ -146,9 +183,12 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
         Utils.createTab(`${location.origin}/index.html?environment=tab`);
         return;
     }
-});
+};
 
-// Use the action popup to interact with the user for the current tab (if it is a web page)
+/*
+ * useActionPopup()
+ * Use the action popup to interact with the user for the current tab (if it is a web page)
+ */
 function useActionPopup(tabId: number, queryParams: { key: string, value: string }[] = []) {
     console.log('SW useActionPopup acting on current tab');
     queryParams.push({ key: "environment", value: "ActionPopup" });
@@ -156,7 +196,7 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     chrome.action.setPopup({ popup: url, tabId: tabId });
     chrome.action.openPopup()
         .then(() => console.log("SW useActionPopup succeeded"))
-        .catch((err) => {
+        .catch((_) => {
             // TODO P2 this error from openPopup() seems to throw even when the popup is opened successfully, perhaps due to a timing issue.  Ignoring for now.
             // console.warn(`SW useActionPopup dropped. Was already open?`, err);
         });
@@ -164,6 +204,9 @@ function useActionPopup(tabId: number, queryParams: { key: string, value: string
     chrome.action.setPopup({ popup: "", tabId: tabId });
 }
 
+/*
+ * 
+ */
 function serializeAndEncode(obj: any): string {
     // TODO P2 assumes the payload obj is simple
     const jsonString: string = JSON.stringify(obj);
@@ -171,14 +214,16 @@ function serializeAndEncode(obj: any): string {
     return encodedString;
 }
 
-
+/*
+ * 
+ */
 async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
     // check if there is a passcode in session storage, which indicates app is unlocked
     const result = await chrome.storage.session.get(['passcode']);
     if (result.passcode) {
         // TODO P2 fix this assumption that uses the first/only connection. Fix needed when multiple tabs are supported
         // console.log("SW handleSignRequest pageCsConnections:", pageCsConnections);
-        const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
+        // const cSConnection = pageCsConnections[Object.keys(pageCsConnections)[0]];
 
         // add to message with additional properties of origin and selectedName. Could alternately add these to message if updated everywhere needed
 
@@ -191,7 +236,7 @@ async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
             const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
             const passcodeRes = await chrome.storage.session.get(['passcode']);
             if (passcodeRes.passcode) {
-                const jsonSignifyClient = await connect(adminUrl, passcodeRes.passcode);
+                await connect(adminUrl, passcodeRes.passcode);
                 // console.warn("SW handleSignRequest jsonSignifyClient:", jsonSignifyClient);
                 const name = await getNameByPrefix(websiteConfig.rememberedPrefixOrNothing);
                 return name;
@@ -200,6 +245,9 @@ async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
     }
 }
 
+/*
+ * 
+ */
 // TODO P2 type of any is a code smell
 async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
     // ICsSwMsgSignRequest
@@ -233,7 +281,7 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
                         }
                         // intentionally falling through to default case now
                     } catch (error) {
-                        console.error("handleSignRequest error on method ", message.payload.method, " error:", error);
+                        console.error("SW handleSignRequest error on method ", message.payload.method, " error:", error);
                     }
                 default:
                     try {
@@ -251,6 +299,9 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
     }
 }
 
+/*
+ * 
+ */
 function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
     return new Promise((resolve, reject) => {
         chrome.storage.local.get("WebsiteConfigList", (result) => {
@@ -277,17 +328,15 @@ function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
 }
 
 
-// Handle the tab content script's request for user to select an identifier
+/*
+ * handleSelectAuthorize()
+ * Handle the tab content script's request for user to select an identifier
+ */
 // TODO P2 define type for msg. Use of any is a code smell.
 function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port) {
-    // TODO P3 Implement the logic for handling the msg
     console.log("SW handleSelectAuthorize: ", msg);
-    // TODO P3 should check if a popup is already open, and if so, bring it into focus.
-    // chrome.action.setBadgeBackgroundColor({ color: '#037DD6' });
     if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
         const tabId = Number(csTabPort.sender.tab.id);
-        //chrome.action.setBadgeText({ text: "3", tabId: tabId });
-        //chrome.action.setBadgeTextColor({ color: '#FF0000', tabId: tabId });
         // TODO P2 Could alternately implement the msg passing via messaging versus the URL
         // TODO P3 should start a timer so the webpage doesn't need to wait forever for a response from the user? Then return an error.
         const jsonOrigin = JSON.stringify(csTabPort.sender.origin);
@@ -299,31 +348,10 @@ function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort
     }
 };
 
-// Check if the actionPopup is already open
-function isActionPopupUrlSet(): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        chrome.action.getPopup({}, (popupUrl) => {
-            if (chrome.runtime.lastError) {
-                console.info("SW isActionPopupOpen: popupUrl: ", popupUrl);
-                reject(chrome.runtime.lastError);
-            } else {
-                resolve(!!popupUrl);
-            }
-        });
-    });
-}
-
-// Object to track the pageCsConnections between the service worker and the content scripts, using the tabId as the key
-interface CsConnection {
-    port: chrome.runtime.Port;
-    tabId: number;
-    pageAuthority: string;
-}
-
-let pageCsConnections: { [key: string]: CsConnection } = {};
-
-// Listen for and handle port pageCsConnections from content script and Blazor App
-chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) => {
+/*
+ * Handle port pageCsConnections from content script and Blazor App
+ */
+async function handleOnConnect(connectedPort: chrome.runtime.Port) {
     console.log("SW onConnect port: ", connectedPort);
     let connectionId = connectedPort.name;
     console.log(`SW ${Object.keys(pageCsConnections).length} connections before update: `, pageCsConnections);
@@ -342,14 +370,15 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
     // First check if the port is from a content script and its pattern
     const cSPortNamePattern = /^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$/;
+    let cSPort: chrome.runtime.Port | null = null;
     if (cSPortNamePattern.test(connectedPort.name)) {
-        const cSPort: chrome.runtime.Port | null = connectedPort;
+        cSPort = connectedPort;
         // TODO P2 test and update assumptions of having a longrunning port established, especially when sending.  With back-forward cache (bfcache), ports can get suspended or terminated, leading to errors such as:
         // "Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the msg channel is closed."
-        console.log(`SW with CS via port`, cSPort);
+        console.log(`SW🡠🡢CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
-        cSPort.onMessage.addListener(async (message: ICsSwMsg) => await handleMessageFromPageCs(message, cSPort, tabId, connectionId));
+        cSPort.onMessage.addListener(async (message: ICsSwMsg) => await handleMessageFromCs(message, cSPort, tabId, connectionId));
 
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
@@ -366,74 +395,76 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
             if (appPort.sender?.url) {
                 url = appPort.sender.url;
             }
-            // console.log(`SW from App: url:`, url);
+            // console.log(`SW🡠App: url:`, url);
             const authority = getAuthorityFromOrigin(url);  // TODO P3 why not use origin string directly?
-            console.log(`SW from App: authority:`, authority);
+            console.log(`SW🡠App authority:`, authority);
 
             // Update the pageCsConnections list with the URL's authority, so the SW-CS and SW-App pageCsConnections can be associated
             pageCsConnections[appPort.name].pageAuthority = authority || "unknown";
-            // console.log(`SW from App: pageCsConnections:`, pageCsConnections);
+            // console.log(`SW🡠App: pageCsConnections:`, pageCsConnections);
 
             // Find the matching csConnection based on the page authority. TODO P3 should this also be based on the tabId?
             const cSConnection = findMatchingConnection(pageCsConnections, appPort.name)
-            console.log(`SW from App connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
+            console.log(`SW connection:`, pageCsConnections[appPort.name], `ContentScriptConnection`, cSConnection);
 
             // Add a listener for messages from the App, 
             // where the handler can process and forward to the tab's content script as appropriate.
             console.log("SW adding onMessage listener for App port, csConnection, tabId, connectionId", appPort, cSConnection, tabId, connectionId);
-            appPort.onMessage.addListener(async (message) => await handleMessageFromApp(message, appPort, cSConnection, tabId, connectionId));
+            appPort.onMessage.addListener(async (message) => await handleMessageFromApp(message, appPort, cSConnection));
             console.log("SW adding onMessage listener for App port... done", appPort);
 
             // Send an initial msg from SW to App
             appPort.postMessage({ type: SwCsMsgEnum.FSW, data: 'Service worker connected' });
 
         } else {
-            console.error('Invalid port:', connectedPort);
+            console.error('SW Invalid port:', connectedPort);
         }
     }
 
-    // Clean up when the port is disconnected.  See also chrome.tabs.onRemoved.addListener
-    connectedPort.onDisconnect.addListener(() => {
-        console.log("SW port closed connection for page connection: ", pageCsConnections[connectionId])
+    // Clean up when the port is disconnected.  
+    // TODO P3 See also chrome.tabs.onRemoved.addListener
+    connectedPort.onDisconnect.addListener(() => handlePortDisconnected(connectionId));
 
-        if (pageCsConnections[connectionId].port?.name.substring(0, 17) == "blazorAppPort-tab") {
-            // The extension's App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
-            console.info('SW KERI Auth Extension Popup closed');
-            for (var key in pageCsConnections) {
-                if (pageCsConnections.hasOwnProperty(key)) {
-                    const csConnection: CsConnection = pageCsConnections[key];
-                    if (csConnection.tabId != -1 && PendingRequestId) {
-                        const lastGasp = {
-                            type: SwCsMsgEnum.REPLY,
-                            requestId: PendingRequestId,
-                            error: "User closed KERI Auth or canceled pending request",
-                        };
-                        try {
-                            csConnection.port.postMessage(lastGasp);
-                            PendingRequestId = null;
-                        } catch {
-                            console.log("SW could not send lastGasp to closed page connection");
-                        }
-                    }
-                }
+};
+
+/*
+ *
+ */
+function handlePortDisconnected(connectionId: string) {
+
+    console.log("SW port closed connection for page connection: ", pageCsConnections[connectionId])
+
+    if (pageCsConnections[connectionId].port?.name.substring(0, 17) == "blazorAppPort-tab") {
+        // The extension's App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
+        console.info('SW Extension Popup closed');
+        // console.warn("SW onDisconnect:", "pendingRequestId", pendingRequestId, "isKeriaPending", isWaitingOnKeria);
+        if (pendingRequestId != null && !isWaitingOnKeria && pendingRequestPort != null) {
+            const lastGasp = {
+                type: SwCsMsgEnum.REPLY,
+                requestId: pendingRequestId,
+                error: "KERI Auth popup closed",
+            };
+            try {
+                console.log("SW🡢CS lastGasp reply");
+                pendingRequestPort.postMessage(lastGasp);
+            } catch (error) {
+                console.log("SW could not send lastGasp to closed page connection", error);
             }
+            resetPendingRequest();
         } else {
-            // The Tab was closed.
-            console.info('SW: Content Script tab closed or navigated away');
+            // TODO P2 send a non-Reply last gasp message to CS so it can log the close
         }
-        delete pageCsConnections[connectionId];
-    });
-});
+    } else {
+        // The Tab was closed.
+        console.info('SW Content Script tab closed or navigated away');
+    }
+    delete pageCsConnections[connectionId];
+};
 
-// Listen for and handle when a tab is closed. Remove related csConnection from list.
-chrome.tabs.onRemoved.addListener((tabId) => {
-    if (pageCsConnections[tabId]) {
-        console.log("SW tabs.onRemoved: tabId: ", tabId)
-        delete pageCsConnections[tabId]
-    };
-});
 
-// Connect so that shim will work as expected
+/*
+ * Connect so that shim will work as expected
+ */
 // TODO P2 should only have one "signify-service" like connection? Perhaps add support for multiple tabs with potentially
 // different selected identifiers first, before concluding this design.
 async function connectToKeria(): Promise<boolean> {
@@ -443,20 +474,23 @@ async function connectToKeria(): Promise<boolean> {
             const adminUrl = result.KeriaConnectConfig.AdminUrl as string;
             const result2 = await chrome.storage.session.get(['passcode']);
             if (result2.passcode) {
-                const jsonSignifyClient = await connect(adminUrl, result2.passcode);
+                await connect(adminUrl, result2.passcode);
                 return true;
             }
         }
         else {
-            console.error("could not connect to KERIA with config and passcode.");
+            console.error("SW could not connect to KERIA with config and passcode.");
             return false;
         }
     } catch (error) {
-        console.error("Could not connect to KERIA: ", error)
+        console.error("SW Could not connect to KERIA: ", error)
         return false;
     }
 }
 
+/*
+ * 
+ */
 // TODO P2 type of any is a code smell
 async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
     // Assure connection to KERIA, then sign Http Request Headers, then send to CS
@@ -474,7 +508,7 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
             };
             console.log("SW signReqSendToTab: signedHeaderResult", signedHeaderResult);
             port.postMessage(signedHeaderResult);
-            PendingRequestId = null;
+            resetPendingRequest();
         }
         else {
             throw new Error("SW signReqSendToTab: unexpected KERIA non-availability or passcode issue");
@@ -485,9 +519,19 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port) {
     }
 }
 
-async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined, tabId: number, connectionId: string): Promise<void> {
+/*
+ * 
+ */
+function resetPendingRequest() {
+    isWaitingOnKeria = false;
+    pendingRequestId = null;
+}
 
-    console.log(`SW from App message, port:`, message, appPort);
+/*
+ * 
+ */
+async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, cSConnection: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined): Promise<void> {
+    console.log(`SW🡠App message, port:`, message, appPort);
 
     // Send a response to the KeriAuth App
     // TODO P3 is this unecessary noise, or helpful for debugging?
@@ -495,16 +539,22 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
-        console.log("SW from App: handling App message of type: ", message.type);
+        console.log("SW handling App message of type: ", message.type);
         switch (message.type) {
-            // TODO P2 update and define consistent message type enums here
+            // TODO P2 update and define consistent message type enums here. App-to-Sw should have its own enums
             case SwCsMsgEnum.REPLY:
+                isWaitingOnKeria = true;
+                console.log(`SW🡢CS ${message.type}`);
                 cSConnection.port.postMessage(message);
+                resetPendingRequest();
                 break;
             case "ApprovedSignRequest":
+                isWaitingOnKeria = true;
                 await signReqSendToTab(message, cSConnection.port);
+                resetPendingRequest();
                 break;
-            case "/KeriAuth/signify/replyCredential":
+            case SwCsMsgEnum.REPLY_CRED:
+                isWaitingOnKeria = true;
                 try {
                     // TODO P2 Improve typing.  E.g., const msg = message as TypeFoo<DataBar>
                     const credObject = JSON.parse(message.payload.credential.rawJson);
@@ -531,19 +581,20 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                             requestId: message.requestId,
                             payload: authorizeResultCredential
                         };
-                        console.log("SW from App: authorizeResult", authorizeResult);
+                        console.log("SW🡢CS authorizeResult", authorizeResult);
                         cSConnection.port.postMessage(authorizeResult);
-                        PendingRequestId = null;
                     } else {
                         throw Error("could not connect");
                         // TODO P2 do a graceful replyCancel instead
                     }
                 }
                 catch (error) {
-                    console.error("SW: error processing ", message.type as string, ": ", error);
+                    console.error("SW error processing ", message.type as string, ": ", error);
                 }
+                resetPendingRequest();
                 break;
             case "/KeriAuth/signify/replyCancel":
+                isWaitingOnKeria = true;
                 try {
                     const cancelResult: CsTabMsgData<null> = {
                         type: SwCsMsgEnum.REPLY_CANCELED,
@@ -551,28 +602,64 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         requestId: message.requestId,
                         error: "Canceled or timed out"
                     };
-                    console.log("SW from App: authorizeResult", cancelResult);
+                    console.log("SW🡢CS authorizeResult", cancelResult);
                     cSConnection.port.postMessage(cancelResult);
-                    PendingRequestId = null;
                 }
                 catch (error) {
-                    console.error("SW: error processing ", message.type as string, ": ", error);
+                    console.error("SW error processing ", message.type as string, ": ", error);
                 }
+                resetPendingRequest();
+                break;
+            case SwCsMsgEnum.APP_CLOSED:
+                // intentionally not setting isWaitingOnKeria = true here
+                try {
+                    if (pendingRequestId != null) {
+                        if (!isWaitingOnKeria) {
+                            const cancelResult: CsTabMsgData<null> = {
+                                type: SwCsMsgEnum.REPLY_CANCELED,
+                                source: CsTabMsgTag,
+                                requestId: pendingRequestId,
+                                error: "User canceled or KERI Auth timed out"
+                            };
+                            console.log("SW🡢CS cancelResult:", cancelResult);
+                            cSConnection.port.postMessage(cancelResult);
+                        } else {
+                            console.log("SW not sending cancel to CS to allow Signify signing to complete");
+                        }
+                    } else {
+                        const closeAppMsg: CsTabMsgData<null> = {
+                            type: SwCsMsgEnum.APP_CLOSED,
+                            source: CsTabMsgTag,
+                            requestId: "none",
+                            error: "KERI Auth action popup closed"
+                        };
+                        console.log("SW🡢CS closeAppMsg:", closeAppMsg);
+                        cSConnection.port.postMessage(closeAppMsg);
+                    }
+                }
+                catch (error) {
+                    console.error("SW error processing ", message.type as string, ": ", error);
+                }
+
+                resetPendingRequest();
                 break;
             default:
-                console.info("SW from App: message type not yet handled: ", message);
+                console.info("SW message type not yet handled: ", message);
+                resetPendingRequest();
         }
     } else {
         console.info("SW cSConnection was closed, so cannot send to CS");
     }
 };
 
-let PendingRequestId: string | null;
+/*
+ * 
+ */
+async function handleMessageFromCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
+    console.log(`SW🡠CS ${message.type}`, message);
 
-async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
-    console.log("SW from CS: message", message);
-
-    PendingRequestId = message.requestId;
+    pendingRequestId = message.requestId;
+    pendingRequestPort = cSPort;
 
     // assure tab is still connected  
     if (pageCsConnections[connectionId]) {
@@ -595,21 +682,23 @@ async function handleMessageFromPageCs(message: ICsSwMsg, cSPort: chrome.runtime
                     requestId: message.requestId,
                     payload: {}
                 };
-                console.log("SW to CS: ", SwCsMsgEnum.READY)
+                console.log("SW🡢CS", SwCsMsgEnum.READY as string);
                 cSPort.postMessage(response);
-                PendingRequestId = null;
+                pendingRequestId = null;
                 break;
             case CsSwMsgEnum.POLARIS_SIGN_DATA:
-                // TODO P1 request user to sign data (or request?)
+            // TODO P1 request user to sign data (or request?)
             default:
-                console.warn("SW from CS: message type not yet handled: ", message);
+                console.warn("SW message type not yet handled: ", message);
         }
     } else {
         console.log("SW Port no longer connected");
     }
 }
 
-// Create a URL with the provided base URL and query parameters, verifying that the keys are well-formed
+/*
+ * Create a URL with the provided base URL and query parameters, verifying that the keys are well-formed
+ */
 // TODO P3 would base64 encoding be better?
 function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: string, value: string }[]): string {
     const url = new URL(chrome.runtime.getURL(baseUrl));
@@ -618,14 +707,16 @@ function createUrlWithEncodedQueryStrings(baseUrl: string, queryParams: { key: s
         if (isValidKey(param.key)) {
             params.append(encodeURIComponent(param.key), encodeURIComponent(param.value));
         } else {
-            console.warn(`Invalid key skipped: ${param.key}`);
+            console.warn(`SW Invalid key skipped: ${param.key}`);
         }
     });
     url.search = params.toString();
     return url.toString();
 }
 
-// Check if the provided key is well-formed
+/*
+ * Check if the provided key is well-formed
+ */
 function isValidKey(key: string): boolean {
     // A simple regex to check for valid characters in a key
     // Adjust the regex based on what you consider "well-formed"
@@ -633,7 +724,9 @@ function isValidKey(key: string): boolean {
     return keyRegex.test(key);
 }
 
-// Based on the provided url and key, extract key's decoded value from the query string
+/*
+ * Based on the provided url and key, extract key's decoded value from the query string
+ */
 // TODO P3 would base64 encoding be better?
 function getQueryParameter(url: string, key: string): string | null {
     const parsedUrl = new URL(url);
@@ -645,7 +738,9 @@ function getQueryParameter(url: string, key: string): string | null {
     return null;
 }
 
-// Extract the authority portion (hostname and port) from the provided URL's query string, origin key
+/*
+ * Extract the authority portion (hostname and port) from the provided URL's query string, origin key
+ */
 function getAuthorityFromOrigin(url: string): string | null {
     const origin = getQueryParameter(url, 'origin');
     const unquotedOrigin = origin?.replace(/^["'](.*)["']$/, '$1');
@@ -654,13 +749,15 @@ function getAuthorityFromOrigin(url: string): string | null {
             const originUrl = new URL(String(unquotedOrigin));
             return originUrl.host;
         } catch (error) {
-            console.error('Invalid origin URL:', error);
+            console.error('SW Invalid origin URL:', error);
         }
     }
     return null;
 }
 
-// Find the first matching csConnection based on the provided key and its page authority value
+/*
+ * Find the first matching csConnection based on the provided key and its page authority value
+ */
 function findMatchingConnection(connections: { [key: string]: { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } }, providedKey: string): { port: chrome.runtime.Port, tabId: Number, pageAuthority: string } | undefined {
     const providedConnection = connections[providedKey];
     if (!providedConnection) {

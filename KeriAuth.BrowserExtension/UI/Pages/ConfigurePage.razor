@@ -239,7 +239,7 @@
     {
         // Since user has confirmed the passcode, we can now hash it and store it once the connection is successful
         IsProcessing = true;
-        await Task.Delay(1); // allow UI to update
+        StateHasChanged();
         IsConnected = await ConnectToKeria();
         if (IsConnected)
         {

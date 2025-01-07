@@ -8,10 +8,7 @@ import {
     SignifyClient,
     Tier,
     ready,
-    Authenticater,
-    randomPasscode,
     EventResult,
-    Identifier
 } from "@signify-ts";
 
 export const PASSCODE_TIMEOUT = 5;

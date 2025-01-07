@@ -338,7 +338,8 @@
             var msg = "SelectedName must not be null here";
             snackbar.Add(msg, Severity.Error);
             logger.LogError(msg);
-            await Task.Delay(8000);
+            StateHasChanged(); // needed?
+            // await Task.Delay(8000);
             return;
         }
 
@@ -349,7 +350,7 @@
             var msg = "Config must not be null here";
             logger.LogError(msg);
             snackbar.Add(msg, Severity.Error);
-            await Task.Delay(8000);
+            // await Task.Delay(8000); 
             return;
         }
         var adminUrl = connectConfigRes.Value.AdminUrl;
@@ -372,12 +373,12 @@
                 var msg = "Passcode must not be null here";
                 snackbar.Add(msg, Severity.Error);
                 logger.LogError(msg);
-                await Task.Delay(8000);
+                // await Task.Delay(8000);
                 return;
             }
         }
         // TODO P2 find a better way to prevent race condition, such as putting isPendingKeira flag in service-worker
-        await Task.Delay(3000); // Need to wait here to assure the above message makes it through signing and to CS before the port is closed.
+        // await Task.Delay(3000); // Need to wait here to assure the above message makes it through signing and to CS before the port is closed.
         UIHelper.CloseWindow();
     }
 

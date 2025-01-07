@@ -37,8 +37,10 @@ export enum SwCsMsgEnum {
     READY = "ready",
     REPLY_CANCELED = "reply_canceled",
     REPLY = "/signify/reply",
-    FSW = "fromServiceWorker"
-}
+    FSW = "fromServiceWorker",
+    APP_CLOSED = "app_closed",
+    REPLY_CRED = "/KeriAuth/signify/replyCredential"
+};
 
 export interface ISwCsMsgPong extends ISwCsMsg {
     type: SwCsMsgEnum.READY
