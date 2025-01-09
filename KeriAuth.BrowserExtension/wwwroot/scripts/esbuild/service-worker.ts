@@ -1,8 +1,8 @@
 ﻿/// <reference types="chrome" />
 
 import { Utils } from "../es6/uiHelper.js";
-import { CsSwMsgEnum, CsTabMsgData, CsTabMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces.js";
-import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim.js";
+import { CsSwMsgEnum, CsTabMsgData, CsTabMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces";
+import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim";
 import { UpdateDetails } from "../types/types.js";
 
 export const ENUMS = {

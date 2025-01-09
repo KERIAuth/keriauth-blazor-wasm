@@ -17,7 +17,7 @@ import {
     CsTabMsgTag,
     CsTabMsgData,
     CsTabMsgDataData
-} from "../es6/ExCsInterfaces.js";
+} from "../es6/ExCsInterfaces";
 
 import * as PW from "../types/polaris-web-client";
 

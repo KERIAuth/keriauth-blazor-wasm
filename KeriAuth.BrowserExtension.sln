@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F5102340-BAA8-47F9-BB52-2F7F5FDF57D1}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		global.json = global.json
 		KERIAuthArchitecture.jpg = KERIAuthArchitecture.jpg
 		PAGE-CS-MESSAGES.md = PAGE-CS-MESSAGES.md
 		README.md = README.md
