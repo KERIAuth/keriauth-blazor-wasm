@@ -513,7 +513,8 @@
                         </table>
                     </MudPaper>
                 }
-                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" />
+                <!-- The following is display:none; -->
+                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" style="display:none; height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" />
             }
         </div>
     </MudStack>
