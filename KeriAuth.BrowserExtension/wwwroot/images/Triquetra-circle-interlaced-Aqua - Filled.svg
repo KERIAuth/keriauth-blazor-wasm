@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="528"
+   height="513"
+   viewBox="0 0 352 342"
+   id="svg2"
+   version="1.1"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   sodipodi:docname="Triquetra-circle-interlaced-Aqua - Filled.svg"
+   style="&#10;    padding-top: 8px;&#10;    padding-bottom: 7px;&#10;"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <metadata
+     id="metadata26">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs24" />
+  <sodipodi:namedview
+     pagecolor="#ffffff00"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="3840"
+     inkscape:window-height="2054"
+     id="namedview22"
+     showgrid="false"
+     inkscape:zoom="3.6803119"
+     inkscape:cx="384.34242"
+     inkscape:cy="290.60037"
+     inkscape:window-x="-11"
+     inkscape:window-y="-11"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2"
+     inkscape:showpageshadow="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#d1d1d1" />
+  <title
+     id="title4">Triquetra symbol interlaced with circle (ribbons or pseudo-Celtic knotwork)</title>
+  <g
+     transform="translate(-124,739.7) scale(0.1,-0.1)"
+     id="g6"
+     stroke-width="336"
+     stroke="#000000"
+     fill="none">
+    <path
+       d="M4559.8,4481.5 C4456.01,5193.68,3795.63,5808.51,3000,5808.51 C2204.37,5808.51,1543.99,5193.69,1440.2,4481.5 C1599.7,4462.61,1826.28,4410.49,2055.86,4410.49 C2893.48,4410.49,3572.52,5089.52,3572.52,5927.15 C3572.52,6430.48,3322.81,6901.02,3000,7183.15 C2677.19,6901.02,2427.48,6430.48,2427.48,5927.15 C2427.48,5089.52,3106.51,4410.49,3944.14,4410.49 C4173.72,4410.49,4400.3,4462.61,4559.8,4481.5Z"
+       id="path8"
+       stroke="none"
+       fill="#ffffff00"
+       style="opacity:1"
+       inkscape:label="path8" />
+    <circle
+       cx="3000"
+       cy="5382.05"
+       r="1164"
+       id="circle10"
+       fill="#ffffff00"
+       style="stroke:aqua;opacity:1;stroke-width:133.33333333;stroke-dasharray:none"
+       inkscape:label="circle10" />
+    <circle
+       cx="3000"
+       cy="5382.05"
+       r="1164"
+       id="circle12"
+       stroke-width="168"
+       stroke="#ffffff00"
+       style="stroke:aqua;opacity:1" />
+    <path
+       d="M4512.79,4400.08 C4456.01,5193.68,3795.63,5808.51,3000,5808.51 C2204.37,5808.51,1543.99,5193.69,1487.21,4400.09 M1393.2,4562.92 C1599.7,4462.61,1826.28,4410.49,2055.86,4410.49 C2893.48,4410.49,3572.52,5089.52,3572.52,5927.15 C3572.52,6430.48,3322.81,6901.02,2905.99,7183.15 M3094.01,7183.15 C2677.19,6901.02,2427.48,6430.48,2427.48,5927.15 C2427.48,5089.52,3106.51,4410.49,3944.14,4410.49 C4173.72,4410.49,4400.3,4462.61,4606.81,4562.92"
+       id="path14"
+       style="stroke:aqua;opacity:0" />
+    <path
+       d="M4507.93,4454.3 C4424.95,5224.59,3774.75,5808.51,3000,5808.51 C2225.26,5808.51,1575.06,5224.6,1492.07,4454.31 M1442.59,4540.01 C1635.76,4454.61,1844.65,4410.49,2055.86,4410.49 C2893.48,4410.49,3572.52,5089.52,3572.52,5927.15 C3572.52,6411.25,3341.42,6866.27,2950.52,7151.83 M3049.49,7151.83 C2658.58,6866.27,2427.48,6411.25,2427.48,5927.15 C2427.48,5089.52,3106.51,4410.49,3944.14,4410.49 C4155.36,4410.49,4364.24,4454.61,4557.42,4540.02"
+       id="path16"
+       stroke-width="168"
+       stroke="#ffffff00"
+       style="stroke:aqua;opacity:1" />
+    <path
+       d="M2581.95,5749.76 C2488.58,5722.98,2398,5687.3,2311.45,5643.2 M3527.47,5560.24 C3550.96,5654.49,3565.35,5750.78,3570.44,5847.78 M2890.58,4836.16 C2960.45,4768.68,3036.65,4708.08,3118.11,4655.17 M3778.87,6247.07 C3616.77,6393.02,3416.93,6490.49,3202.13,6528.37 M1861.44,5624.06 C1844.53,5544.5,1836,5463.39,1836,5382.05 C1836,5246.27,1859.76,5111.53,1906.2,4983.94 M3359.7,4275.02 C3567.14,4342.42,3751.47,4466.76,3891.68,4633.85"
+       id="path18"
+       style="stroke:aqua;stroke-width:330;stroke-dasharray:none;opacity:0" />
+    <path
+       d="m 2607.46,5756.83 c -110.92,-29.72 -218.1,-71.94 -319.49,-125.85 m 1232.87,-96.37 c 29.72,110.92 46.75,224.85 50.75,339.61 M 2871.7,4854.71 c 81.2,-81.19 171.35,-152.91 268.74,-213.76 m 668.14,1578.41 C 3631.76,6390.12 3405.42,6500.51 3162,6534.72 M 1870.58,5663.65 c -22.97,-92.11 -34.58,-186.67 -34.58,-281.6 0,-149.44 28.78,-297.48 84.76,-436.04 m 1400.08,-682.87 c 236.29,67.76 445.07,208.58 596.4,402.28"
+       id="path20"
+       stroke-width="168"
+       stroke="#ffffff00"
+       style="display:inline;fill:none;stroke:#00ffff;stroke-width:168;opacity:0" />
+  </g>
+</svg>
