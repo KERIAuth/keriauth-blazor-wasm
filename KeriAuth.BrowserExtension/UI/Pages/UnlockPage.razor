@@ -109,9 +109,10 @@
     {
         if (ShouldUseAuthenticator)
         {
-            if (unlockWithAuthenticatorButton is not null) {
+            if (unlockWithAuthenticatorButton is not null)
+            {
                 await unlockWithAuthenticatorButton.FocusAsync();
-                // if the user can and should use an authenticator, just start that UX flow, but only once. 
+                // if the user can and should use an authenticator, just start that UX flow, but only once.
                 if (!hasAutoStartedAuthentictor)
                 {
                     hasAutoStartedAuthentictor = true;
@@ -240,6 +241,8 @@
                     <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
                 </MudText>
                 <MudText Style="font-style:italic">autonomously authentic</MudText>
+                <img src="images/lock2.png" style="width:156px; margin-right:48px;" />
+                <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
             </MudStack>
             <MudStack Style="justify-content: end; min-height:124px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUseAuthenticator)
@@ -263,7 +266,6 @@
                                       @onfocus="SelectAllText" />
                     </MudForm>
                 }
-                <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
             </MudStack>
         </MudStack>
     </div>
