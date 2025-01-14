@@ -238,11 +238,12 @@
             <MudStack Style="flex: 1; display:flex; justify-content: center; align-items: center;">
                 <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
                 <MudText Typo="Typo.h5">
-                    <span style="font-weight:bold; font-variant: small-caps;">KeriAuth</span>
+                    <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">KeriAuth</span>
+                    <br/>
+                    <span style="font-style:italic; font-size:initial;">autonomously authentic</span>
                 </MudText>
-                <MudText Style="font-style:italic">autonomously authentic</MudText>
-                <img src="images/lock2.png" style="width:156px; margin-right:48px;" />
-                <MudText Style="color: var(--mud-palette-action-disabled);"><span style="font-variant: small-caps; font-size:larger;">KeriAuth</span> locks after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
+                <img src="images/lock2.png" style="width:74px; margin-right:26px;" />
+                <MudText Style="color: var(--mud-palette-action-disabled);">locked after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
             </MudStack>
             <MudStack Style="justify-content: end; min-height:124px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUseAuthenticator)
