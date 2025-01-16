@@ -1,7 +1,7 @@
 ﻿/// <reference types="chrome" />
 
 import { Utils } from "../es6/uiHelper.js";
-import { CsSwMsgEnum, CsTabMsgData, CsTabMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces";
+import { CsSwMsgEnum, CsPageMsgData, CsPageMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces";
 import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim";
 import { UpdateDetails } from "../types/types.js";
 
@@ -599,9 +599,9 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
             case "/KeriAuth/signify/replyCancel":
                 isWaitingOnKeria = true;
                 try {
-                    const cancelResult: CsTabMsgData<null> = {
+                    const cancelResult: CsPageMsgData<null> = {
                         type: SwCsMsgEnum.REPLY_CANCELED,
-                        source: CsTabMsgTag,
+                        source: CsPageMsgTag,
                         requestId: message.requestId,
                         error: "Canceled or timed out"
                     };
@@ -618,9 +618,9 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 try {
                     if (pendingRequestId != null) {
                         if (!isWaitingOnKeria) {
-                            const cancelResult: CsTabMsgData<null> = {
+                            const cancelResult: CsPageMsgData<null> = {
                                 type: SwCsMsgEnum.REPLY_CANCELED,
-                                source: CsTabMsgTag,
+                                source: CsPageMsgTag,
                                 requestId: pendingRequestId,
                                 error: "User canceled or KERI Auth timed out"
                             };
@@ -630,9 +630,9 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                             console.log("SW not sending cancel to CS to allow Signify signing to complete");
                         }
                     } else {
-                        const closeAppMsg: CsTabMsgData<null> = {
+                        const closeAppMsg: CsPageMsgData<null> = {
                             type: SwCsMsgEnum.APP_CLOSED,
-                            source: CsTabMsgTag,
+                            source: CsPageMsgTag,
                             requestId: "none",
                             error: "KERI Auth action popup closed"
                         };

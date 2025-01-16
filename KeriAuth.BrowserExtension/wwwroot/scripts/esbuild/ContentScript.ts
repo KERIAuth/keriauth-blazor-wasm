@@ -14,9 +14,9 @@ import {
     CsSwMsgEnum,
     SwCsMsgEnum,
     ICsSwMsg,
-    CsTabMsgTag,
-    CsTabMsgData,
-    CsTabMsgDataData
+    CsPageMsgTag,
+    CsPageMsgData,
+    CsPageMsgDataData
 } from "../es6/ExCsInterfaces";
 
 import * as PW from "../types/polaris-web-client";
@@ -63,7 +63,7 @@ function generateUniqueIdentifier(): string {
  * 
  */
 function postMessageToPage<T>(msg: T): void {
-    console.log(`KeriAuthCs→Tab: ${(msg as CsTabMsgData<T>).type}`, { msg });
+    console.log(`KeriAuthCs→Page: ${(msg as CsPageMsgData<T>).type}`, { msg });
     window.postMessage(msg, currentOrigin);
 }
 
@@ -84,43 +84,43 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
 
         case SwCsMsgEnum.REPLY:
             if (message.error) {
-                const errorMsg: CsTabMsgData<null> = {
-                    source: CsTabMsgTag,
+                const errorMsg: CsPageMsgData<null> = {
+                    source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
                     error: String(message.error),
                 }
-                postMessageToPage<CsTabMsgData<null>>(errorMsg);
+                postMessageToPage<CsPageMsgData<null>>(errorMsg);
             } else {
-                const msg: CsTabMsgData<PW.AuthorizeResult> = {
-                    source: CsTabMsgTag,
+                const msg: CsPageMsgData<PW.AuthorizeResult> = {
+                    source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
                     payload: message.payload
                 }
-                postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(msg);
+                postMessageToPage<CsPageMsgData<PW.AuthorizeResult>>(msg);
             }
             break;
 
         case SwCsMsgEnum.REPLY_CANCELED:
-            const canceledMsg: CsTabMsgData<null> = {
-                source: CsTabMsgTag,
+            const canceledMsg: CsPageMsgData<null> = {
+                source: CsPageMsgTag,
                 type: SwCsMsgEnum.REPLY,
                 requestId: message.requestId,
                 error: message.error,
             }
-            postMessageToPage<CsTabMsgData<null>>(canceledMsg);
+            postMessageToPage<CsPageMsgData<null>>(canceledMsg);
             break;
 
         case SwCsMsgEnum.APP_CLOSED:
             if (message.requestId) {
-                const appClosedMsg: CsTabMsgData<null> = {
-                    source: CsTabMsgTag,
+                const appClosedMsg: CsPageMsgData<null> = {
+                    source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY,
                     requestId: message.requestId, // might be null
                     error: message.error,
                 }
-                postMessageToPage<CsTabMsgData<null>>(appClosedMsg);
+                postMessageToPage<CsPageMsgData<null>>(appClosedMsg);
             }
             break;
 
@@ -184,59 +184,59 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
     }
 
     // Ignore messages from Cs sent to the Tab (instead of from Tab)
-    if (event.data.source == CsTabMsgTag) {
+    if (event.data.source == CsPageMsgTag) {
         return;
     }
 
-    // handle messages from current tab
-    console.groupCollapsed(`KeriAuthCs←Tab: ${event.data.type}`);
+    // handle messages from current page
+    console.groupCollapsed(`KeriAuthCs←Page: ${event.data.type}`);
     console.log(event.data);
     try {
         const requestId = (event.data as PW.MessageData<any>).requestId;
         switch (event.data.type) {
             case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT:
-                const extensionClientMsg: CsTabMsgDataData<{ extensionId: string }> = {
-                    source: CsTabMsgTag,
+                const extensionClientMsg: CsPageMsgDataData<{ extensionId: string }> = {
+                    source: CsPageMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
                     requestId: requestId
                 }
-                postMessageToPage<CsTabMsgDataData<{ extensionId: string }>>(extensionClientMsg);
+                postMessageToPage<CsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION:
-                const extensionMessage: CsTabMsgDataData<{ extensionId: string }> = {
-                    source: CsTabMsgTag,
+                const extensionMessage: CsPageMsgDataData<{ extensionId: string }> = {
+                    source: CsPageMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
                     requestId: requestId
                 }
-                postMessageToPage<CsTabMsgDataData<{ extensionId: string }>>(extensionMessage);
+                postMessageToPage<CsPageMsgDataData<{ extensionId: string }>>(extensionMessage);
                 break;
 
             case CsSwMsgEnum.POLARIS_GET_SESSION_INFO:
                 // const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // const authorizeResult: PW.AuthorizeResult = {};
                 // TODO P2 implement sessions?
-                const sessionInfoMsg: CsTabMsgData<null> = {
-                    source: CsTabMsgTag,
+                const sessionInfoMsg: CsPageMsgData<null> = {
+                    source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY,
                     requestId: requestId,
                     error: "KERIAuthCs: sessions not supported",
                 };
-                postMessageToPage<CsTabMsgData<null>>(sessionInfoMsg);
+                postMessageToPage<CsPageMsgData<null>>(sessionInfoMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR:
                 const configureVendorArgsMessage = event.data.payload as PW.MessageData<PW.ConfigureVendorArgs>;
                 console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
-                const configVendorMsg: CsTabMsgData<null> = {
-                    source: CsTabMsgTag,
+                const configVendorMsg: CsPageMsgData<null> = {
+                    source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY,
                     requestId: requestId,
                     error: "KERIAuthCs: configure-vendor not supported",
                 };
-                postMessageToPage<CsTabMsgData<null>>(configVendorMsg);
+                postMessageToPage<CsPageMsgData<null>>(configVendorMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
@@ -266,13 +266,13 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
             case CsSwMsgEnum.POLARIS_CLEAR_SESSION:
                 // const authorizeArgsMessage3 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // Although sessions are not implemented, we can respond as expected when Clear is requested
-                const clearResult: CsTabMsgData<PW.AuthorizeResult> = {
-                    source: CsTabMsgTag,
+                const clearResult: CsPageMsgData<PW.AuthorizeResult> = {
+                    source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY, // type: "tab",
                     requestId: requestId,
                     payload: null
                 }
-                postMessageToPage<CsTabMsgData<PW.AuthorizeResult>>(clearResult);
+                postMessageToPage<CsPageMsgData<PW.AuthorizeResult>>(clearResult);
                 break;
 
             case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION:

@@ -91,15 +91,15 @@ export interface ReplyMessageData<T = unknown> {
     source?: string;
 }
 
-export const CsTabMsgTag = "KeriAuthCs";
+export const CsPageMsgTag = "KeriAuthCs";
 
 // This interface helps shape ContentScript messages to tab that may have a payload, error
-export interface CsTabMsgData<T> extends Polaris.MessageData<T> {
-    source: typeof CsTabMsgTag;
+export interface CsPageMsgData<T> extends Polaris.MessageData<T> {
+    source: typeof CsPageMsgTag;
 }
 
 // This interface helps shape ContentScript messages to tab that will have no payload, but may have a data or error property
-export interface CsTabMsgDataData<T> extends CsTabMsgData<null> {
+export interface CsPageMsgDataData<T> extends CsPageMsgData<null> {
     data?: T;
 }
 
