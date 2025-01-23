@@ -194,6 +194,7 @@ export async function getCredential(
     id: string,
     includeCESR: boolean = false
 ): Promise<any> {
+    // TODO P3 define the return type.  Dictionary<string, object>?
     try {
         validateClient();
         const client: SignifyClient = _client!;

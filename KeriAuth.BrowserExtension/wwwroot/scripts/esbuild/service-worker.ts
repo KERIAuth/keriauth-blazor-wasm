@@ -560,7 +560,9 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 isWaitingOnKeria = true;
                 try {
                     // TODO P2 Improve typing.  E.g., const msg = message as TypeFoo<DataBar>
+                    // console.warn("SW🡢CS credObject with ecr rawJson?", message.payload.credential.rawJson);
                     const credObject = JSON.parse(message.payload.credential.rawJson);
+                    // console.warn("SW🡢CS credObject with ecr?", credObject);
                     const expiry = Math.floor((new Date().getTime() + 30 * 60 * 1000) / 1000);
 
                     // TODO P2 Why fake urls here and below for rurl?

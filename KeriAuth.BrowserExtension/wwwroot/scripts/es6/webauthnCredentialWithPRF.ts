@@ -394,7 +394,8 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
         };
 
         // Call WebAuthn API to get assertion from authenticator
-        const assertion: PublicKeyCredential | null = await navigator.credentials.get({ publicKey: options }) as PublicKeyCredential;
+        const credentialRequestOptions: CredentialRequestOptions = { publicKey: options }
+        const assertion: PublicKeyCredential | null = await navigator.credentials.get(credentialRequestOptions) as PublicKeyCredential;
         if (!assertion) {
             console.error("Did not get assertion from authenticator. May have timed out.");
             throw Error("Did not get assertion from authenticator. May have timed out.")
