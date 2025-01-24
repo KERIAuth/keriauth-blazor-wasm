@@ -52,17 +52,17 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="MudBlazor" Version="7.15.0" />
-    <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.5" />
+    <PackageReference Include="MudBlazor" Version="8.0.0" />
+    <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.6" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Polly" Version="8.4.2" />
-    <PackageReference Include="Stateless" Version="5.16.0" />
+    <PackageReference Include="Polly" Version="8.5.1" />
+    <PackageReference Include="Stateless" Version="5.17.0" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <PackageReference Include="WebExtensions.Net" Version="3.0.0" />
+    <PackageReference Include="WebExtensions.Net" Version="3.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.10" PrivateAssets="all" />
-    <PackageReference Include="WebExtensions.Net.Extensions.DependencyInjection" Version="3.0.0" />
+    <PackageReference Include="WebExtensions.Net.Extensions.DependencyInjection" Version="3.0.1" />
   </ItemGroup>
 
   <!-- Trimmable Assemblies -->
