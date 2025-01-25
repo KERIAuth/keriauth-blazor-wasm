@@ -36,7 +36,7 @@ const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
     residentKey: "preferred", //"required", // preferred, or required for more safety
     userVerification: "required", // preferred or required. Enforce user verification (e.g., biometric, PIN)
     // authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-    requireResidentKey: false,           // True for passwordless and hardware-backed credentials
+    // requireResidentKey: false,           // Depricated. True for passwordless and hardware-backed credentials
 };
 const ENCRYPT_KEY_LABEL = "KERI Auth";
 const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
@@ -65,7 +65,14 @@ const getExtensions = (firstSalt: Uint8Array): any => {
             "eval": {
                 "first": firstSalt,
             }
-        }
+        },
+        "google.com/passkey": true,  // hint to use Google Password Manager
+        "credProps": true, // Check if a resident credential (passkey) was created
+        // TODO P2 others to consider:
+        //largeBlob: {
+        //    support: "required" // Indicates the RP requires large blob support
+        //},
+        //devicePublicKey: {},
     };
 }
 
@@ -200,7 +207,7 @@ function getExcludeCredentialsFromCreate(credentialIds: string[], transports: st
         const credIdUint8Array = Uint8Array.from(credentialId, c => c.charCodeAt(0));
         const pkcd = {
             id: credIdUint8Array,
-            // transports: transports as AuthenticatorTransport[],
+            transports: transports as AuthenticatorTransport[],
             type: "public-key"
         } as PublicKeyCredentialDescriptor;
         pkcds.push(pkcd);
@@ -227,26 +234,38 @@ interface CredentialWithPRF {
     transports: string[]; // Array of transport types (e.g., ["usb", "nfc", "ble", "internal", "hybrid"])
 }
 
+interface ExtendedPublicKeyCredentialCreationOptions extends PublicKeyCredentialCreationOptions {
+    hints?: [string]; // Adjust the type of hints as needed
+}
 
 /*
  * Register a credential with a user-chosen authenticator, restricting it from re-registering one of the previously stored credential. 
  * Returns the new credentialId or throws.
  */
-export async function registerCredential(registeredCredIds : string[]): Promise<CredentialWithPRF> {
+export async function registerCredential(registeredCredIds: string[], residentKey: ResidentKeyRequirement, authenticatorAttachment: AuthenticatorAttachment, userVerification: UserVerificationRequirement, attestationConveyancePreference: AttestationConveyancePreference, hints: [string]): Promise<CredentialWithPRF> {
     try {
         // TODO P2 this challenge should be temporarily stored until response is validated
         const challenge = crypto.getRandomValues(new Uint8Array(32));
 
-        const options: PublicKeyCredentialCreationOptions = {
+        const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
+            residentKey: residentKey,
+            userVerification: userVerification, // preferred or required. Enforce user verification (e.g., biometric, PIN)
+            authenticatorAttachment: authenticatorAttachment, // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
+            // requireResidentKey: true,           // Depricated?. True for passwordless and hardware-backed credentials
+        };
+
+        const options: ExtendedPublicKeyCredentialCreationOptions = {
             rp: CREDS_CREATE_RP,
             user: await getOrCreateUser(),
             challenge: challenge,
             pubKeyCredParams: CREDS_PUBKEY_PARAMS,
-            authenticatorSelection: CREDS_CREATE_AUTHENTICATOR_SELECTION,
-            excludeCredentials: getExcludeCredentialsFromCreate( registeredCredIds, ["usb", "nfc", "ble", "internal" , "hybrid"] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
+            authenticatorSelection: authenticatorSelectionCriteira,
+            // TODO P2: pass in parameter of authenticatorTransports? Unclear how this prohibits re-registration of known credential or the UX
+            excludeCredentials: getExcludeCredentialsFromCreate(registeredCredIds, [] as AuthenticatorTransport[]),// "usb", "nfc", "ble", "internal", "hybrid"] as AuthenticatorTransport[]), // TODO P2 use the actual remembered transports
             extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
             timeout: CREDS_CREATE_TIMEOUT,
-            attestation: CREDS_CREATE_ATTESTATION
+            attestation: attestationConveyancePreference,
+            hints: hints
         };
 
         const credential: PublicKeyCredential | null = await navigator.credentials.create({
@@ -255,6 +274,21 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
 
         if (credential == null) {
             throw new Error("credentials.create() returned null or timed out");
+        }
+
+        const clientExtensionResults = credential.getClientExtensionResults();
+        // TODO: P2 warn not needed here
+        console.warn("Credential Properties:", clientExtensionResults);
+        // above can be used to determine if the authenticator supports the PRF extension and/or rk.
+
+        if (clientExtensionResults.prf?.enabled !== true) {
+            console.error("This authenticator does not support the PRF extension.");
+            throw Error("This authenticator does not support the PRF extension.");
+        }
+
+        if (clientExtensionResults.credProps?.rk !== true) {
+            console.error("This authenticator does not support resident keys.");
+            throw Error("This authenticator does not support resident keys.");
         }
 
         // Extract credential ID and transport
@@ -293,8 +327,8 @@ export async function registerCredential(registeredCredIds : string[]): Promise<
 
 // Helper function to convert an ArrayBuffer to Base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-    }
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
 
 function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
     // Normalize the Base64Url string to Base64
@@ -383,7 +417,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
             allowCredentials: allowCredentials,
             // rpId and user are intentionally blank, since authenticator will have this stored based on credentialId
             timeout: CREDS_GET_TIMEOUT,
-            userVerification: "required",
+            userVerification: "preferred", // TODO P1
             extensions: {
                 prf: {
                     eval: {

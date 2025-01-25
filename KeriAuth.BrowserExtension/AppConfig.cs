@@ -46,7 +46,15 @@ namespace KeriAuth.BrowserExtension
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
+
+        // default preferences
         public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
+        public const string DefaultUserVerification = "required";
+        public const string DefaultResidentKey = "discouraged";
+        public const string DefaultAuthenticatorAttachment = "none";
+        public const string DefaultAttestation = "direct";
+        public static readonly List<string> DefaultAuthenticatorTransports = ["hybrid", "internal", "ble", "nfc", "usb"];
+        public static readonly List<string> DefaultSelectedHints = ["security-key"];
 
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
 

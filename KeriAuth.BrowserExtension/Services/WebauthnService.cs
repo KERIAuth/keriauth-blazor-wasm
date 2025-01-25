@@ -5,6 +5,7 @@ using Microsoft.JSInterop;
 using System.Text;
 using System.Text.Json;
 using WebExtensions.Net;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace KeriAuth.BrowserExtension.Services
@@ -34,13 +35,13 @@ namespace KeriAuth.BrowserExtension.Services
             }
         }
 
-        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds)
+        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints)
         {
             try
             {
                 // Attempt to call the JavaScript function and map to the CredentialWithPRF type
                 await Initialize();
-                var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds);
+                var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
                 // logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
             }
@@ -121,16 +122,11 @@ namespace KeriAuth.BrowserExtension.Services
             return encryptKeyBase64;
         }
 
-        public async Task<Result<string>> RegisterAttestStoreAuthenticator()
+        public async Task<Result<string>> RegisterAttestStoreAuthenticator(string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints)
         {
             await Initialize();
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
-            var registeredAuthenticators = await GetRegisteredAuthenticators();
-
-            if (registeredAuthenticators is null)
-            {
-                throw new ArgumentNullException(nameof(registeredAuthenticators));
-            }
+            var registeredAuthenticators = await GetRegisteredAuthenticators() ?? throw new InvalidOperationException("RegisteredAuthenticators list is null.");
 
             // populate a list of registered authenticator credential ids
             List<string> registeredCredIds = [];
@@ -140,7 +136,7 @@ namespace KeriAuth.BrowserExtension.Services
             }
 
             // Register a new authenticator, excluding reregistering any authenticator already having a credential with same RP and user
-            var credentialRet = await RegisterCredentialAsync(registeredCredIds);
+            var credentialRet = await RegisterCredentialAsync(registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
             if (credentialRet is null || credentialRet.IsFailed)
             {
                 return Result.Fail("Failed to register authenticator 333");

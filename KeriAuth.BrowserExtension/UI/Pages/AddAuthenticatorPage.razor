@@ -41,6 +41,7 @@
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
 @inject IWebauthnService webauthnService
+@inject IPreferencesService preferencesService
 
 @code {
     protected override async Task OnInitializedAsync()
@@ -55,7 +56,8 @@
     async Task RegisterAuthenticatorAndAttest()
     {
         // TODO P2 update this flow to inform user there are two expected interactions with the authenticator: setup and verification
-        var res = await webauthnService.RegisterAttestStoreAuthenticator();
+        var prefs = await preferencesService.GetPreferences();
+        var res = await webauthnService.RegisterAttestStoreAuthenticator(prefs.ResidentKey, prefs.AuthenticatorAttachment, prefs.UserVerification, prefs.AuthenticatorAttachment, prefs.SelectedHints);
         if (res.IsFailed)
         {
             snackbar.Add("Authenticator not registered", Severity.Warning);

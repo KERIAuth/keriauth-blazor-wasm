@@ -77,7 +77,7 @@
                 CloseButton = true,
                 Position = DialogPosition.Center,
             };
-        var dialog = dialogService.Show<AddIdentifierDialog>("Add Identifier", parameters, options);
+        var dialog = await dialogService.ShowAsync<AddIdentifierDialog>("Add Identifier", parameters, options);
         var result = await dialog.Result;
         if (result is null || result.Canceled)
         {

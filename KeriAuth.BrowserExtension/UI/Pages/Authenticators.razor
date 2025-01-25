@@ -33,25 +33,20 @@
 @inject IWebauthnService webauthnService
 
 @code {
-    // [Parameter]
-    // public string? CredentialId { get; set; }
-
-    // fields
-
-    // properties
-
-
     public record RegisteredAuthenticator
     {
         public string? credential { get; init; }
         public required string name { get; init; }
     }
 
+    // fields
     RegisteredAuthenticators MyRegisteredAuthenticators = new RegisteredAuthenticators();
+
+    // properties
+
 
     // reactive properties
     string CountLabel => "(" + MyRegisteredAuthenticators.Authenticators.Count + ")";
-
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,10 +108,10 @@
         var authCredResult = await webauthnService.AuthenticateCredential([credentialBase64]);
         if (authCredResult.IsSuccess) {
             // TODO P2 do a complete decryption test
-            snackbar.Add("Successfully tested", Severity.Success);
+            snackbar.Add("Test successful", Severity.Success);
         } else
         {
-            snackbar.Add("Failed test", Severity.Warning);
+            snackbar.Add("Test failed", Severity.Warning);
         }
         return;
     }

@@ -5,9 +5,9 @@ namespace KeriAuth.BrowserExtension.Services
 {
     public interface IWebauthnService
     {
-        Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds);
+        Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints);
 
-        Task<Result<string>> RegisterAttestStoreAuthenticator();
+        Task<Result<string>> RegisterAttestStoreAuthenticator(string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints);
 
         Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64);
 
