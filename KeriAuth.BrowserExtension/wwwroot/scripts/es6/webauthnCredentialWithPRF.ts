@@ -24,20 +24,12 @@ type FluentResult<T> = {
 // Constant fixed properties
 const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
 const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
-const CREDS_CREATE_ATTESTATION = "none"; // TODO P3: "direct" ensures software receives information about the authenticator's hardware to verify its security
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -7, type: "public-key" },   // ES256
     { alg: -257, type: "public-key" }  // RS256
 ];
 const CREDS_CREATE_TIMEOUT = 60000;
 const CREDS_GET_TIMEOUT = 60000;
-const CREDS_CREATE_AUTHENTICATOR_SELECTION: AuthenticatorSelectionCriteria = {
-    // TODO P2 Set these authenticator selection criteria to strongest levels, then allow user to lower the requirements in preferences.
-    residentKey: "preferred", //"required", // preferred, or required for more safety
-    userVerification: "required", // preferred or required. Enforce user verification (e.g., biometric, PIN)
-    // authenticatorAttachment: "cross-platform", // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-    // requireResidentKey: false,           // Depricated. True for passwordless and hardware-backed credentials
-};
 const ENCRYPT_KEY_LABEL = "KERI Auth";
 const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
 const ENCRYPT_DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
@@ -66,7 +58,7 @@ const getExtensions = (firstSalt: Uint8Array): any => {
                 "first": firstSalt,
             }
         },
-        "google.com/passkey": true,  // hint to use Google Password Manager
+        // "google.com/passkey": true,  // hint to use Google Password Manager. Will likely be used anyway when on Chrome
         "credProps": true, // Check if a resident credential (passkey) was created
         // TODO P2 others to consider:
         //largeBlob: {
@@ -91,7 +83,6 @@ async function retry<T>(operation: () => Promise<T>, retries: number, timeout: n
     }
     throw new Error("Max retries reached.");
 }
-
 
 /*
  * Because chrome.storage.sync is specific per browser profile and per-extension, this is a secret identifier will be unique to each profile.
@@ -249,9 +240,8 @@ export async function registerCredential(registeredCredIds: string[], residentKe
 
         const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
             residentKey: residentKey,
-            userVerification: userVerification, // preferred or required. Enforce user verification (e.g., biometric, PIN)
-            authenticatorAttachment: authenticatorAttachment, // note that "platform" is stronger iff it supports PRF. TODO P2 could make this a user preference
-            // requireResidentKey: true,           // Depricated?. True for passwordless and hardware-backed credentials
+            userVerification: userVerification,
+            authenticatorAttachment: authenticatorAttachment
         };
 
         const options: ExtendedPublicKeyCredentialCreationOptions = {
@@ -267,6 +257,8 @@ export async function registerCredential(registeredCredIds: string[], residentKe
             attestation: attestationConveyancePreference,
             hints: hints
         };
+
+        // console.warn("registerCredential: options: ", options);
 
         const credential: PublicKeyCredential | null = await navigator.credentials.create({
             publicKey: options

@@ -57,7 +57,7 @@
     {
         // TODO P2 update this flow to inform user there are two expected interactions with the authenticator: setup and verification
         var prefs = await preferencesService.GetPreferences();
-        var res = await webauthnService.RegisterAttestStoreAuthenticator(prefs.ResidentKey, prefs.AuthenticatorAttachment, prefs.UserVerification, prefs.AuthenticatorAttachment, prefs.SelectedHints);
+        var res = await webauthnService.RegisterAttestStoreAuthenticator(prefs.ResidentKey, prefs.AuthenticatorAttachment, prefs.UserVerification, prefs.AttestationConveyancePref, prefs.SelectedHints);
         if (res.IsFailed)
         {
             snackbar.Add("Authenticator not registered", Severity.Warning);
