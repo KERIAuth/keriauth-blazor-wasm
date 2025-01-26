@@ -237,11 +237,13 @@ export async function registerCredential(registeredCredIds: string[], residentKe
     try {
         // TODO P2 this challenge should be temporarily stored until response is validated
         const challenge = crypto.getRandomValues(new Uint8Array(32));
-
+        const validAuthenticatorAttachments = ["platform", "cross-platform"] as const;
         const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
             residentKey: residentKey,
             userVerification: userVerification,
-            authenticatorAttachment: authenticatorAttachment
+            authenticatorAttachment: validAuthenticatorAttachments.includes(authenticatorAttachment as any)
+                ? (authenticatorAttachment as AuthenticatorAttachment)
+                : undefined
         };
 
         const options: ExtendedPublicKeyCredentialCreationOptions = {
@@ -380,7 +382,6 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
     return bytes;
 }
 
-
 /*
  *
  */
@@ -388,7 +389,8 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
     try {
         // construct array of allowed credentials
         const allowCredentials: PublicKeyCredentialDescriptor[] = [];
-        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", "internal", "hybrid"]; // TODO P2 should use the same transports as the union of all saved credential transports?
+        // TODO P2 should use the set of transports equal to the union of all saved credential transports
+        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", "internal", "hybrid"];
 
         // console.warn("credentialIdBase64s: ", credentialIdBase64s);
         for (const credentialIdBase64Url of credentialIdBase64s) {
@@ -409,7 +411,8 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
             allowCredentials: allowCredentials,
             // rpId and user are intentionally blank, since authenticator will have this stored based on credentialId
             timeout: CREDS_GET_TIMEOUT,
-            userVerification: "preferred", // TODO P1
+            // TODO P2 userVerification should be from stored credential and passed into this method as parameter
+            userVerification: "preferred",
             extensions: {
                 prf: {
                     eval: {

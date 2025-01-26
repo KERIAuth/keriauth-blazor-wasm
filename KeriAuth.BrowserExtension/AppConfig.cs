@@ -49,12 +49,13 @@ namespace KeriAuth.BrowserExtension
 
         // default preferences
         public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
-        public const string DefaultUserVerification = "required";
-        public const string DefaultResidentKey = "discouraged";
-        public const string DefaultAuthenticatorAttachment = "none";
-        public const string DefaultAttestation = "direct";
-        public static readonly List<string> DefaultAuthenticatorTransports = ["hybrid", "internal", "ble", "nfc", "usb"];
-        public static readonly List<string> DefaultSelectedHints = ["security-key"];
+        // TODO P2 strengthen these defaults for v0.3.0
+        public const string DefaultUserVerification = "required"; // "required" is most secure default
+        public const string DefaultResidentKey = "preferred"; // "required" is most secure default
+        public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
+        public const string DefaultAttestation = "none";  // reasonably strongest is "direct", but need to implement this functionality
+        public static readonly List<string> DefaultAuthenticatorTransports = ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
+        public static readonly List<string> DefaultSelectedHints = ["security-key", "hybrid", "client-device"]; // more secure default would be ["security-key"]
 
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
 
