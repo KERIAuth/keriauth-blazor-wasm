@@ -25,8 +25,9 @@ type FluentResult<T> = {
 const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
 const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
+    { alg: -8, type: "public-key" },   // ES384}
     { alg: -7, type: "public-key" },   // ES256
-    { alg: -257, type: "public-key" }  // RS256
+    { alg: -257, type: "public-key" },  // RS256
 ];
 const CREDS_CREATE_TIMEOUT = 60000;
 const CREDS_GET_TIMEOUT = 60000;
@@ -129,7 +130,7 @@ async function getOrCreateUserId(): Promise<Uint8Array> {
 }
 
 /*
- *
+ * Return 32 bytes of SHA-256 hash of the input string
  */
 async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
     return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input)));
@@ -163,13 +164,12 @@ async function generateSixDigitNumber(id: string): Promise<string> {
 }
 
 /*
- *
+ * create a user object with name that is derrived from the profileId
  */
 async function getOrCreateUser(): Promise<User> {
     let id = await getOrCreateUserId();
     let user: User;
-    // create a friendly name that is derrived from the profileId
-    // TODO P3 could display this value in the AuthenticatorsPage
+    // TODO P3 could display this value in the AuthenticatorsPage, to help user correlate this with what is stored in the authenticator, especially Google Password Manager and others that display the name or ID
     let namestring = await generateSixDigitNumber(id.toString());
     let name: string = `${KERI_AUTH_EXTENSION_NAME + " (" + namestring + ")"}`; // fixed for same profile
     user = {
@@ -235,12 +235,14 @@ interface ExtendedPublicKeyCredentialCreationOptions extends PublicKeyCredential
  */
 export async function registerCredential(registeredCredIds: string[], residentKey: ResidentKeyRequirement, authenticatorAttachment: AuthenticatorAttachment, userVerification: UserVerificationRequirement, attestationConveyancePreference: AttestationConveyancePreference, hints: [string]): Promise<CredentialWithPRF> {
     try {
-        // TODO P2 this challenge should be temporarily stored until response is validated
+        // TODO P2 should this challenge should be temporarily stored until response is validated?
         const challenge = crypto.getRandomValues(new Uint8Array(32));
         const validAuthenticatorAttachments = ["platform", "cross-platform"] as const;
         const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
             residentKey: residentKey,
             userVerification: userVerification,
+            requireResidentKey: false, // TODO P1: this should be based on the user's preference ? Depricated?
+            // TODO P0: perhaps this should not only be undefined, but if that the key should not in the payload at all?
             authenticatorAttachment: validAuthenticatorAttachments.includes(authenticatorAttachment as any)
                 ? (authenticatorAttachment as AuthenticatorAttachment)
                 : undefined
