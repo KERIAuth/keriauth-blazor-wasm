@@ -333,8 +333,8 @@
                     </MudText>
                     <MudRadioGroup T="string" Value="authenticatorAttachment" ValueChanged="async (string v) => await SetAndPersistauthenticatorAttachment(v)" Class="bt-pref-radiogroup">
                         <MudRadio Value=@("platform") Class="bt-pref-radio">Platform</MudRadio>
-                        <MudRadio Value=@("cross-platform") Class="bt-pref-radio">Cross-Platform</MudRadio>
-                        <MudRadio Value=@("undefined") Class="bt-pref-radio">All Supported ("undefined")</MudRadio>
+                        <MudRadio Value=@("cross-platform") Class="bt-pref-radio">Cross-platform</MudRadio>
+                        <MudRadio Value=@("undefined") Class="bt-pref-radio">All Supported</MudRadio>
                     </MudRadioGroup>
                     <MudText Class="ml-18" Color="Color.Error">
                         @MisalignmentAuthenticatorAttachment1
@@ -346,8 +346,8 @@
                     </MudText>
                     <MudRadioGroup T="string" Value="userVerification" ValueChanged="async (string v) => await SetAndPersistUserVerification(v)" Class="bt-pref-radiogroup">
                         <MudRadio Value=@("required") Class="bt-pref-radio">Required</MudRadio>
-                        <MudRadio Value=@("preferred") Class="bt-pref-radio">Attempted ("preferred")</MudRadio>
-                        <MudRadio Value=@("discouraged") Class="bt-pref-radio">Skipped ("discouraged")</MudRadio>
+                        <MudRadio Value=@("preferred") Class="bt-pref-radio">Preferred</MudRadio>
+                        <MudRadio Value=@("discouraged") Class="bt-pref-radio">Discouraged</MudRadio>
                     </MudRadioGroup>
 
                     <MudText Class="bt-pref-group-label2">

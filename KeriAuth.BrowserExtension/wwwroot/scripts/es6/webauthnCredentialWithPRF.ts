@@ -241,8 +241,8 @@ export async function registerCredential(registeredCredIds: string[], residentKe
         const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
             residentKey: residentKey,
             userVerification: userVerification,
-            requireResidentKey: false, // TODO P1: this should be based on the user's preference ? Depricated?
-            // TODO P0: perhaps this should not only be undefined, but if that the key should not in the payload at all?
+            // TODO P3: Depricated? Perhaps this should be based on the user's preference?
+            // requireResidentKey: false, 
             authenticatorAttachment: validAuthenticatorAttachments.includes(authenticatorAttachment as any)
                 ? (authenticatorAttachment as AuthenticatorAttachment)
                 : undefined
