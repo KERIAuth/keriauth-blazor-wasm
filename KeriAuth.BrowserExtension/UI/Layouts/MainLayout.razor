@@ -113,7 +113,7 @@
                 break;
         }
 
-        // determine drawer varient depending and open state depending on context. 
+        // determine drawer varient depending and open state depending on context.
         // TODO P4 This could be moved into App or BaseLayout and be cascaded, unless specific to this layout
         ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
         {
@@ -270,7 +270,14 @@
                     <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
-                    <MudNavLink OnClick="async () => await App.LockApp()" Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                    @if (IsAuthenticated)
+                    {
+                        <MudNavLink OnClick="async () => await App.LockApp()" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                    }
+                    else
+                    {
+                        <MudNavLink OnClick="() => navManager.NavigateTo(RouteToIndex)" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
+                    }
                     <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
                 </MudNavGroup>
 
