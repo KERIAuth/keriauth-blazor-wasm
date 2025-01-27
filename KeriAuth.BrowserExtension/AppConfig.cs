@@ -42,18 +42,22 @@ namespace KeriAuth.BrowserExtension
         public const string RouteToReleaseHtml = "content/release.html";
 
         // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup        
-        public const float IdleTimeoutMins = 5.0f;
+        public const float DefaultInactivityTimeoutMins = 5.0f;
         public const string DefaultKeriaConnectAlias = "localhost";
         public const string DefaultKeriaAdminUrl = "http://localhost:3901";
         public const string DefaultKeriaBootUrl = "http://localhost:3903";
 
         // default preferences
         public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
+
+        public const bool DefaultIsDarkTheme = false;
+        public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
+
         // TODO P2 strengthen these defaults for v0.3.0
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
         public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
-        public const string DefaultAttestation = "none";  // reasonably strongest is "direct", but need to implement this functionality
+        public const string DefaultAttestationConveyancePref = "none";  // reasonably strongest is "direct", but need to implement this functionality
         public static readonly List<string> DefaultAuthenticatorTransports = ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
         public static readonly List<string> DefaultSelectedHints = []; // more secure default would be ["security-key"]
 

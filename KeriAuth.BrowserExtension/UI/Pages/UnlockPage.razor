@@ -243,7 +243,7 @@
                     <span style="font-style:italic; font-size:initial;">autonomously authentic</span>
                 </MudText>
                 <img src="images/lock2.png" style="width:74px; margin-right:26px;" />
-                <MudText Style="color: var(--mud-palette-action-disabled);">locked after @AppConfig.IdleTimeoutMins minutes of inactivity</MudText>
+                <MudText Style="color: var(--mud-palette-action-disabled);">locked after @AppConfig.DefaultInactivityTimeoutMins minutes of inactivity</MudText>
             </MudStack>
             <MudStack Style="justify-content: end; min-height:124px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUseAuthenticator)

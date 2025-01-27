@@ -9,7 +9,7 @@ namespace KeriAuth.BrowserExtension.Models
         }
 
         [JsonPropertyName("IsDarkTheme")]
-        public bool IsDarkTheme { get; init; }
+        public bool IsDarkTheme { get; init; } = AppConfig.DefaultIsDarkTheme;
 
         [JsonPropertyName("SelectedPrefix")]
         public string SelectedPrefix { get; init; } = String.Empty;
@@ -21,7 +21,7 @@ namespace KeriAuth.BrowserExtension.Models
         public MudBlazor.DrawerVariant DrawerVariantInPopup { get; init; } = MudBlazor.DrawerVariant.Temporary;
 
         [JsonPropertyName("DrawerVariantInTab")]
-        public MudBlazor.DrawerVariant DrawerVariantInTab { get; init; } = MudBlazor.DrawerVariant.Persistent;
+        public MudBlazor.DrawerVariant DrawerVariantInTab { get; init; } = AppConfig.DefaultDrawerVariantInTab;
 
         [JsonPropertyName("IsPersistentDrawerOpen")]
         public bool IsPersistentDrawerOpen { get; init; }
@@ -33,7 +33,7 @@ namespace KeriAuth.BrowserExtension.Models
         public bool ShowSignRequestDetail { get; init; }
 
         [JsonPropertyName("InactivityTimeoutMinutes")]
-        public float InactivityTimeoutMinutes { get; init; } = AppConfig.IdleTimeoutMins;
+        public float InactivityTimeoutMinutes { get; init; } = AppConfig.DefaultInactivityTimeoutMins;
 
         [JsonPropertyName("W_UserVerification")]
         public string UserVerification { get; init; } = AppConfig.DefaultUserVerification;
@@ -45,7 +45,7 @@ namespace KeriAuth.BrowserExtension.Models
         public string AuthenticatorAttachment { get; init; } = AppConfig.DefaultAuthenticatorAttachment;
 
         [JsonPropertyName("W_Attestation")]
-        public string AttestationConveyancePref { get; init; } = AppConfig.DefaultAttestation;
+        public string AttestationConveyancePref { get; init; } = AppConfig.DefaultAttestationConveyancePref;
 
         [JsonPropertyName("W_SelectedTransportOptions")]
         public List<string> SelectedTransportOptions { get; init; } = AppConfig.DefaultAuthenticatorTransports;

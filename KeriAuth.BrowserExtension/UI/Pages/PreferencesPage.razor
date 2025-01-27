@@ -165,18 +165,10 @@
     // Available hints exclude those already selected
     private IEnumerable<string> AvailableHints => AllHints.Except(SelectedHints);
 
-    // private string? Misalignment1 => (SelectedHints.Contains("security-key") && authenticatorAttachment == "platform")
-    //     ? "The hint \"security-key\" is indicated but the authenticatorAttachment setting of \"platform\", so browser will attempt to use a platform authenticator rather than a security key."
-    //     : null;
-    // private string? Misalignment2 => (SelectedHints.Contains("client-device") && residentKey == "required")
-    //     ? "The hint \"client-device\" is indicated but the Resident Key is required, and the client device (i.e., platform authenticator built into or directly integrated with your physical device, such as Windows Hello, or Apple's Touch ID or Face ID) cannot store discoverable credentials, so the operation may fail."
-    //     : null;
-
     string? MisalignmentAuthenticatorAttachment1 =>
     (authenticatorAttachment == "platform" && SelectedHints.Contains("security-key"))
-        ? "The hint 'security-key' is indicated, but the authenticatorAttachment setting is 'platform', so a platform authenticator will be used instead of a security key."
+        ? "The hint 'security-key' is indicated, but Authenticator Attachment setting is 'platform', so a platform authenticator will be used instead of a security key."
         : null;
-
 
     string? MisalignmentResidentKey1 =>
     (SelectedHints.Contains("client-device") && residentKey == "required" && !SupportsDiscoverableCredentials("client-device"))
@@ -193,8 +185,7 @@
     ? "The hint 'hybrid' is indicated, and cross-platform authenticators are required to store discoverable credentials, which may not be supported by some devices."
     : null;
 
-
-    // Optional helper method to check capabilities of the authenticator
+    // Check capabilities of authenticator type
     private bool SupportsDiscoverableCredentials(string authenticatorType)
     {
         return authenticatorType switch
@@ -204,8 +195,20 @@
         };
     }
 
-
-
+    private async Task ResetToDefault()
+    {
+        await Persist(Prefs with
+            {
+                IsDarkTheme = AppConfig.DefaultIsDarkTheme,
+                DrawerVariantInTab = AppConfig.DefaultDrawerVariantInTab,
+                InactivityTimeoutMinutes = AppConfig.DefaultInactivityTimeoutMins,
+                SelectedHints = new List<string>(),
+                ResidentKey = AppConfig.DefaultResidentKey,
+                AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
+                UserVerification = AppConfig.DefaultUserVerification,
+                AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref
+            });
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -387,6 +390,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
+        <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Reset to Default</MudButton>
     </MudStack>
 </div>
 

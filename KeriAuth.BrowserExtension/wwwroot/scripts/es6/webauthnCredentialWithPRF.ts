@@ -229,6 +229,8 @@ interface ExtendedPublicKeyCredentialCreationOptions extends PublicKeyCredential
     hints?: [string]; // Adjust the type of hints as needed
 }
 
+const validAuthenticatorAttachments = ["platform", "cross-platform"] as const;
+
 /*
  * Register a credential with a user-chosen authenticator, restricting it from re-registering one of the previously stored credential. 
  * Returns the new credentialId or throws.
@@ -237,7 +239,6 @@ export async function registerCredential(registeredCredIds: string[], residentKe
     try {
         // TODO P2 should this challenge should be temporarily stored until response is validated?
         const challenge = crypto.getRandomValues(new Uint8Array(32));
-        const validAuthenticatorAttachments = ["platform", "cross-platform"] as const;
         const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
             residentKey: residentKey,
             userVerification: userVerification,
