@@ -53,7 +53,6 @@
     MudButton? unlockWithAuthenticatorButton;
     string openWalletError = string.Empty;
     KeriaConnectConfig? keriaConnectConfig;
-    static bool hasAutoStartedAuthentictor; // static here to survive inactivity timeout lock with good UX
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
@@ -72,6 +71,18 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        logger.LogInformation("OnParametersSetAsync");
+
+        // Although we expect to not be authenticated here, if we are (in case of a refresh or navigating back to Unlock), navigate to Home
+        var state = stateService.GetState();
+        if (state == IStateService.States.AuthenticatedConnected || state == IStateService.States.AuthenticatedDisconnected)
+        {
+            navManager.NavigateTo(RouteToHome);
+        }
 
         // Get the KeriaConnectConfig
         var res = await storageService.GetItem<KeriaConnectConfig>();
@@ -81,55 +92,45 @@
         }
         keriaConnectConfig = res.Value;
 
-        // Although we should already be unauthenticated, ensure we are, e.g. in case of a refresh or navigating back
-        if (stateService.GetState() != IStateService.States.Unauthenticated)
-        {
-            await stateService.Unauthenticate();
-        }
-
         // check if there are already registeredAuthenticators
         var res2 = await webauthnService.GetRegisteredAuthenticators();
         if (res2 is not null)
         {
             RAS = res2;
-            StateHasChanged();
-            if (ShouldUseAuthenticator)
-            {
-                // TODO P3 assume the user will want to use a registered if available?
-                PrefersToUseAuthenticator = true;
-            }
         }
         else
         {
-            logger.LogInformation("OnInitializedAsync did not find registeredAuthenticators");
+            // logger.LogInformation("OnParametersSetAsync did not find registeredAuthenticators");
         }
+        // logger.LogInformation("OnParametersSetAsync sua: {sua}, hasa: {hasa}", ShouldUseAuthenticator, App.HasAutoStartedAuthentictor);
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
+        logger.LogInformation("OnAfterRenderAsync");
         if (ShouldUseAuthenticator)
         {
             if (unlockWithAuthenticatorButton is not null)
             {
                 await unlockWithAuthenticatorButton.FocusAsync();
-                // if the user can and should use an authenticator, just start that UX flow, but only once.
-                if (!hasAutoStartedAuthentictor)
-                {
-                    hasAutoStartedAuthentictor = true;
-                    await UnlockWithAuthenticator();
-                }
+            }
+            // If the user should use an authenticator, just start that UX flow, but only once per this App's lifetime. 
+            // Otherwise, an inactivity timeout could cause the authenticator flow to start unexpectedly
+            if (!App.HasAutoStartedAuthentictor)
+            {
+                await UnlockWithAuthenticator();
             }
         }
         else
         {
             if (passcodeField is not null)
-                await passcodeField!.FocusAsync();
+                await passcodeField.FocusAsync();
         }
     }
 
-    async Task SetWantToUseAuthenticator(bool b)
+    async Task SetPrefersToUseAuthenticator(bool b)
     {
-        PrefersToUseAuthenticator = b;
+        await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = b });
     }
 
     async Task SelectAllText()
@@ -149,6 +150,8 @@
 
     async Task UnlockWithAuthenticator()
     {
+        // prevent auto-start of authenticator unlock prompting in this app instance's future after a timeout
+        App.HasAutoStartedAuthentictor = true;
         var passcodeRes = await webauthnService.AuthenticateAKnownCredential();
         if (passcodeRes is null || passcodeRes.IsFailed)
         {
@@ -156,8 +159,6 @@
             return;
         }
         await UnlockWithPasscode(passcodeRes.Value);
-        // prevent auto-start of authenticator unlock prompting in this app instance's future after a timeout
-        hasAutoStartedAuthentictor = true;
         return;
     }
 
@@ -239,7 +240,7 @@
                 <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
                 <MudText Typo="Typo.h5">
                     <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">KeriAuth</span>
-                    <br/>
+                    <br />
                     <span style="font-style:italic; font-size:initial;">autonomously authentic</span>
                 </MudText>
                 <img src="images/lock2.png" style="width:74px; margin-right:26px;" />
@@ -274,7 +275,7 @@
         <MudSpacer />
         @if (ShouldUseAuthenticator)
         {
-            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(false)">
+            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="() => SetPrefersToUseAuthenticator(false)">
                 Use passcode
             </MudButton>
             <MudButton @ref="unlockWithAuthenticatorButton" Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
@@ -283,7 +284,7 @@
         }
         else
         {
-            <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary" OnClick="() => SetWantToUseAuthenticator(true)">
+            <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary" OnClick="() => SetPrefersToUseAuthenticator(true)">
                 Use authenticator
             </MudButton>
             <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">

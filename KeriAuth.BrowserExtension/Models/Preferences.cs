@@ -26,6 +26,9 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonPropertyName("IsPersistentDrawerOpen")]
         public bool IsPersistentDrawerOpen { get; init; }
 
+        [JsonPropertyName("PrefersToUseAuthenticator")]
+        public bool PrefersToUseAuthenticator { get; init; } = AppConfig.DefaultPrefersToUseAuthenticator;
+
         [JsonPropertyName("SelectedKeriaAlias")]
         public string SelectedKeriaAlias { get; init; } = String.Empty;
 

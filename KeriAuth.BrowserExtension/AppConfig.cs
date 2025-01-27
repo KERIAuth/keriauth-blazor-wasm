@@ -52,7 +52,7 @@ namespace KeriAuth.BrowserExtension
 
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
-
+        public const bool DefaultPrefersToUseAuthenticator = true;
         // TODO P2 strengthen these defaults for v0.3.0
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
