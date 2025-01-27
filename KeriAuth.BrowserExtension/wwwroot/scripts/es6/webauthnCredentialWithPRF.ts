@@ -22,12 +22,13 @@ type FluentResult<T> = {
 };
 
 // Constant fixed properties
+const VALID_AUTHENTICATOR_ATTACHMENTS = ["platform", "cross-platform"] as const;
 const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
 const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
-    { alg: -8, type: "public-key" },   // ES384}
+    { alg: -8, type: "public-key" },   // ES384
     { alg: -7, type: "public-key" },   // ES256
-    { alg: -257, type: "public-key" },  // RS256
+    { alg: -257, type: "public-key" }, // RS256
 ];
 const CREDS_CREATE_TIMEOUT = 60000;
 const CREDS_GET_TIMEOUT = 60000;
@@ -69,12 +70,12 @@ const getExtensions = (firstSalt: Uint8Array): any => {
     };
 }
 
-/**
+/*
  * Checks for WebAuthn support, available only when running in a secure context
  */
 const isWebauthnSupported = (): boolean => !!self.PublicKeyCredential;
 
-/**
+/*
  * Helper function to retry an asynchronous operation with a timeout.
  */
 async function retry<T>(operation: () => Promise<T>, retries: number, timeout: number): Promise<T> {
@@ -219,17 +220,21 @@ async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
     return new Uint8Array(hash); // 32 bytes
 }
 
-// Note name and types/shape needs to align with definition in IWeebauthnService
+
+/* 
+ * Note name and types/shape needs to align with definition in IWebauthnService
+ */
 interface CredentialWithPRF {
     credentialID: string; // Base64Url-encoded Credential ID
     transports: string[]; // Array of transport types (e.g., ["usb", "nfc", "ble", "internal", "hybrid"])
 }
 
+/*
+ *
+ */
 interface ExtendedPublicKeyCredentialCreationOptions extends PublicKeyCredentialCreationOptions {
     hints?: [string]; // Adjust the type of hints as needed
 }
-
-const validAuthenticatorAttachments = ["platform", "cross-platform"] as const;
 
 /*
  * Register a credential with a user-chosen authenticator, restricting it from re-registering one of the previously stored credential. 
@@ -244,7 +249,7 @@ export async function registerCredential(registeredCredIds: string[], residentKe
             userVerification: userVerification,
             // TODO P3: Depricated? Perhaps this should be based on the user's preference?
             // requireResidentKey: false, 
-            authenticatorAttachment: validAuthenticatorAttachments.includes(authenticatorAttachment as any)
+            authenticatorAttachment: VALID_AUTHENTICATOR_ATTACHMENTS.includes(authenticatorAttachment as any)
                 ? (authenticatorAttachment as AuthenticatorAttachment)
                 : undefined
         };
@@ -322,11 +327,17 @@ export async function registerCredential(registeredCredIds: string[], residentKe
     }
 }
 
-// Helper function to convert an ArrayBuffer to Base64
+/*
+ * convert an ArrayBuffer to Base64
+ */
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
     return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }
 
+/*
+ * 
+ */
 function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
     // Normalize the Base64Url string to Base64
     let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -474,8 +485,10 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
     }
 }
 
+/*
+ * Note name and types/shape needs to align with definition in IWebauthnService
+ */
 
-// Note name and types/shape needs to align with definition in IWebauthnService
 interface AuthenticateCredResult {
     credentialId: string; // Base64Url-encoded Credential ID
     encryptKey: string; // Base64 of encrypt key
