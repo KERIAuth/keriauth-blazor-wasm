@@ -283,13 +283,14 @@
 
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
                     <!-- TODO P4 provide help -->
-                    <MudNavLink Style="display:none !important;" Href=@RouteToHelp Target="_blank" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
-                    <MudNavLink Href=@RouteToTermsHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>
-                    <MudNavLink Href=@RouteToPrivacyHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy</MudNavLink>
+                    <MudNavLink Style="display:none !important;" Href=@RouteToHelp Target="help" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
+                    <MudNavLink Href=@RouteToTermsHtml Target="terms" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>
+                    <MudNavLink Href=@RouteToPrivacyHtml Target="privacy" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy</MudNavLink>
                     <!-- TODO P4 provide licenses -->
 
-                    <MudNavLink Style="display:none !important;" Href=@RouteToLicensesHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
-                    <MudNavLink Href=@RouteToReleaseHtml Target="_blank" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release<br /><i>version @version_name</i></MudNavLink>
+                    <MudNavLink Style="display:none !important;" Href=@RouteToLicensesHtml Target="licenses" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
+                    <MudNavLink Href=@RouteToReleaseHtml Target="releaseNotes" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release Notes<br /><i>version @version_name</i></MudNavLink>
+                    <MudNavLink Href=@RouteToReleaseHistoryHtml Target="releaseHistory" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release History<br /></MudNavLink>
                 </MudNavGroup>
             </MudNavMenu>
         </MudDrawer>
