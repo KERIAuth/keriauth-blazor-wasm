@@ -115,8 +115,8 @@
                 await unlockWithAuthenticatorButton.FocusAsync();
             }
             // If the user should use an authenticator, just start that UX flow, but only once per this App's lifetime. 
-            // Otherwise, an inactivity timeout could cause the authenticator flow to start unexpectedly
-            if (!App.HasAutoStartedAuthentictor)
+            // Otherwise, an inactivity timeout could cause the authenticator flow to start unexpectedly, even if first unlocked with passcode
+            if (!App.HasBeenUnlocked)
             {
                 await UnlockWithAuthenticator();
             }
@@ -131,10 +131,13 @@
     async Task SetPrefersToUseAuthenticator(bool b)
     {
         await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = b });
-		if (b)
-		{
-			await UnlockWithAuthenticator();
-		}
+        App.HasBeenUnlocked = false;
+        // StateHasChanged();
+        // may result indirectly in a call to OnAfterRenderAsync
+        // if (b)
+		// {
+		// 	await UnlockWithAuthenticator();
+		// }
     }
 
     async Task SelectAllText()
@@ -154,8 +157,6 @@
 
     async Task UnlockWithAuthenticator()
     {
-        // prevent auto-start of authenticator unlock prompting in this app instance's future after a timeout
-        App.HasAutoStartedAuthentictor = true;
         var passcodeRes = await webauthnService.AuthenticateAKnownCredential();
         if (passcodeRes is null || passcodeRes.IsFailed)
         {

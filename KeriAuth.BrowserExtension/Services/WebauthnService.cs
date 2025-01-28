@@ -141,7 +141,6 @@ namespace KeriAuth.BrowserExtension.Services
             {
                 return Result.Fail("Failed to register authenticator 333");
             }
-
             
             await jsRuntime.InvokeVoidAsync("alert", "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator is sufficiently capable.");
 
