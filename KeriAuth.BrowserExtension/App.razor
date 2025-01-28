@@ -23,7 +23,7 @@
 @inject IAppSwMessagingService appSwMessagingService
 
 @code {
-        // fields
+    // fields
     private static IStateService? staticStateService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
@@ -32,20 +32,12 @@
     private WebExtensionsApi? webExtensionsApi;
 
     // properties
-    public static Preferences Prefs { get; set; } = new Preferences();  // TODO P2 refactor code currently in MainLayout to here
+    public static Preferences Prefs { get; set; } = new Preferences();
     public static Uri? InitialUri { get; set; }
     public static bool HasAutoStartedAuthentictor { get; set; } // static here to survive inactivity timeout lock with good UX
 
     // reactive properties
     public static bool IsDarkTheme => Prefs.IsDarkTheme;
-    public static bool IsDarkTheme2
-    {
-        get => Prefs.IsDarkTheme;
-        set
-        {
-            // TODO P4 actually set the theme
-        }
-    }
     public IStateService.States CurrentState => stateService.GetState();
 
     protected override async Task OnInitializedAsync()

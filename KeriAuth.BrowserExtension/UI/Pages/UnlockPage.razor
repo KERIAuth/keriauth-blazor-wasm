@@ -56,7 +56,6 @@
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
-    bool PrefersToUseAuthenticator { get; set; } = true; // TODO P2 should remember setting this on the chrome.storage.local, since this desire may be different from machine to machine
 
     // reactive properties
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
@@ -66,6 +65,7 @@
         _ => $"{RAS.Authenticators.Count} authenticators registered"
     };
     bool CanUseAuthenticator => RAS.Authenticators.Any();
+    bool PrefersToUseAuthenticator => App.Prefs.PrefersToUseAuthenticator;
     bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
 
     protected override async Task OnInitializedAsync()
@@ -131,6 +131,10 @@
     async Task SetPrefersToUseAuthenticator(bool b)
     {
         await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = b });
+		if (b)
+		{
+			await UnlockWithAuthenticator();
+		}
     }
 
     async Task SelectAllText()
