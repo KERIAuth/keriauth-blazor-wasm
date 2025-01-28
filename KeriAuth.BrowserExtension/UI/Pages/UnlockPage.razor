@@ -132,12 +132,7 @@
     {
         await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = b });
         App.HasBeenUnlocked = false;
-        // StateHasChanged();
-        // may result indirectly in a call to OnAfterRenderAsync
-        // if (b)
-		// {
-		// 	await UnlockWithAuthenticator();
-		// }
+        // should now result in UnlockWithAuthenticator() being called from OnAfterRenderAsync
     }
 
     async Task SelectAllText()
