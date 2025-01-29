@@ -46,8 +46,8 @@
     "storage"
   ],
   "short_name": "KERI Auth",
-  "version": "0.2.8",
-  "version_name": "0.2.8-local",
+  "version": "0.2.9",
+  "version_name": "0.2.9-local",
   "web_accessible_resources": [
     {
       "resources": [
