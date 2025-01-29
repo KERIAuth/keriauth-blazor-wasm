@@ -279,8 +279,8 @@ export async function registerCredential(registeredCredIds: string[], residentKe
         }
 
         const clientExtensionResults = credential.getClientExtensionResults();
-        // TODO: P2 warn not needed here
-        console.warn("Credential Properties:", clientExtensionResults);
+        // TODO: P2 warn not needed here; however, the prf.results.first is used to derive the encryption key, and therefore should not be logged.
+        // console.warn("Credential Properties:", clientExtensionResults);
         // above can be used to determine if the authenticator supports the PRF extension and/or rk.
 
         if (clientExtensionResults.prf?.enabled !== true) {
@@ -305,6 +305,7 @@ export async function registerCredential(registeredCredIds: string[], residentKe
         const attestationObject: ArrayBuffer = response.attestationObject;
         const clientDataJSON: ArrayBuffer = response.clientDataJSON;
 
+        // TODO: P2 prf.results.first is used to derive the encryption key, and therefore should not be logged.
         // TODO P2 temporary to test to prepare for checking attestation, and for potential duplicate of credentials (of same RP and User) already on device
         const temp = JSON.stringify({
             transports: transports,
@@ -312,7 +313,7 @@ export async function registerCredential(registeredCredIds: string[], residentKe
             clientDataJSON: arrayBufferToBase64(clientDataJSON),
             credentialId: credential.id
         })
-        console.log("clientDataJSON: ", temp);
+        // console.log("clientDataJSON: ", temp);
 
         // TODO P2, the returned attestation should be validated, against known authenticators and trust anchors
 
