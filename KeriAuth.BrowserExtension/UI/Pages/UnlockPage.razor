@@ -114,25 +114,20 @@
             {
                 await unlockWithAuthenticatorButton.FocusAsync();
             }
-            // If the user should use an authenticator, just start that UX flow, but only once per this App's lifetime. 
-            // Otherwise, an inactivity timeout could cause the authenticator flow to start unexpectedly, even if first unlocked with passcode
-            if (!App.HasBeenUnlocked)
-            {
-                await UnlockWithAuthenticator();
-            }
         }
-        else
+        else if (passcodeField is not null)
         {
-            if (passcodeField is not null)
-                await passcodeField.FocusAsync();
+            await passcodeField.FocusAsync();
         }
     }
 
-    async Task SetPrefersToUseAuthenticator(bool b)
+    async Task SetPrefersToUseAuthenticator(bool prefersToUseAuthenticator)
     {
-        await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = b });
-        App.HasBeenUnlocked = false;
-        // should now result in UnlockWithAuthenticator() being called from OnAfterRenderAsync
+        await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = prefersToUseAuthenticator });
+        if (prefersToUseAuthenticator)
+        {
+            await UnlockWithAuthenticator();
+        }
     }
 
     async Task SelectAllText()

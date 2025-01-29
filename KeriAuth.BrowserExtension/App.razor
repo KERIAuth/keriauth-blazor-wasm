@@ -34,7 +34,6 @@
     // properties
     public static Preferences Prefs { get; set; } = new Preferences();
     public static Uri? InitialUri { get; set; }
-    public static bool HasBeenUnlocked { get; set; } // static here to survive inactivity timeout lock with good UX
 
     // reactive properties
     public static bool IsDarkTheme => Prefs.IsDarkTheme;
@@ -64,7 +63,6 @@
             onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
             onCompleted: async () => await HandleCompletedFromPreferencesService());
 
-
         stateSubscription = stateService.Subscribe(
             onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
             onError: async (Exception error) => await HandleErrorFromStateService(error),
@@ -84,7 +82,7 @@
 
         await jsRuntime.InvokeVoidAsync("registerLockListener");
 
-        // await jsRuntime.InvokeVoidAsync("setupUnloadListener");
+        // TODO P4 await jsRuntime.InvokeVoidAsync("setUpUnloadListener");
 
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", Prefs.InactivityTimeoutMinutes } };
@@ -105,33 +103,25 @@
                 break;
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
-                HasBeenUnlocked = true;
-                StateHasChanged();
-                break;
             case (_, _):
                 StateHasChanged();
                 break;
         }
-        await Task.Delay(0);
     }
 
     async Task HandleErrorFromStateService(Exception error)
     {
-        await Task.Delay(0);
         logger.LogError("Error from stateService: " + error.Message);
     }
 
     async Task HandleCompletedFromStateService()
     {
-        await Task.Delay(0);
         logger.LogInformation("Completed from stateService");
     }
 
     public async Task ToggleDarkTheme()
     {
-        var newPrefs = Prefs with { IsDarkTheme = !Prefs.IsDarkTheme };
-        // App.Prefs = Prefs; // TODO P3 App should have its own preference listener and pick this up
-        await preferencesService.SetPreferences(newPrefs);
+        await preferencesService.SetPreferences(Prefs with { IsDarkTheme = !Prefs.IsDarkTheme });
     }
 
     public void Dispose()
@@ -142,30 +132,28 @@
     async Task HandleNextFromPreferencesService(Preferences value)
     {
         Prefs = value;
-        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties
+        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)
     {
-        await Task.Delay(0);
         logger.LogError("Error from PreferencesService: " + error.Message);
     }
 
     async Task HandleCompletedFromPreferencesService()
     {
-        await Task.Delay(0);
         logger.LogInformation("Completed from PreferencesService");
     }
 
     [JSInvokableAttribute("LockApp")]
     public static async Task LockApp()
     {
-        if (staticStateService is null)
+        if (staticStateService is null || staticLogger is null)
         {
             throw new Exception("unexpected null staticStateService");
         }
-        staticLogger!.LogInformation("LockApp...");
-        await staticStateService!.TimeOut();
+        staticLogger.LogInformation("LockApp");
+        await staticStateService.TimeOut();
         // Note that other side-effects will be reactive. See IObserver<StateService>
         return;
     }
