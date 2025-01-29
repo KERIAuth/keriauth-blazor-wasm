@@ -142,7 +142,7 @@ namespace KeriAuth.BrowserExtension.Services
                 return Result.Fail("Failed to register authenticator 333");
             }
             
-            await jsRuntime.InvokeVoidAsync("alert", "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator is sufficiently capable.");
+            await jsRuntime.InvokeVoidAsync("alert", "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
 
             // Now that authenticator is registered, we need to confirm that with user, and get the encrypt key that is derrived from the PRF attestation
             // First, some prep
