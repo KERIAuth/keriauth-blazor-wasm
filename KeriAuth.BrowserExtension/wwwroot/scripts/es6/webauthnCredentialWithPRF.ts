@@ -332,7 +332,6 @@ export async function registerCredential(registeredCredIds: string[], residentKe
 /*
  * convert an ArrayBuffer to Base64
  */
-
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
     return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }

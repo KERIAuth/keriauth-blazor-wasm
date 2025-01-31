@@ -67,6 +67,14 @@
     bool CanUseAuthenticator => RAS.Authenticators.Any();
     bool PrefersToUseAuthenticator => App.Prefs.PrefersToUseAuthenticator;
     bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
+    string TimeoutDuration => App.Prefs.InactivityTimeoutMinutes switch
+    {
+        0.5f => "30 seconds",
+        1 => "1 minutes",
+        _ => $"{App.Prefs.InactivityTimeoutMinutes} minutes"
+    };
+    string TimeoutNotice => "locked after " + TimeoutDuration + " of inactivity";
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,6 +111,8 @@
             // logger.LogInformation("OnParametersSetAsync did not find registeredAuthenticators");
         }
         // logger.LogInformation("OnParametersSetAsync sua: {sua}, hasa: {hasa}", ShouldUseAuthenticator, App.HasAutoStartedAuthentictor);
+
+        // StateHasChanged(); // might be needed, for example when preferences have changed via App.Prefs, and need to update UI
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -238,7 +248,7 @@
                     <br />
                     <span style="font-style:italic; font-size:initial;">autonomously authentic</span>
                 </MudText>
-                <MudText Style="color: var(--mud-palette-action-disabled);">locked after @AppConfig.DefaultInactivityTimeoutMins minutes of inactivity</MudText>
+                <MudText Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
             </MudStack>
             <MudStack Style="justify-content: end; min-height:48px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUseAuthenticator)
