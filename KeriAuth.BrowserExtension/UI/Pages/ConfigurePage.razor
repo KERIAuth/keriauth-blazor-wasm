@@ -57,16 +57,16 @@
     static List<Preset> presetAgents = new List<Preset>
     {
         new Preset("localhost", AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl),
-        new Preset("Roots ID", "https://keria-dev.rootsid.cloud/admin", "https://keria-dev.rootsid.cloud"),
+        new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
         new Preset("Custom", "", "")
     };
     WebExtensionsApi? webExtensionsApi;
     Preset _presetChoice = presetAgents[0];
     UrlModel urlModel = new UrlModel()
-        {
-            AdminUrl = AppConfig.DefaultKeriaAdminUrl,
-            BootUrl = AppConfig.DefaultKeriaBootUrl
-        };
+    {
+        AdminUrl = AppConfig.DefaultKeriaAdminUrl,
+        BootUrl = AppConfig.DefaultKeriaBootUrl
+    };
     PasscodeModel configuredPasscodeModel = new PasscodeModel();
     private MudButton? nextButton;
 
@@ -94,6 +94,7 @@
     }
 
     // reactive properties
+    // TODO P1 assure URL has a trailing "/"
     bool IsValidAdminURL =>
         !string.IsNullOrWhiteSpace(urlModel.AdminUrl) &&
         Uri.IsWellFormedUriString(urlModel.AdminUrl, UriKind.Absolute);
@@ -148,7 +149,11 @@
             // check if BootUrl is reachable.
             ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
-            UriBuilder healthUriBuilder = new($"{urlModel.BootUrl}/health");
+            // TODO P1 avoid if BootUrl is not a URL
+            var baseUri = new Uri(urlModel.BootUrl);
+            var healthUri = new Uri(baseUri, "health");
+            var healthUriBuilder = new UriBuilder(healthUri);
+
             var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!postResult.IsSuccess)
             {
@@ -165,8 +170,9 @@
             ops2HealthCheck.SetIsRunning();
             StateHasChanged();
             // TODO P3 move this into service or helper code
+            // TODO P2 should not run this if BootUrl is not a URL
             var httpClientService2 = new HttpClientService(new HttpClient());
-            var postResult2 = await httpClientService2.GetJsonAsync<String>($"{urlModel.BootUrl}/health");
+            var postResult2 = await httpClientService2.GetJsonAsync<String>(healthUriBuilder.Uri.ToString());
             if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 ops2HealthCheck.SetCompletedWithError(postResult2.Reasons.First().Message);
@@ -300,7 +306,7 @@
                                   @bind-Value="@configuredPasscodeModel.Passcode"
                                   For="@(() => configuredPasscodeModel.Passcode)"
                                   Immediate="true" />
-                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="StoreHashAndConnect" Disabled="@(!IsValidNewInfo || IsKeriaConfigured )" Color="Color.Primary">Connect</MudButton>
+                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="StoreHashAndConnect" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
                 {
