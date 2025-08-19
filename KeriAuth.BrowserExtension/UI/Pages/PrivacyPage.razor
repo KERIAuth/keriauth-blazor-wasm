@@ -45,9 +45,10 @@
 	private OnboardState? onboardState;
 	const string privacyUrlPath = "content/privacy.html";
 	static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
+	private MudButton? nextButton;
 
 	// properties
-	bool IsTermsAgreed { get; set; }
+	bool IsTermsAgreed { get; set; } = true; // TODO P2 temporary for testing
 
 	// reactive properties
 	int privacyMarkupHash => HashInt(privacyMarkup.Value);
@@ -63,6 +64,7 @@
 			throw new InvalidOperationException("Failed to get OnboardState");
 		}
 		onboardState = res.Value;
+		await nextButton.FocusAsync(); // TODO P2 temporary for testing
 	}
 
 	private async Task OnTermsAgreed()
@@ -104,6 +106,6 @@
 	</div>
 	<MudStack Row="true" class="bt-button-tray">
 		<MudSpacer></MudSpacer>
-		<MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
+		<MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
 	</MudStack>
 </div>
