@@ -32,12 +32,13 @@
     List<Dictionary<string, object>> Credentials = [];
 
     // reactive properties
-    List<Dictionary<string, object>> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix)]);
+    // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
+
+    List<Dictionary<string, object>> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => Prefs.SelectedPrefix;
     string? SelectedIdenticon => SelectedIdentifierHeadline?.Identicon;
     string SelectedAlias => SelectedIdentifierHeadline?.Alias ?? "";
-
 
     protected override async Task OnInitializedAsync()
     {
