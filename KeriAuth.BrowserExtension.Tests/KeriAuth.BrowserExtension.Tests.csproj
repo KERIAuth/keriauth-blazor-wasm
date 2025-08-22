@@ -18,9 +18,9 @@
 
   <ItemGroup>
 	  
-	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
 	  <PackageReference Include="xunit" Version="2.9.3" />
-	  <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1">
+	  <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 	  </PackageReference>
@@ -28,7 +28,7 @@
 	  <PackageReference Include="Ensure.That" Version="10.1.0" />
 	  <PackageReference Include="Jdenticon-net" Version="3.1.2" />
 	  <PackageReference Include="MediatR" Version="13.0.0" />
-	  <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="8.0.10" />
+	  <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="9.0.8" />
 	  <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="9.0.8" />
 	  <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.8" />
 	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
