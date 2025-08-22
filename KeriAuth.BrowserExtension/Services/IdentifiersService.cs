@@ -25,7 +25,7 @@ namespace KeriAuth.BrowserExtension.Services
             var identifiersRes = await signifyClientService.GetIdentifiers();
             if (identifiersRes is null || identifiersRes.IsFailed)
             {
-                var msg = identifiersRes!.Errors.First().Message;
+                var msg = identifiersRes!.Errors[0].Message;
                 logger.LogError("GetIdentifierHeadlines: Failed to get identifiers: {msg}", msg);
                 return Result.Fail<List<IdentifierHeadline>>(msg);
             }
@@ -50,8 +50,8 @@ namespace KeriAuth.BrowserExtension.Services
             var res = await signifyClientService.RunCreateAid(alias);
             if (res.IsFailed || res.Value is null)
             {
-                logger.LogError("Failed to create person aid: {res}", res.Errors.First().Message);
-                return Result.Fail(res.Errors.First().Message);
+                logger.LogError("Failed to create person aid: {res}", res.Errors[0].Message);
+                return Result.Fail(res.Errors[0].Message);
             }
             else
                 return Result.Ok(res.Value);

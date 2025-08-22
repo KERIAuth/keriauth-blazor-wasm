@@ -56,7 +56,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         }
                         if (res.IsFailed)
                         {
-                            return Result.Fail("Connect failed: " + res.Errors.First().Message);
+                            return Result.Fail("Connect failed: " + res.Errors[0].Message);
                         }
                         return Result.Ok(true);
                     }
@@ -73,7 +73,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                         }
                         if (res.IsFailed)
                         {
-                            return Result.Fail("Connect failed: " + res.Errors.First().Message);
+                            return Result.Fail("Connect failed: " + res.Errors[0].Message);
                         }
                         return Result.Ok(true);
                     }
@@ -125,7 +125,7 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
                 else
                 {
                     logger.LogWarning("RunCreateAid: {res}", res.Errors);
-                    return Result.Fail<string>(res.Errors.First().Message);
+                    return Result.Fail<string>(res.Errors[0].Message);
                 }
             }
             catch (JSException e)

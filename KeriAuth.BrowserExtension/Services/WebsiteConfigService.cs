@@ -139,7 +139,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         if (getWebsitesRes is null || getWebsitesRes.IsFailed)
         {
             // logger.LogError("Error in websiteService {err}", getWebsitesRes?.Errors);
-            return Result.Fail(getWebsitesRes?.Errors.FirstOrDefault());
+            return Result.Fail(error: getWebsitesRes?.Errors[0]);
         }
         else
         {
@@ -154,7 +154,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 if (setItemRes.IsFailed)
                 {
                     // logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
-                    return Result.Fail(setItemRes.Errors.FirstOrDefault());
+                    return Result.Fail(error: setItemRes.Errors[0]);
                 }
                 else
                 {
@@ -179,7 +179,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 if (setItemRes.IsFailed)
                 {
                     // logger.LogError("getOrCreateWebsite: Error adding website to database: {err}", setItemRes.Errors);
-                    return Result.Fail(setItemRes.Errors.FirstOrDefault());
+                    return Result.Fail(error: setItemRes.Errors[0]);
                 }
                 else
                 {
