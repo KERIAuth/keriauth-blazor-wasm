@@ -197,12 +197,12 @@ public class StateService : IStateService
         }
         catch (Exception e)
         {
-            logger.LogError("Problem with OnEntry RetrievingFromStorage: {e}", e);
+            logger.LogError("Problem with OnEntry RetrievingFromStorage: {E}", e);
         }
         return;
     }
 
-    private class Unsubscriber(List<IObserver<IStateService.States>> observers, IObserver<IStateService.States> observer) : IDisposable
+    private sealed class Unsubscriber(List<IObserver<IStateService.States>> observers, IObserver<IStateService.States> observer) : IDisposable
     {
         private readonly List<IObserver<States>> _stateObservers = observers;
         private readonly IObserver<States> _stateObserver = observer;

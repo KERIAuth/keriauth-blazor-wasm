@@ -20,6 +20,7 @@ public interface IExtensionEnvironmentService
     /// Determines the current extension hosting environment (iframe, popup, extension, none) from the URL
     /// </summary>
     /// <param name="uri"></param>
+    /// <param name="contextType"></param>
     public Task Initialize(Uri uri, string contextType);
 
     /// <summary>

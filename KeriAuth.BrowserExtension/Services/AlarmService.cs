@@ -8,8 +8,7 @@ public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
 {
     // public readonly ILogger<AlarmService> logger = logger;
 
-    private class Alarm(TimeSpan duration, Action callback)
-    {
+    private sealed class Alarm(TimeSpan duration, Action callback) : IDisposable {
         public Timer Timer { get; } = new Timer(state => callback.Invoke(), null, Timeout.Infinite, Timeout.Infinite);
         public TimeSpan Duration { get; private set; } = duration;
         private Timer? _debounceTimer;
@@ -41,9 +40,13 @@ public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
             }
         }
 
-        void DebounceTimerMethod(object? state)
+        private void DebounceTimerMethod(object? state)
         {
             Start();
+        }
+
+        public void Dispose() {
+            throw new NotImplementedException();
         }
     }
 
@@ -54,7 +57,7 @@ public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
         if (alarms.TryGetValue(name, out var alarm))
         {
             alarm.Start();
-            logger.LogInformation("Alarm {name} started", name);
+            logger.LogInformation("Alarm {Name} started", name);
         }
         else
         {
@@ -74,11 +77,11 @@ public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
         }
     }
 
-    public void ResetAlarm(string name, TimeSpan newDuration, TimeSpan debounceInterval)
+    public void ResetAlarm(string name, TimeSpan newDuration, TimeSpan debounceDuration)
     {
         if (alarms.TryGetValue(name, out var alarm))
         {
-            alarm.Reset(newDuration, debounceInterval);
+            alarm.Reset(newDuration, debounceDuration);
         }
         else
         {

@@ -1,4 +1,4 @@
-﻿/// <reference types="chrome" />
+﻿/// <reference types="chrome-types" />
 
 import * as PW from "../types/polaris-web-client"
 
@@ -22,7 +22,8 @@ export const SwAppInteropModule = {
 
             console.log("Initializing messaging for tab:", tabId);
 
-            const port = chrome.runtime.connect({ name: "blazorAppPort" + "-tab-" + tabId });
+            // TODO P0 is extensionId value needed as first param?
+            const port = chrome.runtime.connect("", { name: "blazorAppPort" + "-tab-" + tabId });
 
             port.onMessage.addListener((message) => {
                 console.log("SwAppInterop received port message: ", message);

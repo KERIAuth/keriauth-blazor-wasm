@@ -1,4 +1,4 @@
-﻿/// <reference types="chrome" />
+﻿/// <reference types="chrome-types" />
 
 export const addStorageChangeListener = (dotNetObject: any): void => {
     chrome.storage.onChanged.addListener(async (changes, area) => {

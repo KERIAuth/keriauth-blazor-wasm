@@ -5,7 +5,9 @@ namespace KeriAuth.BrowserExtension.Services.SignifyService
 {
     // Important: keep the imported method and property names aligned with signify_ts_shim.ts
     [SupportedOSPlatform("browser")]
+#pragma warning disable CA1707 // Identifiers should not contain underscores
     public partial class Signify_ts_shim
+#pragma warning restore CA1707 // Identifiers should not contain underscores
     {
         [JSImport("bootAndConnect", "signify_ts_shim")]
         internal static partial Task<string> BootAndConnect(string agentUrl, string bootUrl, string passcode);

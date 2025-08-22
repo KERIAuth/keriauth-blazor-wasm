@@ -14,10 +14,11 @@ function resetInactivityTimer() {
 }
 
 function registerLockListener() {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message:any, _sender, _sendResponse) => {
         if (message.action === 'lockApp') {
             DotNet.invokeMethodAsync('KeriAuth.BrowserExtension', 'LockApp');
         }
+        return true;
     });
 }
 

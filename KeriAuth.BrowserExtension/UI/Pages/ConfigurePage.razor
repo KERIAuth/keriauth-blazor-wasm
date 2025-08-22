@@ -150,7 +150,7 @@
             ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
             // TODO P1 avoid if BootUrl is not a URL
-            var baseUri = new Uri(urlModel.BootUrl);
+            var baseUri = new Uri(urlModel.BootUrl!);
             var healthUri = new Uri(baseUri, "health");
             var healthUriBuilder = new UriBuilder(healthUri);
 

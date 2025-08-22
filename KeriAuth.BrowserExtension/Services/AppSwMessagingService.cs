@@ -1,7 +1,7 @@
 ﻿using KeriAuth.BrowserExtension.Models;
 using Microsoft.JSInterop;
 using System.Text.Json;
-using WebExtensions.Net.Scripting;
+// using WebExtensions.Net.Scripting;
 
 namespace KeriAuth.BrowserExtension.Services
 {
@@ -105,7 +105,7 @@ namespace KeriAuth.BrowserExtension.Services
         //}
 
         // Inner class to handle unsubscribing
-        private class Unsubscriber(List<IObserver<string>> observers, IObserver<string> observer) : IDisposable
+        private sealed class Unsubscriber(List<IObserver<string>> observers, IObserver<string> observer) : IDisposable
         {
             public void Dispose()
             {

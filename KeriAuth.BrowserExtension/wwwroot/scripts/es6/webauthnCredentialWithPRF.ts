@@ -1,4 +1,4 @@
-/// <reference types="chrome" />
+/// <reference types="chrome-types" />
 
 interface User extends PublicKeyCredentialUserEntity {
     id: Uint8Array;

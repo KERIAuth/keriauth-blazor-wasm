@@ -1,10 +1,20 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using KeriAuth.BrowserExtension.Helper;
 
 namespace KeriAuth.BrowserExtension.Tests.Helper
 {
+
+
+
     public class DictionaryConverterTests
     {
+        private static JsonSerializerOptions CreateDefaultSerializerOptions() {
+            var options = new JsonSerializerOptions {
+                Converters = { new DictionaryConverter() }
+            };
+            return options;
+        }
+
         [Fact]
         public void Read_ShouldParseNestedJsonObject()
         {
@@ -19,10 +29,8 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
                 },
                 ""tags"": [""developer"", ""dotnet""]
             }";
-            var options = new JsonSerializerOptions
-            {
-                Converters = { new DictionaryConverter() }
-            };
+            
+            var options = CreateDefaultSerializerOptions();
 
             // Act
             var result = JsonSerializer.Deserialize<Dictionary<string, object>>(json, options);
@@ -47,7 +55,8 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
         public void Read_ShouldThrowJsonExceptionForInvalidJson()
         {
             // Arrange
-            string invalidJson = "{ this is not valid json }";
+            const string V = "{ this is not valid json }";
+            string invalidJson = V;
             var options = new JsonSerializerOptions
             {
                 Converters = { new DictionaryConverter() }

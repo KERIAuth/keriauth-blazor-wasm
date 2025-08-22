@@ -34,7 +34,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
     public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
 
-    public delegate bool CallbackDelegate(object request, string something);
+    public delegate bool CallbackD(object request, string something);
 
     private readonly DotNetObjectReference<StorageService>? _dotNetObjectRef;
 
@@ -61,7 +61,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         catch (Exception e)
         {
             // logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
-            throw new Exception("Error adding addStorageChangeListener", e);
+            throw new ArgumentException("Error adding addStorageChangeListener", e);
         }
         logger.Log(ServiceLogLevel, "Added addStorageChangeListener");
         return Task.CompletedTask;
@@ -149,7 +149,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         return new Unsubscriber(preferencesObservers, preferencesObserver);
     }
 
-    private class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable
+    private sealed class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable
     {
         private readonly List<IObserver<Preferences>> _preferencesObservers = observers;
         private readonly IObserver<Preferences> _preferencesObserver = observer;

@@ -171,7 +171,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             // logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
             if (websiteConfigOrNothing is null)
             {
-                logger.LogInformation("Adding websiteConfig for {originUrl}", originUri);
+                logger.LogInformation("Adding websiteConfig for {originUri}", originUri);
                 WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, true);
                 // newWebsiteConfig.Validate();
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);

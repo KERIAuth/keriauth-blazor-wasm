@@ -14,10 +14,12 @@ namespace KeriAuth.BrowserExtension.Services
             identifierHeadline = new IdentifierHeadline(prefix, alias, keriaConnectionGuid);
         }
 
-        public readonly IdentifierHeadline identifierHeadline;
+        private readonly IdentifierHeadline identifierHeadline;
         // private readonly string Prefix;
-        public readonly string alias;
-        public readonly Guid keriaConnectionGuid;
+        private readonly string alias;
+        private readonly Guid keriaConnectionGuid;
+
+        public IdentifierHeadline GetHeadline() => identifierHeadline; 
 
         public IdentifierHeadline Test()
         {

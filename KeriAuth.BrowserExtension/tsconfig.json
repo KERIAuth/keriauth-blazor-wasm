@@ -30,7 +30,7 @@
     "sourceMap": true,
     "strict": true,
     "target": "esnext",
-    "types": [ "vite/client", "node", "chrome" ]
+    "types": [ "vite/client", "node", "chrome-types" ]
   },
   "include": [
     "wwwroot/scripts/es6/*.ts",

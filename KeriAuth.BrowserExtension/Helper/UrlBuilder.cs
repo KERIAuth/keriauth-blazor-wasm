@@ -27,7 +27,7 @@ namespace KeriAuth.BrowserExtension.Helper
 
             foreach (string key in query)
             {
-                var param = HttpUtility.UrlDecode(query[key]) ?? throw new Exception($"Failed to decode query string with key: {key}");
+                var param = HttpUtility.UrlDecode(query[key]) ?? throw new FormatException($"Failed to decode query string with key: {key}");
                 decodedParams[HttpUtility.UrlDecode(key)] = param;
             }
             return decodedParams;

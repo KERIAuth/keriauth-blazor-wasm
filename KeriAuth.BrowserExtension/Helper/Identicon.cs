@@ -6,7 +6,7 @@ using System.Diagnostics;
 
 public class Identicon
 {
-    public static string MakeIdenticon(string value)
+    public static string MakeIdenticon(string? value)
     {
         if (String.IsNullOrWhiteSpace(value))
         {

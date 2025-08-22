@@ -84,7 +84,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         return new Unsubscriber(preferencesObservers, preferencesObserver);
     }
 
-    private class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable // invoked as an observable<Preferences> of ManagePreference or other
+    private sealed class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable // invoked as an observable<Preferences> of ManagePreference or other
     {
         private readonly List<IObserver<Preferences>> _preferencesObservers = observers;
         private readonly IObserver<Preferences> _preferencesObserver = observer;

@@ -1,4 +1,4 @@
-using FluentResults;
+﻿// using FluentResults;
 using KeriAuth.BrowserExtension.Helper;
 
 namespace KeriAuth.BrowserExtension.Tests.Helper
@@ -68,10 +68,10 @@ namespace KeriAuth.BrowserExtension.Tests.Helper
         public async Task WithTimeout_ShouldCancelTimeoutTaskWhenOperationCompletes()
         {
             // Arrange
-            bool timeoutCancelled = false;
+            // bool timeoutCancelled = false;
             Func<CancellationToken, Task<string>> operation = async (token) => 
             {
-                await Task.Delay(50);
+                await Task.Delay(50, CancellationToken.None);
                 return "Success";
             };
             TimeSpan timeout = TimeSpan.FromMilliseconds(1000);

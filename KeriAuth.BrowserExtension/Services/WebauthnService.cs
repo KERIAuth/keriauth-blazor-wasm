@@ -5,7 +5,7 @@ using Microsoft.JSInterop;
 using System.Text;
 using System.Text.Json;
 using WebExtensions.Net;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+// using static System.Runtime.InteropServices.JavaScript.JSType;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace KeriAuth.BrowserExtension.Services
@@ -26,7 +26,7 @@ namespace KeriAuth.BrowserExtension.Services
             catch (JSException jsEx)
             {
                 logger.LogError("Could not initialize {e}", jsEx.Message);
-                throw new Exception(jsEx.Message);
+                throw new ArgumentException(jsEx.Message);
             }
             catch (Exception ex)
             {
@@ -71,14 +71,14 @@ namespace KeriAuth.BrowserExtension.Services
             //}
         };
 
-        public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64s)
+        public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64)
         {
             // logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
             try
             {
                 // Attempt to authenticate the credential and re-compute the encryption key
                 await Initialize();
-                var authenticateCredResult = await interopModule!.InvokeAsync<AuthenticateCredResult>("authenticateCredential", credentialIdBase64s);
+                var authenticateCredResult = await interopModule!.InvokeAsync<AuthenticateCredResult>("authenticateCredential", credentialIdBase64);
 
                 if (authenticateCredResult is not null)
                 {
@@ -231,7 +231,7 @@ namespace KeriAuth.BrowserExtension.Services
                 }
                 catch (JSException jsEx)
                 {
-                    throw new Exception(jsEx.Message);
+                    throw new ArgumentException(jsEx.Message);
                 }
                 catch (Exception ex)
                 {
