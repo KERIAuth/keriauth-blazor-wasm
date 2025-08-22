@@ -74,7 +74,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         var newWebsites = websitesResult.Value.WebsiteList
             .Where((ww) => ww.Origin != originUri);
 
-        var wcl = new WebsiteConfigList(new List<WebsiteConfig>(newWebsites));
+        var wcl = new WebsiteConfigList([.. newWebsites]);
 
         var saveResult = await storageService.SetItem<WebsiteConfigList>(wcl);
         if (saveResult.IsFailed)
@@ -86,7 +86,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         return Result.Ok();
     }
 
-    public async Task<Result> Update(WebsiteConfig updatedWebsiteConfig)
+    public async Task<Result> Update(WebsiteConfig websiteConfig)
     {
         var websitesResult = await GetList();
         if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null)
@@ -96,14 +96,14 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("Update: could not fetch websites from storage");
         }
 
-        var existingWebsiteConfigOrNothing = websitesResult.Value.WebsiteList.First(w => w.Origin == updatedWebsiteConfig.Origin) ?? updatedWebsiteConfig;
+        var existingWebsiteConfigOrNothing = websitesResult.Value.WebsiteList.First(w => w.Origin == websiteConfig.Origin) ?? websiteConfig;
         WebsiteConfigList newList = new([]);
 
         foreach (var config in websitesResult.Value.WebsiteList)
         {
-            if (config.Origin == updatedWebsiteConfig.Origin)
+            if (config.Origin == websiteConfig.Origin)
             {
-                newList.WebsiteList.Add(updatedWebsiteConfig);
+                newList.WebsiteList.Add(websiteConfig);
             }
             else
             {
@@ -115,8 +115,8 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         /*
         // Since Website is a record, you can't modify it directly. Instead, you create a new list of websites.
         var updatedWebsiteList = websitesResult.Value.WebsiteList
-            .Where(w => w.Origin != updatedWebsiteConfig.Origin) // Remove the old websiteConfig
-            .Append(updatedWebsiteConfig) // Add the updated websiteConfig
+            .Where(w => w.Origin != websiteConfig.Origin) // Remove the old websiteConfig
+            .Append(websiteConfig) // Add the updated websiteConfig
             .ToList();
 
         var saveResult = await storageService.SetItem<WebsiteConfigList>(new WebsiteConfigList(updatedWebsiteList));
@@ -127,7 +127,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("could not save updated website to storage");
         }
 
-        logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(updatedWebsiteConfig));
+        logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(websiteConfig));
         return Result.Ok();
     }
 
