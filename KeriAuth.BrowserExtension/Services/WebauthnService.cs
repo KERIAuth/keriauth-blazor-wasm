@@ -15,7 +15,7 @@ namespace KeriAuth.BrowserExtension.Services
         private IJSObjectReference? interopModule;
         private WebExtensionsApi? webExtensionsApi;
 
-        async Task Initialize()
+        private async Task Initialize()
         {
             // TODO P2 might be able to instead move some of this into program.cs and inject these as parameters
             try
