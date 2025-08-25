@@ -91,7 +91,9 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
 
         public void Dispose()
         {
-            if (!(_preferencesObserver == null)) _preferencesObservers.Remove(_preferencesObserver);
+            if (!(_preferencesObserver == null)) {
+                _preferencesObservers.Remove(_preferencesObserver);
+            }
         }
     }
 }

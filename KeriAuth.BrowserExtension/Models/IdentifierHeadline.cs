@@ -7,9 +7,9 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonConstructor]
         public IdentifierHeadline(string prefix, string alias, Guid keriaConfigId)
         {
-            this.Alias = alias;
-            this.Prefix = prefix;
-            this.Identicon = Helper.Identicon.MakeIdenticon(prefix);
+            Alias = alias;
+            Prefix = prefix;
+            Identicon = Helper.Identicon.MakeIdenticon(prefix);
             _ = keriaConfigId;
         }
 

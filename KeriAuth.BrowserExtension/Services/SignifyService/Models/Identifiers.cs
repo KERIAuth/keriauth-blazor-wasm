@@ -2,23 +2,15 @@
 
 namespace KeriAuth.BrowserExtension.Services.SignifyService.Models
 {
-    public class Identifiers
-    {
-        [JsonConstructor]
-        public Identifiers(int start, int end, int total, List<Aid> aids)
-        {
-            Start = start;
-            End = end;
-            Total = total;
-            Aids = aids;
-        }
+    [method: JsonConstructor]
+    public class Identifiers(int start, int end, int total, List<Aid> aids) {
         [JsonPropertyName("start")]
-        public int Start { get; init; }
+        public int Start { get; init; } = start;
         [JsonPropertyName("end")]
-        public int End { get; init; }
+        public int End { get; init; } = end;
         [JsonPropertyName("total")]
-        public int Total { get; init; }
+        public int Total { get; init; } = total;
         [JsonPropertyName("aids")]
-        public List<Aid> Aids { get; init; }
+        public List<Aid> Aids { get; init; } = aids;
     }
 }

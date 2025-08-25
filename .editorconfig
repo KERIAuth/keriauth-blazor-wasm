@@ -165,4 +165,4 @@ dotnet_diagnostic.CA1051.severity = warning
 
 # Default severity for analyzer diagnostics with category 'Performance'
 dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
-dotnet_diagnostic.CA1707.severity = suggestion
+dotnet_diagnostic.CA1707.severity = none

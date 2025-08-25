@@ -9,7 +9,7 @@ namespace KeriAuth.BrowserExtension.Models
             String? cr
             )
         {
-            this.CancelReason = cr;
+            CancelReason = cr;
         }
 
         [JsonPropertyName("cr")]

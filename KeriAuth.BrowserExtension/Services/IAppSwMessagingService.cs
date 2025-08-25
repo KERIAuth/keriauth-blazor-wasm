@@ -5,13 +5,13 @@ namespace KeriAuth.BrowserExtension.Services
 {
     public interface IAppSwMessagingService : IObservable<string>
     {
-        public Task Initialize(string tabId);
+        Task Initialize(string tabId);
 
-        public Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData);
+        Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData);
 
         [JSInvokable]
-        public void ReceiveMessage(string message);
+        void ReceiveMessage(string message);
 
-        public void Dispose();
+        void Dispose();
     }
 }

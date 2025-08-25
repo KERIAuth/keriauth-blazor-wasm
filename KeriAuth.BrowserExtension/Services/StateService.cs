@@ -15,7 +15,7 @@ public class StateService : IStateService
     public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger)
     {
         this.storageService = storageService;
-        this.stateMachine = new(States.Uninitialized);
+        stateMachine = new(States.Uninitialized);
         ConfigureStateMachine();
         this.logger = logger;
         this.webExtensionsApi = webExtensionsApi;
@@ -85,9 +85,9 @@ public class StateService : IStateService
     public async Task NotifyObservers()
     {
         await Task.Delay(0); // caller does not need to wait
-        foreach (var observer in stateObservers)
+        foreach (var observer in stateObservers) { 
             observer.OnNext(stateMachine.State);
-
+        }
         return;
     }
 
@@ -209,7 +209,9 @@ public class StateService : IStateService
 
         public void Dispose()
         {
-            if (!(_stateObserver == null)) _stateObservers.Remove(_stateObserver);
+            if (!(_stateObserver == null)) {
+                _stateObservers.Remove(_stateObserver);
+            }
         }
     }
 }

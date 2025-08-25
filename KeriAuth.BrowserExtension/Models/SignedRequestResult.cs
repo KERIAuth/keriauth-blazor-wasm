@@ -8,7 +8,7 @@ namespace KeriAuth.BrowserExtension.Models
             SignedHeadersResult headers
         )
         {
-            this.Headers = headers;
+            Headers = headers;
         }
 
         [JsonPropertyName("headers")]

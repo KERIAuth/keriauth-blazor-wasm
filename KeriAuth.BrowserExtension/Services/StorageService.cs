@@ -14,16 +14,14 @@ using WebExtensions.Net;
 using static KeriAuth.BrowserExtension.Services.IStorageService;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
-public partial class StorageService : IStorageService, IObservable<Preferences>
-{
+public partial class StorageService : IStorageService, IObservable<Preferences> {
     private readonly IJSRuntime jsRuntime;
     private readonly IJsRuntimeAdapter jsRuntimeAdapter;
     private readonly ILogger<StorageService> logger;
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
     private readonly WebExtensionsApi webExtensionsApi;
 
-    public StorageService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<StorageService> logger)
-    {
+    public StorageService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<StorageService> logger) {
         this.jsRuntime = jsRuntime;
         this.jsRuntimeAdapter = jsRuntimeAdapter;
         this.logger = logger;
@@ -38,17 +36,14 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
     private readonly DotNetObjectReference<StorageService>? _dotNetObjectRef;
 
-    public void Dispose()
-    {
+    public void Dispose() {
         _dotNetObjectRef?.Dispose();
     }
 
-    public async Task<Task> Initialize()
-    {
+    public async Task<Task> Initialize() {
         logger.Log(ServiceLogLevel, "Initialize");
         // This just needs to be done once after the service start up,
-        try
-        {
+        try {
             logger.Log(ServiceLogLevel, "Using StorageApi");
 
             Debug.Assert(jsRuntimeAdapter is not null);
@@ -58,8 +53,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/storageHelper.js");
             await _module.InvokeVoidAsync("addStorageChangeListener", _dotNetObjectRef);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             // logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
             throw new ArgumentException("Error adding addStorageChangeListener", e);
         }
@@ -67,55 +61,46 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         return Task.CompletedTask;
     }
 
-    public AppHostingKind GetAppHostingKind()
-    {
+    public AppHostingKind GetAppHostingKind() {
         return AppHostingKind.BlazorWasmHosted;
     }
 
-    public async Task Clear()
-    {
+    public async Task Clear() {
         await webExtensionsApi.Storage.Local.Clear();
         return;
     }
 
-    public async Task RemoveItem<T>()
-    {
+    public async Task RemoveItem<T>() {
         var tName = typeof(T).Name; //.ToUpperInvariant();
         await webExtensionsApi.Storage.Local.Remove(tName);
         return;
     }
 
-    public async Task<Result<T?>> GetItem<T>()
-    {
-        try
-        {
+    public async Task<Result<T?>> GetItem<T>() {
+        try {
             var keys = new WebExtensions.Net.Storage.StorageAreaGetKeys(typeof(T).Name);
             var jsonElement = await webExtensionsApi.Storage.Local.Get(keys);
-            if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(typeof(T).Name), out JsonElement jsonElement2))
-            {
+            if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(typeof(T).Name), out JsonElement jsonElement2)) {
                 // logger.LogWarning("storageService22 value {x}", jsonElement2);
                 // logger.LogWarning("storageService22 jsonElement {x}", jsonElement2);
                 T? t = JsonSerializer.Deserialize<T>(jsonElement2, jsonSerializerOptions);
                 // logger.LogError("storageService22 t: {x} .", t!.ToString());
                 return t.ToResult<T?>();
             }
-            else
-            {
+            else {
                 // logger.LogError("storageService22 returning null");
                 return Result.Ok();
             }
 
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             logger.LogError("Failed to get item: {e}", e.Message);
             Console.WriteLine($"Failed to get item: {e.Message}");
             return Result.Fail($"Failed to get item: {e.Message}");
         }
     }
 
-    private static readonly JsonSerializerOptions jsonSerializerOptions = new()
-    {
+    private static readonly JsonSerializerOptions jsonSerializerOptions = new() {
         PropertyNameCaseInsensitive = false,
         IncludeFields = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
@@ -125,43 +110,40 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         //}
     };
 
-    public async Task<Result> SetItem<T>(T t)
-    {
-        try
-        {
+    public async Task<Result> SetItem<T>(T t) {
+        try {
             var data = new Dictionary<string, object?>{
                 { typeof(T).Name, t }};
             await webExtensionsApi.Storage.Local.Set(data);
             return Result.Ok();
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             var msg = "Failed to serialize or set item:";
             logger.LogError("{m} {e}", msg, e.Message);
             Console.WriteLine($"{msg} {e.Message}");
             return Result.Fail($"{msg} {e.Message}");
         }
     }
-    IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver)
-    {
-        if (!preferencesObservers.Contains(preferencesObserver))
+    IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver) {
+        if 
+            (!preferencesObservers.Contains(preferencesObserver)) { 
             preferencesObservers.Add(preferencesObserver);
+        }
         return new Unsubscriber(preferencesObservers, preferencesObserver);
     }
 
-    private sealed class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable
-    {
+    private sealed class Unsubscriber(List<IObserver<Preferences>> observers, IObserver<Preferences> observer) : IDisposable {
         private readonly List<IObserver<Preferences>> _preferencesObservers = observers;
         private readonly IObserver<Preferences> _preferencesObserver = observer;
 
-        public void Dispose()
-        {
-            if (!(_preferencesObserver == null)) _preferencesObservers.Remove(_preferencesObserver);
+        public void Dispose() {
+            if (!(_preferencesObserver == null)) {
+                _preferencesObservers.Remove(_preferencesObserver);
+            }
         }
     }
 
-    private JsonDocument RemoveKeys(JsonDocument jsonDocument)
-    {
+    private JsonDocument RemoveKeys(JsonDocument jsonDocument) {
         List<string> topLevelKeysToRemove =
         [
             // These should not be backed up, in order to force a restore to reset the state of the wallet and authenticate.
@@ -170,18 +152,15 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         return RemoveKeys(jsonDocument, topLevelKeysToRemove);
     }
 
-    private static JsonDocument RemoveKeys(JsonDocument jsonDocument, List<string> topLevelKeysToRemove)
-    {
+    private static JsonDocument RemoveKeys(JsonDocument jsonDocument, List<string> topLevelKeysToRemove) {
         // Convert to Dictionary
         Dictionary<string, JsonElement> dict = [];
-        foreach (JsonProperty property in jsonDocument.RootElement.EnumerateObject())
-        {
+        foreach (JsonProperty property in jsonDocument.RootElement.EnumerateObject()) {
             dict[property.Name] = property.Value;
         }
 
         // Remove unwanted keys
-        foreach (var key in topLevelKeysToRemove)
-        {
+        foreach (var key in topLevelKeysToRemove) {
             dict.Remove(key);
         }
 
@@ -190,24 +169,20 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
         return JsonDocument.Parse(filteredJson);
     }
 
-    public async Task<Result<string>> GetBackupItems()
-    {
+    public async Task<Result<string>> GetBackupItems() {
         JsonDocument jsonDocument;
-        try
-        {
+        try {
             Debug.Assert(jsRuntimeAdapter is not null);
             jsonDocument = await jsRuntime.InvokeAsync<JsonDocument>("chrome.storage.local.get", null);
         }
-        catch (JsonException ex)
-        {
+        catch (JsonException ex) {
             return Result.Fail($"Unable to parse jsonDocument: {ex.Message}");
         }
         return Result.Ok(jsonDocument.ToJsonString());
     }
 
     [JSInvokable]
-    public async Task NotifyStorageChanged(Dictionary<string, Dictionary<string, JsonElement>> changes, string areaname)
-    {
+    public async Task NotifyStorageChanged(Dictionary<string, Dictionary<string, JsonElement>> changes, string areaname) {
         var convertedChanges = changes.ToDictionary(
             kvp => kvp.Key,
             kvp => (
@@ -218,27 +193,24 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
 
         logger.Log(ServiceLogLevel, "Storage changed: {changes}", convertedChanges);
 
-        switch (areaname)
-        {
+        switch (areaname) {
             case "local":
-                if (changes is not null)
-                {
-                    if (changes.Keys.Contains(nameof(Preferences), StringComparer.OrdinalIgnoreCase))
-                    {
+                if (changes is not null) {
+                    if (changes.Keys.Contains(nameof(Preferences), StringComparer.OrdinalIgnoreCase)) {
                         // logger.LogWarning("Sending preferences to observer 111");
                         // will send the entire preferences to observers versus only the deltas
                         var res = await GetItem<Preferences>();
-                        if (res.IsFailed)
-                        {
+                        if (res.IsFailed) {
                             logger.LogError("Failed to get preferences: {res}", res);
                             return;
                         }
                         var preferences = res.Value;
 
-                        foreach (var observer in preferencesObservers)
-                        {
+                        foreach (var observer in preferencesObservers) {
                             if (preferences is not null)
+                                {
                                 observer.OnNext(preferences);
+                            }
                         }
                     }
                     // TODO P3 ALSO handle notifying subscribers for other keys
@@ -248,7 +220,9 @@ public partial class StorageService : IStorageService, IObservable<Preferences>
             case "managed":
             case "session":
             default:
-                logger.LogError("Responding to storage area not implemented: {areaname}", areaname);
+                {
+                    logger.LogError("Responding to storage area not implemented: {areaname}", areaname);
+                }
                 break;
         }
     }

@@ -15,10 +15,10 @@ namespace KeriAuth.BrowserExtension.Models
                 // throw new ArgumentException("Either arc or ari must be non-null");
             }
 
-            this.ARCredential = arc;
-            this.ARIdentifier = ari;
+            ARCredential = arc;
+            ARIdentifier = ari;
             // TODO P3 make expiry configurable
-            this.Expiry = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
+            Expiry = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
         }
 
         [JsonPropertyName("credential")]

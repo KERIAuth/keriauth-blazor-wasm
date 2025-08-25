@@ -10,8 +10,8 @@ namespace KeriAuth.BrowserExtension.Models
             string alias
             )
         {
-            this.Prefix = prefix;
-            this.Alias = alias;
+            Prefix = prefix;
+            Alias = alias;
         }
 
         [JsonPropertyName("prefix")]

@@ -28,12 +28,12 @@ namespace KeriAuth.BrowserExtension.Models
 
         public ApprovedSignRequest(string passcode, string adminUrl, string origin, string url, string method, Dictionary<string, string>? initHeaders, string selectedName)
         {
-            this.Passcode = passcode;
-            this.AdminUrl = adminUrl;
+            Passcode = passcode;
+            AdminUrl = adminUrl;
             Origin = origin;
             Url = url;
             Method = method;
-            this.InitHeaders = initHeaders;
+            InitHeaders = initHeaders;
             SelectedName = selectedName;
         }
     }

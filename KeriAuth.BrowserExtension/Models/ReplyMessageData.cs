@@ -14,12 +14,12 @@ namespace KeriAuth.BrowserExtension.Models
             string? error = null,
             string? source = null)
         {
-            this.Type = type;
-            this.PayloadTypeName = typeof(T).Name;
-            this.RequestId = requestId;
-            this.Payload = payload;
-            this.Error = error;
-            this.Source = source;
+            Type = type;
+            PayloadTypeName = typeof(T).Name;
+            RequestId = requestId;
+            Payload = payload;
+            Error = error;
+            Source = source;
         }
 
         [JsonPropertyName("type")]

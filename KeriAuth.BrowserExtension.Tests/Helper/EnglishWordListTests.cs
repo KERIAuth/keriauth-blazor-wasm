@@ -1,5 +1,4 @@
-using KeriAuth.BrowserExtension.Helper;
-using Xunit;
+﻿using KeriAuth.BrowserExtension.Helper;
 
 namespace KeriAuth.BrowserExtension.Tests.Helper
 {

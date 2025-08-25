@@ -12,10 +12,10 @@ namespace KeriAuth.BrowserExtension.Models
             string signifyTimestamp
         )
         {
-            this.Signature = signature;
-            this.SignatureInput = signatureInput;
-            this.SignifyResource = signifyResource;
-            this.SignifyTimestamp = signifyTimestamp;
+            Signature = signature;
+            SignatureInput = signatureInput;
+            SignifyResource = signifyResource;
+            SignifyTimestamp = signifyTimestamp;
         }
 
         [JsonPropertyName("signature")]

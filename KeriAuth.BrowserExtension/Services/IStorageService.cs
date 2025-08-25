@@ -25,7 +25,7 @@ public interface IStorageService : IObservable<Preferences>
     /// </summary>
     /// <typeparam name="T">Class which was stored</typeparam>
     /// <returns>A new instance of that class filled with the content from the storage</returns>
-    public Task<Result<T?>> GetItem<T>();
+    Task<Result<T?>> GetItem<T>();
 
     /// <summary>
     /// Stores a specific instance of a class in the storage
@@ -33,11 +33,11 @@ public interface IStorageService : IObservable<Preferences>
     /// <param name="t">Instance of the class to be stored</param>
     /// <typeparam name="T">Type of class</typeparam>
     /// <returns></returns>
-    public Task<Result> SetItem<T>(T t);
+    Task<Result> SetItem<T>(T t);
 
     AppHostingKind GetAppHostingKind();
 
-    public enum AppHostingKind
+    enum AppHostingKind
     {
         Unknown,
         BlazorWasmExtension,   // e.g. hosted via browser extension
@@ -45,5 +45,5 @@ public interface IStorageService : IObservable<Preferences>
         BlazorHybridApp  // e.g. for mobile app
     }
 
-    public Task<Result<string>> GetBackupItems();
+    Task<Result<string>> GetBackupItems();
 }

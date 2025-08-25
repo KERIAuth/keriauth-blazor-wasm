@@ -4,7 +4,7 @@ using static KeriAuth.BrowserExtension.Services.IStateService;
 
 public interface IStateService : IObservable<States>
 {
-    public enum States
+    enum States
     {
         Unknown,
         Uninitialized,
@@ -15,19 +15,19 @@ public interface IStateService : IObservable<States>
         AuthenticatedConnected
     }
 
-    public States GetState();
+    States GetState();
 
-    public Task Initialize();
+    Task Initialize();
 
-    public Task Configure();
+    Task Configure();
 
-    public Task Authenticate(bool isConnected);
+    Task Authenticate(bool isConnected);
 
-    public Task Unauthenticate();
+    Task Unauthenticate();
 
-    public Task TimeOut();
+    Task TimeOut();
 
-    public Task ConfirmConnected();
+    Task ConfirmConnected();
 
-    public bool IsAuthenticated();
+    bool IsAuthenticated();
 }

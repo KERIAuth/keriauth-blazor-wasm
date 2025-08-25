@@ -4,7 +4,7 @@
 
     // public record Sad(A a, string d);
 
-    public record Schema(string title, string credentialType, string description);
+    public record Schema(string Title, string CredentialType, string Description);
 
     //public record Status(string et);
 

@@ -7,8 +7,8 @@ namespace KeriAuth.BrowserExtension.Models
         [JsonConstructor]
         public AuthorizeResultCredential(string rawJson, string cesr)
         {
-            this.RawJson = rawJson;
-            this.Cesr = cesr;
+            RawJson = rawJson;
+            Cesr = cesr;
         }
 
         [JsonPropertyName("rawJson")]
