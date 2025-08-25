@@ -9,7 +9,7 @@ import {
     Tier,
     ready,
     EventResult,
-} from "@signify-ts";
+} from "signify-ts";
 
 export const PASSCODE_TIMEOUT = 5;
 

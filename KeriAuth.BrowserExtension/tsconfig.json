@@ -19,7 +19,7 @@
     "outDir": "./dist",
     "paths": {
       "*": [ "./node_modules/*" ],
-      "@signify-ts/*": [ "./node_modules/signify-ts/dist/*" ],
+      "signify-ts": [ "./node_modules/signify-ts/dist/index.js" ],
       "@cbor/*": [ "./node_modules/cbor2/lib/*" ],
       "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ]
     },

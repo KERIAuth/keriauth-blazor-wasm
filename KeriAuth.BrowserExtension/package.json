@@ -32,7 +32,7 @@
     "esbuild-plugin-alias": "^0.2.1",
     "eslint": "^9.18.0",
     "path": "^0.12.7",
-    "signify-ts": "0.3.0-rc1",
+    "signify-ts": "github:weboftrust/signify-ts#78d0a694522b4a7ce3c8a77de417d96ed739397f",
     "typescript": "^5.4.2",
     "undici-types": "^6.18.2",
     "urlsafe-base64": "^1.0.0",
