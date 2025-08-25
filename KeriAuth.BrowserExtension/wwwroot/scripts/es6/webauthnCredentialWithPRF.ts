@@ -1,7 +1,7 @@
 /// <reference types="chrome-types" />
 
 interface User extends PublicKeyCredentialUserEntity {
-    id: Uint8Array;
+    id: BufferSource;
     name: string;
     displayName: string;
 }
@@ -174,7 +174,7 @@ async function getOrCreateUser(): Promise<User> {
     let namestring = await generateSixDigitNumber(id.toString());
     let name: string = `${KERI_AUTH_EXTENSION_NAME + " (" + namestring + ")"}`; // fixed for same profile
     user = {
-        id: id,
+        id: Uint8Array.from(id),
         name: name,
         displayName: name,
     };
@@ -433,7 +433,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
                     eval: {
                         first: await derive32Uint8ArrayFromProfileId(),
                     },
-                },
+                } as any,
             },
         };
 

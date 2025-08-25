@@ -17,7 +17,7 @@
     "esbuild-plugin-alias": "^0.2.1",
     "libsodium-wrappers-sumo": "^0.7.9",
     "mathjs": "^12.4.0",
-    "signify-polaris-web": "github:weboftrust/polaris-web#main",
+    "signify-polaris-web": "github:weboftrust/polaris-web#7d7dd13",
     "structured-headers": "^0.5.0",
     "urlsafe-base64": "^1.0.0"
   },
