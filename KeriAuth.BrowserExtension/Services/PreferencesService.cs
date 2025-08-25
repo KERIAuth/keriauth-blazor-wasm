@@ -5,13 +5,13 @@ using JsBind.Net;
 using KeriAuth.BrowserExtension.Models;
 using WebExtensions.Net;
 
-public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>
-{
+public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>, IDisposable {
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
     private readonly IStorageService storageService = storageService;
     // private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
     private IDisposable? stateSubscription;
     private WebExtensionsApi? webExtensionsApi;
+    private bool _disposed;
 
     public async Task Initialize()
     {
@@ -95,5 +95,37 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
                 _preferencesObservers.Remove(_preferencesObserver);
             }
         }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            // Dispose managed resources.
+            stateSubscription?.Dispose();
+            stateSubscription = null;
+            preferencesObservers.Clear();
+
+            // If webExtensionsApi implements IDisposable, dispose it as well.
+            if (webExtensionsApi is IDisposable disposableApi)
+            {
+                disposableApi.Dispose();
+                webExtensionsApi = null;
+            }
+        }
+
+        // Note: No unmanaged resources to free.
+        _disposed = true;
     }
 }
