@@ -32,10 +32,10 @@
         // TODO P2 add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
         [Required]
         [Url(ErrorMessage = "Enter KERIA Agent Admin URL")]
-        public string AdminUrl { get; set; } = AppConfig.DefaultKeriaAdminUrl;
+        public string AdminUrl { get; set; } = presetAgents[0].AgentUrl;
 
         // TODO P2 see potential password needed for the boot endpoint: https://github.com/WebOfTrust/keria/issues/327
-        public string? BootUrl { get; set; } = AppConfig.DefaultKeriaBootUrl;
+        public string? BootUrl { get; set; } = presetAgents[0].BootUrl;
     }
 
     // TODO P3 DRY with UnlockView
@@ -48,7 +48,8 @@
     }
 
     // fields
-    static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
+    Preset defaultPreset => presetAgents[0];
+    KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
     static readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERI Agent Service liveness", "Estalished KERIA connection");
     static readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
     static readonly OperationDisplay ops3BootMaybeAndConnect = new OperationDisplay("Connecting", "Connected");
@@ -56,16 +57,16 @@
     static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
     static List<Preset> presetAgents = new List<Preset>
     {
-        new Preset("localhost", AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl),
         new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
+        new Preset("localhost", AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl),
         new Preset("Custom", "", "")
     };
     WebExtensionsApi? webExtensionsApi;
     Preset _presetChoice = presetAgents[0];
     UrlModel urlModel = new UrlModel()
     {
-        AdminUrl = AppConfig.DefaultKeriaAdminUrl,
-        BootUrl = AppConfig.DefaultKeriaBootUrl
+        AdminUrl = presetAgents[0].AgentUrl,
+        BootUrl = presetAgents[0].BootUrl,
     };
     PasscodeModel configuredPasscodeModel = new PasscodeModel();
     private MudButton? nextButton;
@@ -127,17 +128,25 @@
         // clear in case radio is toggled after passcode is copied, entered
         configuredPasscodeModel.Passcode = "";
         IsPasscodeCopyConfirmed = false;
-        StateHasChanged();
+        await ResetOps();
         await Copy2Clipboard(RandomPasscode);
+    }
+
+    async Task ResetOps()
+    {
+        IsProcessing = false;
+        ops1LivenessCheck.Reset();
+        ops2HealthCheck.Reset();
+        ops3BootMaybeAndConnect.Reset();
+        ops4ListAids.Reset();
+        ops5CreatePersonalAid.Reset();
+        StateHasChanged();
     }
 
     async Task<bool> ConnectToKeria()
     {
-        ops1LivenessCheck.Reset();
-        ops2HealthCheck.Reset();
-        ops3BootMaybeAndConnect.Reset();
-        ops5CreatePersonalAid.Reset();
-        ops4ListAids.Reset();
+        await ResetOps();
+        IsProcessing = true;
 
         if (!IsValidNewInfo || IsKeriaConfigured)
         {
@@ -275,7 +284,7 @@
             <MudText Typo="Typo.h6">Configure</MudText>
             <MudStack>
                 <MudText Typo="Typo.h6">KERI Agent Service</MudText>
-                <MudSelect T="Preset" Label="Preset" @bind-Value="@PresetChoice">
+                <MudSelect T="Preset" Label="Provider" @bind-Value="@PresetChoice">
                     @foreach (var preset in presetAgents)
                     {
                         <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>

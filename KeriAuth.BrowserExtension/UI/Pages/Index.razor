@@ -61,7 +61,7 @@
     // private bool IsLoading { get; set; } = true;
     private WebExtensionsApi? webExtensionsApi;
     string? initialUriQuery;
-    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.DefaultKeriaConnectAlias, AppConfig.DefaultKeriaAdminUrl, AppConfig.DefaultKeriaBootUrl, 0);
+    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.LocalhostKeriaConnectAlias, AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl, 0);
     private KeriaConnectConfig? keriaConnectConfig;
     const string termsUrlPath = "content/terms.html";
     const string privacyUrlPath = "content/privacy.html";

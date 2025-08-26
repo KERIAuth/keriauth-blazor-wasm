@@ -44,9 +44,11 @@ namespace KeriAuth.BrowserExtension
 
 		// Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup        
 		public const float DefaultInactivityTimeoutMins = 5.0f;
-		public const string DefaultKeriaConnectAlias = "localhost";
-		public const string DefaultKeriaAdminUrl = "http://localhost:3901";
-		public const string DefaultKeriaBootUrl = "http://localhost:3903";
+
+        // KERI agent connection settings
+        public const string LocalhostKeriaConnectAlias = "localhost";
+		public const string LocalhostKeriaAdminUrl = "http://localhost:3901";
+		public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
 		// default preferences
 		public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
