@@ -53,6 +53,26 @@
     MudButton? unlockWithAuthenticatorButton;
     string openWalletError = string.Empty;
     KeriaConnectConfig? keriaConnectConfig;
+    private string taglineText = taglineAlternatives[0];
+    private static string[] taglineAlternatives = 
+    {
+        "authentically yours",
+        "keys at the edge",
+        "secure by design",
+        "security first",
+        "your keys, your identity",
+        "secure and authentic",
+        "you have the proof",
+        "the power to prove",
+        "credentialed",
+        "authentic authority",
+        "provenance matters",
+        "don't trust, verify",
+        "organizational identity",
+        "challenge me",
+        "trusted interactions",
+        "impressive credentials"
+    };
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
@@ -79,6 +99,11 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
+
+        // pick a random tagline
+        var rnd = new Random();
+        taglineText = taglineAlternatives[rnd.Next(taglineAlternatives.Length)];
+        await Task.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -246,7 +271,7 @@
                 <MudText Typo="Typo.h5">
                     <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">KeriAuth</span>
                     <br />
-                    <span style="font-style:italic; font-size:initial;">authentically yours</span>
+                    <span style="font-style:italic; font-size:initial;">@taglineText</span>
                 </MudText>
                 <MudText Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
             </MudStack>
