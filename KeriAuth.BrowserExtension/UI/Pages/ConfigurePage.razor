@@ -160,7 +160,8 @@
             StateHasChanged();
             // TODO P1 avoid if BootUrl is not a URL
             var baseUri = new Uri(urlModel.BootUrl!);
-            var healthUri = new Uri(baseUri, "health");
+            // TODO P2 would be better to check the KERI port (or a non-Boot URL), which means this needs to be configured.
+            var healthUri = new Uri(baseUri, "health"); 
             var healthUriBuilder = new UriBuilder(healthUri);
 
             var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
