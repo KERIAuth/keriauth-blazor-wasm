@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Backend + Frontend",
+      "configurations": ["ASP.NET (Kestrel)", "Edge: Frontend"]
+    }
+  ],
+  "configurations": [
+    {
+      "name": "ASP.NET (Kestrel)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "dotnet build",
+      "program": "${workspaceFolder}/YourProject/bin/Debug/net8.0/YourProject.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/YourProject",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Edge: Frontend",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "web dev"
+    }
+  ]
+}

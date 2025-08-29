@@ -1,0 +1,17 @@
+{
+  // Formatting & linting
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "ms-dotnettools.csdevkit",
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.alwaysShowStatus": true,
+
+  // Keep C#/Roslyn analyzers aligned with your .editorconfig
+  "dotnet.defaultSolution": "YourSolution.sln",
+
+  // TypeScript: prefer workspace TS
+  "typescript.tsdk": "node_modules/typescript/lib",
+
+  // Testing (C# Dev Kit shows tests after a successful build)
+  "testing.automaticallyOpenPeekView": "never"
+}

@@ -532,4 +532,4 @@ obj/
 /KeriAuth.BrowserExtension/dist/wwwroot/scripts/esbuild/signify_ts_shim.js
 /KeriAuth.BrowserExtension/dist/tsconfig.tsbuildinfo
 /KeriAuth.BrowserExtension/commit_hash.txt
-/.vscode
+

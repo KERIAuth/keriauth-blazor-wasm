@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "dotnet restore", "type": "process", "command": "dotnet", "args": ["restore"] },
+    { "label": "dotnet build", "type": "process", "command": "dotnet", "args": ["build", "--no-restore"], "dependsOn": ["dotnet restore"], "group": "build" },
+    { "label": "npm ci", "type": "npm", "script": "ci" },
+    { "label": "npm build", "type": "npm", "script": "build", "dependsOn": ["npm ci"] },
+    { "label": "web dev", "type": "npm", "script": "dev", "isBackground": true, "problemMatcher": "$tsc-watch" }
+  ]
+}
