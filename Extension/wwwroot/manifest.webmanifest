@@ -1,0 +1,28 @@
+{
+  "name": "KERI Auth Browser Extension",
+  "short_name": "KERI Auth",
+  "start_url": ".",
+  "id": "./",
+  "display": "standalone",
+  "background_color": "#37464e",
+  "theme_color": "#37464e", // same as header in blazor app
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "images/48_keri_logo.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "images/192_keri_logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "images/512_keri_logo.png", // image used when installed as a page
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+﻿@page "/Delete"
+@using Extension.Services
+@inject IJSRuntime js
+@inject NavigationManager navManager
+@inject IStorageService storageService
+@inject IStateService stateService
+@using static Extension.AppConfig;
+@inject IDialogService dialogService
+@inject ILogger<DeletePage> logger
+@using static Extension.Helper.PreviousPage
+@using static Extension.Helper.UIHelper
+@inject IWebExtensionsApi webExtensionsApi
+@inject IJsRuntimeAdapter jsRuntimeAdapter
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Delete Local Configuration</MudText>
+            <MudStack class="d-flex mt-2 justify-center">
+                <MudText>Are you sure you want to delete your local configuration? </MudText>
+                <MudText>
+                    If in the future you want to reconnect to your same KERI Agent Service to access your agent, identifiers, credentials, and other data there, make sure you have its URLs and your passcode safely recorded.
+                </MudText>
+            </MudStack>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer></MudSpacer>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="async () => await DeleteWallet()" Class="justify-end">Delete</MudButton>
+    </MudStack>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
+    }
+
+    private async Task DeleteWallet()
+    {
+        bool isRemoveConfirmed;
+
+        // show a dialog to confirm deletion
+        var result = await dialogService.ShowMessageBox(
+            "Delete Configuration",
+            $"Are you sure you want to delete your local configuration?",
+            yesText: "Yes, Delete",
+            cancelText: "Cancel",
+             options: new DialogOptions()
+                 {
+                     CloseOnEscapeKey = true,
+                 }
+         );
+        isRemoveConfirmed = result.GetValueOrDefault();
+        if (isRemoveConfirmed)
+        {
+            await webExtensionsApi.Storage.Local.Clear();
+            await webExtensionsApi.Storage.Sync.Clear();
+            await webExtensionsApi.Storage.Session.Clear();
+
+            RestartBlazorApp("index.html"); // intentionally index.html and not not RouteToIndex
+        } else
+        {
+            navManager.NavigateTo(RouteToHome);
+        }
+    }
+}

@@ -1,0 +1,155 @@
+﻿@page "/Authenticators"
+
+@using Extension.Helper
+@using Extension.Models
+@using Extension.UI.Components
+@using Extension.Services
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using static Extension.AppConfig;
+@using static Extension.Helper.Identicon;
+@using static Extension.Helper.PreviousPage
+@using System.Diagnostics
+@using System.Text.Json
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using JsBind.Net
+@using System.Linq;
+
+@using System.Net.Http.Json
+@inject HttpClient httpClient
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ILogger<Authenticators> logger
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+@inject IWebExtensionsApi webExtensionsApi
+@inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject IWebauthnService webauthnService
+
+@code {
+    public record RegisteredAuthenticator
+    {
+        public string? credential { get; init; }
+        public required string name { get; init; }
+    }
+
+    // fields
+    RegisteredAuthenticators MyRegisteredAuthenticators = new RegisteredAuthenticators();
+
+    // properties
+
+
+    // reactive properties
+    string CountLabel => "(" + MyRegisteredAuthenticators.Authenticators.Count + ")";
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+        // TODO P2 does this need to be recreated here?
+        webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        logger.LogInformation($"OnParametersSetAsync");
+        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
+        StateHasChanged();
+    }
+
+    async Task AddAuthenticator()
+    {
+        navManager.NavigateTo(AppConfig.RouteToAddAuthenticator);
+    }
+
+    async Task rename(string newName, string credentialBase64)
+    {
+        if (newName.Length == 0)
+        {
+            return;
+        }
+        var updatedAuthenticators = new RegisteredAuthenticators()
+            {
+                Authenticators = MyRegisteredAuthenticators.Authenticators
+                        .Select(auth => auth.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
+                            ? auth with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
+                            : auth)
+                        .ToList()
+            };
+        await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
+        snackbar.Add("Successfully renamed authenticator", Severity.Success);
+        // update page's collection
+        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
+        StateHasChanged();
+    }
+
+    async Task delete(string credentialBase64)
+    {
+        var updatedAuthenticators = new RegisteredAuthenticators()
+            {
+                Authenticators = MyRegisteredAuthenticators.Authenticators
+                                .Where(auths => auths.CredentialBase64.GetHashCode() != credentialBase64.GetHashCode())
+                                .ToList()
+            };
+        await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
+        snackbar.Add("Successfully removed authenticator registration", Severity.Success);
+        // update page's collection
+        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
+        StateHasChanged();
+    }
+
+    async Task test(string credentialBase64)
+    {
+        var authCredResult = await webauthnService.AuthenticateCredential([credentialBase64]);
+        if (authCredResult.IsSuccess) {
+            // TODO P2 do a complete decryption test
+            snackbar.Add("Test successful", Severity.Success);
+        } else
+        {
+            snackbar.Add("Test failed", Severity.Warning);
+        }
+        return;
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="d-flex gap-3 bt-main">
+            <div class="bt-main-inside-scroll">
+                <MudStack Row="true">
+                    <MudText Typo="Typo.h6">Authenticators</MudText>
+                    <MudText Typo="Typo.h6">@CountLabel</MudText>
+                </MudStack>
+                <MudStack Class="pt-8">
+                    @if (MyRegisteredAuthenticators.Authenticators.Any())
+                    {
+                        @foreach (var ra in MyRegisteredAuthenticators.Authenticators)
+                        {
+                            <MudCard>
+                                <MudCardContent Style="pb-0 mb-0">
+                                    <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" />
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
+                                </MudCardContent>
+                                <MudCardActions Style="justify-content:flex-end; padding:0;">
+                                    <MudButton OnClick="async () => await test(ra.CredentialBase64)">Test</MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" OnClick="async () => await delete(ra.CredentialBase64)">Delete</MudIconButton>
+                                </MudCardActions>
+                            </MudCard>
+                        }
+                    }
+                </MudStack>
+            </div>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="async () => await AddAuthenticator()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
+    </MudStack>
+</div>

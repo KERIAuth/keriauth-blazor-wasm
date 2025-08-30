@@ -1,0 +1,35 @@
+﻿@page "/add-identifier-dialog"
+@using MudBlazor
+@using Extension.Models
+@using Extension.Helper
+@using Extension.Services
+@using System.Text.Json;
+
+
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+    private string? InputText { get; set; }
+    private static string prompt = @"Enter a unique alias,";
+
+    private void Submit()
+    {
+        MudDialog?.Close(DialogResult.Ok(InputText));
+    }
+
+    private void Cancel()
+    {
+        MudDialog?.Cancel();
+    }
+}
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6">@prompt</MudText>
+        <MudText Typo="Typo.h6">@AppConfig.ExampleAlias</MudText>
+        <MudTextField @bind-Value="InputText" Label="Input" Variant="Variant.Outlined" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Add</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Filled">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>

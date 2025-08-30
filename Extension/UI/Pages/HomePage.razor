@@ -1,0 +1,186 @@
+﻿@page "/Home"
+@using Extension
+@using Extension.UI
+@using Extension.Services
+@using Extension.Models
+@using static Extension.AppConfig;
+@using static Extension.Helper.Identicon;
+@using Extension.UI.Components
+@using Extension.Services.SignifyService
+@inject NavigationManager navManager
+@inject IStorageService storageService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject IJSRuntime js
+@inject IStateService stateService
+@inject ILogger<HomePage> logger
+@inject IdentifiersService identifiersService
+@inject IWebsiteConfigService websiteConfigService
+@inject ISignifyClientService signifyClientService;
+
+@using MudBlazor
+
+@code {
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
+
+    // fields
+    int identifiersCount = 0;
+
+    // properties
+    IdentifierHeadline? SelectedIdentifierHeadline { get; set; }
+    int NumWebsites { get; set; } = 0;
+    List<Dictionary<string, object>> Credentials = [];
+
+    // reactive properties
+    // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
+
+    List<Dictionary<string, object>> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
+    int NumCredentialsThisIdentifier => FilteredCredentials.Count();
+    string SelectedPrefix => Prefs.SelectedPrefix;
+    string? SelectedIdenticon => SelectedIdentifierHeadline?.Identicon;
+    string SelectedAlias => SelectedIdentifierHeadline?.Alias ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res is not null && res.IsSuccess)
+        {
+            identifiersCount = res.Value.Count();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var x = await websiteConfigService.GetList();
+        if (x.IsSuccess && x.Value is not null)
+        {
+            NumWebsites = x.Value.WebsiteList.Count();
+        }
+        else
+        {
+            NumWebsites = 0;
+        }
+
+        // Handle effects of value of Prefs updates
+        var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
+        if (identifierHeadlinesRes is not null && identifierHeadlinesRes.IsSuccess)
+        {
+            SelectedIdentifierHeadline = identifierHeadlinesRes.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedPrefix).First();
+        }
+
+        // Get credentials for the number of credentials
+        // TODO P2 See filterCredentials in WebsiteConfigDisplay, and move that into a helper
+        {
+            var res = await signifyClientService.GetCredentials();
+            if (res.IsFailed || res.Value is null)
+            {
+                logger.LogWarning($"Error: {res.Errors}");
+                return;
+            }
+            else
+            {
+                Credentials = res.Value as List<Dictionary<string, object>>;
+            }
+        }
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll" style="align-items:center; justify-content: center; display:flex; flex-direction:column;">
+            <MudText Typo="Typo.h6">Dashboard</MudText>
+            <MudStack AlignItems="AlignItems.Center" Class="mudstack-full-width">
+
+                <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:10px;">
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManageAgents)">KERI Agent</MudLink>
+                        </MudText>
+                        <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
+                            @switch (stateService.GetState())
+                            {
+                                case IStateService.States.AuthenticatedConnected:
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Class="bt-home-status-icon"></MudIcon>
+                                    <MudText Typo="Typo.body1">Connected</MudText>
+                                    break;
+                                case IStateService.States.AuthenticatedDisconnected:
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
+                                    <MudText Typo="Typo.body1">Disconnected</MudText>
+                                    break;
+                                default:
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
+                                    <MudText Typo="Typo.body1">Disconnected - Other</MudText>
+                                    break;
+                            }
+                        </div>
+                    </MudStack>
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
+                        </MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@identifiersCount</MudText>
+                    </MudStack>
+
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Websites</MudLink>
+                        </MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@NumWebsites</MudText>
+                    </MudStack>
+                </MudStack>
+
+                <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
+                    <MudStack Row Style="align-items:center;">
+                        <MudText Class="mudtext-half-width-left">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier + Prefs.SelectedPrefix)">Selected Identifier</MudLink>
+                        </MudText>
+                        <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:38px;">
+                            @if (!string.IsNullOrEmpty(SelectedIdenticon))
+                            {
+                                <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Style="text-align:left; border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 0px;" />
+                                <MudText Style="overflow-wrap: anywhere;">@SelectedAlias</MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left">
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
+                        </MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@NumCredentialsThisIdentifier</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudStack>
+        </div>
+    </div>
+</div>
+<style>
+    .mudstack-full-width {
+        width: 100%;
+    }
+
+    .mudtext-half-width-left {
+        width: 50%;
+        text-align: right
+    }
+
+    .mudtext-half-width-right {
+        width: 50%;
+        text-align: left
+    }
+
+    .bt-home-status-number {
+        padding-left:13px;
+    }
+
+    .bt-home-status-icon {
+        margin-left:5px;
+        margin-right:18px;
+        padding-left:0px;
+    }
+
+    .bt-home-background-box {
+        border-radius:12px;
+    }
+</style>

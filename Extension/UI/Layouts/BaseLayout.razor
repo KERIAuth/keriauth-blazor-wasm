@@ -1,0 +1,36 @@
+﻿@inherits LayoutComponentBase
+
+@using Extension;
+@using Extension.Helper;
+@using Extension.Models
+@using Extension.Services
+@using Extension.Services.SignifyService
+@using Extension.UI.Components
+@using Extension.UI.Pages
+@using FluentResults;
+@using System.Diagnostics;
+@using static Extension.AppConfig;
+@using System.Reactive.Linq
+@using System.Text.Json
+
+@inject HttpClient http
+@inject IJSRuntime js
+<!-- inject Blazor.BrowserExtension.IBrowserExtensionEnvironment BrowserExtensionEnvironment  -->
+@inject NavigationManager navManager
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject IStorageService storageService
+@inject ISnackbar snackbar
+@inject IAlarmService alarmService
+@inject ILogger<BaseLayout> logger
+@inject IStateService stateService
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
+// implements IDisposable
+
+<!-- Note that @Body and other body content will be provided by specialized layouts inheriting from this BaseLayout -->
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // await base.OnInitializedAsync();
+    }
+}

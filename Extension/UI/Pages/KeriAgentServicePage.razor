@@ -1,0 +1,62 @@
+﻿@page "/KeriAgentService"
+@layout Layouts.MainLayout
+
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Services
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using Extension.UI.Components
+@using System.Collections.Immutable
+@using System.Diagnostics
+@using static Extension.AppConfig;
+@using static Extension.Helper.PreviousPage
+@using System.Text.Json
+@using static Extension.Helper.Identicon;
+
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ILogger<CredentialsPage> logger
+@inject ISignifyClientService signifyClientService;
+@inject IStorageService storageService;
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <div style="display:flex;">
+                <MudTooltip Delay="0.5" Placement="Placement.Bottom"
+                            Text="This is a read-only view. You would need to select Delete Configuration from the menu to reset the connection.">
+                    <MudStack Row="true">
+                        <MudText Typo="Typo.h6">KERI Agent Service</MudText>
+                        <!-- <MudIcon Icon=" (at)  Icons.Material.Outlined.Info" Class="bt-info-icon" /> -->
+                    </MudStack>
+                </MudTooltip>
+            </div>
+            <MudStack Class="d-flex justify-center mt-4">
+                <MudText><b>KERIA Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
+                <MudText><b>KERIA Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
+                <MudText><b>Vendor Support URL:</b> <MudLink Target="blank" Href="http://example.com">http://example.com</MudLink></MudText>
+            </MudStack>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer></MudSpacer>
+    </MudStack>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+
+        var res = await storageService.GetItem<KeriaConnectConfig>();
+        if (res.IsFailed || res.Value is null)
+        {
+            throw new Exception("Failed to get KeriaConnectConfig");
+        }
+        keriaConnectConfig = res.Value;
+    }
+
+    KeriaConnectConfig keriaConnectConfig { get; set; } = new();
+}

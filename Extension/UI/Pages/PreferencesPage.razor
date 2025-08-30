@@ -1,0 +1,423 @@
+﻿@page "/ManagePreferences"
+@using Extension.Models
+@using Extension.Services
+@using System.Reactive.Linq
+@inject IStateService stateService
+@inject NavigationManager navManager
+@inject IPreferencesService preferencesService
+@using static Extension.AppConfig;
+@inject IJSRuntime js
+@using static Extension.Helper.PreviousPage
+@inject ILogger<PreferencesPage> logger
+
+@code
+{
+    // most values on this page are reactive to changes via preferencesServices subscription in App
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
+
+    enum DrawerVariantSupportedInTab
+    {
+        Persistent = MudBlazor.DrawerVariant.Persistent,
+        Temporary = MudBlazor.DrawerVariant.Temporary,
+        Responsive = MudBlazor.DrawerVariant.Responsive
+        // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
+    }
+
+    // fields and types
+    // TODO P2 move this to AppConfig
+    private List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
+
+    // properties
+
+    // reactive properties
+
+    List<string> SelectedTransportOptions = []; // => Prefs.SelectedTransportOptions ?? [];
+    float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
+    string InactivityTimeoutLabel => InactivityTimeout.ToString() + " " + (InactivityTimeout <= 1.0f ? "minute" : "minutes");
+    bool IsDarkTheme => Prefs.IsDarkTheme;
+    MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
+    List<string> PersistedTransportOptions => Prefs.SelectedTransportOptions;
+    // TODO P3 set these criteria to known types (or enums) and use those
+    string userVerification => Prefs.UserVerification;
+    string residentKey => Prefs.ResidentKey;
+    string authenticatorAttachment => Prefs.AuthenticatorAttachment;
+    string attestationConveyancePreference => Prefs.AttestationConveyancePref;
+    string SelectedTransportOptionsList => string.Join(", ", PersistedTransportOptions);
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+    }
+
+    async Task Persist(Preferences prefs)
+    {
+        await preferencesService.SetPreferences(prefs);
+    }
+
+    async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
+    {
+        await Persist(Prefs with { IsDarkTheme = isDarkTheme });
+    }
+
+    async Task SetAndPersistDVIT(DrawerVariant dv)
+    {
+        await Persist(Prefs with { DrawerVariantInTab = dv });
+    }
+
+    async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
+    {
+        await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
+    }
+
+    async Task SetAndPersistUserVerification(string v)
+    {
+        await Persist(Prefs with { UserVerification = v });
+    }
+
+    async Task SetAndPersistResidentKey(string v)
+    {
+        await Persist(Prefs with { ResidentKey = v });
+    }
+
+    async Task SetAndPersistauthenticatorAttachment(string v)
+    {
+        await Persist(Prefs with { AuthenticatorAttachment = v });
+    }
+
+    async Task SetAndPersistAttestation(string v)
+    {
+        await Persist(Prefs with { AttestationConveyancePref = v });
+    }
+
+    private async Task UpdateSelection(string transport, bool isChecked)
+    {
+        List<string> newSelection = PersistedTransportOptions.ToList();
+        if (isChecked && !PersistedTransportOptions.Contains(transport))
+        {
+            await Persist(Prefs with { SelectedTransportOptions = newSelection.Append(transport).ToList() });
+        }
+        else if (!isChecked && PersistedTransportOptions.Contains(transport))
+        {
+            await Persist(Prefs with { SelectedTransportOptions = newSelection.Where(item => item != transport).ToList() });
+        }
+        StateHasChanged();
+    }
+
+    private readonly List<string> AllHints = new() { "hybrid", "security-key", "client-device" };
+
+    private List<string> SelectedHints
+    {
+        get => Prefs.SelectedHints;
+        set
+        {
+            UpdatePrefsWithSelectedHints(value);
+        }
+    }
+
+    private async void UpdatePrefsWithSelectedHints(List<string> selectedHints)
+    {
+        await Persist(Prefs with { SelectedHints = selectedHints });
+        StateHasChanged();
+    }
+
+    private void AddHint(string hint)
+    {
+        var updatedHints = SelectedHints.ToList();
+        updatedHints.Add(hint);
+        SelectedHints = updatedHints;
+    }
+
+    private void RemoveHint(string hint)
+    {
+        var updatedHints = SelectedHints.ToList();
+        updatedHints.Remove(hint);
+        SelectedHints = updatedHints;
+    }
+
+    private void MoveUp(string hint)
+    {
+        var updatedHints = SelectedHints.ToList();
+        var index = updatedHints.IndexOf(hint);
+        if (index > 0)
+        {
+            updatedHints.RemoveAt(index);
+            updatedHints.Insert(index - 1, hint);
+            SelectedHints = updatedHints;
+        }
+    }
+
+    private void MoveDown(string hint)
+    {
+        var updatedHints = SelectedHints.ToList();
+        var index = updatedHints.IndexOf(hint);
+        if (index < updatedHints.Count - 1)
+        {
+            updatedHints.RemoveAt(index);
+            updatedHints.Insert(index + 1, hint);
+            SelectedHints = updatedHints;
+        }
+    }
+
+    private bool IsFirst(string hint) => SelectedHints.IndexOf(hint) == 0;
+    private bool IsLast(string hint) => SelectedHints.IndexOf(hint) == SelectedHints.Count - 1;
+
+    // Available hints exclude those already selected
+    private IEnumerable<string> AvailableHints => AllHints.Except(SelectedHints);
+
+    string? MisalignmentAuthenticatorAttachment1 =>
+    (authenticatorAttachment == "platform" && SelectedHints.Contains("security-key"))
+        ? "The hint 'security-key' is indicated, but Authenticator Attachment setting is 'platform', so a platform authenticator will be used instead of a security key."
+        : null;
+
+    string? MisalignmentResidentKey1 =>
+    (SelectedHints.Contains("client-device") && residentKey == "required" && !SupportsDiscoverableCredentials("client-device"))
+    ? "The hint 'client-device' is indicated, but Resident Key is required, and the platform authenticator may not support discoverable credentials, so the operation may fail."
+    : null;
+
+    string? MisalignmentAuthenticatorAttachment2 =>
+    (authenticatorAttachment == "platform" && SelectedHints.Contains("hybrid"))
+        ? "The hint 'hybrid' is indicated, but the authenticatorAttachment setting is 'platform', so hybrid authenticators are not prioritized."
+        : null;
+
+    string? MisalignmentResidentKey2 =>
+    (authenticatorAttachment == "cross-platform" && residentKey == "required" && SelectedHints.Contains("hybrid"))
+    ? "The hint 'hybrid' is indicated, and cross-platform authenticators are required to store discoverable credentials, which may not be supported by some devices."
+    : null;
+
+    // Check capabilities of authenticator type
+    private bool SupportsDiscoverableCredentials(string authenticatorType)
+    {
+        return authenticatorType switch
+        {
+            "client-device" => true, // Assume platform authenticators generally support discoverable credentials
+            _ => false
+        };
+    }
+
+    private async Task ResetToDefault()
+    {
+        await Persist(Prefs with
+            {
+                IsDarkTheme = AppConfig.DefaultIsDarkTheme,
+                DrawerVariantInTab = AppConfig.DefaultDrawerVariantInTab,
+                InactivityTimeoutMinutes = AppConfig.DefaultInactivityTimeoutMins,
+                SelectedHints = new List<string>(),
+                ResidentKey = AppConfig.DefaultResidentKey,
+                AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
+                UserVerification = AppConfig.DefaultUserVerification,
+                AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref
+            });
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Preferences</MudText>
+            <MudStack>
+                <MudText Class="bt-pref-group-label0">
+                    Theme
+                </MudText>
+                <MudStack Row="true" Style="margin-left:20px;">
+                    <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
+                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
+                </MudStack>
+            </MudStack>
+            <MudStack Row="false">
+                <MudText Class="bt-pref-group-label0">
+                    Menu Mode
+                </MudText>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
+                        {
+                            <MudSelectItem Value="item">@item</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+            </MudStack>
+
+            <MudStack Row="false">
+                <MudText Class="bt-pref-group-label0">
+                    Inactivity Timeout
+                </MudText>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" />
+                    <p>@InactivityTimeoutLabel</p>
+                </MudStack>
+            </MudStack>
+
+            <!--
+                TODO P2 Add the following tooltips (?) to the appropriate settings:
+
+                Resident Key (rk): Determines whether credentials should be discoverable without user-provided identifiers (true/false).
+                Attachment: Specifies how the authenticator should be attached to the device (e.g., cross-platform vs. platform).
+                User Verification (UV): Specifies whether the authenticator must verify the user’s identity (e.g., required, preferred, discouraged).
+                Attestation: Governs whether attestation data is collected, and if so, the level of attestation (none, indirect, direct, or enterprise).
+
+                Hints: Specifies the order of preference for authenticator types
+                    Hybrid: Indicates a desire to use an authenticator that works across multiple platforms (e.g., a phone that supports both NFC and Bluetooth).
+                    Security-key: Suggests that the user should use a physical security key (e.g., YubiKey).
+                    Client-device: Indicates the intention to use a platform authenticator built into the client device (e.g., Touch ID on a Mac or Windows Hello).
+            -->
+
+            <MudStack Row="false" Class="pt-3 gap-0">
+                <MudText Class="bt-pref-group-label0">
+                    Webauthn Authenticator Requirements
+                </MudText>
+                <MudStack Row="false" Class="bt-pref-stack1">
+                    <MudText Class="bt-pref-group-label1">
+                        Registration Settings
+                    </MudText>
+
+                    <MudText Class="bt-pref-group-label2">
+                        Hints
+                    </MudText>
+                    <MudStack Row="false" Class="bt-pref-radiogroup">
+                        <MudText>Selected (most to least preferred)</MudText>
+                        @if (SelectedHints.Count == 0)
+                        {
+                            <MudText Typo="Typo.body1" Class="ml-3">(none)</MudText>
+                        }
+                        else
+                        {
+                            <MudList Dense="true" T="string" Class="ml-3">
+                                @foreach (var hint in SelectedHints)
+                                {
+                                    <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                        <MudStack Row="true">
+                                            <MudText Typo="Typo.body1" Style="width: 95px; align-self:center;">@hint</MudText>
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Color="Color.Primary" Disabled="@IsFirst(hint)" OnClick="() => MoveUp(hint)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Color="Color.Primary" Disabled="@IsLast(hint)" OnClick="() => MoveDown(hint)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Primary" OnClick="() => RemoveHint(hint)" />
+                                        </MudStack>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                        <MudText>Available</MudText>
+                        @if (AvailableHints.Count() == 0)
+                        {
+                            <MudText Typo="Typo.body1" Class="ml-3">(none)</MudText>
+                        }
+                        else
+                        {
+                            <MudList Dense="true" T="string" Class="ml-3">
+                                @foreach (var hint in AvailableHints)
+                                {
+                                    <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                        <MudStack Row="true">
+                                            <MudText Typo="Typo.body1" Style="width: 95px; align-self:center;">@hint</MudText>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="() => AddHint(hint)" />
+                                        </MudStack>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                    </MudStack>
+
+                    <MudText Class="bt-pref-group-label2">
+                        Resident Key
+                    </MudText>
+                    <MudRadioGroup T="string" Value="residentKey" ValueChanged="async (string v) => await SetAndPersistResidentKey(v)" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("required") Class="bt-pref-radio">Required</MudRadio>
+                        <MudRadio Value=@("preferred") Class="bt-pref-radio">Preferred</MudRadio>
+                        <MudRadio Value=@("discouraged") Class="bt-pref-radio">Discouraged</MudRadio>
+                    </MudRadioGroup>
+                    <MudText Class="ml-18" Color="Color.Error">
+                        @MisalignmentResidentKey1
+                        @MisalignmentResidentKey2
+                    </MudText>
+
+                    <MudText Class="bt-pref-group-label2">
+                        Attachment
+                    </MudText>
+                    <MudRadioGroup T="string" Value="authenticatorAttachment" ValueChanged="async (string v) => await SetAndPersistauthenticatorAttachment(v)" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("platform") Class="bt-pref-radio">Platform</MudRadio>
+                        <MudRadio Value=@("cross-platform") Class="bt-pref-radio">Cross-platform</MudRadio>
+                        <MudRadio Value=@("undefined") Class="bt-pref-radio">All Supported</MudRadio>
+                    </MudRadioGroup>
+                    <MudText Class="ml-18" Color="Color.Error">
+                        @MisalignmentAuthenticatorAttachment1
+                        @MisalignmentAuthenticatorAttachment2
+                    </MudText>
+
+                    <MudText Class="bt-pref-group-label2">
+                        User Verification
+                    </MudText>
+                    <MudRadioGroup T="string" Value="userVerification" ValueChanged="async (string v) => await SetAndPersistUserVerification(v)" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("required") Class="bt-pref-radio">Required</MudRadio>
+                        <MudRadio Value=@("preferred") Class="bt-pref-radio">Preferred</MudRadio>
+                        <MudRadio Value=@("discouraged") Class="bt-pref-radio">Discouraged</MudRadio>
+                    </MudRadioGroup>
+
+                    <MudText Class="bt-pref-group-label2">
+                        Require Attestation of Authenticator's Provenance
+                    </MudText>
+                    <MudRadioGroup T="string" Value="attestationConveyancePreference" ValueChanged="async (string v) => await SetAndPersistAttestation(v)" Class="bt-pref-radiogroup">
+                        <MudRadio Value=@("enterprise") Class="bt-pref-radio">Full Attestation of Individual Device ("enterprise")</MudRadio>
+                        <MudRadio Value=@("direct") Class="bt-pref-radio">Full Attestation ("direct")</MudRadio>
+                        <MudRadio Value=@("indirect") Class="bt-pref-radio">Attestation Allowing Anonymity ("indirect")</MudRadio>
+                        <MudRadio Value=@("none") Class="bt-pref-radio">None</MudRadio>
+                    </MudRadioGroup>
+
+                    <!-- TODO P2 either get this hidden div working or delete any use of TransportOptions -->
+                    <div style="display:none;">
+                        <MudText Class="bt-pref-group-label1">
+                            Authentication Setting
+                        </MudText>
+
+                        <MudText Class="bt-pref-group-label2">
+                            Transports
+                        </MudText>
+                        <MudStack Row="true" Class="bt-pref-radiogroup">
+                            @foreach (var transport in AvailableTransportOptions)
+                            {
+                                <MudCheckBox T="bool" Label="@transport" Value="@PersistedTransportOptions.Contains(transport)"
+                                             ValueChanged="async (bool isChecked) => await UpdateSelection(transport, isChecked)" />
+                            }
+                            <p>Selected Transports: @SelectedTransportOptionsList</p>
+                        </MudStack>
+                    </div>
+                </MudStack>
+
+
+            </MudStack>
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudSpacer />
+        <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Reset to Default</MudButton>
+    </MudStack>
+</div>
+
+<style>
+    .bt-pref-radiogroup {
+        padding-left: 60px;
+    }
+
+    .bt-pref-radio {
+    }
+
+    .bt-pref-group-label0 {
+        font-weight: bold;
+        padding-top: 16px;
+    }
+
+    .bt-pref-group-label1 {
+        padding-left: 10px;
+    }
+
+    .bt-pref-group-label2 {
+        padding-left: 40px;
+    }
+
+    .bt-pref-stack1 {
+        width: auto;
+        margin-left: 20px;
+        gap: 0;
+    }
+</style>

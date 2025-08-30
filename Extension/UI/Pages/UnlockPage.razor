@@ -1,0 +1,360 @@
+﻿@page "/Unlock"
+@layout Layouts.MainLayout
+
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Services
+@using Extension
+@using Extension.UI.Components
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using static Extension.Helper.PreviousPage
+@using static Extension.AppConfig;
+@using static Extension.Helper.UIHelper;
+@using static Extension.Services.SignifyService.SignifyServiceConfig
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+@using MudBlazor
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<UnlockPage> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+@inject IWebExtensionsApi webExtensionsApi
+@inject IWebauthnService webauthnService
+
+@code {
+    // fields
+    bool isValid;
+    MudForm? form;
+    string[] errors = { };
+    PasscodeModel unlockPasscodeModel = new PasscodeModel();
+    MudTextField<string>? passcodeField;
+    MudButton? unlockWithAuthenticatorButton;
+    string openWalletError = string.Empty;
+    KeriaConnectConfig? keriaConnectConfig;
+    private string taglineText = taglineAlternatives[0];
+    private static string[] taglineAlternatives =
+    {
+        // authentic
+        "authentically yours",
+        "authentic authority",
+
+        // secure
+        "secure by design",
+        "security first",
+        "secure and authentic",
+        "secure your digital self",
+        "secure interactions",
+        "secure and verifiable",
+
+        // keys
+        "your keys & your identity",
+        "keys at the edge",
+
+        // proof
+        "you have the proof",
+        "the power to prove",
+        "provable identity",
+        "proof beyond borders",
+        "challenge me",
+
+        // credentials
+        "credentialed",
+
+        // provenance
+        "provenance matters",
+        "rooted in trust",
+
+        // architecture
+        "zero trust architecture",
+        "decentralized keys & trustworthy credentials",
+
+        // org
+        "organizational identity",
+
+        // trust
+        "trusted interactions",
+        "trusted by design",
+        "trusted & verifiable",
+        "trusted digital identity",
+        "trustworthy and secure",
+
+        // verifiable
+        "verifiable by design",
+        "verifiable credentials",
+        "verifiable and trustworthy",
+        "verifiable and secure",
+
+        // identity
+        "identity without borders",
+    };
+
+    // properties
+    RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
+
+    // reactive properties
+    string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
+    {
+        0 => "No authenticators registered",
+        1 => "1 authenticator registered",
+        _ => $"{RAS.Authenticators.Count} authenticators registered"
+    };
+    bool CanUseAuthenticator => RAS.Authenticators.Any();
+    bool PrefersToUseAuthenticator => App.Prefs.PrefersToUseAuthenticator;
+    bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
+    string TimeoutDuration => App.Prefs.InactivityTimeoutMinutes switch
+    {
+        0.5f => "30 seconds",
+        1 => "1 minutes",
+        _ => $"{App.Prefs.InactivityTimeoutMinutes} minutes"
+    };
+    string TimeoutNotice => "locked after " + TimeoutDuration + " of inactivity";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+
+        // pick a random tagline
+        var rnd = new Random();
+        taglineText = taglineAlternatives[rnd.Next(taglineAlternatives.Length)];
+        await Task.CompletedTask;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        logger.LogInformation("OnParametersSetAsync");
+
+        // Although we expect to not be authenticated here, if we are (in case of a refresh or navigating back to Unlock), navigate to Home
+        var state = stateService.GetState();
+        if (state == IStateService.States.AuthenticatedConnected || state == IStateService.States.AuthenticatedDisconnected)
+        {
+            navManager.NavigateTo(RouteToHome);
+        }
+
+        // Get the KeriaConnectConfig
+        var res = await storageService.GetItem<KeriaConnectConfig>();
+        if (res.IsFailed || res.Value is null)
+        {
+            throw new Exception("Failed to get KeriaConnectConfig");
+        }
+        keriaConnectConfig = res.Value;
+
+        // check if there are already registeredAuthenticators
+        var res2 = await webauthnService.GetRegisteredAuthenticators();
+        if (res2 is not null)
+        {
+            RAS = res2;
+        }
+        else
+        {
+            // logger.LogInformation("OnParametersSetAsync did not find registeredAuthenticators");
+        }
+        // logger.LogInformation("OnParametersSetAsync sua: {sua}, hasa: {hasa}", ShouldUseAuthenticator, App.HasAutoStartedAuthentictor);
+
+        // StateHasChanged(); // might be needed, for example when preferences have changed via App.Prefs, and need to update UI
+    }
+
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        logger.LogInformation("OnAfterRenderAsync");
+        if (ShouldUseAuthenticator)
+        {
+            if (unlockWithAuthenticatorButton is not null)
+            {
+                await unlockWithAuthenticatorButton.FocusAsync();
+            }
+        }
+        else if (passcodeField is not null)
+        {
+            await passcodeField.FocusAsync();
+        }
+    }
+
+    async Task SetPrefersToUseAuthenticator(bool prefersToUseAuthenticator)
+    {
+        await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = prefersToUseAuthenticator });
+        if (prefersToUseAuthenticator)
+        {
+            await UnlockWithAuthenticator();
+        }
+    }
+
+    async Task SelectAllText()
+    {
+        await Task.Delay(1); // minor delay to ensure the focus event completes
+        if (passcodeField is not null)
+            await passcodeField.SelectAsync();
+    }
+
+    async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await HandleUnlock();
+        }
+    }
+
+    async Task UnlockWithAuthenticator()
+    {
+        var passcodeRes = await webauthnService.AuthenticateAKnownCredential();
+        if (passcodeRes is null || passcodeRes.IsFailed)
+        {
+            snackbar.Add("Failed to authenticate", Severity.Warning);
+            return;
+        }
+        await UnlockWithPasscode(passcodeRes.Value);
+        return;
+    }
+
+    async Task HandleUnlock()
+    {
+        if (unlockPasscodeModel.Passcode is not null)
+            await UnlockWithPasscode(unlockPasscodeModel.Passcode);
+    }
+
+    class PasscodeModel
+    {
+        [Required]
+        [StringLength(21, ErrorMessage = "Passcode must be 21 characters", MinimumLength = 21)]
+        [DataType(DataType.Password)]
+        public string Passcode { get; set; } = "";
+    }
+
+    async Task UnlockWithPasscode(string password)
+    {
+        var currentState = stateService.GetState();
+        if (currentState != IStateService.States.Unauthenticated)
+        {
+            // This should not happen. Could log and handle better
+            logger.LogWarning($"Unexpected AppState {currentState}");
+            await stateService.Initialize();
+            await stateService.Configure();
+        }
+
+        openWalletError = String.Empty;
+
+        if (string.IsNullOrEmpty(password) || password.Length != 21)
+        {
+            snackbar.Add("Invalid passcode. Should be 21 characters.", Severity.Error);
+            return;
+        }
+        if (keriaConnectConfig is null
+            || !keriaConnectConfig.IsAdminUrlConfigured()
+            || keriaConnectConfig.AdminUrl is null)
+        {
+            throw new InvalidOperationException("KeriaConnectConfig not configured");
+        }
+
+        if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
+        {
+            await webExtensionsApi.Storage.Session.Set(new { passcode = password });
+            await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+            await stateService.Authenticate(false);
+            // logger.LogWarning("returned from Authenticate. pausing...");
+            var connectRes = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
+            if (connectRes is null || connectRes.IsFailed)
+            {
+                openWalletError = "Could not connect to KERI Agent";
+                snackbar.Add(openWalletError, Severity.Error);
+                logger.LogError(openWalletError);
+            }
+            else
+            {
+                logger.LogInformation("Connected to KERI Agent");
+                await stateService.ConfirmConnected();
+            }
+            // Stop showing spinner
+            navManager.NavigateTo(RouteToIndex);
+            return;
+        }
+        else
+        {
+            openWalletError = "KERI Auth was not configured with this passcode on this browser profile.";
+            snackbar.Add(openWalletError, Severity.Error);
+            await passcodeField!.SelectAsync();
+            return;
+        }
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main" style="justify-content:center;">
+        <MudStack Class="d-flex justify-center pa-0" Style="text-align:center; flex-direction: column;">
+            <MudStack Style="flex: 1; display:flex; justify-content: center; align-items: center;">
+                <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png"></MudImage>
+                <MudText Typo="Typo.h5">
+                    <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">KeriAuth</span>
+                    <br />
+                    <span style="font-style:italic; font-size:initial;">@taglineText</span>
+                </MudText>
+                <MudText Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
+            </MudStack>
+            <MudStack Style="justify-content: end; min-height:48px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
+                @if (ShouldUseAuthenticator)
+                {
+                    <MudText>
+                        @NumberAuthenticatorsLabel
+                    </MudText>
+                }
+                else // passcode
+                {
+                    <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
+                        <MudTextField Label="Passcode"
+                                      @ref="passcodeField"
+                                      OnKeyDown="@HandleKeyDown"
+                                      InputType="InputType.Password"
+                                      @bind-Value="@unlockPasscodeModel.Passcode"
+                                      HelperText="&nbsp;"
+                                      ErrorText="&nbsp;"
+                                      For="@(() => unlockPasscodeModel.Passcode)"
+                                      Immediate="true"
+                                      @onfocus="SelectAllText" />
+                    </MudForm>
+                }
+            </MudStack>
+        </MudStack>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer />
+        @if (ShouldUseAuthenticator)
+        {
+            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="() => SetPrefersToUseAuthenticator(false)">
+                Use passcode
+            </MudButton>
+            <MudButton @ref="unlockWithAuthenticatorButton" Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
+                Unlock
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary" OnClick="() => SetPrefersToUseAuthenticator(true)">
+                Use authenticator
+            </MudButton>
+            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
+                Unlock
+            </MudButton>
+        }
+    </MudStack>
+</div>

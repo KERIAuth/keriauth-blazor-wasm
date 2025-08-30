@@ -1,0 +1,111 @@
+﻿@page "/Privacy"
+
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Services
+@using Extension
+@using Extension.UI.Components
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using static Extension.Helper.PreviousPage
+@using static Extension.AppConfig;
+@using static Extension.Helper.UIHelper;
+@using static Extension.Services.SignifyService.SignifyServiceConfig
+@using static Extension.Helper.GetNumberFromHash;
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject ILogger<TermsPage> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+
+@code {
+	// fields
+	private OnboardState? onboardState;
+	const string privacyUrlPath = "content/privacy.html";
+	static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
+	private MudButton? nextButton;
+
+	// properties
+	bool IsTermsAgreed { get; set; } = true; // TODO P2 temporary for testing
+
+	// reactive properties
+	int privacyMarkupHash => HashInt(privacyMarkup.Value);
+
+	protected override async Task OnInitializedAsync()
+	{
+		// logger.LogInformation("OnInitializedAsync");
+		privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
+
+		var res = await storageService.GetItem<OnboardState>();
+		if (res.IsFailed)
+		{
+			throw new InvalidOperationException("Failed to get OnboardState");
+		}
+		onboardState = res.Value;
+		await nextButton!.FocusAsync(); // TODO P2 temporary for testing
+	}
+
+	private async Task OnTermsAgreed()
+	{
+		if (onboardState is null)
+		{
+			throw new InvalidOperationException("OnboardState is null");
+		}
+		var newOnboardState = onboardState with
+			{
+				PrivacyAgreedHash = privacyMarkupHash,
+				PrivacyAgreedUtc = DateTime.UtcNow,
+			};
+		_ = await storageService.SetItem<OnboardState>(newOnboardState);
+		StateHasChanged();
+		navManager.NavigateTo(RouteToIndex);
+	}
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+	<div class="d-flex gap-3 bt-main">
+		<MudStack Style="overflow-x:auto;">
+			<MudText Typo="Typo.h6"></MudText>
+			<MudSpacer />
+			<MudText Style="font-weight:bold">Please review and agree to the Privacy Policy</MudText>
+			<MudStack Style="gap:0;">
+				<MudStack Class="d-flex bt-terms-section">
+					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
+					<div class="bt-terms-markup">
+						@(privacyMarkup)
+					</div>
+				</MudStack>
+				<MudDivider />
+				<MudStack class="d-flex mt-5 justify-end" Style="align-items:center;">
+					<MudCheckBox @bind-Value="IsTermsAgreed" data-testid="tosCheckbox" Style="user-select: none; color:var(--mud-palette-primary)">I accept the terms of this Privacy Policy</MudCheckBox>
+				</MudStack>
+			</MudStack>
+		</MudStack>
+	</div>
+	<MudStack Row="true" class="bt-button-tray">
+		<MudSpacer></MudSpacer>
+		<MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
+	</MudStack>
+</div>

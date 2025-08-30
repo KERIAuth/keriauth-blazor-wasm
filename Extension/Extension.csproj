@@ -1,0 +1,165 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+	<!--
+	<PropertyGroup>
+		<BrowserExtensionBootstrap>true</BrowserExtensionBootstrap>
+	</PropertyGroup>
+	-->
+	
+  <!-- General Project Properties -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
+    <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <UserSecretsId>cad0fe82-6961-48ff-a4ff-e99ebdd8192a</UserSecretsId>
+    <RootNamespace>Extension</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
+    <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Debug and Release Specific Properties -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU' or '$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <TypeScriptTarget>ESNext</TypeScriptTarget>
+    <TypeScriptNoImplicitAny>True</TypeScriptNoImplicitAny>
+    <TypeScriptRemoveComments>True</TypeScriptRemoveComments>
+    <TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
+    <DefineConstants>ASSERTIONS</DefineConstants>
+    <NoWarn>1998</NoWarn>
+  </PropertyGroup>
+
+  <!-- Debug-Specific Properties -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>DEBUG</DefineConstants>
+  </PropertyGroup>
+
+  <!-- -->
+  <ItemGroup>
+    <ServiceWorker Include="dist\wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
+  </ItemGroup>
+
+  <!-- Package References -->
+
+  <!-- Trimmable Assemblies -->
+  <ItemGroup>
+    <TrimmableAssembly Include="NBitcoin" />
+  </ItemGroup>
+
+  <!-- Content Files -->
+  <ItemGroup>
+    <Content Update="UI\Pages\PrivacyPage.razor">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
+    <Content Update="wwwroot\content\terms.html" CopyToOutputDirectory="Always" />
+    <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- TypeScript and Non-Included Scripts -->
+  <ItemGroup>
+    <Compile Remove="bin\**" />
+    <Compile Remove="dist\**" />
+    <Content Remove="bin\**" />
+    <Content Remove="dist\**" />
+    <EmbeddedResource Remove="bin\**" />
+    <EmbeddedResource Remove="dist\**" />
+    <None Remove="bin\**" />
+    <None Remove="dist\**" />
+    <None Remove="wwwroot\scripts\**\*.d.ts" />
+    <None Remove="wwwroot\scripts\**\*.ts" />
+    <TypeScriptCompile Remove="bin\**" />
+    <TypeScriptCompile Remove="dist\**" />
+    <TypeScriptCompile Remove="node_modules\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <TypeScriptCompile Remove="wwwroot\scripts\es6\polaris-web-client.d.ts" />
+    <TypeScriptCompile Remove="wwwroot\scripts\types\types.ts" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Blazor.BrowserExtension.Build" Version="3.1.3" />
+    <PackageReference Include="Castle.Core" Version="5.2.1" />
+    <PackageReference Include="FluentResults" Version="4.0.0" />
+    <PackageReference Include="JsBind.Net" Version="2.2.0" />
+    <PackageReference Include="JsBind.Net.Extensions.DependencyInjection" Version="2.2.0" />
+    <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Analyzers" Version="9.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Metadata" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.8" />
+    <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="9.0.8" />
+    <PackageReference Include="Microsoft.NET.Sdk.WebAssembly.Pack" Version="9.0.8" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.8" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
+	  <PackageReference Include="MudBlazor" Version="8.11.0" />
+	  <PackageReference Include="Blazor.BrowserExtension" Version="3.1.3" />
+	  <PackageReference Include="Ensure.That" Version="10.1.0" />
+	  <PackageReference Include="Jdenticon-net" Version="3.1.2" />
+	  <PackageReference Include="MediatR" Version="13.0.0" />
+	  <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="9.0.8" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="9.0.8" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.8" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
+	  <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="5.9.2">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+	  <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.7" />
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	  <PackageReference Include="Polly" Version="8.6.3" />
+	  <PackageReference Include="Stateless" Version="5.19.0" />
+	  <PackageReference Include="System.Reactive" Version="6.0.1" />
+	  <PackageReference Include="System.Text.Json" Version="9.0.8" />
+	  <PackageReference Include="WebExtensions.Net" Version="4.4.0" />
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.8" />
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.8" PrivateAssets="all" />
+
+	  <PackageReference Include="coverlet.collector" Version="6.0.4">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+	  <PackageReference Include="Moq" Version="4.20.72" />
+
+  </ItemGroup>
+
+  <!-- Build Tasks -->
+  <Target Name="InstallDependencies" BeforeTargets="BuildFrontend">
+    <Exec Command="npm install" />
+  </Target>
+
+  <Target Name="BuildFrontend" BeforeTargets="PreBuildEvent">
+    <Exec Command="npm run build" />
+  </Target>
+
+  <Target Name="CopyEs6Javascript" AfterTargets="Build">
+    <!-- Ensure the 'dist' directory exists -->
+    <ItemGroup>
+      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.*" />
+    </ItemGroup>
+
+    <!-- Copy compiled scripts to the appropriate directory -->
+    <Copy SourceFiles="@(CompiledEs6Scripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\es6" SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="CopyEsBuildJavascript" AfterTargets="Build">
+    <!-- Ensure the 'dist' directory exists -->
+    <ItemGroup>
+      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.*" />
+    </ItemGroup>
+
+    <!-- Copy compiled scripts to the appropriate directory -->
+    <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild" SkipUnchangedFiles="false" />
+  </Target>
+
+</Project>

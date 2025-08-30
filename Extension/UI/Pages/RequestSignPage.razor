@@ -1,0 +1,577 @@
+﻿@page "/RequestSign/{encodedOrigin}"
+@layout Layouts.DialogLayout
+
+@using System.Linq
+@using System.Text.Json
+@using Extension.Helper
+@using Extension.Models
+@using Extension.UI.Components
+@using Extension.UI.Pages
+@using Extension.Services
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using static Extension.AppConfig
+@using System.Diagnostics
+@using Microsoft.AspNetCore.WebUtilities
+@using MudBlazor
+@using FluentResults
+@using System.Web
+@using System.Text.Json.Serialization
+@using System;
+@using System.Collections.Generic;
+@using JsBind.Net
+@using WebExtensions.Net
+
+@implements IDisposable
+
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject NavigationManager navManager
+@using static Extension.Helper.PreviousPage
+@inject ILogger<RequestSignPage> logger
+@inject IdentifiersService identifiersService
+@inject ISignifyClientService signifyClientService
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+@inject IWebsiteConfigService websiteConfigService
+@inject IStorageService storageService
+@inject IPreferencesService preferencesService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject IAppSwMessagingService appSwMessagingService
+@inject IJSRuntime jsRuntime
+@inject IJSRuntime js
+@inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject ISnackbar snackbar
+
+@code {
+    [Parameter]
+    public string encodedOrigin { get; set; } = "";
+
+    // fields
+    private MudButton? signRequestButton;
+    static readonly HashSet<string> SafeMethods = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "GET",
+        "HEAD",
+        "OPTIONS"
+    };
+
+    // properties
+    string RequestId { get; set; } = "";
+    string PayloadJson { get; set; } = "";
+    Dictionary<string, string> HeadersDict { get; set; } = new();
+    Dictionary<string, object>? SelectedCredential;
+    bool IsDetailShown { get; set; }
+    bool IsInitialized { get; set; }
+    bool IsExpanded { get; set; }
+    string AppActivePrefix { get; set; } = string.Empty;
+    List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
+    enum SignInMode { Credential, Identifier, Prompt }
+    Preferences? Prefs { get; set; }
+    WebsiteConfig? ThisWebsiteConfig { get; set; }
+    List<Dictionary<string, object>> credentials = new();
+    SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
+    IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
+    string SelectedPrefix { get; set; } = "unknown";
+    string SelectedAidAlias { get; set; } = "unknown";
+
+    // reactive properties
+    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
+    string AuthorityStr => (new Uri(OriginStr)).Authority;
+    public bool HasSafeHttpRequestMethod => HeadersDict.Any(header =>
+       string.Equals(header.Key, "method", StringComparison.OrdinalIgnoreCase) &&
+       SafeMethods.Contains(header.Value));
+    bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
+    string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitialized");
+        await getCredentials();
+        await RefreshFromWebsiteConfig();
+        Prefs = await preferencesService.GetPreferences();
+        IsDetailShown = Prefs.ShowSignRequestDetail;
+        IsInitialized = true;
+        return;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        logger.LogInformation($"OnParametersSetAsync");
+        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+        await GetInitialHeadlines();
+
+        logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
+
+        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
+        // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
+        var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
+        logger.LogInformation($"URI query: {initialUriQuery}");
+        // TODO P2 add try-catch
+        // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
+        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
+        {
+            var decodedMsg = HttpUtility.UrlDecode(outterMessage);
+            logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
+            var decodedMsg2 = HttpUtility.UrlDecode(decodedMsg);
+            logger.LogInformation("Chrome URI query message decoded2: {msg}", decodedMsg2);
+
+            if (!IsJsonValid(decodedMsg2))
+            {
+                logger.LogError("Chrome URI query Invalid JSON message: {msg}", decodedMsg2);
+                return;
+            };
+
+            string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
+
+            // Parse the JSON string
+            // TODO P2 write exception handling around the following
+            JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
+            JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
+            PayloadJson = payload.ToString();
+            HeadersDict = JsonSerializer.Deserialize<Dictionary<string, string>>(payload) ?? new Dictionary<string, string>();
+
+            JsonElement requestId = jsonDocument.RootElement.GetProperty("requestId");
+            RequestId = requestId.ToString();
+
+            if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
+            {
+                await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
+                // TODO P2 notify the user signing is happening, and close?
+            }
+            return;
+        }
+        else
+        {
+            logger.LogError("Could not find UriQuery content containing outter \"message\".");
+            return;
+        }
+    }
+
+    //
+    //
+    //
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && signRequestButton is not null)
+        {
+            await signRequestButton.FocusAsync();
+        }
+    }
+
+    //
+    //
+    //
+    Uri? GetOriginUri()
+    {
+        try
+        {
+            var uri = new Uri(OriginStr);
+            return uri;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("GetOriginUri: Error parsing OriginStr '{o}': {e}", OriginStr, ex);
+            return null;
+        }
+    }
+
+    //
+    //
+    //
+    async Task SetIsDetailShown(bool isDetailShown)
+    {
+        IsDetailShown = isDetailShown;
+        Preferences prefs = await preferencesService.GetPreferences();
+        Prefs = prefs with { ShowSignRequestDetail = isDetailShown };
+        await preferencesService.SetPreferences(Prefs);
+        return;
+    }
+
+
+    // TODO P2 simplify GetInitialHeadlines
+    // Here, GetInitialHeadlines is a overly complex way of getting the alias name of the identifier to sign the headers. Signify-ts and KERIA might
+    // now be able to sign using the Prefix.
+    async Task GetInitialHeadlines()
+    {
+        logger.LogInformation("GetHeadlines...");
+        var res = await identifiersService.GetIdentifierHeadlines();
+        if (res != null && res.IsSuccess)
+        {
+            logger.LogInformation("GetIdentifierHeadlines: count {1}", res.Value.Count);
+            IdentifierHeadlines = res.Value;
+            IdentifierHeadlines = IdentifierHeadlines.OrderBy(a => a.Alias).ToList();
+            if (IdentifierHeadlines.Count > 0)
+            {
+                Debug.Assert(GetOriginUri() is not null); // TODO P2 convert to a throw
+                var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
+                logger.LogInformation("GetHeadlines: getOrCreateWebsite: {0}", JsonSerializer.Serialize(wcRes));
+                if (wcRes.IsFailed)
+                {
+                    logger.LogError("Error in websiteService: {0}", wcRes.Errors);
+                    return;
+                }
+                WebsiteConfig newWebsiteConfig = wcRes.Value.websiteConfig1;
+                if (newWebsiteConfig.RememberedPrefixOrNothing is not null)
+                {
+                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == newWebsiteConfig.RememberedPrefixOrNothing);
+                }
+                else
+                {
+                    // use the user's general preferences or otherwise the first headline
+                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == AppActivePrefix);
+                    if (SelectedHeadlineOrNothing is null)
+                    {
+                        SelectedHeadlineOrNothing = IdentifierHeadlines.First();
+                    }
+                }
+                logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
+                SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
+                SelectedAidAlias = SelectedHeadlineOrNothing?.Alias ?? "UNSET!";
+                Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value ???? for SelectedHeadlineOrNothing");
+                Debug.Assert(GetOriginUri() is not null);
+                // await getWebsiteConfig(GetOriginUri()!);
+                StateHasChanged();
+            }
+            else
+            {
+                throw new Exception("No Identifiers found");
+            }
+        };
+    }
+
+    //
+    //
+    //
+    void InitializeOrOnNextPrefs(Preferences prefs)
+    {
+        AppActivePrefix = prefs.SelectedPrefix;
+        this.StateHasChanged();
+    }
+
+    //
+    //
+    //
+    async Task getCredentials()
+    {
+        var res = await signifyClientService.GetCredentials();
+        if (res.IsFailed || res.Value is null)
+        {
+            logger.LogError($"Error: {res.Errors}");
+            return;
+        }
+        else
+        {
+            credentials = res.Value as List<Dictionary<string, object>>;
+            Debug.Assert(credentials is not null);
+            logger.LogInformation("Credentials: count {res}", credentials.Count);
+        }
+    }
+
+    //
+    //
+    //
+    async Task updateIsAutoSignSafeHeaders(bool isChecked)
+    {
+        // logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
+        if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignSafeHeaders != isChecked)
+        {
+            ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignSafeHeaders = isChecked };
+            await websiteConfigService.Update(ThisWebsiteConfig);
+        }
+        StateHasChanged();
+    }
+
+    //
+    //
+    //
+    // TODO P2 DRY with similar method in WebsiteConfigDisplay
+    async Task RefreshFromWebsiteConfig()
+    {
+        var originUri = GetOriginUri();
+        if (originUri is null)
+        {
+            throw new Exception($"RefreshThisWebsiteConfig: origin must be set.");
+        }
+
+        var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
+        if (getOrCreateWebsiteRes.IsFailed)
+        {
+            throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
+        }
+        var (websiteConfig, isConfigNew) = getOrCreateWebsiteRes.Value;
+        ThisWebsiteConfig = websiteConfig;
+
+        if (isConfigNew)
+        {
+            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
+            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+            await websiteConfigService.Update(ThisWebsiteConfig);
+        }
+        else
+        {
+            SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+        }
+
+        StateHasChanged();
+    }
+
+    //
+    // SignRequest()
+    //
+    async Task SignRequest(SignInMode RequestedSignInMode, string requestId2, string? SelectedName, string payloadJson)
+    {
+        logger.LogInformation("SignRequest: payloadJson: {d}", payloadJson);
+
+        ApiRequest? request = JsonSerializer.Deserialize<ApiRequest>(payloadJson);
+        if (request is null)
+        {
+            logger.LogError("SignRequest: Error: {0}", "Invalid payloadJson");
+            return;
+        }
+        logger.LogInformation("SignRequest: request: {d}", request.ToString());
+
+        // prepare to create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
+        if (SelectedName is null)
+        {
+            var msg = "SelectedName must not be null here";
+            snackbar.Add(msg, Severity.Error);
+            logger.LogError(msg);
+            StateHasChanged(); // needed?
+            // await Task.Delay(8000);
+            return;
+        }
+
+        // adminUrl
+        var connectConfigRes = await storageService.GetItem<KeriaConnectConfig>();
+        if (connectConfigRes.IsFailed || connectConfigRes.Value is null)
+        {
+            var msg = "Config must not be null here";
+            logger.LogError(msg);
+            snackbar.Add(msg, Severity.Error);
+            // await Task.Delay(8000); 
+            return;
+        }
+        var adminUrl = connectConfigRes.Value.AdminUrl;
+
+        // Retrieve cached passcode
+        var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
+        if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
+        {
+            var passcode = passcodeElement2.GetString();
+
+            if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
+            {
+                ApprovedSignRequest approvedSignRequest = new("passcode", "adminUrl", OriginStr, request.Url, request.Method, request.HeadersDict, SelectedName!);
+                ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
+                await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
+            }
+            else
+            {
+                var msg = "Passcode must not be null here";
+                snackbar.Add(msg, Severity.Error);
+                logger.LogError(msg);
+                // await Task.Delay(8000);
+                return;
+            }
+        }
+        // TODO P2 find a better way to prevent race condition, such as putting isPendingKeira flag in service-worker
+        // await Task.Delay(3000); // Need to wait here to assure the above message makes it through signing and to CS before the port is closed.
+        UIHelper.CloseWindow();
+    }
+
+    //
+    //
+    //
+    async Task Cancel()
+    {
+        var replyMessageData = new ReplyMessageData<AuthorizeResult>(
+            "/KeriAuth/signify/replyCancel",
+            new AuthorizeResult(null, null),
+            requestId: RequestId,
+            null,
+            "KeriAuth"
+        );
+        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
+        // Close blazor application
+        UIHelper.CloseWindow();
+    }
+
+    //
+    //
+    //
+    public void Dispose()
+    {
+        // TODO P4 unsubscribe from services, observables
+        ;
+    }
+
+    //
+    //
+    //
+    // TODO P4 remove or create helper?
+    static bool IsJsonValid(string jsonString)
+    {
+        try
+        {
+            // Attempt to parse the JSON string
+            var jsonDocument = JsonDocument.Parse(jsonString);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            // JSON parsing failed, likely due to improper escaping or formatting
+            Console.WriteLine($"JSON Parsing Error: {ex.Message}");
+            return false;
+        }
+    }
+
+    //
+    //
+    //
+    void ToggleExpand()
+    {
+        IsExpanded = !IsExpanded;
+    }
+
+    //
+    //
+    //
+    void SelectCredential(Dictionary<string, object> item)
+    {
+        if (SelectedCredential == item)
+        {
+            IsExpanded = false;
+        }
+        else
+        {
+            SelectedCredential = item;
+            IsExpanded = false;
+        }
+    }
+
+    //
+    //
+    //
+    string GetCredentialItemClass(Dictionary<string, object> item)
+    {
+        return item == SelectedCredential ? "selected-item" : String.Empty;
+    }
+
+    //
+    //
+    //
+    private async Task SignRequestHandler()
+    {
+        await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
+    }
+
+    //
+    //
+    //
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Code == "NumpadEnter")
+        {
+            await SignRequestHandler();
+        }
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Request to Sign</MudText>
+            <MudText Typo="Typo.body1"><em>@AuthorityStr</em></MudText>
+            <MudText class="mt-6" Typo="Typo.body1">
+                This website authority is requesting KERI Auth, with your approval, to cryptographically sign an HTTP Request Header, which will then allow it to validate the credential you used earlier to sign in, then authorize actions.<br />
+            </MudText>
+            @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevent distracting progressive loading
+            {
+                <MudCheckBox Label="Show Details" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)"></MudCheckBox>
+                @if (IsDetailShown)
+                {
+                    <MudPaper>
+                        <table class="non-responsive-table">
+                            <thead style="text-align:left;">
+                                <tr>
+                                    <th class="content-width-col">Key</th>
+                                    <th class="remaining-width-col">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in HeadersDict)
+                                {
+                                    <tr>
+                                        <td class="content-width-col">@item.Key</td>
+                                        <td class="remaining-width-col">@item.Value</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </MudPaper>
+                }
+                <!-- The following is display:none; -->
+                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" style="display:none; height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" />
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
+        <MudButton @ref="signRequestButton"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SignRequestHandler"
+                   @onkeydown="HandleKeyDown">
+            Sign Request
+        </MudButton>
+    </MudStack>
+</div>
+
+<style>
+    .mud-select .mud-select-input .mud-input-slot {
+        height: auto;
+    }
+
+    .selected-item {
+        border-left: 4px solid blue;
+    }
+
+    .content-width-col {
+        width: 1%;
+        white-space: nowrap;
+    }
+
+    .remaining-width-col {
+        word-break: break-all;
+        text-overflow: unset;
+        word-wrap: anywhere;
+        width: auto;
+        white-space: unset !important;
+    }
+
+    .non-responsive-table {
+        table-layout: fixed;
+        border-collapse: collapse;
+        text-align: left;
+        vertical-align: baseline;
+    }
+
+        .non-responsive-table th,
+        .non-responsive-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: baseline;
+        }
+
+        .non-responsive-table th {
+            font-weight: bold;
+        }
+</style>

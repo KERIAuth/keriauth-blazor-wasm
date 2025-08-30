@@ -1,0 +1,176 @@
+@using Blazor.BrowserExtension
+@using static Extension.AppConfig
+@using Extension
+@using Extension.Helper
+@using Extension.UI
+@using Extension.Services
+@using Extension.UI.Layouts
+@using Extension.Models
+@using System.Text.Json
+@using MudBlazor
+@using JsBind.Net
+@using WebExtensions.Net
+@using System.Runtime.InteropServices.JavaScript;
+@using Extension.Services.SignifyService
+@inject IExtensionEnvironmentService extensionEnvironmentService
+@inject NavigationManager navManager
+@inject IJSRuntime jsRuntime
+@inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject ILogger<App> logger
+@inject IPreferencesService preferencesService
+@inject IStorageService storageService
+@inject IStateService stateService
+@inject IAppSwMessagingService appSwMessagingService
+
+@code {
+    // fields
+    private static IStateService? staticStateService;
+    private static ILogger<App>? staticLogger;
+    private static NavigationManager? staticNavManager;
+    private IDisposable? preferencesSubscription;
+    private IDisposable? stateSubscription;
+    private WebExtensionsApi? webExtensionsApi;
+
+    // properties
+    public static Preferences Prefs { get; set; } = new Preferences();
+    public static Uri? InitialUri { get; set; }
+
+    // reactive properties
+    public static bool IsDarkTheme => Prefs.IsDarkTheme;
+    public IStateService.States CurrentState => stateService.GetState();
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation($"OnInitializedAsync");
+        // TODO P2 hack. Instead, create a StaticHelper static class that has injected methods
+        staticStateService = stateService;
+        staticNavManager = navManager;
+        staticLogger = logger;
+
+        // Initialize services as needed
+        InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
+        var contexts = await UIHelper.GetChromeContexts();
+        logger.LogInformation($"Chrome Contexts: {contexts}");
+        await extensionEnvironmentService.Initialize(InitialUri, "unknown");
+        await storageService.Initialize();
+        await stateService.Initialize();
+        await preferencesService.Initialize();
+
+        Prefs = await preferencesService.GetPreferences();
+        await HandleNextFromPreferencesService(Prefs);
+        preferencesSubscription = preferencesService.Subscribe(
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
+            onCompleted: async () => await HandleCompletedFromPreferencesService());
+
+        stateSubscription = stateService.Subscribe(
+            onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
+            onError: async (Exception error) => await HandleErrorFromStateService(error),
+            onCompleted: async () => await HandleCompletedFromStateService()
+        );
+
+        // Subscribe to and handle messages from service worker via messaging service
+        appSwMessagingService.Subscribe<string>((message) =>
+        {
+            logger.LogInformation("App from SW/MessagingService: {m}", message);
+        });
+
+        // Initialize messaging with service worker
+        await appSwMessagingService.Initialize(InitialUri.Authority);
+
+        await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
+
+        await jsRuntime.InvokeVoidAsync("registerLockListener");
+
+        // TODO P4 await jsRuntime.InvokeVoidAsync("setUpUnloadListener");
+
+        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", Prefs.InactivityTimeoutMinutes } };
+        await webExtensionsApi.Storage.Session.Set( data );
+
+        return;
+    }
+
+    async Task HandleNextFromStateService(IStateService.States updatedState)
+    {
+        switch (CurrentState, updatedState)
+        {
+            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
+            case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
+                StateHasChanged();
+                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
+                navManager.NavigateTo(RouteToIndex);
+                break;
+            case (_, IStateService.States.AuthenticatedDisconnected):
+            case (_, IStateService.States.AuthenticatedConnected):
+            case (_, _):
+                StateHasChanged();
+                break;
+        }
+    }
+
+    async Task HandleErrorFromStateService(Exception error)
+    {
+        logger.LogError("Error from stateService: " + error.Message);
+    }
+
+    async Task HandleCompletedFromStateService()
+    {
+        logger.LogInformation("Completed from stateService");
+    }
+
+    public async Task ToggleDarkTheme()
+    {
+        await preferencesService.SetPreferences(Prefs with { IsDarkTheme = !Prefs.IsDarkTheme });
+    }
+
+    public void Dispose()
+    {
+        preferencesSubscription?.Dispose();
+    }
+
+    async Task HandleNextFromPreferencesService(Preferences value)
+    {
+        Prefs = value;
+        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
+    }
+
+    async Task HandleErrorFromPreferencesService(Exception error)
+    {
+        logger.LogError("Error from PreferencesService: " + error.Message);
+    }
+
+    async Task HandleCompletedFromPreferencesService()
+    {
+        logger.LogInformation("Completed from PreferencesService");
+    }
+
+    [JSInvokableAttribute("LockApp")]
+    public static async Task LockApp()
+    {
+        if (staticStateService is null || staticLogger is null)
+        {
+            throw new Exception("unexpected null staticStateService");
+        }
+        staticLogger.LogInformation("LockApp");
+        await staticStateService.TimeOut();
+        // Note that other side-effects will be reactive. See IObserver<StateService>
+        return;
+    }
+}
+
+<PageTitle>KERI Auth</PageTitle>
+<CascadingValue Value="Prefs">
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        </Found>
+        <NotFound>
+            <PageTitle>Loading application assembly...</PageTitle>
+            <LayoutView>
+                <h1>Page not found</h1>
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingValue>
