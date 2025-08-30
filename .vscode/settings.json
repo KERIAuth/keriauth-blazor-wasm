@@ -13,5 +13,10 @@
   "typescript.tsdk": "node_modules/typescript/lib",
 
   // Testing (C# Dev Kit shows tests after a successful build)
-  "testing.automaticallyOpenPeekView": "never"
+  "testing.automaticallyOpenPeekView": "never",
+  "cSpell.words": [
+    "ACDC",
+    "Blazor",
+    "wwwroot"
+  ]
 }
