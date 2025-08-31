@@ -140,4 +140,3 @@ Join the project's community on [Blocktrust's Discord](https://discord.gg/Va79ag
 * [WebOfTrust/signify-browser-extension](https://github.com/WebOfTrust/signify-browser-extension)
 * [WebOfTrust/keria](https://github.com/WebOfTrust/keria)
 * [cardano-foundation/cf-identity-wallet](https://github.com/cardano-foundation/cf-identity-wallet)
-
