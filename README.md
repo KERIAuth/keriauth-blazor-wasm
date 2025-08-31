@@ -1,7 +1,7 @@
 # KERI Auth Browser Extension
 [![KERI Auth build](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml/badge.svg)](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml)
 # Overview
-**KERI Auth** is a browser extension designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and roots of trust such as GLEIF's vLEI.
+**KERI Auth** is a browser extension designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and roots of trust such as GLEIF's vLEI. 
 
 These solutions are aimed at greatly reducing security and privacy vulnerabilities with today’s set of internet mechanisms (e.g., federated identity, passwords, SMS 2FA, certificate authority processes, shared secrets, access tokens, and DNS).
 
