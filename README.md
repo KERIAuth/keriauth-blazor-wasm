@@ -1,22 +1,11 @@
 # KERI Auth Browser Extension
 [![KERI Auth build](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml/badge.svg)](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml)
 # Overview
-**KERI Auth** is a browser extension designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and roots of trust such as GLEIF's vLEI. 
+**KERI Auth** is a browser extension designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and roots of trust such as GLEIF's vLEI.
+
 These solutions are aimed at greatly reducing security and privacy vulnerabilities with today’s set of internet mechanisms (e.g., federated identity, passwords, SMS 2FA, certificate authority processes, shared secrets, access tokens, and DNS).
-The KERI Auth 1.0 release is currently under development and targets the features below.
-# Contents
-- [Features](#features)
-- [For Users](#for_users)
-  - [Installation](#installation)
-  - [Runtime Dependencies](#dependencies)
-- [For Developers](#developers)
-  - [Architecture](#architecture)
-  - [Development Setup](#development-setup)
-  - [Run for development](#run-for-development)
-  - [License](#license)
-  - [Acknowledgments](#acknowledgments)
-- [Community](#community)
-- [References](#references)
+
+The KERI Auth 1.0 release is under development and targets the features below.
 
 # Features
 From the end user’s perspective, the extension enables the user to create and manage their own stable identifiers (KERI AIDs), signing keys, and credentials. It can utilize credentials issued by the website owner and/or other issuers they trust.
@@ -31,8 +20,8 @@ V1.0 target features include:
   * Authorize ("sign in") with a credential you've received
   * Sign Http Header Requests to access web resources
 
-Product Roadmap goals will evolve and may include interoperability with other KERI-related extensions and website JavaScript APIs. 
-For more information, see https://keriauth.com, GitHub Issues, and join the [community](#community) discussions.
+Product Roadmap goals will evolve and may include interoperability with other KERI-related extensions and website JavaScript APIs.
+For more information, see [https://keriauth.com](https://keriauth.com), GitHub Issues, and join the [community](#community) discussions.
 
 <hr/>
 
@@ -43,12 +32,12 @@ The extension will eventually be available for installation from the Chrome Web 
 
 ## Runtime Dependencies
 To successfully install and use the KERI Auth browser extension, you need the following:
-* **Chromium-based Browser** version 127 (released July 2024) or later. Chrome, Edge, or Brave. 
+* **Chromium-based Browser** version 127 (released July 2024) or later. Chrome, Edge, or Brave.
 * **Web page supporting Polaris-web**, a JavaScript API protocol
 * **Connection to KERI Agent Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth browser extension.
 Over time, we expect many KERIA service providers to be available, including a turn-key self-hosted option. There is currently no turn-key solution to set up a KERIA service along with configured Witness services and Watcher network.
-KERIA creates a separate agent instance for each Signify client as well as partitions the server’s storage to isolate agent instances from each other. 
-The KERIA agent instance does not hold any of the user’s signing keys, as signing is the job for a Signify client. 
+KERIA creates a separate agent instance for each Signify client as well as partitions the server’s storage to isolate agent instances from each other.
+The KERIA agent instance does not hold any of the user’s signing keys, as signing is the job for a Signify client.
 The agent instance does hold ACDCs (which may contain PII) as it needs to verify KEL-backed signatures and does exchange messages with other agents on behalf of the AID’s controller.
 
 <hr/>
@@ -108,17 +97,18 @@ The following rules are enforced by design to ensure the security of the extensi
 * Assures all sensitive data (e.g., passcode) never reaches the content script or website.
 
 ## Development Setup and Build
-- Prerequisites (Node.js, npm, browser development tools, etc.).
-- Clone the repository and build the extension.
+* Prerequisites (Node.js, npm, browser development tools, etc.).
+* Clone the repository and build the extension.
 
 ## Extension Installation
-- After building from source code, use Chrome/Edge/Brave's "developer mode" and press `load unpacked`, selecting the directory KeriAuth.BrowserExtension\bin\Release\net9.0\browserextension.
+* After building from source code, use Chrome/Edge/Brave's "developer mode" and press `load unpacked`, selecting the directory KeriAuth.BrowserExtension\bin\Release\net9.0\browserextension.
 
 <hr/>
 
 # Acknowledgments
 We especially appreciate the contributors of following libraries we use:
 * [WebOfTrust/signify-ts](https://github.com/webOfTrust/signify-ts/) by WebOfTrust
+* [gleif-IT/vlei-trainings](https://github.com/gleif-IT/vlei-trainings) by GLEIF
 * [mingyaulee/Blazor.BrowserExtension](https://github.com/mingyaulee/Blazor.BrowserExtension) by mingyaulee
 <!-- TODO P2 See acknowledgements file for other 3rd parties utilized -->
 
