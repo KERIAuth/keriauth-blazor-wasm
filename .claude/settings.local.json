@@ -4,7 +4,8 @@
       "Bash(rm:*)",
       "Bash(mv:*)",
       "Bash(find:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
