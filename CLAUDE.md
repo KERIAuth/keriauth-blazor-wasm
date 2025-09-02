@@ -29,9 +29,39 @@ The extension follows a multi-component architecture:
 
 Services use dependency injection with primarily singleton lifetime for state management across the extension. The StorageService provides persistent storage using chrome.storage API.
 
+## Message Flow Architecture
+
+The extension uses a multi-layered messaging system with strict boundaries:
+
+1. **Web Page ↔ Content Script**: Via polaris-web JavaScript API protocol
+   - Web page calls polaris-web methods
+   - Content script validates and forwards to service worker
+   
+2. **Content Script ↔ Service Worker**: Via chrome.runtime messaging
+   - Messages must include sender tab information
+   - Only active tab messages accepted during authentication
+   
+3. **Service Worker ↔ Blazor WASM**: Via AppSwMessagingService
+   - Bidirectional communication for UI updates
+   - State synchronization across extension components
+   
+4. **Blazor/Service Worker ↔ KERIA**: Via signify-ts library
+   - KERI protocol operations
+   - Credential management
+   - Agent communication
+
+**Critical**: Messages must be validated at each boundary for security. Never pass sensitive data (passcode, keys) through content script.
+
 ## Development Environment
 
 Primary development environment is Windows running WSL2. Commands above work in both Windows PowerShell/Command Prompt and WSL2 bash. Claude Code operates within the WSL2 environment.
+
+## Prerequisites
+
+- Node.js >= 22.13.0
+- npm >= 11.0.0  
+- .NET 9.0 SDK with rollForward: latestMinor (see global.json)
+- Chromium-based browser version 127+ (Chrome, Edge, or Brave)
 
 ## Build & Test Commands
 
@@ -58,6 +88,14 @@ For full build from clean state:
 2. `npm run build` (builds TypeScript to JavaScript)
 3. `dotnet build` (builds C# and packages extension)
 
+### Development Commands
+- Install extension in browser: Build, then load unpacked from `Extension/bin/Release/net9.0/browserextension`
+- Debug mode build: `dotnet build -c Debug`
+- Watch TypeScript changes: `tsc --watch --project tsconfig.json` (consider adding npm script)
+- View browser extension logs: Open browser DevTools (F12) → Console → Filter by extension
+- Debug Blazor WASM: Set `builder.Logging.SetMinimumLevel(LogLevel.Debug)` in Program.cs
+- Clear extension storage: chrome.storage.local.clear() in browser console
+
 ## TypeScript Coding Guidelines
 
 ### Code Style Guidelines
@@ -70,6 +108,37 @@ For full build from clean state:
 - Export types/interfaces alongside implementations
 - File naming: camelCase for .ts files (e.g., contentScript.ts)
 - Use ES6+ features (template literals, destructuring, spread operator)
+
+### TypeScript Patterns for Browser Extension
+
+#### Service Worker (background script)
+- Location: `wwwroot/scripts/src/service-worker.ts`
+- Must be bundled via esbuild: `npm run bundle:esbuild`
+- Handles all extension lifecycle events
+- Manages chrome.runtime message routing
+- No DOM access, runs in background context
+
+#### Content Script
+- Location: `wwwroot/scripts/src/contentScript.ts`
+- Injected conditionally into web pages
+- Runs in isolated context, separate from page scripts
+- Bridge between web page and extension via polaris-web
+- Must handle message validation and sanitization
+
+#### Message Types
+Define interfaces for all chrome.runtime messages:
+```typescript
+interface ExtensionMessage {
+  type: string;
+  payload: unknown;
+  sender?: chrome.runtime.MessageSender;
+}
+```
+
+#### Polaris-Web Integration
+- Follow protocol defined in `signify-polaris-web` package
+- Implement required handlers for KERI operations
+- Validate all incoming requests from web pages
 
 ## C# Coding Guidelines
 
@@ -269,6 +338,20 @@ public class PayloadData
 ### Issue: Browser extension manifest version conflicts
 **Solution**: Target Manifest V3 for Chrome/Edge, check Firefox compatibility separately
 
+## Security Constraints
+
+The extension enforces strict security boundaries:
+
+- **Passcode Caching**: Maximum 5 minutes of inactivity before automatic clearing
+- **Content Script Messages**: Only accepted from active tab during/after authentication
+- **HTTP Header Signing**: 
+  - Safe methods (GET) auto-approved
+  - Unsafe methods (POST, PUT, DELETE) require explicit user consent
+- **Script Execution**: No dynamic or inline scripts allowed (strict CSP)
+- **Data Isolation**: Sensitive data (passcode, private keys) must never reach content script or web page
+- **Storage**: Use chrome.storage.local for non-sensitive data only
+- **KERIA Communication**: All agent communications via authenticated signify-ts
+
 ## Priority Order for Code Changes
 
 When making changes, prioritize in this order:
@@ -277,6 +360,81 @@ When making changes, prioritize in this order:
 3. **Type Safety** - Maintain strong typing across C#/TypeScript boundary
 4. **Performance** - Optimize after functionality is verified
 5. **Code Style** - Apply formatting rules last
+
+## Testing Strategy
+
+### Test Frameworks and Tools
+- **Unit Tests**: xUnit with Moq for mocking dependencies
+- **Integration Tests**: Test signify-ts interop with actual output from KERIA
+- **Browser Testing**: Manual testing required for extension UI/UX flows
+- **Test Data**: Use local schema files in `Extension/Schemas/` for credential validation
+
+### Testing Commands
+- Run all tests: `dotnet test`
+- Run with coverage: `dotnet test --collect:"XPlat Code Coverage"`
+- Run specific test class: `dotnet test --filter "ClassName=TestClassName"`
+- Run specific test method: `dotnet test --filter "FullyQualifiedName=Extension.Tests.ClassName.MethodName"`
+
+### Key Test Areas
+- **SignifyService**: Mock JavaScript interop, test timeout/cancellation
+- **Message Handlers**: Validate message routing and security boundaries
+- **Storage Service**: Test chrome.storage API interactions
+- **Credential Schemas**: Validate against local vLEI schemas
+- **CESR/SAID Ordering**: Test preservation of field order in serialization
+
+## Browser Extension Configuration
+
+### Manifest Configuration (manifest.json)
+- **Manifest Version**: V3 (required for Chrome Web Store)
+- **Compatibility**: Chrome, Edge, Brave (Chromium-based browsers 127+)
+- **Permissions**: 
+  - Minimum required permissions declared
+  - Host permissions requested at runtime when needed
+- **Content Security Policy**: 
+  - Strict CSP preventing inline scripts
+  - No eval() or dynamic code execution
+  - Trusted sources explicitly listed
+
+### Extension Components
+- **Service Worker**: `scripts/esbuild/service-worker.js` (persistent background script)
+- **Content Script**: Injected on-demand, not automatically
+- **Action Popup**: Blazor WASM UI in popup window
+- **Options Page**: Full tab for extended configuration
+
+### Build Output Structure
+```
+Extension/bin/Release/net9.0/browserextension/
+├── manifest.json
+├── _framework/          # Blazor WASM files
+├── scripts/
+│   ├── esbuild/        # Bundled JS for extension
+│   └── es6/            # Compiled TypeScript modules
+└── icons/              # Extension icons
+```
+
+## Dependency Management
+
+### C# Dependencies (NuGet)
+Managed in `.csproj` files:
+- **MudBlazor**: UI component library
+- **Microsoft.AspNetCore.Components.WebAssembly**: Blazor WASM framework
+- **Newtonsoft.Json**: JSON serialization (consider System.Text.Json for new code)
+- **Polly**: Resilience and transient fault handling
+- **xUnit/Moq**: Testing frameworks
+
+### JavaScript Dependencies (npm)
+Managed in `Extension/package.json`:
+- **signify-ts**: Pinned to commit `78d0a694...` for KERI operations
+- **signify-polaris-web**: Pinned to commit `7d7dd13` for web page protocol
+- **libsodium-wrappers-sumo**: Cryptographic operations
+- **esbuild**: JavaScript bundler for extension scripts
+- **TypeScript**: Version 5.4.2 for type safety
+
+### Version Management
+- **C# packages**: Use exact versions or narrow ranges
+- **npm packages**: Pin critical dependencies (signify-ts, polaris-web) to specific commits
+- **Node.js**: Requires >= 22.13.0 (specified in package.json engines)
+- **.NET SDK**: 9.0 with rollForward: latestMinor (global.json)
 
 ## Debugging Tips
 
