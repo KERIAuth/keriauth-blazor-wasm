@@ -20,6 +20,7 @@
 
         public void SetCompletedWithError(string error = "")
         {
+            Label = error;
             CompletedSuccessfully = false;
             IsPending = false;
             IsRunning = false;

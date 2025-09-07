@@ -12,6 +12,9 @@
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 
+@using Extension.Helper
+@using static Extension.AppConfig
+
 @code {
     // TODO P2 restructure as a record?
     struct Preset
@@ -129,7 +132,7 @@
         configuredPasscodeModel.Passcode = "";
         IsPasscodeCopyConfirmed = false;
         await ResetOps();
-        await Copy2Clipboard(RandomPasscode);
+        await UIHelper.Copy2Clipboard(RandomPasscode);
     }
 
     async Task ResetOps()
@@ -146,6 +149,7 @@
     async Task<bool> ConnectToKeria()
     {
         await ResetOps();
+        logger.LogInformation("ConnectToKeria");
         IsProcessing = true;
 
         if (!IsValidNewInfo || IsKeriaConfigured)
@@ -199,6 +203,7 @@
         // Create a new KERIA client, and on success cache the passcode
         ops3BootMaybeAndConnect.SetIsRunning();
         StateHasChanged();
+        logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
         var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", !IsUsingExistingPasscode);
         if (clientRes.IsFailed)
         {
@@ -207,7 +212,15 @@
             return false;
         }
         ops3BootMaybeAndConnect.SetCompletedWithoutErrors();
-        await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
+        try
+        {
+            await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Failed to store passcode in session storage: {Message}", ex.Message);
+            // Continue execution as this is not critical for the connection process
+        }
         StateHasChanged();
 
         // GetIdentifiers

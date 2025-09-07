@@ -70,10 +70,11 @@
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
         // Get version info from Manifest file
-        // TODO P3 Refactor some of this and similar in Mainlayout and NewReleases into App, and pass into Layouts or Pages needing this as parameters
+        // TODO P3 Refactor some of this and similar in Mainlayout and NewReleases into App, and pass into Layouts or Pages
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
-        if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
+        if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind ==
+        JsonValueKind.String)
         {
             ManifestVersion = versionElement.ToString();
         }
@@ -100,11 +101,19 @@
 
     async Task AckNewRelease()
     {
-        MyOnboardState = MyOnboardState! with
+        if (MyOnboardState is null)
+            MyOnboardState = new OnboardState
             {
                 AcknowledgedInstalledVersion = ManifestVersion
             };
-        _ = await storageService.SetItem<OnboardState>(MyOnboardState);
+        else
+        {
+            MyOnboardState = MyOnboardState! with
+            {
+                AcknowledgedInstalledVersion = ManifestVersion
+            };
+            _ = await storageService.SetItem<OnboardState>(MyOnboardState);
+        }
 
         await storageService.RemoveItem<UpdateDetails>();
 
@@ -123,9 +132,10 @@
                     KERI Auth version @ManifestVersion has been installed.
                 </MudText>
             }
-            else {
+            else
+            {
                 <MudText Typo="Typo.h6">Updated Release Installed</MudText>
-                if (MyUpdateDetails is null || MyUpdateDetails.CurrentVersion == MyUpdateDetails.PreviousVersion) 
+                if (MyUpdateDetails is null || MyUpdateDetails.CurrentVersion == MyUpdateDetails.PreviousVersion)
                 {
                     <!-- reloaded can occur via DevTools, loading an unpacked extension -->
                     <MudText>
@@ -135,11 +145,12 @@
                 else
                 {
                     <MudText>
-                        KERI Auth has been automatically updated from version @MyOnboardState.AcknowledgedInstalledVersion to @(MyUpdateDetails.CurrentVersion).
+                        KERI Auth has been automatically updated from version @MyOnboardState.AcknowledgedInstalledVersion to
+                        @(MyUpdateDetails.CurrentVersion).
                     </MudText>
                 }
                 <MudText>
-                    Your previous configuration will be used unless you delete it. 
+                    Your previous configuration will be used unless you delete it.
                 </MudText>
             }
             <MudText>
@@ -148,13 +159,15 @@
 
             <MudStack Style="gap:0;">
                 <MudStack Class="d-flex bt-terms-section">
-                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath" Target="_blank" Class="bt-terms-button" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseUrlPath"
+                        Target="_blank" Class="bt-terms-button" />
                     <div class="bt-terms-markup">
                         @(releaseMarkup)
                     </div>
                 </MudStack>
                 <MudStack Class="d-flex bt-terms-section">
-                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@releaseHistoryUrlPath" Target="_blank" Class="bt-terms-button" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text"
+                        Href="@releaseHistoryUrlPath" Target="_blank" Class="bt-terms-button" />
                     <div class="bt-terms-markup">
                         @(releaseHistoryMarkup)
                     </div>
@@ -168,6 +181,7 @@
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer></MudSpacer>
-        <MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => AckNewRelease())" Class="justify-end" data-testid="next">Next</MudButton>
+        <MudButton @ref="buttonRef" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => AckNewRelease())"
+            Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
 </div>

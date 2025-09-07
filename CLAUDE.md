@@ -54,13 +54,13 @@ The extension uses a multi-layered messaging system with strict boundaries:
 
 ## Development Environment
 
-Primary development environment is Windows running WSL2. Commands above work in both Windows PowerShell/Command Prompt and WSL2 bash. Claude Code operates within the WSL2 environment.
+Primary development environment is Windows running WSL2. Commands work in both Windows PowerShell/Command Prompt and WSL2 bash. Claude Code operates within the WSL2 environment.
 
 ## Prerequisites
 
 - Node.js >= 22.13.0
 - npm >= 11.0.0  
-- .NET 9.0 SDK with rollForward: latestMinor (see global.json)
+- .NET 9.0 SDK
 - Chromium-based browser version 127+ (Chrome, Edge, or Brave)
 
 ## Build & Test Commands
@@ -69,7 +69,6 @@ Primary development environment is Windows running WSL2. Commands above work in 
 - Build backend only: `dotnet build`
 - Build with frontend: `npm install && npm run build && dotnet build`
 - Clean build: `dotnet clean && npm run build && dotnet build`
-- Run development server: `dotnet run` (specify if available)
 
 ### Frontend Build Commands
 - Install dependencies: `npm install`
@@ -79,8 +78,9 @@ Primary development environment is Windows running WSL2. Commands above work in 
 
 ### Testing Commands
 - Run all tests: `dotnet test`
-- Run single test: `dotnet test --filter "FullyQualifiedName=<TestClassName>.<TestMethodName>"`
-- Code quality checks: `dotnet format --verify-no-changes` (if configured)
+- Run single test: `dotnet test --filter "FullyQualifiedName=Extension.Tests.<TestClassName>.<TestMethodName>"`
+- Run test with coverage: `dotnet test --collect:"XPlat Code Coverage"`
+- Run specific test class: `dotnet test --filter "ClassName=<TestClassName>"`
 
 ### Order of Operations
 For full build from clean state:
@@ -91,10 +91,12 @@ For full build from clean state:
 ### Development Commands
 - Install extension in browser: Build, then load unpacked from `Extension/bin/Release/net9.0/browserextension`
 - Debug mode build: `dotnet build -c Debug`
-- Watch TypeScript changes: `tsc --watch --project tsconfig.json` (consider adding npm script)
+- Watch TypeScript changes: `npm run build:es6 -- --watch`
+- Watch esbuild changes: `npm run bundle:esbuild -- --watch`
 - View browser extension logs: Open browser DevTools (F12) → Console → Filter by extension
 - Debug Blazor WASM: Set `builder.Logging.SetMinimumLevel(LogLevel.Debug)` in Program.cs
 - Clear extension storage: chrome.storage.local.clear() in browser console
+- Run ESLint: `npx eslint wwwroot/scripts/**/*.ts`
 
 ## TypeScript Coding Guidelines
 
@@ -112,18 +114,24 @@ For full build from clean state:
 ### TypeScript Patterns for Browser Extension
 
 #### Service Worker (background script)
-- Location: `wwwroot/scripts/src/service-worker.ts`
+- Location: `wwwroot/scripts/esbuild/service-worker.ts`
 - Must be bundled via esbuild: `npm run bundle:esbuild`
 - Handles all extension lifecycle events
 - Manages chrome.runtime message routing
 - No DOM access, runs in background context
 
 #### Content Script
-- Location: `wwwroot/scripts/src/contentScript.ts`
+- Location: `wwwroot/scripts/esbuild/ContentScript.ts`
 - Injected conditionally into web pages
 - Runs in isolated context, separate from page scripts
 - Bridge between web page and extension via polaris-web
 - Must handle message validation and sanitization
+
+#### Signify TypeScript Shim
+- Location: `wwwroot/scripts/esbuild/signify_ts_shim.ts`
+- Provides JavaScript-C# interop layer for signify-ts
+- Bundled with dependencies via esbuild
+- Paired with `Services/SignifyService/Signify_ts_shim.cs`
 
 #### Message Types
 Define interfaces for all chrome.runtime messages:
@@ -144,7 +152,7 @@ interface ExtensionMessage {
 
 ### C# Code Style Guidelines
 
-- **.NET Version**: .NET 9.0 SDK required with rollForward: latestMinor (see global.json)
+- **.NET Version**: .NET 9.0 SDK required
 - **Indentation**: 4-space indentation
 - **Braces**: Opening braces on same line; Use braces for all control structures, even single-line statements
 - **Naming**: 
@@ -374,6 +382,7 @@ When making changes, prioritize in this order:
 - Run with coverage: `dotnet test --collect:"XPlat Code Coverage"`
 - Run specific test class: `dotnet test --filter "ClassName=TestClassName"`
 - Run specific test method: `dotnet test --filter "FullyQualifiedName=Extension.Tests.ClassName.MethodName"`
+- Run tests in watch mode: `dotnet watch test`
 
 ### Key Test Areas
 - **SignifyService**: Mock JavaScript interop, test timeout/cancellation
@@ -434,11 +443,13 @@ Managed in `Extension/package.json`:
 - **C# packages**: Use exact versions or narrow ranges
 - **npm packages**: Pin critical dependencies (signify-ts, polaris-web) to specific commits
 - **Node.js**: Requires >= 22.13.0 (specified in package.json engines)
-- **.NET SDK**: 9.0 with rollForward: latestMinor (global.json)
+- **.NET SDK**: 9.0
 
 ## Debugging Tips
 
 - Browser extension logs: Check browser console (F12) and extension service worker logs
 - Blazor WASM debugging: Enable detailed errors in `Program.cs` for development
-- signify-ts issues: Use `console.log` in TypeScript, visible in browser console
+- signify-ts issues: Use `console.log`/`console.debug` in TypeScript, visible in browser console
 - Network issues: Check CORS policies and content security policy (CSP) settings
+- TypeScript compilation issues: Check `tsconfig.json` for module resolution settings
+- ESLint issues: Run `npx eslint --fix` to auto-fix style issues

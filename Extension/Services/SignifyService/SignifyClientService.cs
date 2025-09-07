@@ -38,6 +38,7 @@ namespace Extension.Services.SignifyService {
                 // simple example of using https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/call-javascript-from-dotnet?view=aspnetcore-8.0
                 if (OperatingSystem.IsBrowser()) {
                     if (isBootForced) {
+                        logger.LogInformation("Connect: BootAndConnect to {url} and {bootUrl}...", url, bootUrl);
                         var res = await TimeoutHelper.WithTimeout<string>(ct => BootAndConnect(url, bootUrl, passcode), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
@@ -52,6 +53,7 @@ namespace Extension.Services.SignifyService {
                         return Result.Ok(true);
                     }
                     else {
+                        logger.LogInformation("Connect: Connect to {url}...", url);
                         var res = await TimeoutHelper.WithTimeout<string>(ct => Signify_ts_shim.Connect(url, passcode), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object

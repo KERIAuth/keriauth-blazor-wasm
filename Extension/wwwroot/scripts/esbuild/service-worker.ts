@@ -48,7 +48,7 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
 
 // Handle messages from app (other than via port)
-chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: () => void) => {
+chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
     switch (message.action) {
         case 'resetInactivityTimer':
             // Default inactivity timeout
@@ -64,15 +64,19 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
                 }
 
                 // Clear existing alarm and set a new one
-                chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
+                chrome.alarms.clear(ENUMS.InactivityAlarm, (wasCleared) => {
                     chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: inactivityTimeoutMinutes });
+                    // Send response to indicate the timer was reset successfully
+                    sendResponse({ success: true, timeout: inactivityTimeoutMinutes });
                 });
             });
-            break;
+            // Return true to indicate async response
+            return true;
         default:
             console.log("SW unknown message action:", message.action);
+            // Don't return true if we're not sending a response
+            return false;
     }
-    return true; // Indicate that we will send a response asynchronously
 });
 
 // When inactivityAlarm fires, remove the stored passcode
