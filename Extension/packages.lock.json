@@ -272,12 +272,6 @@
         "resolved": "9.0.8",
         "contentHash": "+JJYRyS8YoLMzLquskLfdF8RFp2PhN5v+lGCGDLHsywj3JHfSV/Zqo8+T0Fl0Xvoc9Js8YkrAWTnm7M2/3CniA=="
       },
-      "Microsoft.TypeScript.MSBuild": {
-        "type": "Direct",
-        "requested": "[5.9.2, )",
-        "resolved": "5.9.2",
-        "contentHash": "gSGqCVSkuRbuPn/kt0pdfOW+DiP5Ewc9KAL4KqF+huJFXCFqx0mJIegWq0ER9GYguaPi+KwDSXFeNVlqkPiODA=="
-      },
       "Moq": {
         "type": "Direct",
         "requested": "[4.20.72, )",

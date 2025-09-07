@@ -31,14 +31,14 @@ export const bootAndConnect = async (
     _client = null;
     await ready();
     // console.debug(`signify_ts_shim: bootAndConnect: creating client...`);
-    _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
+    _client = new SignifyClient(agentUrl, passcode, Tier.high, bootUrl);
 
     try {
         await _client.connect();
         // console.debug("signify_ts_shim: client connected");
     } catch {
-        const res = await _client.boot();
-        if (!res.ok) throw new Error();
+        const bootedSignifyClient = await _client.boot();
+        if (!bootedSignifyClient) throw new Error();
         await _client.connect();
         // console.debug("signify_ts_shim: client booted and connected");
     }
@@ -151,7 +151,7 @@ export interface IIdentifier {
 export async function getNameByPrefix(prefix: string): Promise<string> {
     try {
         const aid = await getIdentifierByPrefix(prefix);
-        return aid.name;
+        return aid.name as string;
     } catch (error) {
         console.error("signify_ts_shim: getPrefixByName: prefix, error:", prefix, error);
         throw error;
@@ -162,10 +162,13 @@ export async function getIdentifierByPrefix(prefix: string): Promise<IIdentifier
     try {
         validateClient();
         const client: SignifyClient = _client!;
-        const identifiers = await client.identifiers().list();
+        const identifiers = client.identifiers(); //.list();
         // console.warn("getNameByPrefix identifiers:", identifiers);
-        const aid = identifiers.aids.find((i: any) => i.prefix === prefix) as IIdentifier;
+        const aid = await identifiers.get(prefix) as IIdentifier | undefined; // .find((i: any) => i.prefix === prefix) as IIdentifier;
         // console.warn("getNameByPrefix aid:", aid);
+        if (!aid) {
+            throw new Error(`Identifier with prefix ${prefix} not found`);
+        }
         return aid;
     } catch (error) {
         console.error("signify_ts_shim: getIdentifierByPrefix: prefix, error:", prefix, error);

@@ -1,4 +1,4 @@
-﻿/// <reference types="chrome" />
+﻿/// <reference types="chrome-types" />
 
 // This ContentScript is inserted into tabs after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension service-worker.
@@ -11,12 +11,12 @@ interface EventData {
 }
 
 import {
-    CsSwMsgEnum,
-    SwCsMsgEnum,
-    ICsSwMsg,
-    CsPageMsgTag,
     CsPageMsgData,
-    CsPageMsgDataData
+    CsPageMsgDataData,
+    CsPageMsgTag,
+    CsSwMsgEnum,
+    ICsSwMsg,
+    SwCsMsgEnum
 } from "../es6/ExCsInterfaces";
 
 import * as PW from "../types/polaris-web-client";
@@ -96,7 +96,7 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
                     source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
-                    payload: message.payload
+                    payload: message.payload as PW.AuthorizeResult
                 }
                 postMessageToPage<CsPageMsgData<PW.AuthorizeResult>>(msg);
             }
@@ -138,7 +138,7 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
 function createPortWithSw(): void {
     console.groupCollapsed(`KeriAuthCs→SW: creating port`);
     uniquePortName = generateUniqueIdentifier();
-    portWithSw = chrome.runtime.connect({ name: uniquePortName });
+    portWithSw = chrome.runtime.connect(uniquePortName);
     console.log("KeriAuthCs→SW connected port:", portWithSw);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
@@ -166,7 +166,7 @@ function assurePortAndSend(msg: any) {
         createPortWithSw();
     }
     console.info(`KeriAuthCs→SW: postMessage:`, msg);
-    portWithSw.postMessage(msg);
+    portWithSw!.postMessage(msg);
 }
 
 /*
@@ -270,7 +270,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                     source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY, // type: "tab",
                     requestId: requestId,
-                    payload: null
+                    payload: undefined
                 }
                 postMessageToPage<CsPageMsgData<PW.AuthorizeResult>>(clearResult);
                 break;

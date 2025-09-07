@@ -1,9 +1,9 @@
-﻿/// <reference types="chrome" />
+﻿/// <reference types="chrome-types" />
 
+import { CsPageMsgData, CsPageMsgTag, CsSwMsgEnum, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces";
 import { Utils } from "../es6/uiHelper.js";
-import { CsSwMsgEnum, CsPageMsgData, CsPageMsgTag, ICsSwMsg, ISwCsMsgPong, SwCsMsgEnum } from "../es6/ExCsInterfaces";
-import { connect, getSignedHeaders, getNameByPrefix } from "./signify_ts_shim";
 import { UpdateDetails } from "../types/types.js";
+import { connect, getNameByPrefix, getSignedHeaders } from "./signify_ts_shim";
 
 export const ENUMS = {
     InactivityAlarm: "inactivityAlarm"
@@ -25,8 +25,8 @@ let pageCsConnections: { [key: string]: CsConnection } = {};
 let isWaitingOnKeria: boolean = false;
 
 // Listen for and handle a new install or update of the extension
-chrome.runtime.onInstalled.addListener(async (installDetails: chrome.runtime.InstalledDetails) => {
-    await handleOnInstalled(installDetails);
+chrome.runtime.onInstalled.addListener(async (details: { reason: chrome.runtime.OnInstalledReason, previousVersion?: string | undefined }) => {
+    await handleOnInstalled(details);
 });
 
 // Listen for and handle the activation event, such as to clean up old caches
@@ -48,26 +48,31 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port) 
 
 
 // Handle messages from app (other than via port)
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.action === 'resetInactivityTimer') {
-        // Default inactivity timeout
-        let inactivityTimeoutMinutes = 5.0;
+chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: () => void) => {
+    switch (message.action) {
+        case 'resetInactivityTimer':
+            // Default inactivity timeout
+            let inactivityTimeoutMinutes = 5.0;
 
-        // Get the user setting from session storage
-        chrome.storage.session.get(['inactivityTimeoutMinutes'], (result) => {
-            if (result.inactivityTimeoutMinutes !== undefined) {
-                const timeout = parseFloat(result.inactivityTimeoutMinutes);
-                if (!isNaN(timeout)) {
-                    inactivityTimeoutMinutes = timeout;
+            // Get the user setting from session storage
+            chrome.storage.session.get(['inactivityTimeoutMinutes'], (result) => {
+                if (result.inactivityTimeoutMinutes !== undefined) {
+                    const timeout = parseFloat(result.inactivityTimeoutMinutes);
+                    if (!isNaN(timeout)) {
+                        inactivityTimeoutMinutes = timeout;
+                    }
                 }
-            }
 
-            // Clear existing alarm and set a new one
-            chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
-                chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: inactivityTimeoutMinutes });
+                // Clear existing alarm and set a new one
+                chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
+                    chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: inactivityTimeoutMinutes });
+                });
             });
-        });
+            break;
+        default:
+            console.log("SW unknown message action:", message.action);
     }
+    return true; // Indicate that we will send a response asynchronously
 });
 
 // When inactivityAlarm fires, remove the stored passcode
@@ -77,12 +82,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         chrome.storage.session.remove('passcode', () => {
             // Send a message to the SPA(s?) to lock the app
             try {
-                chrome.runtime.sendMessage({ action: 'lockApp' }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.log("SW lockApp message send to SPA failed:", chrome.runtime.lastError.message);
-                    } else {
-                        console.log("SW lockApp message send to SPA response: ", response);
-                    }
+                const sm = chrome.runtime.sendMessage({ action: 'lockApp' }, { includeTlsChannelId: false });
+                sm.then((response) => {
+                    console.log("SW lockApp message sent to SPA:", response);
+
+
+                }, onrejectionhandled => {
+                    console.error("SW lockApp message send to SPA failed:", onrejectionhandled);
                 });
             } catch {
                 console.error("SW could not sendMessage for lockApp");
@@ -108,7 +114,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 /*
  * handle a new install or update of the extension
  */
-async function handleOnInstalled(installDetails: chrome.runtime.InstalledDetails) {
+async function handleOnInstalled(installDetails: { reason: chrome.runtime.OnInstalledReason, previousVersion?: string | undefined }) {
     console.log("SW InstalledDetails: ", installDetails);
     let urlString = "";
     switch (installDetails.reason) {
@@ -125,7 +131,7 @@ async function handleOnInstalled(installDetails: chrome.runtime.InstalledDetails
             // Save update information for later use on user's next normal activity
             const updateDetails: UpdateDetails = {
                 reason: installDetails.reason,
-                previousVersion: previousVersion,
+                previousVersion: previousVersion as string,
                 currentVersion: currentVersion,
                 timestamp: new Date().toISOString(),
             };
@@ -136,6 +142,7 @@ async function handleOnInstalled(installDetails: chrome.runtime.InstalledDetails
         default:
             break;
     }
+    return;
 };
 
 /*
@@ -246,6 +253,7 @@ async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
             }
         }
     }
+    return "";
 }
 
 /*
@@ -275,7 +283,7 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
                         // We are ignoring the "use safe headers flag" here and just doing it.
 
                         // This approach assumes we know the selected identifier and credential from website config, created during a prior sign-in
-                        const identifierName = await getIdentifierNameForCurrentTab(csTabPort.sender.origin);
+                        const identifierName = await getIdentifierNameForCurrentTab(csTabPort.sender.origin as string);
                         if (identifierName) {
                             (message as any).payload.selectedName = identifierName;
                             console.log("SW handleSignRequest message:", message);
@@ -286,6 +294,7 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
                     } catch (error) {
                         console.error("SW handleSignRequest error on method ", message.payload.method, " error:", error);
                     }
+                    break;
                 default:
                     try {
                         useActionPopup(tabId, [
@@ -305,31 +314,24 @@ async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port) {
 /*
  * 
  */
-function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.get("WebsiteConfigList", (result) => {
-            if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError);
-                return;
-            }
-
-            // Check if the result contains the Websites array
-            const websites = result?.WebsiteConfigList?.Websites;
-
-            if (Array.isArray(websites)) {
-                // Find the object matching the provided origin
-                const matchingWebsite = websites.find(
-                    (website) => website.origin === origin
-                );
-                resolve(matchingWebsite);
-            } else {
-                // Resolve with undefined if Websites array is not found
-                resolve(undefined);
-            }
-        });
-    });
-}
-
+async function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined> {
+        try {
+            chrome.storage.local.get("WebsiteConfigList", (result) => {
+                const websites = result.WebsiteConfigList?.Websites;
+                if (Array.isArray(websites)) {
+                    const matchingWebsite = websites.find(
+                        (website) => website.origin === origin
+                    );
+                    return(matchingWebsite);
+                } else {
+                    return(undefined);
+                }
+            });
+        } catch (error) {
+            console.error("SW getWebsiteConfigByOrigin error:", error);
+            return undefined;
+        }
+    };
 
 /*
  * handleSelectAuthorize()
@@ -381,7 +383,7 @@ async function handleOnConnect(connectedPort: chrome.runtime.Port) {
         console.log(`SW🡠🡢CS via port`, cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
-        cSPort.onMessage.addListener(async (message: ICsSwMsg) => await handleMessageFromCs(message, cSPort, tabId, connectionId));
+        cSPort.onMessage.addListener(async (message: ICsSwMsg) => await handleMessageFromCs(message, cSPort as chrome.runtime.Port, tabId, connectionId));
 
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
@@ -403,7 +405,7 @@ async function handleOnConnect(connectedPort: chrome.runtime.Port) {
             console.log(`SW🡠App authority:`, authority);
 
             // Update the pageCsConnections list with the URL's authority, so the SW-CS and SW-App pageCsConnections can be associated
-            pageCsConnections[appPort.name].pageAuthority = authority || "unknown";
+            pageCsConnections[appPort.name]!.pageAuthority = authority || "unknown";
             // console.log(`SW🡠App: pageCsConnections:`, pageCsConnections);
 
             // Find the matching csConnection based on the page authority. TODO P3 should this also be based on the tabId?
@@ -437,7 +439,7 @@ function handlePortDisconnected(connectionId: string) {
 
     console.log("SW port closed connection for page connection: ", pageCsConnections[connectionId])
 
-    if (pageCsConnections[connectionId].port?.name.substring(0, 17) == "blazorAppPort-tab") {
+    if (pageCsConnections[connectionId]!.port?.name.substring(0, 17) == "blazorAppPort-tab") {
         // The extension's App disconnected when its window closed, which might have been in a Tab, Popup, or Action Popup.
         console.info('SW Extension Popup closed');
         // console.warn("SW onDisconnect:", "pendingRequestId", pendingRequestId, "isKeriaPending", isWaitingOnKeria);
@@ -479,6 +481,10 @@ async function connectToKeria(): Promise<boolean> {
             if (result2.passcode) {
                 await connect(adminUrl, result2.passcode);
                 return true;
+            }
+            else {
+                console.error("SW could not connect to KERIA with config and passcode.");
+                return false;
             }
         }
         else {
@@ -663,7 +669,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
 async function handleMessageFromCs(message: ICsSwMsg, cSPort: chrome.runtime.Port, tabId: number, connectionId: string) {
     console.log(`SW🡠CS ${message.type}`, message);
 
-    pendingRequestId = message.requestId;
+    pendingRequestId = message.requestId as string;
     pendingRequestPort = cSPort;
 
     // assure tab is still connected  
@@ -770,7 +776,7 @@ function findMatchingConnection(connections: { [key: string]: { port: chrome.run
     }
     const targetPageAuthority = providedConnection.pageAuthority;
     for (const key in connections) {
-        if (key !== providedKey && connections[key].pageAuthority === targetPageAuthority) {
+        if (key !== providedKey && connections[key]!.pageAuthority === targetPageAuthority) {
             return connections[key];
         }
     }
@@ -778,3 +784,4 @@ function findMatchingConnection(connections: { [key: string]: { port: chrome.run
 }
 
 export { };
+

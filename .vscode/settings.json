@@ -1,22 +1,132 @@
 {
-  // Formatting & linting
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "ms-dotnettools.csdevkit",
-  "eslint.useFlatConfig": true,
-  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
-  "eslint.alwaysShowStatus": true,
-
-  // Keep C#/Roslyn analyzers aligned with your .editorconfig
-  "dotnet.defaultSolution": "YourSolution.sln",
-
-  // TypeScript: prefer workspace TS
-  "typescript.tsdk": "node_modules/typescript/lib",
-
-  // Testing (C# Dev Kit shows tests after a successful build)
-  "testing.automaticallyOpenPeekView": "never",
-  "cSpell.words": [
-    "ACDC",
-    "Blazor",
-    "wwwroot"
-  ]
+    // TypeScript configuration
+    "typescript.tsdk": "Extension/node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.preferences.quoteStyle": "single",
+    "typescript.updateImportsOnFileMove.enabled": "prompt",
+    "typescript.suggest.autoImports": false,
+    "typescript.suggest.enabled": true,
+    "typescript.suggest.completeFunctionCalls": false,
+    
+    // Disable most inlay hints to reduce visual clutter
+    "typescript.inlayHints.parameterNames.enabled": "none",
+    "typescript.inlayHints.parameterTypes.enabled": false,
+    "typescript.inlayHints.variableTypes.enabled": false,
+    "typescript.inlayHints.propertyDeclarationTypes.enabled": false,
+    "typescript.inlayHints.functionLikeReturnTypes.enabled": false,
+    "typescript.inlayHints.enumMemberValues.enabled": false,
+    
+    // Control error display
+    "typescript.validate.enable": true,
+    "typescript.showInlayHints": false,
+    "typescript.suggest.snippetsPreventQuickSuggestions": true,
+    
+    // Editor settings for TypeScript files
+    "[typescript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features",
+        "editor.formatOnSave": false,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "never",
+            "source.fixAll.eslint": "never"
+        },
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.quickSuggestions": {
+            "other": "on",
+            "comments": "off", 
+            "strings": "off"
+        },
+        "editor.suggestOnTriggerCharacters": false,
+        "editor.acceptSuggestionOnEnter": "off",
+        "editor.wordBasedSuggestions": "off",
+        "editor.parameterHints.enabled": false
+    },
+    
+    // JavaScript settings (for compiled output)
+    "[javascript]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+    },
+    
+    // C# settings (preserve existing)
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csdevkit",
+        "editor.formatOnSave": true
+    },
+    
+    // ESLint configuration
+    "eslint.useFlatConfig": true,
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact"
+    ],
+    "eslint.alwaysShowStatus": true,
+    "eslint.workingDirectories": [
+        "./Extension"
+    ],
+    
+    // .NET settings
+    "dotnet.defaultSolution": "Extension.sln",
+    
+    // File associations
+    "files.associations": {
+        "*.ts": "typescript",
+        "*.tsx": "typescriptreact",
+        "tsconfig.json": "jsonc",
+        ".eslintrc.json": "jsonc",
+        "eslint.config.js": "javascript"
+    },
+    
+    // Exclude patterns for search and file explorer
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/dist": false,
+        "**/bin": true,
+        "**/obj": true,
+        "**/.vs": true
+    },
+    
+    // Search exclude patterns
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/bin": true,
+        "**/obj": true,
+        "**/*.min.js": true,
+        "**/*.js.map": true
+    },
+    
+    // Terminal configuration for npm scripts
+    "terminal.integrated.defaultProfile.windows": "Ubuntu (WSL)",
+    "terminal.integrated.defaultProfile.linux": "bash",
+    
+    // Testing
+    "testing.automaticallyOpenPeekView": "never",
+    
+    // Spell checker
+    "cSpell.words": [
+        "ACDC",
+        "Blazor",
+        "wwwroot",
+        "KERI",
+        "CESR",
+        "OOBI",
+        "IPEX",
+        "signify",
+        "esbuild",
+        "vLEI"
+    ],
+    
+    // Recommended extensions
+    "recommendations": [
+        "dbaeumer.vscode-eslint",
+        "ms-dotnettools.csdevkit",
+        "streetsidesoftware.code-spell-checker",
+        "christian-kohler.path-intellisense",
+        "formulahendry.auto-rename-tag"
+    ]
 }

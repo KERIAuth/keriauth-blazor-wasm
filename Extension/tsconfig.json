@@ -1,44 +1,70 @@
 {
   "compileOnSave": true,
   "compilerOptions": {
-    "allowJs": true,
-    "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
-    "composite": false,
-    "declaration": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "incremental": false,
-    "isolatedModules": false,
-    "jsx": "react-jsx",
-    "lib": [ "dom", "dom.iterable", "esnext", "scripthost" ],
-    "module": "esnext",
-    "moduleResolution": "node",
-    "noEmit": false,
-    "noFallthroughCasesInSwitch": true,
-    "outDir": "./dist",
-    "paths": {
-      "*": [ "./node_modules/*" ],
-      "signify-ts": [ "./node_modules/signify-ts/dist/index.js" ],
-      "@cbor/*": [ "./node_modules/cbor2/lib/*" ],
-      "@esbuild/*": [ "./wwwroot/scripts/esbuild/*" ]
-    },
-    "removeComments": true,
-    "resolveJsonModule": true,
-    "rootDir": ".",
-    "skipLibCheck": true,
-    "sourceMap": true,
+    // Type checking options
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    
+    // Module resolution
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "target": "esnext",
-    "types": [ "vite/client", "node", "chrome-types" ]
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    
+    // Output configuration
+    "outDir": "./dist/wwwroot/scripts/es6",
+    "rootDir": "./wwwroot/scripts",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "preserveConstEnums": true,
+    
+    // Path mapping
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./wwwroot/scripts/*"],
+      "signify-ts": ["./node_modules/signify-ts/dist/index"],
+      "signify-ts/*": ["./node_modules/signify-ts/dist/*"]
+    },
+    
+    // Other options
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "react-jsx",
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "types": ["node", "chrome-types"],
+    "isolatedModules": true
   },
   "include": [
-    "wwwroot/scripts/es6/*.ts",
-    "wwwroot/scripts/types/polaris-web-client.d.ts",
-    "/node_modules/vite/types" 
+    "wwwroot/scripts/**/*.ts",
+    "wwwroot/scripts/types/**/*.d.ts"
+  ],
+  "typeRoots": [
+    "./node_modules/@types",
+    "./wwwroot/scripts/types"
   ],
   "exclude": [
-
-  ],
-  "lib": []
+    "node_modules",
+    "dist",
+    "bin",
+    "obj",
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ]
 }
