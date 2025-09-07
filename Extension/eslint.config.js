@@ -25,6 +25,7 @@ export default [
         document: 'readonly',
         navigator: 'readonly',
         self: 'readonly',
+        crypto: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         setInterval: 'readonly',

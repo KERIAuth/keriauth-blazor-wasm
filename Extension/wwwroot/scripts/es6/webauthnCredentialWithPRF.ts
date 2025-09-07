@@ -1,47 +1,52 @@
 /// <reference types="chrome-types" />
 
-interface User extends PublicKeyCredentialUserEntity {
+interface IUser extends PublicKeyCredentialUserEntity {
     id: BufferSource;
     name: string;
     displayName: string;
 }
 
+/*
 enum ErrorCode {
-    VALIDATION_ERROR = "VALIDATION_ERROR",
-    UNSUPPORTED_FEATURE = "UNSUPPORTED_FEATURE",
-    CREDENTIAL_ERROR = "CREDENTIAL_ERROR",
-    TIMEOUT_ERROR = "TIMEOUT_ERROR",
-    UNKNOWN_ERROR = "UNKNOWN_ERROR",
+    VALIDATION_ERROR = 'VALIDATION_ERROR',
+    UNSUPPORTED_FEATURE = 'UNSUPPORTED_FEATURE',
+    CREDENTIAL_ERROR = 'CREDENTIAL_ERROR',
+    TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+    UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
+*/
 
 // TODO P2 move this to shared utility typescript file
+/*
 type FluentResult<T> = {
     isSuccess: boolean;
     errors: string[];
     value?: T;
 };
+*/
 
 // Constant fixed properties
-const VALID_AUTHENTICATOR_ATTACHMENTS = ["platform", "cross-platform"] as const;
-const KERI_AUTH_EXTENSION_NAME = "KERI Auth";
+const VALID_AUTHENTICATOR_ATTACHMENTS = ['platform', 'cross-platform'] as const;
+const KERI_AUTH_EXTENSION_NAME = 'KERI Auth';
 const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME }; // Note that id is intentionally left off!  See See https://chromium.googlesource.com/chromium/src/+/main/content/browser/webauth/origins.md
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
-    { alg: -8, type: "public-key" },   // ES384
-    { alg: -7, type: "public-key" },   // ES256
-    { alg: -257, type: "public-key" }, // RS256
+    { alg: -8, type: 'public-key' },   // ES384
+    { alg: -7, type: 'public-key' },   // ES256
+    { alg: -257, type: 'public-key' } // RS256
 ];
 const CREDS_CREATE_TIMEOUT = 60000;
 const CREDS_GET_TIMEOUT = 60000;
-const ENCRYPT_KEY_LABEL = "KERI Auth";
+const ENCRYPT_KEY_LABEL = 'KERI Auth';
 const ENCRYPT_KEY_INFO = new TextEncoder().encode(ENCRYPT_KEY_LABEL);
-const ENCRYPT_DERIVE_KEY_TYPE = { name: "AES-GCM", length: 256 };
+const ENCRYPT_DERIVE_KEY_TYPE = { name: 'AES-GCM', length: 256 };
 const ENCRYPT_NON_SECRET_NOUNCE = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 const ENCRYPT_KDA_SALT = new Uint8Array(0); // salt is a required argument for `deriveKey()`, but can be empty
-const ENCRYPT_DERIVE_KEY_ALGO = { name: "HKDF", info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: "SHA-256" };
+const ENCRYPT_DERIVE_KEY_ALGO = { name: 'HKDF', info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: 'SHA-256' };
 
 /*
  * Helper function to compare two Uint8Arrays
  */
+/*
 function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
@@ -49,42 +54,67 @@ function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
     }
     return true;
 }
+    */
 
 /*
- *
+ * Get WebAuthn extensions for credential creation with PRF
  */
-const getExtensions = (firstSalt: Uint8Array): any => {
-    return {
-        "prf": {
-            "eval": {
-                "first": firstSalt,
-            }
-        },
-        // "google.com/passkey": true,  // hint to use Google Password Manager. Will likely be used anyway when on Chrome
-        "credProps": true, // Check if a resident credential (passkey) was created
-        // TODO P2 others to consider:
-        //largeBlob: {
-        //    support: "required" // Indicates the RP requires large blob support
-        //},
-        //devicePublicKey: {},
-    };
-}
+const getExtensions = (firstSalt: Uint8Array): AuthenticationExtensionsClientInputs => ({
+    'prf': {
+        'eval': {
+            'first': firstSalt.buffer.slice(firstSalt.byteOffset, firstSalt.byteOffset + firstSalt.byteLength) as ArrayBuffer
+        }
+    },
+    // "google.com/passkey": true,  // hint to use Google Password Manager. Will likely be used anyway when on Chrome
+    'credProps': true // Check if a resident credential (passkey) was created
+    // TODO P2 others to consider:
+    //largeBlob: {
+    //    support: "required" // Indicates the RP requires large blob support
+    //},
+    //devicePublicKey: {},
+});
 
 /*
  * Checks for WebAuthn support, available only when running in a secure context
  */
+/*
 const isWebauthnSupported = (): boolean => !!self.PublicKeyCredential;
+*/
 
 /*
  * Helper function to retry an asynchronous operation with a timeout.
+ * Note: Currently unused but kept for potential future use
  */
+/*
 async function retry<T>(operation: () => Promise<T>, retries: number, timeout: number): Promise<T> {
+    // Pre-create the error to avoid expensive object creation in setTimeout handler
+    const timeoutError = new Error(ErrorCode.TIMEOUT_ERROR);
     for (let attempt = 1; attempt <= retries; attempt++) {
-        const result = await Promise.race([operation(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error(ErrorCode.TIMEOUT_ERROR)), timeout))]);
-        if (result) return result as T;
+        try {
+            // Create a timeout promise that rejects after the specified time
+            let timeoutId: number;
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                timeoutId = setTimeout(() => reject(timeoutError), timeout) as unknown as number;
+            });
+
+            // Race the operation against the timeout
+            const result = await Promise.race([
+                operation().finally(() => clearTimeout(timeoutId)),
+                timeoutPromise
+            ]);
+
+            if (result) {return result as T;}
+        } catch (error) {
+            if (error === timeoutError && attempt < retries) {
+                // Continue to next retry
+                continue;
+            }
+            throw error;
+        }
     }
-    throw new Error("Max retries reached.");
+    throw new Error('Max retries reached.');
 }
+    */
 
 /*
  * Because chrome.storage.sync is specific per browser profile and per-extension, this is a secret identifier will be unique to each profile.
@@ -107,11 +137,13 @@ export async function getProfileIdentifier(): Promise<string> {
 /*
  *
  */
+/*
 async function generateChallenge(extensionId: string, profileIdentifier: string): Promise<Uint8Array> {
     const concatenatedInput = `${extensionId}:${profileIdentifier}`;
-    const hash = crypto.subtle.digest("SHA-256", new TextEncoder().encode(concatenatedInput));
+    const hash = crypto.subtle.digest('SHA-256', new TextEncoder().encode(concatenatedInput));
     return new Uint8Array(await hash);
 }
+    */
 
 /*
  * Get a UserId based on the randomly generated browser profile ID
@@ -121,10 +153,10 @@ async function getOrCreateUserId(): Promise<Uint8Array> {
     try {
         profileIdentifier = await getProfileIdentifier();
         if (!profileIdentifier) {
-            throw new Error("Profile identifier cannot be empty.");
+            throw new Error('Profile identifier cannot be empty.');
         }
     } catch (error) {
-        console.error("Error fetching profile identifier:", error);
+        console.error('Error fetching profile identifier:', error);
         throw error;
     }
     return hashStringToUint8Array(profileIdentifier);
@@ -134,7 +166,7 @@ async function getOrCreateUserId(): Promise<Uint8Array> {
  * Return 32 bytes of SHA-256 hash of the input string
  */
 async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
-    return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input)));
+    return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input)));
 }
 
 /*
@@ -142,14 +174,14 @@ async function hashStringToUint8Array(input: string): Promise<Uint8Array> {
  */
 async function generateSixDigitNumber(id: string): Promise<string> {
     // Combine the input with a fixed string and encode it as a Uint8Array
-    const data = new TextEncoder().encode(id + "fixed");
+    const data = new TextEncoder().encode(`${id}fixed`);
 
     // Hash the data using SHA-256
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
 
     // Convert the hash to a hexadecimal string manually
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(byte => (byte < 16 ? "0" : "") + byte.toString(16)).join("");
+    const hashHex = hashArray.map(byte => (byte < 16 ? '0' : '') + byte.toString(16)).join('');
 
     // Use a subset of the hash to create a 6-digit number
     const hashSegment = hashHex.slice(0, 10); // Take the first 10 hex digits
@@ -158,7 +190,7 @@ async function generateSixDigitNumber(id: string): Promise<string> {
     // Ensure it's exactly 6 digits by manually padding with zeros
     const sixDigitNumber = numericValue.toString();
     const paddedNumber = sixDigitNumber.length < 6
-        ? "0".repeat(6 - sixDigitNumber.length) + sixDigitNumber
+        ? '0'.repeat(6 - sixDigitNumber.length) + sixDigitNumber
         : sixDigitNumber;
 
     return paddedNumber;
@@ -167,17 +199,16 @@ async function generateSixDigitNumber(id: string): Promise<string> {
 /*
  * create a user object with name that is derrived from the profileId
  */
-async function getOrCreateUser(): Promise<User> {
-    let id = await getOrCreateUserId();
-    let user: User;
+async function getOrCreateUser(): Promise<IUser> {
+    const id = await getOrCreateUserId();
     // TODO P3 could display this value in the AuthenticatorsPage, to help user correlate this with what is stored in the authenticator, especially Google Password Manager and others that display the name or ID
-    let namestring = await generateSixDigitNumber(id.toString());
-    let name: string = `${KERI_AUTH_EXTENSION_NAME + " (" + namestring + ")"}`; // fixed for same profile
-    user = {
+    const namestring = await generateSixDigitNumber(id.toString());
+    const name = `${`${KERI_AUTH_EXTENSION_NAME} (${namestring})`}`; // fixed for same profile
+    const user = {
         id: Uint8Array.from(id),
-        name: name,
-        displayName: name,
-    };
+        name,
+        displayName: name
+    } as IUser;
     return user;
 }
 
@@ -200,7 +231,7 @@ function getExcludeCredentialsFromCreate(credentialIds: string[], transports: st
         const pkcd = {
             id: credIdUint8Array,
             transports: transports as AuthenticatorTransport[],
-            type: "public-key"
+            type: 'public-key'
         } as PublicKeyCredentialDescriptor;
         pkcds.push(pkcd);
     }
@@ -216,48 +247,54 @@ async function derive32Uint8ArrayFromProfileId(): Promise<Uint8Array> {
     const encoder = new TextEncoder();
     // Convert GUID string to Uint8Array
     const guidBytes = encoder.encode(profileIdentifier);
-    const hash = await crypto.subtle.digest('SHA-256', guidBytes)
+    const hash = await crypto.subtle.digest('SHA-256', guidBytes);
     return new Uint8Array(hash); // 32 bytes
-}
+};
 
-
-/* 
+/*
  * Note name and types/shape needs to align with definition in IWebauthnService
  */
-interface CredentialWithPRF {
+interface ICredentialWithPRF {
     credentialID: string; // Base64Url-encoded Credential ID
     transports: string[]; // Array of transport types (e.g., ["usb", "nfc", "ble", "internal", "hybrid"])
-}
+};
 
 /*
- *
+ * Extended interface for PublicKeyCredentialCreationOptions with additional properties
  */
-interface ExtendedPublicKeyCredentialCreationOptions extends PublicKeyCredentialCreationOptions {
-    hints?: [string]; // Adjust the type of hints as needed
+interface IExtendedPublicKeyCredentialCreationOptions extends PublicKeyCredentialCreationOptions {
+    hints?: string[]; // Array of hints for authenticator selection
 }
 
 /*
- * Register a credential with a user-chosen authenticator, restricting it from re-registering one of the previously stored credential. 
+ * Register a credential with a user-chosen authenticator, restricting it from re-registering one of the previously stored credential.
  * Returns the new credentialId or throws.
  */
-export async function registerCredential(registeredCredIds: string[], residentKey: ResidentKeyRequirement, authenticatorAttachment: AuthenticatorAttachment, userVerification: UserVerificationRequirement, attestationConveyancePreference: AttestationConveyancePreference, hints: [string]): Promise<CredentialWithPRF> {
+export async function registerCredential(
+    registeredCredIds: string[],
+    residentKey: ResidentKeyRequirement,
+    authenticatorAttachment: AuthenticatorAttachment,
+    userVerification: UserVerificationRequirement,
+    attestationConveyancePreference: AttestationConveyancePreference,
+    hints: [string]
+): Promise<ICredentialWithPRF> {
     try {
         // TODO P2 should this challenge should be temporarily stored until response is validated?
         const challenge = crypto.getRandomValues(new Uint8Array(32));
         const authenticatorSelectionCriteira: AuthenticatorSelectionCriteria = {
-            residentKey: residentKey,
-            userVerification: userVerification,
+            residentKey,
+            userVerification,
             // TODO P3: Depricated? Perhaps this should be based on the user's preference?
-            // requireResidentKey: false, 
-            authenticatorAttachment: VALID_AUTHENTICATOR_ATTACHMENTS.includes(authenticatorAttachment as any)
+            // requireResidentKey: false,
+            authenticatorAttachment: VALID_AUTHENTICATOR_ATTACHMENTS.includes(authenticatorAttachment as typeof VALID_AUTHENTICATOR_ATTACHMENTS[number])
                 ? (authenticatorAttachment as AuthenticatorAttachment)
                 : undefined
         };
 
-        const options: ExtendedPublicKeyCredentialCreationOptions = {
+        const options: IExtendedPublicKeyCredentialCreationOptions = {
             rp: CREDS_CREATE_RP,
             user: await getOrCreateUser(),
-            challenge: challenge,
+            challenge,
             pubKeyCredParams: CREDS_PUBKEY_PARAMS,
             authenticatorSelection: authenticatorSelectionCriteira,
             // TODO P2: pass in parameter of authenticatorTransports? Unclear how this prohibits re-registration of known credential or the UX
@@ -265,8 +302,8 @@ export async function registerCredential(registeredCredIds: string[], residentKe
             extensions: getExtensions(await derive32Uint8ArrayFromProfileId()),
             timeout: CREDS_CREATE_TIMEOUT,
             attestation: attestationConveyancePreference,
-            hints: hints
-        };
+            hints
+        } as IExtendedPublicKeyCredentialCreationOptions;
 
         // console.warn("registerCredential: options: ", options);
 
@@ -274,8 +311,8 @@ export async function registerCredential(registeredCredIds: string[], residentKe
             publicKey: options
         }) as PublicKeyCredential;
 
-        if (credential == null) {
-            throw new Error("credentials.create() returned null or timed out");
+        if (credential === null) {
+            throw new Error('credentials.create() returned null or timed out');
         }
 
         const clientExtensionResults = credential.getClientExtensionResults();
@@ -284,14 +321,14 @@ export async function registerCredential(registeredCredIds: string[], residentKe
         // above can be used to determine if the authenticator supports the PRF extension and/or rk.
 
         if (clientExtensionResults.prf?.enabled !== true) {
-            console.error("This authenticator (or possibly the OS) does not support the required webauthn PRF extension.");
-            throw Error("This authenticator (or possibly the OS) does not support the required webauthn PRF extension.");
+            console.error('This authenticator (or possibly the OS) does not support the required webauthn PRF extension.');
+            throw Error('This authenticator (or possibly the OS) does not support the required webauthn PRF extension.');
         }
 
         // TODO P1: Should this check be dependent on the authenticatorSelectionCriteria?
         if (clientExtensionResults.credProps?.rk !== true) {
-            console.error("This authenticator does not support resident keys.");
-            throw Error("This authenticator does not support resident keys.");
+            console.error('This authenticator does not support resident keys.');
+            throw Error('This authenticator does not support resident keys.');
         }
 
         // Extract credential ID and transport
@@ -302,17 +339,20 @@ export async function registerCredential(registeredCredIds: string[], residentKe
 
         const response = credential.response as AuthenticatorAttestationResponse;
         const transports = response.getTransports?.(); //  ?? [];
+        /*
         const attestationObject: ArrayBuffer = response.attestationObject;
         const clientDataJSON: ArrayBuffer = response.clientDataJSON;
 
         // TODO: P2 prf.results.first is used to derive the encryption key, and therefore should not be logged.
         // TODO P2 temporary to test to prepare for checking attestation, and for potential duplicate of credentials (of same RP and User) already on device
+
         const temp = JSON.stringify({
-            transports: transports,
-            attestationObject: arrayBufferToBase64(attestationObject),
-            clientDataJSON: arrayBufferToBase64(clientDataJSON),
+            transports,
+            attestationObject: Buffer.from(attestationObject).toString('base64'),
+            clientDataJSON: Buffer.from(clientDataJSON).toString('base64'),
             credentialId: credential.id
-        })
+        });
+        */
         // console.log("clientDataJSON: ", temp);
 
         // TODO P2, the returned attestation should be validated, against known authenticators and trust anchors
@@ -320,24 +360,17 @@ export async function registerCredential(registeredCredIds: string[], residentKe
         // Return a JSON-serializable object friendly for JSInterop
         return {
             credentialID, // Base64-encoded credential ID
-            transports,   // Potentially empty array of transport types (e.g., "usb", "nfc", "ble", "internal")
-        } as CredentialWithPRF;
+            transports   // Potentially empty array of transport types (e.g., "usb", "nfc", "ble", "internal")
+        } as ICredentialWithPRF;
 
     } catch (error) {
-        console.warn("registerCredential error: ", error);
+        console.warn('registerCredential error: ', error);
         throw error;
     }
 }
 
 /*
- * convert an ArrayBuffer to Base64
- */
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-}
-
-/*
- * 
+ * convert a Base64Url string to an ArrayBuffer
  */
 function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
     // Normalize the Base64Url string to Base64
@@ -349,7 +382,7 @@ function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
     }
 
     // Decode Base64 to binary string
-    const binaryString = atob(base64);
+    const binaryString = Buffer.from(base64, 'base64').toString('binary');
 
     // Create an ArrayBuffer and populate it with binary data
     const len = binaryString.length;
@@ -366,15 +399,15 @@ function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
 *
 */
 function toBase64Url(buffer: ArrayBuffer): string {
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    const base64 = Buffer.from(buffer).toString('base64');
     // Convert Base64 to Base64-URL
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-
 /*
  *  convert a base64 string to a Uint8Array
  */
+/*
 function base64UrlToUint8Array(base64Url: string): Uint8Array {
     // Replace Base64-URL specific characters to standard Base64 characters
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -386,7 +419,7 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
     const paddedBase64 = base64 + (paddingNeeded ? '='.repeat(paddingNeeded) : '');
 
     // Decode the Base64 string to binary
-    const binary = atob(paddedBase64);
+    const binary = Buffer.from(paddedBase64, 'base64').toString('binary');
 
     // Convert binary string to Uint8Array
     const len = binary.length;
@@ -396,16 +429,17 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
     }
     return bytes;
 }
+    */
 
 /*
  *
  */
-export async function authenticateCredential(credentialIdBase64s: string[]): Promise<AuthenticateCredResult> {
+export async function authenticateCredential(credentialIdBase64s: string[]): Promise<IAuthenticateCredResult> {
     try {
         // construct array of allowed credentials
         const allowCredentials: PublicKeyCredentialDescriptor[] = [];
         // TODO P2 should use the set of transports equal to the union of all saved credential transports
-        const transports: AuthenticatorTransport[] = ["usb", "nfc", "ble", "internal", "hybrid"];
+        const transports: AuthenticatorTransport[] = ['usb', 'nfc', 'ble', 'internal', 'hybrid'];
 
         // console.warn("credentialIdBase64s: ", credentialIdBase64s);
         for (const credentialIdBase64Url of credentialIdBase64s) {
@@ -414,74 +448,77 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
             // console.warn("credentialId ArrayBuffer: ", credentialId);
             allowCredentials.push({
                 id: credentialId,
-                type: "public-key",
-                transports: transports as AuthenticatorTransport[],
+                type: 'public-key',
+                transports: transports as AuthenticatorTransport[]
             } as PublicKeyCredentialDescriptor);
         }
         // console.warn("authenticateCredential: allowCredentials: ", allowCredentials);
 
         // Prepare PublicKeyCredentialRequestOptions
-        const options: PublicKeyCredentialRequestOptions & { extensions: { prf: any } } = {
+        const options: PublicKeyCredentialRequestOptions = {
             challenge: crypto.getRandomValues(new Uint8Array(32)),
-            allowCredentials: allowCredentials,
+            allowCredentials,
             // rpId and user are intentionally blank, since authenticator will have this stored based on credentialId
             timeout: CREDS_GET_TIMEOUT,
             // TODO P2 userVerification should be from stored credential and passed into this method as parameter
-            userVerification: "preferred",
+            userVerification: 'preferred',
             extensions: {
                 prf: {
                     eval: {
-                        first: await derive32Uint8ArrayFromProfileId(),
-                    },
-                } as any,
-            },
+                        first: await derive32Uint8ArrayFromProfileId().then(arr =>
+                            arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength))
+                    }
+                } as AuthenticationExtensionsPRFInputs
+            } as AuthenticationExtensionsClientInputs
         };
 
         // Call WebAuthn API to get assertion from authenticator
-        const credentialRequestOptions: CredentialRequestOptions = { publicKey: options }
+        const credentialRequestOptions: CredentialRequestOptions = { publicKey: options };
         const assertion: PublicKeyCredential | null = await navigator.credentials.get(credentialRequestOptions) as PublicKeyCredential;
         if (!assertion) {
-            console.error("Did not get assertion from authenticator. May have timed out.");
-            throw Error("Did not get assertion from authenticator. May have timed out.")
+            console.error('Did not get assertion from authenticator. May have timed out.');
+            throw Error('Did not get assertion from authenticator. May have timed out.');
         }
         const credentialIdbase64Url = toBase64Url(assertion.rawId);
 
         // Get the PRF results
-        const extensionResults = assertion.getClientExtensionResults();
-        if (!((extensionResults as any).prf?.results?.first)) {
-            console.log("This authenticator is not supported. Did not return PRF results.");
-            throw Error("This authenticator is not supported. Did not return PRF results.");
+        const extensionResults = assertion.getClientExtensionResults() as AuthenticationExtensionsClientOutputs & {
+            prf?: { results?: { first?: ArrayBuffer; second?: ArrayBuffer } }
+        };
+        if (!(extensionResults.prf?.results?.first)) {
+            console.log('This authenticator is not supported. Did not return PRF results.');
+            throw Error('This authenticator is not supported. Did not return PRF results.');
         }
 
         // Import the input key material generated by assertion
         const keyData = new Uint8Array(
-            (extensionResults as any).prf.results.first,
+            extensionResults.prf.results.first
         ) as BufferSource;
 
         // Derive the encryption key
         const keyDerivationCryptoKey = await crypto.subtle.importKey(
-            "raw",
+            'raw',
             keyData,
-            "HKDF",
+            'HKDF',
             false,
-            ["deriveKey"],
+            ['deriveKey']
         );
         const encryptCryptoKey = await crypto.subtle.deriveKey(
             ENCRYPT_DERIVE_KEY_ALGO,
             keyDerivationCryptoKey,
             ENCRYPT_DERIVE_KEY_TYPE,
             true,
-            ["encrypt", "decrypt"],
+            ['encrypt', 'decrypt']
         );
 
         // convert encryptCryptoKey to more convenient format for C# interop
         const Uint8ArrayEncryptKey = await exportCryptoKeyToUint8Array(encryptCryptoKey);
-        const encryptKeyBase64 = btoa(String.fromCharCode(...Uint8ArrayEncryptKey));
+        const encryptKeyBase64 = Buffer.from(Uint8ArrayEncryptKey).toString('base64');
 
-        return { credentialId: credentialIdbase64Url, encryptKey: encryptKeyBase64 } as AuthenticateCredResult;
+        return { credentialId: credentialIdbase64Url, encryptKey: encryptKeyBase64 } as IAuthenticateCredResult;
 
     } catch (error) {
-        console.error("authenticateCredential threw error: ", error);
+        console.error('authenticateCredential threw error: ', error);
         throw error;
     }
 }
@@ -489,8 +526,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
 /*
  * Note name and types/shape needs to align with definition in IWebauthnService
  */
-
-interface AuthenticateCredResult {
+interface IAuthenticateCredResult {
     credentialId: string; // Base64Url-encoded Credential ID
     encryptKey: string; // Base64 of encrypt key
 }
@@ -499,7 +535,7 @@ interface AuthenticateCredResult {
  *
  */
 async function exportCryptoKeyToUint8Array(key: CryptoKey): Promise<Uint8Array> {
-    const exported = await crypto.subtle.exportKey("raw", key);
+    const exported = await crypto.subtle.exportKey('raw', key);
     return new Uint8Array(exported); // Convert ArrayBuffer to Uint8Array
 }
 
@@ -511,25 +547,27 @@ export const encryptWithNounce = async (
     dataStr: string           // Data to encrypt as a string
 ): Promise<string> => {
     // Decode the Base64 string into a Uint8Array
-    const keyBytes = Uint8Array.from(atob(encryptionKeyBase64), c => c.charCodeAt(0));
+    const keyBytes = Uint8Array.from(Buffer.from(encryptionKeyBase64, 'base64'));
 
     if (keyBytes.length !== 16 && keyBytes.length !== 32) {
-        throw new Error("Encryption key must be exactly 16 or 32 bytes when encoded.");
+        throw new Error('Encryption key must be exactly 16 or 32 bytes when encoded.');
     }
 
     // Convert the data string to a Uint8Array
     const data = new TextEncoder().encode(dataStr);
 
     // Generate a random IV (12 bytes is recommended for AES-GCM)
+    /*
     const iv = crypto.getRandomValues(new Uint8Array(12));
+    */
 
     // Import the encryption key
     const encryptionKey = await crypto.subtle.importKey(
-        "raw",
+        'raw',
         keyBytes,
-        { name: "AES-GCM" },
+        { name: 'AES-GCM' },
         false,
-        ["encrypt"]
+        ['encrypt']
     );
 
     // Perform the encryption
@@ -543,11 +581,10 @@ export const encryptWithNounce = async (
 
     // Convert the ArrayBuffer to a Base64 string
     const encryptedBytes = new Uint8Array(encryptedArrayBuffer);
-    const base64Encrypted = btoa(String.fromCharCode(...encryptedBytes));
+    const base64Encrypted = Buffer.from(encryptedBytes).toString('base64');
 
     return base64Encrypted;
 };
-
 
 /*
  *
@@ -561,24 +598,24 @@ export const decryptWithNounce = async (
     // console.warn("encryptedBase64: ", encryptedBase64);
 
     // Decode the Base64 key into a Uint8Array
-    const keyBytes = Uint8Array.from(atob(encryptionKeyBase64), c => c.charCodeAt(0));
+    const keyBytes = Uint8Array.from(Buffer.from(encryptionKeyBase64, 'base64'));
 
     // console.log("Key byte length:", keyBytes.length);
     if (keyBytes.length !== 16 && keyBytes.length !== 32) {
-        throw new Error("Encryption key must be 16 or 32 bytes.");
+        throw new Error('Encryption key must be 16 or 32 bytes.');
     }
 
     // Import the CryptoKey
     const encryptionKey = await crypto.subtle.importKey(
-        "raw",
+        'raw',
         keyBytes,
-        { name: "AES-GCM" },
+        { name: 'AES-GCM' },
         true,
-        ["decrypt", "encrypt"]
+        ['decrypt', 'encrypt']
     );
 
     // Decode the Base64 encrypted data into a Uint8Array
-    const encryptedBytes = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+    const encryptedBytes = Uint8Array.from(Buffer.from(encryptedBase64, 'base64'));
     // console.log("Encrypted data byte length:", encryptedBytes.length);
 
     // Decrypt the data
@@ -594,7 +631,7 @@ export const decryptWithNounce = async (
         const decryptedText = (new TextDecoder()).decode(decryptedArrayBuffer);
         return decryptedText;
     } catch (error) {
-        console.log("could not decrypt and decode");
+        console.log('could not decrypt and decode');
         throw (error);
     }
 };
@@ -602,14 +639,19 @@ export const decryptWithNounce = async (
 /*
  *
  */
-const getEncryptionAlgorithm = (nounce: Uint8Array): AlgorithmIdentifier => {
-    return { name: "AES-GCM", iv: nounce } as AlgorithmIdentifier;
-};
+function getEncryptionAlgorithm(nounce: Uint8Array): AlgorithmIdentifier {
+    return ({
+        name: 'AES-GCM', iv: nounce
+    } as AlgorithmIdentifier
+    );
+}
 
 /*
  *
  */
-const getDeriveKeyAlgorithm = (salt: Uint8Array): AlgorithmIdentifier => {
-    const deriveKeyAlgorithm = { name: "HKDF", ENCRYPT_KEY_INFO, salt, hash: "SHA-256" };
+/*
+function getDeriveKeyAlgorithm(salt: Uint8Array): AlgorithmIdentifier {
+    const deriveKeyAlgorithm = { name: 'HKDF', ENCRYPT_KEY_INFO, salt, hash: 'SHA-256' };
     return deriveKeyAlgorithm;
-};
+}
+*/

@@ -36,15 +36,15 @@ The extension uses a multi-layered messaging system with strict boundaries:
 1. **Web Page ↔ Content Script**: Via polaris-web JavaScript API protocol
    - Web page calls polaris-web methods
    - Content script validates and forwards to service worker
-   
+
 2. **Content Script ↔ Service Worker**: Via chrome.runtime messaging
    - Messages must include sender tab information
    - Only active tab messages accepted during authentication
-   
+
 3. **Service Worker ↔ Blazor WASM**: Via AppSwMessagingService
    - Bidirectional communication for UI updates
    - State synchronization across extension components
-   
+
 4. **Blazor/Service Worker ↔ KERIA**: Via signify-ts library
    - KERI protocol operations
    - Credential management
@@ -135,6 +135,7 @@ For full build from clean state:
 
 #### Message Types
 Define interfaces for all chrome.runtime messages:
+
 ```typescript
 interface ExtensionMessage {
   type: string;
@@ -155,7 +156,7 @@ interface ExtensionMessage {
 - **.NET Version**: .NET 9.0 SDK required
 - **Indentation**: 4-space indentation
 - **Braces**: Opening braces on same line; Use braces for all control structures, even single-line statements
-- **Naming**: 
+- **Naming**:
   - PascalCase for classes, interfaces (with 'I' prefix), public methods and properties, enums
   - camelCase with underscore prefix for private fields (_fieldName)
   - Constants: use readonly fields or const values (prefer const for immutable values)
@@ -193,7 +194,7 @@ interface ExtensionMessage {
 
 ## Use of KERI, ACDC, and CESR via signify-ts
 
-- For understanding of the terms KERI, ACDC, OOBI, and IPEX, see the following resource: https://github.com/GLEIF-IT/vlei-trainings/blob/main/markdown/llm_context.md
+- For understanding of the terms KERI, ACDC, OOBI, and IPEX, see the following resource: <https://github.com/GLEIF-IT/vlei-trainings/blob/main/markdown/llm_context.md>
 - CESR (Compact Event Streaming Representation): Self-describing binary encoding format used throughout KERI/ACDC for cryptographic primitives and data structures. Key point: preserves field ordering for deterministic serialization
 - Interaction patterns for those protocols, including key management, ACDC (i.e., a credential or attestation) interactions between the roles of Issuer, Holder, and Verifier:
   - Issuer creates credential
@@ -204,44 +205,44 @@ interface ExtensionMessage {
 
 ### vLEI Credential Schema Definitions
 
-Schema repository: https://github.com/GLEIF-IT/vLEI-schema
+Schema repository: <https://github.com/GLEIF-IT/vLEI-schema>
 Local copies: `Extension/Schemas/`
 
 Credential types and their schemas:
 - **QVI** (Qualified vLEI Issuer) Credential
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/qualified-vLEI-issuer-vLEI-credential.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/qualified-vLEI-issuer-vLEI-credential.json>
   - Local: `Extension/Schemas/qualified-vLEI-issuer-vLEI-credential.json`
   - Purpose: Issued by GLEIF to authorized vLEI issuers
   
 - **LE** (Legal Entity) vLEI Credential
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/legal-entity-vLEI-credential.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/legal-entity-vLEI-credential.json>
   - Local: `Extension/Schemas/legal-entity-vLEI-credential.json`
   - Purpose: Issued by QVI to legal entities
   
 - **OOR** (Official Organizational Role) Credential
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/legal-entity-official-organizational-role-vLEI-credential.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/legal-entity-official-organizational-role-vLEI-credential.json>
   - Local: `Extension/Schemas/legal-entity-official-organizational-role-vLEI-credential.json`
   - Purpose: Issued to individuals in official roles within legal entities
   
 - **OOR AUTH** (OOR Authorization) Credential
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/oor-authorization-vlei-credential.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/oor-authorization-vlei-credential.json>
   - Local: `Extension/Schemas/oor-authorization-vlei-credential.json`
   - Purpose: Authorization from LE to QVI to issue OOR credentials
   
 - **ECR** (Engagement Context Role) Credential
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/legal-entity-engagement-context-role-vLEI-credential.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/legal-entity-engagement-context-role-vLEI-credential.json>
   - Local: `Extension/Schemas/legal-entity-engagement-context-role-vLEI-credential.json`
   - Purpose: Issued for specific engagement contexts (e.g., supplier relationships)
   
 - **ECR AUTH** (ECR Authorization) Credential
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/ecr-authorization-vlei-credential.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/ecr-authorization-vlei-credential.json>
   - Local: `Extension/Schemas/ecr-authorization-vlei-credential.json`
   - Purpose: Authorization from LE to QVI to issue ECR credentials
   
 - **iXBRL** (Verifiable iXBRL Report Attestation)
-  - Schema: https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/verifiable-ixbrl-report-attestation.json
+  - Schema: <https://raw.githubusercontent.com/GLEIF-IT/vLEI-schema/main/verifiable-ixbrl-report-attestation.json>
   - Local: `Extension/Schemas/verifiable-ixbrl-report-attestation.json`
-  - Purpose: Attestation for XBRL financial reporting 
+  - Purpose: Attestation for XBRL financial reporting
 
 ## C#-TypeScript Interop Guidance
 
@@ -352,7 +353,7 @@ The extension enforces strict security boundaries:
 
 - **Passcode Caching**: Maximum 5 minutes of inactivity before automatic clearing
 - **Content Script Messages**: Only accepted from active tab during/after authentication
-- **HTTP Header Signing**: 
+- **HTTP Header Signing**:
   - Safe methods (GET) auto-approved
   - Unsafe methods (POST, PUT, DELETE) require explicit user consent
 - **Script Execution**: No dynamic or inline scripts allowed (strict CSP)
@@ -377,7 +378,7 @@ When making changes, prioritize in this order:
 - **Browser Testing**: Manual testing required for extension UI/UX flows
 - **Test Data**: Use local schema files in `Extension/Schemas/` for credential validation
 
-### Testing Commands
+### Testing Commands (Strategy)
 - Run all tests: `dotnet test`
 - Run with coverage: `dotnet test --collect:"XPlat Code Coverage"`
 - Run specific test class: `dotnet test --filter "ClassName=TestClassName"`
@@ -396,10 +397,10 @@ When making changes, prioritize in this order:
 ### Manifest Configuration (manifest.json)
 - **Manifest Version**: V3 (required for Chrome Web Store)
 - **Compatibility**: Chrome, Edge, Brave (Chromium-based browsers 127+)
-- **Permissions**: 
+- **Permissions**:
   - Minimum required permissions declared
   - Host permissions requested at runtime when needed
-- **Content Security Policy**: 
+- **Content Security Policy**:
   - Strict CSP preventing inline scripts
   - No eval() or dynamic code execution
   - Trusted sources explicitly listed
@@ -411,7 +412,8 @@ When making changes, prioritize in this order:
 - **Options Page**: Full tab for extended configuration
 
 ### Build Output Structure
-```
+
+```text
 Extension/bin/Release/net9.0/browserextension/
 ├── manifest.json
 ├── _framework/          # Blazor WASM files
