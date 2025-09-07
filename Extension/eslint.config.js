@@ -74,7 +74,7 @@ export default [
       ],
       
       // General JavaScript rules
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'debug', 'info', 'log', 'assert'] }],
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
       'no-unused-expressions': 'error',
@@ -87,7 +87,7 @@ export default [
       'eqeqeq': ['error', 'always'],
       'curly': ['error', 'all'],
       'brace-style': ['error', '1tbs'],
-      'indent': ['error', 2, { SwitchCase: 1 }],
+      'indent': ['error', 4, { SwitchCase: 1, ignoredNodes: ['ConditionalExpression'] }],
       'quotes': ['error', 'single', { avoidEscape: true }],
       'semi': ['error', 'always'],
       'comma-dangle': ['error', 'never'],
