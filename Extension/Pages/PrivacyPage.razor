@@ -1,10 +1,10 @@
-﻿@page "/Terms"
+﻿@page "/Privacy"
 
 @using Extension.Helper
 @using Extension.Models
 @using Extension.Services
 @using Extension
-@using Extension.UI.Components
+@using Extension.Components
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using static Extension.Helper.PreviousPage
@@ -43,20 +43,20 @@
 @code {
 	// fields
 	private OnboardState? onboardState;
-	const string termsUrlPath = "content/terms.html";
-	static MarkupString termsMarkup = new("Placeholder for Terms of Use");
+	const string privacyUrlPath = "content/privacy.html";
+	static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
 	private MudButton? nextButton;
 
 	// properties
 	bool IsTermsAgreed { get; set; } = true; // TODO P2 temporary for testing
 
 	// reactive properties
-	int termsMarkupHash => HashInt(termsMarkup.Value);
+	int privacyMarkupHash => HashInt(privacyMarkup.Value);
 
 	protected override async Task OnInitializedAsync()
 	{
 		// logger.LogInformation("OnInitializedAsync");
-		termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
+		privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
 
 		var res = await storageService.GetItem<OnboardState>();
 		if (res.IsFailed)
@@ -64,7 +64,6 @@
 			throw new InvalidOperationException("Failed to get OnboardState");
 		}
 		onboardState = res.Value;
-
 		await nextButton!.FocusAsync(); // TODO P2 temporary for testing
 	}
 
@@ -76,8 +75,8 @@
 		}
 		var newOnboardState = onboardState with
 			{
-				TosAgreedHash = termsMarkupHash,
-				TosAgreedUtc = DateTime.UtcNow,
+				PrivacyAgreedHash = privacyMarkupHash,
+				PrivacyAgreedUtc = DateTime.UtcNow,
 			};
 		_ = await storageService.SetItem<OnboardState>(newOnboardState);
 		StateHasChanged();
@@ -87,20 +86,20 @@
 
 <div id="@this.GetType().Name" class="bt-body-page">
 	<div class="d-flex gap-3 bt-main">
-		<MudStack>
+		<MudStack Style="overflow-x:auto;">
 			<MudText Typo="Typo.h6"></MudText>
 			<MudSpacer />
-			<MudText Style="font-weight:bold">Please review and agree to the Terms of Use</MudText>
+			<MudText Style="font-weight:bold">Please review and agree to the Privacy Policy</MudText>
 			<MudStack Style="gap:0;">
 				<MudStack Class="d-flex bt-terms-section">
-					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
+					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@privacyUrlPath" Target="_blank" Class="bt-terms-button" />
 					<div class="bt-terms-markup">
-						@(termsMarkup)
+						@(privacyMarkup)
 					</div>
 				</MudStack>
 				<MudDivider />
 				<MudStack class="d-flex mt-5 justify-end" Style="align-items:center;">
-					<MudCheckBox @bind-Value="IsTermsAgreed" data-testid="tosCheckbox" Style="user-select: none; color:var(--mud-palette-primary)">I accept the terms of this Agreement</MudCheckBox>
+					<MudCheckBox @bind-Value="IsTermsAgreed" data-testid="tosCheckbox" Style="user-select: none; color:var(--mud-palette-primary)">I accept the terms of this Privacy Policy</MudCheckBox>
 				</MudStack>
 			</MudStack>
 		</MudStack>

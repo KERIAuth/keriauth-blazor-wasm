@@ -53,7 +53,7 @@
 
   <!-- Content Files -->
   <ItemGroup>
-    <Content Update="UI\Pages\PrivacyPage.razor">
+    <Content Update="Pages\PrivacyPage.razor">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
