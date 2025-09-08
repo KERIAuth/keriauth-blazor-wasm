@@ -18,7 +18,7 @@ interface Iuiutils {
 export async function loadModule<T>(url: string): Promise<LoadModuleResult<T>> {
     try {
         const module = await import(url) as T;
-        return { success: true, module: module };
+        return { success: true, module };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }

@@ -94,7 +94,7 @@ async function retry<T>(operation: () => Promise<T>, retries: number, timeout: n
             // Create a timeout promise that rejects after the specified time
             let timeoutId: number;
             const timeoutPromise = new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(() => reject(timeoutError), timeout) as unknown as number;
+                timeoutId = globalThis.setTimeout(() => reject(timeoutError), timeout) as unknown as number;
             });
 
             // Race the operation against the timeout

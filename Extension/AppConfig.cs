@@ -51,7 +51,7 @@ namespace Extension
 		public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
 		// default preferences
-		public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000.
+		public const int SignifyTimeoutMs = 10000; // Note, had fast retry issues when this was set to 1000, since a KERIA boot with KERIA oobi behinds the scenes take long time.
 
 		public const bool DefaultIsDarkTheme = false;
 		public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;

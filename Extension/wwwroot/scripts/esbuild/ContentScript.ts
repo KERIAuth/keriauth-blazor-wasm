@@ -10,16 +10,18 @@ interface EventData {
     [key: string]: any;
 }
 
+import type {
+    ICsPageMsgData,
+    ICsPageMsgDataData,
+    ICsSwMsg} from '../es6/ExCsInterfaces';
+
 import {
-    CsPageMsgData,
-    CsPageMsgDataData,
     CsPageMsgTag,
     CsSwMsgEnum,
-    ICsSwMsg,
     SwCsMsgEnum
-} from "../es6/ExCsInterfaces";
+} from '../es6/ExCsInterfaces';
 
-import * as PW from "../types/polaris-web-client";
+import type * as PW from '../types/polaris-web-client';
 
 /*
  * This section is evaluated on document-start, as specified in the extension manifest
@@ -32,10 +34,10 @@ const currentOrigin = window.location.origin;
 let uniquePortName: string;
 let portWithSw: chrome.runtime.Port | null;
 
-console.groupCollapsed("KeriAuthCs initializing");
+console.groupCollapsed('KeriAuthCs initializing');
 
 // Add a listener for messages and create port with SW
-window.addEventListener("message", (event: MessageEvent<EventData>) => handleWindowMessage(event));
+window.addEventListener('message', (event: MessageEvent<EventData>) => handleWindowMessage(event));
 createPortWithSw();
 
 // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
@@ -56,14 +58,14 @@ function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
     // TODO P4 consider randumUUID() instead
     window.crypto.getRandomValues(array);
-    return Array.from(array, dec => ('00000000' + dec.toString(16)).slice(-8)).join('-');
+    return Array.from(array, dec => (`00000000${  dec.toString(16)}`).slice(-8)).join('-');
 }
 
 /*
- * 
+ *
  */
 function postMessageToPage<T>(msg: T): void {
-    console.log(`KeriAuthCs→Page: ${(msg as CsPageMsgData<T>).type}`, { msg });
+    console.log(`KeriAuthCs→Page: ${(msg as ICsPageMsgData<T>).type}`, { msg });
     window.postMessage(msg, currentOrigin);
 }
 
@@ -72,7 +74,7 @@ function postMessageToPage<T>(msg: T): void {
  */
 function handleMsgFromSW(message: PW.MessageData<unknown>): void {
     if (!message.type) {
-        console.error("KeriAuthCs←SW: type not found in message:", message);
+        console.error('KeriAuthCs←SW: type not found in message:', message);
         return;
     }
 
@@ -84,43 +86,43 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
 
         case SwCsMsgEnum.REPLY:
             if (message.error) {
-                const errorMsg: CsPageMsgData<null> = {
+                const errorMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
-                    error: String(message.error),
-                }
-                postMessageToPage<CsPageMsgData<null>>(errorMsg);
+                    error: String(message.error)
+                };
+                postMessageToPage<ICsPageMsgData<null>>(errorMsg);
             } else {
-                const msg: CsPageMsgData<PW.AuthorizeResult> = {
+                const msg: ICsPageMsgData<PW.AuthorizeResult> = {
                     source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
                     payload: message.payload as PW.AuthorizeResult
-                }
-                postMessageToPage<CsPageMsgData<PW.AuthorizeResult>>(msg);
+                };
+                postMessageToPage<ICsPageMsgData<PW.AuthorizeResult>>(msg);
             }
             break;
 
         case SwCsMsgEnum.REPLY_CANCELED:
-            const canceledMsg: CsPageMsgData<null> = {
+            const canceledMsg: ICsPageMsgData<null> = {
                 source: CsPageMsgTag,
                 type: SwCsMsgEnum.REPLY,
                 requestId: message.requestId,
-                error: message.error,
-            }
-            postMessageToPage<CsPageMsgData<null>>(canceledMsg);
+                error: message.error
+            };
+            postMessageToPage<ICsPageMsgData<null>>(canceledMsg);
             break;
 
         case SwCsMsgEnum.APP_CLOSED:
             if (message.requestId) {
-                const appClosedMsg: CsPageMsgData<null> = {
+                const appClosedMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY,
                     requestId: message.requestId, // might be null
-                    error: message.error,
-                }
-                postMessageToPage<CsPageMsgData<null>>(appClosedMsg);
+                    error: message.error
+                };
+                postMessageToPage<ICsPageMsgData<null>>(appClosedMsg);
             }
             break;
 
@@ -131,28 +133,27 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
     console.groupEnd();
 }
 
-
 /*
- * 
+ *
  */
 function createPortWithSw(): void {
-    console.groupCollapsed(`KeriAuthCs→SW: creating port`);
+    console.groupCollapsed('KeriAuthCs→SW: creating port');
     uniquePortName = generateUniqueIdentifier();
     portWithSw = chrome.runtime.connect(uniquePortName);
-    console.log("KeriAuthCs→SW connected port:", portWithSw);
+    console.log('KeriAuthCs→SW connected port:', portWithSw);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
     portWithSw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromSW(message));
 
     portWithSw.onDisconnect.addListener((_) => {
         // disconnect will typically happen when the service-worker becomes inactive
-        console.info("KeriAuthCs Port with service-worker was disconnected, likely due to SW going inactive.");
+        console.info('KeriAuthCs Port with service-worker was disconnected, likely due to SW going inactive.');
         portWithSw = null;
     });
 
     // Send a ping message to the service worker to help complete the setup of connection port
     const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
-    console.log("KeriAuthCs→SW Init:", initMsg);
+    console.log('KeriAuthCs→SW Init:', initMsg);
     portWithSw.postMessage(initMsg);
     console.groupEnd();
 }
@@ -162,10 +163,10 @@ function createPortWithSw(): void {
  */
 function assurePortAndSend(msg: any) {
     if (portWithSw === null) {
-        console.info(`KeriAuthCs re-createPortWithCs()`);
+        console.info('KeriAuthCs re-createPortWithCs()');
         createPortWithSw();
     }
-    console.info(`KeriAuthCs→SW: postMessage:`, msg);
+    console.info('KeriAuthCs→SW: postMessage:', msg);
     portWithSw!.postMessage(msg);
 }
 
@@ -195,48 +196,48 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
         const requestId = (event.data as PW.MessageData<any>).requestId;
         switch (event.data.type) {
             case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT:
-                const extensionClientMsg: CsPageMsgDataData<{ extensionId: string }> = {
+                const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string }> = {
                     source: CsPageMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
-                    requestId: requestId
-                }
-                postMessageToPage<CsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
+                    requestId
+                };
+                postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION:
-                const extensionMessage: CsPageMsgDataData<{ extensionId: string }> = {
+                const extensionMessage: ICsPageMsgDataData<{ extensionId: string }> = {
                     source: CsPageMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
-                    requestId: requestId
-                }
-                postMessageToPage<CsPageMsgDataData<{ extensionId: string }>>(extensionMessage);
+                    requestId
+                };
+                postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionMessage);
                 break;
 
             case CsSwMsgEnum.POLARIS_GET_SESSION_INFO:
                 // const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // const authorizeResult: PW.AuthorizeResult = {};
                 // TODO P2 implement sessions?
-                const sessionInfoMsg: CsPageMsgData<null> = {
+                const sessionInfoMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY,
-                    requestId: requestId,
-                    error: "KERIAuthCs: sessions not supported",
+                    requestId,
+                    error: 'KERIAuthCs: sessions not supported'
                 };
-                postMessageToPage<CsPageMsgData<null>>(sessionInfoMsg);
+                postMessageToPage<ICsPageMsgData<null>>(sessionInfoMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR:
                 const configureVendorArgsMessage = event.data.payload as PW.MessageData<PW.ConfigureVendorArgs>;
                 console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
-                const configVendorMsg: CsPageMsgData<null> = {
+                const configVendorMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY,
-                    requestId: requestId,
-                    error: "KERIAuthCs: configure-vendor not supported",
+                    requestId,
+                    error: 'KERIAuthCs: configure-vendor not supported'
                 };
-                postMessageToPage<CsPageMsgData<null>>(configVendorMsg);
+                postMessageToPage<ICsPageMsgData<null>>(configVendorMsg);
                 break;
 
             case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
@@ -250,7 +251,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                     // TODO P2 this could be simplified with the correct type above?
                     // only relevant for POLARIS_SIGN_REQUEST ?
                     if (event.data.payload?.headers) {
-                        console.log("KeriAuthCs payload headers: ");
+                        console.log('KeriAuthCs payload headers: ');
                         const hs: Headers = event.data.payload?.headers;
                         for (const pair of hs.entries()) {
                             console.log(` ${pair[0]}: ${pair[1]}`);
@@ -258,7 +259,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                     }
                     assurePortAndSend(event.data);
                 } catch (error) {
-                    console.error("KeriAuthCs→SW: error sending message {event.data} {e}:", event.data, error);
+                    console.error('KeriAuthCs→SW: error sending message {event.data} {e}:', event.data, error);
                     return;
                 }
                 break;
@@ -266,13 +267,13 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
             case CsSwMsgEnum.POLARIS_CLEAR_SESSION:
                 // const authorizeArgsMessage3 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // Although sessions are not implemented, we can respond as expected when Clear is requested
-                const clearResult: CsPageMsgData<PW.AuthorizeResult> = {
+                const clearResult: ICsPageMsgData<PW.AuthorizeResult> = {
                     source: CsPageMsgTag,
                     type: SwCsMsgEnum.REPLY, // type: "tab",
-                    requestId: requestId,
+                    requestId,
                     payload: undefined
-                }
-                postMessageToPage<CsPageMsgData<PW.AuthorizeResult>>(clearResult);
+                };
+                postMessageToPage<ICsPageMsgData<PW.AuthorizeResult>>(clearResult);
                 break;
 
             case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION:
@@ -295,7 +296,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
         }
     } catch (error) {
         // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
-        console.info("KeriAuthCs error in handling event: ", event.data, "Extension may have been reloaded. Try reloading page.", "Error:", error)
+        console.info('KeriAuthCs error in handling event: ', event.data, 'Extension may have been reloaded. Try reloading page.', 'Error:', error);
     }
     console.groupEnd();
 };

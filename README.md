@@ -101,7 +101,7 @@ The following rules are enforced by design to ensure the security of the extensi
 * Clone the repository and build the extension.
 
 ## Extension Installation
-* After building from source code, use Chrome/Edge/Brave's "developer mode" and press `load unpacked`, selecting the directory KeriAuth.BrowserExtension\bin\Release\net9.0\browserextension.
+* After building from source code, use Chrome/Edge/Brave's "developer mode" and press `load unpacked`, selecting the directory Extension\bin\Release\net9.0\browserextension.
 
 <hr/>
 

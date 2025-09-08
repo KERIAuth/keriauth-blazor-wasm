@@ -98,7 +98,7 @@
     }
 
     // reactive properties
-    // TODO P1 assure URL has a trailing "/"
+    // TODO P1 assure URL has a trailing? "/"
     bool IsValidAdminURL =>
         !string.IsNullOrWhiteSpace(urlModel.AdminUrl) &&
         Uri.IsWellFormedUriString(urlModel.AdminUrl, UriKind.Absolute);
@@ -152,7 +152,7 @@
         logger.LogInformation("ConnectToKeria");
         IsProcessing = true;
 
-        if (!IsValidNewInfo || IsKeriaConfigured)
+        if (!(IsValidNewInfo || IsKeriaConfigured))
         {
             throw new Exception("ConnectToKeria: preconditions not met");
         }
@@ -162,10 +162,11 @@
             // check if BootUrl is reachable.
             ops1LivenessCheck.SetIsRunning();
             StateHasChanged();
+
             // TODO P1 avoid if BootUrl is not a URL
             var baseUri = new Uri(urlModel.BootUrl!);
             // TODO P2 would be better to check the KERI port (or a non-Boot URL), which means this needs to be configured.
-            var healthUri = new Uri(baseUri, "health"); 
+            var healthUri = new Uri(baseUri, "health");
             var healthUriBuilder = new UriBuilder(healthUri);
 
             var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
@@ -178,7 +179,6 @@
             }
             ops1LivenessCheck.SetCompletedWithoutErrors();
             StateHasChanged();
-
 
             // check if KERIA is reporting as healthy
             ops2HealthCheck.SetIsRunning();
@@ -193,16 +193,18 @@
                 StateHasChanged();
                 return false;
             }
-            ops2HealthCheck.SetCompletedWithoutErrors();
-            if (!ops2HealthCheck.CompletedSuccessfully)
+            else
             {
-                StateHasChanged();
+                ops2HealthCheck.SetCompletedWithoutErrors();
             }
+            StateHasChanged();
+            await Task.Delay(100);
         }
 
         // Create a new KERIA client, and on success cache the passcode
         ops3BootMaybeAndConnect.SetIsRunning();
         StateHasChanged();
+        await Task.Delay(100);
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
         var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", !IsUsingExistingPasscode);
         if (clientRes.IsFailed)
@@ -222,10 +224,12 @@
             // Continue execution as this is not critical for the connection process
         }
         StateHasChanged();
+        await Task.Delay(100);
 
         // GetIdentifiers
         ops4ListAids.SetIsRunning();
         StateHasChanged();
+        await Task.Delay(100);
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {
@@ -236,6 +240,7 @@
         var identifiers = identifiersRes.Value;
         ops4ListAids.SetCompletedWithoutErrors();
         StateHasChanged();
+        await Task.Delay(100);
 
         // If there are no Identifiers, create one
         var prefs = await preferencesService.GetPreferences();
@@ -287,8 +292,11 @@
             StateHasChanged();
             return;
         }
-        snackbar.Add("Failed to connect to KERI Agent Service", Severity.Warning);
-        return;
+        else
+        {
+            snackbar.Add("Failed to connect to KERI Agent Service", Severity.Warning);
+            return;
+        }
     }
 }
 

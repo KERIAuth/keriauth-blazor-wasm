@@ -1,6 +1,6 @@
 ﻿// Common definitions for content script and service-worker.
 
-import * as Polaris from "../types/polaris-web-client"
+import type * as Polaris from '../types/polaris-web-client';
 
 export interface ICsSwMsg {
     type: string
@@ -10,19 +10,19 @@ export interface ICsSwMsg {
 
 // Message types from Page to CS, which may be then forwarded to the extension service-worker.  Aka "EVENT_TYPE" in the polaris-web code."
 export enum CsSwMsgEnum {
-    POLARIS_SIGNIFY_EXTENSION = "signify-extension",
-    POLARIS_SIGNIFY_EXTENSION_CLIENT = "signify-extension-client",
-    POLARIS_CONFIGURE_VENDOR = "/signify/configure-vendor",
-    POLARIS_SIGNIFY_AUTHORIZE = "/signify/authorize",
-    POLARIS_SELECT_AUTHORIZE_AID = "/signify/authorize/aid",
-    POLARIS_SELECT_AUTHORIZE_CREDENTIAL = "/signify/authorize/credential",
-    POLARIS_SIGN_DATA = "/signify/sign-data",
-    POLARIS_SIGN_REQUEST = "/signify/sign-request",
-    POLARIS_GET_SESSION_INFO = "/signify/get-session-info",
-    POLARIS_CLEAR_SESSION = "/signify/clear-session",
-    POLARIS_CREATE_DATA_ATTESTATION = "/signify/credential/create/data-attestation",
-    POLARIS_GET_CREDENTIAL = "/signify/credential/get",
-    INIT = "init"
+    POLARIS_SIGNIFY_EXTENSION = 'signify-extension',
+    POLARIS_SIGNIFY_EXTENSION_CLIENT = 'signify-extension-client',
+    POLARIS_CONFIGURE_VENDOR = '/signify/configure-vendor',
+    POLARIS_SIGNIFY_AUTHORIZE = '/signify/authorize',
+    POLARIS_SELECT_AUTHORIZE_AID = '/signify/authorize/aid',
+    POLARIS_SELECT_AUTHORIZE_CREDENTIAL = '/signify/authorize/credential',
+    POLARIS_SIGN_DATA = '/signify/sign-data',
+    POLARIS_SIGN_REQUEST = '/signify/sign-request',
+    POLARIS_GET_SESSION_INFO = '/signify/get-session-info',
+    POLARIS_CLEAR_SESSION = '/signify/clear-session',
+    POLARIS_CREATE_DATA_ATTESTATION = '/signify/credential/create/data-attestation',
+    POLARIS_GET_CREDENTIAL = '/signify/credential/get',
+    INIT = 'init'
 }
 
 // Message types from Extension to CS (and typically forward to Page and sometimes of type FooResponse)
@@ -34,12 +34,12 @@ export interface ISwCsMsg {
 }
 
 export enum SwCsMsgEnum {
-    READY = "ready",
-    REPLY_CANCELED = "reply_canceled",
-    REPLY = "/signify/reply",
-    FSW = "fromServiceWorker",
-    APP_CLOSED = "app_closed",
-    REPLY_CRED = "/KeriAuth/signify/replyCredential"
+    READY = 'ready',
+    REPLY_CANCELED = 'reply_canceled',
+    REPLY = '/signify/reply',
+    FSW = 'fromServiceWorker',
+    APP_CLOSED = 'app_closed',
+    REPLY_CRED = '/KeriAuth/signify/replyCredential'
 };
 
 export interface ISwCsMsgPong extends ISwCsMsg {
@@ -82,7 +82,7 @@ export interface ISignature {
 // See also ReplyMessageData.cs, which pairs with this interface for interop with the extension WASM.
 // The generic type T is the payload, which is typically a response object from the extension service-worker.
 // See MessageData < T > from polaris - web / types, and see the interfaces that extend MessageData<T>, in the current file.
-export interface ReplyMessageData<T = unknown> {
+export interface IReplyMessageData<T = unknown> {
     type: string;
     requestId: string;
     payload?: T;
@@ -91,18 +91,17 @@ export interface ReplyMessageData<T = unknown> {
     source?: string;
 }
 
-export const CsPageMsgTag = "KeriAuthCs";
+export const CsPageMsgTag = 'KeriAuthCs';
 
 // This interface helps shape ContentScript messages to tab that may have a payload, error
-export interface CsPageMsgData<T> extends Polaris.MessageData<T> {
+export interface ICsPageMsgData<T> extends Polaris.MessageData<T> {
     source: typeof CsPageMsgTag;
 }
 
 // This interface helps shape ContentScript messages to tab that will have no payload, but may have a data or error property
-export interface CsPageMsgDataData<T> extends CsPageMsgData<null> {
+export interface ICsPageMsgDataData<T> extends ICsPageMsgData<null> {
     data?: T;
 }
-
 
 // Signing related types from signify-browser-extension config/types.ts. Here because we don't want dependencies on signify-browser-extension,
 // and ISignin is not defined in polaris-web/types.
@@ -121,11 +120,11 @@ export interface ISignin {
 
 // TODO P2 Add constructors here for the various message interfaces such as ApprovedSignRequest, to ensure they are properly formatted and optional null value combos are assured valid.
 
-export interface ApprovedSignRequest {
+export interface IApprovedSignRequest {
     originStr: string;
     url: string;
     method: string;
     // not using type of Headers or Map<string, string> because of serialization issues.
-    initHeadersDict?: { [key: string]: string };  
+    initHeadersDict?: { [key: string]: string };
     selectedName: string;
 }

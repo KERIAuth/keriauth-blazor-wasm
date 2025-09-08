@@ -39,7 +39,7 @@ jobs:
     - name: Extract version from manifest.json
       id: extract_version
       run: |
-        manifest_path="KeriAuth.BrowserExtension/wwwroot/manifest.json"
+        manifest_path="Extension/wwwroot/manifest.json"
         if [[ -f "$manifest_path" ]]; then
           version=$(jq -r '.version' "$manifest_path")
           echo "version=$version" >> $GITHUB_ENV
@@ -63,8 +63,8 @@ jobs:
         new_version_name="${{ env.version }} ${{ env.SHORT_COMMIT_HASH }} ${{ env.CURRENT_DATETIME }}"
         echo "New Version Name: $new_version_name"
         for file in \
-          KeriAuth.BrowserExtension/bin/Release/net9.0/wwwroot/manifest.json \
-          KeriAuth.BrowserExtension/bin/Release/net9.0/browserextension/manifest.json; do
+          Extension/bin/Release/net9.0/wwwroot/manifest.json \
+          Extension/bin/Release/net9.0/browserextension/manifest.json; do
           if [[ -f "$file" ]]; then
             jq --arg new_version_name "$new_version_name" \
               '.version_name = $new_version_name' "$file" > temp.json
@@ -78,8 +78,8 @@ jobs:
     - name: Display modified version_name
       run: |
         for file in \
-          KeriAuth.BrowserExtension/bin/Release/net9.0/wwwroot/manifest.json \
-          KeriAuth.BrowserExtension/bin/Release/net9.0/browserextension/manifest.json; do
+          Extension/bin/Release/net9.0/wwwroot/manifest.json \
+          Extension/bin/Release/net9.0/browserextension/manifest.json; do
           if [[ -f "$file" ]]; then
             echo "Contents of $file:"
             cat "$file"
@@ -93,7 +93,7 @@ jobs:
 
     - name: Zip artifacts
       run: |
-        build_dir="$GITHUB_WORKSPACE/KeriAuth.BrowserExtension/bin/Release/net9.0/browserextension/"
+        build_dir="$GITHUB_WORKSPACE/Extension/bin/Release/net9.0/browserextension/"
         artifact_suffix="${{ env.version }}"
         # "-${{ env.SHORT_COMMIT_HASH }}-$(date -u +"%Y-%m-%d")"
         artifact_path="$GITHUB_WORKSPACE/KeriAuth.zip"
