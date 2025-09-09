@@ -132,7 +132,7 @@
         if (!IsAuthenticated)
         {
             var ap = new Uri(navManager.Uri).AbsolutePath;
-            if (ViewsNotRequiringAuth.Contains(ap)) return;
+            if (PagesNotRequiringAuth.Contains(ap)) return;
             navManager.NavigateTo(RouteToIndex);
         }
     }

@@ -7,7 +7,8 @@
 // https://github.com/WebOfTrust/signify-browser-extension/blob/main/src/pages/background/services/signify.ts
 
 import type {
-    EventResult} from 'signify-ts';
+    EventResult
+} from 'signify-ts';
 
 // eslint-disable-next-line no-duplicate-imports
 import {
@@ -39,18 +40,24 @@ export const bootAndConnect = async (
     _client = new SignifyClient(agentUrl, passcode, Tier.high, bootUrl);
 
     try {
+        console.debug("signify_ts_shim: connecting...");
         await _client.connect();
-        // console.debug("signify_ts_shim: client connected");
     } catch {
-        const bootedSignifyClient = await _client.boot();
-        if (!bootedSignifyClient) {
-            throw new Error();
+        try {
+            console.debug("signify_ts_shim: booting...");
+            const bootedSignifyClient = await _client.boot();
+            if (!bootedSignifyClient) {
+                throw new Error();
+            }
+            console.debug("signify_ts_shim: connecting...");
+            await _client.connect();
+        } catch (error) {
+            console.error("signify_ts_shim: client could not boot or connect", error);
+            throw error;
         }
-        await _client.connect();
-        // console.debug("signify_ts_shim: client booted and connected");
     }
-    // note that uncommengint the next line might expose the passkey
-    // console.log('signify_ts_shim: client', {agent: _client.agent?.pre,controller: _client.controller.pre});
+    // note that uncommenting the next line might expose the passkey
+    // console.error('signify_ts_shim: client', {agent: _client.agent?.pre,controller: _client.controller.pre});
     const state = await getState();
     console.debug('signify_ts_shim: bootAndConnect: connected');
     console.assert(state?.controller?.state?.i !== null, 'controller id is null'); // TODO P2 throw exception?
@@ -183,7 +190,7 @@ export async function getIdentifierByPrefix(prefix: string): Promise<IIdentifier
 }
 
 export async function getCredentialsList(
-// filter: object
+    // filter: object
 ): Promise<string> {  // TODO P3 define the return type?
     try {
         validateClient();

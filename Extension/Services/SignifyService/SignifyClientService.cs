@@ -30,9 +30,11 @@ namespace Extension.Services.SignifyService {
             TimeSpan timeout2;
             if (timeout is null) {
                 timeout2 = (TimeSpan)TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+                logger.LogInformation("Connect: Using default timeout of {timeout} ms", AppConfig.SignifyTimeoutMs);
             }
             else {
                 timeout2 = (TimeSpan)timeout;
+                logger.LogInformation("Connect: Using provided timeout of {timeout} ms", timeout2.TotalMilliseconds);
             }
             try {
                 // simple example of using https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/call-javascript-from-dotnet?view=aspnetcore-8.0
@@ -48,7 +50,7 @@ namespace Extension.Services.SignifyService {
                             return Result.Fail("Connect failed with null");
                         }
                         if (res.IsFailed) {
-                            return Result.Fail("Connect failed: " + res.Errors[0].Message);
+                            return Result.Fail("Connect failed #1: " + res.Errors[0].Message);
                         }
                         return Result.Ok(true);
                     }
@@ -63,7 +65,7 @@ namespace Extension.Services.SignifyService {
                             return Result.Fail("Connect failed with null");
                         }
                         if (res.IsFailed) {
-                            return Result.Fail("Connect failed: " + res.Errors[0].Message);
+                            return Result.Fail("Connect failed #2: " + res.Errors[0].Message);
                         }
                         return Result.Ok(true);
                     }
