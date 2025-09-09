@@ -54,9 +54,9 @@
     // fields
     Preset defaultPreset => presetAgents[0];
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
-    static readonly OperationDisplay ops1LivenessCheck = new OperationDisplay("Checking KERI Agent Service liveness", "Estalished KERIA connection");
-    static readonly OperationDisplay ops2HealthCheck = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
-    static readonly OperationDisplay ops3BootMaybeAndConnect = new OperationDisplay("Connecting", "Connected");
+    static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERI Agent Service liveness", "Estalished KERIA connection");
+    static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
+    static readonly OperationDisplay ops3Connect = new OperationDisplay("Connecting", "Connected");
     static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
     static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
     static List<Preset> presetAgents = new List<Preset>
@@ -139,9 +139,9 @@
     async Task ResetOps()
     {
         IsProcessing = false;
-        ops1LivenessCheck.Reset();
-        ops2HealthCheck.Reset();
-        ops3BootMaybeAndConnect.Reset();
+        ops1CheckLiveness.Reset();
+        ops2CheckHealth.Reset();
+        ops3Connect.Reset();
         ops4ListAids.Reset();
         ops5CreatePersonalAid.Reset();
         StateHasChanged();
@@ -161,7 +161,7 @@
         if (IsValidBootURL)
         {
             // check if BootUrl is reachable.
-            ops1LivenessCheck.SetIsRunning();
+            ops1CheckLiveness.SetIsRunning();
             StateHasChanged();
 
             // TODO P1 avoid if BootUrl is not a URL
@@ -175,14 +175,14 @@
             {
                 var message = $"KERIA service is not reachable";
                 // logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
-                ops1LivenessCheck.SetCompletedWithError(message);
+                ops1CheckLiveness.SetCompletedWithError(message);
                 return false;
             }
-            ops1LivenessCheck.SetCompletedWithoutErrors();
+            ops1CheckLiveness.SetCompletedWithoutErrors();
             StateHasChanged();
 
             // check if KERIA is reporting as healthy
-            ops2HealthCheck.SetIsRunning();
+            ops2CheckHealth.SetIsRunning();
             StateHasChanged();
             // TODO P3 move this into service or helper code
             // TODO P2 should not run this if BootUrl is not a URL
@@ -190,31 +190,31 @@
             var postResult2 = await httpClientService2.GetJsonAsync<String>(healthUriBuilder.Uri.ToString());
             if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
             {
-                ops2HealthCheck.SetCompletedWithError(postResult2.Reasons.First().Message);
+                ops2CheckHealth.SetCompletedWithError(postResult2.Reasons.First().Message);
                 StateHasChanged();
                 return false;
             }
             else
             {
-                ops2HealthCheck.SetCompletedWithoutErrors();
+                ops2CheckHealth.SetCompletedWithoutErrors();
             }
             StateHasChanged();
             await Task.Delay(100);
         }
 
         // Create a new KERIA client, and on success cache the passcode
-        ops3BootMaybeAndConnect.SetIsRunning();
+        ops3Connect.SetIsRunning();
         StateHasChanged();
         await Task.Delay(100);
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
         var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", !IsUsingExistingPasscode);
         if (clientRes.IsFailed)
         {
-            ops3BootMaybeAndConnect.SetCompletedWithError(clientRes.Reasons.First().Message);
+            ops3Connect.SetCompletedWithError(clientRes.Reasons.First().Message);
             StateHasChanged();
             return false;
         }
-        ops3BootMaybeAndConnect.SetCompletedWithoutErrors();
+        ops3Connect.SetCompletedWithoutErrors();
         try
         {
             await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
@@ -222,7 +222,7 @@
         catch (Exception ex)
         {
             logger.LogError("Failed to store passcode in session storage: {Message}", ex.Message);
-            // Continue execution as this is not critical for the connection process
+            return false;
         }
         StateHasChanged();
         await Task.Delay(100);
@@ -383,10 +383,10 @@
                     <MudStack Class="mt-5">
                         @if (!IsUsingExistingPasscode)
                         {
-                            <OperationDisplayComponent ops="@ops1LivenessCheck"></OperationDisplayComponent>
-                            <OperationDisplayComponent ops="@ops2HealthCheck"></OperationDisplayComponent>
+                            <OperationDisplayComponent ops="@ops1CheckLiveness"></OperationDisplayComponent>
+                            <OperationDisplayComponent ops="@ops2CheckHealth"></OperationDisplayComponent>
                         }
-                        <OperationDisplayComponent ops="@ops3BootMaybeAndConnect"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops3Connect"></OperationDisplayComponent>
                         <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
                         @if (!IsUsingExistingPasscode)
                         {
