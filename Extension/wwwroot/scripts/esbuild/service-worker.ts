@@ -89,9 +89,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             try {
                 // Add a timeout to avoid indefinite waiting
                 const sendWithTimeout = Promise.race([
-                    chrome.runtime.sendMessage({ action: 'lockApp' }),
+                    chrome.runtime.sendMessage({ action: 'LockApp' }),
                     new Promise((_, reject) =>
-                        globalThis.setTimeout(() => reject(new Error('LockApp message timeout')), 2000) // initial load of WASM can take over a second
+                        globalThis.setTimeout(() => reject(new Error('LockApp message timeout')), 1000)
                     )
                 ]);
 
@@ -99,7 +99,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                     if (response?.success) {
                         console.log('SW LockApp message successfully processed');
                     } else {
-                        console.warn('SW LockApp message processed with failure:', response);
+                        console.warn('SW LockApp message processed with failure:', response?.error);
                     }
                 }).catch((error) => {
                     // This is expected if no extension pages are open
