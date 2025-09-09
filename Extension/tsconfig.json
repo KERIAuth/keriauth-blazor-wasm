@@ -26,7 +26,7 @@
     "resolveJsonModule": true,
     
     // Output configuration
-    "outDir": "./dist/wwwroot/scripts/es6",
+    "outDir": "./dist/wwwroot/scripts",
     "rootDir": "./wwwroot/scripts",
     "declaration": true,
     "declarationMap": true,

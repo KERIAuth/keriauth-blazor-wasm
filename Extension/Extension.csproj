@@ -141,7 +141,8 @@
   <Target Name="CopyEs6Javascript" AfterTargets="Build">
     <!-- Ensure the 'dist' directory exists -->
     <ItemGroup>
-      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.*" />
+      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js" />
+      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js.map" />
     </ItemGroup>
 
     <!-- Copy compiled scripts to the appropriate directory -->
@@ -151,11 +152,23 @@
   <Target Name="CopyEsBuildJavascript" AfterTargets="Build">
     <!-- Ensure the 'dist' directory exists -->
     <ItemGroup>
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.*" />
+      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js" />
+      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js.map" />
     </ItemGroup>
 
     <!-- Copy compiled scripts to the appropriate directory -->
     <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild" SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="CopyTypesJavascript" AfterTargets="Build">
+    <!-- Copy types directory JavaScript files if they exist -->
+    <ItemGroup>
+      <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js" />
+      <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js.map" />
+    </ItemGroup>
+
+    <!-- Copy compiled scripts to the appropriate directory -->
+    <Copy SourceFiles="@(CompiledTypesScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\types" SkipUnchangedFiles="false" ContinueOnError="true" />
   </Target>
 
 </Project>

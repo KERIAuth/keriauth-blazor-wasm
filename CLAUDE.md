@@ -65,38 +65,121 @@ Primary development environment is Windows running WSL2. Commands work in both W
 
 ## Build & Test Commands
 
-### Standard Build Commands
-- Build backend only: `dotnet build`
-- Build with frontend: `npm install && npm run build && dotnet build`
-- Clean build: `dotnet clean && npm run build && dotnet build`
+### Quick Reference
+```bash
+# Quick build (backend only)
+dotnet build
 
-### Frontend Build Commands
-- Install dependencies: `npm install`
-- Frontend build (all): `npm run build`
-- ES6 TypeScript build only: `npm run build:es6`
-- Bundle with esbuild only: `npm run bundle:esbuild`
+# Full build (frontend + backend)
+npm install && npm run build && dotnet build
+
+# Run tests
+dotnet test
+
+# Lint TypeScript
+npm run lint
+
+# Watch mode for development
+npm run watch
+```
+
+### Standard Build Commands
+- **Build solution**: `dotnet build Extension.sln`
+- **Build backend only**: `dotnet build`
+- **Build with frontend**: `npm install && npm run build && dotnet build`
+- **Clean build**: `dotnet clean && npm run clean && npm run build && dotnet build`
+- **Release build**: `dotnet build -c Release`
+- **Debug build**: `dotnet build -c Debug`
+
+### Frontend Build Commands (TypeScript/JavaScript)
+Must be run from the `Extension/` directory:
+- **Install dependencies**: `npm install`
+- **Full frontend build**: `npm run build` (runs both ES6 and esbuild)
+- **ES6 TypeScript only**: `npm run build:es6`
+- **Bundle with esbuild only**: `npm run bundle:esbuild`
+- **Development build**: `npm run build:dev`
+- **Production build**: `npm run build:prod`
+- **Watch mode (concurrent)**: `npm run watch`
+- **Watch TypeScript only**: `npm run watch:tsc`
+- **Watch esbuild only**: `npm run watch:esbuild`
+- **Type checking (no emit)**: `npm run typecheck`
+- **Clean build artifacts**: `npm run clean`
+
+### Linting & Code Quality Commands
+
+#### TypeScript Linting
+From `Extension/` directory:
+- **Run ESLint**: `npm run lint`
+- **Fix ESLint issues**: `npm run lint:fix`
+- **Type check only**: `npm run typecheck`
+
+#### C# Code Quality
+- **Format code**: `dotnet format`
+- **Analyze code**: `dotnet build /p:RunAnalyzers=true`
+- **Check format**: `dotnet format --verify-no-changes`
+- **Style violations**: `dotnet build /p:EnforceCodeStyleInBuild=true`
 
 ### Testing Commands
-- Run all tests: `dotnet test`
-- Run single test: `dotnet test --filter "FullyQualifiedName=Extension.Tests.<TestClassName>.<TestMethodName>"`
-- Run test with coverage: `dotnet test --collect:"XPlat Code Coverage"`
-- Run specific test class: `dotnet test --filter "ClassName=<TestClassName>"`
+
+#### xUnit Tests (.NET)
+- **Run all tests**: `dotnet test`
+- **Run with detailed output**: `dotnet test --logger "console;verbosity=detailed"`
+- **Run single test**: `dotnet test --filter "FullyQualifiedName=Extension.Tests.<TestClassName>.<TestMethodName>"`
+- **Run test class**: `dotnet test --filter "ClassName=<TestClassName>"`
+- **Run with coverage**: `dotnet test --collect:"XPlat Code Coverage"`
+- **Coverage with report**: `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults`
+- **Watch mode**: `dotnet watch test`
+- **Run in parallel**: `dotnet test --parallel`
+- **No build**: `dotnet test --no-build`
+
+#### Test Examples
+```bash
+# Run a specific test method
+dotnet test --filter "FullyQualifiedName=Extension.Tests.Services.StorageServiceTests.TestMethod"
+
+# Run all tests in a namespace
+dotnet test --filter "FullyQualifiedName~Extension.Tests.Services"
+
+# Run tests matching a pattern
+dotnet test --filter "DisplayName~Should"
+```
 
 ### Order of Operations
 For full build from clean state:
-1. `npm install` (first time or when package.json changes)
-2. `npm run build` (builds TypeScript to JavaScript)
-3. `dotnet build` (builds C# and packages extension)
+1. `cd Extension` (if not already in Extension directory)
+2. `npm install` (first time or when package.json changes)
+3. `npm run build` (builds TypeScript to JavaScript)
+4. `cd ..` (back to solution root)
+5. `dotnet build` (builds C# and packages extension)
 
 ### Development Commands
-- Install extension in browser: Build, then load unpacked from `Extension/bin/Release/net9.0/browserextension`
-- Debug mode build: `dotnet build -c Debug`
-- Watch TypeScript changes: `npm run build:es6 -- --watch`
-- Watch esbuild changes: `npm run bundle:esbuild -- --watch`
-- View browser extension logs: Open browser DevTools (F12) → Console → Filter by extension
-- Debug Blazor WASM: Set `builder.Logging.SetMinimumLevel(LogLevel.Debug)` in Program.cs
-- Clear extension storage: chrome.storage.local.clear() in browser console
-- Run ESLint: `npx eslint wwwroot/scripts/**/*.ts`
+- **Install extension in browser**: Build, then load unpacked from `Extension/bin/Release/net9.0/browserextension`
+- **Watch all**: `cd Extension && npm run watch` (in one terminal) + `dotnet watch build` (in another)
+- **View browser extension logs**: Open browser DevTools (F12) → Console → Filter by extension
+- **Debug Blazor WASM**: Set `builder.Logging.SetMinimumLevel(LogLevel.Debug)` in Program.cs
+- **Clear extension storage**: `chrome.storage.local.clear()` in browser console
+- **Reload extension**: chrome://extensions → Click reload button on extension card
+- **Check manifest**: Validate at `Extension/bin/Release/net9.0/browserextension/manifest.json`
+
+### CI/CD Commands
+```bash
+# Full CI build
+cd Extension && npm ci && npm run build:prod && cd .. && dotnet build -c Release
+
+# Run all checks
+cd Extension && npm run typecheck && npm run lint && cd .. && dotnet format --verify-no-changes && dotnet test
+
+# Package for distribution
+dotnet publish -c Release
+```
+
+### Troubleshooting Commands
+- **Clean everything**: `dotnet clean && cd Extension && npm run clean && rm -rf node_modules dist`
+- **Reinstall dependencies**: `cd Extension && rm -rf node_modules package-lock.json && npm install`
+- **Check TypeScript config**: `cd Extension && npx tsc --showConfig`
+- **List outdated packages**: `cd Extension && npm outdated`
+- **Audit dependencies**: `cd Extension && npm audit`
+- **Fix npm vulnerabilities**: `cd Extension && npm audit fix`
 
 ## TypeScript Coding Guidelines
 
