@@ -52,7 +52,6 @@
     }
 
     // fields
-    Preset defaultPreset => presetAgents[0];
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
     static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERI Agent Service liveness", "Estalished KERIA connection");
     static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
@@ -61,8 +60,8 @@
     static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
     static List<Preset> presetAgents = new List<Preset>
     {
-        new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
         new Preset("localhost", AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl),
+        new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
         new Preset("Custom", "", "")
     };
     WebExtensionsApi? webExtensionsApi;
@@ -74,7 +73,6 @@
     };
     PasscodeModel configuredPasscodeModel = new PasscodeModel();
     private MudButton? nextButton;
-
 
     // properties
     KeriaConnectConfig? KeriaConnectConfig { get; set; }
@@ -99,7 +97,7 @@
     }
 
     // reactive properties
-    // TODO P1 assure URL has a trailing? "/"
+    Preset defaultPreset => presetAgents[0];
     bool IsValidAdminURL =>
         !string.IsNullOrWhiteSpace(urlModel.AdminUrl) &&
         Uri.IsWellFormedUriString(urlModel.AdminUrl, UriKind.Absolute);
