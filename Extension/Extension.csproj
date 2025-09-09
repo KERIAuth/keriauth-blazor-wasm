@@ -171,4 +171,32 @@
     <Copy SourceFiles="@(CompiledTypesScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\types" SkipUnchangedFiles="false" ContinueOnError="true" />
   </Target>
 
+  <!-- Update manifest.json with build configuration and UTC timestamp for local builds -->
+  <Target Name="UpdateManifestVersionForLocalBuild" AfterTargets="Build" Condition="'$(CI)' != 'true' AND '$(GITHUB_ACTIONS)' != 'true'">
+    <PropertyGroup>
+      <ManifestSourceFile>wwwroot\manifest.json</ManifestSourceFile>
+      <ManifestDestFile>$(OutputPath)\browserextension\manifest.json</ManifestDestFile>
+      <BuildConfig>$(Configuration)</BuildConfig>
+      <!-- Get current UTC date-time in the format "yyyy-MM-dd HH:mm UTC" -->
+      <BuildDateTime>$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) UTC</BuildDateTime>
+    </PropertyGroup>
+
+    <!-- Read the manifest.json file -->
+    <ReadLinesFromFile File="$(ManifestSourceFile)">
+      <Output TaskParameter="Lines" ItemName="ManifestLines" />
+    </ReadLinesFromFile>
+
+    <!-- Transform the lines to append build configuration and timestamp to version_name -->
+    <PropertyGroup>
+      <ManifestContent>@(ManifestLines, '%0D%0A')</ManifestContent>
+      <!-- Pattern to match version_name line and append build configuration and timestamp -->
+      <ManifestContent>$([System.Text.RegularExpressions.Regex]::Replace($(ManifestContent), '("version_name":\s*"[^"]+)-local"', '$1-local $(BuildConfig) $(BuildDateTime)"'))</ManifestContent>
+    </PropertyGroup>
+
+    <!-- Write the updated manifest to the output directory -->
+    <WriteLinesToFile File="$(ManifestDestFile)" Lines="$(ManifestContent)" Overwrite="true" />
+    
+    <Message Importance="high" Text="Updated manifest.json version_name with build configuration: $(BuildConfig) and timestamp: $(BuildDateTime)" />
+  </Target>
+
 </Project>
