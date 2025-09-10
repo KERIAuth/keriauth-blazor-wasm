@@ -103,6 +103,9 @@ The following rules are enforced by design to ensure the security of the extensi
 ## Extension Installation
 * After building from source code, use Chrome/Edge/Brave's "developer mode" and press `load unpacked`, selecting the directory Extension\bin\Release\net9.0\browserextension.
 
+## Debugging
+* Setting up for debugging is a work-in-progress. See [here](https://mingyaulee.github.io/Blazor.BrowserExtension/running-and-debugging).
+
 <hr/>
 
 # Acknowledgments
