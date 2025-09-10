@@ -489,7 +489,7 @@ When making changes, prioritize in this order:
   - Trusted sources explicitly listed
 
 ### Extension Components
-- **Service Worker**: `scripts/esbuild/service-worker.js` (persistent background script)
+- **Background Worker**: `scripts/esbuild/BackgroundWorker.js` (persistent background script)
 - **Content Script**: Injected on-demand, not automatically
 - **Action Popup**: Blazor WASM UI in popup window
 - **Options Page**: Full tab for extended configuration

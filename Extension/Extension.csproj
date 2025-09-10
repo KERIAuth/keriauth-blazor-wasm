@@ -41,7 +41,7 @@
 
   <!-- -->
   <ItemGroup>
-    <ServiceWorker Include="dist\wwwroot\scripts\esbuild\service-worker.js" PublishedContent="wwwroot\scripts\esbuild\service-worker.js" />
+    <ServiceWorker Include="dist\wwwroot\scripts\esbuild\BackgroundWorker.js" PublishedContent="wwwroot\scripts\esbuild\BackgroundWorker.js" />
   </ItemGroup>
 
   <!-- Package References -->

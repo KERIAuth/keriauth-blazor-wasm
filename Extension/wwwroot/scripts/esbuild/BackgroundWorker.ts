@@ -22,7 +22,7 @@ interface ICsConnection {
 // Note, these will not persist after the service worker is stopped, including becoming inactive.
 let pendingRequestId: string | null = null;
 let pendingRequestPort: chrome.runtime.Port | null = null;
-// TODO P2 persist pageCsConnections in storage.session so this is resiliant to service-worker becoming inactive
+// TODO P2 persist pageCsConnections in storage.session so this is resiliant to BackgroundWorker becoming inactive
 const pageCsConnections: { [key: string]: ICsConnection } = {};
 let isWaitingOnKeria: boolean = false;
 

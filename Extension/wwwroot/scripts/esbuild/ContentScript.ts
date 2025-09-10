@@ -1,7 +1,7 @@
 ﻿/// <reference types="chrome-types" />
 
 // This ContentScript is inserted into tabs after a user provided permission for the site (after having clicked on the extension action button)
-// The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension service-worker.
+// The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension BackgroundWorker.
 
 // windows message event data
 // TODO P2 better imported form somewhere?
@@ -146,12 +146,12 @@ function createPortWithSw(): void {
     portWithSw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromSW(message));
 
     portWithSw.onDisconnect.addListener((_) => {
-        // disconnect will typically happen when the service-worker becomes inactive
-        console.info('KeriAuthCs Port with service-worker was disconnected, likely due to SW going inactive.');
+        // disconnect will typically happen when the BackgroundWorker becomes inactive
+        console.info('KeriAuthCs Port with BackgroundWorker was disconnected, likely due to BackgroundWorker going inactive.');
         portWithSw = null;
     });
 
-    // Send a ping message to the service worker to help complete the setup of connection port
+    // Send a ping message to the BackgroundWorker to help complete the setup of connection port
     const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
     console.log('KeriAuthCs→SW Init:', initMsg);
     portWithSw.postMessage(initMsg);

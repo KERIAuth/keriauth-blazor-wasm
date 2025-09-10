@@ -78,7 +78,7 @@
         int privacyMarkupHash = GetNumberFromHash.HashInt(privacyMarkup.Value);
 
 
-        // Determine whether there was an update e.g. via a push from Chrome Web Store. See service-worker.ts
+        // Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
         // for how the following is placed into storage
         bool isUpdated = false;
         var updateDetailsRes = await storageService.GetItem<UpdateDetails>();

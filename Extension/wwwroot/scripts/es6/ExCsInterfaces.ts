@@ -1,4 +1,4 @@
-﻿// Common definitions for content script and service-worker.
+﻿// Common definitions for content script and BackgroundWorker.
 
 import type * as Polaris from '../types/polaris-web-client';
 
@@ -8,7 +8,7 @@ export interface ICsSwMsg {
     payload?: object
 }
 
-// Message types from Page to CS, which may be then forwarded to the extension service-worker.  Aka "EVENT_TYPE" in the polaris-web code."
+// Message types from Page to CS, which may be then forwarded to the extension BackgroundWorker.  Aka "EVENT_TYPE" in the polaris-web code."
 export enum CsSwMsgEnum {
     POLARIS_SIGNIFY_EXTENSION = 'signify-extension',
     POLARIS_SIGNIFY_EXTENSION_CLIENT = 'signify-extension-client',
@@ -46,13 +46,13 @@ export interface ISwCsMsgPong extends ISwCsMsg {
     type: SwCsMsgEnum.READY
 }
 
-// This IIdentifier is used in the context of responses from the extension service-worker, CS, to page
+// This IIdentifier is used in the context of responses from the extension BackgroundWorker, CS, to page
 export interface IIdentifier {
     name?: string;
     prefix: string;
 }
 
-// This ICredential is used in the context of responses from the extension service-worker, CS, to page
+// This ICredential is used in the context of responses from the extension BackgroundWorker, CS, to page
 export interface ICredential {
     issueeName: string;
     ancatc: string[];
@@ -68,7 +68,7 @@ export interface ICredential {
     cesr?: string;
 }
 
-// This ISignature is used in the context of responses from the extension service-worker, CS, to page
+// This ISignature is used in the context of responses from the extension BackgroundWorker, CS, to page
 export interface ISignature {
     headers: HeadersInit;
     credential?: ICredential;
@@ -80,7 +80,7 @@ export interface ISignature {
 }
 
 // See also ReplyMessageData.cs, which pairs with this interface for interop with the extension WASM.
-// The generic type T is the payload, which is typically a response object from the extension service-worker.
+// The generic type T is the payload, which is typically a response object from the extension BackgroundWorker.
 // See MessageData < T > from polaris - web / types, and see the interfaces that extend MessageData<T>, in the current file.
 export interface IReplyMessageData<T = unknown> {
     type: string;

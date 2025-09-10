@@ -56,7 +56,7 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 * Action button and its context menu appear after install in the upper-right corner of the browser.
 * Used to indicate the user’s intent and permission to interact with the current browser page.
 
-### Service-worker
+### BackgroundWorker (aka Service-worker)
 * Runs background tasks.
 * Sends and handles messages to/from the webpage via the extension's content script.
 * Sends and handles messages to/from the WASM App.
@@ -68,7 +68,7 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 * With the user’s permission this script is injected into the active web page after the user initiates the action.
 * Runs in an isolated JavaScript context
 * Handles messages to/from the website via a JavaScript API (polaris-web).
-* Handles messages to/from the service-worker.
+* Handles messages to/from the BackgroundWorker.
 
 #### Web Page
 * Provided by a website owner, leveraging JavaScript interfaces defined in polaris-web, which interacts with the Content Script.
@@ -83,7 +83,7 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 * The app and its pages can be hosted within the browser's Action Popup or a tab.
 
 #### Services
-* Interact with service-worker (and indirectly the web pages) via messages.
+* Interact with BackgroundWorker (and indirectly the web pages) via messages.
 * Communicates with KERIA service via the signify-ts library.
 * Persists configuration and notifications via chrome.storage.
 

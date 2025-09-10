@@ -53,9 +53,9 @@ const builds = [
         outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js'
     },
     {
-        name: 'service-worker',
-        entryPoints: ['wwwroot/scripts/esbuild/service-worker.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/service-worker.js',
+        name: 'BackgroundWorker',
+        entryPoints: ['wwwroot/scripts/esbuild/BackgroundWorker.ts'],
+        outfile: 'dist/wwwroot/scripts/esbuild/BackgroundWorker.js',
         plugins: [
             alias({
                 '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),

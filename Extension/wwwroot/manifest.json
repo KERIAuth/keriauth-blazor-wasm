@@ -9,7 +9,7 @@
   },
   "author": "https://keriauth.com",
   "background": {
-    "service_worker": "scripts/esbuild/service-worker.js",
+    "service_worker": "scripts/esbuild/BackgroundWorker.js",
     "type": "module"
   },
   "content_scripts": [
