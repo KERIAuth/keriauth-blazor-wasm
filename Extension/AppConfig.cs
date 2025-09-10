@@ -5,23 +5,23 @@ namespace Extension {
     public static class AppConfig {
         // Routes
         // These must match the fixed @page string values in .razor files. Could write unit tests to confirm consistency, but can't have a correct-by-construction consistency :-(
-        public const string RouteToIdentifiers = "/Identifiers";
-        public const string RouteToCredentials = "/Credentials";
-        public const string RouteToWebsites = "/Websites";
+        public const string RouteToIdentifiers = "/Identifiers.html";
+        public const string RouteToCredentials = "/Credentials.html";
+        public const string RouteToWebsites = "/Websites.html";
         public const string RouteToIndex = "/";
-        public const string RouteToDelete = "/Delete";
-        public const string RouteToNewInstall = "/NewInstall";
-        public const string RouteToHome = "/Home";
-        public const string RouteToTermsPage = "/Terms";
-        public const string RouteToPrivacyPage = "/Privacy";
-        public const string RouteToManagePrefs = "/ManagePreferences";
-        public const string RouteToManageAgents = "/KeriAgentService";
-        public const string RouteToWelcome = "/Welcome";
-        public const string RouteToNewRelease = "/NewRelease";
-        public const string RouteToConfigure = "/Configure";
-        public const string RouteToAddAuthenticator = "/AddAuthenticator";
-        public const string RouteToAuthenticators = "/Authenticators";
-        public const string RouteToUnlock = "/Unlock";
+        public const string RouteToDelete = "/Delete.html";
+        public const string RouteToNewInstall = "/NewInstall.html";
+        public const string RouteToHome = "/Home.html";
+        public const string RouteToTermsPage = "/Terms.html";
+        public const string RouteToPrivacyPage = "/Privacy.html";
+        public const string RouteToManagePrefs = "/ManagePreferences.html";
+        public const string RouteToManageAgents = "/KeriAgentService.html";
+        public const string RouteToWelcome = "/Welcome.html";
+        public const string RouteToNewRelease = "/NewRelease.html";
+        public const string RouteToConfigure = "/Configure.html";
+        public const string RouteToAddAuthenticator = "/AddAuthenticator.html";
+        public const string RouteToAuthenticators = "/Authenticators.html";
+        public const string RouteToUnlock = "/Unlock.html";
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
             RouteToDelete,
@@ -36,10 +36,10 @@ namespace Extension {
         ];
 
         // routes with parameters, with intentional trailing /
-        public const string RouteToIdentifier = "/Identifier/";
-        public const string RouteToWebsite = "/Website/";
-        public const string RouteToRequestSignIn = "/RequestSignIn/";
-        public const string RouteToRequestSign = "/RequestSign/";
+        public const string RouteToIdentifier = "/Identifier.html/";
+        public const string RouteToWebsite = "/Website.html/";
+        public const string RouteToRequestSignIn = "/RequestSignIn.html/";
+        public const string RouteToRequestSign = "/RequestSign.html/";
 
         // routes to static content
         public const string RouteToTermsHtml = "content/terms.html";

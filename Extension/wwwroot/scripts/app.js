@@ -15,3 +15,7 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
 export function afterStarted(blazor) {
     console.log("app.js: afterStarted");
 }
+
+/*
+* For details, see https://mingyaulee.github.io/Blazor.BrowserExtension/app-js
+*/
