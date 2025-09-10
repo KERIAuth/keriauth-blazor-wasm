@@ -1,20 +1,11 @@
 ﻿@page "/Identifiers"
 
-@using Extension.Helper
-@using Extension.Models
-@using Extension.Components
-@using Extension.Services
-@using Extension.Services.SignifyService
-@using Extension.Services.SignifyService.Models
-@using static Extension.AppConfig;
-@using System.Diagnostics
 
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@using static Extension.Helper.PreviousPage
 @inject ILogger<IdentifiersPage> logger
 @inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;

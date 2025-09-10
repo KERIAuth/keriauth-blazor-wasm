@@ -1,11 +1,4 @@
 ﻿@page "/Home"
-@using Extension
-@using Extension.Services
-@using Extension.Models
-@using static Extension.AppConfig;
-@using static Extension.Helper.Identicon;
-@using Extension.Components
-@using Extension.Services.SignifyService
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IExtensionEnvironmentService extensionEnvironmentService
@@ -16,7 +9,6 @@
 @inject IWebsiteConfigService websiteConfigService
 @inject ISignifyClientService signifyClientService;
 
-@using MudBlazor
 
 @code {
     [CascadingParameter]

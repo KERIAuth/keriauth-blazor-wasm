@@ -1,21 +1,7 @@
 ﻿@page "/Websites"
 @layout Layouts.MainLayout
 
-@using System.Linq
-@using System.Text.Json
-@using Extension.Helper
-@using Extension.Models
-@using Extension.Components
 @using Extension.Pages
-@using Extension.Services
-@using Extension.Services.SignifyService
-@using Extension.Services.SignifyService.Models
-@using static Extension.AppConfig
-@using System.Diagnostics
-@using Microsoft.AspNetCore.WebUtilities
-@using MudBlazor
-@using FluentResults
-@using System.Web
 @using System.Text.Json.Serialization
 @using System;
 @using System.Collections.Generic;
@@ -25,7 +11,6 @@
 @inject IStateService stateService
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@using static Extension.Helper.PreviousPage
 @inject ILogger<WebsitesPage> logger
 @inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
