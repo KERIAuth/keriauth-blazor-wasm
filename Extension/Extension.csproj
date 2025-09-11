@@ -39,6 +39,22 @@
     <DefineConstants>DEBUG</DefineConstants>
   </PropertyGroup>
 
+  <!-- Build Shortcut Properties -->
+  <PropertyGroup>
+    <!-- Enable full build with TypeScript when BuildingProject is true -->
+    <BuildingProject Condition="'$(BuildingProject)' == ''">false</BuildingProject>
+    
+    <!-- Shortcut: Use 'dotnet build -p:FullBuild=true' instead of 'dotnet build -p:BuildingProject=true' -->
+    <BuildingProject Condition="'$(FullBuild)' == 'true'">true</BuildingProject>
+    
+    <!-- Shortcut: Use 'dotnet build -p:Quick=true' to skip TypeScript -->
+    <SkipJavaScriptBuild Condition="'$(Quick)' == 'true'">true</SkipJavaScriptBuild>
+    
+    <!-- Shortcut: Use 'dotnet build -p:Production=true' for release build with full features -->
+    <Configuration Condition="'$(Production)' == 'true'">Release</Configuration>
+    <BuildingProject Condition="'$(Production)' == 'true'">true</BuildingProject>
+  </PropertyGroup>
+
   <!-- -->
   <ItemGroup>
     <ServiceWorker Include="dist\wwwroot\scripts\esbuild\BackgroundWorker.js" PublishedContent="wwwroot\scripts\esbuild\BackgroundWorker.js" />
@@ -99,7 +115,7 @@
     <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="9.0.8" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.8" />
     <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="9.0.8" />
-    <PackageReference Include="Microsoft.NET.Sdk.WebAssembly.Pack" Version="9.0.8" />
+    <!-- Microsoft.NET.Sdk.WebAssembly.Pack is included by SDK, don't reference explicitly -->
     <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.8" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
 	  <PackageReference Include="MudBlazor" Version="8.11.0" />
@@ -129,13 +145,29 @@
 
   </ItemGroup>
 
-  <!-- Build Tasks -->
-  <Target Name="InstallDependencies" BeforeTargets="BuildFrontend">
-    <Exec Command="npm install" />
+  <!-- Build Tasks for TypeScript/JavaScript Extension Components -->
+  <!-- Skip during design-time builds and restore to prevent loops -->
+  <!-- Also skip if Visual Studio or other processes might have files locked -->
+  <Target Name="InstallDependencies" BeforeTargets="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+    <Exec Command="npm install" ContinueOnError="true" />
   </Target>
 
-  <Target Name="BuildFrontend" BeforeTargets="PreBuildEvent">
-    <Exec Command="npm run build" />
+  <Target Name="BuildExtensionScripts" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+    <Exec Command="npm run build" ContinueOnError="true" />
+  </Target>
+
+  <!-- Target to detect environment and provide user guidance -->
+  <Target Name="CheckEnvironment" BeforeTargets="InstallDependencies" Condition="'$(CI)' != 'true'">
+    <PropertyGroup>
+      <IsWSL Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux))) AND $([System.Environment]::GetEnvironmentVariable('WSL_DISTRO_NAME')) != ''">true</IsWSL>
+      <IsWindows Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">true</IsWindows>
+      <IsCI Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(CI)' == 'true'">true</IsCI>
+    </PropertyGroup>
+    
+    <!-- Only show guidance for local builds, not CI -->
+    <Message Importance="high" Text="🔧 Building KERI Auth Browser Extension in WSL. If build fails with NuGet package errors, ensure Visual Studio and Windows Explorer are closed." Condition="'$(IsWSL)' == 'true' AND '$(IsCI)' != 'true'" />
+    <Message Importance="high" Text="🔧 Building KERI Auth Browser Extension on Windows. If npm commands fail, ensure no WSL processes are accessing the project directory." Condition="'$(IsWindows)' == 'true' AND '$(IsCI)' != 'true'" />
+    <Message Importance="normal" Text="🚀 Building KERI Auth Browser Extension in CI environment." Condition="'$(IsCI)' == 'true'" />
   </Target>
 
   <Target Name="CopyEs6Javascript" AfterTargets="Build">

@@ -84,12 +84,24 @@ npm run watch
 ```
 
 ### Standard Build Commands
+
+**Canonical Build Commands (all environments):**
+- **Full build (recommended)**: `dotnet build /p:BuildingProject=true`
+- **Release build**: `dotnet build --configuration Release /p:BuildingProject=true`
+- **Debug build**: `dotnet build --configuration Debug /p:BuildingProject=true`
+- **Skip npm build**: `dotnet build /p:SkipJavaScriptBuild=true`
+- **Clean and build**: `dotnet clean && dotnet build /p:BuildingProject=true`
+
+**Build Shortcuts (easier to type):**
+- **Full build**: `dotnet build -p:FullBuild=true`
+- **Quick build (skip npm)**: `dotnet build -p:Quick=true`
+- **Production build**: `dotnet build -p:Production=true` (Release + Full)
+- **Standard build**: `dotnet build` (C# only, no TypeScript)
+
+**Legacy/Alternative Commands:**
 - **Build solution**: `dotnet build Extension.sln`
-- **Build backend only**: `dotnet build`
-- **Build with frontend**: `npm install && npm run build && dotnet build`
-- **Clean build**: `dotnet clean && npm run clean && npm run build && dotnet build`
-- **Release build**: `dotnet build -c Release`
-- **Debug build**: `dotnet build -c Debug`
+- **Build C# only**: `dotnet build`
+- **Manual frontend build**: `cd Extension && npm install && npm run build`
 
 ### Frontend Build Commands (TypeScript/JavaScript)
 Must be run from the `Extension/` directory:
@@ -529,6 +541,97 @@ Managed in `Extension/package.json`:
 - **npm packages**: Pin critical dependencies (signify-ts, polaris-web) to specific commits
 - **Node.js**: Requires >= 22.13.0 (specified in package.json engines)
 - **.NET SDK**: 9.0
+
+## Cross-Platform Build Issues & File Lock Detection
+
+### Windows/WSL Compatibility
+
+This project supports both Windows and WSL environments, but file locks and path conflicts can occur when:
+- Visual Studio is open while building in WSL
+- Windows Explorer is browsing the project directory during WSL builds
+- WSL processes are accessing files during Windows builds
+- NuGet package paths become mixed between Windows (`C:\Users\...`) and WSL (`/home/...`) formats
+
+### File Lock Detection
+
+The build system includes automatic detection and user guidance:
+
+```xml
+<Target Name="CheckFileLocks" BeforeTargets="InstallDependencies">
+  <!-- Detects WSL vs Windows environment and provides guidance -->
+</Target>
+```
+
+### Troubleshooting Build Issues
+
+#### NuGet Restore Loop Error
+**Symptoms**: "A NuGet restore loop has been detected" in Visual Studio
+**Cause**: npm build targets running during restore operations
+**Solution**: 
+1. Close Visual Studio and any Windows Explorer windows
+2. Clean and rebuild from WSL: `rm -rf Extension/obj Extension.Tests/obj && dotnet restore && dotnet build`
+
+#### Package Not Found Errors
+**Symptoms**: "Package Blazor.BrowserExtension.Build, version X.X.X was not found"
+**Cause**: Path mismatch between Windows and WSL NuGet package locations
+**Solution**:
+1. Close Visual Studio completely
+2. Close Windows Explorer if browsing project directory
+3. Clean obj directories: `rm -rf Extension/obj Extension.Tests/obj`
+4. Restore with correct paths: `dotnet restore`
+5. Build: `dotnet build /p:BuildingProject=true`
+
+#### TypeScript Permission Errors
+**Symptoms**: "tsc: Permission denied" during esbuild type checking
+**Cause**: File permissions or locks from Windows processes
+**Solution**:
+1. Close Visual Studio and Windows Explorer
+2. Run build with skip flag: `dotnet build /p:SkipJavaScriptBuild=true`
+3. Manually build TypeScript: `cd Extension && npm run build`
+
+### Build Environment Best Practices
+
+#### For Windows Development:
+- Use Visual Studio for C# development and debugging
+- Build final release using `dotnet build` in Command Prompt/PowerShell
+- Avoid mixing WSL commands while Visual Studio is open
+
+#### For WSL Development:
+- Ensure Visual Studio and Windows Explorer are closed before building
+- Use `dotnet build /p:BuildingProject=true` for full builds
+- Monitor for Windows path pollution in `Extension/obj/*.props` files
+
+#### Cross-Environment Workflow:
+1. **Code in Windows**: Use Visual Studio for C# editing, IntelliSense
+2. **Build in WSL**: Close VS, run builds in WSL for consistency
+3. **Test in both**: Verify extension works in both environments
+
+### Emergency Build Recovery
+
+If builds consistently fail with path/lock issues:
+
+```bash
+# Full cleanup and rebuild
+cd /mnt/c/s/k/k-b-w
+rm -rf Extension/bin Extension/obj Extension.Tests/bin Extension.Tests/obj
+rm -rf Extension/node_modules/.cache Extension/dist
+dotnet clean
+dotnet restore --force-evaluate
+dotnet build /p:BuildingProject=true
+```
+
+### Build Command Reference
+
+| Command | Environment | Purpose | Notes |
+|---------|-------------|---------|-------|
+| `dotnet build -p:FullBuild=true` | **Any** | **Full build (shortcut)** | **Easiest to type** |
+| `dotnet build -p:Production=true` | **Any** | **Production build (shortcut)** | **Release + Full build** |
+| `dotnet build -p:Quick=true` | **Any** | **Quick build (shortcut)** | **Skip TypeScript if needed** |
+| `dotnet build /p:BuildingProject=true` | **Any** | **Canonical full build** | **Recommended for all environments** |
+| `dotnet build --configuration Release /p:BuildingProject=true` | **Any** | **Production build (canonical)** | **Used by CI/CD** |
+| `dotnet build` | Any | C# only build | No TypeScript compilation |
+| `cd Extension && npm run build` | Any | TypeScript only | Manual script build |
+| `dotnet clean` | Any | Clean .NET outputs | Safe for both environments |
 
 ## Debugging Tips
 

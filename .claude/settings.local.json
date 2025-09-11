@@ -5,7 +5,19 @@
       "Bash(mv:*)",
       "Bash(find:*)",
       "Bash(sed:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(dotnet build)",
+      "Bash(dotnet nuget locals:*)",
+      "Read(/home/edeyk/.nuget/packages/**)",
+      "Read(/home/edeyk/.nuget/packages/blazor.browserextension.build/**)",
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet msbuild:*)",
+      "Bash(dotnet add:*)",
+      "Bash(NUGET_PACKAGES=/home/edeyk/.nuget/packages dotnet build Extension.sln --configuration Debug --no-restore)"
     ],
     "deny": [],
     "ask": []

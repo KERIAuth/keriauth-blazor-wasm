@@ -496,11 +496,6 @@
         "resolved": "9.0.8",
         "contentHash": "rd1CbIsMtVPtZNTIVD6Xydue//klYOOQIDpRgu3BHtv17AlpRs74/6QFbcYgMm/jL+naVU2T3OFLxVSLV5lQLQ=="
       },
-      "Microsoft.NET.Sdk.WebAssembly.Pack": {
-        "type": "Transitive",
-        "resolved": "9.0.8",
-        "contentHash": "+JJYRyS8YoLMzLquskLfdF8RFp2PhN5v+lGCGDLHsywj3JHfSV/Zqo8+T0Fl0Xvoc9Js8YkrAWTnm7M2/3CniA=="
-      },
       "Microsoft.TestPlatform.ObjectModel": {
         "type": "Transitive",
         "resolved": "17.14.1",
@@ -637,7 +632,6 @@
           "Microsoft.Extensions.Logging.Console": "[9.0.8, )",
           "Microsoft.Extensions.Logging.Debug": "[9.0.8, )",
           "Microsoft.NET.ILLink.Tasks": "[9.0.8, )",
-          "Microsoft.NET.Sdk.WebAssembly.Pack": "[9.0.8, )",
           "Moq": "[4.20.72, )",
           "MudBlazor": "[8.11.0, )",
           "Net.Codecrete.QrCodeGenerator": "[2.0.7, )",

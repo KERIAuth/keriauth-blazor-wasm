@@ -34,7 +34,7 @@ jobs:
       run: echo "GITHUB_SHA=$GITHUB_SHA"
 
     - name: Build with MSBuild
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build --configuration Release --no-restore /p:BuildingProject=true /p:CI=true
 
     - name: Extract version from manifest.json
       id: extract_version
