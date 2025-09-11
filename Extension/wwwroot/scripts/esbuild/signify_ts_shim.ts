@@ -36,24 +36,24 @@ export const bootAndConnect = async (
 ): Promise<string> => {
     _client = null;
     await ready();
-    console.debug(`signify_ts_shim: bootAndConnect: creating client...`);
-    // TODO P1 raise the Tier for production use
+    console.debug('signify_ts_shim: bootAndConnect: creating client...');
+    // TODO P2 raise the Tier for production use
     _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
 
     try {
-        console.debug("signify_ts_shim: connecting...");
+        console.debug('signify_ts_shim: connecting...');
         await _client.connect();
     } catch {
         try {
-            console.debug("signify_ts_shim: booting...");
+            console.debug('signify_ts_shim: booting...');
             const bootedSignifyClient = await _client.boot();
             if (!bootedSignifyClient.ok) {
                 throw new Error();
             }
-            console.debug("signify_ts_shim: connecting...");
+            console.debug('signify_ts_shim: connecting...');
             await _client.connect();
         } catch (error) {
-            console.error("signify_ts_shim: client could not boot or connect", error);
+            console.error('signify_ts_shim: client could not boot or connect', error);
             throw error;
         }
     }

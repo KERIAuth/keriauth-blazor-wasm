@@ -325,7 +325,7 @@ export async function registerCredential(
             throw Error('This authenticator (or possibly the OS) does not support the required webauthn PRF extension.');
         }
 
-        // TODO P1: Should this check be dependent on the authenticatorSelectionCriteria?
+        // TODO P2: Should this check be dependent on the authenticatorSelectionCriteria?
         if (clientExtensionResults.credProps?.rk !== true) {
             console.error('This authenticator does not support resident keys.');
             throw Error('This authenticator does not support resident keys.');

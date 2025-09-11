@@ -715,7 +715,7 @@ async function handleMessageFromCs(message: ICsSwMsg, cSPort: chrome.runtime.Por
                 pendingRequestId = null;
                 break;
             case CsSwMsgEnum.POLARIS_SIGN_DATA:
-            // TODO P1 request user to sign data (or request?)
+            // TODO P2 request user to sign data (or request?)
             default:
                 console.warn('SW message type not yet handled: ', message);
         }
