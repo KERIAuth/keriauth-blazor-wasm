@@ -5,9 +5,10 @@ namespace Extension.Models
     public record KeriaConnectConfig
     {
         [JsonConstructor]
-        public KeriaConnectConfig(string? keriaConnectAlias = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? controllerAid = null)
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? controllerAid = null)
         {
-            KeriaConnectAlias = keriaConnectAlias;
+            ProviderName = providerName;
+            Alias = "Connection created " + DateTime.UtcNow.ToString("o");
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
             PasscodeHash = passcodeHash;
@@ -20,8 +21,11 @@ namespace Extension.Models
         [JsonPropertyName("BootUrl")]
         public string? BootUrl { get; init; }
 
-        [JsonPropertyName("KeriaConnectAlias")]
-        public string? KeriaConnectAlias { get; init; }
+        [JsonPropertyName("ProviderName")]
+        public string? ProviderName { get; init; }
+
+        [JsonPropertyName("Alias")]
+        public string? Alias { get; init; }
 
         [JsonPropertyName("PasscodeHash")]
         public int PasscodeHash { get; init; }
@@ -31,7 +35,7 @@ namespace Extension.Models
 
         public bool IsAdminUrlConfigured()
         {
-            if (string.IsNullOrEmpty(KeriaConnectAlias)
+            if (string.IsNullOrEmpty(Alias)
                 || PasscodeHash == 0
                 || string.IsNullOrEmpty(AdminUrl)
                 || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)

@@ -13,19 +13,21 @@
 @using static Extension.Helper.PreviousPage
 @using System.Text.Json
 @using static Extension.Helper.Identicon;
+@using FluentResults
 
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<CredentialsPage> logger
 @inject ISignifyClientService signifyClientService;
 @inject IStorageService storageService;
+@inject ISnackbar snackbar;
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <div style="display:flex;">
                 <MudTooltip Delay="0.5" Placement="Placement.Bottom"
-                            Text="This is a read-only view. You would need to select Delete Configuration from the menu to reset the connection.">
+                            Text="View and manage your KERI Agent Service configuration.">
                     <MudStack Row="true">
                         <MudText Typo="Typo.h6">KERI Agent Service</MudText>
                         <!-- <MudIcon Icon=" (at)  Icons.Material.Outlined.Info" Class="bt-info-icon" /> -->
@@ -35,7 +37,34 @@
             <MudStack Class="d-flex justify-center mt-4">
                 <MudText><b>Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
                 <MudText><b>Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
-                <MudText><b>Provider Name:</b> @(keriaConnectConfig.KeriaConnectAlias ?? "(none)")</MudText>
+                <MudStack Row="true" AlignItems=AlignItems.Center>
+                    <MudText><b>Provider Name:</b></MudText>
+                    @if (isEditingProviderName)
+                    {
+                        <MudTextField @bind-Value="editingProviderName" 
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Immediate="true"
+                                      Class="mx-2"
+                                      Style="max-width: 300px;"
+                                      @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveProviderName(); })" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Check" 
+                                       Color="Color.Success" 
+                                       Size="Size.Small"
+                                       OnClick="SaveProviderName" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                       Color="Color.Error" 
+                                       Size="Size.Small"
+                                       OnClick="CancelEditProviderName" />
+                    }
+                    else
+                    {
+                        <MudText>@(keriaConnectConfig.ProviderName ?? "(none)")</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                       Size="Size.Small"
+                                       OnClick="StartEditProviderName" />
+                    }
+                </MudStack>
             </MudStack>
         </div>
     </MudStack>
@@ -46,6 +75,10 @@
 </div>
 
 @code {
+    private KeriaConnectConfig keriaConnectConfig { get; set; } = new();
+    private bool isEditingProviderName = false;
+    private string editingProviderName = "";
+
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
@@ -58,5 +91,42 @@
         keriaConnectConfig = res.Value;
     }
 
-    KeriaConnectConfig keriaConnectConfig { get; set; } = new();
+    private void StartEditProviderName()
+    {
+        isEditingProviderName = true;
+        editingProviderName = keriaConnectConfig.ProviderName ?? "";
+    }
+
+    private void CancelEditProviderName()
+    {
+        isEditingProviderName = false;
+        editingProviderName = "";
+    }
+
+    private async Task SaveProviderName()
+    {
+        if (string.IsNullOrWhiteSpace(editingProviderName))
+        {
+            snackbar.Add("Provider Name cannot be empty", Severity.Warning);
+            return;
+        }
+
+        // Create a new KeriaConnectConfig with the updated alias
+        var updatedConfig = keriaConnectConfig with { ProviderName = editingProviderName };
+        
+        // Save to storage
+        var result = await storageService.SetItem<KeriaConnectConfig>(updatedConfig);
+        
+        if (result.IsSuccess)
+        {
+            keriaConnectConfig = updatedConfig;
+            isEditingProviderName = false;
+            snackbar.Add("Provider Name updated successfully", Severity.Success);
+            StateHasChanged();
+        }
+        else
+        {
+            snackbar.Add($"Failed to update Provider Name: {result.Errors.FirstOrDefault()?.Message ?? "Unknown error"}", Severity.Error);
+        }
+    }
 }
