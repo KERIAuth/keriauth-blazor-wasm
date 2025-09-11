@@ -274,7 +274,7 @@
                 {
                     logger.LogInformation("Encoded origin not found in decodedMsg: {dm}", initialUriQuery2);
                 }
-                navManager.NavigateTo(RouteToHome);
+                navManager.NavigateTo(RouteToDashboard);
                 return true;
             case IStateService.States.AuthenticatedDisconnected:
             // TODO P2 show progress connecting and handle issues. For now, just wait...

@@ -268,6 +268,7 @@
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
         <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">
+                <MudNavLink Href=@RouteToDashboard Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>

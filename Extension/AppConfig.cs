@@ -12,6 +12,7 @@ namespace Extension {
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToNewInstall = "/NewInstall.html";
         public const string RouteToHome = "/Home.html";
+        public const string RouteToDashboard = "/DashboardPage.html";
         public const string RouteToTermsPage = "/Terms.html";
         public const string RouteToPrivacyPage = "/Privacy.html";
         public const string RouteToManagePrefs = "/ManagePreferences.html";

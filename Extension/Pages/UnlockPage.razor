@@ -124,7 +124,7 @@
         var state = stateService.GetState();
         if (state == IStateService.States.AuthenticatedConnected || state == IStateService.States.AuthenticatedDisconnected)
         {
-            navManager.NavigateTo(RouteToHome);
+            navManager.NavigateTo(RouteToDashboard);
         }
 
         // Get the KeriaConnectConfig
