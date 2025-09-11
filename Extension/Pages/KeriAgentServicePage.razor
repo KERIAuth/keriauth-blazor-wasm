@@ -33,9 +33,9 @@
                 </MudTooltip>
             </div>
             <MudStack Class="d-flex justify-center mt-4">
-                <MudText><b>KERIA Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
-                <MudText><b>KERIA Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
-                <MudText><b>Vendor Support URL:</b> <MudLink Target="blank" Href="http://example.com">http://example.com</MudLink></MudText>
+                <MudText><b>Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
+                <MudText><b>Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
+                <MudText><b>Provider Name:</b> @(keriaConnectConfig.KeriaConnectAlias ?? "(none)")</MudText>
             </MudStack>
         </div>
     </MudStack>

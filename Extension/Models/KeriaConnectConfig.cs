@@ -5,12 +5,13 @@ namespace Extension.Models
     public record KeriaConnectConfig
     {
         [JsonConstructor]
-        public KeriaConnectConfig(string? keriaConnectAlias = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0)
+        public KeriaConnectConfig(string? keriaConnectAlias = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? controllerAid = null)
         {
             KeriaConnectAlias = keriaConnectAlias;
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
             PasscodeHash = passcodeHash;
+            ControllerAid = controllerAid;
         }
 
         [JsonPropertyName("AdminUrl")]
@@ -24,6 +25,9 @@ namespace Extension.Models
 
         [JsonPropertyName("PasscodeHash")]
         public int PasscodeHash { get; init; }
+
+        [JsonPropertyName("ControllerAid")]
+        public string? ControllerAid { get; init; }
 
         public bool IsAdminUrlConfigured()
         {
