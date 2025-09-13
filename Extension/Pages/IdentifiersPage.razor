@@ -83,7 +83,7 @@
             var res = await identifiersService.Add(result.Data?.ToString() ?? String.Empty);
             if (res.IsFailed || res.Value is null)
             {
-                logger.LogError("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
+                logger.LogWarning("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
                 snackbar.Add("Failed to add identifier", Severity.Error);
             }
             else

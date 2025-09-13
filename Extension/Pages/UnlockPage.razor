@@ -252,7 +252,7 @@
             {
                 openWalletError = "Could not connect to KERI Agent";
                 snackbar.Add(openWalletError, Severity.Error);
-                logger.LogError(openWalletError);
+                logger.LogWarning(openWalletError);
             }
             else
             {

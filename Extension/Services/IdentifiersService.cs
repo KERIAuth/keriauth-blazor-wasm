@@ -40,7 +40,7 @@ namespace Extension.Services {
         public async Task<Result<string>> Add(string alias) {
             var res = await signifyClientService.RunCreateAid(alias);
             if (res.IsFailed || res.Value is null) {
-                logger.LogError("Failed to create person aid: {res}", res.Errors[0].Message);
+                logger.LogWarning("Failed to create person aid: {res}", res.Errors[0].Message);
                 return Result.Fail(res.Errors[0].Message);
             }
             else {
