@@ -641,3 +641,16 @@ dotnet build /p:BuildingProject=true
 - Network issues: Check CORS policies and content security policy (CSP) settings
 - TypeScript compilation issues: Check `tsconfig.json` for module resolution settings
 - ESLint issues: Run `npx eslint --fix` to auto-fix style issues
+
+### Build Troubleshooting
+
+#### NuGet Package Resolution Issues
+If you encounter "Package not found" errors or path-related build issues:
+1. **Force restore packages**: `cd Extension && dotnet restore --force && cd ..`
+2. **Clean and rebuild**: `rm -rf Extension/obj Extension.Tests/obj && dotnet build -p:Quick=true`
+3. **If Visual Studio was open**: Close it completely, then clean and rebuild from WSL
+
+#### Common Build Error Solutions
+- **"TargetPath not specified" errors**: Usually indicates WSL/Windows path conflicts. Clean obj directories and rebuild
+- **"Package Blazor.BrowserExtension.Build not found"**: Run `dotnet restore --force` from the Extension directory
+- **Build succeeds after restore**: This is normal - the first restore may need to download packages
