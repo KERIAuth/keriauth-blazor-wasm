@@ -1,8 +1,7 @@
 ﻿using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 
-namespace Extension.Services.SignifyService
-{
+namespace Extension.Services.SignifyService {
     // Important: keep the imported method and property names aligned with signify_ts_shim.ts
     [SupportedOSPlatform("browser")]
 #pragma warning disable CA1707 // Identifiers should not contain underscores

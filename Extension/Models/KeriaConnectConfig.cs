@@ -1,13 +1,10 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record KeriaConnectConfig
-    {
+namespace Extension.Models {
+    public record KeriaConnectConfig {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null)
-        {
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null) {
             ProviderName = providerName;
 #pragma warning disable CA1305 // Specify IFormatProvider
             Alias = "Created " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC";
@@ -40,8 +37,7 @@ namespace Extension.Models
         [JsonPropertyName("AgentAidPrefix")]
         public string? AgentAidPrefix { get; init; }
 
-        public bool IsAdminUrlConfigured()
-        {
+        public bool IsAdminUrlConfigured() {
             if (string.IsNullOrEmpty(Alias)
                 || PasscodeHash == 0
                 || string.IsNullOrEmpty(AdminUrl)
@@ -50,8 +46,7 @@ namespace Extension.Models
                 //|| string.IsNullOrEmpty(BootUrl)
                 //|| !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? bootUriResult)
                 //      && (bootUriResult.Scheme == Uri.UriSchemeHttp || bootUriResult.Scheme == Uri.UriSchemeHttps))
-                )
-            {
+                ) {
                 return false;
             }
             return true;

@@ -1,6 +1,4 @@
-﻿namespace Extension.Models
-{
-    public class Identifier
-    {
+﻿namespace Extension.Models {
+    public class Identifier {
     }
 }

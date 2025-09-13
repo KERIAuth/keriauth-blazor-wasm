@@ -1,11 +1,8 @@
 ﻿using Extension.Models;
 
-namespace Extension.Services
-{
-    public class IdentifierService
-    {
-        public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifiersService> logger, IStorageService storageService)
-        {
+namespace Extension.Services {
+    public class IdentifierService {
+        public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifiersService> logger, IStorageService storageService) {
             _ = prefix;
             _ = storageService;
             _ = logger;
@@ -19,10 +16,9 @@ namespace Extension.Services
         private readonly string alias;
         private readonly Guid keriaConnectionGuid;
 
-        public IdentifierHeadline GetHeadline() => identifierHeadline; 
+        public IdentifierHeadline GetHeadline() => identifierHeadline;
 
-        public IdentifierHeadline Test()
-        {
+        public IdentifierHeadline Test() {
             // logger.LogWarning("IdentifierService: Test() called");
             return identifierHeadline;
         }

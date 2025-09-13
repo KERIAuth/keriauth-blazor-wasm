@@ -1,7 +1,6 @@
 ﻿namespace Extension.Models;
 
-public enum ExtensionEnvironment
-{
+public enum ExtensionEnvironment {
     None,           // e.g. running in ASPNetCore for development
     ActionPopup,    // Via clicking on the browser action icon
     OptionPopup,

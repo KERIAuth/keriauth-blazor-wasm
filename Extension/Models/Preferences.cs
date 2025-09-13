@@ -1,11 +1,8 @@
-namespace Extension.Models
-{
+﻿namespace Extension.Models {
     using System.Text.Json.Serialization;
 
-    public record Preferences
-    {
-        public Preferences()
-        {
+    public record Preferences {
+        public Preferences() {
         }
 
         [JsonPropertyName("IsDarkTheme")]

@@ -1,16 +1,13 @@
-﻿namespace Extension.Components
-{
+﻿namespace Extension.Components {
     public class OperationDisplay(string label, string successLabel) {
-        public void SetIsRunning()
-        {
+        public void SetIsRunning() {
             CompletedSuccessfully = false;
             IsPending = true;
             IsRunning = true;
             ErrorMessage = String.Empty;
         }
 
-        public void SetCompletedWithoutErrors()
-        {
+        public void SetCompletedWithoutErrors() {
             Label = SuccessLabel;
             CompletedSuccessfully = true;
             IsPending = false;
@@ -18,8 +15,7 @@
             ErrorMessage = String.Empty;
         }
 
-        public void SetCompletedWithError(string error = "")
-        {
+        public void SetCompletedWithError(string error = "") {
             Label = error;
             CompletedSuccessfully = false;
             IsPending = false;
@@ -27,8 +23,7 @@
             ErrorMessage = error;
         }
 
-        public void Reset()
-        {
+        public void Reset() {
             CompletedSuccessfully = false;
             IsPending = true;
             IsRunning = false;

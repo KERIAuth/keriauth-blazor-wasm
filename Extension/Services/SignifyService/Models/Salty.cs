@@ -1,12 +1,9 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Services.SignifyService.Models
-{
-    public class Salty
-    {
+namespace Extension.Services.SignifyService.Models {
+    public class Salty {
         [JsonConstructor]
-        public Salty(string sxlt, int pidx, int kidx, string stem, string tier, string dcode, List<string> icodes, List<string> ncodes, bool transferable)
-        {
+        public Salty(string sxlt, int pidx, int kidx, string stem, string tier, string dcode, List<string> icodes, List<string> ncodes, bool transferable) {
             Sxlt = sxlt;
             Pidx = pidx;
             Kidx = kidx;

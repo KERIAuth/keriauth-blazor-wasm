@@ -8,60 +8,49 @@ using WebExtensions.Net;
 // using static System.Runtime.InteropServices.JavaScript.JSType;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
-namespace Extension.Services
-{
-    public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<WebauthnService> logger) : IWebauthnService
-    {
+namespace Extension.Services {
+    public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<WebauthnService> logger) : IWebauthnService {
         private IJSObjectReference? interopModule;
         private WebExtensionsApi? webExtensionsApi;
 
-        private async Task Initialize()
-        {
+        private async Task Initialize() {
             // TODO P2 might be able to instead move some of this into program.cs and inject these as parameters
-            try
-            {
+            try {
                 webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
                 interopModule ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/webauthnCredentialWithPRF.js");
             }
-            catch (JSException jsEx)
-            {
+            catch (JSException jsEx) {
                 logger.LogError("Could not initialize {e}", jsEx.Message);
                 throw new ArgumentException(jsEx.Message);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 logger.LogError("Could not initialize {e}", ex.Message);
                 throw;
             }
         }
 
-        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints)
-        {
-            try
-            {
+        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints) {
+            try {
                 // Attempt to call the JavaScript function and map to the CredentialWithPRF type
                 await Initialize();
                 var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
                 // logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
             }
-            catch (JSException jsEx)
-            {
+            catch (JSException jsEx) {
                 // Return a failure with a meaningful message and error metadata
                 return Result.Fail(new FluentResults.Error("JavaScript error occurred")
                     .CausedBy(jsEx)
                     .WithMetadata("Function", "registerCredential"));
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 // Return a failure for unexpected exceptions
                 return Result.Fail(new FluentResults.Error("Unexpected error occurred")
                     .CausedBy(ex));
             }
         }
 
-        private static readonly JsonSerializerOptions jsonSerializerOptions = new()
-        {
+        private static readonly JsonSerializerOptions jsonSerializerOptions = new() {
             PropertyNameCaseInsensitive = false,
             IncludeFields = true,
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
@@ -71,41 +60,34 @@ namespace Extension.Services
             //}
         };
 
-        public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64)
-        {
+        public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64) {
             // logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
-            try
-            {
+            try {
                 // Attempt to authenticate the credential and re-compute the encryption key
                 await Initialize();
                 var authenticateCredResult = await interopModule!.InvokeAsync<AuthenticateCredResult>("authenticateCredential", credentialIdBase64);
 
-                if (authenticateCredResult is not null)
-                {
+                if (authenticateCredResult is not null) {
                     return Result.Ok(authenticateCredResult);
                 }
-                else
-                {
+                else {
                     return Result.Fail("failed to authenticate credential");
                 }
             }
-            catch (JSException jsEx)
-            {
+            catch (JSException jsEx) {
                 // Return a failure with a meaningful message and error metadata
                 return Result.Fail(new FluentResults.Error("JavaScript error occurred")
                     .CausedBy(jsEx)
                     .WithMetadata("Function", "authenticateCredential"));
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 // Return a failure for unexpected exceptions
                 return Result.Fail(new FluentResults.Error("Unexpected error occurred in AuthenticateCredential")
                     .CausedBy(ex));
             }
         }
 
-        private static string GetEncryptKeyBase64(string encryptKey)
-        {
+        private static string GetEncryptKeyBase64(string encryptKey) {
             // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
 
             // Step 1: Adjust the raw key to ensure 32 credentialIdBytes (256 bits)
@@ -122,26 +104,23 @@ namespace Extension.Services
             return encryptKeyBase64;
         }
 
-        public async Task<Result<string>> RegisterAttestStoreAuthenticator(string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints)
-        {
+        public async Task<Result<string>> RegisterAttestStoreAuthenticator(string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints) {
             await Initialize();
             // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
             var registeredAuthenticators = await GetRegisteredAuthenticators() ?? throw new InvalidOperationException("RegisteredAuthenticators list is null.");
 
             // populate a list of registered authenticator credential ids
             List<string> registeredCredIds = [];
-            foreach (var authenticator in registeredAuthenticators.Authenticators)
-            {
+            foreach (var authenticator in registeredAuthenticators.Authenticators) {
                 registeredCredIds.Add(authenticator.CredentialBase64);
             }
 
             // Register a new authenticator, excluding reregistering any authenticator already having a credential with same RP and user
             var credentialRet = await RegisterCredentialAsync(registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
-            if (credentialRet is null || credentialRet.IsFailed)
-            {
+            if (credentialRet is null || credentialRet.IsFailed) {
                 return Result.Fail("Failed to register authenticator 333");
             }
-            
+
             await jsRuntime.InvokeVoidAsync("alert", "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
 
             // Now that authenticator is registered, we need to confirm that with user, and get the encrypt key that is derrived from the PRF attestation
@@ -154,20 +133,16 @@ namespace Extension.Services
 
             // Get the attestation from same authenticator
             var encryptKeyBase64Ret = await AuthenticateCredential(credentialIds);
-            if (encryptKeyBase64Ret is null || encryptKeyBase64Ret.IsFailed)
-            {
+            if (encryptKeyBase64Ret is null || encryptKeyBase64Ret.IsFailed) {
                 return Result.Fail("Failed to verify with authenticator 444");
             }
 
             // Get the cleartext passcode from session storage
             var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
-            if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
-            {
-                try
-                {
+            if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String) {
+                try {
                     var passcode = passcodeElement2.GetString();
-                    if (passcode is null)
-                    {
+                    if (passcode is null) {
                         return Result.Fail("no passcode is cached");
                     }
 
@@ -182,8 +157,7 @@ namespace Extension.Services
                     // confirm the encryptKey size
                     var encryptKeyBytes = Convert.FromBase64String(encryptKeyBase64);
                     // Console.WriteLine($"Key length in bytes: {encryptKeyBytes.Length}");
-                    if (encryptKeyBytes.Length != 16 && encryptKeyBytes.Length != 32)
-                    {
+                    if (encryptKeyBytes.Length != 16 && encryptKeyBytes.Length != 32) {
                         throw new InvalidOperationException("Encryption key must be 16 or 32 bytes.");
                     }
 
@@ -195,8 +169,7 @@ namespace Extension.Services
 
                     // Verify the expected length
                     // Console.WriteLine($"Encrypted data length: {encryptedBytes.Length}");
-                    if (encryptedBytes.Length == 0)
-                    {
+                    if (encryptedBytes.Length == 0) {
                         throw new InvalidOperationException("Encrypted data is empty or invalid.");
                     }
 
@@ -205,16 +178,14 @@ namespace Extension.Services
                     byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
                     string plainTextPasscode = Encoding.UTF8.GetString(dataBytes);
                     // _logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainTextPasscode, passcode);
-                    if (plainTextPasscode != passcode)
-                    {
+                    if (plainTextPasscode != passcode) {
                         // _logger.LogError("passcode failed to encrypt-decrypt");
                         return Result.Fail("passcode failed to encrypt-decrypt");
                     }
 
                     // Append the new registered authenticator and prepare set for storage
                     var creationTime = DateTime.UtcNow;
-                    var newRA = new Models.RegisteredAuthenticator()
-                    {
+                    var newRA = new Models.RegisteredAuthenticator() {
                         CreationTime = creationTime,
                         LastUpdatedUtc = creationTime,
                         CredentialBase64 = credentialRet.Value.CredentialId,
@@ -229,74 +200,61 @@ namespace Extension.Services
                     // return the name of the newly added authenticatorRegistration
                     return Result.Ok(newRA.Name);
                 }
-                catch (JSException jsEx)
-                {
+                catch (JSException jsEx) {
                     throw new ArgumentException(jsEx.Message);
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     logger.LogError("{m}", ex.Message);
                     return Result.Fail(ex.ToString());
                 }
             }
-            else
-            {
+            else {
                 return Result.Fail("failed to retreive passcode from cache");
             }
         }
 
-        public async Task<RegisteredAuthenticators> GetRegisteredAuthenticators()
-        {
+        public async Task<RegisteredAuthenticators> GetRegisteredAuthenticators() {
             await Initialize();
             var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
             var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
             RegisteredAuthenticators ras;
             // if there are stored registered authenticators, start with that list
             RegisteredAuthenticators? t = JsonSerializer.Deserialize<RegisteredAuthenticators>(jsonElement, jsonSerializerOptions);
-            if (t is not null)
-            {
+            if (t is not null) {
                 ras = t;
             }
-            else
-            {
+            else {
                 ras = new RegisteredAuthenticators();
             }
             return ras;
         }
 
-        public async Task<Result<string>> AuthenticateAKnownCredential()
-        {
+        public async Task<Result<string>> AuthenticateAKnownCredential() {
             await Initialize();
             RegisteredAuthenticators ras = await GetRegisteredAuthenticators();
 
-            if (ras is null || ras.Authenticators.Count == 0)
-            {
+            if (ras is null || ras.Authenticators.Count == 0) {
                 logger.LogWarning("no registered authenticators");
                 return Result.Fail("no registered authenticators");
             }
 
             List<string> registeredCredIds = [];
-            foreach (var registeredAuthenticator in ras.Authenticators)
-            {
+            foreach (var registeredAuthenticator in ras.Authenticators) {
                 registeredCredIds.Add(registeredAuthenticator.CredentialBase64);
             }
 
             var authenticateCredResult = await AuthenticateCredential(registeredCredIds);
 
-            if (authenticateCredResult is null || authenticateCredResult.IsFailed)
-            {
+            if (authenticateCredResult is null || authenticateCredResult.IsFailed) {
                 logger.LogWarning("Failed to get result from authenticator");
                 return Result.Fail("Failed to get result from authenticator");
             }
             // logger.LogWarning("success value: {s}", authenticateCredResult.Value);
 
             // Find the registered authenticator matching the credentialID, decrypt its encrypted passcode, and return that
-            foreach (var registeredCred in ras.Authenticators)
-            {
-                if (registeredCred.CredentialBase64 == authenticateCredResult.Value.CredentialId)
-                {
-                    try
-                    {
+            foreach (var registeredCred in ras.Authenticators) {
+                if (registeredCred.CredentialBase64 == authenticateCredResult.Value.CredentialId) {
+                    try {
                         string encryptKeyBase64 = GetEncryptKeyBase64(authenticateCredResult.Value.EncryptKey);
                         var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, registeredCred.EncryptedPasscodeBase64);
                         // logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
@@ -305,8 +263,7 @@ namespace Extension.Services
                         // logger.LogWarning("plainText {p}", decryptedPlaintextPasscode);
                         return Result.Ok(decryptedPlaintextPasscode);
                     }
-                    catch
-                    {
+                    catch {
                         return Result.Fail("Could not decrypt");
                     }
                 }

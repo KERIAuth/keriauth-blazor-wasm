@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Services.SignifyService.Models
-{
+namespace Extension.Services.SignifyService.Models {
     [method: JsonConstructor]
     public class Identifiers(int start, int end, int total, List<Aid> aids) {
         [JsonPropertyName("start")]

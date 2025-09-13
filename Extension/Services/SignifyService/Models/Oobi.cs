@@ -1,6 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public class Oobi
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public class Oobi {
     }
 }

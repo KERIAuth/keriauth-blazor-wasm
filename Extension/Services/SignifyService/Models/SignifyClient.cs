@@ -1,5 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
+﻿namespace Extension.Services.SignifyService.Models {
     public record SignifyClient(
         Controller Controller,
         string Url,

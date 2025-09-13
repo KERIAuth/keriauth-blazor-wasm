@@ -1,6 +1,4 @@
-﻿namespace Extension.Models
-{
-    public class CachedCredentials
-    {
+﻿namespace Extension.Models {
+    public class CachedCredentials {
     }
 }

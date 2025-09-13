@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record ApprovedSignRequest
-    {
+namespace Extension.Models {
+    public record ApprovedSignRequest {
         [JsonPropertyName("origin")]
         public string Origin { get; init; }
 
@@ -26,8 +24,7 @@ namespace Extension.Models
         [JsonPropertyName("passcode")]
         public string Passcode { get; init; }
 
-        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string url, string method, Dictionary<string, string>? initHeaders, string selectedName)
-        {
+        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string url, string method, Dictionary<string, string>? initHeaders, string selectedName) {
             Passcode = passcode;
             AdminUrl = adminUrl;
             Origin = origin;

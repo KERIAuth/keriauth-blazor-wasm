@@ -1,6 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public class KeyManager
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public class KeyManager {
     }
 }

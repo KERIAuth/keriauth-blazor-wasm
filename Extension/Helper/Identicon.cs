@@ -4,12 +4,9 @@ using Jdenticon;
 using System.Diagnostics;
 
 
-public class Identicon
-{
-    public static string MakeIdenticon(string? value)
-    {
-        if (String.IsNullOrWhiteSpace(value))
-        {
+public class Identicon {
+    public static string MakeIdenticon(string? value) {
+        if (String.IsNullOrWhiteSpace(value)) {
             return "";
         }
 
@@ -20,8 +17,7 @@ public class Identicon
         int hashInt = Math.Abs(BitConverter.ToInt32(HashGenerator.ComputeHash(value, "SHA1"), 0));
         float backColorHue = hashInt % 100 / 100f;
 
-        Jdenticon.Identicon.DefaultStyle = new IdenticonStyle
-        {
+        Jdenticon.Identicon.DefaultStyle = new IdenticonStyle {
             BackColor = Jdenticon.Rendering.Color.FromHsl(backColorHue, 1f, 0.5f),
             ColorLightness = Range.Create(0f, 1f),
             GrayscaleLightness = Range.Create(0f, 1f),

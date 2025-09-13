@@ -1,17 +1,14 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record SignedHeadersResult
-    {
+namespace Extension.Models {
+    public record SignedHeadersResult {
         [JsonConstructor]
         public SignedHeadersResult(
             string signature,
             string signatureInput,
             string signifyResource,
             string signifyTimestamp
-        )
-        {
+        ) {
             Signature = signature;
             SignatureInput = signatureInput;
             SignifyResource = signifyResource;

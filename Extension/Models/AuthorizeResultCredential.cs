@@ -1,12 +1,9 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record AuthorizeResultCredential : IEquatable<AuthorizeResultCredential>
-    {
+namespace Extension.Models {
+    public record AuthorizeResultCredential : IEquatable<AuthorizeResultCredential> {
         [JsonConstructor]
-        public AuthorizeResultCredential(string rawJson, string cesr)
-        {
+        public AuthorizeResultCredential(string rawJson, string cesr) {
             RawJson = rawJson;
             Cesr = cesr;
         }

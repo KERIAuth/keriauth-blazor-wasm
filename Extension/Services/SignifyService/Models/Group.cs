@@ -1,6 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public class Group
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public class Group {
     }
 }

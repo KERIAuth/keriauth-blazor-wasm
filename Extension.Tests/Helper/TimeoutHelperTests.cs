@@ -1,17 +1,13 @@
 ﻿// using FluentResults;
 using Extension.Helper;
 
-namespace Extension.Tests.Helper
-{
-    public class TimeoutHelperTests
-    {
+namespace Extension.Tests.Helper {
+    public class TimeoutHelperTests {
         [Fact]
-        public async Task WithTimeout_ShouldReturnSuccessWhenOperationCompletesBeforeTimeout()
-        {
+        public async Task WithTimeout_ShouldReturnSuccessWhenOperationCompletesBeforeTimeout() {
             // Arrange
             var expectedResult = "Success";
-            Func<CancellationToken, Task<string>> operation = async (token) => 
-            {
+            Func<CancellationToken, Task<string>> operation = async (token) => {
                 await Task.Delay(50, token);
                 return expectedResult;
             };
@@ -26,11 +22,9 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public async Task WithTimeout_ShouldReturnFailureWhenOperationTimesOut()
-        {
+        public async Task WithTimeout_ShouldReturnFailureWhenOperationTimesOut() {
             // Arrange
-            Func<CancellationToken, Task<string>> operation = async (token) => 
-            {
+            Func<CancellationToken, Task<string>> operation = async (token) => {
                 await Task.Delay(1000, token);
                 return "This shouldn't be returned";
             };
@@ -45,12 +39,10 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public async Task WithTimeout_ShouldReturnFailureWhenOperationThrowsException()
-        {
+        public async Task WithTimeout_ShouldReturnFailureWhenOperationThrowsException() {
             // Arrange
             string exceptionMessage = "Operation failed with exception";
-            Func<CancellationToken, Task<string>> operation = async (token) => 
-            {
+            Func<CancellationToken, Task<string>> operation = async (token) => {
                 await Task.Yield(); // Ensure we're in an async context
                 throw new InvalidOperationException(exceptionMessage);
             };
@@ -65,12 +57,10 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public async Task WithTimeout_ShouldCancelTimeoutTaskWhenOperationCompletes()
-        {
+        public async Task WithTimeout_ShouldCancelTimeoutTaskWhenOperationCompletes() {
             // Arrange
             // bool timeoutCancelled = false;
-            Func<CancellationToken, Task<string>> operation = async (token) => 
-            {
+            Func<CancellationToken, Task<string>> operation = async (token) => {
                 await Task.Delay(50, CancellationToken.None);
                 return "Success";
             };

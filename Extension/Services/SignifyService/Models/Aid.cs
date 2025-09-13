@@ -1,10 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Services.SignifyService.Models
-{
+namespace Extension.Services.SignifyService.Models {
     [method: JsonConstructor]
-    public class Aid(string name, string prefix, Salty salty)
-    {
+    public class Aid(string name, string prefix, Salty salty) {
         [JsonPropertyName("name")]
         public string Name { get; init; } = name;
         [JsonPropertyName("prefix")]

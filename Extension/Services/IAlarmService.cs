@@ -6,8 +6,7 @@
 
 using System;
 
-public interface IAlarmService
-{
+public interface IAlarmService {
     void CreateAlarm(string name, Action callback, TimeSpan delay);
     void StartAlarm(string name);
     void StopAlarm(string name);

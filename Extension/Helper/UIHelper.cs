@@ -1,12 +1,10 @@
 ﻿using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 
-namespace Extension.Helper
-{
+namespace Extension.Helper {
     // Maintainers: need to keep the imported method and property names aligned with UIHelper.ts
     [SupportedOSPlatform("browser")]
-    public static partial class UIHelper
-    {
+    public static partial class UIHelper {
         [JSImport("Utils.bt_scrollToItem", "uiHelper")]
         internal static partial string Bt_scrollToItem(string elementId);
 

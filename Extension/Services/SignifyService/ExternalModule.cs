@@ -1,8 +1,6 @@
-﻿namespace Extension.Services.SignifyService
-{
+﻿namespace Extension.Services.SignifyService {
     // See keeping.ts in signify-ts
-    public class ExternalModule
-    {
+    public class ExternalModule {
         public string? Type { get; set; }
         public string? Name { get; set; }
         public object? Module { get; set; }

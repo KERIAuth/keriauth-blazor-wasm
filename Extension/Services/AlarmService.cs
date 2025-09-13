@@ -4,8 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
-public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
-{
+public class AlarmService(ILogger<AlarmService> logger) : IAlarmService {
     // public readonly ILogger<AlarmService> logger = logger;
 
     private sealed class Alarm(TimeSpan duration, Action callback) : IDisposable {
@@ -14,34 +13,28 @@ public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
         private Timer? _debounceTimer;
         private TimeSpan _debounceDuration;
 
-        public void Start()
-        {
+        public void Start() {
             Timer.Change(Duration, Timeout.InfiniteTimeSpan);
         }
 
-        public void Stop()
-        {
+        public void Stop() {
             Timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }
 
-        public void Reset(TimeSpan newDuration, TimeSpan debounceDuration)
-        {
+        public void Reset(TimeSpan newDuration, TimeSpan debounceDuration) {
             Duration = newDuration;
             _debounceDuration = debounceDuration;
             TimerCallback debounceTimerCallback = DebounceTimerMethod;
 
-            if (_debounceTimer == null)
-            {
+            if (_debounceTimer == null) {
                 _debounceTimer = new Timer(debounceTimerCallback, null, _debounceDuration, Timeout.InfiniteTimeSpan);
             }
-            else
-            {
+            else {
                 _debounceTimer.Change(_debounceDuration, Timeout.InfiniteTimeSpan);
             }
         }
 
-        private void DebounceTimerMethod(object? state)
-        {
+        private void DebounceTimerMethod(object? state) {
             Start();
         }
 
@@ -52,45 +45,35 @@ public class AlarmService(ILogger<AlarmService> logger) : IAlarmService
 
     private readonly Dictionary<string, Alarm> alarms = [];
 
-    public void StartAlarm(string name)
-    {
-        if (alarms.TryGetValue(name, out var alarm))
-        {
+    public void StartAlarm(string name) {
+        if (alarms.TryGetValue(name, out var alarm)) {
             alarm.Start();
             logger.LogInformation("Alarm {Name} started", name);
         }
-        else
-        {
+        else {
             throw new ArgumentException($"Alarm with name {name} does not exist");
         }
     }
 
-    public void StopAlarm(string name)
-    {
-        if (alarms.TryGetValue(name, out var alarm))
-        {
+    public void StopAlarm(string name) {
+        if (alarms.TryGetValue(name, out var alarm)) {
             alarm.Stop();
         }
-        else
-        {
+        else {
             throw new ArgumentException($"Alarm with name {name} does not exist");
         }
     }
 
-    public void ResetAlarm(string name, TimeSpan newDuration, TimeSpan debounceDuration)
-    {
-        if (alarms.TryGetValue(name, out var alarm))
-        {
+    public void ResetAlarm(string name, TimeSpan newDuration, TimeSpan debounceDuration) {
+        if (alarms.TryGetValue(name, out var alarm)) {
             alarm.Reset(newDuration, debounceDuration);
         }
-        else
-        {
+        else {
             throw new ArgumentException($"Alarm with name {name} does not exist");
         }
     }
 
-    void IAlarmService.CreateAlarm(string name, Action callback, TimeSpan delay)
-    {
+    void IAlarmService.CreateAlarm(string name, Action callback, TimeSpan delay) {
         var alarm = new Alarm(delay, callback);
         alarms[name] = alarm;
     }

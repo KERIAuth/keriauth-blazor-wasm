@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record ReplyMessageData<T>
-    {
+namespace Extension.Models {
+    public record ReplyMessageData<T> {
         // See how this relates to the `RequestMessageData` class
 
         [JsonConstructor]
@@ -12,8 +10,7 @@ namespace Extension.Models
             T payload,
             string? requestId = null,
             string? error = null,
-            string? source = null)
-        {
+            string? source = null) {
             Type = type;
             PayloadTypeName = typeof(T).Name;
             RequestId = requestId;

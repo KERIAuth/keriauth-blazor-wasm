@@ -1,12 +1,9 @@
 ﻿using Extension.Helper;
 
-namespace Extension.Tests.Helper
-{
-    public class GetNumberFromHashTests
-    {
+namespace Extension.Tests.Helper {
+    public class GetNumberFromHashTests {
         [Fact]
-        public void HashInt_ReturnsPositiveInteger()
-        {
+        public void HashInt_ReturnsPositiveInteger() {
             // Arrange
             string input = "test input";
 
@@ -18,8 +15,7 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void HashInt_ReturnsSameHashForSameInput()
-        {
+        public void HashInt_ReturnsSameHashForSameInput() {
             // Arrange
             string input = "consistent input";
 
@@ -32,8 +28,7 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void HashInt_ReturnsDifferentHashesForDifferentInputs()
-        {
+        public void HashInt_ReturnsDifferentHashesForDifferentInputs() {
             // Arrange
             string input1 = "input one";
             string input2 = "input two";
@@ -49,8 +44,7 @@ namespace Extension.Tests.Helper
         [Theory]
         [InlineData("")]
         // [InlineData(null)] // TODO P4 adjust code so this test passes?
-        public void HashInt_HandlesNullOrEmptyInput(string input)
-        {
+        public void HashInt_HandlesNullOrEmptyInput(string input) {
             // Act
             int result = GetNumberFromHash.HashInt(input);
 

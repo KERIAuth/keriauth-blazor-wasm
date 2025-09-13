@@ -1,10 +1,8 @@
 ﻿using FluentResults;
 using Extension.Models;
 
-namespace Extension.Services
-{
-    public interface IWebauthnService
-    {
+namespace Extension.Services {
+    public interface IWebauthnService {
         Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints);
 
         Task<Result<string>> RegisterAttestStoreAuthenticator(string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints);

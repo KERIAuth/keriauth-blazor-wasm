@@ -1,13 +1,10 @@
 ﻿using System.Text.Json.Serialization;
-namespace Extension.Models
-{
-    public record SignedRequestResult
-    {
+namespace Extension.Models {
+    public record SignedRequestResult {
         [JsonConstructor]
         public SignedRequestResult(
             SignedHeadersResult headers
-        )
-        {
+        ) {
             Headers = headers;
         }
 

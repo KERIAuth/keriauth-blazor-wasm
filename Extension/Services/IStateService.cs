@@ -1,10 +1,8 @@
 ﻿namespace Extension.Services;
 
 
-public interface IStateService : IObservable<IStateService.States>
-{
-    enum States
-    {
+public interface IStateService : IObservable<IStateService.States> {
+    enum States {
         Unknown,
         Uninitialized,
         Initializing,

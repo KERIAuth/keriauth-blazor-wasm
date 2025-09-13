@@ -1,10 +1,8 @@
 ﻿using FluentResults;
 using Extension.Models;
 
-namespace Extension.Services
-{
-    public interface IWebsiteConfigService
-    {
+namespace Extension.Services {
+    public interface IWebsiteConfigService {
         Task<Result<WebsiteConfigList?>> GetList();
 
         Task<Result> Add(WebsiteConfig website);

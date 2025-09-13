@@ -1,12 +1,9 @@
-using Extension.Helper;
+﻿using Extension.Helper;
 
-namespace Extension.Tests.Helper
-{
-    public class UrlBuilderTests
-    {
+namespace Extension.Tests.Helper {
+    public class UrlBuilderTests {
         [Fact]
-        public void CreateUrlWithEncodedQueryStrings_EncodesQueryParamsCorrectly()
-        {
+        public void CreateUrlWithEncodedQueryStrings_EncodesQueryParamsCorrectly() {
             // Arrange
             string baseUrl = "http://example.com";
             var queryParams = new List<KeyValuePair<string, string>>
@@ -45,8 +42,7 @@ namespace Extension.Tests.Helper
         */
 
         [Fact]
-        public void DecodeUrlQueryString_DecodesQueryParamsCorrectly()
-        {
+        public void DecodeUrlQueryString_DecodesQueryParamsCorrectly() {
             // Arrange
             string url = "http://example.com?key1=value1&key%20with%20space=value%20with%20space&key%26with%26special=value%26with%26special";
 

@@ -2,8 +2,7 @@
 
 namespace Extension.Helper;
 
-public static class TimeoutHelper
-{
+public static class TimeoutHelper {
     /* 
     * Wraps an asynchronous operation with a timeout. If the operation does not complete within the specified timeout, it returns a failure result.
     * Otherwise, it returns the result of the operation.
@@ -12,10 +11,10 @@ public static class TimeoutHelper
         // Create separate cancellation tokens for timeout and operation
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var operationCts = new CancellationTokenSource();
-        
+
         // Link them so cancelling timeout also cancels operation
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, operationCts.Token);
-        
+
         try {
             var operationTask = operation(linkedCts.Token);
             var result = await operationTask.ConfigureAwait(false);

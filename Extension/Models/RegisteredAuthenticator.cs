@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record RegisteredAuthenticator
-    {
+namespace Extension.Models {
+    public record RegisteredAuthenticator {
         [JsonPropertyName("name")]
         public string? Name { get; init; }
 

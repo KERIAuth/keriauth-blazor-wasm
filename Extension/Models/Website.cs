@@ -1,8 +1,6 @@
 ﻿using System.Text.Json.Serialization;
-namespace Extension.Models
-{
-    public record WebsiteConfig
-    {
+namespace Extension.Models {
+    public record WebsiteConfig {
         public WebsiteConfig(
         Uri origin,
         List<WebsiteInteraction> interactions,
@@ -11,8 +9,7 @@ namespace Extension.Models
         bool isAutoSignInIdentifier,
         bool isAutoSignInCredential,
         bool isAutoSignSafeHeaders
-        )
-        {
+        ) {
             Origin = origin;
             Interactions = interactions;
             RememberedPrefixOrNothing = rememberedPrefixOrNothing;
@@ -54,8 +51,7 @@ namespace Extension.Models
     //    Credential
     //}
 
-    public record WebsiteInteraction
-    {
+    public record WebsiteInteraction {
         // TODO P2 Implement this record WebsiteInteraction
         // RequestingTabId
         // RequestingOrigin

@@ -13,30 +13,24 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     private WebExtensionsApi? webExtensionsApi;
     private bool _disposed;
 
-    public async Task Initialize()
-    {
+    public async Task Initialize() {
         stateSubscription = storageService.Subscribe(this);
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         await Task.Delay(0);
     }
 
-    public async Task<Preferences> GetPreferences()
-    {
-        try
-        {
+    public async Task<Preferences> GetPreferences() {
+        try {
             var preferencesResult = await storageService.GetItem<Preferences>();
-            if (preferencesResult is null || preferencesResult.IsFailed || preferencesResult.Value is null)
-            {
+            if (preferencesResult is null || preferencesResult.IsFailed || preferencesResult.Value is null) {
                 // If preferences don't yet exist in storage, return the defaults
                 return new Preferences();
             }
-            else
-            {
+            else {
                 return preferencesResult.Value;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Failed to get preferences");
             return new Preferences();
         }
@@ -55,14 +49,12 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     void IObserver<Preferences>.OnNext(Preferences value) // invoked as an observer<Preferences> of StorageService
     {
         logger.LogInformation("Preferences updated: {value}", value.ToString());
-        foreach (var observer in preferencesObservers)
-        {
+        foreach (var observer in preferencesObservers) {
             observer.OnNext(value);
         }
     }
 
-    public async Task SetPreferences(Preferences preferences)
-    {
+    public async Task SetPreferences(Preferences preferences) {
         await storageService.SetItem<Preferences>(preferences);
 
         // since we also use InactivityTimeoutMinutes very frequently, we also want this in fast session storage
@@ -77,8 +69,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
 
     IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver) // invoked as an observable<Preferences> of ManagePreference or other // TODO consider using parameters for onNext, etc.
     {
-        if (!preferencesObservers.Contains(preferencesObserver))
-        {
+        if (!preferencesObservers.Contains(preferencesObserver)) {
             preferencesObservers.Add(preferencesObserver);
         }
         return new Unsubscriber(preferencesObservers, preferencesObserver);
@@ -89,37 +80,31 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         private readonly List<IObserver<Preferences>> _preferencesObservers = observers;
         private readonly IObserver<Preferences> _preferencesObserver = observer;
 
-        public void Dispose()
-        {
+        public void Dispose() {
             if (!(_preferencesObserver == null)) {
                 _preferencesObservers.Remove(_preferencesObserver);
             }
         }
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_disposed)
-        {
+    protected virtual void Dispose(bool disposing) {
+        if (_disposed) {
             return;
         }
 
-        if (disposing)
-        {
+        if (disposing) {
             // Dispose managed resources.
             stateSubscription?.Dispose();
             stateSubscription = null;
             preferencesObservers.Clear();
 
             // If webExtensionsApi implements IDisposable, dispose it as well.
-            if (webExtensionsApi is IDisposable disposableApi)
-            {
+            if (webExtensionsApi is IDisposable disposableApi) {
                 disposableApi.Dispose();
                 webExtensionsApi = null;
             }

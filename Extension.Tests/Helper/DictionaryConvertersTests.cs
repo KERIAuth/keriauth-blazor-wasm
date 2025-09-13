@@ -2,24 +2,19 @@
 using System.Text.Json;
 
 
-namespace Extension.Tests.Helper
-{
-    public class DictionaryConvertersTests
-    {
+namespace Extension.Tests.Helper {
+    public class DictionaryConvertersTests {
         private readonly JsonSerializerOptions _options;
 
-        public DictionaryConvertersTests()
-        {
-            _options = new JsonSerializerOptions
-            {
+        public DictionaryConvertersTests() {
+            _options = new JsonSerializerOptions {
                 PropertyNameCaseInsensitive = true,
                 Converters = { new DictionaryConverter() }
             };
         }
 
         [Fact]
-        public void GetValueByPathTest()
-        {
+        public void GetValueByPathTest() {
             string jsonString = @"{
             ""id"": 1,
             ""name"": ""Foo1"",

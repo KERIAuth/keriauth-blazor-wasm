@@ -1,6 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public class Notification
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public class Notification {
     }
 }

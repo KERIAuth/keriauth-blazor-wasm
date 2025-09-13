@@ -2,8 +2,7 @@
 
 using Models;
 
-public interface IExtensionEnvironmentService
-{
+public interface IExtensionEnvironmentService {
     /// <summary>
     /// The current environment this instance of the wallet in running under
     /// eg. extension, popup, iframe

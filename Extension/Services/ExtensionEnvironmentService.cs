@@ -3,8 +3,7 @@
 using Microsoft.AspNetCore.WebUtilities;
 using Models;
 
-public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> logger) : IExtensionEnvironmentService
-{
+public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> logger) : IExtensionEnvironmentService {
     /// <summary>
     /// The current environment this instance of the wallet in running under
     /// eg. extension, popup, iframe
@@ -21,43 +20,34 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     public string? InitialUriQuery { get; private set; }
 
     /// <inheritdoc />
-    public async Task Initialize(Uri uri, string contextType)
-    {
+    public async Task Initialize(Uri uri, string contextType) {
         logger.LogInformation("Initialize with uri {uri}", uri);
         var query = uri.Query;
         InitialUriQuery = query;
-        if (uri.AbsoluteUri.Contains("chrome-extension"))
-        {
+        if (uri.AbsoluteUri.Contains("chrome-extension")) {
             // TODO P2 better to get this environment value from the chrome.runtime.getContexts() API, filtered by the current context.  See UIHelper.GetChromeContexts()
-            if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment))
-            {
-                if (Enum.TryParse(environment.FirstOrDefault(), true, out ExtensionEnvironment extensionEnvironment))
-                {
+            if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment)) {
+                if (Enum.TryParse(environment.FirstOrDefault(), true, out ExtensionEnvironment extensionEnvironment)) {
                     ExtensionEnvironment = extensionEnvironment;
                     // used?
-                    if (ExtensionEnvironment == ExtensionEnvironment.Iframe)
-                    {
-                        if (QueryHelpers.ParseQuery(query).TryGetValue("location", out var location))
-                        {
+                    if (ExtensionEnvironment == ExtensionEnvironment.Iframe) {
+                        if (QueryHelpers.ParseQuery(query).TryGetValue("location", out var location)) {
                             ExtensionIframeLocation = new Uri(location!);
                         }
                     }
                 }
-                else
-                {
+                else {
                     logger.LogWarning("Environment is not a valid ExtensionEnvironment");
                     ExtensionEnvironment = ExtensionEnvironment.Unknown;
                 }
             }
-            else
-            {
+            else {
                 logger.LogInformation("No environment query parameter found");
                 ExtensionEnvironment = ExtensionEnvironment.Unknown;
             }
             logger.LogInformation("ExtensionEnvironment: {ExtensionEnvironment}", ExtensionEnvironment);
         }
-        else
-        {
+        else {
             logger.LogError("Not running in a browser extension");
         }
         await Task.Delay(0);

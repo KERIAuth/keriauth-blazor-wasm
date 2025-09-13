@@ -1,12 +1,9 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record IdentifierHeadline
-    {
+namespace Extension.Models {
+    public record IdentifierHeadline {
         [JsonConstructor]
-        public IdentifierHeadline(string prefix, string alias, Guid keriaConfigId)
-        {
+        public IdentifierHeadline(string prefix, string alias, Guid keriaConfigId) {
             Alias = alias;
             Prefix = prefix;
             Identicon = Helper.Identicon.MakeIdenticon(prefix);

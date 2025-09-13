@@ -1,6 +1,5 @@
 ﻿namespace Extension.Services;
 
-public interface IDateTimeProvider
-{
+public interface IDateTimeProvider {
     DateTime GetCurrentDatTimeUtc();
 }

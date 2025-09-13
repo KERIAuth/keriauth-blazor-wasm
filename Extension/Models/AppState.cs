@@ -1,14 +1,11 @@
 ﻿using static Extension.Services.IStateService;
 
-namespace Extension.Models
-{
+namespace Extension.Models {
     using System.Text.Json.Serialization;
 
-    public record AppState
-    {
+    public record AppState {
         [JsonConstructor]
-        public AppState(Services.IStateService.States currentState)
-        {
+        public AppState(Services.IStateService.States currentState) {
             CurrentState = currentState;
             WriteUtc = DateTime.UtcNow;
         }

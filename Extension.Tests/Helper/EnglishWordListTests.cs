@@ -1,12 +1,9 @@
 ﻿using Extension.Helper;
 
-namespace Extension.Tests.Helper
-{
-    public class EnglishWordListTests
-    {
+namespace Extension.Tests.Helper {
+    public class EnglishWordListTests {
         [Fact]
-        public void Words_ShouldContainExpectedWordCount()
-        {
+        public void Words_ShouldContainExpectedWordCount() {
             // Arrange & Act
             var actualCount = EnglishWordList.Words.Length;
 
@@ -15,8 +12,7 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void Words_ShouldContainSpecificWords()
-        {
+        public void Words_ShouldContainSpecificWords() {
             // Arrange & Act
             var words = EnglishWordList.Words;
 
@@ -29,8 +25,7 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void Words_ShouldNotContainEmptyStrings()
-        {
+        public void Words_ShouldNotContainEmptyStrings() {
             // Arrange & Act
             var words = EnglishWordList.Words;
 
@@ -40,14 +35,12 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void Words_ShouldContainOnlyLowercaseWords()
-        {
+        public void Words_ShouldContainOnlyLowercaseWords() {
             // Arrange & Act
             var words = EnglishWordList.Words;
 
             // Assert
-            foreach (var word in words)
-            {
+            foreach (var word in words) {
                 Assert.Equal(word.ToLowerInvariant(), word);
             }
         }

@@ -1,6 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public class KeyEvent
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public class KeyEvent {
     }
 }

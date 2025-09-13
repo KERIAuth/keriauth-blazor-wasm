@@ -125,8 +125,8 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
         }
     }
     IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver) {
-        if 
-            (!preferencesObservers.Contains(preferencesObserver)) { 
+        if
+            (!preferencesObservers.Contains(preferencesObserver)) {
             preferencesObservers.Add(preferencesObserver);
         }
         return new Unsubscriber(preferencesObservers, preferencesObserver);
@@ -207,8 +207,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
                         var preferences = res.Value;
 
                         foreach (var observer in preferencesObservers) {
-                            if (preferences is not null)
-                                {
+                            if (preferences is not null) {
                                 observer.OnNext(preferences);
                             }
                         }
@@ -219,8 +218,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
             case "sync":
             case "managed":
             case "session":
-            default:
-                {
+            default: {
                     logger.LogError("Responding to storage area not implemented: {areaname}", areaname);
                 }
                 break;

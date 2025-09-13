@@ -1,17 +1,13 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models
-{
-    public record AuthorizeResult
-    {
+namespace Extension.Models {
+    public record AuthorizeResult {
         [JsonConstructor]
         public AuthorizeResult(
             AuthorizeResultCredential? arc,
             AuthorizeResultIdentifier? ari
-            )
-        {
-            if (arc is null && ari is null)
-            {
+            ) {
+            if (arc is null && ari is null) {
                 // throw new ArgumentException("Either arc or ari must be non-null");
             }
 

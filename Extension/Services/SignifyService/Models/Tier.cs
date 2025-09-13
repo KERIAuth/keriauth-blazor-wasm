@@ -1,7 +1,5 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public enum Tier
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public enum Tier {
         Low,
         Medium,
         High

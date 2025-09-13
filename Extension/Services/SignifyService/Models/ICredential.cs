@@ -1,5 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
+﻿namespace Extension.Services.SignifyService.Models {
     // public record A(string i);
 
     // public record Sad(A a, string d);

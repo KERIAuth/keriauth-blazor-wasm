@@ -1,6 +1,4 @@
-﻿namespace Extension.Services.SignifyService.Models
-{
-    public class Registry
-    {
+﻿namespace Extension.Services.SignifyService.Models {
+    public class Registry {
     }
 }

@@ -3,8 +3,7 @@ using FluentResults;
 using Extension.Models;
 
 namespace Extension.Services;
-public interface IStorageService : IObservable<Preferences>
-{
+public interface IStorageService : IObservable<Preferences> {
     Task<Task> Initialize();
 
     /// <summary>
@@ -37,8 +36,7 @@ public interface IStorageService : IObservable<Preferences>
 
     AppHostingKind GetAppHostingKind();
 
-    enum AppHostingKind
-    {
+    enum AppHostingKind {
         Unknown,
         BlazorWasmExtension,   // e.g. hosted via browser extension
         BlazorWasmHosted, // e.g. hosted by ASP.Net, IISExpress, Kestrel

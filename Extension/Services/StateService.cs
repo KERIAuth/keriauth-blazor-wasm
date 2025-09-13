@@ -4,16 +4,14 @@ using Stateless;
 using WebExtensions.Net;
 using static Extension.Services.IStateService;
 
-public class StateService : IStateService
-{
+public class StateService : IStateService {
     private readonly StateMachine<States, Triggers> stateMachine;
     private readonly IStorageService storageService;
     private readonly List<IObserver<States>> stateObservers = [];
     private readonly ILogger<StateService> logger;
     private readonly IWebExtensionsApi webExtensionsApi;
 
-    public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger)
-    {
+    public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger) {
         this.storageService = storageService;
         stateMachine = new(States.Uninitialized);
         ConfigureStateMachine();
@@ -21,8 +19,7 @@ public class StateService : IStateService
         this.webExtensionsApi = webExtensionsApi;
     }
 
-    private enum Triggers
-    {
+    private enum Triggers {
         ToInitializing,
         ToUnconfigured,
         ToAuthenticatedDisconnected,
@@ -30,84 +27,68 @@ public class StateService : IStateService
         ToUnauthenticated,
     }
 
-    public States GetState()
-    {
+    public States GetState() {
         return stateMachine.State;
     }
 
-    public States GetCurrentState()
-    {
+    public States GetCurrentState() {
         return stateMachine.State;
     }
 
-    public async Task Initialize()
-    {
+    public async Task Initialize() {
         await stateMachine.FireAsync(Triggers.ToInitializing);
     }
 
-    public bool IsAuthenticated()
-    {
+    public bool IsAuthenticated() {
         return stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
     }
 
-    public async Task Authenticate(bool isConnected)
-    {
-        if (isConnected)
-        {
+    public async Task Authenticate(bool isConnected) {
+        if (isConnected) {
             await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
         }
-        else
-        {
+        else {
             await stateMachine.FireAsync(Triggers.ToAuthenticatedDisconnected);
         }
     }
 
-    public async Task Unauthenticate()
-    {
+    public async Task Unauthenticate() {
         // aka "Lock"
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 
-    public async Task ConfirmConnected()
-    {
+    public async Task ConfirmConnected() {
         await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
     }
 
-    IDisposable IObservable<States>.Subscribe(IObserver<States> stateObserver)
-    {
-        if (!stateObservers.Contains(stateObserver))
-        {
+    IDisposable IObservable<States>.Subscribe(IObserver<States> stateObserver) {
+        if (!stateObservers.Contains(stateObserver)) {
             stateObservers.Add(stateObserver);
         }
         return new Unsubscriber(stateObservers, stateObserver);
     }
 
-    public async Task NotifyObservers()
-    {
+    public async Task NotifyObservers() {
         await Task.Delay(0); // caller does not need to wait
-        foreach (var observer in stateObservers) { 
+        foreach (var observer in stateObservers) {
             observer.OnNext(stateMachine.State);
         }
         return;
     }
 
-    async Task IStateService.Configure()
-    {
+    async Task IStateService.Configure() {
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 
-    async Task IStateService.TimeOut()
-    {
+    async Task IStateService.TimeOut() {
         logger.LogInformation("User selected Locked, or the inactivity timer elapsed, so removing CachedPasscode");
         await webExtensionsApi.Storage.Session.Remove("passcode");
         await stateMachine.FireAsync(Triggers.ToUnauthenticated);
     }
 
-    private async Task OnTransitioned(StateMachine<States, Triggers>.Transition t)
-    {
+    private async Task OnTransitioned(StateMachine<States, Triggers>.Transition t) {
         // Store the new state, with some exceptions
-        if (t.Source != States.Uninitialized && t.Source != States.Initializing)
-        {
+        if (t.Source != States.Uninitialized && t.Source != States.Initializing) {
             var appState = new AppState(t.Destination);
             await storageService.SetItem(appState);
         }
@@ -115,8 +96,7 @@ public class StateService : IStateService
         await NotifyObservers();
     }
 
-    private void ConfigureStateMachine()
-    {
+    private void ConfigureStateMachine() {
         stateMachine.OnTransitionCompletedAsync(async (t) => await OnTransitioned(t));
 
         stateMachine.Configure(States.Uninitialized)
@@ -156,59 +136,48 @@ public class StateService : IStateService
             .Permit(Triggers.ToInitializing, States.Initializing);
     }
 
-    private static async Task OnEntryUnconfigured()
-    {
+    private static async Task OnEntryUnconfigured() {
         await Task.Delay(0);
     }
 
-    private static async Task OnEntryAuthenticatedDisconnected()
-    {
+    private static async Task OnEntryAuthenticatedDisconnected() {
         await Task.Delay(0);
     }
 
-    private static async Task OnEntryAuthenticatedConnected()
-    {
+    private static async Task OnEntryAuthenticatedConnected() {
         await Task.Delay(0);
     }
 
-    private static async Task OnEntryUnauthenticated()
-    {
+    private static async Task OnEntryUnauthenticated() {
         await Task.Delay(0);
     }
 
-    private async Task OnEntryInitializing()
-    {
-        try
-        {
+    private async Task OnEntryInitializing() {
+        try {
             var appStateResult = await storageService.GetItem<AppState>();
             if (appStateResult is not null
                 && appStateResult.Value is not null
                 && appStateResult.IsSuccess
-                && appStateResult.Value.CurrentState != States.Unconfigured)
-            {
+                && appStateResult.Value.CurrentState != States.Unconfigured) {
                 await stateMachine.FireAsync(Triggers.ToUnauthenticated);
                 return;
             }
-            else
-            {
+            else {
                 await stateMachine.FireAsync(Triggers.ToUnconfigured);
                 return;
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             logger.LogError("Problem with OnEntry RetrievingFromStorage: {E}", e);
         }
         return;
     }
 
-    private sealed class Unsubscriber(List<IObserver<IStateService.States>> observers, IObserver<IStateService.States> observer) : IDisposable
-    {
+    private sealed class Unsubscriber(List<IObserver<IStateService.States>> observers, IObserver<IStateService.States> observer) : IDisposable {
         private readonly List<IObserver<States>> _stateObservers = observers;
         private readonly IObserver<States> _stateObserver = observer;
 
-        public void Dispose()
-        {
+        public void Dispose() {
             if (!(_stateObserver == null)) {
                 _stateObservers.Remove(_stateObserver);
             }

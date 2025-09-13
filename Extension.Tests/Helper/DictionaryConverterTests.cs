@@ -1,13 +1,11 @@
 ﻿using System.Text.Json;
 using Extension.Helper;
 
-namespace Extension.Tests.Helper
-{
+namespace Extension.Tests.Helper {
 
 
 
-    public class DictionaryConverterTests
-    {
+    public class DictionaryConverterTests {
         private static JsonSerializerOptions CreateDefaultSerializerOptions() {
             var options = new JsonSerializerOptions {
                 Converters = { new DictionaryConverter() }
@@ -16,8 +14,7 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void Read_ShouldParseNestedJsonObject()
-        {
+        public void Read_ShouldParseNestedJsonObject() {
             // Arrange
             string json = @"{
                 ""name"": ""John"",
@@ -29,7 +26,7 @@ namespace Extension.Tests.Helper
                 },
                 ""tags"": [""developer"", ""dotnet""]
             }";
-            
+
             var options = CreateDefaultSerializerOptions();
 
             // Act
@@ -52,13 +49,11 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void Read_ShouldThrowJsonExceptionForInvalidJson()
-        {
+        public void Read_ShouldThrowJsonExceptionForInvalidJson() {
             // Arrange
             const string V = "{ this is not valid json }";
             string invalidJson = V;
-            var options = new JsonSerializerOptions
-            {
+            var options = new JsonSerializerOptions {
                 Converters = { new DictionaryConverter() }
             };
 
@@ -67,14 +62,11 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void GetValueByPath_ShouldReturnValueForValidPath()
-        {
+        public void GetValueByPath_ShouldReturnValueForValidPath() {
             // Arrange
-            var dictionary = new Dictionary<string, object>
-            {
+            var dictionary = new Dictionary<string, object> {
                 ["name"] = "John",
-                ["address"] = new Dictionary<string, object>
-                {
+                ["address"] = new Dictionary<string, object> {
                     ["city"] = "New York",
                     ["zip"] = 10001
                 }
@@ -90,14 +82,11 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void GetValueByPath_ShouldReturnNullForInvalidPath()
-        {
+        public void GetValueByPath_ShouldReturnNullForInvalidPath() {
             // Arrange
-            var dictionary = new Dictionary<string, object>
-            {
+            var dictionary = new Dictionary<string, object> {
                 ["name"] = "John",
-                ["address"] = new Dictionary<string, object>
-                {
+                ["address"] = new Dictionary<string, object> {
                     ["city"] = "New York"
                 }
             };
@@ -110,8 +99,7 @@ namespace Extension.Tests.Helper
         }
 
         [Fact]
-        public void Write_ShouldThrowNotImplementedException()
-        {
+        public void Write_ShouldThrowNotImplementedException() {
             // Arrange
             var converter = new DictionaryConverter();
             var dictionary = new Dictionary<string, object>();
