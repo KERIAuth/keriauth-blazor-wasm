@@ -30,6 +30,9 @@ namespace Extension.Services.SignifyService
         [JSImport("getCredential", "signify_ts_shim")]
         internal static partial Task<string> GetCredential(string id, bool includeCESR);
 
+        [JSImport("getState", "signify_ts_shim")]
+        internal static partial Task<string> GetState();
+
         // note that GetSignedHeaders has bugs when running in WASM.  See https://github.com/WebOfTrust/signify-ts/issues/284
     }
 }

@@ -29,47 +29,93 @@
                 <MudTooltip Delay="0.5" Placement="Placement.Bottom"
                             Text="View and manage your KERI Agent Service configuration.">
                     <MudStack Row="true">
-                        <MudText Typo="Typo.h6">KERI Agent Service</MudText>
-                        <!-- <MudIcon Icon=" (at)  Icons.Material.Outlined.Info" Class="bt-info-icon" /> -->
+                        <MudText Typo="Typo.h6">KERI Agent</MudText>
+                        <MudIcon Icon=" (at)  Icons.Material.Outlined.Info" Class="bt-info-icon" />
                     </MudStack>
                 </MudTooltip>
             </div>
-            <MudStack Class="d-flex justify-center mt-4">
-                <MudText><b>Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
-                <MudText><b>Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
+            <MudText Typo="Typo.h6" Class="pt-4"><b>Service</b></MudText>
+            <MudStack Class="d-flex justify-center ml-3">
                 <MudStack Row="true" AlignItems=AlignItems.Center>
-                    <MudText><b>Provider Name:</b></MudText>
+                    <MudText><b>Provider Alias:</b></MudText>
                     @if (isEditingProviderName)
                     {
-                        <MudTextField @bind-Value="editingProviderName" 
+                        <MudTextField @bind-Value="editingProviderName"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense"
                                       Immediate="true"
                                       Class="mx-2"
                                       Style="max-width: 300px;"
                                       @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveProviderName(); })" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Check" 
-                                       Color="Color.Success" 
+                        <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                       Color="Color.Success"
                                        Size="Size.Small"
                                        OnClick="SaveProviderName" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" 
-                                       Color="Color.Error" 
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Color="Color.Error"
                                        Size="Size.Small"
                                        OnClick="CancelEditProviderName" />
                     }
                     else
                     {
                         <MudText>@(keriaConnectConfig.ProviderName ?? "(none)")</MudText>
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
                                        Size="Size.Small"
                                        OnClick="StartEditProviderName" />
                     }
                 </MudStack>
+                <MudText><b>Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
+                <MudText><b>Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
+            </MudStack>
+
+            <MudText Typo="Typo.h6" Class="pt-4"><b>Connection</b></MudText>
+            <MudStack Class="d-flex justify-center ml-3">
+
+                <MudStack Row="true" AlignItems=AlignItems.Center>
+                    <MudText><b>Connection Alias:</b></MudText>
+                    @if (isEditingConnectionName)
+                    {
+                        <MudTextField @bind-Value="editingConnectionName"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Immediate="true"
+                                      Class="mx-2"
+                                      Style="max-width: 300px;"
+                                      @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveConnectionName(); })" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       OnClick="SaveConnectionName" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       OnClick="CancelEditConnectionName" />
+                    }
+                    else
+                    {
+                        <MudText>@(keriaConnectConfig.Alias ?? "(none)")</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Size="Size.Small"
+                                       OnClick="StartEditConnectionName" />
+                    }
+                </MudStack>
+                <MudText>KERI Auth used your passcode to generate your Client AID and its Prefix, which upon initial connection (boot) with the configured KERIA service, cooperatively delegated signing authority to your Agent AID there.</MudText>
+                @if (keriaConnectConfig is not null && keriaConnectConfig.ClientAidPrefix is not null && keriaConnectConfig.AgentAidPrefix is not null)
+                {
+                    <MudStack Row Style="align-items: center;">
+                        <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(keriaConnectConfig.ClientAidPrefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                        <MudText Style="overflow-wrap: anywhere;"><b>Client AID Prefix:</b><br />@keriaConnectConfig.ClientAidPrefix</MudText>
+                    </MudStack>
+                    <MudStack Row Style="align-items: center;">
+                        <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(keriaConnectConfig.AgentAidPrefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                        <MudText Style="overflow-wrap: anywhere;"><b>Agent AID Prefix:</b><br />@keriaConnectConfig.AgentAidPrefix</MudText>
+                    </MudStack>
+                }
             </MudStack>
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer></MudSpacer>
     </MudStack>
 </div>
@@ -78,6 +124,8 @@
     private KeriaConnectConfig keriaConnectConfig { get; set; } = new();
     private bool isEditingProviderName = false;
     private string editingProviderName = "";
+    private bool isEditingConnectionName = false;
+    private string editingConnectionName = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,10 +161,10 @@
 
         // Create a new KeriaConnectConfig with the updated alias
         var updatedConfig = keriaConnectConfig with { ProviderName = editingProviderName };
-        
+
         // Save to storage
         var result = await storageService.SetItem<KeriaConnectConfig>(updatedConfig);
-        
+
         if (result.IsSuccess)
         {
             keriaConnectConfig = updatedConfig;
@@ -127,6 +175,45 @@
         else
         {
             snackbar.Add($"Failed to update Provider Name: {result.Errors.FirstOrDefault()?.Message ?? "Unknown error"}", Severity.Error);
+        }
+    }
+
+    private void StartEditConnectionName()
+    {
+        isEditingConnectionName = true;
+        editingConnectionName = keriaConnectConfig.Alias ?? "";
+    }
+
+    private void CancelEditConnectionName()
+    {
+        isEditingConnectionName = false;
+        editingConnectionName = "";
+    }
+
+    private async Task SaveConnectionName()
+    {
+        if (string.IsNullOrWhiteSpace(editingConnectionName))
+        {
+            snackbar.Add("Connection Name cannot be empty", Severity.Warning);
+            return;
+        }
+
+        // Create a new KeriaConnectConfig with the updated alias
+        var updatedConfig = keriaConnectConfig with { Alias = editingConnectionName };
+
+        // Save to storage
+        var result = await storageService.SetItem<KeriaConnectConfig>(updatedConfig);
+
+        if (result.IsSuccess)
+        {
+            keriaConnectConfig = updatedConfig;
+            isEditingConnectionName = false;
+            snackbar.Add("Connection Name updated successfully", Severity.Success);
+            StateHasChanged();
+        }
+        else
+        {
+            snackbar.Add($"Failed to update Connection Name: {result.Errors.FirstOrDefault()?.Message ?? "Unknown error"}", Severity.Error);
         }
     }
 }

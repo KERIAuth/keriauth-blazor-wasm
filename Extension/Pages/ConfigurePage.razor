@@ -212,7 +212,11 @@
         ops3Connect.SetCompletedWithoutErrors();
         try
         {
+            // TODO should this be in Storage.Sync?
             await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
+            int passcodeHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
+            KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
+            // KeriaConnectConfig will be stored by caller of ConnectToKeria()
         }
         catch (Exception ex)
         {
@@ -273,9 +277,12 @@
         IsConnected = await ConnectToKeria();
         if (IsConnected)
         {
-            int passcodeHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
-            KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash);
-            // TODO P2 KeriaConnectConfig should be stored in chrome.storage.sync. Multiple changes required.
+            if (KeriaConnectConfig is null)
+            {
+                throw new Exception("KeriaConnectConfig is null after successful connection");
+            }
+
+            // TODO P1 should KeriaConnectConfig should be stored in chrome.storage.sync? Multiple changes required.
             var res = await storageService.SetItem<KeriaConnectConfig>(KeriaConnectConfig);
             if (res.IsFailed)
             {
@@ -299,10 +306,10 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <MudStack Style="min-width: 340px; width:100%; margin-right:16px;">
-            <MudText Typo="Typo.h6">Configure</MudText>
+            <MudText Typo="Typo.h6">Configure KERI Agent</MudText>
             <MudStack>
-                <MudText Typo="Typo.h6">KERI Agent Service</MudText>
-                <MudSelect T="Preset" Label="Provider" @bind-Value="@PresetChoice">
+                <MudText Typo="Typo.h6">Service</MudText>
+                <MudSelect T="Preset" Label="Provider Preset" @bind-Value="@PresetChoice">
                     @foreach (var preset in presetAgents)
                     {
                         <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
@@ -317,7 +324,7 @@
                               @bind-Value="@urlModel.BootUrl"
                               For="@(() => urlModel.BootUrl)"
                               Immediate="true" />
-                <MudText Typo="Typo.h6">Your KERI Agent Account</MudText>
+                <MudText Typo="Typo.h6">Your Passcode</MudText>
                 <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing

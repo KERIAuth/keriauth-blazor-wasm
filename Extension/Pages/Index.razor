@@ -192,7 +192,7 @@
                             throw new Exception("KeriaConnectConfig or its AdminUrl is null");
                         }
                         var isConnectedRes = await signifyClientService.Connect(adminUrl, passcode, keriaConnectConfig.BootUrl, false);
-                        if (isConnectedRes is null || isConnectedRes.IsFailed || !isConnectedRes.Value)
+                        if (isConnectedRes is null || isConnectedRes.IsFailed)
                         {
                             // could not connect to KERI Agent Service
                             logger.LogWarning("connection failed? so removing CachedPasscode");

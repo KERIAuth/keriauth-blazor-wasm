@@ -1,6 +1,6 @@
-﻿using FluentResults;
-using Extension.Helper;
+﻿using Extension.Helper;
 using Extension.Services.SignifyService.Models;
+using FluentResults;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
@@ -20,10 +20,10 @@ namespace Extension.Services.SignifyService {
             return postResult.IsSuccess ? Result.Ok() : Result.Fail(postResult.Reasons.First().Message);
         }
 
-        public async Task<Result<bool>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = true, TimeSpan? timeout = null) {
+        public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = true, TimeSpan? timeout = null) {
             Debug.Assert(bootUrl is not null);
             if (passcode.Length != 21) {
-                return Result.Fail<bool>("Passcode must be 21 characters");
+                return Result.Fail<State>("Passcode must be 21 characters");
             }
             logger.LogInformation("Connect...");
 
@@ -52,35 +52,40 @@ namespace Extension.Services.SignifyService {
                         if (res.IsFailed) {
                             return Result.Fail("Connect failed #1: " + res.Errors[0].Message);
                         }
-                        return Result.Ok(true);
+                        // TODO P2 remove log, since it exposes sensitive info!
+                        logger.LogWarning("Connect: BootAndConnect succeeded res: {res}", res.Value);
+
+                        
                     }
                     else {
-                        logger.LogInformation("Connect: Connect to {url}...", url);
+                        logger.LogInformation("Connect: Connecting to {url}...", url);
                         var res = await TimeoutHelper.WithTimeout<string>(ct => Signify_ts_shim.Connect(url, passcode), timeout2);
-                        Debug.Assert(res is not null);
-                        // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
-                        // Don't log the following, since it contains the bran, passcode.
-                        // logger.LogInformation("Connect: {connectResults}", res);
                         if (res is null) {
                             return Result.Fail("Connect failed with null");
                         }
                         if (res.IsFailed) {
                             return Result.Fail("Connect failed #2: " + res.Errors[0].Message);
                         }
-                        return Result.Ok(true);
+                        // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
+                        // TODO P2 Don't log the following, since it contains the bran, passcode.
+                        logger.LogWarning("Connect: {connectResults}", res.Value);
+                        
                     }
+                    var stateRes = await GetState();
+                    logger.LogWarning("Connect: GetState after BootAndConnect: {agent prefix} {controller prefix}", stateRes.Value.Agent!.I, stateRes.Value.Controller!.State!.I);
+                    return Result.Ok(stateRes.Value);
                 }
-                else { 
-                    return false.ToResult(); 
+                else {
+                    return Result.Fail("not running in Browser");
                 }
             }
             catch (JSException e) {
                 logger.LogWarning("Connect: JSException: {e}", e);
-                return Result.Fail<bool>("SignifyClientService: Connect: Exception: " + e);
+                return Result.Fail<State>("SignifyClientService: Connect: Exception: " + e);
             }
             catch (Exception e) {
                 logger.LogWarning("Connect: Exception: {e}", e);
-                return Result.Fail<bool>("SignifyClientService: Connect: Exception: " + e);
+                return Result.Fail<State>("SignifyClientService: Connect: Exception: " + e);
             }
 
         }
@@ -229,8 +234,26 @@ namespace Extension.Services.SignifyService {
             return Task.FromResult(Result.Fail<IList<Schema>>("Not implemented"));
         }
 
-        public Task<Result<State>> GetState() {
-            return Task.FromResult(Result.Fail<State>("Not implemented"));
+        public async Task<Result<State>> GetState() {
+            try {
+                var jsonString = await Signify_ts_shim.GetState();
+                if (jsonString is null) {
+                    return Result.Fail<State>("GetAIDs returned null");
+                }
+                var state = System.Text.Json.JsonSerializer.Deserialize<State>(jsonString);
+                if (state is null) {
+                    return Result.Fail<State>("SignifyClientService: GetState: Failed to deserialize");
+                }
+                return Result.Ok(state);
+            }
+            catch (JSException e) {
+                logger.LogWarning("GetIdentifiers: JSException: {e}", e);
+                return Result.Fail<State>("SignifyClientService: GetState: Exception: " + e);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetIdentifiers: Exception: {e}", e);
+                return Result.Fail<State>("SignifyClientService: GetState: Exception: " + e);
+            }
         }
 
         public Task<Result<HttpResponseMessage>> Rotate(string nbran, string[] aids) {

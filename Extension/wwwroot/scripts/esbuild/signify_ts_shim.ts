@@ -17,12 +17,41 @@ import {
     ready
 } from 'signify-ts';
 
-export const PASSCODE_TIMEOUT = 5;
+// Type definitions for SignifyClient.state() return value
+// Based on https://github.com/WebOfTrust/signify-ts/blob/d48adc0db6d224bace531de2c2bb14f1058f076d/src/keri/app/clienting.ts#L19
+
+// Controller state interface (also referred to as "client" in some contexts)
+interface ControllerState {
+    i: string;  // Client AID Prefix
+    k?: string[];  // Client AID Keys
+    n?: string;  // Client AID Next Keys Digest
+}
+
+// Controller wrapper interface
+interface Controller {
+    state: ControllerState;
+}
+
+// Agent interface
+interface Agent {
+    i: string;  // Agent AID Prefix
+    et?: string;  // Agent AID Type (e.g., 'dip' for delegated inception)
+    di?: string;  // Agent AID Delegator (should be the Client AID's prefix)
+}
+
+interface ClientState {
+    agent: Agent | null;
+    controller: Controller | null;
+    ridx: number;
+    pidx: number;
+}
+
+// export const PASSCODE_TIMEOUT = 5;
 
 let _client: SignifyClient | null;
 
 /**
- * Connect or boot a SignifyClient instance
+ * Boot then Connect a SignifyClient instance
  * @param agentUrl
  * @param bootUrl
  * @param passcode
@@ -41,41 +70,52 @@ export const bootAndConnect = async (
     _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
 
     try {
+        console.debug('signify_ts_shim: booting...');
+        const bootedSignifyClient = await _client.boot();
+        if (!bootedSignifyClient.ok) {
+            throw new Error();
+        }
         console.debug('signify_ts_shim: connecting...');
         await _client.connect();
-    } catch {
-        try {
-            console.debug('signify_ts_shim: booting...');
-            const bootedSignifyClient = await _client.boot();
-            if (!bootedSignifyClient.ok) {
-                throw new Error();
-            }
-            console.debug('signify_ts_shim: connecting...');
-            await _client.connect();
-        } catch (error) {
-            console.error('signify_ts_shim: client could not boot or connect', error);
-            throw error;
-        }
+    } catch (error) {
+        console.error('signify_ts_shim: client could not boot then connect', error);
+        throw error;
     }
+
+
+    
+
+
     // note that uncommenting the next line might expose the passkey
     // console.error('signify_ts_shim: client', {agent: _client.agent?.pre,controller: _client.controller.pre});
     const state = await getState();
     console.debug('signify_ts_shim: bootAndConnect: connected');
-    console.assert(state?.controller?.state?.i !== null, 'controller id is null'); // TODO P2 throw exception?
+    // console.assert(state?.controller?.state?.i !== null, 'controller id is null'); // TODO P2 throw exception?
 
     return objectToJson(_client);
 };
 
 const objectToJson = (obj: object): string => JSON.stringify(obj);
 
-const validateClient = () => {
-    if (!_client) {
-        throw new Error('signify_ts_shim: Client not connected');
-    }
+const validateClient = (): Promise<SignifyClient> => {
+    return new Promise((resolve, reject) => {
+        if (!_client) {
+            reject(new Error('signify_ts_shim: Client not connected'));
+        } else {
+            resolve(_client as SignifyClient);
+        }
+    });
 };
-const getState = async () => {
-    validateClient();
-    return await _client?.state();
+
+export const getState = async (): Promise<string> => {
+    const c = await validateClient();
+    // TODO P0 the following exposes the keys in the console log!
+    console.error('signify_ts_shim: validateClient: ', c);
+    const s = await c.state();
+    console.log('getState Client AID Prefix: ', s.controller.state.i);
+    console.log('getState Agent AID Prefix:   ', s.agent.i);
+    console.debug('signify_ts_shim: getState: ', s);
+    return objectToJson(s);
 };
 
 export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
@@ -93,7 +133,7 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
 
     const state = await getState();
     console.debug('signify_ts_shim: connect: connected');
-    console.assert(state?.controller?.state?.i !== null, 'controller id is null'); // TODO P2 throw exception?
+    // console.assert(state?.controller?.state?.i !== null, 'controller id is null'); // TODO P2 throw exception?
 
     return objectToJson(_client);
 };

@@ -1,18 +1,22 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace Extension.Models
 {
     public record KeriaConnectConfig
     {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? controllerAid = null)
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null)
         {
             ProviderName = providerName;
-            Alias = "Connection created " + DateTime.UtcNow.ToString("o");
+#pragma warning disable CA1305 // Specify IFormatProvider
+            Alias = "Created " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC";
+#pragma warning restore CA1305 // Specify IFormatProvider
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
             PasscodeHash = passcodeHash;
-            ControllerAid = controllerAid;
+            ClientAidPrefix = clientAidPrefix;
+            AgentAidPrefix = agentAidPrefix;
         }
 
         [JsonPropertyName("AdminUrl")]
@@ -30,8 +34,11 @@ namespace Extension.Models
         [JsonPropertyName("PasscodeHash")]
         public int PasscodeHash { get; init; }
 
-        [JsonPropertyName("ControllerAid")]
-        public string? ControllerAid { get; init; }
+        [JsonPropertyName("ClientAidPrefix")]
+        public string? ClientAidPrefix { get; init; }
+
+        [JsonPropertyName("AgentAidPrefix")]
+        public string? AgentAidPrefix { get; init; }
 
         public bool IsAdminUrlConfigured()
         {

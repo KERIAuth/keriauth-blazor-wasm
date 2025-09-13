@@ -1,72 +1,130 @@
-﻿namespace Extension.Services.SignifyService.Models
+﻿using System.Text.Json.Serialization;
+
+namespace Extension.Services.SignifyService.Models
 {
     public class State
     {
-        public Agent? Agent { get; }
-        public Controller? Controller { get; }
-        public int Ridx { get; }
-        public int Pidx { get; }
+        [JsonPropertyName("agent")]
+        public Agent? Agent { get; set; }
+        
+        [JsonPropertyName("controller")]
+        public Controller? Controller { get; set; }
+        
+        [JsonPropertyName("ridx")]
+        public int Ridx { get; set; }
+        
+        [JsonPropertyName("pidx")]
+        public int Pidx { get; set; }
     }
 
-
-    /*
-    public class State
+    public class StateEe
     {
-        [JsonConstructor]
-        public State(List<int> vn, string i, string s, string p, string d, string f, string dt, string et, string kt, List<string> k, string nt, List<string> n, string bt, List<string> b, List<string> c, Ee ee, string di)
-        {
-            Vn = vn;
-            I = i;
-            S = s;
-            P = p;
-            D = d;
-            F = f;
-            Dt = dt;
-            Et = et;
-            Kt = kt;
-            K = k;
-            Nt = nt;
-            N = n;
-            Bt = bt;
-            B = b;
-            C = c;
-            Ee = ee;
-            Di = di;
-        }
-        [JsonPropertyName("vn")]
-        public List<int> Vn { get; init; }
-        [JsonPropertyName("i")]
-        public string I { get; init; }
         [JsonPropertyName("s")]
-        public string S { get; init; }
-        [JsonPropertyName("p")]
-        public string P { get; init; }
+        public string S { get; set; } = string.Empty;
+        
         [JsonPropertyName("d")]
-        public string D { get; init; }
-        [JsonPropertyName("f")]
-        public string F { get; init; }
-        [JsonPropertyName("dt")]
-        public string Dt { get; init; }
-        [JsonPropertyName("et")]
-        public string Et { get; init; }
-        [JsonPropertyName("kt")]
-        public string Kt { get; init; }
-        [JsonPropertyName("k")]
-        public List<string> K { get; init; }
-        [JsonPropertyName("nt")]
-        public string Nt { get; init; }
-        [JsonPropertyName("n")]
-        public List<string> N { get; init; }
-        [JsonPropertyName("bt")]
-        public string Bt { get; init; }
-        [JsonPropertyName("b")]
-        public List<string> B { get; init; }
-        [JsonPropertyName("c")]
-        public List<string> C { get; init; }
-        [JsonPropertyName("ee")]
-        public Ee Ee { get; init; }
-        [JsonPropertyName("di")]
-        public string Di { get; init; }
+        public string D { get; set; } = string.Empty;
+
+        [JsonPropertyName("br")]
+        public List<string> Br { get; set; } = [];
+        
+        [JsonPropertyName("ba")]
+        public List<string> Ba { get; set; } = [];
     }
-    */
+
+    public class ControllerEe
+    {
+        [JsonPropertyName("v")]
+        public string V { get; set; } = string.Empty;
+        
+        [JsonPropertyName("t")]
+        public string T { get; set; } = string.Empty;
+        
+        [JsonPropertyName("d")]
+        public string D { get; set; } = string.Empty;
+        
+        [JsonPropertyName("i")]
+        public string I { get; set; } = string.Empty;
+        
+        [JsonPropertyName("s")]
+        public string S { get; set; } = string.Empty;
+        
+        [JsonPropertyName("kt")]
+        public string Kt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("k")]
+        public List<string> K { get; set; } = [];
+        
+        [JsonPropertyName("nt")]
+        public string Nt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("n")]
+        public List<string> N { get; set; } = [];
+        
+        [JsonPropertyName("bt")]
+        public string Bt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("b")]
+        public List<string> B { get; set; } = [];
+        
+        [JsonPropertyName("c")]
+        public List<string> C { get; set; } = [];
+        
+        [JsonPropertyName("a")]
+        public List<string> A { get; set; } = [];
+    }
+
+    public class ControllerState
+    {
+        [JsonPropertyName("vn")]
+        public List<int> Vn { get; set; } = [];
+        
+        [JsonPropertyName("i")]
+        public string I { get; set; } = string.Empty;
+        
+        [JsonPropertyName("s")]
+        public string S { get; set; } = string.Empty;
+        
+        [JsonPropertyName("p")]
+        public string P { get; set; } = string.Empty;
+        
+        [JsonPropertyName("d")]
+        public string D { get; set; } = string.Empty;
+        
+        [JsonPropertyName("f")]
+        public string F { get; set; } = string.Empty;
+        
+        [JsonPropertyName("dt")]
+        public string Dt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("et")]
+        public string Et { get; set; } = string.Empty;
+        
+        [JsonPropertyName("kt")]
+        public string Kt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("k")]
+        public List<string> K { get; set; } = [];
+        
+        [JsonPropertyName("nt")]
+        public string Nt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("n")]
+        public List<string> N { get; set; } = [];
+        
+        [JsonPropertyName("bt")]
+        public string Bt { get; set; } = string.Empty;
+        
+        [JsonPropertyName("b")]
+        public List<string> B { get; set; } = [];
+        
+        [JsonPropertyName("c")]
+        public List<string> C { get; set; } = [];
+        
+        [JsonPropertyName("ee")]
+        public StateEe Ee { get; set; } = new();
+        
+        [JsonPropertyName("di")]
+        public string Di { get; set; } = string.Empty;
+    }
 }

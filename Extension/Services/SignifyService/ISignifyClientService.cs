@@ -8,14 +8,8 @@ namespace Extension.Services.SignifyService
     public interface ISignifyClientService
     {
         Task<Result> HealthCheck(Uri fullUrl);
-#pragma warning disable CA1707 // Identifiers should not contain underscores
-        Task<Result<bool>> Connect(string url, string passcode, string? bootUrl = null, bool isBootForced = false, TimeSpan? timeout = null);
-#pragma warning restore CA1707 // Identifiers should not contain underscores
-                              // Task<Result<ClientState>> BootAndConnect(Uri url, String BootPort, string passcode);
-                              // Task<Result> BootPort(string url);
+        Task<Result<State>> Connect(string url, string passcode, string? bootUrl = null, bool isBootForced = false, TimeSpan? timeout = null);
         Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null);
-
-        // Task<Result<State>> Boot(string url);
         Task<Result<State>> GetState();
         Task<Result<bool>> Connect();
         Task<Result<HttpResponseMessage>> Fetch(string path, string method, object data, Dictionary<string, string>? extraHeaders = null);
