@@ -17,7 +17,8 @@
       "Bash(dotnet restore:*)",
       "Bash(dotnet msbuild:*)",
       "Bash(dotnet add:*)",
-      "Bash(NUGET_PACKAGES=/home/edeyk/.nuget/packages dotnet build Extension.sln --configuration Debug --no-restore)"
+      "Bash(NUGET_PACKAGES=/home/edeyk/.nuget/packages dotnet build Extension.sln --configuration Debug --no-restore)",
+      "Bash(dotnet test:*)"
     ],
     "deny": [],
     "ask": []

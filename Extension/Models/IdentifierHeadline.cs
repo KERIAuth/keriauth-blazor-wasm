@@ -2,7 +2,7 @@
 
 namespace Extension.Models
 {
-    public class IdentifierHeadline
+    public record IdentifierHeadline
     {
         [JsonConstructor]
         public IdentifierHeadline(string prefix, string alias, Guid keriaConfigId)

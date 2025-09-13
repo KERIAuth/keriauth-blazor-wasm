@@ -269,7 +269,12 @@ interface ExtensionMessage {
   - Try to avoid explicit types for `Result<T>` unless necessary
   - All methods that can fail in any way should return a `Result<T>`
   - Try/catch with specific exception types
-- **Data Structures**: Use Records versus Struct or Class definitions where the structure is used in many contexts, to enable immutable testing and future functional versus object-oriented approaches
+- **Data Structures**: 
+  - Prefer Records over Classes for immutable data types, DTOs, value objects, and model classes
+  - Use Records for: JSON serialization models, API request/response types, configuration objects, state representations
+  - Records provide value equality, immutability by default, and support for `with` expressions
+  - Use Classes only when mutability is required or for service implementations with behavior
+  - All SignifyService models and Extension models should be Records unless there's a specific need for mutability
 - **Generics**: Use generic functions when there are multiple types that will be applicable, including for message payload request and response types
 - **Testing**: Test pattern: Arrange-Act-Assert with descriptive test names using xUnit
 - **Code Quality**: EnforceCodeStyleInBuild enabled in project files

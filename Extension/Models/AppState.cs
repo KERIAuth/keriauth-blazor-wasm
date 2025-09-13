@@ -4,13 +4,19 @@ namespace Extension.Models
 {
     using System.Text.Json.Serialization;
 
-    [method: JsonConstructor]
-    public class AppState(Services.IStateService.States currentState)
+    public record AppState
     {
+        [JsonConstructor]
+        public AppState(Services.IStateService.States currentState)
+        {
+            CurrentState = currentState;
+            WriteUtc = DateTime.UtcNow;
+        }
+
         [JsonPropertyName("CurrentState")]
-        public States CurrentState { get; } = currentState;
+        public States CurrentState { get; init; }
 
         [JsonPropertyName("WriteUtc")]
-        public DateTime WriteUtc { get; } = DateTime.UtcNow;
+        public DateTime WriteUtc { get; init; }
     }
 }

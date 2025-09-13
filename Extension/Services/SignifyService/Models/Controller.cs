@@ -2,12 +2,12 @@
 
 namespace Extension.Services.SignifyService.Models
 {
-    public class Controller
+    public record Controller
     {
         [JsonPropertyName("state")]
-        public ControllerState? State { get; set; }
+        public ControllerState? State { get; init; }
         
         [JsonPropertyName("ee")]
-        public ControllerEe? Ee { get; set; }
+        public ControllerEe? Ee { get; init; }
     }
 }
