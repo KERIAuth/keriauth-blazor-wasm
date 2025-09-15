@@ -41,6 +41,7 @@ const builds = [
         name: 'signify_ts_shim',
         entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/signify_ts_shim.js',
+        platform: "browser",
         plugins: [
             alias({
                 '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),

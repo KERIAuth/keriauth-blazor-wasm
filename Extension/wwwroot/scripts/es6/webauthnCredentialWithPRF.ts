@@ -44,6 +44,41 @@ const ENCRYPT_KDA_SALT = new Uint8Array(0); // salt is a required argument for `
 const ENCRYPT_DERIVE_KEY_ALGO = { name: 'HKDF', info: ENCRYPT_KEY_INFO, salt: ENCRYPT_KDA_SALT, hash: 'SHA-256' };
 
 /*
+ * Helper function to convert ArrayBuffer to base64
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binaryString = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binaryString += String.fromCharCode(bytes[i]!);
+    }
+    return btoa(binaryString);
+}
+
+/*
+ * Helper function to convert Uint8Array to base64
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+    let binaryString = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binaryString += String.fromCharCode(bytes[i]!);
+    }
+    return btoa(binaryString);
+}
+
+/*
+ * Helper function to convert base64 to Uint8Array
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+
+/*
  * Helper function to compare two Uint8Arrays
  */
 /*
@@ -348,8 +383,8 @@ export async function registerCredential(
 
         const temp = JSON.stringify({
             transports,
-            attestationObject: Buffer.from(attestationObject).toString('base64'),
-            clientDataJSON: Buffer.from(clientDataJSON).toString('base64'),
+            attestationObject: arrayBufferToBase64(attestationObject),
+            clientDataJSON: arrayBufferToBase64(clientDataJSON),
             credentialId: credential.id
         });
         */
@@ -381,8 +416,8 @@ function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
         base64 += '=';
     }
 
-    // Decode Base64 to binary string
-    const binaryString = Buffer.from(base64, 'base64').toString('binary');
+    // Decode Base64 to binary string using atob (browser-compatible)
+    const binaryString = atob(base64);
 
     // Create an ArrayBuffer and populate it with binary data
     const len = binaryString.length;
@@ -399,7 +434,8 @@ function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
 *
 */
 function toBase64Url(buffer: ArrayBuffer): string {
-    const base64 = Buffer.from(buffer).toString('base64');
+    // Convert ArrayBuffer to base64 using browser-compatible method
+    const base64 = arrayBufferToBase64(buffer);
     // Convert Base64 to Base64-URL
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -418,8 +454,8 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
     // Append '=' characters to make the string length a multiple of 4
     const paddedBase64 = base64 + (paddingNeeded ? '='.repeat(paddingNeeded) : '');
 
-    // Decode the Base64 string to binary
-    const binary = Buffer.from(paddedBase64, 'base64').toString('binary');
+    // Decode the Base64 string to binary using atob
+    const binary = atob(paddedBase64);
 
     // Convert binary string to Uint8Array
     const len = binary.length;
@@ -513,7 +549,7 @@ export async function authenticateCredential(credentialIdBase64s: string[]): Pro
 
         // convert encryptCryptoKey to more convenient format for C# interop
         const Uint8ArrayEncryptKey = await exportCryptoKeyToUint8Array(encryptCryptoKey);
-        const encryptKeyBase64 = Buffer.from(Uint8ArrayEncryptKey).toString('base64');
+        const encryptKeyBase64 = uint8ArrayToBase64(Uint8ArrayEncryptKey);
 
         return { credentialId: credentialIdbase64Url, encryptKey: encryptKeyBase64 } as IAuthenticateCredResult;
 
@@ -547,7 +583,7 @@ export const encryptWithNounce = async (
     dataStr: string           // Data to encrypt as a string
 ): Promise<string> => {
     // Decode the Base64 string into a Uint8Array
-    const keyBytes = Uint8Array.from(Buffer.from(encryptionKeyBase64, 'base64'));
+    const keyBytes = base64ToUint8Array(encryptionKeyBase64);
 
     if (keyBytes.length !== 16 && keyBytes.length !== 32) {
         throw new Error('Encryption key must be exactly 16 or 32 bytes when encoded.');
@@ -564,7 +600,7 @@ export const encryptWithNounce = async (
     // Import the encryption key
     const encryptionKey = await crypto.subtle.importKey(
         'raw',
-        keyBytes,
+        keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
         { name: 'AES-GCM' },
         false,
         ['encrypt']
@@ -581,7 +617,7 @@ export const encryptWithNounce = async (
 
     // Convert the ArrayBuffer to a Base64 string
     const encryptedBytes = new Uint8Array(encryptedArrayBuffer);
-    const base64Encrypted = Buffer.from(encryptedBytes).toString('base64');
+    const base64Encrypted = uint8ArrayToBase64(encryptedBytes);
 
     return base64Encrypted;
 };
@@ -598,7 +634,7 @@ export const decryptWithNounce = async (
     // console.warn("encryptedBase64: ", encryptedBase64);
 
     // Decode the Base64 key into a Uint8Array
-    const keyBytes = Uint8Array.from(Buffer.from(encryptionKeyBase64, 'base64'));
+    const keyBytes = base64ToUint8Array(encryptionKeyBase64);
 
     // console.log("Key byte length:", keyBytes.length);
     if (keyBytes.length !== 16 && keyBytes.length !== 32) {
@@ -608,14 +644,14 @@ export const decryptWithNounce = async (
     // Import the CryptoKey
     const encryptionKey = await crypto.subtle.importKey(
         'raw',
-        keyBytes,
+        keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
         { name: 'AES-GCM' },
         true,
         ['decrypt', 'encrypt']
     );
 
     // Decode the Base64 encrypted data into a Uint8Array
-    const encryptedBytes = Uint8Array.from(Buffer.from(encryptedBase64, 'base64'));
+    const encryptedBytes = base64ToUint8Array(encryptedBase64);
     // console.log("Encrypted data byte length:", encryptedBytes.length);
 
     // Decrypt the data
@@ -625,7 +661,7 @@ export const decryptWithNounce = async (
         const decryptedArrayBuffer = await crypto.subtle.decrypt(
             algorithm,
             encryptionKey,
-            encryptedBytes
+            encryptedBytes.buffer.slice(encryptedBytes.byteOffset, encryptedBytes.byteOffset + encryptedBytes.byteLength) as ArrayBuffer
         );
         // Convert the decrypted ArrayBuffer into a string
         const decryptedText = (new TextDecoder()).decode(decryptedArrayBuffer);
