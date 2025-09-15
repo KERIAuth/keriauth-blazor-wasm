@@ -20,7 +20,9 @@
       "Bash(NUGET_PACKAGES=/home/edeyk/.nuget/packages dotnet build Extension.sln --configuration Debug --no-restore)",
       "Bash(dotnet test:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(dotnet format:*)"
+      "Bash(dotnet format:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

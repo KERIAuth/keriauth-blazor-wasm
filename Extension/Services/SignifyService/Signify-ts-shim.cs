@@ -32,6 +32,15 @@ namespace Extension.Services.SignifyService {
         [JSImport("getState", "signify_ts_shim")]
         internal static partial Task<string> GetState();
 
+        [JSImport("getSignedHeaders", "signify_ts_shim")]
+        internal static partial Task<string> GetSignedHeaders(string origin, string url, string method, string headersDict, string aidName);
+
+        [JSImport("getNameByPrefix", "signify_ts_shim")]
+        internal static partial Task<string> GetNameByPrefix(string prefix);
+
+        [JSImport("getIdentifierByPrefix", "signify_ts_shim")]
+        internal static partial Task<string> GetIdentifierByPrefix(string prefix);
+
         // note that GetSignedHeaders has bugs when running in WASM.  See https://github.com/WebOfTrust/signify-ts/issues/284
     }
 }
