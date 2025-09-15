@@ -22,7 +22,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(dotnet format:*)",
       "WebFetch(domain:api.github.com)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "WebFetch(domain:mingyaulee.github.io)"
     ],
     "deny": [],
     "ask": []

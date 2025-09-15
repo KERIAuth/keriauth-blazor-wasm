@@ -34,6 +34,7 @@ builder.Services.AddSingleton<IdentifiersService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 builder.Services.AddSingleton<IAppSwMessagingService, AppSwMessagingService>();
 builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
+builder.Services.AddSingleton<BackgroundWorker>();
 
 var host = builder.Build();
 
