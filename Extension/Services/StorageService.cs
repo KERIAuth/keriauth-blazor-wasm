@@ -40,7 +40,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
         _dotNetObjectRef?.Dispose();
     }
 
-    public async Task<Task> Initialize() {
+    public async Task<Result> Initialize() {
         logger.Log(ServiceLogLevel, "Initialize");
         // This just needs to be done once after the service start up,
         try {
@@ -53,27 +53,44 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
             IJSObjectReference _module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/storageHelper.js");
             await _module.InvokeVoidAsync("addStorageChangeListener", _dotNetObjectRef);
         }
+        catch (JSException jsEx) {
+            logger.LogError("JavaScript error adding storage change listener: {e}", jsEx.Message);
+            return Result.Fail(new JavaScriptInteropError("addStorageChangeListener", jsEx.Message, jsEx));
+        }
         catch (Exception e) {
-            // logger.LogError("Error adding eventListener to storage.onChange: {e}", e);
-            throw new ArgumentException("Error adding addStorageChangeListener", e);
+            logger.LogError("Error adding eventListener to storage.onChange: {e}", e.Message);
+            return Result.Fail(new StorageError("Failed to initialize storage service", e));
         }
         logger.Log(ServiceLogLevel, "Added addStorageChangeListener");
-        return Task.CompletedTask;
+        return Result.Ok();
     }
 
     public AppHostingKind GetAppHostingKind() {
         return AppHostingKind.BlazorWasmHosted;
     }
 
-    public async Task Clear() {
-        await webExtensionsApi.Storage.Local.Clear();
-        return;
+    public async Task<Result> Clear() {
+        try {
+            await webExtensionsApi.Storage.Local.Clear();
+            return Result.Ok();
+        }
+        catch (Exception e) {
+            logger.LogError("Failed to clear storage: {e}", e.Message);
+            return Result.Fail(new StorageError("Failed to clear storage", e));
+        }
     }
 
-    public async Task RemoveItem<T>() {
-        var tName = typeof(T).Name; //.ToUpperInvariant();
-        await webExtensionsApi.Storage.Local.Remove(tName);
-        return;
+    public async Task<Result> RemoveItem<T>() {
+        try {
+            var tName = typeof(T).Name; //.ToUpperInvariant();
+            await webExtensionsApi.Storage.Local.Remove(tName);
+            return Result.Ok();
+        }
+        catch (Exception e) {
+            var typeName = typeof(T).Name;
+            logger.LogError("Failed to remove item {type}: {e}", typeName, e.Message);
+            return Result.Fail(new StorageError($"Failed to remove item {typeName}", e));
+        }
     }
 
     public async Task<Result<T?>> GetItem<T>() {
@@ -96,7 +113,7 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
         catch (Exception e) {
             logger.LogError("Failed to get item: {e}", e.Message);
             Console.WriteLine($"Failed to get item: {e.Message}");
-            return Result.Fail($"Failed to get item: {e.Message}");
+            return Result.Fail(new StorageError($"Failed to get item of type {typeof(T).Name}", e));
         }
     }
 
@@ -118,10 +135,10 @@ public partial class StorageService : IStorageService, IObservable<Preferences> 
             return Result.Ok();
         }
         catch (Exception e) {
-            var msg = "Failed to serialize or set item:";
+            const string msg = "Failed to serialize or set item:";
             logger.LogError("{m} {e}", msg, e.Message);
             Console.WriteLine($"{msg} {e.Message}");
-            return Result.Fail($"{msg} {e.Message}");
+            return Result.Fail(new StorageError($"{msg} {typeof(T).Name}", e));
         }
     }
     IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver) {

@@ -1,5 +1,6 @@
 ﻿namespace Extension.Services;
 using Extension.Models;
+using FluentResults;
 using Stateless;
 using WebExtensions.Net;
 using static Extension.Services.IStateService;
@@ -35,30 +36,63 @@ public class StateService : IStateService {
         return stateMachine.State;
     }
 
-    public async Task Initialize() {
-        await stateMachine.FireAsync(Triggers.ToInitializing);
-    }
-
-    public bool IsAuthenticated() {
-        return stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
-    }
-
-    public async Task Authenticate(bool isConnected) {
-        if (isConnected) {
-            await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
+    public async Task<Result> Initialize() {
+        try {
+            await stateMachine.FireAsync(Triggers.ToInitializing);
+            return Result.Ok();
         }
-        else {
-            await stateMachine.FireAsync(Triggers.ToAuthenticatedDisconnected);
+        catch (InvalidOperationException e) {
+            logger.LogError("Invalid state transition during Initialize: {e}", e.Message);
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Initializing", e.Message));
         }
     }
 
-    public async Task Unauthenticate() {
+    public Result<bool> IsAuthenticated() {
+        var isAuthenticated = stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
+        if (isAuthenticated) {
+            return Result.Ok(true);
+        }
+        return Result.Ok(false).WithReason(new AuthenticationError($"Current state is {stateMachine.State}"));
+    }
+
+    public async Task<Result> Authenticate(bool isConnected) {
+        try {
+            if (isConnected) {
+                await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
+            }
+            else {
+                await stateMachine.FireAsync(Triggers.ToAuthenticatedDisconnected);
+            }
+            return Result.Ok();
+        }
+        catch (InvalidOperationException e) {
+            var targetState = isConnected ? "AuthenticatedConnected" : "AuthenticatedDisconnected";
+            logger.LogError("Invalid state transition during Authenticate: {e}", e.Message);
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), targetState, e.Message));
+        }
+    }
+
+    public async Task<Result> Unauthenticate() {
         // aka "Lock"
-        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+        try {
+            await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+            return Result.Ok();
+        }
+        catch (InvalidOperationException e) {
+            logger.LogError("Invalid state transition during Unauthenticate: {e}", e.Message);
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Unauthenticated", e.Message));
+        }
     }
 
-    public async Task ConfirmConnected() {
-        await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
+    public async Task<Result> ConfirmConnected() {
+        try {
+            await stateMachine.FireAsync(Triggers.ToAuthenticatedConnected);
+            return Result.Ok();
+        }
+        catch (InvalidOperationException e) {
+            logger.LogError("Invalid state transition during ConfirmConnected: {e}", e.Message);
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "AuthenticatedConnected", e.Message));
+        }
     }
 
     IDisposable IObservable<States>.Subscribe(IObserver<States> stateObserver) {
@@ -76,21 +110,38 @@ public class StateService : IStateService {
         return;
     }
 
-    async Task IStateService.Configure() {
-        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+    async Task<Result> IStateService.Configure() {
+        try {
+            await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+            return Result.Ok();
+        }
+        catch (InvalidOperationException e) {
+            logger.LogError("Invalid state transition during Configure: {e}", e.Message);
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Unauthenticated", e.Message));
+        }
     }
 
-    async Task IStateService.TimeOut() {
-        logger.LogInformation("User selected Locked, or the inactivity timer elapsed, so removing CachedPasscode");
-        await webExtensionsApi.Storage.Session.Remove("passcode");
-        await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+    async Task<Result> IStateService.TimeOut() {
+        try {
+            logger.LogInformation("User selected Locked, or the inactivity timer elapsed, so removing CachedPasscode");
+            await webExtensionsApi.Storage.Session.Remove("passcode");
+            await stateMachine.FireAsync(Triggers.ToUnauthenticated);
+            return Result.Ok();
+        }
+        catch (Exception e) {
+            logger.LogError("Error during TimeOut: {e}", e.Message);
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Unauthenticated", e.Message));
+        }
     }
 
     private async Task OnTransitioned(StateMachine<States, Triggers>.Transition t) {
         // Store the new state, with some exceptions
         if (t.Source != States.Uninitialized && t.Source != States.Initializing) {
             var appState = new AppState(t.Destination);
-            await storageService.SetItem(appState);
+            var result = await storageService.SetItem(appState);
+            if (result.IsFailed) {
+                logger.LogError("Failed to persist state transition: {error}", result.Errors[0].Message);
+            }
         }
         logger.LogInformation("Transitioned from {oldState} to {newState}", t.Source, t.Destination);
         await NotifyObservers();

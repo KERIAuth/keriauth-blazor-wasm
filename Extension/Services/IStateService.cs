@@ -1,5 +1,6 @@
-﻿namespace Extension.Services;
+﻿using FluentResults;
 
+namespace Extension.Services;
 
 public interface IStateService : IObservable<IStateService.States> {
     enum States {
@@ -14,17 +15,17 @@ public interface IStateService : IObservable<IStateService.States> {
 
     States GetState();
 
-    Task Initialize();
+    Task<Result> Initialize();
 
-    Task Configure();
+    Task<Result> Configure();
 
-    Task Authenticate(bool isConnected);
+    Task<Result> Authenticate(bool isConnected);
 
-    Task Unauthenticate();
+    Task<Result> Unauthenticate();
 
-    Task TimeOut();
+    Task<Result> TimeOut();
 
-    Task ConfirmConnected();
+    Task<Result> ConfirmConnected();
 
-    bool IsAuthenticated();
+    Result<bool> IsAuthenticated();
 }

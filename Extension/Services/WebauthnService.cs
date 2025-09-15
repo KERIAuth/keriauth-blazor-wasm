@@ -13,26 +13,30 @@ namespace Extension.Services {
         private IJSObjectReference? interopModule;
         private WebExtensionsApi? webExtensionsApi;
 
-        private async Task Initialize() {
+        private async Task<Result> Initialize() {
             // TODO P2 might be able to instead move some of this into program.cs and inject these as parameters
             try {
                 webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
                 interopModule ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/webauthnCredentialWithPRF.js");
+                return Result.Ok();
             }
             catch (JSException jsEx) {
                 logger.LogError("Could not initialize {e}", jsEx.Message);
-                throw new ArgumentException(jsEx.Message);
+                return Result.Fail(new JavaScriptInteropError("WebAuthn module import", jsEx.Message, jsEx));
             }
             catch (Exception ex) {
                 logger.LogError("Could not initialize {e}", ex.Message);
-                throw;
+                return Result.Fail(new JavaScriptInteropError("WebAuthn initialization", ex.Message, ex));
             }
         }
 
         public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints) {
             try {
                 // Attempt to call the JavaScript function and map to the CredentialWithPRF type
-                await Initialize();
+                var initResult = await Initialize();
+                if (initResult.IsFailed) {
+                    return Result.Fail<CredentialWithPRF>(initResult.Errors);
+                }
                 var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
                 // logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
@@ -64,7 +68,10 @@ namespace Extension.Services {
             // logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
             try {
                 // Attempt to authenticate the credential and re-compute the encryption key
-                await Initialize();
+                var initResult = await Initialize();
+                if (initResult.IsFailed) {
+                    return Result.Fail<AuthenticateCredResult>(initResult.Errors);
+                }
                 var authenticateCredResult = await interopModule!.InvokeAsync<AuthenticateCredResult>("authenticateCredential", credentialIdBase64);
 
                 if (authenticateCredResult is not null) {

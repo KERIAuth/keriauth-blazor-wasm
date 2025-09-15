@@ -235,7 +235,7 @@
             return;
         }
         if (keriaConnectConfig is null
-            || !keriaConnectConfig.IsAdminUrlConfigured()
+            || !keriaConnectConfig.ValidateConfiguration().IsSuccess
             || keriaConnectConfig.AdminUrl is null)
         {
             throw new InvalidOperationException("KeriaConnectConfig not configured");

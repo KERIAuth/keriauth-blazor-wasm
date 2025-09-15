@@ -4,20 +4,20 @@ using Extension.Models;
 
 namespace Extension.Services;
 public interface IStorageService : IObservable<Preferences> {
-    Task<Task> Initialize();
+    Task<Result> Initialize();
 
     /// <summary>
     /// Clear every entry in the storage to reset everything
     /// </summary>
     /// <returns></returns>
-    Task Clear();
+    Task<Result> Clear();
 
     /// <summary>
     /// Remove a specific object from the storage. eg. WalletLogin
     /// </summary>
     /// <typeparam name="T">Class which should be removed</typeparam>
     /// <returns></returns>
-    Task RemoveItem<T>();
+    Task<Result> RemoveItem<T>();
 
     /// <summary>
     /// Load a specific object from the storage, where the key is the class name

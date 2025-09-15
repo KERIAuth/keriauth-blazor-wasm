@@ -154,7 +154,7 @@
     /*
     * SignIn()
     */
-    async Task SignIn(SignInMode RequestedSignInMode, string requestId2)
+    async Task<Result> SignIn(SignInMode RequestedSignInMode, string requestId2)
     {
         // will received Prefix and credential via callback from WebsiteConfigDisplay component
 
@@ -166,7 +166,9 @@
                 logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
                 if (SelectedPrefix is null || SelectedAlias is null)
                 {
-                    throw (new Exception("SelectedPrefix is null"));
+                    var error = new ValidationError("Selection", "Identifier selection is incomplete");
+                    snackbar.Add(error.Message, Severity.Error);
+                    return Result.Fail(error);
                 }
                 replyMessageData = new(
                     "/signify/reply",
@@ -190,13 +192,17 @@
 
                 if (SelectedCredentialOrNothing is null)
                 {
-                    throw (new Exception("SelectedCredentialOrNothing is null"));
+                    var error = new ValidationError("Credential", "No credential selected");
+                    snackbar.Add(error.Message, Severity.Error);
+                    return Result.Fail(error);
                 }
 
                 var selectedCredentialSaid = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d")?.Value as string; 
                 if (selectedCredentialSaid is null)
                 {
-                    throw (new Exception("selectedCredentialSaid is null"));
+                    var error = new ValidationError("Credential", "Credential SAID is missing");
+                    snackbar.Add(error.Message, Severity.Error);
+                    return Result.Fail(error);
                 }
 
                 var credentialDict = JsonSerializer.Deserialize<Dictionary<string, object>>(json); //, options);
@@ -204,7 +210,9 @@
                 logger.LogInformation("SignIn with Credential: {0}", credentialDict);
                 if (credentialDict is null || SelectedPrefix is null || SelectedAlias is null)
                 {
-                    throw (new Exception("Credential is null"));
+                    var error = new ValidationError("Credential", "Credential data is incomplete");
+                    snackbar.Add(error.Message, Severity.Error);
+                    return Result.Fail(error);
                 };
 
                 var cesr = await Signify_ts_shim.GetCredential(selectedCredentialSaid, true);
@@ -217,11 +225,20 @@
                     requestId: requestId);
                 break;
             default:
-                return;
+                return Result.Fail(new ValidationError("SignInMode", $"Unknown sign-in mode: {RequestedSignInMode}"));
         }
-        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
-        // await Task.Delay(300000); // Uncomment for debugging, so you can inspect console output before app is closed
-        UIHelper.CloseWindow();
+        try
+        {
+            await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
+            // await Task.Delay(300000); // Uncomment for debugging, so you can inspect console output before app is closed
+            UIHelper.CloseWindow();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Failed to send sign-in response: {error}", ex.Message);
+            return Result.Fail(new JavaScriptInteropError("SendToServiceWorker", ex.Message, ex));
+        }
     }
 
     async Task Cancel()
@@ -291,7 +308,11 @@
     //
     private async Task SignInHandler()
     {
-        await SignIn(RequestedSignInMode, requestId);
+        var result = await SignIn(RequestedSignInMode, requestId);
+        if (result.IsFailed)
+        {
+            logger.LogError("Sign-in failed: {error}", result.Errors.FirstOrDefault()?.Message);
+        }
     }
 
     //

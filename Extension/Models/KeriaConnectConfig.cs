@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
+using FluentResults;
 
 namespace Extension.Models {
     public record KeriaConnectConfig {
@@ -37,19 +38,37 @@ namespace Extension.Models {
         [JsonPropertyName("AgentAidPrefix")]
         public string? AgentAidPrefix { get; init; }
 
-        public bool IsAdminUrlConfigured() {
-            if (string.IsNullOrEmpty(Alias)
-                || PasscodeHash == 0
-                || string.IsNullOrEmpty(AdminUrl)
-                || !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)
-                      && (adminUriResult.Scheme == Uri.UriSchemeHttp || adminUriResult.Scheme == Uri.UriSchemeHttps))
-                //|| string.IsNullOrEmpty(BootUrl)
-                //|| !(Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? bootUriResult)
-                //      && (bootUriResult.Scheme == Uri.UriSchemeHttp || bootUriResult.Scheme == Uri.UriSchemeHttps))
-                ) {
-                return false;
+        public Result<bool> ValidateConfiguration() {
+            var errors = new List<IError>();
+            
+            if (string.IsNullOrEmpty(Alias)) {
+                errors.Add(new ValidationError("Alias", "Alias is required"));
             }
-            return true;
+            
+            if (PasscodeHash == 0) {
+                errors.Add(new ValidationError("PasscodeHash", "Passcode hash is missing"));
+            }
+            
+            if (string.IsNullOrEmpty(AdminUrl)) {
+                errors.Add(new ValidationError("AdminUrl", "Admin URL is required"));
+            }
+            else if (!Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult) 
+                     || (adminUriResult.Scheme != Uri.UriSchemeHttp && adminUriResult.Scheme != Uri.UriSchemeHttps)) {
+                errors.Add(new ValidationError("AdminUrl", "Admin URL must be a valid HTTP or HTTPS URL"));
+            }
+            
+            if (errors.Count > 0) {
+                return Result.Fail<bool>(errors);
+            }
+            
+            return Result.Ok(true);
+        }
+        
+        // Keep deprecated method for backward compatibility
+        [Obsolete("Use ValidateConfiguration() instead")]
+        public bool IsAdminUrlConfigured() {
+            var result = ValidateConfiguration();
+            return result.IsSuccess;
         }
     }
 }

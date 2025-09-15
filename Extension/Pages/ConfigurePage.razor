@@ -11,6 +11,7 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@using FluentResults
 
 
 @code {
@@ -111,7 +112,7 @@
                 && RandomPasscode == configuredPasscodeModel.Passcode
                 && IsPasscodeCopyConfirmed)
         );
-    bool IsKeriaConfigured => (KeriaConnectConfig is not null) && KeriaConnectConfig.IsAdminUrlConfigured();
+    bool IsKeriaConfigured => (KeriaConnectConfig is not null) && KeriaConnectConfig.ValidateConfiguration().IsSuccess;
     string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you already have account)" : "Boot URL";
 
 
@@ -142,7 +143,7 @@
         StateHasChanged();
     }
 
-    async Task<bool> ConnectToKeria()
+    async Task<Result<KeriaConnectionInfo>> ConnectToKeria()
     {
         await ResetOps();
         logger.LogInformation("ConnectToKeria");
@@ -168,10 +169,10 @@
             var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!postResult.IsSuccess)
             {
-                var message = $"KERIA service is not reachable";
+                const string message = "KERIA service is not reachable";
                 // logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
                 ops1CheckLiveness.SetCompletedWithError(message);
-                return false;
+                return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, message));
             }
             ops1CheckLiveness.SetCompletedWithoutErrors();
             StateHasChanged();
@@ -187,7 +188,7 @@
             {
                 ops2CheckHealth.SetCompletedWithError(postResult2.Reasons.First().Message);
                 StateHasChanged();
-                return false;
+                return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, postResult2.Reasons.First().Message));
             }
             else
             {
@@ -207,7 +208,7 @@
         {
             ops3Connect.SetCompletedWithError(clientRes.Reasons.First().Message);
             StateHasChanged();
-            return false;
+            return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, clientRes.Reasons.First().Message));
         }
         ops3Connect.SetCompletedWithoutErrors();
         try
@@ -221,7 +222,7 @@
         catch (Exception ex)
         {
             logger.LogError("Failed to store passcode in session storage: {Message}", ex.Message);
-            return false;
+            return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage", ex));
         }
         StateHasChanged();
         await Task.Delay(100);
@@ -235,7 +236,7 @@
         {
             ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
             StateHasChanged();
-            return false;
+            return Result.Fail<KeriaConnectionInfo>(identifiersRes.Errors);
         }
         var identifiers = identifiersRes.Value;
         ops4ListAids.SetCompletedWithoutErrors();
@@ -253,7 +254,7 @@
             {
                 ops5CreatePersonalAid.SetCompletedWithError(aidRes.Reasons.First().Message);
                 StateHasChanged();
-                return false;
+                return Result.Fail<KeriaConnectionInfo>(aidRes.Errors);
             }
             // set the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
             await preferencesService.SetPreferences(prefs with { SelectedPrefix = aidRes.Value });
@@ -266,7 +267,7 @@
         }
         if (nextButton is not null)
             await nextButton.FocusAsync();
-        return true;
+        return Result.Ok(new KeriaConnectionInfo(KeriaConnectConfig!, identifiers));
     }
 
     async Task StoreHashAndConnect()
@@ -274,30 +275,44 @@
         // Since user has confirmed the passcode, we can now hash it and store it once the connection is successful
         IsProcessing = true;
         StateHasChanged();
-        IsConnected = await ConnectToKeria();
-        if (IsConnected)
+        var connectionResult = await ConnectToKeria();
+        if (connectionResult.IsSuccess)
         {
-            if (KeriaConnectConfig is null)
-            {
-                throw new Exception("KeriaConnectConfig is null after successful connection");
-            }
-
+            IsConnected = true;
+            var connectionInfo = connectionResult.Value;
+            KeriaConnectConfig = connectionInfo.Config;
+            
             // TODO P1 should KeriaConnectConfig should be stored in chrome.storage.sync? Multiple changes required.
-            var res = await storageService.SetItem<KeriaConnectConfig>(KeriaConnectConfig);
+            var res = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
             if (res.IsFailed)
             {
                 logger.LogError("Failed to store connection details");
                 logger.LogError(res.Reasons.First().Message);
+                snackbar.Add("Failed to store connection configuration", Severity.Error);
                 return;
             }
-            await stateService.Configure();
-            await stateService.Authenticate(true);
+            var configureResult = await stateService.Configure();
+            if (configureResult.IsFailed)
+            {
+                logger.LogError("Failed to configure state: {error}", configureResult.Errors.FirstOrDefault()?.Message);
+                snackbar.Add("Failed to configure application state", Severity.Error);
+                return;
+            }
+            var authResult = await stateService.Authenticate(true);
+            if (authResult.IsFailed)
+            {
+                logger.LogError("Failed to authenticate: {error}", authResult.Errors.FirstOrDefault()?.Message);
+                snackbar.Add("Failed to authenticate", Severity.Error);
+                return;
+            }
             StateHasChanged();
             return;
         }
         else
         {
-            snackbar.Add("Failed to connect to KERI Agent Service", Severity.Warning);
+            IsConnected = false;
+            var error = connectionResult.Errors.FirstOrDefault();
+            snackbar.Add($"Failed to connect: {error?.Message ?? "Unknown error"}", Severity.Warning);
             return;
         }
     }
