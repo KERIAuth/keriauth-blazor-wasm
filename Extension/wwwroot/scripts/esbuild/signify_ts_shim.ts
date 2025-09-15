@@ -7,7 +7,24 @@
 // https://github.com/WebOfTrust/signify-browser-extension/blob/main/src/pages/background/services/signify.ts
 
 import type {
-    EventResult
+    EventResult,
+    Operation,
+    Contact,
+    ContactInfo,
+    CredentialData,
+    CredentialSubject,
+    CredentialFilter,
+    CredentialState,
+    IpexApplyArgs,
+    IpexOfferArgs,
+    IpexAgreeArgs,
+    IpexGrantArgs,
+    IpexAdmitArgs,
+    CreateRegistryArgs,
+    State as SignifyState,
+    HabState,
+    Challenge,
+    Serder
 } from 'signify-ts';
 
 // eslint-disable-next-line no-duplicate-imports
@@ -346,6 +363,489 @@ export function parseHeaders(headersJson: string | null): Headers {
         return new Headers();
     }
 }
+
+// ===================== IPEX Protocol Methods =====================
+
+export const ipexApply = async (argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as IpexApplyArgs;
+        const [exn, sigs, end] = await client.ipex().apply(args);
+        const result = { exn, sigs, end };
+        console.log('signify_ts_shim: ipexApply result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexApply error:', error);
+        throw error;
+    }
+};
+
+export const ipexOffer = async (argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as IpexOfferArgs;
+        const [exn, sigs, end] = await client.ipex().offer(args);
+        const result = { exn, sigs, end };
+        console.log('signify_ts_shim: ipexOffer result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexOffer error:', error);
+        throw error;
+    }
+};
+
+export const ipexAgree = async (argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as IpexAgreeArgs;
+        const [exn, sigs, end] = await client.ipex().agree(args);
+        const result = { exn, sigs, end };
+        console.log('signify_ts_shim: ipexAgree result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexAgree error:', error);
+        throw error;
+    }
+};
+
+export const ipexGrant = async (argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as IpexGrantArgs;
+        const [exn, sigs, end] = await client.ipex().grant(args);
+        const result = { exn, sigs, end };
+        console.log('signify_ts_shim: ipexGrant result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexGrant error:', error);
+        throw error;
+    }
+};
+
+export const ipexAdmit = async (argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as IpexAdmitArgs;
+        const [exn, sigs, end] = await client.ipex().admit(args);
+        const result = { exn, sigs, end };
+        console.log('signify_ts_shim: ipexAdmit result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexAdmit error:', error);
+        throw error;
+    }
+};
+
+export const ipexSubmitApply = async (name: string, exnJson: string, sigsJson: string, recipientsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const exn = JSON.parse(exnJson) as Serder;
+        const sigs = JSON.parse(sigsJson) as string[];
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await client.ipex().submitApply(name, exn, sigs, recipients);
+        console.log('signify_ts_shim: ipexSubmitApply result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexSubmitApply error:', error);
+        throw error;
+    }
+};
+
+export const ipexSubmitOffer = async (name: string, exnJson: string, sigsJson: string, atc: string, recipientsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const exn = JSON.parse(exnJson) as Serder;
+        const sigs = JSON.parse(sigsJson) as string[];
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await client.ipex().submitOffer(name, exn, sigs, atc, recipients);
+        console.log('signify_ts_shim: ipexSubmitOffer result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexSubmitOffer error:', error);
+        throw error;
+    }
+};
+
+export const ipexSubmitAgree = async (name: string, exnJson: string, sigsJson: string, recipientsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const exn = JSON.parse(exnJson) as Serder;
+        const sigs = JSON.parse(sigsJson) as string[];
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await client.ipex().submitAgree(name, exn, sigs, recipients);
+        console.log('signify_ts_shim: ipexSubmitAgree result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexSubmitAgree error:', error);
+        throw error;
+    }
+};
+
+export const ipexSubmitGrant = async (name: string, exnJson: string, sigsJson: string, atc: string, recipientsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const exn = JSON.parse(exnJson) as Serder;
+        const sigs = JSON.parse(sigsJson) as string[];
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await client.ipex().submitGrant(name, exn, sigs, atc, recipients);
+        console.log('signify_ts_shim: ipexSubmitGrant result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexSubmitGrant error:', error);
+        throw error;
+    }
+};
+
+export const ipexSubmitAdmit = async (name: string, exnJson: string, sigsJson: string, atc: string, recipientsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const exn = JSON.parse(exnJson) as Serder;
+        const sigs = JSON.parse(sigsJson) as string[];
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await client.ipex().submitAdmit(name, exn, sigs, atc, recipients);
+        console.log('signify_ts_shim: ipexSubmitAdmit result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: ipexSubmitAdmit error:', error);
+        throw error;
+    }
+};
+
+// ===================== OOBI Operations =====================
+
+export const oobiGet = async (name: string, role?: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.oobis().get(name, role);
+        console.log('signify_ts_shim: oobiGet result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: oobiGet error:', error);
+        throw error;
+    }
+};
+
+export const oobiResolve = async (oobi: string, alias?: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.oobis().resolve(oobi, alias);
+        console.log('signify_ts_shim: oobiResolve result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: oobiResolve error:', error);
+        throw error;
+    }
+};
+
+// ===================== Operations Management =====================
+
+export const operationsGet = async <T = unknown>(name: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.operations().get<T>(name);
+        console.log('signify_ts_shim: operationsGet result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: operationsGet error:', error);
+        throw error;
+    }
+};
+
+export const operationsList = async (type?: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.operations().list(type);
+        console.log('signify_ts_shim: operationsList result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: operationsList error:', error);
+        throw error;
+    }
+};
+
+export const operationsDelete = async (name: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        await client.operations().delete(name);
+        const result = { success: true, message: `Operation ${name} deleted successfully` };
+        console.log('signify_ts_shim: operationsDelete result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: operationsDelete error:', error);
+        throw error;
+    }
+};
+
+export const operationsWait = async <T = unknown>(
+    operationJson: string, 
+    optionsJson?: string
+): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const operation = JSON.parse(operationJson) as Operation<T>;
+        const options = optionsJson ? JSON.parse(optionsJson) : undefined;
+        const result = await client.operations().wait<T>(operation, options);
+        console.log('signify_ts_shim: operationsWait result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: operationsWait error:', error);
+        throw error;
+    }
+};
+
+// ===================== Registry Management =====================
+
+export const registriesList = async (name: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.registries().list(name);
+        console.log('signify_ts_shim: registriesList result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: registriesList error:', error);
+        throw error;
+    }
+};
+
+export const registriesCreate = async (argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as CreateRegistryArgs;
+        const result = await client.registries().create(args);
+        console.log('signify_ts_shim: registriesCreate result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: registriesCreate error:', error);
+        throw error;
+    }
+};
+
+export const registriesRename = async (name: string, registryName: string, newName: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.registries().rename(name, registryName, newName);
+        console.log('signify_ts_shim: registriesRename result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: registriesRename error:', error);
+        throw error;
+    }
+};
+
+// ===================== Contact Management =====================
+
+export const contactsList = async (group?: string, filterField?: string, filterValue?: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.contacts().list(group, filterField, filterValue);
+        console.log('signify_ts_shim: contactsList result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: contactsList error:', error);
+        throw error;
+    }
+};
+
+export const contactsGet = async (prefix: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.contacts().get(prefix);
+        console.log('signify_ts_shim: contactsGet result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: contactsGet error:', error);
+        throw error;
+    }
+};
+
+export const contactsAdd = async (prefix: string, infoJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const info = JSON.parse(infoJson) as ContactInfo;
+        const result = await client.contacts().add(prefix, info);
+        console.log('signify_ts_shim: contactsAdd result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: contactsAdd error:', error);
+        throw error;
+    }
+};
+
+export const contactsUpdate = async (prefix: string, infoJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const info = JSON.parse(infoJson) as ContactInfo;
+        const result = await client.contacts().update(prefix, info);
+        console.log('signify_ts_shim: contactsUpdate result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: contactsUpdate error:', error);
+        throw error;
+    }
+};
+
+export const contactsDelete = async (prefix: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        await client.contacts().delete(prefix);
+        const result = { success: true, message: `Contact ${prefix} deleted successfully` };
+        console.log('signify_ts_shim: contactsDelete result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: contactsDelete error:', error);
+        throw error;
+    }
+};
+
+// ===================== Additional Credential Operations =====================
+
+export const credentialsIssue = async (name: string, argsJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const args = JSON.parse(argsJson) as CredentialData;
+        const result = await client.credentials().issue(name, args);
+        console.log('signify_ts_shim: credentialsIssue result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: credentialsIssue error:', error);
+        throw error;
+    }
+};
+
+export const credentialsRevoke = async (name: string, said: string, datetime?: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.credentials().revoke(name, said, datetime);
+        console.log('signify_ts_shim: credentialsRevoke result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: credentialsRevoke error:', error);
+        throw error;
+    }
+};
+
+export const credentialsState = async (ri: string, said: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.credentials().state(ri, said);
+        console.log('signify_ts_shim: credentialsState result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: credentialsState error:', error);
+        throw error;
+    }
+};
+
+export const credentialsDelete = async (said: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        await client.credentials().delete(said);
+        const result = { success: true, message: `Credential ${said} deleted successfully` };
+        console.log('signify_ts_shim: credentialsDelete result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: credentialsDelete error:', error);
+        throw error;
+    }
+};
+
+// ===================== Schemas Operations =====================
+
+export const schemasGet = async (said: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.schemas().get(said);
+        console.log('signify_ts_shim: schemasGet result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: schemasGet error:', error);
+        throw error;
+    }
+};
+
+export const schemasList = async (): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.schemas().list();
+        console.log('signify_ts_shim: schemasList result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: schemasList error:', error);
+        throw error;
+    }
+};
+
+// ===================== Notifications Operations =====================
+
+export const notificationsList = async (start?: number, end?: number): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.notifications().list(start, end);
+        console.log('signify_ts_shim: notificationsList result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: notificationsList error:', error);
+        throw error;
+    }
+};
+
+export const notificationsMark = async (said: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        const result = await client.notifications().mark(said);
+        console.log('signify_ts_shim: notificationsMark result:', result);
+        return result; // result is already a string
+    } catch (error) {
+        console.error('signify_ts_shim: notificationsMark error:', error);
+        throw error;
+    }
+};
+
+export const notificationsDelete = async (said: string): Promise<string> => {
+    try {
+        validateClient();
+        const client: SignifyClient = _client as SignifyClient;
+        await client.notifications().delete(said);
+        const result = { success: true, message: `Notification ${said} deleted successfully` };
+        console.log('signify_ts_shim: notificationsDelete result:', result);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signify_ts_shim: notificationsDelete error:', error);
+        throw error;
+    }
+};
 
 function headersToJsonBase64(headers: Headers): string {
     const headersObject: { [key: string]: string } = {};

@@ -35,5 +35,48 @@ namespace Extension.Services.SignifyService {
         Task<Result<IList<Exchange>>> GetExchanges();
         Task<Result<Aid>> GetIdentifier(string name);
         Task<Result<string>> SignRequestHeader(string origin, string rurl, string method, Dictionary<string, string> initHeaders, string prefix);
+
+        // ===================== IPEX Protocol Methods =====================
+        Task<Result<IpexExchangeResult>> IpexApply(IpexApplyArgs args);
+        Task<Result<IpexExchangeResult>> IpexOffer(IpexOfferArgs args);
+        Task<Result<IpexExchangeResult>> IpexAgree(IpexAgreeArgs args);
+        Task<Result<IpexExchangeResult>> IpexGrant(IpexGrantArgs args);
+        Task<Result<IpexExchangeResult>> IpexAdmit(IpexAdmitArgs args);
+
+        // ===================== OOBI Operations =====================
+        Task<Result<Dictionary<string, object>>> GetOobi(string name, string? role = null);
+        Task<Result<Dictionary<string, object>>> ResolveOobi(string oobi, string? aliasName = null);
+
+        // ===================== Operations Management =====================
+        Task<Result<Operation>> GetOperation(string name);
+        Task<Result<List<Operation>>> ListOperations(string? type = null);
+        Task<Result> DeleteOperation(string name);
+        Task<Result<Operation>> WaitForOperation(Operation operation, Dictionary<string, object>? options = null);
+
+        // ===================== Registry Management =====================
+        Task<Result<List<Dictionary<string, object>>>> ListRegistries(string name);
+        Task<Result<Dictionary<string, object>>> CreateRegistry(string name, string registryName, int? toad = null, bool noBackers = false, List<string>? baks = null, string? nonce = null);
+
+        // ===================== Contact Management =====================
+        Task<Result<List<Contact>>> ListContacts(string? group = null, string? filterField = null, string? filterValue = null);
+        Task<Result<Contact>> GetContact(string prefix);
+        Task<Result<Contact>> AddContact(string prefix, ContactInfo info);
+        Task<Result<Contact>> UpdateContact(string prefix, ContactInfo info);
+        Task<Result> DeleteContact(string prefix);
+
+        // ===================== Additional Credential Operations =====================
+        Task<Result<Dictionary<string, object>>> IssueCredential(string name, CredentialData args);
+        Task<Result<Dictionary<string, object>>> RevokeCredential(string name, string said, string? datetime = null);
+        Task<Result<Dictionary<string, object>>> GetCredentialState(string ri, string said);
+        Task<Result> DeleteCredential(string said);
+
+        // ===================== Schemas Operations =====================
+        Task<Result<Dictionary<string, object>>> GetSchema(string said);
+        Task<Result<List<Dictionary<string, object>>>> ListSchemas();
+
+        // ===================== Notifications Operations =====================
+        Task<Result<List<Dictionary<string, object>>>> ListNotifications(int? start = null, int? endIndex = null);
+        Task<Result<string>> MarkNotification(string said);
+        Task<Result> DeleteNotification(string said);
     }
 }

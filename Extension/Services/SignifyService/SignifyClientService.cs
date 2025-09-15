@@ -321,5 +321,473 @@ namespace Extension.Services.SignifyService {
             await Task.Delay(0);
             throw new NotImplementedException();
         }
+
+        // ===================== IPEX Protocol Methods =====================
+
+        public async Task<Result<IpexExchangeResult>> IpexApply(IpexApplyArgs args) {
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.IpexApply(argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<IpexExchangeResult>("IpexApply returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<IpexExchangeResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("IpexApply: Exception: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexApply: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<IpexExchangeResult>> IpexOffer(IpexOfferArgs args) {
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.IpexOffer(argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<IpexExchangeResult>("IpexOffer returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<IpexExchangeResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("IpexOffer: Exception: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexOffer: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<IpexExchangeResult>> IpexAgree(IpexAgreeArgs args) {
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.IpexAgree(argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<IpexExchangeResult>("IpexAgree returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<IpexExchangeResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("IpexAgree: Exception: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexAgree: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<IpexExchangeResult>> IpexGrant(IpexGrantArgs args) {
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.IpexGrant(argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<IpexExchangeResult>("IpexGrant returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<IpexExchangeResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("IpexGrant: Exception: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexGrant: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<IpexExchangeResult>> IpexAdmit(IpexAdmitArgs args) {
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.IpexAdmit(argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<IpexExchangeResult>("IpexAdmit returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<IpexExchangeResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("IpexAdmit: Exception: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexAdmit: Exception: " + e);
+            }
+        }
+
+        // ===================== OOBI Operations =====================
+
+        public async Task<Result<Dictionary<string, object>>> GetOobi(string name, string? role = null) {
+            try {
+                var jsonString = await Signify_ts_shim.OobiGet(name, role);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("GetOobi returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize OOBI result");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("GetOobi: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("GetOobi: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Dictionary<string, object>>> ResolveOobi(string oobi, string? aliasName = null) {
+            try {
+                var jsonString = await Signify_ts_shim.OobiResolve(oobi, aliasName);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("ResolveOobi returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize OOBI resolve result");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("ResolveOobi: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("ResolveOobi: Exception: " + e);
+            }
+        }
+
+        // ===================== Operations Management =====================
+
+        public async Task<Result<Operation>> GetOperation(string name) {
+            try {
+                var jsonString = await Signify_ts_shim.OperationsGet(name);
+                if (jsonString is null) {
+                    return Result.Fail<Operation>("GetOperation returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Operation>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Operation>("Failed to deserialize Operation");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("GetOperation: Exception: {e}", e);
+                return Result.Fail<Operation>("GetOperation: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<List<Operation>>> ListOperations(string? type = null) {
+            try {
+                var jsonString = await Signify_ts_shim.OperationsList(type);
+                if (jsonString is null) {
+                    return Result.Fail<List<Operation>>("ListOperations returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Operation>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Operation>>("Failed to deserialize Operations list");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("ListOperations: Exception: {e}", e);
+                return Result.Fail<List<Operation>>("ListOperations: Exception: " + e);
+            }
+        }
+
+        public async Task<Result> DeleteOperation(string name) {
+            try {
+                var jsonString = await Signify_ts_shim.OperationsDelete(name);
+                if (jsonString is null) {
+                    return Result.Fail("DeleteOperation returned null");
+                }
+                return Result.Ok();
+            } catch (Exception e) {
+                logger.LogWarning("DeleteOperation: Exception: {e}", e);
+                return Result.Fail("DeleteOperation: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Operation>> WaitForOperation(Operation operation, Dictionary<string, object>? options = null) {
+            try {
+                var operationJson = System.Text.Json.JsonSerializer.Serialize(operation, jsonSerializerOptions);
+                var optionsJson = options != null ? System.Text.Json.JsonSerializer.Serialize(options, jsonSerializerOptions) : null;
+                var jsonString = await Signify_ts_shim.OperationsWait(operationJson, optionsJson);
+                if (jsonString is null) {
+                    return Result.Fail<Operation>("WaitForOperation returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Operation>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Operation>("Failed to deserialize Operation result");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("WaitForOperation: Exception: {e}", e);
+                return Result.Fail<Operation>("WaitForOperation: Exception: " + e);
+            }
+        }
+
+        // ===================== Contact Management =====================
+
+        public async Task<Result<List<Contact>>> ListContacts(string? group = null, string? filterField = null, string? filterValue = null) {
+            try {
+                var jsonString = await Signify_ts_shim.ContactsList(group, filterField, filterValue);
+                if (jsonString is null) {
+                    return Result.Fail<List<Contact>>("ListContacts returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Contact>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Contact>>("Failed to deserialize Contacts list");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("ListContacts: Exception: {e}", e);
+                return Result.Fail<List<Contact>>("ListContacts: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Contact>> GetContact(string prefix) {
+            try {
+                var jsonString = await Signify_ts_shim.ContactsGet(prefix);
+                if (jsonString is null) {
+                    return Result.Fail<Contact>("GetContact returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Contact>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Contact>("Failed to deserialize Contact");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("GetContact: Exception: {e}", e);
+                return Result.Fail<Contact>("GetContact: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Contact>> AddContact(string prefix, ContactInfo info) {
+            try {
+                var infoJson = System.Text.Json.JsonSerializer.Serialize(info, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.ContactsAdd(prefix, infoJson);
+                if (jsonString is null) {
+                    return Result.Fail<Contact>("AddContact returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Contact>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Contact>("Failed to deserialize Contact");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("AddContact: Exception: {e}", e);
+                return Result.Fail<Contact>("AddContact: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Contact>> UpdateContact(string prefix, ContactInfo info) {
+            try {
+                var infoJson = System.Text.Json.JsonSerializer.Serialize(info, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.ContactsUpdate(prefix, infoJson);
+                if (jsonString is null) {
+                    return Result.Fail<Contact>("UpdateContact returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Contact>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Contact>("Failed to deserialize Contact");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("UpdateContact: Exception: {e}", e);
+                return Result.Fail<Contact>("UpdateContact: Exception: " + e);
+            }
+        }
+
+        public async Task<Result> DeleteContact(string prefix) {
+            try {
+                var jsonString = await Signify_ts_shim.ContactsDelete(prefix);
+                if (jsonString is null) {
+                    return Result.Fail("DeleteContact returned null");
+                }
+                return Result.Ok();
+            } catch (Exception e) {
+                logger.LogWarning("DeleteContact: Exception: {e}", e);
+                return Result.Fail("DeleteContact: Exception: " + e);
+            }
+        }
+
+        // ===================== Registry and Additional Operations =====================
+
+        public async Task<Result<List<Dictionary<string, object>>>> ListRegistries(string name) {
+            try {
+                var jsonString = await Signify_ts_shim.RegistriesList(name);
+                if (jsonString is null) {
+                    return Result.Fail<List<Dictionary<string, object>>>("ListRegistries returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Dictionary<string, object>>>("Failed to deserialize Registries list");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("ListRegistries: Exception: {e}", e);
+                return Result.Fail<List<Dictionary<string, object>>>("ListRegistries: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Dictionary<string, object>>> CreateRegistry(string name, string registryName, int? toad = null, bool noBackers = false, List<string>? baks = null, string? nonce = null) {
+            try {
+                var args = new {
+                    name,
+                    registryName,
+                    toad,
+                    noBackers,
+                    baks,
+                    nonce
+                };
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.RegistriesCreate(argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("CreateRegistry returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize Registry creation result");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("CreateRegistry: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("CreateRegistry: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Dictionary<string, object>>> IssueCredential(string name, CredentialData args) {
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var jsonString = await Signify_ts_shim.CredentialsIssue(name, argsJson);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("IssueCredential returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize Credential issuance result");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("IssueCredential: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("IssueCredential: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Dictionary<string, object>>> RevokeCredential(string name, string said, string? datetime = null) {
+            try {
+                var jsonString = await Signify_ts_shim.CredentialsRevoke(name, said, datetime);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("RevokeCredential returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize Credential revocation result");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("RevokeCredential: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("RevokeCredential: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Dictionary<string, object>>> GetCredentialState(string ri, string said) {
+            try {
+                var jsonString = await Signify_ts_shim.CredentialsState(ri, said);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("GetCredentialState returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize Credential state");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("GetCredentialState: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("GetCredentialState: Exception: " + e);
+            }
+        }
+
+        public async Task<Result> DeleteCredential(string said) {
+            try {
+                var jsonString = await Signify_ts_shim.CredentialsDelete(said);
+                if (jsonString is null) {
+                    return Result.Fail("DeleteCredential returned null");
+                }
+                return Result.Ok();
+            } catch (Exception e) {
+                logger.LogWarning("DeleteCredential: Exception: {e}", e);
+                return Result.Fail("DeleteCredential: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Dictionary<string, object>>> GetSchema(string said) {
+            try {
+                var jsonString = await Signify_ts_shim.SchemasGet(said);
+                if (jsonString is null) {
+                    return Result.Fail<Dictionary<string, object>>("GetSchema returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Dictionary<string, object>>("Failed to deserialize Schema");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("GetSchema: Exception: {e}", e);
+                return Result.Fail<Dictionary<string, object>>("GetSchema: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<List<Dictionary<string, object>>>> ListSchemas() {
+            try {
+                var jsonString = await Signify_ts_shim.SchemasList();
+                if (jsonString is null) {
+                    return Result.Fail<List<Dictionary<string, object>>>("ListSchemas returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Dictionary<string, object>>>("Failed to deserialize Schemas list");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("ListSchemas: Exception: {e}", e);
+                return Result.Fail<List<Dictionary<string, object>>>("ListSchemas: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<List<Dictionary<string, object>>>> ListNotifications(int? start = null, int? endIndex = null) {
+            try {
+                var jsonString = await Signify_ts_shim.NotificationsList(start, endIndex);
+                if (jsonString is null) {
+                    return Result.Fail<List<Dictionary<string, object>>>("ListNotifications returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Dictionary<string, object>>>("Failed to deserialize Notifications list");
+                }
+                return Result.Ok(result);
+            } catch (Exception e) {
+                logger.LogWarning("ListNotifications: Exception: {e}", e);
+                return Result.Fail<List<Dictionary<string, object>>>("ListNotifications: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<string>> MarkNotification(string said) {
+            try {
+                var jsonString = await Signify_ts_shim.NotificationsMark(said);
+                if (jsonString is null) {
+                    return Result.Fail<string>("MarkNotification returned null");
+                }
+                return Result.Ok(jsonString);
+            } catch (Exception e) {
+                logger.LogWarning("MarkNotification: Exception: {e}", e);
+                return Result.Fail<string>("MarkNotification: Exception: " + e);
+            }
+        }
+
+        public async Task<Result> DeleteNotification(string said) {
+            try {
+                var jsonString = await Signify_ts_shim.NotificationsDelete(said);
+                if (jsonString is null) {
+                    return Result.Fail("DeleteNotification returned null");
+                }
+                return Result.Ok();
+            } catch (Exception e) {
+                logger.LogWarning("DeleteNotification: Exception: {e}", e);
+                return Result.Fail("DeleteNotification: Exception: " + e);
+            }
+        }
     }
 }
