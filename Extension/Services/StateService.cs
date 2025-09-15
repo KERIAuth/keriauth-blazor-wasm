@@ -47,7 +47,7 @@ public class StateService : IStateService {
         }
     }
 
-    public Result<bool> IsAuthenticated() {
+    public Result<bool> CheckAuthentication() {
         var isAuthenticated = stateMachine.IsInState(States.AuthenticatedDisconnected) || stateMachine.IsInState(States.AuthenticatedConnected);
         if (isAuthenticated) {
             return Result.Ok(true);

@@ -37,7 +37,7 @@
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
-    bool IsAuthenticated => stateService.IsAuthenticated().IsSuccess;
+    bool IsAuthenticated => stateService.CheckAuthentication().IsSuccess;
     string ActivePrefix => Prefs.SelectedPrefix;
     string ActivePrefixIdenticon => IdentifiersHeadlines.Find(x => x.Prefix == ActivePrefix)?.Identicon ?? "";
     string ActiveAlias => IdentifiersHeadlines.Find(x => x.Prefix == ActivePrefix)?.Alias ?? "";
