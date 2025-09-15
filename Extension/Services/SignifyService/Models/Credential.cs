@@ -1,8 +1,9 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Serialization;
+using Extension.Helper;
 
 namespace Extension.Services.SignifyService.Models {
-    public class CredentialSubject : Dictionary<string, object> {
+    public class CredentialSubject : KeriDictionary {
         [JsonPropertyName("i")]
         public string? I { get; init; }
 
@@ -95,7 +96,7 @@ namespace Extension.Services.SignifyService.Models {
     );
 
     public record CredentialFilter(
-        [property: JsonPropertyName("filter")] Dictionary<string, object> Filter,
+        [property: JsonPropertyName("filter")] KeriDictionary Filter,
         [property: JsonPropertyName("skip")] int? Skip = null,
         [property: JsonPropertyName("limit")] int? Limit = null
     );

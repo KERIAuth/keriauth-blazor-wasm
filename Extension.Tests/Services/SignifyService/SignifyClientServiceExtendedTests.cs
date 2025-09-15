@@ -469,7 +469,7 @@ public class SignifyClientServiceExtendedTests
             Recipient: "test-recipient", 
             SchemaSaid: "test-schema-said",
             Message: "test message",
-            Attributes: new Dictionary<string, object> { { "key", "value" } },
+            Attributes: new KeriDictionary { { "key", "value" } },
             Datetime: DateTime.UtcNow.ToString("O")
         );
 

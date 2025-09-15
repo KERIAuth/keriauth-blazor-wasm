@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Serialization;
+using Extension.Helper;
 
 namespace Extension.Services.SignifyService.Models {
     public record ExchangeMessage(
@@ -19,8 +20,8 @@ namespace Extension.Services.SignifyService.Models {
     public record ExchangeArgs(
         [property: JsonPropertyName("sender")] string Sender,
         [property: JsonPropertyName("route")] string Route,
-        [property: JsonPropertyName("payload")] Dictionary<string, object> Payload,
-        [property: JsonPropertyName("embeds")] Dictionary<string, object>? Embeds = null,
+        [property: JsonPropertyName("payload")] KeriDictionary Payload,
+        [property: JsonPropertyName("embeds")] KeriDictionary? Embeds = null,
         [property: JsonPropertyName("recipients")] List<string>? Recipients = null,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
@@ -38,8 +39,8 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("sender")] string Sender,
         [property: JsonPropertyName("recipients")] List<string> Recipients,
         [property: JsonPropertyName("topic")] string Topic,
-        [property: JsonPropertyName("payload")] Dictionary<string, object> Payload,
-        [property: JsonPropertyName("embeds")] Dictionary<string, object>? Embeds = null,
+        [property: JsonPropertyName("payload")] KeriDictionary Payload,
+        [property: JsonPropertyName("embeds")] KeriDictionary? Embeds = null,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 
@@ -47,7 +48,7 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("sender")] string Sender,
         [property: JsonPropertyName("recipient")] string Recipient,
         [property: JsonPropertyName("topic")] string Topic,
-        [property: JsonPropertyName("query")] Dictionary<string, object> Query,
+        [property: JsonPropertyName("query")] KeriDictionary Query,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 
@@ -55,7 +56,7 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("sender")] string Sender,
         [property: JsonPropertyName("recipient")] string Recipient,
         [property: JsonPropertyName("topic")] string Topic,
-        [property: JsonPropertyName("reply")] Dictionary<string, object> Reply,
+        [property: JsonPropertyName("reply")] KeriDictionary Reply,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 

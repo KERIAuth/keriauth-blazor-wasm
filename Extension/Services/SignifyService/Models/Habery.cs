@@ -14,11 +14,11 @@ namespace Extension.Services.SignifyService.Models {
     public record MakeHabArgs(
         [property: JsonPropertyName("code")] string? Code = null,
         [property: JsonPropertyName("transferable")] bool? Transferable = null,
-        [property: JsonPropertyName("isith")] object? Isith = null,
+        [property: JsonPropertyName("isith")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Isith = null,
         [property: JsonPropertyName("icount")] int? Icount = null,
-        [property: JsonPropertyName("nsith")] object? Nsith = null,
+        [property: JsonPropertyName("nsith")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Nsith = null,
         [property: JsonPropertyName("ncount")] int? Ncount = null,
-        [property: JsonPropertyName("toad")] object? Toad = null,
+        [property: JsonPropertyName("toad")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Toad = null,
         [property: JsonPropertyName("wits")] List<string>? Wits = null,
         [property: JsonPropertyName("delpre")] string? Delpre = null,
         [property: JsonPropertyName("estOnly")] bool? EstOnly = null,
@@ -53,9 +53,9 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("f")] string F,
         [property: JsonPropertyName("dt")] string Dt,
         [property: JsonPropertyName("et")] string Et,
-        [property: JsonPropertyName("kt")] object Kt,
+        [property: JsonPropertyName("kt")] [property: JsonConverter(typeof(ThresholdValueConverter))] ThresholdValue Kt,
         [property: JsonPropertyName("k")] List<string> K,
-        [property: JsonPropertyName("nt")] object Nt,
+        [property: JsonPropertyName("nt")] [property: JsonConverter(typeof(ThresholdValueConverter))] ThresholdValue Nt,
         [property: JsonPropertyName("n")] List<string> N,
         [property: JsonPropertyName("bt")] string Bt,
         [property: JsonPropertyName("b")] List<string> B,
@@ -73,9 +73,9 @@ namespace Extension.Services.SignifyService.Models {
 
     public record RotateArgs(
         [property: JsonPropertyName("transferable")] bool? Transferable = null,
-        [property: JsonPropertyName("nsith")] object? Nsith = null,
+        [property: JsonPropertyName("nsith")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Nsith = null,
         [property: JsonPropertyName("ncount")] int? Ncount = null,
-        [property: JsonPropertyName("toad")] object? Toad = null,
+        [property: JsonPropertyName("toad")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Toad = null,
         [property: JsonPropertyName("cuts")] List<string>? Cuts = null,
         [property: JsonPropertyName("adds")] List<string>? Adds = null,
         [property: JsonPropertyName("data")] object? Data = null

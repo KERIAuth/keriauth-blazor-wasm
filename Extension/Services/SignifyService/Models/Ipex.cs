@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Serialization;
+using Extension.Helper;
 
 namespace Extension.Services.SignifyService.Models {
     public record IpexApplyArgs(
@@ -7,7 +8,7 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("recipient")] string Recipient,
         [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
         [property: JsonPropertyName("message")] string? Message = null,
-        [property: JsonPropertyName("attributes")] Dictionary<string, object>? Attributes = null,
+        [property: JsonPropertyName("attributes")] KeriDictionary? Attributes = null,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 

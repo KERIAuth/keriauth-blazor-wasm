@@ -1,11 +1,12 @@
 ﻿using System.Text.Json.Serialization;
+using Extension.Helper;
 
 namespace Extension.Services.SignifyService.Models {
     public record Operation(
         [property: JsonPropertyName("name")] string Name,
         [property: JsonPropertyName("metadata")] OperationMetadata? Metadata = null,
         [property: JsonPropertyName("done")] bool? Done = null,
-        [property: JsonPropertyName("error")] object? Error = null,
+        [property: JsonPropertyName("error")] OperationError? Error = null,
         [property: JsonPropertyName("response")] object? Response = null
     );
 
@@ -13,11 +14,11 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("name")] string Name,
         [property: JsonPropertyName("metadata")] OperationMetadata? Metadata = null,
         [property: JsonPropertyName("done")] bool? Done = null,
-        [property: JsonPropertyName("error")] object? Error = null,
+        [property: JsonPropertyName("error")] OperationError? Error = null,
         [property: JsonPropertyName("response")] T? Response = default
     );
 
-    public class OperationMetadata : Dictionary<string, object> {
+    public class OperationMetadata : KeriDictionary {
         [JsonPropertyName("depends")]
         public Operation? Depends { get; init; }
 
@@ -39,7 +40,7 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("name")] string Name,
         [property: JsonPropertyName("done")] bool Done,
         [property: JsonPropertyName("error")] string? Error = null,
-        [property: JsonPropertyName("metadata")] Dictionary<string, object>? Metadata = null
+        [property: JsonPropertyName("metadata")] KeriDictionary? Metadata = null
     );
 
     public record OperationFilter(

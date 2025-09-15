@@ -90,7 +90,7 @@ namespace Extension.Services.SignifyService.Models {
     );
 
     public record Tholder(
-        [property: JsonPropertyName("thold")] object Thold,
+        [property: JsonPropertyName("thold")] [property: JsonConverter(typeof(ThresholdValueConverter))] ThresholdValue Thold,
         [property: JsonPropertyName("size")] int? Size = null,
         [property: JsonPropertyName("number")] int? Number = null,
         [property: JsonPropertyName("satisfy")] bool Satisfy = false,
