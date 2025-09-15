@@ -60,7 +60,7 @@
     string RequestId { get; set; } = "";
     string PayloadJson { get; set; } = "";
     Dictionary<string, string> HeadersDict { get; set; } = new();
-    Dictionary<string, object>? SelectedCredential;
+    RecursiveDictionary? SelectedCredential;
     bool IsDetailShown { get; set; }
     bool IsInitialized { get; set; }
     bool IsExpanded { get; set; }
@@ -69,7 +69,7 @@
     enum SignInMode { Credential, Identifier, Prompt }
     Preferences? Prefs { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
-    List<Dictionary<string, object>> credentials = new();
+    List<RecursiveDictionary> credentials = new();
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
     string SelectedPrefix { get; set; } = "unknown";
@@ -263,7 +263,7 @@
         }
         else
         {
-            credentials = res.Value as List<Dictionary<string, object>>;
+            credentials = res.Value;
             Debug.Assert(credentials is not null);
             logger.LogInformation("Credentials: count {res}", credentials.Count);
         }
@@ -439,7 +439,7 @@
     //
     //
     //
-    void SelectCredential(Dictionary<string, object> item)
+    void SelectCredential(RecursiveDictionary item)
     {
         if (SelectedCredential == item)
         {
@@ -455,7 +455,7 @@
     //
     //
     //
-    string GetCredentialItemClass(Dictionary<string, object> item)
+    string GetCredentialItemClass(RecursiveDictionary item)
     {
         return item == SelectedCredential ? "selected-item" : String.Empty;
     }

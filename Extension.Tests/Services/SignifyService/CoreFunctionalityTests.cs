@@ -1,4 +1,4 @@
-using Extension.Helper;
+﻿using Extension.Helper;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using FluentResults;
@@ -226,7 +226,7 @@ public class CoreFunctionalityTests
 
         // Assert
         Assert.IsType<Result>(healthResult);
-        Assert.IsType<Result<List<Dictionary<string, object>>>>(credentialsResult);
+        Assert.IsType<Result<List<RecursiveDictionary>>>(credentialsResult);
         Assert.IsType<Result<State>>(stateResult);
 
         // All results should have success/failure states

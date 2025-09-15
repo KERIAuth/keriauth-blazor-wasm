@@ -51,7 +51,7 @@
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string? SelectedPrefix { get; set; }
     string? SelectedAlias { get; set; }
-    Dictionary<string, object>? SelectedCredentialOrNothing { get; set; }
+    RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
 
     // reactive properties
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
@@ -197,7 +197,7 @@
                     return Result.Fail(error);
                 }
 
-                var selectedCredentialSaid = DictionaryConverter.GetValueByPath(SelectedCredentialOrNothing, "sad.d")?.Value as string; 
+                var selectedCredentialSaid = SelectedCredentialOrNothing?.GetValueByPath("sad.d")?.Value as string; 
                 if (selectedCredentialSaid is null)
                 {
                     var error = new ValidationError("Credential", "Credential SAID is missing");
@@ -206,9 +206,10 @@
                 }
 
                 var credentialDict = JsonSerializer.Deserialize<Dictionary<string, object>>(json); //, options);
+                var credentialRecursive = credentialDict != null ? RecursiveDictionary.FromObjectDictionary(credentialDict) : null;
 
-                logger.LogInformation("SignIn with Credential: {0}", credentialDict);
-                if (credentialDict is null || SelectedPrefix is null || SelectedAlias is null)
+                logger.LogInformation("SignIn with Credential: {0}", credentialRecursive);
+                if (credentialRecursive is null || SelectedPrefix is null || SelectedAlias is null)
                 {
                     var error = new ValidationError("Credential", "Credential data is incomplete");
                     snackbar.Add(error.Message, Severity.Error);
@@ -275,7 +276,7 @@
         }
     }
 
-    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, Dictionary<string, object>? selectedCredentialOrNothing) value)
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing) value)
     {
         logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;

@@ -20,12 +20,12 @@
     // properties
     IdentifierHeadline? SelectedIdentifierHeadline { get; set; }
     int NumWebsites { get; set; } = 0;
-    List<Dictionary<string, object>> Credentials = [];
+    List<RecursiveDictionary> Credentials = [];
 
     // reactive properties
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
 
-    List<Dictionary<string, object>> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
+    List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => Prefs.SelectedPrefix;
     string? SelectedIdenticon => SelectedIdentifierHeadline?.Identicon;
@@ -71,7 +71,7 @@
             }
             else
             {
-                Credentials = res.Value as List<Dictionary<string, object>>;
+                Credentials = res.Value;
             }
         }
     }

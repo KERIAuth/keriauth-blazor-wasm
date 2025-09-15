@@ -74,6 +74,23 @@ namespace Extension.Helper {
             
             current[keys[^1]] = value;
         }
+        
+        /// <summary>
+        /// Gets a value by dot-separated path and returns it as TypedValue for compatibility
+        /// </summary>
+        public TypedValue? GetValueByPath(string path) {
+            var recursiveValue = GetByPath(path);
+            if (recursiveValue == null) {
+                return null;
+            }
+            
+            var value = recursiveValue.Value;
+            if (value == null) {
+                return null;
+            }
+            
+            return new TypedValue(value, value.GetType());
+        }
     }
     
     /// <summary>
@@ -87,6 +104,11 @@ namespace Extension.Helper {
         public double? DoubleValue { get; set; }
         public List<RecursiveValue>? List { get; set; }
         public bool IsNull { get; set; }
+        
+        /// <summary>
+        /// Gets the actual value as an object for compatibility with TypedValue
+        /// </summary>
+        public object? Value => ToObject();
         
         /// <summary>
         /// Gets the type of value stored

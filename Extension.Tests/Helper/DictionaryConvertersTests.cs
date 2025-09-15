@@ -38,46 +38,47 @@ namespace Extension.Tests.Helper {
             }}";
 
             Dictionary<string, object> foo = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, _options) ?? [];
+            var recursiveFoo = RecursiveDictionary.FromObjectDictionary(foo);
 
             // Test id
-            var idTypedValue = DictionaryConverter.GetValueByPath(foo, "id");
+            var idTypedValue = recursiveFoo.GetValueByPath("id");
             Assert.NotNull(idTypedValue);
             Assert.Equal(typeof(long), idTypedValue.Type);
             Assert.Equal(1L, idTypedValue.Value);
 
             // Test name
-            var nameTypedValue = DictionaryConverter.GetValueByPath(foo, "name");
+            var nameTypedValue = recursiveFoo.GetValueByPath("name");
             Assert.NotNull(nameTypedValue);
             Assert.Equal(typeof(string), nameTypedValue.Type);
             Assert.Equal("Foo1", nameTypedValue.Value);
 
             // Test truthy
-            var truthyTypedValue = DictionaryConverter.GetValueByPath(foo, "truthy");
+            var truthyTypedValue = recursiveFoo.GetValueByPath("truthy");
             Assert.NotNull(truthyTypedValue);
             Assert.Equal(typeof(bool), truthyTypedValue.Type);
             Assert.True((bool)truthyTypedValue.Value);
 
             // Test falsy
-            var falsyTypedValue = DictionaryConverter.GetValueByPath(foo, "falsy");
+            var falsyTypedValue = recursiveFoo.GetValueByPath("falsy");
             Assert.NotNull(falsyTypedValue);
             Assert.Equal(typeof(bool), falsyTypedValue.Type);
             Assert.False((bool)falsyTypedValue.Value);
 
 
             // Test nested value
-            var nestedValueTypedValue = DictionaryConverter.GetValueByPath(foo, "nested.value");
+            var nestedValueTypedValue = recursiveFoo.GetValueByPath("nested.value");
             Assert.NotNull(nestedValueTypedValue);
             Assert.Equal(typeof(string), nestedValueTypedValue.Type);
             Assert.Equal("NestedValue1", nestedValueTypedValue.Value);
 
             // Test deep nested value
-            var deepNestedValueTypedValue = DictionaryConverter.GetValueByPath(foo, "nested.deepNested.anotherValue");
+            var deepNestedValueTypedValue = recursiveFoo.GetValueByPath("nested.deepNested.anotherValue");
             Assert.NotNull(deepNestedValueTypedValue);
             Assert.Equal(typeof(string), deepNestedValueTypedValue.Type);
             Assert.Equal("DeepNestedValue1", deepNestedValueTypedValue.Value);
 
             // Test collection
-            var collectionTypedValue = DictionaryConverter.GetValueByPath(foo, "nested.deepNested.collection");
+            var collectionTypedValue = recursiveFoo.GetValueByPath("nested.deepNested.collection");
             Assert.NotNull(collectionTypedValue);
             Assert.Equal(typeof(List<object>), collectionTypedValue.Type);
             var collection = collectionTypedValue.Value as List<object>;

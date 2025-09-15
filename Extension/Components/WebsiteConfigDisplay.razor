@@ -19,7 +19,7 @@
     [Parameter] public required bool IsCredentialShown { get; init; }
     [Parameter] public required bool IsOriginShown { get; init; }
     [Parameter] public required bool IsAutoSignShown { get; init; }
-    [Parameter] public EventCallback<(string? selectedPrefix, string? selectedAlias, Dictionary<string, object>? selectedCredential)> ValueChanged { get; init; }
+    [Parameter] public EventCallback<(string? selectedPrefix, string? selectedAlias, RecursiveDictionary? selectedCredential)> ValueChanged { get; init; }
 
     // properties
     bool IsCredListExpanded { get; set; }
@@ -27,13 +27,13 @@
     bool IsAutoSignInIdentifier { get; set; }
     string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
-    List<Dictionary<string, object>>? CredentialsDict { get; set; }
+    List<RecursiveDictionary>? CredentialsDict { get; set; }
 
     // reactive properties
     // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
-    Dictionary<string, object>? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
+    RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
-    List<Dictionary<string, object>> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<Dictionary<string, object>>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
+    List<RecursiveDictionary> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
     Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
@@ -157,26 +157,19 @@
 
     // TODO P2 DRY move this filterCredentials to a helper
     // TODO P2 Incorporate this use into the Credentials display to (checkbox) Show selected Identifier only, default true
-    public static List<Dictionary<string, object>> filterCredentials(List<Dictionary<string, object>> credentialDictList, List<(string filterPath, string match)> filters)
+    public static List<RecursiveDictionary> filterCredentials(List<RecursiveDictionary> credentialDictList, List<(string filterPath, string match)> filters)
     {
         if (!filters.Any())
         {
             throw new Exception("filterCredentials must have at least one filter string");
         }
-        List<Dictionary<string, object>> filteredCredentials = new();
+        List<RecursiveDictionary> filteredCredentials = new();
         foreach (var credDict in credentialDictList)
         {
             foreach (var filter in filters)
             {
-                // if (filters.All(filter => DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match))
-                // if (DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string == filter.match)
-                // {
-                //     filteredCredentials.Add(credDict);
-                //     break;
-                // }
-
                 // include filtered value if any of the filters match (versus all)
-                var value = DictionaryConverter.GetValueByPath(credDict, filter.filterPath)?.Value as string;
+                var value = credDict.GetValueByPath(filter.filterPath)?.Value as string;
                 if (value != null && value == filter.match)
                 {
                     filteredCredentials.Add(credDict);
@@ -223,7 +216,7 @@
         SelectedPrefix = prefix;
     }
 
-    async Task updateSelectedCredential(Dictionary<string, object>? newSelectedCredential)
+    async Task updateSelectedCredential(RecursiveDictionary? newSelectedCredential)
     {
         if (newSelectedCredential is null || !newSelectedCredential.Any())
         {
@@ -241,7 +234,7 @@
             return;
         }
 
-        var newCredSaidOrNothing = DictionaryConverter.GetValueByPath(newSelectedCredential, "sad.d")?.Value?.ToString() ?? null;
+        var newCredSaidOrNothing = newSelectedCredential.GetValueByPath("sad.d")?.Value?.ToString() ?? null;
         if (newCredSaidOrNothing is null)
         {
             string json = JsonConvert.SerializeObject(newSelectedCredential, Formatting.Indented);
@@ -283,7 +276,7 @@
         }
         else
         {
-            CredentialsDict = res.Value as List<Dictionary<string, object>>;
+            CredentialsDict = res.Value;
         }
         StateHasChanged();
     }
@@ -300,7 +293,7 @@
         StateHasChanged(); // needed?
     }
 
-    string getCredentialItemClass(Dictionary<string, object> item)
+    string getCredentialItemClass(RecursiveDictionary item)
     {
         return item == SelectedCredentialOrNothing ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1";
     }
@@ -377,8 +370,8 @@
                         {
                             if (FilteredCredentials is not null && FilteredCredentials.Any())
                             {
-                                <MudList Dense="true" T="Dictionary<string, object>">
-                                    @foreach (Dictionary<string, object> credential in FilteredCredentials)
+                                <MudList Dense="true" T="RecursiveDictionary">
+                                    @foreach (RecursiveDictionary credential in FilteredCredentials)
                                     {
                                         <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@getCredentialItemClass(credential)">
                                             <CredentialDisplay credential="@credential" />

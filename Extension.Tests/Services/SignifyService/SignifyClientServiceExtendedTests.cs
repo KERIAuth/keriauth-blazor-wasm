@@ -1,3 +1,4 @@
+using Extension.Helper;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using FluentResults;
@@ -87,7 +88,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<Dictionary<string, object>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<RecursiveDictionary>>), method.ReturnType);
         
         var parameters = method.GetParameters();
         Assert.Equal(2, parameters.Length);
@@ -106,7 +107,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<Dictionary<string, object>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<RecursiveDictionary>>), method.ReturnType);
         
         var parameters = method.GetParameters();
         Assert.Equal(2, parameters.Length);
@@ -157,7 +158,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<List<Dictionary<string, object>>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<List<RecursiveDictionary>>>), method.ReturnType);
         
         var parameters = method.GetParameters();
         Assert.Single(parameters);
@@ -175,7 +176,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<Dictionary<string, object>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<RecursiveDictionary>>), method.ReturnType);
         
         var parameters = method.GetParameters();
         Assert.Equal(6, parameters.Length);
@@ -242,7 +243,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<Dictionary<string, object>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<RecursiveDictionary>>), method.ReturnType);
     }
 
     [Fact]
@@ -294,7 +295,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<Dictionary<string, object>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<RecursiveDictionary>>), method.ReturnType);
         
         var parameters = method.GetParameters();
         Assert.Single(parameters);
@@ -312,7 +313,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<List<Dictionary<string, object>>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<List<RecursiveDictionary>>>), method.ReturnType);
         Assert.Empty(method.GetParameters());
     }
 
@@ -329,7 +330,7 @@ public class SignifyClientServiceExtendedTests
 
         // Assert
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task<Result<List<Dictionary<string, object>>>>), method.ReturnType);
+        Assert.Equal(typeof(Task<Result<List<RecursiveDictionary>>>), method.ReturnType);
         
         var parameters = method.GetParameters();
         Assert.Equal(2, parameters.Length);

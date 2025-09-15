@@ -71,9 +71,10 @@ namespace Extension.Tests.Helper {
                     ["zip"] = 10001
                 }
             };
+            var recursiveDict = RecursiveDictionary.FromObjectDictionary(dictionary);
 
             // Act
-            var result = DictionaryConverter.GetValueByPath(dictionary, "address.city");
+            var result = recursiveDict.GetValueByPath("address.city");
 
             // Assert
             Assert.NotNull(result);
@@ -90,9 +91,10 @@ namespace Extension.Tests.Helper {
                     ["city"] = "New York"
                 }
             };
+            var recursiveDict = RecursiveDictionary.FromObjectDictionary(dictionary);
 
             // Act
-            var result = DictionaryConverter.GetValueByPath(dictionary, "address.street");
+            var result = recursiveDict.GetValueByPath("address.street");
 
             // Assert
             Assert.Null(result);

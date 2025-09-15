@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Extension.Helper {
@@ -8,6 +7,17 @@ namespace Extension.Helper {
         public Type Type { get; set; } = type;
     }
 
+    /// <summary>
+    /// JSON converter for Dictionary&lt;string, object&gt; used at the interop boundary with signify-ts.
+    /// For internal credential processing, use RecursiveDictionary which preserves field order.
+    /// 
+    /// Responsibilities:
+    /// - Deserialize JSON from signify-ts into Dictionary&lt;string, object&gt;
+    /// - Provide backward compatibility for tests
+    /// - Handle the interop boundary where field order may not be preserved
+    /// 
+    /// For new code working with credentials, use RecursiveDictionary directly.
+    /// </summary>
     public class DictionaryConverter : JsonConverter<Dictionary<string, object>> {
         public override Dictionary<string, object> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
             if (reader.TokenType != JsonTokenType.StartObject) {
@@ -63,22 +73,6 @@ namespace Extension.Helper {
             }
         }
 
-        public static TypedValue? GetValueByPath(Dictionary<string, object> dictionary, string path) {
-            string[] keys = path.Split('.');
-            object current = dictionary;
-
-            foreach (var key in keys) {
-                if (current is Dictionary<string, object> currentDict && currentDict.TryGetValue(key, out var value)) {
-                    current = value;
-                }
-                else {
-                    return null;
-                }
-            }
-
-            Debug.Assert(current is not null);
-            return new TypedValue(current, current.GetType());
-        }
 
         public override void Write(Utf8JsonWriter writer, Dictionary<string, object> value, JsonSerializerOptions options) {
             throw new NotImplementedException();
