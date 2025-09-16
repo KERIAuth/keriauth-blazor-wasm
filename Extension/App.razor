@@ -93,7 +93,7 @@
             case (_, IStateService.States.AuthenticatedConnected):
             case (_, _):
                 _logger.LogInformation($"From state {CurrentState} to {updatedState}");
-                StateHasChanged();
+                // TODO P1 StateHasChanged();  We do not want cascading updates?
                 break;
         }
     }
@@ -121,7 +121,7 @@
     async Task HandleNextFromPreferencesService(Preferences value)
     {
         Prefs = value;
-        // StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
+        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)

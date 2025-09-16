@@ -18,8 +18,9 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @code {
-    // [CascadingParameter]
-    // public Preferences Prefs { get; set; } = new Preferences();
+    // CascadingParameters will also update from App's StateHasChanged(), triggering OnParametersAsync()
+    [CascadingParameter]
+    public Preferences Prefs { get; set; } = new Preferences();
 
     // fields...
     static public IJSObjectReference? utilModule;
@@ -38,7 +39,7 @@
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
     bool IsAuthenticated => stateService.CheckAuthentication().IsSuccess;
-    string ActivePrefix => App.Prefs.SelectedPrefix;
+    string ActivePrefix => Prefs.SelectedPrefix;
     string ActivePrefixIdenticon => IdentifiersHeadlines.Find(x => x.Prefix == ActivePrefix)?.Identicon ?? "";
     string ActiveAlias => IdentifiersHeadlines.Find(x => x.Prefix == ActivePrefix)?.Alias ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix) || !IsAuthenticated);
@@ -106,13 +107,13 @@
         ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
         {
             ExtensionEnvironment.Iframe or ExtensionEnvironment.BrowserPopup or ExtensionEnvironment.ActionPopup
-                => App.Prefs.DrawerVariantInPopup,
+                => Prefs.DrawerVariantInPopup,
             ExtensionEnvironment.None or ExtensionEnvironment.Extension or _
-                => App.Prefs.DrawerVariantInTab
+                => Prefs.DrawerVariantInTab
         };
         IsMenuDrawerOpen = ActiveDrawerVariant switch
         {
-            DrawerVariant.Persistent => App.Prefs.IsPersistentDrawerOpen,
+            DrawerVariant.Persistent => Prefs.IsPersistentDrawerOpen,
             _ => false
         };
 
@@ -134,7 +135,7 @@
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = prefix });
+        await preferencesService.SetPreferences(Prefs with { SelectedPrefix = prefix });
     }
 
     async Task ClickToggleProfilePanel(MouseEventArgs _)
@@ -150,7 +151,7 @@
     async Task ToggleMenuDrawer()
     {
         IsMenuDrawerOpen = !IsMenuDrawerOpen;
-        var newPrefs = App.Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
+        var newPrefs = Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
         await preferencesService.SetPreferences(newPrefs);
     }
 
