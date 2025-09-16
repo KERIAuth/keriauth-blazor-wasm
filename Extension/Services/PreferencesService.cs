@@ -55,15 +55,16 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     }
 
     public async Task SetPreferences(Preferences preferences) {
+        logger.LogInformation("SetPreferences...");
         await storageService.SetItem<Preferences>(preferences);
 
         // since we also use InactivityTimeoutMinutes very frequently, we also want this in fast session storage
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        
         var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", preferences.InactivityTimeoutMinutes } };
-        await webExtensionsApi.Storage.Session.Set(data);
+        await webExtensionsApi!.Storage.Session.Set(data);
         // and reset the current inactivityTimeout to immediately pick up the new value, which might be shorter than the currently active one
-        await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
-
+        // TODO P1 await webExtensionsApi!.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+        logger.LogInformation("SetPreferences done");
         return;
     }
 

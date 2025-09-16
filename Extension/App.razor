@@ -67,9 +67,8 @@
         // Initialize messaging with service worker
         await appSwMessagingService.Initialize(InitialUri.Authority);
 
-        await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
-
-        await jsRuntime.InvokeVoidAsync("registerLockListener");
+        // TODO P1 (for inactivity timer)  await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
+        // TODO P1 await jsRuntime.InvokeVoidAsync("registerLockListener");
 
         // TODO P4 await jsRuntime.InvokeVoidAsync("setUpUnloadListener");
 
@@ -122,7 +121,7 @@
     async Task HandleNextFromPreferencesService(Preferences value)
     {
         Prefs = value;
-        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
+        // StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
     }
 
     async Task HandleErrorFromPreferencesService(Exception error)

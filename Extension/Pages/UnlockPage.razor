@@ -244,7 +244,7 @@
         if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
         {
             await webExtensionsApi.Storage.Session.Set(new { passcode = password });
-            await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+            // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
             await stateService.Authenticate(false);
             // logger.LogWarning("returned from Authenticate. pausing...");
             var connectRes = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);

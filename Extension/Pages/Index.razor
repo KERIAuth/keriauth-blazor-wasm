@@ -180,7 +180,7 @@
                     if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
                     {
                         logger.LogInformation("attempting to Authenticate with cached passcode...");
-                        await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+                        // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
 
                         // TODO P2 refactor this section onto the ConnectingPage?  RouteToConnecting, so the extension without a KERIA connection might still be useful
                         // And/or, show the status text on this page instead of simple spinner. Also, the mainlayout "link" icon should be set?

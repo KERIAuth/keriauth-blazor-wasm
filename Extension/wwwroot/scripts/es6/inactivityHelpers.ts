@@ -8,7 +8,9 @@ function subscribeToUserInteractions() : void {
     document.addEventListener('keydown', resetInactivityTimer);
 }
 
-function resetInactivityTimer() : void {
+function resetInactivityTimer(): void {
+    // TODO P1
+    /*
     // console.log("resetInactivityTimer inactivityHelper");
     chrome.runtime.sendMessage({ action: 'resetInactivityTimer' })
         .then(() => {
@@ -19,6 +21,7 @@ function resetInactivityTimer() : void {
             // Handle error silently - the service worker might not be available
             console.warn('Failed to reset inactivity timer:', error);
         });
+        */
 }
 
 function registerLockListener() : void {
