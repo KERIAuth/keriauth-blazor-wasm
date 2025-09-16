@@ -34,7 +34,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     [BackgroundWorkerMain]
     public override void Main() {
-        _logger.LogTrace("Worker started at {time}", DateTimeOffset.UtcNow);
         _logger.LogInformation("Worker started at {time}", DateTimeOffset.UtcNow);
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalled);
     }
@@ -49,10 +48,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         if (tab is not null) {
             tab.Active = true;
         } else {
-#pragma warning disable CA2201 // Do not raise reserved exception types
-            throw new ApplicationException("indexPageUrl");
-#pragma warning restore CA2201 // Do not raise reserved exception types
-                              // _logger.LogWarning("could not create index page");
+            throw new ArgumentException("indexPageUrl");
         }
     }
 
@@ -304,11 +300,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task HandleInstallAsync() {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleInstallAsync...");
-
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=install";
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"Would create install tab: {installUrl}");
-            _logger.LogInformation("Install handled");
+            var cp = new WebExtensions.Net.Tabs.CreateProperties {
+                Url = installUrl
+            };
+            var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling install");
@@ -318,7 +314,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task HandleUpdateAsync(Dictionary<string, JsonElement> details) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleUpdateAsync...");
+     
             var previousVersion = details.TryGetValue("previousVersion", out var prevElement)
                 ? prevElement.GetString() ?? "unknown"
                 : "unknown";
@@ -341,11 +337,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 Timestamp = DateTime.UtcNow.ToString("O")
             };
 
-            // Store update details using the storage service
-            var result = await _storageService.SetItem(updateDetails);
-            if (result.IsFailed) {
-                var errorMessage = result.Errors.Count > 0 ? result.Errors[0].Message : "Unknown error";
-                _logger.LogWarning("Failed to store update details: {Error}", errorMessage);
+            try {
+                var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=update";
+                var cp = new WebExtensions.Net.Tabs.CreateProperties {
+                    Url = updateUrl
+                };
+                var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error handling update launch");
+                throw;
             }
         }
         catch (Exception ex) {
@@ -456,9 +457,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task CreateExtensionTabAsync() {
         try {
-            var tabUrl = _webExtensionsApi.Runtime.GetURL("Pages/index.html") + "?environment=tab";
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"Would create extension tab: {tabUrl}");
-            _logger.LogDebug("Extension tab creation logged");
+            var tabUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab";
+            var cp = new WebExtensions.Net.Tabs.CreateProperties {
+                Url = tabUrl
+            };
+            var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error creating extension tab");

@@ -35,12 +35,14 @@
 
     private async Task CopyToClipboard2(string content)
     {
-        await UIHelper.Copy2Clipboard(content);
+        // TODO P1 Add Copy2Clipboard
+        // await UIHelper.Copy2Clipboard(content);
     }
 
     private async Task Reveal(IEnumerable<string> content)
     {
         var newstring = string.Join(" ", content);
-        await UIHelper.Copy2Clipboard(newstring);
+        // TODO P1 Add Copy2Clipboard
+        // await UIHelper.Copy2Clipboard(newstring);
     }
 }

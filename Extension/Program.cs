@@ -55,6 +55,7 @@ logger.LogInformation("WASM host built");
 
 // Import JS modules for use in C# classes
 Debug.Assert(OperatingSystem.IsBrowser());
+
 try {
     // Adding imports of modules here for use via [JSImport] attributes in C# classes
     List<(string, string)> imports = [
@@ -80,6 +81,7 @@ catch (Exception e) {
     logger.LogError("Program: Initialize: Exception: {e}", e);
     return;
 }
+
 
 logger.LogInformation("Running WASM Host...");
 

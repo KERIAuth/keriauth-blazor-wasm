@@ -232,7 +232,7 @@
         {
             await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
             // await Task.Delay(300000); // Uncomment for debugging, so you can inspect console output before app is closed
-            UIHelper.CloseWindow();
+            //            UIHelper.CloseWindow();
             return Result.Ok();
         }
         catch (Exception ex)
@@ -251,7 +251,7 @@
         );
         await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr);
         // Close blazor application
-        UIHelper.CloseWindow();
+        //        UIHelper.CloseWindow();
     }
 
     public void Dispose()
