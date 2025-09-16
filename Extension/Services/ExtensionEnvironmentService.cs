@@ -20,6 +20,11 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     public string? InitialUriQuery { get; private set; }
 
     /// <inheritdoc />
+    // TODO P2 Refactor this out completely, and use something like:
+    //       webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+    //    var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
+    // logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(contextFilter));
+
     public async Task Initialize(Uri uri, string contextType) {
         logger.LogInformation("Initialize with uri {uri}", uri);
         var query = uri.Query;

@@ -19,7 +19,6 @@
 
 @code {
     // fields
-    bool isValid;
     MudForm? form;
     string[] errors = { };
     PasscodeModel unlockPasscodeModel = new PasscodeModel();
@@ -58,7 +57,7 @@
 
         // provenance
         "provenance matters",
-        "rooted in trust",
+        "credentials rooted in trust",
 
         // architecture
         "zero trust architecture",
@@ -68,8 +67,7 @@
         "organizational identity",
 
         // trust
-        "trusted interactions",
-        "trusted by design",
+        "trustworty interactions",
         "trusted & verifiable",
         "trusted digital identity",
         "trustworthy and secure",
@@ -86,6 +84,7 @@
 
     // properties
     RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
+    bool isValid { get; set; }
 
     // reactive properties
     string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
@@ -177,7 +176,7 @@
 
     async Task SelectAllText()
     {
-        await Task.Delay(1); // minor delay to ensure the focus event completes
+        await Task.Delay(100); // minor delay to ensure the focus event completes
         if (passcodeField is not null)
             await passcodeField.SelectAsync();
     }
@@ -218,6 +217,7 @@
 
     async Task UnlockWithPasscode(string password)
     {
+        logger.LogInformation("UnlockWithPasscode...");
         var currentState = stateService.GetState();
         if (currentState != IStateService.States.Unauthenticated)
         {
@@ -235,7 +235,7 @@
             return;
         }
         if (keriaConnectConfig is null
-            || !keriaConnectConfig.ValidateConfiguration().IsSuccess
+            || keriaConnectConfig.ValidateConfiguration().IsFailed
             || keriaConnectConfig.AdminUrl is null)
         {
             throw new InvalidOperationException("KeriaConnectConfig not configured");

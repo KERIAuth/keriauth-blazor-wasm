@@ -127,7 +127,7 @@ const validateClient = (): Promise<SignifyClient> => {
 export const getState = async (): Promise<string> => {
     const c = await validateClient();
     // TODO P0 the following exposes the keys in the console log!
-    console.error('signify_ts_shim: validateClient: ', c);
+    console.warn('signify_ts_shim: validateClient: ', c);
     const s = await c.state();
     console.log('getState Client AID Prefix: ', s.controller.state.i);
     console.log('getState Agent AID Prefix:   ', s.agent.i);

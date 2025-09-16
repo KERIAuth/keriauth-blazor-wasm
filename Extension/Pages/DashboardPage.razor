@@ -11,9 +11,6 @@
 
 
 @code {
-    [CascadingParameter]
-    public Preferences Prefs { get; set; } = new Preferences();
-
     // fields
     int identifiersCount = 0;
 
@@ -25,9 +22,9 @@
     // reactive properties
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
 
-    List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
+    List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", App.Prefs.SelectedPrefix), ("sad.i", App.Prefs.SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
-    string SelectedPrefix => Prefs.SelectedPrefix;
+    string SelectedPrefix => App.Prefs.SelectedPrefix;
     string? SelectedIdenticon => SelectedIdentifierHeadline?.Identicon;
     string SelectedAlias => SelectedIdentifierHeadline?.Alias ?? "";
 
@@ -55,7 +52,7 @@
 
         // Handle effects of value of Prefs updates
         var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
-        if (identifierHeadlinesRes is not null && identifierHeadlinesRes.IsSuccess)
+        if (identifierHeadlinesRes is not null && identifierHeadlinesRes.IsSuccess && SelectedPrefix != string.Empty)
         {
             SelectedIdentifierHeadline = identifierHeadlinesRes.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedPrefix).First();
         }
@@ -124,7 +121,7 @@
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row Style="align-items:center;">
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier + Prefs.SelectedPrefix)">Selected Identifier</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier + App.Prefs.SelectedPrefix)">Selected Identifier</MudLink>
                         </MudText>
                         <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:38px;">
                             @if (!string.IsNullOrEmpty(SelectedIdenticon))

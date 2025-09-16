@@ -17,7 +17,6 @@ namespace Extension.Services {
                 if (_interopModule != null) {
                     logger.LogInformation("JS module SwAppInterop.js import was successful.");
                     // await jsRuntime.InvokeVoidAsync("console.log", "test log");
-
                     _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
                 }
             }

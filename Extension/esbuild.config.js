@@ -52,17 +52,18 @@ const builds = [
         name: 'ContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js'
-    },
-    {
-        name: 'BackgroundWorker',
-        entryPoints: ['wwwroot/scripts/esbuild/BackgroundWorker.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/BackgroundWorker.js',
-        plugins: [
-            alias({
-                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
-            })
-        ]
     }
+    //,
+    //{
+    //    name: 'BackgroundWorker',
+    //    entryPoints: ['wwwroot/scripts/esbuild/BackgroundWorker.ts'],
+    //    outfile: 'dist/wwwroot/scripts/esbuild/BackgroundWorker.js',
+    //    plugins: [
+    //        alias({
+    //            '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
+    //        })
+    //    ]
+    //}
 ];
 
 async function buildAll() {

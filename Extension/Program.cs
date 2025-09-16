@@ -1,4 +1,5 @@
-﻿using Extension;
+﻿using Blazor.BrowserExtension;
+using Extension;
 using Extension.Services;
 using Extension.Services.SignifyService;
 using Microsoft.AspNetCore.Components.Web;
@@ -7,18 +8,30 @@ using MudBlazor.Services;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
 
-// note Program and Main are implicit and static
+// Program and Main are implicit and static
 
-// Intentionally using Console.WriteLine herein since ILogger isn't yet easy to inject
-Console.WriteLine("Program: started");
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.Configuration.AddJsonFile("./appsettings.json", optional: false, reloadOnChange: true);
 builder.Logging.AddConfiguration(
     builder.Configuration.GetSection("Logging")
 );
+
 builder.UseBrowserExtension(browserExtension => {
-    builder.RootComponents.Add<App>("#app");
-    builder.RootComponents.Add<HeadOutlet>("head::after");
+    switch (browserExtension.Mode) {
+        case BrowserExtensionMode.ContentScript:
+            // Note: not implemented
+            // builder.RootComponents.Add<ContentScript>("#Sample_Messaging_app");
+            break;
+        case BrowserExtensionMode.Background:
+            builder.RootComponents.AddBackgroundWorker<BackgroundWorker>();
+            break;
+        case BrowserExtensionMode.Standard:
+        case BrowserExtensionMode.Debug:
+        default:
+            builder.RootComponents.Add<App>("#app");
+            builder.RootComponents.Add<HeadOutlet>("head::after");
+            break;
+    }
 });
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
@@ -34,7 +47,6 @@ builder.Services.AddSingleton<IdentifiersService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 builder.Services.AddSingleton<IAppSwMessagingService, AppSwMessagingService>();
 builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
-builder.Services.AddSingleton<BackgroundWorker>();
 
 var host = builder.Build();
 

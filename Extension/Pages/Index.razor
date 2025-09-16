@@ -38,14 +38,13 @@
     const string termsUrlPath = "content/terms.html";
     const string privacyUrlPath = "content/privacy.html";
 
-
-
     protected override async Task OnInitializedAsync()
     {
         // IsLoading = true;
-        logger.LogInformation($"OnInitializedAsync");
+        // logger.LogInformation($"OnInitializedAsync");
 
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(new ContextFilter()));
 
         // Get and handle OnboardState
         var res = await storageService.GetItem<OnboardState>();
@@ -63,7 +62,6 @@
 
         // Get version info from Manifest file
         // TODO P2 Refactor some of this and similar in Mainlayout into App, and pass into Layouts or Pages needing this as parameters
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
         var CurrentVersion = "";
         if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)

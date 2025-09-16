@@ -18,8 +18,8 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @code {
-    [CascadingParameter]
-    public Preferences Prefs { get; set; } = new Preferences();
+    // [CascadingParameter]
+    // public Preferences Prefs { get; set; } = new Preferences();
 
     // fields...
     static public IJSObjectReference? utilModule;
@@ -38,10 +38,10 @@
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
     bool IsAuthenticated => stateService.CheckAuthentication().IsSuccess;
-    string ActivePrefix => Prefs.SelectedPrefix;
+    string ActivePrefix => App.Prefs.SelectedPrefix;
     string ActivePrefixIdenticon => IdentifiersHeadlines.Find(x => x.Prefix == ActivePrefix)?.Identicon ?? "";
     string ActiveAlias => IdentifiersHeadlines.Find(x => x.Prefix == ActivePrefix)?.Alias ?? "";
-    bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix) || stateService.GetState() == IStateService.States.Unauthenticated);
+    bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix) || !IsAuthenticated);
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
@@ -58,14 +58,15 @@
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        // Set properties affecting UI layout depending on the hosting environment
-        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
-        logger.LogInformation("OnInitializedAsync env: {env}", extensionEnvironmentService.ExtensionEnvironment.ToString());
-
-        // TODO P3 DRY with this in other locations including Index, NewReleasePage. Move to App.
-        // Get version info from Manifest file
+        // TODO P2 DRY with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+
+        var contextFilter = new ContextFilter(){ ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
+        logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(contextFilter));
+
+        // Get version info from Manifest file
         var extensionId = webExtensionsApi.Runtime.Id;
+
         var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
         if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
         {
@@ -80,7 +81,7 @@
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
-        // logger.LogInformation("OnParametersSetAsync");
+        logger.LogInformation("OnParametersSetAsync");
 
         switch (stateService.GetState())
         {
@@ -105,13 +106,13 @@
         ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
         {
             ExtensionEnvironment.Iframe or ExtensionEnvironment.BrowserPopup or ExtensionEnvironment.ActionPopup
-                => Prefs.DrawerVariantInPopup,
+                => App.Prefs.DrawerVariantInPopup,
             ExtensionEnvironment.None or ExtensionEnvironment.Extension or _
-                => Prefs.DrawerVariantInTab
+                => App.Prefs.DrawerVariantInTab
         };
         IsMenuDrawerOpen = ActiveDrawerVariant switch
         {
-            DrawerVariant.Persistent => Prefs.IsPersistentDrawerOpen,
+            DrawerVariant.Persistent => App.Prefs.IsPersistentDrawerOpen,
             _ => false
         };
 
@@ -124,16 +125,9 @@
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        // await base.OnAfterRenderAsync(firstRender);
-        // logger.LogInformation("OnAfterRenderAsync");
-    }
-
     async Task OpenTabAndClosePopUp()
     {
         await UIHelper.NewTabAndClosePopup();
-        // await Task.Delay(8000);  // TODO P2 this will go out of scope when the popup closes.  This is a temporary workaround.
         return;
     }
 
@@ -156,7 +150,7 @@
     async Task ToggleMenuDrawer()
     {
         IsMenuDrawerOpen = !IsMenuDrawerOpen;
-        var newPrefs = Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
+        var newPrefs = App.Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
         await preferencesService.SetPreferences(newPrefs);
     }
 
@@ -168,7 +162,7 @@
 }
 
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="Prefs.IsDarkTheme" />
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="App.Prefs.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
@@ -262,9 +256,9 @@
     </MudAppBar>
 
     <!-- MENU DRAWER AND MAIN CONTENT -->
-    @{
+    @*
         // TODO P3 the linear gradient background experiment below should either eliminated or make visually good and depending on IsDarkTheme setting
-    }
+    *@
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
         <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">

@@ -32,6 +32,7 @@
     <TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
     <DefineConstants>ASSERTIONS</DefineConstants>
     <NoWarn>1998</NoWarn>
+	<NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <!-- Debug-Specific Properties -->

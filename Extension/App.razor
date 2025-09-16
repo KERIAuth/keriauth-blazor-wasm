@@ -5,7 +5,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime jsRuntime
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject ILogger<App> logger
+@inject ILogger<App> _logger
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
@@ -30,16 +30,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        logger.LogInformation($"OnInitializedAsync");
+        _logger.LogInformation($"OnInitializedAsync");
         // TODO P2 hack. Instead, create a StaticHelper static class that has injected methods
         staticStateService = stateService;
         staticNavManager = navManager;
-        staticLogger = logger;
+        staticLogger = _logger;
 
         // Initialize services as needed
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
         var contexts = await UIHelper.GetChromeContexts();
-        logger.LogInformation($"Chrome Contexts: {contexts}");
+        _logger.LogInformation($"Chrome Contexts: {contexts}");
         await extensionEnvironmentService.Initialize(InitialUri, "unknown");
         await storageService.Initialize();
         await stateService.Initialize();
@@ -61,7 +61,7 @@
         // Subscribe to and handle messages from service worker via messaging service
         appSwMessagingService.Subscribe<string>((message) =>
         {
-            logger.LogInformation("App from SW/MessagingService: {m}", message);
+            _logger.LogInformation("App from SW/MessagingService: {m}", message);
         });
 
         // Initialize messaging with service worker
@@ -87,12 +87,13 @@
             case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
             case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
                 StateHasChanged();
-                logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
+                _logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
                 navManager.NavigateTo(RouteToIndex);
                 break;
             case (_, IStateService.States.AuthenticatedDisconnected):
             case (_, IStateService.States.AuthenticatedConnected):
             case (_, _):
+                _logger.LogInformation($"From state {CurrentState} to {updatedState}");
                 StateHasChanged();
                 break;
         }
@@ -100,12 +101,12 @@
 
     async Task HandleErrorFromStateService(Exception error)
     {
-        logger.LogError("Error from stateService: " + error.Message);
+        _logger.LogError("Error from stateService: " + error.Message);
     }
 
     async Task HandleCompletedFromStateService()
     {
-        logger.LogInformation("Completed from stateService");
+        _logger.LogInformation("Completed from stateService");
     }
 
     public async Task ToggleDarkTheme()
@@ -126,12 +127,12 @@
 
     async Task HandleErrorFromPreferencesService(Exception error)
     {
-        logger.LogError("Error from PreferencesService: " + error.Message);
+        _logger.LogError("Error from PreferencesService: " + error.Message);
     }
 
     async Task HandleCompletedFromPreferencesService()
     {
-        logger.LogInformation("Completed from PreferencesService");
+        _logger.LogInformation("Completed from PreferencesService");
     }
 
     [JSInvokableAttribute("LockApp")]
@@ -150,7 +151,7 @@
 
 <PageTitle>KERI Auth</PageTitle>
 <CascadingValue Value="Prefs">
-    <Router AppAssembly="@typeof(App).Assembly">
+    <Router AppAssembly="@typeof(Program).Assembly">
         <Found Context="routeData">
             <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
         </Found>

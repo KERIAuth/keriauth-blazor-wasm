@@ -243,6 +243,8 @@
         StateHasChanged();
         await Task.Delay(100);
 
+        logger.LogWarning("ConnectToKeria 2");
+
         // If there are no Identifiers, create one
         var prefs = await preferencesService.GetPreferences();
         if (identifiers.Aids.Count == 0)
@@ -257,37 +259,41 @@
                 return Result.Fail<KeriaConnectionInfo>(aidRes.Errors);
             }
             // set the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
-            await preferencesService.SetPreferences(prefs with { SelectedPrefix = aidRes.Value });
+            // TODO P0  await preferencesService.SetPreferences(prefs with { SelectedPrefix = aidRes.Value });
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
         }
         else
         {
             // we don't need to create another AID, but still pick a default one
-            await preferencesService.SetPreferences(prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
+            // TODO P0  await preferencesService.SetPreferences(prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
         }
+        logger.LogWarning("ConnectToKeria 3");
         if (nextButton is not null)
             await nextButton.FocusAsync();
+        logger.LogWarning("ConnectToKeria 4");
         return Result.Ok(new KeriaConnectionInfo(KeriaConnectConfig!, identifiers));
     }
 
     async Task StoreHashAndConnect()
     {
+        logger.LogInformation("StoreHashAndConnect...");
         // Since user has confirmed the passcode, we can now hash it and store it once the connection is successful
         IsProcessing = true;
         StateHasChanged();
         var connectionResult = await ConnectToKeria();
+        logger.LogWarning("tmp finished ConnectoToKeria");
         if (connectionResult.IsSuccess)
         {
             IsConnected = true;
             var connectionInfo = connectionResult.Value;
             KeriaConnectConfig = connectionInfo.Config;
-            
+
             // TODO P1 should KeriaConnectConfig should be stored in chrome.storage.sync? Multiple changes required.
-            var res = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
-            if (res.IsFailed)
+            var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
+            if (storeConfigResult.IsFailed)
             {
                 logger.LogError("Failed to store connection details");
-                logger.LogError(res.Reasons.First().Message);
+                logger.LogError(storeConfigResult.Reasons.First().Message);
                 snackbar.Add("Failed to store connection configuration", Severity.Error);
                 return;
             }
@@ -305,14 +311,17 @@
                 snackbar.Add("Failed to authenticate", Severity.Error);
                 return;
             }
+            logger.LogInformation("StoreHashAndConnect succeeded");
             StateHasChanged();
             return;
         }
         else
         {
             IsConnected = false;
-            var error = connectionResult.Errors.FirstOrDefault();
-            snackbar.Add($"Failed to connect: {error?.Message ?? "Unknown error"}", Severity.Warning);
+            var error = connectionResult.Errors[0];
+            var errorMsg = $"Failed to connect: {error?.Message ?? "Unknown error"}";
+            logger.LogWarning(errorMsg);
+            snackbar.Add(errorMsg, Severity.Warning);
             return;
         }
     }

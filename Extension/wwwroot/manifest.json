@@ -9,7 +9,7 @@
   },
   "author": "https://keriauth.com",
   "background": {
-    "service_worker": "content/Blazor.BrowserExtension/BackgroundWorkerRunner.js",
+    "service_worker": "content/BackgroundWorker.js",
     "type": "module"
   },
   "content_scripts": [
