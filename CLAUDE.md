@@ -195,6 +195,8 @@ dotnet publish -c Release
 
 ## TypeScript Coding Guidelines
 
+**IMPORTANT: Always prefer TypeScript over JavaScript for new code.** All new browser extension scripts, modules, and interop files should be written in TypeScript (.ts) rather than JavaScript (.js). TypeScript provides better type safety, IntelliSense support, and maintainability.
+
 ### Code Style Guidelines
 - Use strong types - define interfaces/types for all data structures
 - Avoid use of "any" type where possible - use "unknown" if type is truly dynamic

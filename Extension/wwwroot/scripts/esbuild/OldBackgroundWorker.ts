@@ -48,69 +48,8 @@ chrome.runtime.onConnect.addListener(async (connectedPort: chrome.runtime.Port):
     await handleOnConnect(connectedPort);
 });
 
-// Handle messages from app (other than via port)
-chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
-    // Default inactivity timeout
-    let inactivityTimeoutMinutes = 5.0;
-    switch (message.action) {
-        case 'resetInactivityTimer':
-            // Get the user setting from session storage
-            chrome.storage.session.get(['inactivityTimeoutMinutes'], (result) => {
-                if (result.inactivityTimeoutMinutes !== undefined) {
-                    const timeout = parseFloat(result.inactivityTimeoutMinutes);
-                    if (!isNaN(timeout)) {
-                        inactivityTimeoutMinutes = timeout;
-                    }
-                }
-
-                // Clear existing alarm and set a new one
-                chrome.alarms.clear(ENUMS.InactivityAlarm, () => {
-                    chrome.alarms.create(ENUMS.InactivityAlarm, { delayInMinutes: inactivityTimeoutMinutes });
-                    // Send response to indicate the timer was reset successfully
-                    sendResponse({ success: true, timeout: inactivityTimeoutMinutes });
-                });
-            });
-            // Return true to indicate async response
-            return true;
-        default:
-            console.log('SW unknown message action:', message.action);
-    }
-    // Don't return true if we're not sending a response
-    return false;
-});
-
-// When inactivityAlarm fires, remove the stored passcode
-chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === ENUMS.InactivityAlarm) {
-        // Inactivity timeout expired
-        chrome.storage.session.remove('passcode', () => {
-            // Send a message to the SPA(s?) to lock the app
-            // Note: This may fail if no extension pages are open to receive it
-            try {
-                // Add a timeout to avoid indefinite waiting
-                const sendWithTimeout = Promise.race([
-                    chrome.runtime.sendMessage({ action: 'LockApp' }),
-                    new Promise((_, reject) =>
-                        globalThis.setTimeout(() => reject(new Error('LockApp message timeout')), 1000)
-                    )
-                ]);
-
-                sendWithTimeout.then((response) => {
-                    if (response?.success) {
-                        console.log('SW LockApp message successfully processed');
-                    } else {
-                        console.warn('SW LockApp message processed with failure:', response?.error);
-                    }
-                }).catch((error) => {
-                    // This is expected if no extension pages are open
-                    console.warn('SW LockApp message not delivered (expected if no pages open):', error.message);
-                });
-            } catch (error) {
-                console.warn('SW could not send LockApp message (expected if no pages open):', error);
-            }
-        });
-    }
-});
+// NOTE: Inactivity timer functionality has been moved to InactivityTimerService.cs
+// The C# BackgroundWorker now handles inactivity timer management using WebExtensions.Net
 
 // Listen for and handle the extension's action button being clicked
 chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => handleActionOnClicked(tab));

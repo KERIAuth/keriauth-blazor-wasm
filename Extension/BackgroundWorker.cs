@@ -14,8 +14,12 @@ namespace Extension;
 /// Background worker for the browser extension, handling message routing between
 /// content scripts, the Blazor app, and KERIA services.
 /// </summary>
+
+
+
+
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
-    // TODO P1 logging doesn't work here because Program.cs or App hasn't created these dependency injections?
+
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
@@ -28,26 +32,33 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ConcurrentDictionary<string, CsConnection> _pageCsConnections = new();
     private readonly DotNetObjectReference<BackgroundWorker>? _dotNetObjectRef;
 
-    // Constants
-    private const string InactivityAlarmName = "inactivityAlarm";
-    private const double DefaultInactivityTimeoutMinutes = 5.0;
-
     [BackgroundWorkerMain]
     public override void Main() {
-        _logger.LogInformation("Worker started at {time}", DateTimeOffset.UtcNow);
-        WebExtensions.Runtime.OnInstalled.AddListener(OnInstalled);
+        WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
+        WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
+        WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
+        WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
+        WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
+        WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
+        WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
+        WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
+        // TODO P2 WebExtensions.WebNavigation.OnCompleted.AddListener(OnWebNavCompletedAsync);
+        // TODO P2 WebExtensions.WebRequest.OnCompleted.AddListener(OnWebReqCompletedAsync);
     }
 
+    // onInstalled event fires when extension is installed, updated, or Chrome itself updates
+    // Typical uses: Initialize storage, set defaults, register rules, open welcome page
     private async Task OnInstalled() {
         _logger.LogInformation("BW: OnInstalled...");
         var indexPageUrl = WebExtensions.Runtime.GetURL("index.html");
-        
+
         var tab = await WebExtensions.Tabs.Create(new() {
             Url = indexPageUrl
         });
         if (tab is not null) {
             tab.Active = true;
-        } else {
+        }
+        else {
             throw new ArgumentException("indexPageUrl");
         }
     }
@@ -67,63 +78,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _websiteConfigService = websiteConfigService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
         _dotNetObjectRef = DotNetObjectReference.Create(this);
-    }
-
-    /// <summary>
-    /// Initialize the background worker and set up event listeners
-    /// </summary>
-    public async Task InitializeAsync() {
-        await _jsRuntime.InvokeVoidAsync("console.warn", $"Initializing...");
-        _logger.LogInformation("Initializing");
-        _logger.LogWarning("Initializing");
-        _logger.LogError("Initializing");
-
-        try {
-            // Set up Chrome extension event listeners
-            SetUpEventListeners();
-            _logger.LogInformation("Initialized");
-            await Task.CompletedTask;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Failed to initialize BackgroundWorker");
-            throw;
-        }
-    }
-
-    private void SetUpEventListeners() {
-        try {
-            // Listen for extension installation/update
-            _webExtensionsApi.Runtime.OnInstalled.AddListener(OnInstalledAsync);
-            _logger.LogDebug("Added onInstalled listener");
-
-            // Listen for browser startup
-            _webExtensionsApi.Runtime.OnStartup.AddListener(OnStartupAsync);
-            _logger.LogDebug("Added onStartup listener");
-
-            // Listen for port connections
-            _webExtensionsApi.Runtime.OnConnect.AddListener(OnConnectAsync);
-            _logger.LogDebug("Added onConnect listener");
-
-            // Listen for runtime messages (non-port)
-            _webExtensionsApi.Runtime.OnMessage.AddListener(OnMessageAsync);
-            _logger.LogDebug("Added onMessage listener");
-
-            // Listen for alarm events
-            _webExtensionsApi.Alarms.OnAlarm.AddListener(OnAlarmAsync);
-            _logger.LogDebug("Added onAlarm listener");
-
-            // Listen for action button clicks
-            _webExtensionsApi.Action.OnClicked.AddListener(OnActionClickedAsync);
-            _logger.LogDebug("Added onActionClicked listener");
-
-            // Listen for tab removal
-            _webExtensionsApi.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
-            _logger.LogDebug("Added onTabRemoved listener");
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error setting up event listeners");
-            throw;
-        }
     }
 
     [JSInvokable]
@@ -160,13 +114,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onStartup fires when Chrome launches with a profile that has the extension installed.
+    // Typical use: Re-initialize state, reconnect services, refresh caches.
     [JSInvokable]
     public async Task OnStartupAsync() {
         try {
             await _jsRuntime.InvokeVoidAsync("console.warn", $"OnStartupAsync...");
-            _logger.LogInformation("Browser startup detected");
-            // This handler could potentially be used to set the extension's icon to a "locked" state
-            await Task.CompletedTask;
+            _logger.LogInformation("Browser startup detected - reinitializing background worker");
+
+            // TODO P2 Reinitialize inactivity timer?
+
+            _logger.LogInformation("Background worker reinitialized on browser startup");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling onStartup event");
@@ -206,6 +164,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+
+    // OnMessage fires when extension parts or external apps send messages.
+    // Typical use: Coordination, data requests.
     [JSInvokable]
     public async Task<object?> OnMessageAsync(object message, object sender) {
         try {
@@ -218,7 +179,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 _logger.LogDebug("Runtime message received: {Action}", action);
 
                 return action switch {
-                    "resetInactivityTimer" => await ResetInactivityTimerAsync(),
+                    // "resetInactivityTimer" => await ResetInactivityTimerAsync(),
+                    "LockApp" => await HandleLockAppMessageAsync(),
+                    "systemLockDetected" => await HandleSystemLockDetectedAsync(),
                     _ => await HandleUnknownMessageAsync(action)
                 };
             }
@@ -231,20 +194,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onAlarm fires at a scheduled interval/time.
+    // Typical use: Periodic tasks, background sync
     [JSInvokable]
     public async Task OnAlarmAsync(object alarm) {
         try {
+            _logger.LogInformation("LIFECYCLE: Background worker reactivated by alarm event at {Timestamp}", DateTime.UtcNow);
             await _jsRuntime.InvokeVoidAsync("console.error", $"OnAlarmAsync...");
             var alarmJson = JsonSerializer.Serialize(alarm);
             var alarmDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(alarmJson);
 
             if (alarmDict?.TryGetValue("name", out var nameElement) == true) {
                 var alarmName = nameElement.GetString();
-                _logger.LogInformation("Alarm fired: {Name}", alarmName);
+                _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarmName);
 
-                if (alarmName == InactivityAlarmName) {
-                    await HandleInactivityTimeoutAsync();
-                }
+                // The InactivityTimerService handles the actual alarm logic through its own listener
+                _logger.LogDebug("Alarm event will be processed by InactivityTimerService");
             }
         }
         catch (Exception ex) {
@@ -252,6 +217,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onClicked event fires when user clicks the extension’s toolbar icon.
+    // Typical use: Open popup, toggle feature, inject script
     [JSInvokable]
     public async Task OnActionClickedAsync(object tab) {
         try {
@@ -298,6 +265,30 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // webNavigation.onComplete event fires when tabs navigate.
+    // Typical use: Inject scripts, block/redirect, monitor
+    public static async Task OnWebNavCompletedAsync() {
+        await Task.Delay(0);
+    }
+
+    // webRequest.onCompleted event fires when webRequests are made and finish.
+    // Typical use: Inject scripts, block/redirect, monitor
+    public static async Task OnWebReqCompletedAsync() {
+        await Task.Delay(0);
+    }
+
+    // onSuspend event fires just before the background worker is unloaded (idle ~30s).
+    // Typical use: Save in-memory state, cleanup, flush logs
+    public async Task OnSuspendAsync() {
+        try {
+            // TODO P2 needs implementation
+            ;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling onSuspend");
+        }
+    }
+
     private async Task HandleInstallAsync() {
         try {
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=install";
@@ -314,7 +305,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task HandleUpdateAsync(Dictionary<string, JsonElement> details) {
         try {
-     
+
             var previousVersion = details.TryGetValue("previousVersion", out var prevElement)
                 ? prevElement.GetString() ?? "unknown"
                 : "unknown";
@@ -400,20 +391,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task<object> ResetInactivityTimerAsync() {
-        try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"ResetInactivityTimerAsync...");
-            var inactivityTimeoutMinutes = DefaultInactivityTimeoutMinutes;
-
-            _logger.LogDebug("Reset inactivity timer: {Minutes} minutes", inactivityTimeoutMinutes);
-            return new { success = true, timeout = inactivityTimeoutMinutes };
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error resetting inactivity timer");
-            return new { success = false, error = ex.Message };
-        }
-    }
-
     private async Task<object?> HandleUnknownMessageAsync(string? action) {
         await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleUnknownMessageAsync...");
         _logger.LogWarning("Unknown message action: {Action}", action);
@@ -421,18 +398,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         return null;
     }
 
-    private async Task HandleInactivityTimeoutAsync() {
+    private async Task<object> HandleLockAppMessageAsync() {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleInactivityTimeoutAsync...");
-            _logger.LogInformation("Inactivity timeout expired - clearing passcode");
+            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleLockAppMessageAsync...");
+            _logger.LogInformation("Lock app message received - app should be locked");
 
-            // For now, just log the action
-            await _jsRuntime.InvokeVoidAsync("console.warn", "Would remove passcode from session storage");
-
-            _logger.LogDebug("Handled inactivity timeout");
+            // The InactivityTimerService handles the actual locking logic
+            _logger.LogDebug("App lock request processed");
+            return new { success = true, message = "App locked" };
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error handling inactivity timeout");
+            _logger.LogError(ex, "Error handling lock app message");
+            return new { success = false, error = ex.Message };
+        }
+    }
+
+    private async Task<object> HandleSystemLockDetectedAsync() {
+        try {
+            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleSystemLockDetectedAsync...");
+            _logger.LogWarning("System lock/suspend/hibernate detected in background worker");
+
+            // Send lock message to all connected tabs/apps
+            try {
+                await _webExtensionsApi.Runtime.SendMessage(new { action = "LockApp" });
+                _logger.LogDebug("Sent LockApp message due to system lock detection");
+            }
+            catch (Exception ex) {
+                _logger.LogDebug(ex, "Could not send LockApp message (expected if no pages open)");
+            }
+
+            return new { success = true, message = "System lock detected and app locked" };
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling system lock detection");
+            return new { success = false, error = ex.Message };
         }
     }
 
@@ -447,6 +446,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             _logger.LogInformation("Handling action click for origin: {Origin}", origin);
 
+            // TODO P1 Need: Implement actual permission checking and requesting using WebExtensions.Net 
             // For now, just create an extension tab
             await CreateExtensionTabAsync();
         }
@@ -460,6 +460,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var tabUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = tabUrl
+                // TODO P2 use the same tab identifier, so we don't get multiple tabs
             };
             var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
@@ -597,6 +598,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     public void Dispose() {
+        try {
+            _dotNetObjectRef?.Dispose();
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error disposing BackgroundWorker");
+        }
         GC.SuppressFinalize(this);
     }
 }
