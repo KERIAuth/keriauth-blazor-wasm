@@ -1,4 +1,5 @@
 ﻿using Blazor.BrowserExtension;
+using Extension.Models;
 using Extension.Services;
 using Extension.Services.SignifyService;
 using JsBind.Net;
@@ -20,6 +21,23 @@ namespace Extension;
 
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
+    // Constants
+    private const string ContentScriptPortPattern = @"^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$";
+    private const string BlazorAppPortPrefix = "blazorAppPort";
+    private const string UninstallUrl = "https://keriauth.com/uninstall.html";
+    private const string DefaultVersion = "unknown";
+    
+    // Install reasons
+    private const string InstallReason = "install";
+    private const string UpdateReason = "update";
+    private const string ChromeUpdateReason = "chrome_update";
+    private const string SharedModuleUpdateReason = "shared_module_update";
+    
+    // Message types
+    private const string LockAppAction = "LockApp";
+    private const string SystemLockDetectedAction = "systemLockDetected";
+    private const string FromServiceWorkerType = "fromServiceWorker";
+
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
@@ -34,6 +52,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     [BackgroundWorkerMain]
     public override void Main() {
+        // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
         WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
@@ -42,12 +61,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
         WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
+        WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
         // TODO P2 WebExtensions.WebNavigation.OnCompleted.AddListener(OnWebNavCompletedAsync);
+        //   Parameters: details - Object with tabId, frameId, url, processId, timeStamp
         // TODO P2 WebExtensions.WebRequest.OnCompleted.AddListener(OnWebReqCompletedAsync);
+        //   Parameters: details - Object with requestId, url, method, frameId, tabId, type, timeStamp, etc.
+        // TODO P3 WebExtensions.Runtime.OnMessageExternal.AddListener(OnMessageExternalAsync);
+        //   Parameters: message (any), sender (MessageSender), sendResponse (function)
+        // TODO P2 chrome.webRequest.onBeforeRequest // (network/page events)
+        //   Parameters: details - Object with requestId, url, method, frameId, tabId, type, timeStamp, requestBody
     }
 
-    // onInstalled event fires when extension is installed, updated, or Chrome itself updates
-    // Typical uses: Initialize storage, set defaults, register rules, open welcome page
+    // DEPRECATED: This method is no longer used - see OnInstalledAsync() instead
+    // Kept for reference only
     private async Task OnInstalled() {
         _logger.LogInformation("BW: OnInstalled...");
         var indexPageUrl = WebExtensions.Runtime.GetURL("index.html");
@@ -80,32 +106,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _dotNetObjectRef = DotNetObjectReference.Create(this);
     }
 
+    // OnInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
+    // Parameter: details - OnInstalledDetails with reason, previousVersion, and id
     [JSInvokable]
-    public async Task OnInstalledAsync(object details) {
+    public async Task OnInstalledAsync(object detailsObj) {
         try {
+            _logger.LogDebug("OnInstalledAsync event handler called");
             _logger.LogInformation("Extension installed/updated event received");
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"OnInstalledAsync...");
 
-            var detailsJson = JsonSerializer.Serialize(details);
-            var detailsDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(detailsJson);
+            // Deserialize to strongly-typed object
+            var detailsJson = JsonSerializer.Serialize(detailsObj);
+            var details = JsonSerializer.Deserialize<OnInstalledDetails>(detailsJson);
+            
+            if (details == null) {
+                _logger.LogWarning("Failed to deserialize installation details");
+                return;
+            }
 
-            if (detailsDict?.TryGetValue("reason", out var reasonElement) == true) {
-                var reason = reasonElement.GetString();
-                _logger.LogInformation("Extension installed/updated: {Reason}", reason);
+            // TODO P3 set a URL that Chrome will open when the extension is uninstalled. Typically used for surveys or cleanup instructions
+            await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
 
-                switch (reason) {
-                    case "install":
-                        await HandleInstallAsync();
-                        break;
-                    case "update":
-                        await HandleUpdateAsync(detailsDict);
-                        break;
-                    case "chrome_update":
-                    case "shared_module_update":
-                    default:
-                        _logger.LogDebug("Unhandled install reason: {Reason}", reason);
-                        break;
-                }
+            _logger.LogInformation("Extension installed/updated: {Reason}", details.Reason);
+
+            switch (details.Reason) {
+                case InstallReason:
+                    await HandleInstallAsync();
+                    break;
+                case UpdateReason:
+                    await HandleUpdateAsync(details.PreviousVersion ?? DefaultVersion);
+                    break;
+                case ChromeUpdateReason:
+                case SharedModuleUpdateReason:
+                default:
+                    _logger.LogDebug("Unhandled install reason: {Reason}", details.Reason);
+                    break;
             }
         }
         catch (Exception ex) {
@@ -114,15 +148,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // onStartup fires when Chrome launches with a profile that has the extension installed.
-    // Typical use: Re-initialize state, reconnect services, refresh caches.
+    // onStartup fires when Chrome launches with a profile (not incognito) that has the extension installed
+    // Typical use: Re-initialize or restore state, reconnect services, refresh caches.
+    // Parameters: none
     [JSInvokable]
     public async Task OnStartupAsync() {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"OnStartupAsync...");
+            _logger.LogDebug("OnStartupAsync event handler called");
             _logger.LogInformation("Browser startup detected - reinitializing background worker");
 
             // TODO P2 Reinitialize inactivity timer?
+            // TODO P2 add a lock icon to the extension icon
 
             _logger.LogInformation("Background worker reinitialized on browser startup");
         }
@@ -132,31 +168,37 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onConnect fires when a connection is made from content scripts or other extension pages
+    // Parameter: port - Port object with name and sender properties
     [JSInvokable]
-    public async Task OnConnectAsync(object port) {
+    public async Task OnConnectAsync(object portObj) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"OnConnectAsync...");
-            var portJson = JsonSerializer.Serialize(port);
-            var portDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(portJson);
+            _logger.LogDebug("OnConnectAsync event handler called");
+            
+            // Deserialize to strongly-typed object
+            var portJson = JsonSerializer.Serialize(portObj);
+            var port = JsonSerializer.Deserialize<Port>(portJson);
+            
+            if (port == null) {
+                _logger.LogWarning("Failed to deserialize port connection");
+                return;
+            }
 
-            if (portDict?.TryGetValue("name", out var nameElement) == true) {
-                var connectionId = nameElement.GetString() ?? Guid.NewGuid().ToString();
-                _logger.LogInformation("Port connected: {Name}", connectionId);
+            var connectionId = port.Name ?? Guid.NewGuid().ToString();
+            _logger.LogInformation("Port connected: {Name}", connectionId);
 
-                var tabId = GetTabIdFromPort(portDict);
-                var origin = GetOriginFromPort(portDict);
+            var tabId = port.Sender?.Tab?.Id ?? -1;
+            var origin = port.Sender?.Origin ?? port.Sender?.Url ?? "unknown";
 
-                // Check if this is a content script port (UUID pattern)
-                var csPortPattern = @"^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$";
-                if (Regex.IsMatch(connectionId, csPortPattern)) {
-                    await HandleContentScriptConnectionAsync(connectionId, port, tabId);
-                }
-                else if (connectionId.StartsWith("blazorAppPort", StringComparison.OrdinalIgnoreCase)) {
-                    await HandleBlazorAppConnectionAsync(connectionId, port, tabId, origin);
-                }
-                else {
-                    _logger.LogWarning("Unknown port connection: {ConnectionId}", connectionId);
-                }
+            // Check if this is a content script port (UUID pattern)
+            if (Regex.IsMatch(connectionId, ContentScriptPortPattern)) {
+                await HandleContentScriptConnectionAsync(connectionId, portObj, tabId);
+            }
+            else if (connectionId.StartsWith(BlazorAppPortPrefix, StringComparison.OrdinalIgnoreCase)) {
+                await HandleBlazorAppConnectionAsync(connectionId, portObj, tabId, origin);
+            }
+            else {
+                _logger.LogWarning("Unknown port connection: {ConnectionId}", connectionId);
             }
         }
         catch (Exception ex) {
@@ -167,22 +209,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // OnMessage fires when extension parts or external apps send messages.
     // Typical use: Coordination, data requests.
+    // Returns: Response to send back to the message sender (or null)
     [JSInvokable]
-    public async Task<object?> OnMessageAsync(object message, object sender) {
+    public async Task<object?> OnMessageAsync(object messageObj, object senderObj) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"OnMessageAsync...");
-            var messageJson = JsonSerializer.Serialize(message);
-            var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
+            _logger.LogDebug("OnMessageAsync event handler called");
+            
+            // Deserialize sender to strongly-typed object
+            var senderJson = JsonSerializer.Serialize(senderObj);
+            var sender = JsonSerializer.Deserialize<MessageSender>(senderJson);
+            
+            // Deserialize message as RuntimeMessage
+            var messageJson = JsonSerializer.Serialize(messageObj);
+            var message = JsonSerializer.Deserialize<RuntimeMessage>(messageJson);
+            
+            if (message?.Action != null) {
+                _logger.LogDebug("Runtime message received: {Action} from {SenderId}", message.Action, sender?.Id);
 
-            if (messageDict?.TryGetValue("action", out var actionElement) == true) {
-                var action = actionElement.GetString();
-                _logger.LogDebug("Runtime message received: {Action}", action);
-
-                return action switch {
+                return message.Action switch {
                     // "resetInactivityTimer" => await ResetInactivityTimerAsync(),
-                    "LockApp" => await HandleLockAppMessageAsync(),
-                    "systemLockDetected" => await HandleSystemLockDetectedAsync(),
-                    _ => await HandleUnknownMessageAsync(action)
+                    LockAppAction => await HandleLockAppMessageAsync(),
+                    SystemLockDetectedAction => await HandleSystemLockDetectedAsync(),
+                    _ => await HandleUnknownMessageAsync(message.Action)
                 };
             }
 
@@ -197,16 +245,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onAlarm fires at a scheduled interval/time.
     // Typical use: Periodic tasks, background sync
     [JSInvokable]
-    public async Task OnAlarmAsync(object alarm) {
+    public async Task OnAlarmAsync(object alarmObj) {
         try {
+            _logger.LogDebug("OnAlarmAsync event handler called");
             _logger.LogInformation("LIFECYCLE: Background worker reactivated by alarm event at {Timestamp}", DateTime.UtcNow);
-            await _jsRuntime.InvokeVoidAsync("console.error", $"OnAlarmAsync...");
-            var alarmJson = JsonSerializer.Serialize(alarm);
-            var alarmDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(alarmJson);
-
-            if (alarmDict?.TryGetValue("name", out var nameElement) == true) {
-                var alarmName = nameElement.GetString();
-                _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarmName);
+            
+            // Deserialize to strongly-typed object
+            var alarmJson = JsonSerializer.Serialize(alarmObj);
+            var alarm = JsonSerializer.Deserialize<Alarm>(alarmJson);
+            
+            if (alarm != null) {
+                _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarm.Name);
+                
+                // Convert scheduledTime from milliseconds to DateTime if needed
+                var scheduledDateTime = DateTimeOffset.FromUnixTimeMilliseconds((long)alarm.ScheduledTime).UtcDateTime;
+                _logger.LogDebug("Alarm scheduled for {ScheduledTime}, period: {Period} minutes", 
+                    scheduledDateTime, alarm.PeriodInMinutes ?? 0);
 
                 // The InactivityTimerService handles the actual alarm logic through its own listener
                 _logger.LogDebug("Alarm event will be processed by InactivityTimerService");
@@ -217,22 +271,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // onClicked event fires when user clicks the extension’s toolbar icon.
+    // onClicked event fires when user clicks the extension's toolbar icon.
     // Typical use: Open popup, toggle feature, inject script
+    // Note that the default_action is intentionally not defined in our manifest.json, since the click event handling will be dependant on UX state
     [JSInvokable]
-    public async Task OnActionClickedAsync(object tab) {
+    public async Task OnActionClickedAsync(object tabObj) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"OnActionClickedAsync...");
-            var tabJson = JsonSerializer.Serialize(tab);
-            var tabDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(tabJson);
+            _logger.LogDebug("OnActionClickedAsync event handler called");
+            
+            // Deserialize to strongly-typed object
+            var tabJson = JsonSerializer.Serialize(tabObj);
+            var tab = JsonSerializer.Deserialize<Tab>(tabJson);
+            
+            if (tab == null) {
+                _logger.LogWarning("Failed to deserialize tab information");
+                await CreateExtensionTabAsync();
+                return;
+            }
 
-            var tabId = GetTabIdFromTabObject(tabDict);
-            var url = GetUrlFromTabObject(tabDict);
+            _logger.LogInformation("Action button clicked on tab: {TabId}, URL: {Url}", tab.Id, tab.Url);
 
-            _logger.LogInformation("Action button clicked on tab: {TabId}, URL: {Url}", tabId, url);
-
-            if (tabId > 0 && !string.IsNullOrEmpty(url) && url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) {
-                await HandleActionClickOnWebPageAsync(tabId, url, tabDict);
+            if (tab.Id > 0 && !string.IsNullOrEmpty(tab.Url) && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) {
+                await HandleActionClickOnWebPageAsync(tab.Id, tab.Url, tab.PendingUrl);
             }
             else {
                 await CreateExtensionTabAsync();
@@ -243,11 +303,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onRemoved fires when a tab is closed
     [JSInvokable]
-    public async Task OnTabRemovedAsync(int tabId, object removeInfo) {
+    public async Task OnTabRemovedAsync(int tabId, object removeInfoObj) {
         try {
-            _logger.LogDebug("Tab removed: {TabId}", tabId);
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"OnTabRemovedAsync...");
+            _logger.LogDebug("OnTabRemovedAsync event handler called");
+            
+            // Deserialize to strongly-typed object
+            var removeInfoJson = JsonSerializer.Serialize(removeInfoObj);
+            var removeInfo = JsonSerializer.Deserialize<TabRemoveInfo>(removeInfoJson);
+            
+            _logger.LogDebug("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}", 
+                tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
 
             // Remove any connections associated with this tab
             var connectionToRemove = _pageCsConnections
@@ -278,8 +345,23 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     // onSuspend event fires just before the background worker is unloaded (idle ~30s).
-    // Typical use: Save in-memory state, cleanup, flush logs
+    // Typical use: Save in-memory state, cleanup, flush logs. ... quickly (though you get very little time).
+    // Parameters: none
+    [JSInvokable]
     public async Task OnSuspendAsync() {
+        try {
+            // TODO P2 needs implementation
+            ;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling onSuspend");
+        }
+    }
+
+    // OnSuspendCanceled event fires if a previously pending unload is canceled (e.g., because a new event kept the worker alive).
+    // Parameters: none
+    [JSInvokable]
+    public async Task OnSuspendCanceledAsync() {
         try {
             // TODO P2 needs implementation
             ;
@@ -303,42 +385,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task HandleUpdateAsync(Dictionary<string, JsonElement> details) {
+    private async Task HandleUpdateAsync(string previousVersion) {
         try {
-
-            var previousVersion = details.TryGetValue("previousVersion", out var prevElement)
-                ? prevElement.GetString() ?? "unknown"
-                : "unknown";
-
-            var currentVersion = "unknown";
-            try {
-                // Note: manifest retrieval currently has issues with JsonElement serialization
-                currentVersion = "1.0.0";
-            }
-            catch {
-                // Ignore manifest errors for now
-            }
-
+            // Note this will be triggered by a Chrome Web Store push,
+            // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
+            var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;
             _logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
             var updateDetails = new UpdateDetails {
-                Reason = "update",
+                Reason = UpdateReason,
                 PreviousVersion = previousVersion,
                 CurrentVersion = currentVersion,
                 Timestamp = DateTime.UtcNow.ToString("O")
             };
+            await WebExtensions.Storage.Local.Set(new { UpdateDetails = updateDetails });
 
-            try {
-                var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=update";
-                var cp = new WebExtensions.Net.Tabs.CreateProperties {
-                    Url = updateUrl
-                };
-                var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error handling update launch");
-                throw;
-            }
+            var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=update";
+            var cp = new WebExtensions.Net.Tabs.CreateProperties {
+                Url = updateUrl
+            };
+            var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling update");
@@ -347,7 +413,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task HandleContentScriptConnectionAsync(string connectionId, object port, int tabId) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleContentScriptConnectionAsync...");
+            _logger.LogDebug("HandleContentScriptConnectionAsync called for {ConnectionId}", connectionId);
             _pageCsConnections[connectionId] = new CsConnection {
                 Port = port,
                 TabId = tabId,
@@ -366,7 +432,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task HandleBlazorAppConnectionAsync(string connectionId, object port, int tabId, string origin) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleBlazorAppConnectionAsync...");
+            _logger.LogDebug("HandleBlazorAppConnectionAsync called for {ConnectionId}", connectionId);
             var authority = GetAuthorityFromUrl(origin);
 
             _pageCsConnections[connectionId] = new CsConnection {
@@ -381,10 +447,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await SetUpPortMessageListenerAsync(port, connectionId, false);
 
             // Send initial connection message
-            await SendPortMessageAsync(port, new {
-                type = "fromServiceWorker",
-                data = "Service worker connected"
-            });
+            var message = new PortMessage(
+                Type: FromServiceWorkerType,
+                Data: "Service worker connected"
+            );
+            await SendPortMessageAsync(port, message);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling Blazor app connection");
@@ -392,7 +459,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     private async Task<object?> HandleUnknownMessageAsync(string? action) {
-        await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleUnknownMessageAsync...");
+        _logger.LogDebug("HandleUnknownMessageAsync called for action: {Action}", action);
         _logger.LogWarning("Unknown message action: {Action}", action);
         await Task.CompletedTask;
         return null;
@@ -400,7 +467,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task<object> HandleLockAppMessageAsync() {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleLockAppMessageAsync...");
+            _logger.LogDebug("HandleLockAppMessageAsync called");
             _logger.LogInformation("Lock app message received - app should be locked");
 
             // The InactivityTimerService handles the actual locking logic
@@ -415,12 +482,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task<object> HandleSystemLockDetectedAsync() {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"HandleSystemLockDetectedAsync...");
+            _logger.LogDebug("HandleSystemLockDetectedAsync called");
             _logger.LogWarning("System lock/suspend/hibernate detected in background worker");
 
             // Send lock message to all connected tabs/apps
             try {
-                await _webExtensionsApi.Runtime.SendMessage(new { action = "LockApp" });
+                await _webExtensionsApi.Runtime.SendMessage(new { action = LockAppAction });
                 _logger.LogDebug("Sent LockApp message due to system lock detection");
             }
             catch (Exception ex) {
@@ -435,23 +502,105 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task HandleActionClickOnWebPageAsync(int tabId, string url, Dictionary<string, JsonElement>? tabDict) {
+    private async Task HandleActionClickOnWebPageAsync(int tabId, string url, string? pendingUrl) {
         try {
-            var pendingUrl = tabDict?.TryGetValue("pendingUrl", out var pendingElement) == true
-                ? pendingElement.GetString()
-                : null;
-
             var targetUrl = pendingUrl ?? url;
             var origin = new Uri(targetUrl).GetLeftPart(UriPartial.Authority) + "/";
 
             _logger.LogInformation("Handling action click for origin: {Origin}", origin);
 
-            // TODO P1 Need: Implement actual permission checking and requesting using WebExtensions.Net 
-            // For now, just create an extension tab
-            await CreateExtensionTabAsync();
+            // Check if the extension has permission to access the tab (based on its origin), and if not, request it
+            var hasPermission = await CheckOriginPermissionAsync(origin);
+            _logger.LogInformation("Origin permission check result for {Origin}: {HasPermission}", origin, hasPermission);
+
+            if (!hasPermission) {
+                // Request permission from the user
+                var isGranted = await RequestOriginPermissionAsync(origin);
+                if (isGranted) {
+                    _logger.LogInformation("Permission granted for: {Origin}", origin);
+                    await UseActionPopupAsync(tabId);
+                } else {
+                    _logger.LogInformation("Permission denied for: {Origin}", origin);
+                    await CreateExtensionTabAsync();
+                }
+            } else {
+                // If user clicks on the action icon on a page already allowed permission, 
+                // but for an interaction not initiated from the content script
+                await CreateExtensionTabAsync();
+                // TODO P2: Consider implementing useActionPopup(tabId) for direct popup interaction
+            }
+
+            // Clear the popup url for the action button, if it is set, 
+            // so that future use of the action button will also trigger this same handler
+            await WebExtensions.Action.SetPopup(new() { Popup = "" });
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling action click on web page");
+        }
+    }
+
+    private async Task<bool> CheckOriginPermissionAsync(string origin) {
+        try {
+            _logger.LogDebug("Checking permission for origin: {Origin}", origin);
+
+            // Use JavaScript helper module for permissions (CSP-compliant)
+            // NOTE: WebExtensions.Net.Permissions API has type conversion issues - see RequestOriginPermissionAsync for details
+            var permissionsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PermissionsHelper.js");
+            var hasPermission = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.contains", 
+                new { origins = new[] { origin } });
+            
+            _logger.LogDebug("Permission check result for {Origin}: {HasPermission}", origin, hasPermission);
+            return hasPermission;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error checking origin permission for {Origin}", origin);
+            return false;
+        }
+    }
+
+    private async Task<bool> RequestOriginPermissionAsync(string origin) {
+        try {
+            _logger.LogDebug("Requesting permission for origin: {Origin}", origin);
+            
+            // Use JavaScript helper module for permissions (CSP-compliant)
+            // NOTE: WebExtensions.Net.Permissions API has type conversion issues:
+            // - MatchPattern constructor ambiguity (Restricted vs Unrestricted)
+            // - Type mismatches between PermissionsType and AnyPermissions
+            // - String[] to IEnumerable<MatchPattern> conversion problems
+            // The JS module approach avoids these complexities while remaining secure.
+            var permissionsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PermissionsHelper.js");
+            var isGranted = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.request", 
+                new { origins = new[] { origin } });
+            
+            _logger.LogDebug("Permission request result for {Origin}: {IsGranted}", origin, isGranted);
+            return isGranted;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error requesting origin permission for {Origin}", origin);
+            return false;
+        }
+    }
+
+    private async Task UseActionPopupAsync(int tabId) {
+        try {
+            _logger.LogDebug("Using action popup for tab: {TabId}", tabId);
+
+            // Set the popup for this specific tab to show the extension interface
+            await WebExtensions.Action.SetPopup(new() {
+                Popup = "index.html?environment=popup"
+                // Note: TabId may not be supported in SetPopupDetails - this will set for all tabs
+            });
+
+            _logger.LogDebug("Action popup configured for tab: {TabId}", tabId);
+            // Programmatically open the popup by simulating a click on the action button
+            WebExtensions.Action.OpenPopup();
+            _logger.LogDebug("Action popup opened for tab: {TabId}", tabId);
+            // clear the popup after use, so future clicks trigger the OnActionClicked handler again
+            await WebExtensions.Action.SetPopup(new() { Popup = "" });
+            _logger.LogDebug("Action popup cleared for future clicks on tab: {TabId}", tabId);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error setting up action popup for tab {TabId}", tabId);
         }
     }
 
@@ -471,7 +620,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task SetUpPortMessageListenerAsync(object port, string connectionId, bool isContentScript) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"SetUpPortMessageListenerAsync...");
+            _logger.LogDebug("SetUpPortMessageListenerAsync called for {ConnectionId}", connectionId);
             // This would typically involve setting up JavaScript interop to listen for port messages
             // For now, we'll implement this as a placeholder
             _logger.LogDebug("Set up port message listener for {ConnectionId}, IsContentScript: {IsContentScript}",
@@ -485,7 +634,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task SendPortMessageAsync(object port, object message) {
         try {
-            await _jsRuntime.InvokeVoidAsync("console.warn", $"SendPortMessageAsync...");
+            _logger.LogDebug("SendPortMessageAsync called");
             // This would involve JavaScript interop to send messages through the port
             _logger.LogDebug("Sent port message: {Message}", JsonSerializer.Serialize(message));
             await Task.CompletedTask;
@@ -495,80 +644,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // Helper methods for extracting data from JavaScript objects
-    private int GetTabIdFromPort(Dictionary<string, JsonElement> portDict) {
-        try {
-            if (portDict.TryGetValue("sender", out var senderElement)) {
-                var senderJson = senderElement.GetRawText();
-                var senderDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(senderJson);
-
-                if (senderDict?.TryGetValue("tab", out var tabElement) == true) {
-                    var tabJson = tabElement.GetRawText();
-                    var tabDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(tabJson);
-
-                    if (tabDict?.TryGetValue("id", out var idElement) == true) {
-                        return idElement.GetInt32();
-                    }
-                }
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "Error extracting tab ID from port");
-        }
-
-        return -1;
-    }
-
-    private string GetOriginFromPort(Dictionary<string, JsonElement> portDict) {
-        try {
-            if (portDict.TryGetValue("sender", out var senderElement)) {
-                var senderJson = senderElement.GetRawText();
-                var senderDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(senderJson);
-
-                if (senderDict?.TryGetValue("origin", out var originElement) == true) {
-                    return originElement.GetString() ?? "unknown";
-                }
-
-                if (senderDict?.TryGetValue("url", out var urlElement) == true) {
-                    var url = urlElement.GetString();
-                    if (!string.IsNullOrEmpty(url)) {
-                        return new Uri(url).GetLeftPart(UriPartial.Authority);
-                    }
-                }
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "Error extracting origin from port");
-        }
-
-        return "unknown";
-    }
-
-    private int GetTabIdFromTabObject(Dictionary<string, JsonElement>? tabDict) {
-        try {
-            if (tabDict?.TryGetValue("id", out var idElement) == true) {
-                return idElement.GetInt32();
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "Error extracting tab ID from tab object");
-        }
-
-        return -1;
-    }
-
-    private string GetUrlFromTabObject(Dictionary<string, JsonElement>? tabDict) {
-        try {
-            if (tabDict?.TryGetValue("url", out var urlElement) == true) {
-                return urlElement.GetString() ?? "";
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "Error extracting URL from tab object");
-        }
-
-        return "";
-    }
 
     private string GetAuthorityFromUrl(string url) {
         try {
