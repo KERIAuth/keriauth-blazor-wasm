@@ -3,7 +3,7 @@
 
 import type { ICsPageMsgData, ICsSwMsg, ISwCsMsgPong } from '../es6/ExCsInterfaces';
 import { CsPageMsgTag, SwCsMsgEnum, CsSwMsgEnum } from '../es6/ExCsInterfaces.js';
-import { Utils } from '../es6/uiHelper.js';
+// import { Utils } from '../es6/uiHelper.js';
 import type { UpdateDetails } from '../types/types.js';
 import { connect, getNameByPrefix, getSignedHeaders } from './signify_ts_shim';
 
@@ -81,7 +81,7 @@ async function handleOnInstalled(installDetails: { reason: chrome.runtime.OnInst
     switch (installDetails.reason) {
         case 'install':
             urlString = `${globalThis.location.origin}/index.html?environment=tab&reason=${installDetails.reason}`;
-            Utils.createTab(urlString);
+            chrome.tabs.create({ url: urlString });
             break;
         case 'update':
             // This will be triggered by a Chrome Web Store push,
@@ -136,12 +136,12 @@ function handleActionOnClicked(tab: chrome.tabs.Tab): void {
                         useActionPopup(tabId);
                     } else {
                         console.log('SW Permission denied for:', origin);
-                        Utils.createTab(`${globalThis.location.origin}/index.html?environment=tab`);
+                        chrome.tabs.create({ url: `${globalThis.location.origin}/index.html?environment=tab` });
                     }
                 });
             } else {
                 // if user clicks on the action icon on a page already allowed permission, but for an interaction not initiated from the content script
-                Utils.createTab(`${globalThis.location.origin}/index.html?environment=tab`);
+                chrome.tabs.create({ url: `${globalThis.location.origin}/index.html?environment=tab` });
                 // useActionPopup(tabId);
             }
         });
@@ -150,7 +150,7 @@ function handleActionOnClicked(tab: chrome.tabs.Tab): void {
         return;
     } else {
         // The tab is not a usual tab here?
-        Utils.createTab(`${globalThis.location.origin}/index.html?environment=tab`);
+        chrome.tabs.create({ url: `${globalThis.location.origin}/index.html?environment=tab` });
         return;
     }
 };

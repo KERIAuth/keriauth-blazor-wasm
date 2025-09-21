@@ -2,8 +2,9 @@
 
 using Microsoft.AspNetCore.WebUtilities;
 using Models;
+using WebExtensions.Net;
 
-public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> logger) : IExtensionEnvironmentService {
+public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> logger, IWebExtensionsApi webExtensionsApi) : IExtensionEnvironmentService {
     /// <summary>
     /// The current environment this instance of the wallet in running under
     /// eg. extension, popup, iframe
@@ -19,18 +20,17 @@ public class ExtensionEnvironmentService(ILogger<ExtensionEnvironmentService> lo
     // TODO P2 refactor this entire service and instead user webExtensionsApi.Runtime.GetContexts() helpers
     public string? InitialUriQuery { get; private set; }
 
-    /// <inheritdoc />
-    // TODO P2 Refactor this out completely, and use something like:
-    //       webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-    //    var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
-    // logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(contextFilter));
-
     public async Task Initialize(Uri uri, string contextType) {
         logger.LogInformation("Initialize with uri {uri}", uri);
         var query = uri.Query;
         InitialUriQuery = query;
+
+        var contexts = await webExtensionsApi.Runtime.GetContexts(new WebExtensions.Net.Runtime.ContextFilter() { ContextTypes = []});
+        foreach (var context in contexts) {
+            logger.LogInformation("Context: {contextType} - Id: {contextId}", context.ContextType, context.ContextId);
+        }
+
         if (uri.AbsoluteUri.Contains("chrome-extension")) {
-            // TODO P2 better to get this environment value from the chrome.runtime.getContexts() API, filtered by the current context.  See UIHelper.GetChromeContexts()
             if (QueryHelpers.ParseQuery(query).TryGetValue("environment", out var environment)) {
                 if (Enum.TryParse(environment.FirstOrDefault(), true, out ExtensionEnvironment extensionEnvironment)) {
                     ExtensionEnvironment = extensionEnvironment;

@@ -9,6 +9,7 @@ namespace Extension {
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
         public const string RouteToIndex = "/";
+        public const string RouteToIndexHtml = "/index.html";
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToNewInstall = "/NewInstall.html";
         public const string RouteToHome = "/Home.html";

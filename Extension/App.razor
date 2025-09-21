@@ -38,8 +38,6 @@
 
         // Initialize services as needed
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
-        // var contexts = await UIHelper.GetChromeContexts();
-        // _logger.LogInformation($"Chrome Contexts: {contexts}");
         await extensionEnvironmentService.Initialize(InitialUri, "unknown");
         await storageService.Initialize();
         await stateService.Initialize();

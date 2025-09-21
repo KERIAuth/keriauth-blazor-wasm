@@ -8,7 +8,6 @@
 @inject IDialogService dialogService
 @inject ILogger<DeletePage> logger
 @using static Extension.Helper.PreviousPage
-@using static Extension.Helper.UIHelper
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 
@@ -59,7 +58,8 @@
             await webExtensionsApi.Storage.Sync.Clear();
             await webExtensionsApi.Storage.Session.Clear();
 
-            RestartBlazorApp("index.html"); // intentionally index.html and not not RouteToIndex
+            // restart the app
+            navManager.NavigateTo(RouteToIndexHtml, forceLoad: true, replace: true);
         } else
         {
             navManager.NavigateTo(RouteToDashboard);
