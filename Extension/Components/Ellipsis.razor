@@ -1,7 +1,6 @@
 ﻿@inject IJSRuntime js
 @using System.Diagnostics
 @using Extension
-@using Extension.Helper
 
 <MudStack Row="true" Class="rounded px-0 py-0">
     @if (StringContent is not null && StringContent.Length != 0)
@@ -34,7 +33,6 @@
     private async Task CopyToClipboard2()
     {
         Debug.Assert(StringContent is not null);
-        // TODO P1 Add Copy2Clipboard
-        // await UIHelper.Copy2Clipboard(StringContent);
+        await js.InvokeVoidAsync("navigator.clipboard.writeText", StringContent);
     }
 }

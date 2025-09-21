@@ -17,9 +17,6 @@ namespace Extension.Helper {
         [JSImport("Utils.createTab", "uiHelper")]
         internal static partial void CreateTab(string urlString);
 
-        [JSImport("Utils.copy2Clipboard", "uiHelper")]
-        internal static partial Task Copy2Clipboard(string text);
-
         [JSImport("Utils.restartBlazorApp", "uiHelper")]
         internal static partial void RestartBlazorApp(string urlString);
 

@@ -35,14 +35,12 @@
 
     private async Task CopyToClipboard2(string content)
     {
-        // TODO P1 Add Copy2Clipboard
-        // await UIHelper.Copy2Clipboard(content);
+        await js.InvokeVoidAsync("navigator.clipboard.writeText", content);
     }
 
     private async Task Reveal(IEnumerable<string> content)
     {
         var newstring = string.Join(" ", content);
-        // TODO P1 Add Copy2Clipboard
-        // await UIHelper.Copy2Clipboard(newstring);
+        await js.InvokeVoidAsync("navigator.clipboard.writeText", newstring);
     }
 }

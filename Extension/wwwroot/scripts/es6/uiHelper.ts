@@ -43,10 +43,6 @@ const UIHelper = () => {
         }
     };
 
-    // TODO P2 reimplement with WebExtensions.Net or JSBind.Net
-    const copy2Clipboard = async (text: string): Promise<void> =>
-        navigator.clipboard.writeText(text);
-
     // TODO P2 reimplement with WebExtensions.Net or JSBind.Net, if this is needed at all
     const restartBlazorApp = (routeToIndex: string): void => {
         window.location.href = routeToIndex;
@@ -75,7 +71,6 @@ const UIHelper = () => {
         closeCurrentTab,
         newTabAndClosePopup,
         createTab,
-        copy2Clipboard,
         restartBlazorApp,
         getChromeContexts,
         closeWindow

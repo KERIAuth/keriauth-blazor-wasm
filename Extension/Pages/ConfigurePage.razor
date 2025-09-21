@@ -129,7 +129,7 @@
         configuredPasscodeModel.Passcode = "";
         IsPasscodeCopyConfirmed = false;
         await ResetOps();
-        await UIHelper.Copy2Clipboard(RandomPasscode);
+        await js.InvokeVoidAsync("navigator.clipboard.writeText", RandomPasscode);
     }
 
     async Task ResetOps()
