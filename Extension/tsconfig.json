@@ -65,6 +65,7 @@
     "bin",
     "obj",
     "**/*.spec.ts",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "wwwroot/scripts/esbuild/OldBackgroundWorker.ts"
   ]
 }
