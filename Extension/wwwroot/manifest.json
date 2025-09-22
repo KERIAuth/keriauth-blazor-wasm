@@ -43,9 +43,13 @@
   "permissions": [
     "activeTab",
     "alarms",
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "short_name": "KERI Auth",
+  "side_panel": {
+    "default_path": "SidePanel.html"
+  },
   "version": "0.2.9",
   "version_name": "0.2.9-local",
   "web_accessible_resources": [

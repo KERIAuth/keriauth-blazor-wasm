@@ -24,6 +24,7 @@ namespace Extension {
         public const string RouteToAddAuthenticator = "/AddAuthenticator.html";
         public const string RouteToAuthenticators = "/Authenticators.html";
         public const string RouteToUnlock = "/Unlock.html";
+        public const string RouteToSidePanel = "/SidePanel.html";
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
             RouteToDelete,
@@ -34,7 +35,8 @@ namespace Extension {
             RouteToUnlock,
             RouteToManagePrefs,
             RouteToTermsPage,
-            RouteToPrivacyPage
+            RouteToPrivacyPage,
+            RouteToSidePanel
         ];
 
         // routes with parameters, with intentional trailing /
