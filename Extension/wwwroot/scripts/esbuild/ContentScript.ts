@@ -6,10 +6,10 @@
 import {
     type ICsPageMsgData,
     type ICsPageMsgDataData,
-    type ICsSwMsg,
+    type ICsBwMsg,
     CsPageMsgTag,
-    CsSwMsgEnum,
-    SwCsMsgEnum
+    CsBwMsgEnum,
+    BwCsMsgEnum
 } from '../es6/ExCsInterfaces';
 
 import type * as PW from '../types/polaris-web-client';
@@ -33,17 +33,17 @@ const currentOrigin = window.location.origin;
 console.log('KeriAuthCs currentOrigin:', currentOrigin);
 console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
-// Add a listener for messages and create port with SW
+// Add a listener for messages and create port with BW
 window.addEventListener('message', (event: MessageEvent<PageMessageData>) => handleWindowMessage(event));
 
 // Unique port name for communications between the content script and the extension
 const uniquePortName: string = generateUniqueIdentifier();
-let portWithSw: chrome.runtime.Port | null = null;
+let portWithBw: chrome.runtime.Port | null = null;
 
 // Initialize port connection with error handling
 try {
-    portWithSw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-    createPortWithSw();
+    portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
+    createPortWithBw();
 } catch (error) {
     console.error('KeriAuthCs: Failed to create initial port connection:', error);
     // Will attempt to reconnect when first message needs to be sent
@@ -82,23 +82,23 @@ function postMessageToPage<T>(msg: T): void {
 }
 
 /**
- * Handle messages received from the Service Worker (BackgroundWorker)
+ * Handle messages received from the BackgroundWorker
  * Routes responses back to the web page with appropriate formatting
- * @param message Message from the Service Worker following polaris-web protocol
+ * @param message Message from the BackgroundWorker following polaris-web protocol
  */
-function handleMsgFromSW(message: PW.MessageData<unknown>): void {
+function handleMsgFromBW(message: PW.MessageData<unknown>): void {
     if (!message.type) {
-        console.error('KeriAuthCs←SW: type not found in message:', message);
+        console.error('KeriAuthCs←BW: type not found in message:', message);
         return;
     }
 
-    console.groupCollapsed(`KeriAuthCs←SW: ${message.type}`);
+    console.groupCollapsed(`KeriAuthCs←BW: ${message.type}`);
     console.log(message);
     switch (message.type) {
-        case SwCsMsgEnum.READY:
+        case BwCsMsgEnum.READY:
             break;
 
-        case SwCsMsgEnum.REPLY:
+        case BwCsMsgEnum.REPLY:
             if (message.error) {
                 const errorMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
@@ -118,11 +118,11 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
             }
             break;
 
-        case SwCsMsgEnum.REPLY_CANCELED:
+        case BwCsMsgEnum.REPLY_CANCELED:
             {
                 const canceledMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
-                    type: SwCsMsgEnum.REPLY,
+                    type: BwCsMsgEnum.REPLY,
                     requestId: message.requestId,
                     error: message.error
                 };
@@ -130,11 +130,11 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
             };
             break;
 
-        case SwCsMsgEnum.APP_CLOSED:
+        case BwCsMsgEnum.APP_CLOSED:
             if (message.requestId) {
                 const appClosedMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
-                    type: SwCsMsgEnum.REPLY,
+                    type: BwCsMsgEnum.REPLY,
                     requestId: message.requestId, // might be null
                     error: message.error
                 };
@@ -150,75 +150,75 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
 }
 
 /**
- * Initialize the port connection with the Service Worker
+ * Initialize the port connection with the BackgroundWorker
  * Sets up message and disconnect listeners, sends initial INIT message
- * Assumes portWithSw has already been created via chrome.runtime.connect()
+ * Assumes portWithBw has already been created via chrome.runtime.connect()
  */
-function createPortWithSw(): void {
-    console.groupCollapsed('KeriAuthCs→SW: creating port');
+function createPortWithBw(): void {
+    console.groupCollapsed('KeriAuthCs→BW: creating port');
 
-    if (!portWithSw) {
-        console.error('KeriAuthCs→SW: Port is null, cannot setup listeners');
+    if (!portWithBw) {
+        console.error('KeriAuthCs→BW: Port is null, cannot setup listeners');
         return;
     }
 
-    console.log('KeriAuthCs→SW connected port:', portWithSw);
+    console.log('KeriAuthCs→BW connected port:', portWithBw);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
-    portWithSw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromSW(message));
+    portWithBw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromBW(message));
 
-    portWithSw.onDisconnect.addListener(() => {
+    portWithBw.onDisconnect.addListener(() => {
         // disconnect will typically happen when the BackgroundWorker becomes inactive
         console.info('KeriAuthCs Port with BackgroundWorker was disconnected, likely due to BackgroundWorker going inactive.');
         // Set to null so assurePortAndSend knows to reconnect
-        portWithSw = null;
+        portWithBw = null;
     });
 
     // Send a ping message to the BackgroundWorker to help complete the setup of connection port
-    const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
-    console.log('KeriAuthCs→SW Init:', initMsg);
+    const initMsg: ICsBwMsg = { type: CsBwMsgEnum.INIT };
+    console.log('KeriAuthCs→BW Init:', initMsg);
     try {
-        portWithSw.postMessage(initMsg);
+        portWithBw.postMessage(initMsg);
     } catch (error) {
-        console.error('KeriAuthCs→SW: Failed to send INIT message:', error);
+        console.error('KeriAuthCs→BW: Failed to send INIT message:', error);
         // Port may have disconnected already, set to null for reconnection
-        portWithSw = null;
+        portWithBw = null;
     }
     console.groupEnd();
 }
 
 /**
- * Ensure port connection exists and send message to Service Worker
- * Automatically reconnects if port was disconnected (e.g., when Service Worker went inactive)
- * @param msg Message to send, either polaris-web protocol or internal CS-SW message
+ * Ensure port connection exists and send message to BackgroundWorker
+ * Automatically reconnects if port was disconnected (e.g., when BackgroundWorker went inactive)
+ * @param msg Message to send, either polaris-web protocol or internal CS-BW message
  * @throws Error if unable to connect or send message
  */
-function assurePortAndSend(msg: PW.MessageData<unknown> | ICsSwMsg): void {
+function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
     // Check if port is null (happens when BackgroundWorker goes inactive and disconnects)
     // Chrome extension ports cannot be reused after disconnection - must create new connection
-    if (portWithSw === null) {
+    if (portWithBw === null) {
         console.info('KeriAuthCs re-creating port connection to BackgroundWorker');
         try {
-            portWithSw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-            createPortWithSw();
+            portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
+            createPortWithBw();
         } catch (error) {
-            console.error('KeriAuthCs→SW: Failed to reconnect to BackgroundWorker:', error);
+            console.error('KeriAuthCs→BW: Failed to reconnect to BackgroundWorker:', error);
             throw error; // Re-throw to let caller handle the error
         }
     }
-    console.info('KeriAuthCs→SW: postMessage:', msg);
+    console.info('KeriAuthCs→BW: postMessage:', msg);
     try {
-        portWithSw.postMessage(msg);
+        portWithBw.postMessage(msg);
     } catch (error) {
-        console.error('KeriAuthCs→SW: Failed to send message:', error);
+        console.error('KeriAuthCs→BW: Failed to send message:', error);
         // Port may have disconnected, set to null and re-throw
-        portWithSw = null;
+        portWithBw = null;
         throw error;
     }
 }
 
 /**
- * Handle messages from the web page and route them to the Service Worker
+ * Handle messages from the web page and route them to the BackgroundWorker
  * Validates message origin and filters out echo messages from content script
  * @param event Message event from the web page containing polaris-web protocol messages
  */
@@ -244,60 +244,60 @@ function handleWindowMessage(event: MessageEvent<PageMessageData>): void {
     try {
         const requestId = event.data.requestId;
         switch (event.data.type) {
-            case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT: {
+            case CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT: {
                 const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string }> = {
                     source: CsPageMsgTag,
-                    type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
+                    type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
                     requestId
                 };
                 postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
                 break;
             }
-            case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION: {
+            case CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION: {
                 const extensionMessage: ICsPageMsgDataData<{ extensionId: string }> = {
                     source: CsPageMsgTag,
-                    type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
+                    type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
                     data: { extensionId: chrome.runtime.id },
                     requestId
                 };
                 postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionMessage);
                 break;
             }
-            case CsSwMsgEnum.POLARIS_GET_SESSION_INFO: {
+            case CsBwMsgEnum.POLARIS_GET_SESSION_INFO: {
                 // const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // const authorizeResult: PW.AuthorizeResult = {};
                 // TODO P2 implement sessions?
                 const sessionInfoMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
-                    type: SwCsMsgEnum.REPLY,
+                    type: BwCsMsgEnum.REPLY,
                     requestId,
                     error: 'KERIAuthCs: sessions not supported'
                 };
                 postMessageToPage<ICsPageMsgData<null>>(sessionInfoMsg);
                 break;
             }
-            case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR: {
+            case CsBwMsgEnum.POLARIS_CONFIGURE_VENDOR: {
                 const configureVendorArgsMessage = event.data.payload as PW.MessageData<PW.ConfigureVendorArgs>;
                 console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
                 const configVendorMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
-                    type: SwCsMsgEnum.REPLY,
+                    type: BwCsMsgEnum.REPLY,
                     requestId,
                     error: 'KERIAuthCs: configure-vendor not supported'
                 };
                 postMessageToPage<ICsPageMsgData<null>>(configVendorMsg);
                 break;
             }
-            case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
-            case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
-            case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
-            case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
+            case CsBwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
+            case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
+            case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
+            case CsBwMsgEnum.POLARIS_SIGN_REQUEST:
                 try {
                     console.info(`KeriAuthCs ${event.data.type}:`, event.data);
 
                     // Log headers for POLARIS_SIGN_REQUEST
-                    if (event.data.type === CsSwMsgEnum.POLARIS_SIGN_REQUEST) {
+                    if (event.data.type === CsBwMsgEnum.POLARIS_SIGN_REQUEST) {
                         const signRequestMessage = event.data as PW.MessageData<PW.SignRequestArgs>;
                         if (signRequestMessage.payload?.headers) {
                             console.log('KeriAuthCs payload headers: ');
@@ -309,33 +309,33 @@ function handleWindowMessage(event: MessageEvent<PageMessageData>): void {
                     }
                     assurePortAndSend(event.data);
                 } catch (error) {
-                    console.error('KeriAuthCs→SW: error sending message {event.data} {e}:', event.data, error);
+                    console.error('KeriAuthCs→BW: error sending message {event.data} {e}:', event.data, error);
                     return;
                 }
                 break;
 
-            case CsSwMsgEnum.POLARIS_CLEAR_SESSION: {
+            case CsBwMsgEnum.POLARIS_CLEAR_SESSION: {
                 // const authorizeArgsMessage3 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // Although sessions are not implemented, we can respond as expected when Clear is requested
                 const clearResult: ICsPageMsgData<PW.AuthorizeResult> = {
                     source: CsPageMsgTag,
-                    type: SwCsMsgEnum.REPLY, // type: "tab",
+                    type: BwCsMsgEnum.REPLY, // type: "tab",
                     requestId,
                     payload: undefined
                 };
                 postMessageToPage<ICsPageMsgData<PW.AuthorizeResult>>(clearResult);
                 break;
             }
-            case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION: {
+            case CsBwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION: {
                 const createDataAttestationMessage = event.data as PW.MessageData<PW.CreateCredentialArgs>;
                 console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, { createDataAttestationMessage });
                 break;
             }
-            case CsSwMsgEnum.POLARIS_GET_CREDENTIAL:
+            case CsBwMsgEnum.POLARIS_GET_CREDENTIAL:
                 console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
                 break;
 
-            case CsSwMsgEnum.POLARIS_SIGN_DATA: {
+            case CsBwMsgEnum.POLARIS_SIGN_DATA: {
                 const signDataArgsMsg = event.data as PW.MessageData<PW.SignDataArgs>;
                 console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
                 break;

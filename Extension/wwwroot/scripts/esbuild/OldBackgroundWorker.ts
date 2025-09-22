@@ -1,8 +1,8 @@
 ﻿/* eslint-disable no-fallthrough */
 /// <reference types="chrome-types" />
 
-import type { ICsPageMsgData, ICsSwMsg, ISwCsMsgPong } from '../es6/ExCsInterfaces';
-import { CsPageMsgTag, SwCsMsgEnum, CsSwMsgEnum } from '../es6/ExCsInterfaces.js';
+import type { ICsPageMsgData, ICsBwMsg, IBwCsMsgPong } from '../es6/ExCsInterfaces';
+import { CsPageMsgTag, BwCsMsgEnum, CsBwMsgEnum } from '../es6/ExCsInterfaces.js';
 // import { Utils } from '../es6/uiHelper.js';
 import type { UpdateDetails } from '../types/types.js';
 import { connect, getNameByPrefix, getSignedHeaders } from './signify_ts_shim';
@@ -221,7 +221,7 @@ async function getIdentifierNameForCurrentTab(origin: string): Promise<string> {
  */
 // TODO P2 type of any is a code smell
 async function handleSignRequest(message: any, csTabPort: chrome.runtime.Port): Promise<void> {
-    // ICsSwMsgSignRequest
+    // ICsBwMsgSignRequest
     console.log('SW handleSignRequest: ', message);
 
     if (csTabPort.sender?.tab?.id) {
@@ -297,7 +297,7 @@ async function getWebsiteConfigByOrigin(origin: string): Promise<any | undefined
  * Handle the tab content script's request for user to select an identifier
  */
 // TODO P2 define type for msg. Use of any is a code smell.
-function handleSelectAuthorize(msg: any /* ICsSwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port): void {
+function handleSelectAuthorize(msg: any /* ICsBwMsgSelectIdentifier*/, csTabPort: chrome.runtime.Port): void {
     console.log('SW handleSelectAuthorize: ', msg);
     if (csTabPort.sender && csTabPort.sender.tab && csTabPort.sender.tab.id) {
         const tabId = Number(csTabPort.sender.tab.id);
@@ -342,7 +342,7 @@ async function handleOnConnect(connectedPort: chrome.runtime.Port): Promise<void
         console.log('SW🡠🡢CS via port', cSPort);
 
         // Listen for and handle messages from the content script and Blazor app
-        cSPort.onMessage.addListener(async (message: ICsSwMsg) => await handleMessageFromCs(message, cSPort as chrome.runtime.Port, tabId, connectionId));
+        cSPort.onMessage.addListener(async (message: ICsBwMsg) => await handleMessageFromCs(message, cSPort as chrome.runtime.Port, tabId, connectionId));
 
     } else {
         // Check if the port is from the Blazor App, based on naming pattern
@@ -384,7 +384,7 @@ async function handleOnConnect(connectedPort: chrome.runtime.Port): Promise<void
             console.log('SW adding onMessage listener for App port... done', appPort);
 
             // Send an initial msg from SW to App
-            appPort.postMessage({ type: SwCsMsgEnum.FSW, data: 'Service worker connected' });
+            appPort.postMessage({ type: BwCsMsgEnum.FSW, data: 'Service worker connected' });
 
         } else {
             console.error('SW Invalid port:', connectedPort);
@@ -410,7 +410,7 @@ function handlePortDisconnected(connectionId: string): void {
         // console.warn("SW onDisconnect:", "pendingRequestId", pendingRequestId, "isKeriaPending", isWaitingOnKeria);
         if (pendingRequestId !== null && !isWaitingOnKeria && pendingRequestPort !== null) {
             const lastGasp = {
-                type: SwCsMsgEnum.REPLY,
+                type: BwCsMsgEnum.REPLY,
                 requestId: pendingRequestId,
                 error: 'KERI Auth popup closed'
             };
@@ -471,7 +471,7 @@ async function signReqSendToTab(message: any, port: chrome.runtime.Port): Promis
             // console.warn("tmp signReqSendToTab message: ", message);
             const headers: { [key: string]: string } = await getSignedHeaders(payload.origin, payload.url, payload.method, initHeaders, payload.selectedName);
             const signedHeaderResult = {
-                type: SwCsMsgEnum.REPLY,
+                type: BwCsMsgEnum.REPLY,
                 requestId: message.requestId,
                 payload: { headers },
                 rurl: payload.requestUrl
@@ -501,14 +501,14 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
 
     // Send a response to the KeriAuth App
     // TODO P3 is this unecessary noise, or helpful for debugging?
-    appPort.postMessage({ type: SwCsMsgEnum.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
+    appPort.postMessage({ type: BwCsMsgEnum.FSW, data: `SW received your message: ${message.data} for tab ${appPort.sender?.tab}` });
 
     // Forward the msg to the content script, if appropriate
     if (cSConnection) {
         console.log('SW handling App message of type: ', message.type);
         switch (message.type) {
             // TODO P2 update and define consistent message type enums here. App-to-Sw should have its own enums
-            case SwCsMsgEnum.REPLY:
+            case BwCsMsgEnum.REPLY:
                 isWaitingOnKeria = true;
                 console.log(`SW🡢CS ${message.type}`);
                 cSConnection.port.postMessage(message);
@@ -519,7 +519,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 await signReqSendToTab(message, cSConnection.port);
                 resetPendingRequest();
                 break;
-            case SwCsMsgEnum.REPLY_CRED:
+            case BwCsMsgEnum.REPLY_CRED:
                 isWaitingOnKeria = true;
                 try {
                     // TODO P2 Improve typing.  E.g., const msg = message as TypeFoo<DataBar>
@@ -545,7 +545,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         };
                         // TODO P2 constrain to a type
                         const authorizeResult = {
-                            type: SwCsMsgEnum.REPLY,
+                            type: BwCsMsgEnum.REPLY,
                             requestId: message.requestId,
                             payload: authorizeResultCredential
                         };
@@ -564,7 +564,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 isWaitingOnKeria = true;
                 try {
                     const cancelResult: ICsPageMsgData<null> = {
-                        type: SwCsMsgEnum.REPLY_CANCELED,
+                        type: BwCsMsgEnum.REPLY_CANCELED,
                         source: CsPageMsgTag,
                         requestId: message.requestId,
                         error: 'Canceled or timed out'
@@ -576,13 +576,13 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                 }
                 resetPendingRequest();
                 break;
-            case SwCsMsgEnum.APP_CLOSED:
+            case BwCsMsgEnum.APP_CLOSED:
                 // intentionally not setting isWaitingOnKeria = true here
                 try {
                     if (pendingRequestId !== null) {
                         if (!isWaitingOnKeria) {
                             const cancelResult: ICsPageMsgData<null> = {
-                                type: SwCsMsgEnum.REPLY_CANCELED,
+                                type: BwCsMsgEnum.REPLY_CANCELED,
                                 source: CsPageMsgTag,
                                 requestId: pendingRequestId,
                                 error: 'User canceled or KERI Auth timed out'
@@ -594,7 +594,7 @@ async function handleMessageFromApp(message: any, appPort: chrome.runtime.Port, 
                         }
                     } else {
                         const closeAppMsg: ICsPageMsgData<null> = {
-                            type: SwCsMsgEnum.APP_CLOSED,
+                            type: BwCsMsgEnum.APP_CLOSED,
                             source: CsPageMsgTag,
                             requestId: 'none',
                             error: 'KERI Auth action popup closed'
@@ -626,34 +626,34 @@ async function handleMessageFromCs(message: ICsSwMsg, cSPort: chrome.runtime.Por
     pendingRequestId = message.requestId as string;
     pendingRequestPort = cSPort;
     let url = new URL('unknown');
-    let response: ISwCsMsgPong;
+    let response: IBwCsMsgPong;
 
     // assure tab is still connected
     if (pageCsConnections[connectionId]) {
         switch (message.type) {
-            case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
-            case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
-            case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
+            case CsBwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
+            case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
+            case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
                 handleSelectAuthorize(message as any, pageCsConnections[connectionId].port);
                 break;
-            case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
+            case CsBwMsgEnum.POLARIS_SIGN_REQUEST:
                 // TODO P2 any is a code smell
                 await handleSignRequest(message as any, pageCsConnections[connectionId].port);
                 break;
-            case CsSwMsgEnum.INIT:
+            case CsBwMsgEnum.INIT:
                 pageCsConnections[connectionId].tabId = tabId;
                 url = new URL(String(cSPort.sender?.url));
                 pageCsConnections[connectionId].pageAuthority = url.host;
                 response = {
-                    type: SwCsMsgEnum.READY,
+                    type: BwCsMsgEnum.READY,
                     requestId: message.requestId,
                     payload: {}
-                } as ISwCsMsgPong;
-                console.log('SW🡢CS', SwCsMsgEnum.READY as string);
+                } as IBwCsMsgPong;
+                console.log('SW🡢CS', BwCsMsgEnum.READY as string);
                 cSPort.postMessage(response);
                 pendingRequestId = null;
                 break;
-            case CsSwMsgEnum.POLARIS_SIGN_DATA:
+            case CsBwMsgEnum.POLARIS_SIGN_DATA:
             // TODO P2 request user to sign data (or request?)
             default:
                 console.warn('SW message type not yet handled: ', message);

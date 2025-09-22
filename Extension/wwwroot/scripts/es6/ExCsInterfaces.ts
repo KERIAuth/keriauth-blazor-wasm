@@ -2,14 +2,14 @@
 
 import type * as Polaris from '../types/polaris-web-client';
 
-export interface ICsSwMsg {
+export interface ICsBwMsg {
     type: string
     requestId?: string
     payload?: object
 }
 
 // Message types from Page to CS, which may be then forwarded to the extension BackgroundWorker.  Aka "EVENT_TYPE" in the polaris-web code."
-export enum CsSwMsgEnum {
+export enum CsBwMsgEnum {
     POLARIS_SIGNIFY_EXTENSION = 'signify-extension',
     POLARIS_SIGNIFY_EXTENSION_CLIENT = 'signify-extension-client',
     POLARIS_CONFIGURE_VENDOR = '/signify/configure-vendor',
@@ -26,24 +26,24 @@ export enum CsSwMsgEnum {
 }
 
 // Message types from Extension to CS (and typically forward to Page and sometimes of type FooResponse)
-export interface ISwCsMsg {
-    type: string // SwCsMsgEnum  // TODO P2 typof SwCsMsgEnum ?
+export interface IBwCsMsg {
+    type: string // BwCsMsgEnum  // TODO P2 typof BwCsMsgEnum ?
     requestId?: string // response to this requestId
     payload?: object
     error?: string
 }
 
-export enum SwCsMsgEnum {
+export enum BwCsMsgEnum {
     READY = 'ready',
     REPLY_CANCELED = 'reply_canceled',
     REPLY = '/signify/reply',
-    FSW = 'fromServiceWorker',
+    FSW = 'fromBackgroundWorker',
     APP_CLOSED = 'app_closed',
     REPLY_CRED = '/KeriAuth/signify/replyCredential'
 };
 
-export interface ISwCsMsgPong extends ISwCsMsg {
-    type: SwCsMsgEnum.READY
+export interface IBwCsMsgPong extends IBwCsMsg {
+    type: BwCsMsgEnum.READY
 }
 
 // This IIdentifier is used in the context of responses from the extension BackgroundWorker, CS, to page
@@ -117,8 +117,6 @@ export interface ISignin {
     updatedAt: number;
     autoSignin?: boolean;
 }
-
-// TODO P2 Add constructors here for the various message interfaces such as ApprovedSignRequest, to ensure they are properly formatted and optional null value combos are assured valid.
 
 export interface IApprovedSignRequest {
     originStr: string;

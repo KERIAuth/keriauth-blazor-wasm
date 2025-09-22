@@ -7,7 +7,7 @@ import type {
     IApprovedSignRequest
 } from '../es6/ExCsInterfaces.js';
 import {
-    SwCsMsgEnum
+    BwCsMsgEnum
 } from '../es6/ExCsInterfaces.js';
 
 interface DotNetObjectReference<T = any> {
@@ -29,7 +29,7 @@ export const SwAppInteropModule = {
             port.onMessage.addListener((message) => {
                 console.log('SwAppInterop received port message: ', message);
                 // TODO P2 message types fromApp vs fromServiceWorker?
-                if (message && message.type === SwCsMsgEnum.FSW) {
+                if (message && message.type === BwCsMsgEnum.FSW) {
                     dotNetObjectReference.invokeMethodAsync('ReceiveMessage', message.data);
                 }
             });
@@ -52,7 +52,7 @@ export const SwAppInteropModule = {
             // depending on type, re-parse and process
             switch (payloadTypeName) {
                 case 'CancelResult':
-                    // TODO P2 AuthorizeResult type is the closest match to CancelResult at the moment.
+                    // Note that AuthorizeResult type is the closest match to CancelResult
                     const msgCancelResult = JSON.parse(jsonReplyMessageData) as IReplyMessageData<PW.AuthorizeResult>;
                     console.log('SwAppInteropModule.sendMessageToServiceWorker messageData3: ', msgCancelResult);
                     port.postMessage(msgCancelResult);
