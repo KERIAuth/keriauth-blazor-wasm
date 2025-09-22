@@ -38,8 +38,16 @@ window.addEventListener('message', (event: MessageEvent<PageMessageData>) => han
 
 // Unique port name for communications between the content script and the extension
 const uniquePortName: string = generateUniqueIdentifier();
-let portWithSw: chrome.runtime.Port | null = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-createPortWithSw();
+let portWithSw: chrome.runtime.Port | null = null;
+
+// Initialize port connection with error handling
+try {
+    portWithSw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
+    createPortWithSw();
+} catch (error) {
+    console.error('KeriAuthCs: Failed to create initial port connection:', error);
+    // Will attempt to reconnect when first message needs to be sent
+}
 
 // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
 window.addEventListener('popstate', (event) => {
@@ -53,26 +61,30 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 console.groupEnd();
 
-/*
+/**
  * Generate a unique and unguessable identifier for the port name for communications between the content script and the extension
+ * @returns A cryptographically random string identifier
  */
 function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
-    // TODO P4 consider randumUUID() instead
+    // TODO P4 consider randomUUID() instead
     window.crypto.getRandomValues(array);
     return Array.from(array, dec => (`00000000${dec.toString(16)}`).slice(-8)).join('-');
 }
 
-/*
- *
+/**
+ * Send a message from the content script to the web page
+ * @param msg The message to send to the page, must have a 'type' property
  */
 function postMessageToPage<T>(msg: T): void {
     console.log(`KeriAuthCs→Page: ${(msg as ICsPageMsgData<T>).type}`, { msg });
     window.postMessage(msg, currentOrigin);
 }
 
-/*
- * Handle messages from SW
+/**
+ * Handle messages received from the Service Worker (BackgroundWorker)
+ * Routes responses back to the web page with appropriate formatting
+ * @param message Message from the Service Worker following polaris-web protocol
  */
 function handleMsgFromSW(message: PW.MessageData<unknown>): void {
     if (!message.type) {
@@ -137,8 +149,10 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
     console.groupEnd();
 }
 
-/*
- *
+/**
+ * Initialize the port connection with the Service Worker
+ * Sets up message and disconnect listeners, sends initial INIT message
+ * Assumes portWithSw has already been created via chrome.runtime.connect()
  */
 function createPortWithSw(): void {
     console.groupCollapsed('KeriAuthCs→SW: creating port');
@@ -163,28 +177,50 @@ function createPortWithSw(): void {
     // Send a ping message to the BackgroundWorker to help complete the setup of connection port
     const initMsg: ICsSwMsg = { type: CsSwMsgEnum.INIT };
     console.log('KeriAuthCs→SW Init:', initMsg);
-    portWithSw.postMessage(initMsg);
+    try {
+        portWithSw.postMessage(initMsg);
+    } catch (error) {
+        console.error('KeriAuthCs→SW: Failed to send INIT message:', error);
+        // Port may have disconnected already, set to null for reconnection
+        portWithSw = null;
+    }
     console.groupEnd();
 }
 
-/*
- * Assure port with SW exists, then postMessage
- * Accepts messages conforming to polaris-web protocol or internal CS-SW messages
+/**
+ * Ensure port connection exists and send message to Service Worker
+ * Automatically reconnects if port was disconnected (e.g., when Service Worker went inactive)
+ * @param msg Message to send, either polaris-web protocol or internal CS-SW message
+ * @throws Error if unable to connect or send message
  */
 function assurePortAndSend(msg: PW.MessageData<unknown> | ICsSwMsg): void {
     // Check if port is null (happens when BackgroundWorker goes inactive and disconnects)
     // Chrome extension ports cannot be reused after disconnection - must create new connection
     if (portWithSw === null) {
         console.info('KeriAuthCs re-creating port connection to BackgroundWorker');
-        portWithSw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-        createPortWithSw();
+        try {
+            portWithSw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
+            createPortWithSw();
+        } catch (error) {
+            console.error('KeriAuthCs→SW: Failed to reconnect to BackgroundWorker:', error);
+            throw error; // Re-throw to let caller handle the error
+        }
     }
     console.info('KeriAuthCs→SW: postMessage:', msg);
-    portWithSw.postMessage(msg);
+    try {
+        portWithSw.postMessage(msg);
+    } catch (error) {
+        console.error('KeriAuthCs→SW: Failed to send message:', error);
+        // Port may have disconnected, set to null and re-throw
+        portWithSw = null;
+        throw error;
+    }
 }
 
-/*
- * Handle messages from the page
+/**
+ * Handle messages from the web page and route them to the Service Worker
+ * Validates message origin and filters out echo messages from content script
+ * @param event Message event from the web page containing polaris-web protocol messages
  */
 function handleWindowMessage(event: MessageEvent<PageMessageData>): void {
 
