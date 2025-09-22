@@ -197,6 +197,10 @@ dotnet publish -c Release
 
 **IMPORTANT: Always prefer TypeScript over JavaScript for new code.** All new browser extension scripts, modules, and interop files should be written in TypeScript (.ts) rather than JavaScript (.js). TypeScript provides better type safety, IntelliSense support, and maintainability.
 
+**NEVER create new .js files** - Always use TypeScript (.ts) files that compile to JavaScript.
+
+**When using JsBind.Net for interop**: Do not create new TypeScript or JavaScript files unless absolutely necessary. The JsBind.Net library (by mingyaulee) provides sufficient JavaScript interop capabilities for most browser extension needs without requiring additional script files.
+
 ### Code Style Guidelines
 - Use strong types - define interfaces/types for all data structures
 - Avoid use of "any" type where possible - use "unknown" if type is truly dynamic
@@ -395,6 +399,12 @@ The signify-ts library built JavaScript sometimes conveys complex object structu
 - Use CancellationToken for all async operations
 - Wrap all JavaScript interop calls in try-catch blocks with specific error messages
 
+### JavaScript Interop with JsBind.Net
+- **Prefer JsBind.Net over custom JavaScript files**: The JsBind.Net library provides robust JavaScript interop without requiring new script files
+- **Use IJSRuntime for simple cases**: For basic JavaScript calls, use IJSRuntime.InvokeAsync<T>() directly
+- **Avoid creating new .ts/.js files**: Only create new TypeScript files when JsBind.Net and IJSRuntime cannot handle the requirement
+- **Example**: `await JSRuntime.InvokeAsync<bool>("window.matchMedia", "(prefers-color-scheme: dark)").matches` instead of creating a separate module
+
 ### Common Patterns
 
 ```csharp
@@ -459,6 +469,11 @@ The extension enforces strict security boundaries:
   - Safe methods (GET) auto-approved
   - Unsafe methods (POST, PUT, DELETE) require explicit user consent
 - **Script Execution**: No dynamic or inline scripts allowed (strict CSP)
+  - **NEVER use eval() or any form of dynamic code evaluation**
+  - **NEVER use WebExtensions.Tabs.ExecuteScript() or chrome.tabs.executeScript()**
+  - **NEVER inject JavaScript code into web pages programmatically**
+  - All JavaScript must be in static files, no runtime code generation
+  - Use JavaScript modules and imports for all interop needs
 - **Data Isolation**: Sensitive data (passcode, private keys) must never reach content script or web page
 - **Storage**: Use chrome.storage.local for non-sensitive data only
 - **KERIA Communication**: All agent communications via authenticated signify-ts

@@ -76,3 +76,29 @@ public record PortMessage(
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("data")] object? Data = null
 );
+
+// Tabs.OnActivated event information
+public record ActiveInfo(
+    [property: JsonPropertyName("tabId")] int TabId,
+    [property: JsonPropertyName("windowId")] int WindowId
+);
+
+// Tabs.OnHighlighted event information
+public record HighlightInfo(
+    [property: JsonPropertyName("tabIds")] int[] TabIds,
+    [property: JsonPropertyName("windowId")] int WindowId
+);
+
+// Tabs.OnUpdated changeInfo
+public record TabChangeInfo(
+    [property: JsonPropertyName("status")] string? Status = null,
+    [property: JsonPropertyName("url")] string? Url = null,
+    [property: JsonPropertyName("title")] string? Title = null,
+    [property: JsonPropertyName("favIconUrl")] string? FavIconUrl = null,
+    [property: JsonPropertyName("pinned")] bool? Pinned = null,
+    [property: JsonPropertyName("audible")] bool? Audible = null,
+    [property: JsonPropertyName("discarded")] bool? Discarded = null,
+    [property: JsonPropertyName("autoDiscardable")] bool? AutoDiscardable = null,
+    [property: JsonPropertyName("mutedInfo")] object? MutedInfo = null,
+    [property: JsonPropertyName("groupId")] int? GroupId = null
+);

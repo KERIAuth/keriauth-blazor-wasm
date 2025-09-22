@@ -1,44 +1,139 @@
 @page "/sidepanel.html"
 @using WebExtensions.Net.Tabs
+@using Extension.Models
+@using BrowserTab = WebExtensions.Net.Tabs.Tab
+@using BrowserActiveInfo = WebExtensions.Net.Tabs.ActiveInfo
 @inherits Blazor.BrowserExtension.Pages.BasePage
 @inject ILogger<SidePanel> _logger;
+@inject IJSRuntime JSRuntime;
 
 <div class="text-container">
     <h1>My Sidepanel</h1>
+    <MudStack>
     <p>This is a demo of the extension side panel.</p>
-    @if (activeTab is not null)
+    @if (activeTab?.Url is not null)
     {
-        <p>The current active tab title is @activeTab.Title</p>
+        <MudCard background="Background.Default" class="pa-4 ma-2">
+            <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px;"   />
+            <MudText><b>Title:</b> @activeTab.Title</MudText>
+            <MudText><b>URL:</b> @activeTab.Url</MudText>
+        </MudCard>
+    } else {
+        <p>To interact with a browser tab, navigate to the desired tab, Reload (Ctrl-R) if needed, then press KERI Auth action icon.</p>
     }
+    </MudStack>
 </div>
 
 @code {
-    WebExtensions.Net.Tabs.Tab? activeTab = null;
+    BrowserTab? activeTab = null;
+
+
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        // TODO P2 this is expected to fail without "tabs" permission
-        WebExtensions.Tabs.OnActivated.AddListener(OnTabChanged);
+        
+        WebExtensions.Tabs.OnActivated.AddListener(OnTabActivated);
+        WebExtensions.Tabs.OnUpdated.AddListener(OnTabUpdated);
+        WebExtensions.Tabs.OnReplaced.AddListener(OnTabReplaced);
+        WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemoved);
+        WebExtensions.Tabs.OnHighlighted.AddListener(OnTabHighlighted);
+
         activeTab = (await WebExtensions.Tabs.Query(new()
             {
                 Active = true,
                 CurrentWindow = true
             })).FirstOrDefault();
+        
         // Note: id and url are null here but will be null without "tabs" permission (or possibly getting here via OnAction listener)
-        _logger.LogInformation("SidePanel initialized, active tab: t: {tab} id: {id} url: {url}", activeTab?.Title, activeTab?.Id, activeTab?.Url);
+        _logger.LogInformation("SidePanel initialized, active tab: t: {tab} id: {id} url: {url}", 
+            activeTab?.Title, activeTab?.Id, activeTab?.Url);
     }
 
-    void OnTabChanged(ActiveInfo activeTabInfo)
+    void OnTabActivated(BrowserActiveInfo activeInfo)
     {
-        _ = OnTabChangedAsync(activeTabInfo);
+        _ = OnTabActivatedAsync(activeInfo);
     }
 
-    async Task OnTabChangedAsync(ActiveInfo activeTabInfo)
+    async Task OnTabActivatedAsync(BrowserActiveInfo activeInfo)
     {
-        activeTab = await WebExtensions.Tabs.Get(activeTabInfo.TabId);
-        // Note: id and url are null here but will be null without "tabs" permission (or possibly getting here via OnAction listener)
-        _logger.LogInformation("SidePanel tab changed, active tab: t: {tab} id: {id} url: {url}", activeTab?.Title, activeTab?.Id, activeTab?.Url);
+        activeTab = await WebExtensions.Tabs.Get(activeInfo.TabId);
+        
+        _logger.LogInformation("SidePanel tab activated, active tab: t: {tab} id: {id} url: {url}", 
+            activeTab?.Title, activeTab?.Id, activeTab?.Url);
         StateHasChanged();
     }
+
+    void OnTabUpdated(int tabId, ChangeInfo changeInfo, BrowserTab tab)
+    {
+        _ = OnTabUpdatedAsync(tabId, changeInfo, tab);
+    }
+
+    async Task OnTabUpdatedAsync(int tabId, ChangeInfo changeInfo, BrowserTab tab)
+    {
+        if (activeTab?.Id == tabId)
+        {
+            activeTab = tab;
+            _logger.LogInformation("SidePanel tab updated, tab {tabId}: t: {tab} url: {url} status: {status}", 
+                tabId, tab?.Title, tab?.Url, changeInfo?.Status);
+            StateHasChanged();
+        }
+    }
+
+    void OnTabReplaced(int addedTabId, int removedTabId)
+    {
+        _ = OnTabReplacedAsync(addedTabId, removedTabId);
+    }
+
+    async Task OnTabReplacedAsync(int addedTabId, int removedTabId)
+    {
+        if (activeTab?.Id == removedTabId)
+        {
+            activeTab = await WebExtensions.Tabs.Get(addedTabId);
+            _logger.LogInformation("SidePanel tab replaced, old: {oldId}, new: {newId}, title: {tab}", 
+                removedTabId, addedTabId, activeTab?.Title);
+            StateHasChanged();
+        }
+    }
+
+    void OnTabRemoved(int tabId, RemoveInfo removeInfo)
+    {
+        _ = OnTabRemovedAsync(tabId, removeInfo);
+    }
+
+    async Task OnTabRemovedAsync(int tabId, RemoveInfo removeInfo)
+    {
+        if (activeTab?.Id == tabId)
+        {
+            _logger.LogInformation("SidePanel active tab removed: {tabId}, isWindowClosing: {isClosing}", 
+                tabId, removeInfo?.IsWindowClosing);
+            
+            if (!removeInfo?.IsWindowClosing ?? false)
+            {
+                activeTab = (await WebExtensions.Tabs.Query(new()
+                    {
+                        Active = true,
+                        CurrentWindow = true
+                    })).FirstOrDefault();
+                StateHasChanged();
+            }
+        }
+    }
+
+    void OnTabHighlighted(HighlightInfo highlightInfo)
+    {
+        _ = OnTabHighlightedAsync(highlightInfo);
+    }
+
+    async Task OnTabHighlightedAsync(HighlightInfo highlightInfo)
+    {
+        if (highlightInfo?.TabIds?.Length > 0)
+        {
+            activeTab = await WebExtensions.Tabs.Get(highlightInfo.TabIds[0]);
+            _logger.LogInformation("SidePanel tab highlighted, tabs: [{tabIds}], title: {tab}", 
+                string.Join(", ", highlightInfo.TabIds), activeTab?.Title);
+            StateHasChanged();
+        }
+    }
+
 }

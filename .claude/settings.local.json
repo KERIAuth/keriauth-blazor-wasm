@@ -25,7 +25,8 @@
       "Bash(mkdir:*)",
       "WebFetch(domain:mingyaulee.github.io)",
       "WebSearch",
-      "Bash(dotnet list:*)"
+      "Bash(dotnet list:*)",
+      "WebFetch(domain:developer.chrome.com)"
     ],
     "deny": [],
     "ask": []
