@@ -36,7 +36,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // Message types
     private const string LockAppAction = "LockApp";
     private const string SystemLockDetectedAction = "systemLockDetected";
-    private const string FromServiceWorkerType = "fromServiceWorker";
+    private const string FromBackgroundWorkerType = "fromBackgroundWorker";
 
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly IJSRuntime _jsRuntime;
@@ -448,8 +448,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Send initial connection message
             var message = new PortMessage(
-                Type: FromServiceWorkerType,
-                Data: "Service worker connected"
+                Type: FromBackgroundWorkerType,
+                Data: "Background worker connected"
             );
             await SendPortMessageAsync(port, message);
         }

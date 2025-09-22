@@ -36,7 +36,7 @@
 @inject IStorageService storageService
 @inject IPreferencesService preferencesService
 @inject IExtensionEnvironmentService extensionEnvironmentService
-@inject IAppSwMessagingService appSwMessagingService
+@inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 
 @code {
@@ -230,7 +230,7 @@
         }
         try
         {
-            await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
+            await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(replyMessageData);
             return Result.Ok();
         }
         catch (Exception ex)
@@ -247,7 +247,7 @@
             new AuthorizeResult(null, null),
             requestId: requestId
         );
-        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(cr);
+        await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(cr);
     }
 
     public void Dispose()

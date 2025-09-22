@@ -4,11 +4,11 @@ using System.Text.Json;
 // using WebExtensions.Net.Scripting;
 
 namespace Extension.Services {
-    public class AppSwMessagingService(ILogger<AppSwMessagingService> logger, IJSRuntime jsRuntime) : IAppSwMessagingService {
+    public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJSRuntime jsRuntime) : IAppBwMessagingService {
         private readonly List<IObserver<string>> observers = [];
         private IJSObjectReference? _port;
         private IJSObjectReference _interopModule = default!;
-        private DotNetObjectReference<AppSwMessagingService> _objectReference = default!;
+        private DotNetObjectReference<AppBwMessagingService> _objectReference = default!;
 
         public async Task Initialize(string tabId) {
             try {
@@ -30,14 +30,14 @@ namespace Extension.Services {
             }
         }
 
-        public async Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData) {
-            logger.LogInformation("SendToServiceWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.PayloadTypeName);
+        public async Task SendToBackgroundWorkerAsync<T>(ReplyMessageData<T> replyMessageData) {
+            logger.LogInformation("SendToBackgroundWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.PayloadTypeName);
 
             if (_port != null) {
                 var replyJson = JsonSerializer.Serialize(replyMessageData);
-                logger.LogInformation("SendToServiceWorkerAsync sending payloadJson: {p}", replyJson);
-                await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToServiceWorker", _port, replyJson);
-                logger.LogInformation("SendToServiceWorkerAsync to SW: sent");
+                logger.LogInformation("SendToBackgroundWorkerAsync sending payloadJson: {p}", replyJson);
+                await _interopModule.InvokeVoidAsync("SwAppInteropModule.sendMessageToBackgroundWorker", _port, replyJson);
+                logger.LogInformation("SendToBackgroundWorkerAsync to BW: sent");
             }
             else {
                 logger.LogError("Port is null");
@@ -46,8 +46,8 @@ namespace Extension.Services {
 
         [JSInvokable]
         public void ReceiveMessage(string message) {
-            // Handle the message received from the service worker
-            logger.LogInformation("AppSwMessagingService from SW: {m}", message);
+            // Handle the message received from the background worker
+            logger.LogInformation("AppBwMessagingService from BW: {m}", message);
             OnNext(message);
         }
 

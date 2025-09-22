@@ -2,10 +2,10 @@
 using Microsoft.JSInterop;
 
 namespace Extension.Services {
-    public interface IAppSwMessagingService : IObservable<string> {
+    public interface IAppBwMessagingService : IObservable<string> {
         Task Initialize(string tabId);
 
-        Task SendToServiceWorkerAsync<T>(ReplyMessageData<T> replyMessageData);
+        Task SendToBackgroundWorkerAsync<T>(ReplyMessageData<T> replyMessageData);
 
         [JSInvokable]
         void ReceiveMessage(string message);

@@ -37,7 +37,7 @@
 @inject IStorageService storageService
 @inject IPreferencesService preferencesService
 @inject IExtensionEnvironmentService extensionEnvironmentService
-@inject IAppSwMessagingService appSwMessagingService
+@inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 @inject IJSRuntime js
 @inject IJsRuntimeAdapter jsRuntimeAdapter
@@ -366,7 +366,7 @@
             {
                 ApprovedSignRequest approvedSignRequest = new("passcode", "adminUrl", OriginStr, request.Url, request.Method, request.HeadersDict, SelectedName!);
                 ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
-                await appSwMessagingService.SendToServiceWorkerAsync<ApprovedSignRequest>(replyMessageData);
+                await appBwMessagingService.SendToBackgroundWorkerAsync<ApprovedSignRequest>(replyMessageData);
             }
             else
             {
@@ -391,7 +391,7 @@
             null,
             "KeriAuth"
         );
-        await appSwMessagingService.SendToServiceWorkerAsync<AuthorizeResult>(replyMessageData);
+        await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(replyMessageData);
     }
 
     //

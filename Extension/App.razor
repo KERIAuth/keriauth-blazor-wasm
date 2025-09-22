@@ -9,7 +9,7 @@
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IStateService stateService
-@inject IAppSwMessagingService appSwMessagingService
+@inject IAppBwMessagingService appBwMessagingService
 
 @code {
     // fields
@@ -56,14 +56,14 @@
             onCompleted: async () => await HandleCompletedFromStateService()
         );
 
-        // Subscribe to and handle messages from service worker via messaging service
-        appSwMessagingService.Subscribe<string>((message) =>
+        // Subscribe to and handle messages from background worker via messaging service
+        appBwMessagingService.Subscribe<string>((message) =>
         {
-            _logger.LogInformation("App from SW/MessagingService: {m}", message);
+            _logger.LogInformation("App from BW/MessagingService: {m}", message);
         });
 
-        // Initialize messaging with service worker
-        await appSwMessagingService.Initialize(InitialUri.Authority);
+        // Initialize messaging with background worker
+        await appBwMessagingService.Initialize(InitialUri.Authority);
 
         // TODO P1 (for inactivity timer)  await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
         // TODO P1 await jsRuntime.InvokeVoidAsync("registerLockListener");

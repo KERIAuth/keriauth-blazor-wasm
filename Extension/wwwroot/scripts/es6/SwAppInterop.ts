@@ -41,12 +41,12 @@ export const SwAppInteropModule = {
         }
     },
 
-    sendMessageToServiceWorker (port: chrome.runtime.Port, jsonReplyMessageData: string): void {
-        console.log('SwAppInteropModule.sendMessageToServiceWorker... ');
+    sendMessageToBackgroundWorker (port: chrome.runtime.Port, jsonReplyMessageData: string): void {
+        console.log('SwAppInteropModule.sendMessageToBackgroundWorker... ');
 
         try {
             const messageData = JSON.parse(jsonReplyMessageData) as IReplyMessageData<unknown>;
-            console.log('SwAppInteropModule.sendMessageToServiceWorker messageData: ', messageData);
+            console.log('SwAppInteropModule.sendMessageToBackgroundWorker messageData: ', messageData);
             const { type, requestId, payload, error, payloadTypeName, source } = messageData;
 
             // depending on type, re-parse and process
@@ -54,12 +54,12 @@ export const SwAppInteropModule = {
                 case 'CancelResult':
                     // Note that AuthorizeResult type is the closest match to CancelResult
                     const msgCancelResult = JSON.parse(jsonReplyMessageData) as IReplyMessageData<PW.AuthorizeResult>;
-                    console.log('SwAppInteropModule.sendMessageToServiceWorker messageData3: ', msgCancelResult);
+                    console.log('SwAppInteropModule.sendMessageToBackgroundWorker messageData3: ', msgCancelResult);
                     port.postMessage(msgCancelResult);
                     break;
                 case 'AuthorizeResult':
                     const msgAuthorizeResult = JSON.parse(jsonReplyMessageData) as IReplyMessageData<PW.AuthorizeResult>;
-                    console.log('SwAppInteropModule.sendMessageToServiceWorker messageData2: ', msgAuthorizeResult);
+                    console.log('SwAppInteropModule.sendMessageToBackgroundWorker messageData2: ', msgAuthorizeResult);
                     port.postMessage(msgAuthorizeResult);
                     break;
                 case 'ApprovedSignRequest':
