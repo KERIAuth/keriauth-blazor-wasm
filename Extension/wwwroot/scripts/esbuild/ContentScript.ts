@@ -3,19 +3,10 @@
 // This ContentScript is inserted into tabs after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension BackgroundWorker.
 
-// windows message event data
-// TODO P2 better imported form somewhere?
-interface EventData {
-    type: string;
-    [key: string]: any;
-}
-
-import type {
-    ICsPageMsgData,
-    ICsPageMsgDataData,
-    ICsSwMsg} from '../es6/ExCsInterfaces';
-
 import {
+    type ICsPageMsgData,
+    type ICsPageMsgDataData,
+    type ICsSwMsg,
     CsPageMsgTag,
     CsSwMsgEnum,
     SwCsMsgEnum
@@ -23,21 +14,31 @@ import {
 
 import type * as PW from '../types/polaris-web-client';
 
+// Type for messages from the page (combines polaris-web messages and CS-specific messages)
+// Some messages may have a 'source' property to identify origin
+type PageMessageData =
+    (PW.MessageData<PW.AuthorizeArgs> & { source?: string })
+    | (PW.MessageData<PW.CreateCredentialArgs> & { source?: string })
+    | (PW.MessageData<PW.SignDataArgs> & { source?: string })
+    | (PW.MessageData<PW.SignRequestArgs> & { source?: string })
+    | (PW.MessageData<PW.ConfigureVendorArgs> & { source?: string })
+    | (PW.MessageData<null> & { source?: string })
+    | ICsPageMsgData<unknown>;
+
 /*
  * This section is evaluated on document-start, as specified in the extension manifest
  */
-
-// TODO P2 clarify naming consistency and use of: tab, page (including DOM and properties), document (high-level properties), and DOM
-
-// Unique port name for communications between the content script and the extension
-const currentOrigin = window.location.origin;
-let uniquePortName: string;
-let portWithSw: chrome.runtime.Port | null;
-
 console.groupCollapsed('KeriAuthCs initializing');
+const currentOrigin = window.location.origin;
+console.log('KeriAuthCs currentOrigin:', currentOrigin);
+console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
 // Add a listener for messages and create port with SW
-window.addEventListener('message', (event: MessageEvent<EventData>) => handleWindowMessage(event));
+window.addEventListener('message', (event: MessageEvent<PageMessageData>) => handleWindowMessage(event));
+
+// Unique port name for communications between the content script and the extension
+const uniquePortName: string = generateUniqueIdentifier();
+let portWithSw: chrome.runtime.Port | null = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
 createPortWithSw();
 
 // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
@@ -46,9 +47,10 @@ window.addEventListener('popstate', (event) => {
 });
 
 // Add listener for when DOMContentLoaded. Log if helpful for debugging issues.
-document.addEventListener('DOMContentLoaded', (_) => {
-    // console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
+document.addEventListener('DOMContentLoaded', (event) => {
+    console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
 });
+
 console.groupEnd();
 
 /*
@@ -58,7 +60,7 @@ function generateUniqueIdentifier(): string {
     const array = new Uint32Array(4);
     // TODO P4 consider randumUUID() instead
     window.crypto.getRandomValues(array);
-    return Array.from(array, dec => (`00000000${  dec.toString(16)}`).slice(-8)).join('-');
+    return Array.from(array, dec => (`00000000${dec.toString(16)}`).slice(-8)).join('-');
 }
 
 /*
@@ -105,13 +107,15 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
             break;
 
         case SwCsMsgEnum.REPLY_CANCELED:
-            const canceledMsg: ICsPageMsgData<null> = {
-                source: CsPageMsgTag,
-                type: SwCsMsgEnum.REPLY,
-                requestId: message.requestId,
-                error: message.error
+            {
+                const canceledMsg: ICsPageMsgData<null> = {
+                    source: CsPageMsgTag,
+                    type: SwCsMsgEnum.REPLY,
+                    requestId: message.requestId,
+                    error: message.error
+                };
+                postMessageToPage<ICsPageMsgData<null>>(canceledMsg);
             };
-            postMessageToPage<ICsPageMsgData<null>>(canceledMsg);
             break;
 
         case SwCsMsgEnum.APP_CLOSED:
@@ -138,16 +142,21 @@ function handleMsgFromSW(message: PW.MessageData<unknown>): void {
  */
 function createPortWithSw(): void {
     console.groupCollapsed('KeriAuthCs→SW: creating port');
-    uniquePortName = generateUniqueIdentifier();
-    portWithSw = chrome.runtime.connect(uniquePortName);
+
+    if (!portWithSw) {
+        console.error('KeriAuthCs→SW: Port is null, cannot setup listeners');
+        return;
+    }
+
     console.log('KeriAuthCs→SW connected port:', portWithSw);
 
     // register to receive and handle messages from the extension (and indirectly also from the web page)
     portWithSw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromSW(message));
 
-    portWithSw.onDisconnect.addListener((_) => {
+    portWithSw.onDisconnect.addListener(() => {
         // disconnect will typically happen when the BackgroundWorker becomes inactive
         console.info('KeriAuthCs Port with BackgroundWorker was disconnected, likely due to BackgroundWorker going inactive.');
+        // Set to null so assurePortAndSend knows to reconnect
         portWithSw = null;
     });
 
@@ -160,20 +169,24 @@ function createPortWithSw(): void {
 
 /*
  * Assure port with SW exists, then postMessage
+ * Accepts messages conforming to polaris-web protocol or internal CS-SW messages
  */
-function assurePortAndSend(msg: any) {
+function assurePortAndSend(msg: PW.MessageData<unknown> | ICsSwMsg): void {
+    // Check if port is null (happens when BackgroundWorker goes inactive and disconnects)
+    // Chrome extension ports cannot be reused after disconnection - must create new connection
     if (portWithSw === null) {
-        console.info('KeriAuthCs re-createPortWithCs()');
+        console.info('KeriAuthCs re-creating port connection to BackgroundWorker');
+        portWithSw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
         createPortWithSw();
     }
     console.info('KeriAuthCs→SW: postMessage:', msg);
-    portWithSw!.postMessage(msg);
+    portWithSw.postMessage(msg);
 }
 
 /*
  * Handle messages from the page
  */
-function handleWindowMessage(event: MessageEvent<EventData>) {
+function handleWindowMessage(event: MessageEvent<PageMessageData>): void {
 
     if (event === undefined) {
         return;
@@ -185,7 +198,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
     }
 
     // Ignore messages from Cs sent to the Tab (instead of from Tab)
-    if (event.data.source == CsPageMsgTag) {
+    if (event.data.source === CsPageMsgTag) {
         return;
     }
 
@@ -193,9 +206,9 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
     console.groupCollapsed(`KeriAuthCs←Page: ${event.data.type}`);
     console.log(event.data);
     try {
-        const requestId = (event.data as PW.MessageData<any>).requestId;
+        const requestId = event.data.requestId;
         switch (event.data.type) {
-            case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT:
+            case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT: {
                 const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string }> = {
                     source: CsPageMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
@@ -204,8 +217,8 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 };
                 postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
                 break;
-
-            case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION:
+            }
+            case CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION: {
                 const extensionMessage: ICsPageMsgDataData<{ extensionId: string }> = {
                     source: CsPageMsgTag,
                     type: CsSwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
@@ -214,8 +227,8 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 };
                 postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionMessage);
                 break;
-
-            case CsSwMsgEnum.POLARIS_GET_SESSION_INFO:
+            }
+            case CsSwMsgEnum.POLARIS_GET_SESSION_INFO: {
                 // const authorizeArgsMessage2 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // const authorizeResult: PW.AuthorizeResult = {};
                 // TODO P2 implement sessions?
@@ -227,8 +240,8 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 };
                 postMessageToPage<ICsPageMsgData<null>>(sessionInfoMsg);
                 break;
-
-            case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR:
+            }
+            case CsSwMsgEnum.POLARIS_CONFIGURE_VENDOR: {
                 const configureVendorArgsMessage = event.data.payload as PW.MessageData<PW.ConfigureVendorArgs>;
                 console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
                 const configVendorMsg: ICsPageMsgData<null> = {
@@ -239,22 +252,23 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 };
                 postMessageToPage<ICsPageMsgData<null>>(configVendorMsg);
                 break;
-
+            }
             case CsSwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
             case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
             case CsSwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
             case CsSwMsgEnum.POLARIS_SIGN_REQUEST:
                 try {
-                    const authorizeRequestMessage = event.data as PW.MessageData<null>;
-                    console.info(`KeriAuthCs ${authorizeRequestMessage.type}:`, authorizeRequestMessage);
+                    console.info(`KeriAuthCs ${event.data.type}:`, event.data);
 
-                    // TODO P2 this could be simplified with the correct type above?
-                    // only relevant for POLARIS_SIGN_REQUEST ?
-                    if (event.data.payload?.headers) {
-                        console.log('KeriAuthCs payload headers: ');
-                        const hs: Headers = event.data.payload?.headers;
-                        for (const pair of hs.entries()) {
-                            console.log(` ${pair[0]}: ${pair[1]}`);
+                    // Log headers for POLARIS_SIGN_REQUEST
+                    if (event.data.type === CsSwMsgEnum.POLARIS_SIGN_REQUEST) {
+                        const signRequestMessage = event.data as PW.MessageData<PW.SignRequestArgs>;
+                        if (signRequestMessage.payload?.headers) {
+                            console.log('KeriAuthCs payload headers: ');
+                            const headers = signRequestMessage.payload.headers;
+                            for (const [key, value] of Object.entries(headers)) {
+                                console.log(` ${key}: ${value}`);
+                            }
                         }
                     }
                     assurePortAndSend(event.data);
@@ -264,7 +278,7 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 }
                 break;
 
-            case CsSwMsgEnum.POLARIS_CLEAR_SESSION:
+            case CsSwMsgEnum.POLARIS_CLEAR_SESSION: {
                 // const authorizeArgsMessage3 = event.data as PW.MessageData<PW.AuthorizeArgs>;
                 // Although sessions are not implemented, we can respond as expected when Clear is requested
                 const clearResult: ICsPageMsgData<PW.AuthorizeResult> = {
@@ -275,21 +289,21 @@ function handleWindowMessage(event: MessageEvent<EventData>) {
                 };
                 postMessageToPage<ICsPageMsgData<PW.AuthorizeResult>>(clearResult);
                 break;
-
-            case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION:
+            }
+            case CsSwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION: {
                 const createDataAttestationMessage = event.data as PW.MessageData<PW.CreateCredentialArgs>;
                 console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, { createDataAttestationMessage });
                 break;
-
+            }
             case CsSwMsgEnum.POLARIS_GET_CREDENTIAL:
                 console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
                 break;
 
-            case CsSwMsgEnum.POLARIS_SIGN_DATA:
+            case CsSwMsgEnum.POLARIS_SIGN_DATA: {
                 const signDataArgsMsg = event.data as PW.MessageData<PW.SignDataArgs>;
                 console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
                 break;
-
+            }
             default:
                 console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
                 break;

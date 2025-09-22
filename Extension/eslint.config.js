@@ -75,7 +75,7 @@ export default [
       ],
       
       // General JavaScript rules
-      'no-console': ['warn', { allow: ['warn', 'error', 'debug', 'info', 'log', 'assert'] }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'debug', 'info', 'log', 'assert', 'groupCollapsed', 'groupEnd'] }],
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
       'no-unused-expressions': 'error',
