@@ -126,30 +126,32 @@ const validateClient = (): Promise<SignifyClient> => {
 
 export const getState = async (): Promise<string> => {
     const c = await validateClient();
-    // TODO P0 the following exposes the keys in the console log!
-    console.warn('signify_ts_shim: validateClient: ', c);
+    // TODO P2 the following exposes the keys in the console log!
+    console.log('signify_ts_shim: validateClient: ', c);
     const s = await c.state();
     console.log('getState Client AID Prefix: ', s.controller.state.i);
     console.log('getState Agent AID Prefix:   ', s.agent.i);
-    console.debug('signify_ts_shim: getState: ', s);
+    // TODO P2 the following exposes the keys in the console log?
+    console.log('signify_ts_shim: getState: ', s);
     return objectToJson(s);
 };
 
 export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
     _client = null;
     await ready();
-    console.debug('signify_ts_shim: connect: creating client...');
+    // TODO P2 the following exposes the keys in the console log?
+    console.log('signify_ts_shim: connect: creating client...');
     _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
 
     try {
         await _client.connect();
-        console.debug('signify_ts_shim: client connected');
+        console.log('signify_ts_shim: client connected');
     } catch {
-        console.error('signify_ts_shim: client could not connect');
+        console.log('signify_ts_shim: client could not connect');
     }
 
     const state = await getState();
-    console.debug('signify_ts_shim: connect: connected');
+    console.log('signify_ts_shim: connect: connected');
     // console.assert(state?.controller?.state?.i !== null, 'controller id is null'); // TODO P2 throw exception?
 
     return objectToJson(_client);

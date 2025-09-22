@@ -1,4 +1,5 @@
 /// <reference types="chrome-types" />
+// webauthnCredentialWithPRF.ts
 
 interface IUser extends PublicKeyCredentialUserEntity {
     id: BufferSource;

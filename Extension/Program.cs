@@ -57,16 +57,36 @@ logger.LogInformation("WASM host built");
 Debug.Assert(OperatingSystem.IsBrowser());
 
 try {
-    // Adding imports of modules here for use via [JSImport] attributes in C# classes
+    // Adding imports of modules here for use via [JSImport...] attributes in C# classes
     List<(string, string)> imports = [
-        ("uiHelper", "/scripts/es6/uiHelper.js"),
+        // ("uiHelper", "/scripts/es6/uiHelper.js"),
         ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
         ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
         ("storageHelper", "/scripts/es6/storageHelper.js")
     ];
     foreach (var (moduleName, modulePath) in imports) {
         logger.LogInformation("Importing {moduleName}", moduleName);
-        await JSHost.ImportAsync(moduleName, modulePath);
+        try {
+            // Note: JSHost.ImportAsync can throw either Microsoft.JSInterop.JSException or System.Runtime.InteropServices.JavaScript.JSException
+            // depending on whether the exception happens in the JSInterop layer or in the actual JS code.
+            // See https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.javascript.jsexception?view=net-7.0
+            // and https://learn.microsoft.com/en-us/dotnet/api/microsoft.jsinterop.jsexception?view=aspnetcore-7.0
+            // and https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.javascript.jsexception?view=net-7.0
+            _ = await JSHost.ImportAsync(moduleName, modulePath);
+            logger.LogInformation("Imported {moduleName}", moduleName);
+        }
+        catch (Microsoft.JSInterop.JSException e) {
+            logger.LogError("Program: Initialize: ImportAsync {moduleName}: JSInterop.JSException: {e}{s}", moduleName, e.Message, e.StackTrace);
+            throw;
+        }
+        catch (System.Runtime.InteropServices.JavaScript.JSException e) {
+            logger.LogError("Program: Initialize: ImportAsync {moduleName}: JSException: {e}{s}", moduleName, e.Message, e.StackTrace);
+            throw;
+        }
+        catch (Exception e) {
+            logger.LogError("Program: Initialize: ImportAsync {moduleName}: Exception: {e}", moduleName, e);
+            throw;
+        }
     }
 }
 catch (Microsoft.JSInterop.JSException e) {

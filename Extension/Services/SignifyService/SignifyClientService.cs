@@ -53,7 +53,7 @@ namespace Extension.Services.SignifyService {
                             return Result.Fail("Connect failed #1: " + res.Errors[0].Message);
                         }
                         // TODO P2 remove log, since it exposes sensitive info!
-                        logger.LogWarning("Connect: BootAndConnect succeeded res: {res}", res.Value);
+                        logger.LogInformation("Connect: BootAndConnect succeeded res: {res}", res.Value);
 
 
                     }
@@ -68,11 +68,12 @@ namespace Extension.Services.SignifyService {
                         }
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
                         // TODO P2 Don't log the following, since it contains the bran, passcode.
-                        logger.LogWarning("Connect: {connectResults}", res.Value);
+                        logger.LogInformation("Connect: {connectResults}", res.Value);
 
                     }
                     var stateRes = await GetState();
-                    logger.LogWarning("Connect: GetState after BootAndConnect: {agent prefix} {controller prefix}", stateRes.Value.Agent!.I, stateRes.Value.Controller!.State!.I);
+                    // TODO P2 remove this log...
+                    logger.LogInformation("Connect: GetState after BootAndConnect: {agent prefix} {controller prefix}", stateRes.Value.Agent!.I, stateRes.Value.Controller!.State!.I);
                     return Result.Ok(stateRes.Value);
                 }
                 else {

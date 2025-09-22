@@ -243,7 +243,7 @@
         StateHasChanged();
         await Task.Delay(100);
 
-        logger.LogWarning("ConnectToKeria 2");
+        // logger.LogWarning("ConnectToKeria 2");
 
         // If there are no Identifiers, create one
         // var prefs = await preferencesService.GetPreferences();
@@ -260,9 +260,9 @@
             }
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
             // set TODO P0 the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
-            logger.LogWarning("ConnectToKeria 2.1");
+            // logger.LogWarning("ConnectToKeria 2.1");
             await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = aidRes.Value });
-            logger.LogWarning("ConnectToKeria 2.2");
+            // logger.LogWarning("ConnectToKeria 2.2");
 
         }
         else
@@ -270,10 +270,10 @@
             // TODO P0 we don't need to create another AID, but still pick a default one
             await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
         }
-        logger.LogWarning("ConnectToKeria 3");
+        // logger.LogWarning("ConnectToKeria 3");
         if (nextButton is not null)
             await nextButton.FocusAsync();
-        logger.LogWarning("ConnectToKeria 4");
+        // logger.LogWarning("ConnectToKeria 4");
         return Result.Ok(new KeriaConnectionInfo(KeriaConnectConfig!, identifiers));
     }
 
@@ -284,7 +284,7 @@
         IsProcessing = true;
         StateHasChanged();
         var connectionResult = await ConnectToKeria();
-        logger.LogWarning("tmp finished ConnectoToKeria");
+        // logger.LogWarning("tmp finished ConnectoToKeria");
         if (connectionResult.IsSuccess)
         {
             IsConnected = true;
