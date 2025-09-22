@@ -8,31 +8,76 @@
 @inject IJSRuntime JSRuntime;
 
 <div class="text-container">
-    <h1>My Sidepanel</h1>
+
+
+    <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
+        <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
+            <MudButton Href="@RouteToIndex"
+                Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
+                <img src="images/512_keri_logo.png" alt="Icon" style="width: 24px; height: 24px;" />
+                <MudText
+                    Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">
+                    KeriAuth</MudText>
+            </MudButton>
+
+            @if (activeTab?.Url is not null)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Color="Color.Primary"
+                    Style="align-self:center; padding:0;" />
+                <MudButton 
+                    Style="padding: 10px; height:47px; align-self:center; border:none; border-radius:16px; background:#00000020;">
+                    <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0px; width:200px; overflow:hidden;">
+                        <MudStack Row Style="nowrap;" Spacing="0">
+                            <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px; align-self:center; padding-right:4px;" />
+                            <MudText Color="Color.Primary" Style="height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; font-weight: bold;">
+                                @activeTab.Title
+                            </MudText>
+                        </MudStack>
+                        <MudText Color="Color.Primary" Style="margin-left:20px; height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap;">
+                            @domain
+                        </MudText>
+                    </MudStack>
+                </MudButton>
+            }
+            <MudSpacer />
+        </MudStack>
+    </MudAppBar>
+
+
+
+
+
+
+
+
     <MudStack>
-    <p>This is a demo of the extension side panel.</p>
-    @if (activeTab?.Url is not null)
-    {
-        <MudCard background="Background.Default" class="pa-4 ma-2">
-            <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px;"   />
-            <MudText><b>Title:</b> @activeTab.Title</MudText>
-            <MudText><b>URL:</b> @activeTab.Url</MudText>
-        </MudCard>
-    } else {
-        <p>To interact with a browser tab: 1) click on the desired tab page; 2) Reload (Ctrl-R) the page if needed; and 3) press KERI Auth action icon.</p>
-    }
+        <p>This is a demo of the extension side panel.</p>
+        @if (activeTab?.Url is not null)
+        {
+            <MudCard background="Background.Default" class="pa-4 ma-2">
+                <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px;" />
+                <MudText><b>Title:</b> @activeTab.Title</MudText>
+                <MudText><b>URL:</b> @activeTab.Url</MudText>
+            </MudCard>
+        }
+        else
+        {
+            <p>To interact with a browser tab: 1) click on the desired tab page; 2) Reload (Ctrl-R) the page if needed; and
+                3) press KERI Auth action icon.</p>
+        }
     </MudStack>
 </div>
 
 @code {
     BrowserTab? activeTab = null;
 
-
+    // reactive properties
+    string domain => activeTab?.Url is not null ? new Uri(activeTab.Url).Host : "";
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        
+
         WebExtensions.Tabs.OnActivated.AddListener(OnTabActivated);
         WebExtensions.Tabs.OnUpdated.AddListener(OnTabUpdated);
         WebExtensions.Tabs.OnReplaced.AddListener(OnTabReplaced);
@@ -40,14 +85,15 @@
         WebExtensions.Tabs.OnHighlighted.AddListener(OnTabHighlighted);
 
         activeTab = (await WebExtensions.Tabs.Query(new()
-            {
-                Active = true,
-                CurrentWindow = true
-            })).FirstOrDefault();
-        
-        // Note: id and url are null here but will be null without "tabs" permission (or possibly getting here via OnAction listener)
-        _logger.LogInformation("SidePanel initialized, active tab: t: {tab} id: {id} url: {url}", 
-            activeTab?.Title, activeTab?.Id, activeTab?.Url);
+        {
+            Active = true,
+            CurrentWindow = true
+        })).FirstOrDefault();
+
+        // Note: id and url are null here but will be null without "tabs" permission (or possibly getting here via OnAction
+        // listener)
+        _logger.LogInformation("SidePanel initialized, active tab: t: {tab} id: {id} url: {url}",
+        activeTab?.Title, activeTab?.Id, activeTab?.Url);
     }
 
     void OnTabActivated(BrowserActiveInfo activeInfo)
@@ -58,9 +104,9 @@
     async Task OnTabActivatedAsync(BrowserActiveInfo activeInfo)
     {
         activeTab = await WebExtensions.Tabs.Get(activeInfo.TabId);
-        
-        _logger.LogInformation("SidePanel tab activated, active tab: t: {tab} id: {id} url: {url}", 
-            activeTab?.Title, activeTab?.Id, activeTab?.Url);
+
+        _logger.LogInformation("SidePanel tab activated, active tab: t: {tab} id: {id} url: {url}",
+        activeTab?.Title, activeTab?.Id, activeTab?.Url);
         StateHasChanged();
     }
 
@@ -74,8 +120,8 @@
         if (activeTab?.Id == tabId)
         {
             activeTab = tab;
-            _logger.LogInformation("SidePanel tab updated, tab {tabId}: t: {tab} url: {url} status: {status}", 
-                tabId, tab?.Title, tab?.Url, changeInfo?.Status);
+            _logger.LogInformation("SidePanel tab updated, tab {tabId}: t: {tab} url: {url} status: {status}",
+            tabId, tab?.Title, tab?.Url, changeInfo?.Status);
             StateHasChanged();
         }
     }
@@ -90,8 +136,8 @@
         if (activeTab?.Id == removedTabId)
         {
             activeTab = await WebExtensions.Tabs.Get(addedTabId);
-            _logger.LogInformation("SidePanel tab replaced, old: {oldId}, new: {newId}, title: {tab}", 
-                removedTabId, addedTabId, activeTab?.Title);
+            _logger.LogInformation("SidePanel tab replaced, old: {oldId}, new: {newId}, title: {tab}",
+            removedTabId, addedTabId, activeTab?.Title);
             StateHasChanged();
         }
     }
@@ -105,16 +151,16 @@
     {
         if (activeTab?.Id == tabId)
         {
-            _logger.LogInformation("SidePanel active tab removed: {tabId}, isWindowClosing: {isClosing}", 
-                tabId, removeInfo?.IsWindowClosing);
-            
+            _logger.LogInformation("SidePanel active tab removed: {tabId}, isWindowClosing: {isClosing}",
+            tabId, removeInfo?.IsWindowClosing);
+
             if (!removeInfo?.IsWindowClosing ?? false)
             {
                 activeTab = (await WebExtensions.Tabs.Query(new()
-                    {
-                        Active = true,
-                        CurrentWindow = true
-                    })).FirstOrDefault();
+                {
+                    Active = true,
+                    CurrentWindow = true
+                })).FirstOrDefault();
                 StateHasChanged();
             }
         }
@@ -130,8 +176,8 @@
         if (highlightInfo?.TabIds?.Length > 0)
         {
             activeTab = await WebExtensions.Tabs.Get(highlightInfo.TabIds[0]);
-            _logger.LogInformation("SidePanel tab highlighted, tabs: [{tabIds}], title: {tab}", 
-                string.Join(", ", highlightInfo.TabIds), activeTab?.Title);
+            _logger.LogInformation("SidePanel tab highlighted, tabs: [{tabIds}], title: {tab}",
+            string.Join(", ", highlightInfo.TabIds), activeTab?.Title);
             StateHasChanged();
         }
     }
