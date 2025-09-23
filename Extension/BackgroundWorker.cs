@@ -4,9 +4,10 @@ using Extension.Services;
 using Extension.Services.SignifyService;
 using JsBind.Net;
 using Microsoft.JSInterop;
+using MudBlazor.Extensions;
 using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Text.RegularExpressions;
+// using System.Text.RegularExpressions;
 using WebExtensions.Net;
 
 namespace Extension;
@@ -17,8 +18,6 @@ namespace Extension;
 /// </summary>
 
 
-
-
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Constants
@@ -26,13 +25,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private const string BlazorAppPortPrefix = "blazorAppPort";
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
-    
+
     // Install reasons
     private const string InstallReason = "install";
     private const string UpdateReason = "update";
     private const string ChromeUpdateReason = "chrome_update";
     private const string SharedModuleUpdateReason = "shared_module_update";
-    
+
     // Message types
     private const string LockAppAction = "LockApp";
     private const string SystemLockDetectedAction = "systemLockDetected";
@@ -55,7 +54,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
-        WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
+
+        WebExtensions.Runtime.OnConnect.AddListener(OnConnect);
+
+
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
         WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
@@ -111,13 +113,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnInstalledAsync(object detailsObj) {
         try {
-            _logger.LogDebug("OnInstalledAsync event handler called");
+            _logger.LogInformation("OnInstalledAsync event handler called");
             _logger.LogInformation("Extension installed/updated event received");
 
             // Deserialize to strongly-typed object
             var detailsJson = JsonSerializer.Serialize(detailsObj);
             var details = JsonSerializer.Deserialize<OnInstalledDetails>(detailsJson);
-            
+
             if (details == null) {
                 _logger.LogWarning("Failed to deserialize installation details");
                 return;
@@ -138,7 +140,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case ChromeUpdateReason:
                 case SharedModuleUpdateReason:
                 default:
-                    _logger.LogDebug("Unhandled install reason: {Reason}", details.Reason);
+                    _logger.LogInformation("Unhandled install reason: {Reason}", details.Reason);
                     break;
             }
         }
@@ -154,7 +156,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnStartupAsync() {
         try {
-            _logger.LogDebug("OnStartupAsync event handler called");
+            _logger.LogInformation("OnStartupAsync event handler called");
             _logger.LogInformation("Browser startup detected - reinitializing background worker");
 
             // TODO P2 Reinitialize inactivity timer?
@@ -168,16 +170,60 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+
+    [JSInvokable]
+    public Task OnConnect(WebExtensions.Net.Runtime.Port port) {
+        string? connectionId = port.Name ?? Guid.NewGuid().ToString();
+        _logger.LogInformation("Port connected: { ConnectionId} ", connectionId);
+
+        // Set up message handling
+        port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
+            _logger.LogInformation("Message on port {ConnectionId}: { Message} ", connectionId, message);
+
+            // Handle different message types
+            if (message is Dictionary<string, object> msgDict) {
+                _logger.LogInformation("message {m}", message);
+                string? type = msgDict.GetValueOrDefault("type")?.ToString();
+                switch (type) {
+                    case "ping":
+                        port.PostMessage(new {
+                            type = "pong"
+                        });
+                        break;
+                    case "getData":
+                        port.PostMessage(new {
+                            type = "data",
+                            value = "GetData()"
+                        });
+                        break;
+                }
+            }
+            return false;
+        });
+
+        // Clean up on disconnect
+        port.OnDisconnect.AddListener(() => {
+            _logger.LogInformation("Port {ConnectionId} disconnected", connectionId);
+        });
+        return Task.CompletedTask;
+    }
+    
+
+
     // onConnect fires when a connection is made from content scripts or other extension pages
     // Parameter: port - Port object with name and sender properties
     [JSInvokable]
-    public async Task OnConnectAsync(object portObj) {
+    public async Task OnConnectAsync(object portObjRaw) {
         try {
-            _logger.LogDebug("OnConnectAsync event handler called");
-            
+            _logger.LogInformation("OnConnectAsync event handler called");
+
+            /*
             // Deserialize to strongly-typed object
             var portJson = JsonSerializer.Serialize(portObj);
-            var port = JsonSerializer.Deserialize<Port>(portJson);
+            var port = JsonSerializer.Deserialize<Extension.Models.Port>(portJson);
+
+            
+            
             
             if (port == null) {
                 _logger.LogWarning("Failed to deserialize port connection");
@@ -189,17 +235,48 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             var tabId = port.Sender?.Tab?.Id ?? -1;
             var origin = port.Sender?.Origin ?? port.Sender?.Url ?? "unknown";
+            
 
             // Check if this is a content script port (UUID pattern)
             if (Regex.IsMatch(connectionId, ContentScriptPortPattern)) {
-                await HandleContentScriptConnectionAsync(connectionId, portObj, tabId);
+            */
+            _logger.LogInformation("Port connected as Regex");
+
+            // Attempt to cast to WebExtensions.Net.Runtime.Port
+            var portObj = portObjRaw.As<WebExtensions.Net.Runtime.Port>();
+            _logger.LogWarning("Port object received: {PortObjRaw}", portObjRaw);
+
+            // var portObj = portObjRaw as WebExtensions.Net.Runtime.Port;
+            if (portObj == null) {
+                _logger.LogWarning("Failed to cast port object {PortObjRaw} to WebExtensions.Net.Runtime.Port", JsonSerializer.Serialize(portObjRaw));
+                return;
             }
-            else if (connectionId.StartsWith(BlazorAppPortPrefix, StringComparison.OrdinalIgnoreCase)) {
-                await HandleBlazorAppConnectionAsync(connectionId, portObj, tabId, origin);
-            }
-            else {
-                _logger.LogWarning("Unknown port connection: {ConnectionId}", connectionId);
-            }
+
+
+            // EE TMP
+            // var port2obj = portObj as WebExtensions.Net.Runtime.Port;
+            portObj!.PostMessage(new { foo = "hello from BW" });
+
+            portObj!.OnMessage.AddListener((object message, MessageSender sender, Action<object> sendResponse, bool b) => {
+                _logger.LogInformation("Port2obj message received: message {Message} sender {Sender} action {Action}, bool {B}", JsonSerializer.Serialize(message), JsonSerializer.Serialize(sender), sendResponse.ToString(), b.ToString());
+                return true;
+            });
+
+
+
+
+
+            // await HandleContentScriptConnectionAsync(connectionId, portObj, port, tabId);
+            /*
+        }
+        else if (connectionId.StartsWith(BlazorAppPortPrefix, StringComparison.OrdinalIgnoreCase)) {
+            _logger.LogInformation("Port connected as AppPort");
+            await HandleBlazorAppConnectionAsync(connectionId, portObj, port, tabId, origin);
+        }
+        else {
+            _logger.LogWarning("Unknown port connection: {ConnectionId}", connectionId);
+        }
+        */
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling port connection");
@@ -213,18 +290,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task<object?> OnMessageAsync(object messageObj, object senderObj) {
         try {
-            _logger.LogDebug("OnMessageAsync event handler called");
-            
+            _logger.LogInformation("OnMessageAsync event handler called");
+
             // Deserialize sender to strongly-typed object
             var senderJson = JsonSerializer.Serialize(senderObj);
-            var sender = JsonSerializer.Deserialize<MessageSender>(senderJson);
-            
+            var sender = JsonSerializer.Deserialize<Extension.Models.MessageSender>(senderJson);
+
             // Deserialize message as RuntimeMessage
             var messageJson = JsonSerializer.Serialize(messageObj);
             var message = JsonSerializer.Deserialize<RuntimeMessage>(messageJson);
-            
+
             if (message?.Action != null) {
-                _logger.LogDebug("Runtime message received: {Action} from {SenderId}", message.Action, sender?.Id);
+                _logger.LogInformation("Runtime message received: {Action} from {SenderId}", message.Action, sender?.Id);
 
                 return message.Action switch {
                     // "resetInactivityTimer" => await ResetInactivityTimerAsync(),
@@ -247,23 +324,23 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnAlarmAsync(object alarmObj) {
         try {
-            _logger.LogDebug("OnAlarmAsync event handler called");
+            _logger.LogInformation("OnAlarmAsync event handler called");
             _logger.LogInformation("LIFECYCLE: Background worker reactivated by alarm event at {Timestamp}", DateTime.UtcNow);
-            
+
             // Deserialize to strongly-typed object
             var alarmJson = JsonSerializer.Serialize(alarmObj);
             var alarm = JsonSerializer.Deserialize<Alarm>(alarmJson);
-            
+
             if (alarm != null) {
                 _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarm.Name);
-                
+
                 // Convert scheduledTime from milliseconds to DateTime if needed
                 var scheduledDateTime = DateTimeOffset.FromUnixTimeMilliseconds((long)alarm.ScheduledTime).UtcDateTime;
-                _logger.LogDebug("Alarm scheduled for {ScheduledTime}, period: {Period} minutes", 
+                _logger.LogInformation("Alarm scheduled for {ScheduledTime}, period: {Period} minutes",
                     scheduledDateTime, alarm.PeriodInMinutes ?? 0);
 
                 // The InactivityTimerService handles the actual alarm logic through its own listener
-                _logger.LogDebug("Alarm event will be processed by InactivityTimerService");
+                _logger.LogInformation("Alarm event will be processed by InactivityTimerService");
             }
         }
         catch (Exception ex) {
@@ -277,12 +354,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnActionClickedAsync(object tabObj) {
         try {
-            _logger.LogDebug("OnActionClickedAsync event handler called");
-            
+            _logger.LogInformation("OnActionClickedAsync event handler called");
+
             // Deserialize to strongly-typed object
             var tabJson = JsonSerializer.Serialize(tabObj);
             var tab = JsonSerializer.Deserialize<Tab>(tabJson);
-            
+
             if (tab == null) {
                 _logger.LogWarning("Failed to deserialize tab information");
                 await CreateExtensionTabAsync();
@@ -307,13 +384,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnTabRemovedAsync(int tabId, object removeInfoObj) {
         try {
-            _logger.LogDebug("OnTabRemovedAsync event handler called");
-            
+            _logger.LogInformation("OnTabRemovedAsync event handler called");
+
             // Deserialize to strongly-typed object
             var removeInfoJson = JsonSerializer.Serialize(removeInfoObj);
             var removeInfo = JsonSerializer.Deserialize<TabRemoveInfo>(removeInfoJson);
-            
-            _logger.LogDebug("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}", 
+
+            _logger.LogInformation("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}",
                 tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
 
             // Remove any connections associated with this tab
@@ -324,7 +401,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (!string.IsNullOrEmpty(connectionToRemove)) {
                 _pageCsConnections.TryRemove(connectionToRemove, out _);
-                _logger.LogDebug("Removed connection for closed tab: {TabId}", tabId);
+                _logger.LogInformation("Removed connection for closed tab: {TabId}", tabId);
             }
         }
         catch (Exception ex) {
@@ -411,47 +488,50 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task HandleContentScriptConnectionAsync(string connectionId, object port, int tabId) {
+    private async Task HandleContentScriptConnectionAsync(string connectionId, object portObj, Extension.Models.Port port, int tabId) {
+        _logger.LogInformation("In HandleContentScriptConnectionAsync");
         try {
-            _logger.LogDebug("HandleContentScriptConnectionAsync called for {ConnectionId}", connectionId);
+            _logger.LogInformation("HandleContentScriptConnectionAsync called for {ConnectionId}", connectionId);
             _pageCsConnections[connectionId] = new CsConnection {
-                Port = port,
+                PortObject = portObj,
+                PortData = port,
                 TabId = tabId,
                 PageAuthority = "?"
             };
 
-            _logger.LogDebug("Content script connected: {ConnectionId}, TabId: {TabId}", connectionId, tabId);
+            _logger.LogInformation("Content script connected: {ConnectionId}, TabId: {TabId}", connectionId, tabId);
 
             // Set up message listener for this content script
-            await SetUpPortMessageListenerAsync(port, connectionId, true);
+            await SetUpPortMessageListenerAsync(portObj, connectionId, true);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling content script connection");
         }
     }
 
-    private async Task HandleBlazorAppConnectionAsync(string connectionId, object port, int tabId, string origin) {
+    private async Task HandleBlazorAppConnectionAsync(string connectionId, object portObj, Extension.Models.Port port, int tabId, string origin) {
         try {
-            _logger.LogDebug("HandleBlazorAppConnectionAsync called for {ConnectionId}", connectionId);
+            _logger.LogInformation("HandleBlazorAppConnectionAsync called for {ConnectionId}", connectionId);
             var authority = GetAuthorityFromUrl(origin);
 
             _pageCsConnections[connectionId] = new CsConnection {
-                Port = port,
+                PortObject = portObj,
+                PortData = port,
                 TabId = tabId,
                 PageAuthority = authority
             };
 
-            _logger.LogDebug("Blazor app connected: {ConnectionId}, Authority: {Authority}", connectionId, authority);
+            _logger.LogInformation("Blazor app connected: {ConnectionId}, Authority: {Authority}", connectionId, authority);
 
             // Set up message listener for this app
-            await SetUpPortMessageListenerAsync(port, connectionId, false);
+            await SetUpPortMessageListenerAsync(portObj, connectionId, false);
 
             // Send initial connection message
             var message = new PortMessage(
                 Type: FromBackgroundWorkerType,
                 Data: "Background worker connected"
             );
-            await SendPortMessageAsync(port, message);
+            await SendPortMessageAsync(portObj, message);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling Blazor app connection");
@@ -459,7 +539,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     private async Task<object?> HandleUnknownMessageAsync(string? action) {
-        _logger.LogDebug("HandleUnknownMessageAsync called for action: {Action}", action);
+        _logger.LogInformation("HandleUnknownMessageAsync called for action: {Action}", action);
         _logger.LogWarning("Unknown message action: {Action}", action);
         await Task.CompletedTask;
         return null;
@@ -467,11 +547,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task<object> HandleLockAppMessageAsync() {
         try {
-            _logger.LogDebug("HandleLockAppMessageAsync called");
+            _logger.LogInformation("HandleLockAppMessageAsync called");
             _logger.LogInformation("Lock app message received - app should be locked");
 
             // The InactivityTimerService handles the actual locking logic
-            _logger.LogDebug("App lock request processed");
+            _logger.LogInformation("App lock request processed");
             return new { success = true, message = "App locked" };
         }
         catch (Exception ex) {
@@ -482,16 +562,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task<object> HandleSystemLockDetectedAsync() {
         try {
-            _logger.LogDebug("HandleSystemLockDetectedAsync called");
+            _logger.LogInformation("HandleSystemLockDetectedAsync called");
             _logger.LogWarning("System lock/suspend/hibernate detected in background worker");
 
             // Send lock message to all connected tabs/apps
             try {
                 await _webExtensionsApi.Runtime.SendMessage(new { action = LockAppAction });
-                _logger.LogDebug("Sent LockApp message due to system lock detection");
+                _logger.LogInformation("Sent LockApp message due to system lock detection");
             }
             catch (Exception ex) {
-                _logger.LogDebug(ex, "Could not send LockApp message (expected if no pages open)");
+                _logger.LogInformation(ex, "Could not send LockApp message (expected if no pages open)");
             }
 
             return new { success = true, message = "System lock detected and app locked" };
@@ -519,11 +599,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 if (isGranted) {
                     _logger.LogInformation("Permission granted for: {Origin}", origin);
                     await UseActionPopupAsync(tabId);
-                } else {
+                }
+                else {
                     _logger.LogInformation("Permission denied for: {Origin}", origin);
                     await CreateExtensionTabAsync();
                 }
-            } else {
+            }
+            else {
                 // If user clicks on the action icon on a page already allowed permission, 
                 // but for an interaction not initiated from the content script
                 await CreateExtensionTabAsync();
@@ -541,15 +623,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task<bool> CheckOriginPermissionAsync(string origin) {
         try {
-            _logger.LogDebug("Checking permission for origin: {Origin}", origin);
+            _logger.LogInformation("Checking permission for origin: {Origin}", origin);
 
             // Use JavaScript helper module for permissions (CSP-compliant)
             // NOTE: WebExtensions.Net.Permissions API has type conversion issues - see RequestOriginPermissionAsync for details
             var permissionsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PermissionsHelper.js");
-            var hasPermission = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.contains", 
+            var hasPermission = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.contains",
                 new { origins = new[] { origin } });
-            
-            _logger.LogDebug("Permission check result for {Origin}: {HasPermission}", origin, hasPermission);
+
+            _logger.LogInformation("Permission check result for {Origin}: {HasPermission}", origin, hasPermission);
             return hasPermission;
         }
         catch (Exception ex) {
@@ -560,8 +642,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task<bool> RequestOriginPermissionAsync(string origin) {
         try {
-            _logger.LogDebug("Requesting permission for origin: {Origin}", origin);
-            
+            _logger.LogInformation("Requesting permission for origin: {Origin}", origin);
+
             // Use JavaScript helper module for permissions (CSP-compliant)
             // NOTE: WebExtensions.Net.Permissions API has type conversion issues:
             // - MatchPattern constructor ambiguity (Restricted vs Unrestricted)
@@ -569,10 +651,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // - String[] to IEnumerable<MatchPattern> conversion problems
             // The JS module approach avoids these complexities while remaining secure.
             var permissionsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PermissionsHelper.js");
-            var isGranted = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.request", 
+            var isGranted = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.request",
                 new { origins = new[] { origin } });
-            
-            _logger.LogDebug("Permission request result for {Origin}: {IsGranted}", origin, isGranted);
+
+            _logger.LogInformation("Permission request result for {Origin}: {IsGranted}", origin, isGranted);
             return isGranted;
         }
         catch (Exception ex) {
@@ -583,7 +665,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task UseActionPopupAsync(int tabId) {
         try {
-            _logger.LogDebug("Using action popup for tab: {TabId}", tabId);
+            _logger.LogInformation("Using action popup for tab: {TabId}", tabId);
 
             // Set the popup for this specific tab to show the extension interface
             await WebExtensions.Action.SetPopup(new() {
@@ -591,13 +673,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Note: TabId may not be supported in SetPopupDetails - this will set for all tabs
             });
 
-            _logger.LogDebug("Action popup configured for tab: {TabId}", tabId);
+            _logger.LogInformation("Action popup configured for tab: {TabId}", tabId);
             // Programmatically open the popup by simulating a click on the action button
             WebExtensions.Action.OpenPopup();
-            _logger.LogDebug("Action popup opened for tab: {TabId}", tabId);
+            _logger.LogInformation("Action popup opened for tab: {TabId}", tabId);
             // clear the popup after use, so future clicks trigger the OnActionClicked handler again
             await WebExtensions.Action.SetPopup(new() { Popup = "" });
-            _logger.LogDebug("Action popup cleared for future clicks on tab: {TabId}", tabId);
+            _logger.LogInformation("Action popup cleared for future clicks on tab: {TabId}", tabId);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error setting up action popup for tab {TabId}", tabId);
@@ -618,30 +700,254 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task SetUpPortMessageListenerAsync(object port, string connectionId, bool isContentScript) {
+    private async Task SetUpPortMessageListenerAsync(object portObj, string connectionId, bool isContentScript) {
         try {
-            _logger.LogDebug("SetUpPortMessageListenerAsync called for {ConnectionId}", connectionId);
-            // This would typically involve setting up JavaScript interop to listen for port messages
-            // For now, we'll implement this as a placeholder
-            _logger.LogDebug("Set up port message listener for {ConnectionId}, IsContentScript: {IsContentScript}",
-                connectionId, isContentScript);
-            await Task.CompletedTask;
+            _logger.LogInformation("SetUpPortMessageListenerAsync called for {ConnectionId}", connectionId);
+
+            // Use WebExtensionsApi to properly bind the port object to JSRuntime
+            // This follows the same pattern as other WebExtensions.Net APIs in the class
+            var webExtPort = await CreateBoundWebExtensionsPortAsync(portObj);
+
+            if (webExtPort?.OnMessage != null) {
+                // Set up message listener using WebExtensions.Net OnMessage event
+                // Explicitly cast to resolve ambiguity between different MessageSender types
+                webExtPort.OnMessage.AddListener((Func<object, WebExtensions.Net.Runtime.MessageSender, Action, bool>)((message, sender, sendResponse) => {
+                    try {
+                        _logger.LogDebug("Port message received for connection {ConnectionId}", connectionId);
+                        // Handle the message asynchronously without blocking the event handler
+                        _ = Task.Run(async () => {
+                            try {
+                                await OnPortMessageReceived(connectionId, message);
+                            }
+                            catch (Exception ex) {
+                                _logger.LogError(ex, "Error handling port message for {ConnectionId}", connectionId);
+                            }
+                        });
+                        return true; // Indicate that the message was handled
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Error in port message event handler for {ConnectionId}", connectionId);
+                        return false;
+                    }
+                }));
+
+                _logger.LogInformation("Set up WebExtensions.Net port message listener for {ConnectionId}, IsContentScript: {IsContentScript}",
+                    connectionId, isContentScript);
+            }
+            else {
+                _logger.LogWarning("Failed to create bound WebExtensions.Net Port object for {ConnectionId}", connectionId);
+
+                // Fallback to JavaScript interop if WebExtensions.Net binding fails
+                await SetUpPortMessageListenerJSFallbackAsync(portObj, connectionId, isContentScript);
+            }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error setting up port message listener");
+
+            // Fallback to JavaScript interop
+            try {
+                await SetUpPortMessageListenerJSFallbackAsync(portObj, connectionId, isContentScript);
+            }
+            catch (Exception fallbackEx) {
+                _logger.LogError(fallbackEx, "Fallback JavaScript interop also failed for {ConnectionId}", connectionId);
+            }
         }
     }
 
-    private async Task SendPortMessageAsync(object port, object message) {
+    /// <summary>
+    /// Creates a properly bound WebExtensions.Net Port object using WebExtensionsApi
+    /// </summary>
+    private async Task<WebExtensions.Net.Runtime.Port?> CreateBoundWebExtensionsPortAsync(object portObj) {
         try {
-            _logger.LogDebug("SendPortMessageAsync called");
-            // This would involve JavaScript interop to send messages through the port
-            _logger.LogDebug("Sent port message: {Message}", JsonSerializer.Serialize(message));
-            await Task.CompletedTask;
+            // WebExtensions.Net objects need to be properly bound to JSRuntime to function
+            // Since we can't easily bind existing JS objects to WebExtensions.Net classes,
+            // we'll return null to trigger the JavaScript fallback approach
+            // This is the most reliable approach for port message handling in this context
+
+            _logger.LogDebug("WebExtensions.Net Port binding not implemented for runtime JS objects, using JS fallback");
+            return null;
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, "Error in CreateBoundWebExtensionsPortAsync");
+            return null;
+        }
+    }
+
+
+    /// <summary>
+    /// JavaScript fallback for port message listening when WebExtensions.Net binding fails
+    /// Uses secure TypeScript module instead of eval() to comply with CSP
+    /// </summary>
+    private async Task SetUpPortMessageListenerJSFallbackAsync(object portObj, string connectionId, bool isContentScript) {
+        try {
+            _logger.LogInformation("Setting up JavaScript fallback port message listener for {ConnectionId}", connectionId);
+
+            // Use TypeScript module for secure port message handling (no eval())
+            // Following CLAUDE.md security constraints: "NEVER use eval() or any form of dynamic code evaluation"
+            var portMessageModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PortMessageHelper.js");
+
+            // Access the exported PortMessageHelper class from the module (ES6 class export)
+            // Use direct property access to get the class from the module
+            await portMessageModule.InvokeVoidAsync("PortMessageHelper.setupPortMessageListener",
+                portObj, connectionId, _dotNetObjectRef);
+
+            _logger.LogInformation("JavaScript fallback port message listener set up for {ConnectionId}, IsContentScript: {IsContentScript}",
+                connectionId, isContentScript);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error setting up JavaScript fallback port message listener for {ConnectionId}", connectionId);
+            throw;
+        }
+    }
+
+    private async Task SendPortMessageAsync(object portObj, object message) {
+        try {
+            _logger.LogInformation("SendPortMessageAsync called");
+
+            // Use TypeScript module for secure port message sending (no eval())
+            // Following CLAUDE.md security constraints: "NEVER use eval() or any form of dynamic code evaluation"
+            var portMessageModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PortMessageHelper.js");
+
+            // Access the exported PortMessageHelper class from the module (ES6 class export)
+            // Use direct property access to call the static method
+            var success = await portMessageModule.InvokeAsync<bool>("PortMessageHelper.sendPortMessage", portObj, message);
+
+            if (success) {
+                _logger.LogInformation("Sent port message: {Message}", JsonSerializer.Serialize(message));
+            }
+            else {
+                _logger.LogWarning("Failed to send port message: {Message}", JsonSerializer.Serialize(message));
+            }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error sending port message");
         }
+    }
+
+    /// <summary>
+    /// JavaScript-invokable method called when a port message is received
+    /// </summary>
+    [JSInvokable]
+    public async Task OnPortMessageReceived(string connectionId, object messageObj) {
+        try {
+            _logger.LogInformation("OnPortMessageReceived called for {ConnectionId}", connectionId);
+
+            // Deserialize to strongly-typed PortMessage
+            var messageJson = JsonSerializer.Serialize(messageObj);
+            var message = JsonSerializer.Deserialize<PortMessage>(messageJson);
+
+            if (message == null) {
+                _logger.LogWarning("Failed to deserialize port message from {ConnectionId}", connectionId);
+                return;
+            }
+
+            _logger.LogInformation("Port message received from {ConnectionId}: Type={MessageType}",
+                connectionId, message.Type);
+
+            // Get the connection details
+            if (_pageCsConnections.TryGetValue(connectionId, out var connection)) {
+                await HandlePortMessageAsync(connectionId, message, connection);
+            }
+            else {
+                _logger.LogWarning("No connection found for {ConnectionId}", connectionId);
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling port message from {ConnectionId}", connectionId);
+        }
+    }
+
+    /// <summary>
+    /// JavaScript-invokable method called when a port is disconnected
+    /// </summary>
+    [JSInvokable]
+    public async Task OnPortDisconnected(string connectionId) {
+        try {
+            _logger.LogInformation("OnPortDisconnected called for {ConnectionId}", connectionId);
+
+            // Remove the connection from our tracking
+            if (_pageCsConnections.TryRemove(connectionId, out var connection)) {
+                _logger.LogInformation("Removed disconnected connection {ConnectionId} from tab {TabId}",
+                    connectionId, connection.TabId);
+            }
+
+            await Task.CompletedTask;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling port disconnection for {ConnectionId}", connectionId);
+        }
+    }
+
+    /// <summary>
+    /// Handles incoming port messages based on their type and connection
+    /// </summary>
+    private async Task HandlePortMessageAsync(string connectionId, PortMessage message, CsConnection connection) {
+        try {
+            _logger.LogInformation("HandlePortMessageAsync: Processing message type '{MessageType}' from {ConnectionId}",
+                message.Type, connectionId);
+
+            // Handle different message types
+            switch (message.Type) {
+                case "keepAlive":
+                    await HandleKeepAliveMessageAsync(connectionId, message);
+                    break;
+
+                case "authRequest":
+                    await HandleAuthRequestMessageAsync(connectionId, message, connection);
+                    break;
+
+                case "statusUpdate":
+                    await HandleStatusUpdateMessageAsync(connectionId, message);
+                    break;
+
+                default:
+                    _logger.LogWarning("Unknown port message type '{MessageType}' from {ConnectionId}",
+                        message.Type, connectionId);
+                    break;
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling port message type '{MessageType}' from {ConnectionId}",
+                message.Type, connectionId);
+        }
+    }
+
+    private async Task HandleKeepAliveMessageAsync(string connectionId, PortMessage message) {
+        _logger.LogInformation("Keep-alive message received from {ConnectionId}", connectionId);
+
+        // Send keep-alive response
+        var response = new PortMessage(
+            Type: "keepAliveResponse",
+            Data: new { timestamp = DateTime.UtcNow.ToString("O") }
+        );
+
+        if (_pageCsConnections.TryGetValue(connectionId, out var connection)) {
+            await SendPortMessageAsync(connection.PortObject, response);
+        }
+    }
+
+    private async Task HandleAuthRequestMessageAsync(string connectionId, PortMessage message, CsConnection connection) {
+        _logger.LogInformation("Authentication request received from {ConnectionId} on tab {TabId}",
+            connectionId, connection.TabId);
+
+        // TODO: Implement authentication request handling
+        // This would typically involve:
+        // 1. Validating the request
+        // 2. Checking user permissions
+        // 3. Processing through SignifyService
+        // 4. Sending response back through port
+
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleStatusUpdateMessageAsync(string connectionId, PortMessage message) {
+        _logger.LogInformation("Status update received from {ConnectionId}: {Data}",
+            connectionId, JsonSerializer.Serialize(message.Data));
+
+        // TODO: Implement status update handling
+        // This could update UI state or trigger other background actions
+
+        await Task.CompletedTask;
     }
 
 
@@ -652,7 +958,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
         }
         catch (Exception ex) {
-            _logger.LogDebug(ex, "Error extracting authority from URL: {Url}", url);
+            _logger.LogInformation(ex, "Error extracting authority from URL: {Url}", url);
         }
 
         return "unknown";
@@ -660,7 +966,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Supporting classes
     private sealed class CsConnection {
-        public object Port { get; set; } = default!;
+        public object PortObject { get; set; } = default!; // Raw JS object for method calls
+        public Extension.Models.Port PortData { get; set; } = default!; // Strongly typed port data
         public int TabId { get; set; }
         public string PageAuthority { get; set; } = "?";
     }

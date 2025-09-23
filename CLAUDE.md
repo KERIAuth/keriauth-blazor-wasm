@@ -400,10 +400,63 @@ The signify-ts library built JavaScript sometimes conveys complex object structu
 - Wrap all JavaScript interop calls in try-catch blocks with specific error messages
 
 ### JavaScript Interop with JsBind.Net
-- **Prefer JsBind.Net over custom JavaScript files**: The JsBind.Net library provides robust JavaScript interop without requiring new script files
-- **Use IJSRuntime for simple cases**: For basic JavaScript calls, use IJSRuntime.InvokeAsync<T>() directly
-- **Avoid creating new .ts/.js files**: Only create new TypeScript files when JsBind.Net and IJSRuntime cannot handle the requirement
-- **Example**: `await JSRuntime.InvokeAsync<bool>("window.matchMedia", "(prefers-color-scheme: dark)").matches` instead of creating a separate module
+
+#### Preferred Approach Order
+1. **JsBind.Net Library**: Use the JsBind.Net library for robust JavaScript interop without requiring new script files
+2. **IJSRuntime with Existing APIs**: For basic JavaScript calls, use IJSRuntime.InvokeAsync<T>() with existing browser/DOM APIs
+3. **TypeScript Modules**: Only create new TypeScript files when JsBind.Net and IJSRuntime cannot handle the requirement
+
+#### Security-Compliant JavaScript Interop Patterns
+
+**✅ CORRECT - Use TypeScript modules with import:**
+```csharp
+// Create a TypeScript module: wwwroot/scripts/es6/MyHelper.ts
+var module = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/MyHelper.js");
+await module.InvokeVoidAsync("MyHelper.doSomething", parameter1, parameter2);
+```
+
+**✅ CORRECT - Use direct browser APIs:**
+```csharp
+// For simple browser API calls
+var result = await _jsRuntime.InvokeAsync<bool>("window.matchMedia", "(prefers-color-scheme: dark)");
+```
+
+**❌ NEVER - Use eval() or dynamic code execution:**
+```csharp
+// SECURITY VIOLATION - Never do this!
+await _jsRuntime.InvokeVoidAsync("eval", $"someCode({variable})");
+await _jsRuntime.InvokeVoidAsync("eval", "function() { ... }");
+await _jsRuntime.InvokeAsync<object>("eval", anyString);
+```
+
+**❌ NEVER - Use Function constructor or similar:**
+```csharp
+// SECURITY VIOLATION - Also forbidden!
+await _jsRuntime.InvokeAsync<object>("Function", codeString);
+await _jsRuntime.InvokeAsync<object>("new Function", parameters, body);
+```
+
+#### When Complex JavaScript Logic is Required
+1. **Create TypeScript Module**: Write proper .ts file with exported functions
+2. **Compile to ES6**: Let TypeScript compiler handle the conversion
+3. **Import Module**: Use `import` to load the compiled .js module
+4. **Invoke Methods**: Call specific exported functions with parameters
+
+**Example TypeScript Module Pattern:**
+```typescript
+// wwwroot/scripts/es6/PortHelper.ts
+export class PortHelper {
+    static setupListener(port: chrome.runtime.Port, callback: any): void {
+        port.onMessage.addListener(callback);
+    }
+}
+```
+
+```csharp
+// C# usage
+var portModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PortHelper.js");
+await portModule.InvokeVoidAsync("PortHelper.setupListener", portObject, dotNetCallback);
+```
 
 ### Common Patterns
 
@@ -450,6 +503,14 @@ public class PayloadData
 
 ## Common Gotchas and Solutions
 
+### Issue: Temptation to use eval() for complex JavaScript interop
+**Problem**: `IJSRuntime.InvokeVoidAsync("eval", ...)` violates CSP and security constraints
+**Solution**: 
+1. Create TypeScript module in `wwwroot/scripts/es6/`
+2. Export static methods or classes
+3. Import module: `await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/MyModule.js")`
+4. Call methods: `await module.InvokeVoidAsync("MyClass.methodName", parameters)`
+
 ### Issue: JSON property order matters for CESR/SAID
 **Solution**: Use `Dictionary<string, object>` with custom serializer that preserves insertion order, or use `LinkedHashMap` equivalent
 
@@ -470,10 +531,15 @@ The extension enforces strict security boundaries:
   - Unsafe methods (POST, PUT, DELETE) require explicit user consent
 - **Script Execution**: No dynamic or inline scripts allowed (strict CSP)
   - **NEVER use eval() or any form of dynamic code evaluation**
+    - `IJSRuntime.InvokeVoidAsync("eval", ...)` is FORBIDDEN
+    - `IJSRuntime.InvokeAsync<object>("eval", ...)` is FORBIDDEN  
+    - `IJSRuntime.InvokeAsync<object>("Function", ...)` is FORBIDDEN
+    - Use TypeScript modules with `import` instead
   - **NEVER use WebExtensions.Tabs.ExecuteScript() or chrome.tabs.executeScript()**
   - **NEVER inject JavaScript code into web pages programmatically**
   - All JavaScript must be in static files, no runtime code generation
   - Use JavaScript modules and imports for all interop needs
+  - **Alternative to eval()**: Create TypeScript modules in `wwwroot/scripts/es6/` and import them
 - **Data Isolation**: Sensitive data (passcode, private keys) must never reach content script or web page
 - **Storage**: Use chrome.storage.local for non-sensitive data only
 - **KERIA Communication**: All agent communications via authenticated signify-ts

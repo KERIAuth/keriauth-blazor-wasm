@@ -58,7 +58,7 @@
         "framework/*",
         "content/*",
         "scripts/app.js",
-        "scripts/es6/SwAppInterop.js"
+        "scripts/es6/*"
       ],
       "matches": [
         "chrome-extension://*/*"

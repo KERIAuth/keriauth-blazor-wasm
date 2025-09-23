@@ -44,6 +44,11 @@ let portWithBw: chrome.runtime.Port | null = null;
 try {
     portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
     createPortWithBw();
+    // TODO P1 tmp
+    portWithBw.postMessage({ type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT });
+
+
+
 } catch (error) {
     console.error('KeriAuthCs: Failed to create initial port connection:', error);
     // Will attempt to reconnect when first message needs to be sent
@@ -185,6 +190,7 @@ function createPortWithBw(): void {
         portWithBw = null;
     }
     console.groupEnd();
+    return;
 }
 
 /**
