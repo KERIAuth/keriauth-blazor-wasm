@@ -446,3 +446,6 @@ obj/
 /Extension/log.txt
 /Extension/commit_hash.txt
 
+# Claude Code settings
+.claude/settings.local.json
+
