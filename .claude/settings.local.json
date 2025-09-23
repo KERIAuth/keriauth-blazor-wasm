@@ -26,7 +26,8 @@
       "WebFetch(domain:mingyaulee.github.io)",
       "WebSearch",
       "Bash(dotnet list:*)",
-      "WebFetch(domain:developer.chrome.com)"
+      "WebFetch(domain:developer.chrome.com)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []
