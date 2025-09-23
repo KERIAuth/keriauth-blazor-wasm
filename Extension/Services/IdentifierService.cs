@@ -6,21 +6,13 @@ namespace Extension.Services {
             _ = prefix;
             _ = storageService;
             _ = logger;
-            this.alias = alias;
-            this.keriaConnectionGuid = keriaConnectionGuid;
+            _ = alias;
+            _ = keriaConnectionGuid;
             identifierHeadline = new IdentifierHeadline(prefix, alias, keriaConnectionGuid);
         }
 
         private readonly IdentifierHeadline identifierHeadline;
-        // private readonly string Prefix;
-        private readonly string alias;
-        private readonly Guid keriaConnectionGuid;
-
+               
         public IdentifierHeadline GetHeadline() => identifierHeadline;
-
-        public IdentifierHeadline Test() {
-            // logger.LogWarning("IdentifierService: Test() called");
-            return identifierHeadline;
-        }
     }
 }
