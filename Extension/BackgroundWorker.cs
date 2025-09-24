@@ -1,5 +1,6 @@
 ﻿using Blazor.BrowserExtension;
 using Extension.Models;
+using Extension.Models.ExCsMessages;
 using Extension.Services;
 using Extension.Services.SignifyService;
 using JsBind.Net;
@@ -25,6 +26,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private const string BlazorAppPortPrefix = "blazorAppPort";
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
+    
+    // Cached JsonSerializerOptions for port message deserialization
+    private static readonly JsonSerializerOptions PortMessageJsonOptions = new() {
+        PropertyNameCaseInsensitive = true
+    };
 
     // Install reasons
     private const string InstallReason = "install";
@@ -181,39 +187,91 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
             _logger.LogInformation("Received message on port {ConnectionId}: { Message} ", connectionId, message);
 
-            var msg2 = message as Dictionary<string, object>;
-            _logger.LogInformation("Message as dict: {msg2}", msg2);
+            try {
+                // Try to deserialize the message as CsBwMsg
+                CsBwMsg? csBwMsg = null;
+                
+                // Handle different types of incoming message formats
+                if (message is JsonElement jsonElement) {
+                    // Message came as JsonElement
+                    var json = jsonElement.GetRawText();
+                    _logger.LogInformation("Message as JsonElement: {json}", json);
+                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(json, PortMessageJsonOptions);
+                }
+                else if (message is string jsonString) {
+                    // Message came as string
+                    _logger.LogInformation("Message as string: {jsonString}", jsonString);
+                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(jsonString, PortMessageJsonOptions);
+                }
+                else if (message is Dictionary<string, object> msgDict) {
+                    // Message came as Dictionary (legacy path)
+                    _logger.LogInformation("Message as Dictionary");
+                    var json = JsonSerializer.Serialize(msgDict);
+                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(json, PortMessageJsonOptions);
+                }
+                else {
+                    // Try to serialize then deserialize to handle other object types
+                    var json = JsonSerializer.Serialize(message);
+                    _logger.LogInformation("Message serialized from object: {json}", json);
+                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(json, PortMessageJsonOptions);
+                }
 
-            // Handle different message types
-            if (msg2 is Dictionary<string, object> msgDict) {
-                _logger.LogInformation("message {m}", message);
-                string? type = msgDict.GetValueOrDefault("type")?.ToString();
-                switch (type) {
-                    case "ping": // TODO P2 example
-                        port.PostMessage(new {
-                            type = "pong"
-                        });
-                        break;
-                    case "getData":  // TODO P2 example
-                        port.PostMessage(new {
-                            type = "data",
-                            value = "GetData()"
-                        });
-                        break;
-                    case "init":
-                        port.PostMessage(new {
-                            type = "initialized",
-                            value = "Background worker initialized"
-                        });
-                        break;
-                    default:
-                        _logger.LogWarning("Unknown message type on port {ConnectionId}: {Type}", connectionId, type);
-                        break;
+                if (csBwMsg != null) {
+                    //_logger.LogInformation("Successfully deserialized CsBwMsg with type: {Type}", csBwMsg.Type);
+
+                    // Handle different message types using the new message type constants
+                    switch (csBwMsg.Type) {
+                        case CsBwMsgTypes.INIT:
+                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
+                            // Send READY response using the proper message type
+                            var readyMsg = new BwCsMsgPong();
+                            port.PostMessage(readyMsg);
+                            break;
+
+                        case CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE:
+                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
+                            // TODO: Handle authorize request
+                            break;
+
+                        case CsBwMsgTypes.POLARIS_SIGN_REQUEST:
+                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
+                            // TODO: Handle sign request
+                            break;
+
+                        case CsBwMsgTypes.POLARIS_SIGNIFY_EXTENSION_CLIENT:
+                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
+                            // TODO: Handle response with extension client info
+                            break;
+
+                        default:
+                            _logger.LogWarning("Unknown message type on port: {ConnectionId} type: {Type}", connectionId, csBwMsg.Type);
+                            var errorMsg = new BwCsMsg(
+                                type: BwCsMsgTypes.REPLY,
+                                requestId: csBwMsg.RequestId,
+                                error: $"Unknown message type: {csBwMsg.Type}"
+                            );
+                            port.PostMessage(errorMsg);
+                            break;
+                    }
+                }
+                else {
+                    _logger.LogWarning("Failed to deserialize message from ContentScript as CsBwMsg");
                 }
             }
-            else {
-                _logger.LogWarning("Unexpected message format on port {ConnectionId}: {Message}", connectionId, message);
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing ContentScript message on port {ConnectionId}", connectionId);
+                try {
+                    var errorMsg = new BwCsMsg(
+                        type: BwCsMsgTypes.REPLY,
+                        error: $"Error processing ContentScript message: {ex.Message}"
+                    );
+                    port.PostMessage(errorMsg);
+                }
+                catch (Exception sendEx) {
+                    _logger.LogError(sendEx, "Failed to send error response to ContentScript on port {ConnectionId}", connectionId);
+                }
             }
+            
             return false;
         });
 
