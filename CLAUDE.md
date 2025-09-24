@@ -222,7 +222,7 @@ dotnet publish -c Release
 - No DOM access, runs in background context
 
 #### Content Script
-- Location: `wwwroot/scripts/esbuild/ContentScript.ts`
+- Location: `wwwroot/scripts/esbuild/IsolatedWorldContentScript.ts`
 - Injected conditionally into web pages
 - Runs in isolated context, separate from page scripts
 - Bridge between web page and extension via polaris-web

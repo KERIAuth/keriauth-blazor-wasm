@@ -22,7 +22,20 @@
         "scripts/esbuild/ContentScript.js"
       ],
       "run_at": "document_start",
-      "type": "module"
+      "type": "module",
+      "world": "ISOLATED"
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "scripts/esbuild/MainWorldContentScript.js"
+      ],
+      "run_at": "document_start",
+      "type": "module",
+      "world": "MAIN"
     }
   ],
   "content_security_policy": {

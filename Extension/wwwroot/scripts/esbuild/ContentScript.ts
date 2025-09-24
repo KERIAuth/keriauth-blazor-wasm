@@ -16,7 +16,7 @@ import type * as PW from '../types/polaris-web-client';
 
 // Type for messages from the page (combines polaris-web messages and CS-specific messages)
 // Some messages may have a 'source' property to identify origin
-type PageMessageData =
+type IPageMessageData =
     (PW.MessageData<PW.AuthorizeArgs> & { source?: string })
     | (PW.MessageData<PW.CreateCredentialArgs> & { source?: string })
     | (PW.MessageData<PW.SignDataArgs> & { source?: string })
@@ -34,7 +34,7 @@ console.log('KeriAuthCs currentOrigin:', currentOrigin);
 console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
 // Add a listener for messages and create port with BW
-window.addEventListener('message', (event: MessageEvent<PageMessageData>) => handleWindowMessage(event));
+window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
 
 // Unique port name for communications between the content script and the extension
 const uniquePortName: string = `CS|${generateUniqueIdentifier()}`;
@@ -225,7 +225,7 @@ function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
  * Validates message origin and filters out echo messages from content script
  * @param event Message event from the web page containing polaris-web protocol messages
  */
-function handleWindowMessage(event: MessageEvent<PageMessageData>): void {
+function handleWindowMessage(event: MessageEvent<IPageMessageData>): void {
 
     if (event === undefined) {
         return;
