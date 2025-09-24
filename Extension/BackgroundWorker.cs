@@ -190,16 +190,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // Set up appropriate message handling based on port type
         switch (portType) {
             case "CS":
-                SetupContentScriptMessageHandling(port, connectionId);
+                SetUpContentScriptMessageHandling(port, connectionId);
                 break;
             case "BA_TAB":
             case "BA_POPUP":
             case "BA_SIDEPANEL":
-                SetupBlazorAppMessageHandling(port, connectionId, portType);
+                SetUpBlazorAppMessageHandling(port, connectionId, portType);
                 break;
             default:
                 _logger.LogWarning("Unknown port type: {portType} for connection {connectionId}", portType, connectionId);
-                SetupDefaultMessageHandling(port, connectionId);
+                SetUpDefaultMessageHandling(port, connectionId);
                 break;
         }
 
@@ -225,7 +225,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         return ("LEGACY", portName);
     }
 
-    private void SetupContentScriptMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
+    private void SetUpContentScriptMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
         _logger.LogInformation("Setting up ContentScript message handling for port {ConnectionId}", connectionId);
         port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
             _logger.LogInformation("Received ContentScript message on port {ConnectionId}: {Message}", connectionId, message);
@@ -319,7 +319,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         });
     }
 
-    private void SetupBlazorAppMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId, string portType) {
+    private void SetUpBlazorAppMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId, string portType) {
         _logger.LogInformation("Setting up Blazor App ({portType}) message handling for port {ConnectionId}", portType, connectionId);
         port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
             _logger.LogInformation("Received Blazor App message on port {ConnectionId}: {Message}", connectionId, message);
@@ -339,25 +339,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         });
     }
 
-    private void SetupDefaultMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
-        _logger.LogInformation("Setting up default message handling for port {ConnectionId}", connectionId);
+    private void SetUpDefaultMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
+        _logger.LogWarning("Setting up default message handling for port {ConnectionId}", connectionId);
         port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogInformation("Received message on legacy/unknown port {ConnectionId}: {Message}", connectionId, message);
-
-            // Try to handle as ContentScript message for backward compatibility
-            try {
-                _logger.LogInformation("Attempting to handle as ContentScript message for backward compatibility");
-                // For now, just log - we could add backward compatibility logic here if needed
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error processing legacy message on port {ConnectionId}", connectionId);
-            }
-            
+            _logger.LogWarning("Received message on legacy/unknown port {ConnectionId}: {Message}", connectionId, message);
             return false;
         });
     }
     
-
 
     // onConnect fires when a connection is made from content scripts or other extension pages
     // Parameter: port - Port object with name and sender properties
