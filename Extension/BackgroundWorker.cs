@@ -173,30 +173,46 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     [JSInvokable]
     public Task OnConnect(WebExtensions.Net.Runtime.Port port) {
+        _logger.LogInformation("Port connected: name: { Name } url: {url} port: {port}", port.Name, port.Sender?.Url, port.ToString());
         string? connectionId = port.Name ?? Guid.NewGuid().ToString();
         _logger.LogInformation("Port connected: { ConnectionId} ", connectionId);
 
         // Set up message handling
         port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogInformation("Message on port {ConnectionId}: { Message} ", connectionId, message);
+            _logger.LogInformation("Received message on port {ConnectionId}: { Message} ", connectionId, message);
+
+            var msg2 = message as Dictionary<string, object>;
+            _logger.LogInformation("Message as dict: {msg2}", msg2);
 
             // Handle different message types
-            if (message is Dictionary<string, object> msgDict) {
+            if (msg2 is Dictionary<string, object> msgDict) {
                 _logger.LogInformation("message {m}", message);
                 string? type = msgDict.GetValueOrDefault("type")?.ToString();
                 switch (type) {
-                    case "ping":
+                    case "ping": // TODO P2 example
                         port.PostMessage(new {
                             type = "pong"
                         });
                         break;
-                    case "getData":
+                    case "getData":  // TODO P2 example
                         port.PostMessage(new {
                             type = "data",
                             value = "GetData()"
                         });
                         break;
+                    case "init":
+                        port.PostMessage(new {
+                            type = "initialized",
+                            value = "Background worker initialized"
+                        });
+                        break;
+                    default:
+                        _logger.LogWarning("Unknown message type on port {ConnectionId}: {Type}", connectionId, type);
+                        break;
                 }
+            }
+            else {
+                _logger.LogWarning("Unexpected message format on port {ConnectionId}: {Message}", connectionId, message);
             }
             return false;
         });

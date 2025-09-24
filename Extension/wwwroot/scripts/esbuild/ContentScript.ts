@@ -28,7 +28,7 @@ type PageMessageData =
 /*
  * This section is evaluated on document-start, as specified in the extension manifest
  */
-console.groupCollapsed('KeriAuthCs initializing');
+console.log('KeriAuthCs initializing');
 const currentOrigin = window.location.origin;
 console.log('KeriAuthCs currentOrigin:', currentOrigin);
 console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
@@ -43,12 +43,12 @@ let portWithBw: chrome.runtime.Port | null = null;
 // Initialize port connection with error handling
 try {
     portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-    createPortWithBw();
+    createPortListeners();
     // TODO P1 tmp
-    portWithBw.postMessage({ type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT });
-
-
-
+    portWithBw.postMessage({ type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT } as ICsBwMsg);
+    // TODO P1 tmp
+    const initMsg2: ICsBwMsg = { type: CsBwMsgEnum.INIT };
+    portWithBw.postMessage(initMsg2);
 } catch (error) {
     console.error('KeriAuthCs: Failed to create initial port connection:', error);
     // Will attempt to reconnect when first message needs to be sent
@@ -59,12 +59,10 @@ window.addEventListener('popstate', (event) => {
     console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
 });
 
-// Add listener for when DOMContentLoaded. Log if helpful for debugging issues.
+// Add listener for when DOMContentLoaded. Logging if helpful for debugging issues.
 document.addEventListener('DOMContentLoaded', (event) => {
-    console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
+    console.info(`KeriAuthCs ${event.type}`);
 });
-
-console.groupEnd();
 
 /**
  * Generate a unique and unguessable identifier for the port name for communications between the content script and the extension
@@ -148,7 +146,7 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
             break;
 
         default:
-            console.error(`KeriAuthCs handler not implemented for message type ${message.type}`);
+            console.warn(`KeriAuthCs unrecognized message type ${message.type}`);
             break;
     }
     console.groupEnd();
@@ -159,8 +157,8 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
  * Sets up message and disconnect listeners, sends initial INIT message
  * Assumes portWithBw has already been created via chrome.runtime.connect()
  */
-function createPortWithBw(): void {
-    console.groupCollapsed('KeriAuthCs→BW: creating port');
+function createPortListeners(): void {
+    console.log('KeriAuthCs→BW: creating port listeners');
 
     if (!portWithBw) {
         console.error('KeriAuthCs→BW: Port is null, cannot setup listeners');
@@ -189,7 +187,6 @@ function createPortWithBw(): void {
         // Port may have disconnected already, set to null for reconnection
         portWithBw = null;
     }
-    console.groupEnd();
     return;
 }
 
@@ -206,7 +203,7 @@ function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
         console.info('KeriAuthCs re-creating port connection to BackgroundWorker');
         try {
             portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-            createPortWithBw();
+            createPortListeners();
         } catch (error) {
             console.error('KeriAuthCs→BW: Failed to reconnect to BackgroundWorker:', error);
             throw error; // Re-throw to let caller handle the error

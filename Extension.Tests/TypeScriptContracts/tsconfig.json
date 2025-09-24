@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "lib": ["ES2020", "DOM"],
+    "moduleResolution": "node",
+    "resolveJsonModule": true
+  },
+  "include": [
+    "*.ts",
+    "../../Extension/wwwroot/scripts/es6/*.ts"
+  ]
+}

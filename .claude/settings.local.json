@@ -27,7 +27,8 @@
       "WebSearch",
       "Bash(dotnet list:*)",
       "WebFetch(domain:developer.chrome.com)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []
