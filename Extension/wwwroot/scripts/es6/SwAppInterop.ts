@@ -10,21 +10,48 @@ import {
     BwCsMsgEnum
 } from '../es6/ExCsInterfaces.js';
 
-interface DotNetObjectReference<T = any> {
-    invokeMethodAsync: (methodName: string, ...args: any[]) => Promise<void>;
+interface IDotNetObjectReference {
+    invokeMethodAsync: (methodName: string, ...args: unknown[]) => Promise<void>;
+}
+
+// Generate unique identifier for port names
+function generateUniqueIdentifier(): string {
+    const array = new Uint32Array(4);
+    window.crypto.getRandomValues(array);
+    return Array.from(array, dec => (`00000000${dec.toString(16)}`).slice(-8)).join('-');
 }
 
 export const SwAppInteropModule = {
-    initializeMessaging (dotNetObjectReference: DotNetObjectReference, tabId: String): chrome.runtime.Port | null {
+    initializeMessaging (dotNetObjectReference: IDotNetObjectReference, contextType: string): chrome.runtime.Port | null {
         try {
-            if (!tabId || typeof tabId !== 'string') {
-                console.error('Invalid tabId provided');
+            if (!contextType || typeof contextType !== 'string') {
+                console.error('Invalid contextType provided');
                 return null;
             }
 
-            console.log('Initializing messaging for tab:', tabId);
+            console.log('Initializing messaging for context:', contextType);
 
-            const port = chrome.runtime.connect('', { name: 'blazorAppPort' + `-tab-${  tabId}` });
+            // Generate port name based on context type
+            let portPrefix: string;
+            switch (contextType.toUpperCase()) {
+                case 'TAB':
+                    portPrefix = 'BA_TAB';
+                    break;
+                case 'POPUP':
+                    portPrefix = 'BA_POPUP';
+                    break;
+                case 'SIDEPANEL':
+                    portPrefix = 'BA_SIDEPANEL';
+                    break;
+                default:
+                    portPrefix = 'BA_UNKNOWN';
+                    console.warn('Unknown context type, using default prefix:', contextType);
+            }
+
+            const portName = `${portPrefix}|${generateUniqueIdentifier()}`;
+            console.log('Creating port with name:', portName);
+
+            const port = chrome.runtime.connect('', { name: portName });
 
             port.onMessage.addListener((message) => {
                 console.log('SwAppInterop received port message: ', message);
@@ -47,31 +74,35 @@ export const SwAppInteropModule = {
         try {
             const messageData = JSON.parse(jsonReplyMessageData) as IReplyMessageData<unknown>;
             console.log('SwAppInteropModule.sendMessageToBackgroundWorker messageData: ', messageData);
-            const { type, requestId, payload, error, payloadTypeName, source } = messageData;
+            const { type: _type, requestId: _requestId, payload: _payload, error: _error, payloadTypeName, source: _source } = messageData;
 
             // depending on type, re-parse and process
             switch (payloadTypeName) {
-                case 'CancelResult':
+                case 'CancelResult': {
                     // Note that AuthorizeResult type is the closest match to CancelResult
                     const msgCancelResult = JSON.parse(jsonReplyMessageData) as IReplyMessageData<PW.AuthorizeResult>;
                     console.log('SwAppInteropModule.sendMessageToBackgroundWorker messageData3: ', msgCancelResult);
                     port.postMessage(msgCancelResult);
                     break;
-                case 'AuthorizeResult':
+                }
+                case 'AuthorizeResult': {
                     const msgAuthorizeResult = JSON.parse(jsonReplyMessageData) as IReplyMessageData<PW.AuthorizeResult>;
                     console.log('SwAppInteropModule.sendMessageToBackgroundWorker messageData2: ', msgAuthorizeResult);
                     port.postMessage(msgAuthorizeResult);
                     break;
-                case 'ApprovedSignRequest':
+                }
+                case 'ApprovedSignRequest': {
                     const msgApprovedSignRequest = JSON.parse(jsonReplyMessageData) as IApprovedSignRequest;
                     console.log('SwAppInteropModule approvedSignRequest: ', msgApprovedSignRequest);
                     port.postMessage(msgApprovedSignRequest);
                     break;
-                case 'SignedRequestResult':
+                }
+                case 'SignedRequestResult': {
                     const msgSignRequestResult = JSON.parse(jsonReplyMessageData) as IReplyMessageData<PW.SignRequestResult>;
                     console.log('SwAppInteropModule.sendMessageToServiceWorker messageData5: ', msgSignRequestResult);
                     port.postMessage(msgSignRequestResult);
                     break;
+                }
                 case 'SignDataResult':
                 case 'ConfigureVendorResult':
                 default:

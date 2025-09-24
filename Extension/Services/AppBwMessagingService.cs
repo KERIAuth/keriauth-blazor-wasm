@@ -1,10 +1,13 @@
 ﻿using Extension.Models;
+using JsBind.Net;
 using Microsoft.JSInterop;
 using System.Text.Json;
+using WebExtensions.Net;
+using WebExtensions.Net.Runtime;
 // using WebExtensions.Net.Scripting;
 
 namespace Extension.Services {
-    public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJSRuntime jsRuntime) : IAppBwMessagingService {
+    public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter) : IAppBwMessagingService {
         private readonly List<IObserver<string>> observers = [];
         private IJSObjectReference? _port;
         private IJSObjectReference _interopModule = default!;
@@ -16,8 +19,19 @@ namespace Extension.Services {
                 _interopModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/SwAppInterop.js");
                 if (_interopModule != null) {
                     logger.LogInformation("JS module SwAppInterop.js import was successful.");
-                    // await jsRuntime.InvokeVoidAsync("console.log", "test log");
-                    _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, "tab2");
+                    
+                    // Get current runtime context to determine the appropriate port name prefix
+                    var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+                    var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
+                    var contexts = await webExtensionsApi.Runtime.GetContexts(contextFilter);
+                    
+                    // Find the current context (should be this instance)
+                    var currentContext = contexts.FirstOrDefault();
+                    string contextType = currentContext?.ContextType.ToString() ?? "UNKNOWN";
+                    
+                    logger.LogInformation("Initializing messaging for context type: {contextType}", contextType);
+                    
+                    _port = await _interopModule.InvokeAsync<IJSObjectReference>("SwAppInteropModule.initializeMessaging", _objectReference, contextType);
                 }
             }
             catch (JSException e) {

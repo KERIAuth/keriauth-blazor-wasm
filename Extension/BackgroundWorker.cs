@@ -183,9 +183,52 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         string? connectionId = port.Name ?? Guid.NewGuid().ToString();
         _logger.LogInformation("Port connected: { ConnectionId} ", connectionId);
 
-        // Set up message handling
+        // Parse port name to determine the connection type
+        var (portType, portGuid) = ParsePortName(connectionId);
+        _logger.LogInformation("Port connection type: {portType}, GUID: {portGuid}", portType, portGuid);
+
+        // Set up appropriate message handling based on port type
+        switch (portType) {
+            case "CS":
+                SetupContentScriptMessageHandling(port, connectionId);
+                break;
+            case "BA_TAB":
+            case "BA_POPUP":
+            case "BA_SIDEPANEL":
+                SetupBlazorAppMessageHandling(port, connectionId, portType);
+                break;
+            default:
+                _logger.LogWarning("Unknown port type: {portType} for connection {connectionId}", portType, connectionId);
+                SetupDefaultMessageHandling(port, connectionId);
+                break;
+        }
+
+        // Clean up on disconnect
+        port.OnDisconnect.AddListener(() => {
+            _logger.LogInformation("Port disconnected: {ConnectionId}", connectionId);
+        });
+
+        return Task.CompletedTask;
+    }
+
+    private static (string portType, string portGuid) ParsePortName(string portName) {
+        if (string.IsNullOrEmpty(portName)) {
+            return ("UNKNOWN", Guid.NewGuid().ToString());
+        }
+
+        var parts = portName.Split('|', 2);
+        if (parts.Length == 2) {
+            return (parts[0], parts[1]);
+        }
+
+        // Legacy format or unexpected format - treat as unknown
+        return ("LEGACY", portName);
+    }
+
+    private void SetupContentScriptMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
+        _logger.LogInformation("Setting up ContentScript message handling for port {ConnectionId}", connectionId);
         port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogInformation("Received message on port {ConnectionId}: { Message} ", connectionId, message);
+            _logger.LogInformation("Received ContentScript message on port {ConnectionId}: {Message}", connectionId, message);
 
             try {
                 // Try to deserialize the message as CsBwMsg
@@ -274,12 +317,44 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             
             return false;
         });
+    }
 
-        // Clean up on disconnect
-        port.OnDisconnect.AddListener(() => {
-            _logger.LogInformation("Port {ConnectionId} disconnected", connectionId);
+    private void SetupBlazorAppMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId, string portType) {
+        _logger.LogInformation("Setting up Blazor App ({portType}) message handling for port {ConnectionId}", portType, connectionId);
+        port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
+            _logger.LogInformation("Received Blazor App message on port {ConnectionId}: {Message}", connectionId, message);
+
+            try {
+                // Handle Blazor App specific messages
+                // TODO: Implement Blazor App message handling logic
+                _logger.LogInformation("Processing Blazor App message from {portType}", portType);
+                
+                // For now, just log the message - actual message handling will be implemented later
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing Blazor App message on port {ConnectionId}", connectionId);
+            }
+            
+            return false;
         });
-        return Task.CompletedTask;
+    }
+
+    private void SetupDefaultMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
+        _logger.LogInformation("Setting up default message handling for port {ConnectionId}", connectionId);
+        port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
+            _logger.LogInformation("Received message on legacy/unknown port {ConnectionId}: {Message}", connectionId, message);
+
+            // Try to handle as ContentScript message for backward compatibility
+            try {
+                _logger.LogInformation("Attempting to handle as ContentScript message for backward compatibility");
+                // For now, just log - we could add backward compatibility logic here if needed
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error processing legacy message on port {ConnectionId}", connectionId);
+            }
+            
+            return false;
+        });
     }
     
 

@@ -37,7 +37,7 @@ console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.r
 window.addEventListener('message', (event: MessageEvent<PageMessageData>) => handleWindowMessage(event));
 
 // Unique port name for communications between the content script and the extension
-const uniquePortName: string = generateUniqueIdentifier();
+const uniquePortName: string = `CS|${generateUniqueIdentifier()}`;
 let portWithBw: chrome.runtime.Port | null = null;
 
 // Initialize port connection with error handling
