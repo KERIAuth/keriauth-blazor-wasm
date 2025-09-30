@@ -1,11 +1,6 @@
 {
   "action": {
-    "default_title": "KERI Auth",
-    "default_icon": {
-      "16": "images/16_keri_logo.png",
-      "48": "images/48_keri_logo.png",
-      "128": "images/128_keri_logo.png"
-    }
+    "default_title": "KERI Auth"
   },
   "author": "https://keriauth.com",
   "background": {
@@ -15,7 +10,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*/*",
+        "https://KeriAuth.com/*",
         "http://localhost/*"
       ],
       "js": [
@@ -27,7 +22,7 @@
     },
     {
       "matches": [
-        "https://*/*",
+        "https://KeriAuth.com/*",
         "http://localhost/*"
       ],
       "js": [
@@ -43,8 +38,12 @@
   },
   "default_locale": "en",
   "description": "Authenticate with websites using the decentralized trust of KERI and ACDC, plus centralized roots of trust including GLEIF vLEIs.",
+  "host_permissions": [],
   "icons": {
-    "512": "images/512_keri_logo.png"
+      "16": "images/16_keri_logo.png",
+      "48": "images/48_keri_logo.png",
+      "128": "images/128_keri_logo.png",
+      "512": "images/512_keri_logo.png"
   },
   "manifest_version": 3,
   "minimum_chrome_version": "127",
@@ -56,6 +55,7 @@
   "permissions": [
     "activeTab",
     "alarms",
+    "scrpiting",
     "storage",
     "sidePanel"
   ],

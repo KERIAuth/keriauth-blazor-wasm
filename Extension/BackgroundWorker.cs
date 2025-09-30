@@ -8,8 +8,11 @@ using Microsoft.JSInterop;
 using MudBlazor.Extensions;
 using System.Collections.Concurrent;
 using System.Text.Json;
+
 // using System.Text.RegularExpressions;
 using WebExtensions.Net;
+using WebExtensions.Net.Manifest;
+using WebExtensions.Net.Permissions;
 
 namespace Extension;
 
@@ -721,6 +724,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     private async Task HandleActionClickOnWebPageAsync(int tabId, string url, string? pendingUrl) {
+        _logger.LogInformation("Handling action click for pendingUrl: {pendingUrl}", pendingUrl);
         try {
             var targetUrl = pendingUrl ?? url;
             var origin = new Uri(targetUrl).GetLeftPart(UriPartial.Authority) + "/";
@@ -728,13 +732,60 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("Handling action click for origin: {Origin}", origin);
 
             // Check if the extension has permission to access the tab (based on its origin), and if not, request it
-            var hasPermission = await CheckOriginPermissionAsync(origin);
-            _logger.LogInformation("Origin permission check result for {Origin}: {HasPermission}", origin, hasPermission);
+            var hasPermission = false; // await CheckOriginPermissionAsync(origin);
+                                       // _logger.LogInformation("Origin permission check result for {Origin}: {HasPermission}", origin, hasPermission);
 
+            // if (!hasPermission) {
+
+
+
+            var ptt = new PermissionsType {
+                Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
+            };
             if (!hasPermission) {
+                // prompt via browser UI for permission
+                hasPermission = await WebExtensions.Permissions.Request(ptt);
+            }
+            _logger.LogInformation("Permission request result for {Origin}: {IsGranted}", origin, hasPermission);
+            // return hasPermission;
+        }
+        catch (Microsoft.JSInterop.JSException e) {
+            _logger.LogError("BW: ... . {e}{s}", e.Message, e.StackTrace);
+            throw;
+        }
+        catch (System.Runtime.InteropServices.JavaScript.JSException e) {
+            _logger.LogError("BW: ... 2 . {e}{s}", e.Message, e.StackTrace);
+            throw;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error requesting origin permission for {Origin}", pendingUrl); // origin
+            // return false;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+
+
+
+
+
+
+
                 // Request permission from the user
-                var isGranted = await RequestOriginPermissionAsync(origin);
-                if (isGranted) {
+                // var hasPermission = await RequestOriginPermissionAsync(origin);
+                if (hasPermission) {
                     _logger.LogInformation("Permission granted for: {Origin}", origin);
                     await UseActionPopupAsync(tabId);
                 }
@@ -753,11 +804,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Clear the popup url for the action button, if it is set, 
             // so that future use of the action button will also trigger this same handler
             await WebExtensions.Action.SetPopup(new() { Popup = "" });
+
+            return;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling action click on web page");
         }
     }
+    */
 
     private async Task<bool> CheckOriginPermissionAsync(string origin) {
         try {
@@ -782,18 +836,33 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("Requesting permission for origin: {Origin}", origin);
 
-            // Use JavaScript helper module for permissions (CSP-compliant)
-            // NOTE: WebExtensions.Net.Permissions API has type conversion issues:
-            // - MatchPattern constructor ambiguity (Restricted vs Unrestricted)
-            // - Type mismatches between PermissionsType and AnyPermissions
-            // - String[] to IEnumerable<MatchPattern> conversion problems
-            // The JS module approach avoids these complexities while remaining secure.
-            var permissionsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PermissionsHelper.js");
-            var isGranted = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.request",
-                new { origins = new[] { origin } });
-
+var isGranted = false;
+            /*
+                        var pt = new AnyPermissions
+                        {
+                            Origins = [new MatchPattern( new MatchPatternRestricted(origin))]
+                        };
+                        var isGranted = await WebExtensions.Permissions.Contains(pt);
+                        _logger.LogInformation("Current permission for {Origin}: {IsGranted}", origin, isGranted);
+            */
+            var ptt = new PermissionsType
+            {
+                Origins = [new MatchPattern( new MatchPatternRestricted(origin))]
+            };
+            if (!isGranted) {
+                // prompt via browser UI for permission
+                isGranted = await WebExtensions.Permissions.Request(ptt);
+            }
             _logger.LogInformation("Permission request result for {Origin}: {IsGranted}", origin, isGranted);
             return isGranted;
+        }
+        catch (Microsoft.JSInterop.JSException e) {
+            _logger.LogError("BW: ... . {e}{s}", e.Message, e.StackTrace);
+            throw;
+        }
+        catch (System.Runtime.InteropServices.JavaScript.JSException e) {
+            _logger.LogError("BW: ... 2 . {e}{s}", e.Message, e.StackTrace);
+            throw;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error requesting origin permission for {Origin}", origin);

@@ -227,7 +227,8 @@ function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
  */
 function handleWindowMessage(event: MessageEvent<IPageMessageData>): void {
 
-    if (event === undefined) {
+    // Ignore messages with undefined events or .data, such as those sent from pages with advertising
+    if (event === undefined || event.data === undefined ) {
         return;
     }
 
