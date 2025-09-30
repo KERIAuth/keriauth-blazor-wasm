@@ -12,16 +12,17 @@
   },
   "default_locale": "en",
   "description": "Authenticate with websites using the decentralized trust of KERI and ACDC, plus centralized roots of trust including GLEIF vLEIs.",
-  "host_permissions": [],
+  "host_permissions": [
+  ],
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*/*"
   ],
   "icons": {
-      "16": "images/16_keri_logo.png",
-      "48": "images/48_keri_logo.png",
-      "128": "images/128_keri_logo.png",
-      "512": "images/512_keri_logo.png"
+    "16": "images/16_keri_logo.png",
+    "48": "images/48_keri_logo.png",
+    "128": "images/128_keri_logo.png",
+    "512": "images/512_keri_logo.png"
   },
   "manifest_version": 3,
   "minimum_chrome_version": "127",

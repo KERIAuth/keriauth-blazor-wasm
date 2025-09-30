@@ -520,6 +520,24 @@ public class PayloadData
 ### Issue: Browser extension manifest version conflicts
 **Solution**: Target Manifest V3 for Chrome/Edge, check Firefox compatibility separately
 
+### Issue: Background worker state persistence across service worker lifecycle
+**Problem**: Manifest V3 service workers can become inactive and restart, losing in-memory state stored in instance fields.
+**Solution**:
+1. **Prefer inferring state from existing persistent sources**: Check if state can be derived from port connections, registered content scripts, or other browser APIs rather than maintaining separate state.
+   - Example: Instead of tracking injected tabs in a dictionary, check `_pageCsConnections` for active port connections (content scripts establish ports when loaded).
+2. **If state must be persisted**: Use `chrome.storage.session` for session-scoped state that survives service worker restarts but clears when browser closes.
+3. **For long-term persistence**: Use `chrome.storage.local` (but be mindful of storage limits and security).
+4. **Best Practice**: Design the architecture to be stateless where possible, relying on browser APIs to query current state rather than caching it.
+
+**Example - Checking for injected content scripts**:
+```csharp
+// ❌ BAD: Maintaining separate state that can be lost
+private readonly ConcurrentDictionary<int, string> _injectedTabs = new();
+
+// ✅ GOOD: Infer from existing port connections
+var hasActiveConnection = _pageCsConnections.Values.Any(conn => conn.TabId == tab.Id);
+```
+
 ## Security Constraints
 
 The extension enforces strict security boundaries:

@@ -518,31 +518,66 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            _logger.LogInformation("Step 1 done.");
-
-            // 2) Request persistent host permission FIRST (while user gesture is still active)
-            // Note: request() must be the first async call to preserve the user gesture
-            var permissionsType = new PermissionsType {
-                Origins = matchPatterns.Select(p => new MatchPattern(new MatchPatternRestricted(p))).ToList()
+            // 2) Check if we have persistent host permissions for auto-injection on new tabs.
+            // We need persistent host permissions for registered content scripts to auto-inject.
+            // Note: activeTab permission is only temporary and doesn't allow auto-injection on future tabs.
+            //
+            // KNOWN LIMITATION: We cannot request new permissions here due to user gesture context loss.
+            // The WebExtensions.Net AddListener creates an async boundary that loses the gesture before
+            // this C# handler executes. Attempting to call Permissions.Request() will fail with:
+            // "This function must be called during a user gesture"
+            //
+            // WORKAROUND: Check if permissions are already granted. If not, we can still do one-shot
+            // injection via activeTab, but persistent registration will fail. User would need to grant
+            // permissions through extension settings or a dedicated permissions UI flow.
+            var anyPermissions = new AnyPermissions {
+                Origins = matchPatterns.Select(pattern => new MatchPattern(new MatchPatternRestricted(pattern))).ToArray()
             };
-            _logger.LogInformation("Step 1 done..");
-            var granted = await WebExtensions.Permissions.Request(permissionsType);
-            if (!granted) {
-                _logger.LogInformation("KERIAuth BW: User declined persistent host permission; stopping.");
-                return;
+            bool granted = false;
+            try {
+                granted = await WebExtensions.Permissions.Contains(anyPermissions);
+                if (granted) {
+                    _logger.LogInformation("KERIAuth BW: Persistent host permission already granted for {Patterns}", string.Join(", ", matchPatterns));
+                } else {
+                    _logger.LogInformation("KERIAuth BW: Persistent host permission not granted for {Patterns}. Will inject for current tab only using activeTab.", string.Join(", ", matchPatterns));
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "KERIAuth BW: Could not check persistent host permissions - will use activeTab");
             }
 
-            // 3) Check if persistent content script is already registered for this origin
+            // 3) Check if content scripts are already active in this tab by checking for port connections
             var uri = new Uri(tab.Url);
             var scriptId = $"after-click-auto-inject-{uri.Host}";
-            var registeredScripts = await WebExtensions.Scripting.GetRegisteredContentScripts();
 
-            if (registeredScripts != null && registeredScripts.Any(s => s.Id == scriptId)) {
-                _logger.LogInformation("KERIAuth BW: Persistent content script already registered: {ScriptId} - skipping one-shot injection", scriptId);
+            // Check if we have an active content script connection for this tab.
+            // Content scripts establish port connections when they load, so an active connection
+            // indicates the scripts are already injected and running in this tab.
+            var hasActiveConnection = _pageCsConnections.Values.Any(conn => conn.TabId == tab.Id);
+            if (hasActiveConnection) {
+                _logger.LogInformation("KERIAuth BW: Active content script connection detected for tab {TabId} - skipping duplicate injection", tab.Id);
                 return;
             }
 
-            // 4) One-shot injection NOW (authorized via activeTab + user click)
+            // Try to get registered scripts, but handle deserialization errors gracefully.
+            // The browser may return script paths in a format that doesn't match our strict validation.
+            bool scriptAlreadyRegistered = false;
+            try {
+                var registeredScripts = await WebExtensions.Scripting.GetRegisteredContentScripts();
+                scriptAlreadyRegistered = registeredScripts != null && registeredScripts.Any(s => s.Id == scriptId);
+
+                if (scriptAlreadyRegistered) {
+                    _logger.LogInformation("KERIAuth BW: Persistent content scripts already registered for {ScriptId} - skipping one-shot injection and re-registration", scriptId);
+                    return;
+                }
+            }
+            catch (Exception ex) {
+                // Deserialization errors can occur if the browser returns paths in an unexpected format.
+                // We'll proceed with injection - registration will be attempted but may fail gracefully.
+                _logger.LogDebug(ex, "Could not retrieve registered content scripts - will attempt injection and registration");
+            }
+
+            // 4) One-shot injection NOW (authorized via user click + granted permissions)
             try {
                 var mainWorldScript = new ScriptInjection {
                     Target = new InjectionTarget { TabId = tab.Id, AllFrames = true },
@@ -559,33 +594,48 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 };
                 await WebExtensions.Scripting.ExecuteScript(isolatedScript);
                 _logger.LogInformation("KERIAuth BW: One-shot injection completed for ContentScript.js");
+
+                // Note: We don't need to manually track injection state. The content scripts will
+                // establish port connections, and we check _pageCsConnections to detect active scripts.
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "KERIAuth BW: One-shot injection failed");
                 return;
             }
 
-            // 5) Register persistent content scripts for this origin
-            var mainWorldContentScript = new RegisteredContentScript {
-                Id = scriptId,
-                Js = new List<ExtensionUrl> { new ExtensionUrl("scripts/esbuild/MainWorldContentScript.js") },
-                Matches = matchPatterns,
-                RunAt = ExtensionTypesRunAt.DocumentIdle,
-                AllFrames = true,
-                World = ScriptingExecutionWorld.MAIN,
-                PersistAcrossSessions = true
-            };
-            var isolatedContentScript = new RegisteredContentScript {
-                Id = $"{scriptId}-isolated",
-                Js = new List<ExtensionUrl> { new ExtensionUrl("scripts/esbuild/ContentScript.js") },
-                Matches = matchPatterns,
-                RunAt = ExtensionTypesRunAt.DocumentIdle,
-                AllFrames = true,
-                World = ScriptingExecutionWorld.ISOLATED,
-                PersistAcrossSessions = true
-            };
-            await WebExtensions.Scripting.RegisterContentScripts(new List<RegisteredContentScript> { mainWorldContentScript, isolatedContentScript });
-            _logger.LogInformation("KERIAuth BW: Registered persistent content scripts: {ScriptId} for {Matches}", scriptId, string.Join(", ", matchPatterns));
+            // 5) Register persistent content scripts for this origin (only if we have permissions)
+            // Note: We already checked above and returned early if scripts were already registered.
+            // Persistent registration requires host permissions - without them, registration will fail.
+            if (granted) {
+                try {
+                    var mainWorldContentScript = new RegisteredContentScript {
+                        Id = scriptId,
+                        Js = new List<ExtensionUrl> { new ExtensionUrl("/scripts/esbuild/MainWorldContentScript.js") },
+                        Matches = matchPatterns,
+                        RunAt = ExtensionTypesRunAt.DocumentIdle,
+                        AllFrames = true,
+                        World = ScriptingExecutionWorld.MAIN,
+                        PersistAcrossSessions = true
+                    };
+                    var isolatedContentScript = new RegisteredContentScript {
+                        Id = $"{scriptId}-isolated",
+                        Js = new List<ExtensionUrl> { new ExtensionUrl("/scripts/esbuild/ContentScript.js") },
+                        Matches = matchPatterns,
+                        RunAt = ExtensionTypesRunAt.DocumentIdle,
+                        AllFrames = true,
+                        World = ScriptingExecutionWorld.ISOLATED,
+                        PersistAcrossSessions = true
+                    };
+                    await WebExtensions.Scripting.RegisterContentScripts(new List<RegisteredContentScript> { mainWorldContentScript, isolatedContentScript });
+                    _logger.LogInformation("KERIAuth BW: Registered persistent content scripts: {ScriptId} for {Matches}", scriptId, string.Join(", ", matchPatterns));
+                }
+                catch (Exception ex) {
+                    _logger.LogInformation(ex, "Could not register persistent content scripts: {ScriptId}", scriptId);
+                }
+            }
+            else {
+                _logger.LogInformation("KERIAuth BW: Skipping persistent content script registration (no host permissions). Scripts injected for current tab only.");
+            }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling action click");
@@ -638,6 +688,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 _pageCsConnections.TryRemove(connectionToRemove, out _);
                 _logger.LogInformation("Removed connection for closed tab: {TabId}", tabId);
             }
+            // Note: No need for separate injection tracking - port connection removal handles cleanup
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling tab removal");
