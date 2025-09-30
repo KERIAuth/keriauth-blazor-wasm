@@ -7,38 +7,16 @@
     "service_worker": "content/BackgroundWorker.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://KeriAuth.com/*",
-        "http://localhost/*"
-      ],
-      "js": [
-        "scripts/esbuild/ContentScript.js"
-      ],
-      "run_at": "document_start",
-      "type": "module",
-      "world": "ISOLATED"
-    },
-    {
-      "matches": [
-        "https://KeriAuth.com/*",
-        "http://localhost/*"
-      ],
-      "js": [
-        "scripts/esbuild/MainWorldContentScript.js"
-      ],
-      "run_at": "document_start",
-      "type": "module",
-      "world": "MAIN"
-    }
-  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'"
   },
   "default_locale": "en",
   "description": "Authenticate with websites using the decentralized trust of KERI and ACDC, plus centralized roots of trust including GLEIF vLEIs.",
   "host_permissions": [],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*/*"
+  ],
   "icons": {
       "16": "images/16_keri_logo.png",
       "48": "images/48_keri_logo.png",
@@ -55,7 +33,7 @@
   "permissions": [
     "activeTab",
     "alarms",
-    "scrpiting",
+    "scripting",
     "storage",
     "sidePanel"
   ],

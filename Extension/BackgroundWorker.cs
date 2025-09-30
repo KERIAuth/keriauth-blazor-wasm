@@ -13,6 +13,9 @@ using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
+using WebExtensions.Net.Scripting;
+using ScriptingExecutionWorld = WebExtensions.Net.Scripting.ExecutionWorld;
+using ExtensionTypesRunAt = WebExtensions.Net.ExtensionTypes.RunAt;
 
 namespace Extension;
 
@@ -501,24 +504,115 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var tabJson = JsonSerializer.Serialize(tabObj);
             var tab = JsonSerializer.Deserialize<Tab>(tabJson);
 
-            if (tab == null) {
-                _logger.LogWarning("Failed to deserialize tab information");
-                await CreateExtensionTabAsync();
+            if (tab == null || tab.Id <= 0 || string.IsNullOrEmpty(tab.Url)) {
+                _logger.LogWarning("Invalid tab information");
                 return;
             }
 
             _logger.LogInformation("Action button clicked on tab: {TabId}, URL: {Url}", tab.Id, tab.Url);
 
-            if (tab.Id > 0 && !string.IsNullOrEmpty(tab.Url) && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) {
-                await HandleActionClickOnWebPageAsync(tab.Id, tab.Url, tab.PendingUrl);
+            // 1) Compute per-origin match patterns from the clicked tab
+            var matchPatterns = BuildMatchPatternsFromTabUrl(tab.Url);
+            if (matchPatterns.Count == 0) {
+                _logger.LogInformation("KERIAuth BW: Unsupported or restricted URL scheme; not registering persistence. URL: {Url}", tab.Url);
+                return;
             }
-            else {
-                await CreateExtensionTabAsync();
+
+            _logger.LogInformation("Step 1 done.");
+
+            // 2) Request persistent host permission FIRST (while user gesture is still active)
+            // Note: request() must be the first async call to preserve the user gesture
+            var permissionsType = new PermissionsType {
+                Origins = matchPatterns.Select(p => new MatchPattern(new MatchPatternRestricted(p))).ToList()
+            };
+            _logger.LogInformation("Step 1 done..");
+            var granted = await WebExtensions.Permissions.Request(permissionsType);
+            if (!granted) {
+                _logger.LogInformation("KERIAuth BW: User declined persistent host permission; stopping.");
+                return;
             }
+
+            // 3) Check if persistent content script is already registered for this origin
+            var uri = new Uri(tab.Url);
+            var scriptId = $"after-click-auto-inject-{uri.Host}";
+            var registeredScripts = await WebExtensions.Scripting.GetRegisteredContentScripts();
+
+            if (registeredScripts != null && registeredScripts.Any(s => s.Id == scriptId)) {
+                _logger.LogInformation("KERIAuth BW: Persistent content script already registered: {ScriptId} - skipping one-shot injection", scriptId);
+                return;
+            }
+
+            // 4) One-shot injection NOW (authorized via activeTab + user click)
+            try {
+                var mainWorldScript = new ScriptInjection {
+                    Target = new InjectionTarget { TabId = tab.Id, AllFrames = true },
+                    Files = new List<string> { "scripts/esbuild/MainWorldContentScript.js" },
+                    World = ScriptingExecutionWorld.MAIN
+                };
+                await WebExtensions.Scripting.ExecuteScript(mainWorldScript);
+                _logger.LogInformation("KERIAuth BW: One-shot injection completed for MainWorldContentScript.js");
+
+                var isolatedScript = new ScriptInjection {
+                    Target = new InjectionTarget { TabId = tab.Id, AllFrames = true },
+                    Files = new List<string> { "scripts/esbuild/ContentScript.js" },
+                    World = ScriptingExecutionWorld.ISOLATED
+                };
+                await WebExtensions.Scripting.ExecuteScript(isolatedScript);
+                _logger.LogInformation("KERIAuth BW: One-shot injection completed for ContentScript.js");
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "KERIAuth BW: One-shot injection failed");
+                return;
+            }
+
+            // 5) Register persistent content scripts for this origin
+            var mainWorldContentScript = new RegisteredContentScript {
+                Id = scriptId,
+                Js = new List<ExtensionUrl> { new ExtensionUrl("scripts/esbuild/MainWorldContentScript.js") },
+                Matches = matchPatterns,
+                RunAt = ExtensionTypesRunAt.DocumentIdle,
+                AllFrames = true,
+                World = ScriptingExecutionWorld.MAIN,
+                PersistAcrossSessions = true
+            };
+            var isolatedContentScript = new RegisteredContentScript {
+                Id = $"{scriptId}-isolated",
+                Js = new List<ExtensionUrl> { new ExtensionUrl("scripts/esbuild/ContentScript.js") },
+                Matches = matchPatterns,
+                RunAt = ExtensionTypesRunAt.DocumentIdle,
+                AllFrames = true,
+                World = ScriptingExecutionWorld.ISOLATED,
+                PersistAcrossSessions = true
+            };
+            await WebExtensions.Scripting.RegisterContentScripts(new List<RegisteredContentScript> { mainWorldContentScript, isolatedContentScript });
+            _logger.LogInformation("KERIAuth BW: Registered persistent content scripts: {ScriptId} for {Matches}", scriptId, string.Join(", ", matchPatterns));
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling action click");
         }
+    }
+
+    /// <summary>
+    /// Build match patterns from the tab's URL, suitable for both:
+    /// - chrome.permissions.{contains,request}({ origins: [...] })
+    /// - chrome.scripting.registerContentScripts({ matches: [...] })
+    ///
+    /// Notes:
+    /// - Match patterns don't include ports; they'll match any port on that host.
+    /// - Only http/https are supported for injection.
+    /// </summary>
+    private List<string> BuildMatchPatternsFromTabUrl(string tabUrl) {
+        try {
+            var uri = new Uri(tabUrl);
+            if (uri.Scheme == "http" || uri.Scheme == "https") {
+                // Exact host only - returns pattern like "https://example.com/*"
+                return new List<string> { $"{uri.Scheme}://{uri.Host}/*" };
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, "Error parsing tab URL: {TabUrl}", tabUrl);
+        }
+        return new List<string>();
     }
 
     // onRemoved fires when a tab is closed
@@ -722,53 +816,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return new { success = false, error = ex.Message };
         }
     }
-
-    private async Task HandleActionClickOnWebPageAsync(int tabId, string url, string? pendingUrl) {
-        _logger.LogInformation("Handling action click for pendingUrl: {pendingUrl}", pendingUrl);
-        try {
-            var targetUrl = pendingUrl ?? url;
-            var origin = new Uri(targetUrl).GetLeftPart(UriPartial.Authority) + "/";
-
-            _logger.LogInformation("Handling action click for origin: {Origin}", origin);
-
-            // Check if the extension has permission to access the tab (based on its origin), and if not, request it
-            var hasPermission = false; // await CheckOriginPermissionAsync(origin);
-                                       // _logger.LogInformation("Origin permission check result for {Origin}: {HasPermission}", origin, hasPermission);
-
-            // if (!hasPermission) {
-
-
-
-            var ptt = new PermissionsType {
-                Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
-            };
-            if (!hasPermission) {
-                // prompt via browser UI for permission
-                hasPermission = await WebExtensions.Permissions.Request(ptt);
-            }
-            _logger.LogInformation("Permission request result for {Origin}: {IsGranted}", origin, hasPermission);
-            // return hasPermission;
-        }
-        catch (Microsoft.JSInterop.JSException e) {
-            _logger.LogError("BW: ... . {e}{s}", e.Message, e.StackTrace);
-            throw;
-        }
-        catch (System.Runtime.InteropServices.JavaScript.JSException e) {
-            _logger.LogError("BW: ... 2 . {e}{s}", e.Message, e.StackTrace);
-            throw;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error requesting origin permission for {Origin}", pendingUrl); // origin
-            // return false;
-        }
-    }
-
-
-
-
-
-
-
 
 
 
