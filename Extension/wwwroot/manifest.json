@@ -11,7 +11,7 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'"
   },
   "default_locale": "en",
-  "description": "Authenticate with websites using the decentralized trust of KERI and ACDC, plus centralized roots of trust including GLEIF vLEIs.",
+  "description": "Authenticate with decentralized identifiers and credentials, rooted in KERI and GLEIF vLEIs.",
   "host_permissions": [],
   "optional_host_permissions": [
     "https://*/*",

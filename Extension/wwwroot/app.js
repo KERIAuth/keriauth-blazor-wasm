@@ -15,7 +15,7 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
     if (blazorBrowserExtension.BrowserExtension.Mode === 'Background') {
         console.log("app.js: Background mode detected");
         // You can perform background-specific initialization here if needed
-        
+
         // Note this onClicked handler is here to preserve user gesture for permission requests, which must be done in direct response to user action, and the user gesture is lost if we call into C# first.
         // Note that the default_action is intentionally not defined in our manifest.json, since the click event handling will be dependant on UX state and permissions, and we want minimal permissions declared in the manifest, to minimize scary worded warnings from the browser during the extension installation
         chrome.action.onClicked.addListener(async (tab) => {
@@ -24,7 +24,7 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
             // 1) Compute per-origin match patterns from the clicked tab
             const MATCHES = matchPatternsFromTabUrl(tab.url);
             if (MATCHES.length === 0) {
-                console.log("KERIAuth BW: Unsupported or restricted URL scheme; not registering persistence.", tab.url);
+                console.log("app.js: Unsupported or restricted URL scheme; not registering persistence.", tab.url);
                 return;
             }
 
@@ -33,7 +33,7 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
             const wanted = { origins: MATCHES };
             const granted = await chrome.permissions.request(wanted);
             if (!granted) {
-                console.log("KERIAuth BW: User declined persistent host permission; stopping.");
+                console.log("app.js: User declined persistent host permission; stopping.");
                 return;
             }
 
@@ -44,34 +44,41 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
             if (already.length > 0) {
                 console.log("KERIAuth BW: %cPersistent content script already registered:%c", 'font-weight:bold; color:red', scriptId, "- skipping one-shot injection");
                 return;
-            }
+            } else {
+                console.log("app.js: proceeding with one-shot injection and then persistent registration");
 
-            // 4) One-shot injection NOW (authorized via activeTab + user click)
-            try {
-                const results = await chrome.scripting.executeScript({
-                    target: { tabId: tab.id, allFrames: true },
-                    world: "MAIN", // or "ISOLATED" (safer default)
-                    func: injectedOnce,
-                    args: ["Hello from first run!"]
-                });
-                console.log("KERIAuth BW: One-shot results per frame:", results);
-            } catch (e) {
-                console.error("KERIAuth BW: One-shot injection failed:", e);
-                return;
-            }
 
-            // 5) Register a persistent content script for this origin
-            await chrome.scripting.registerContentScripts([{
-                id: scriptId,
-                js: ["scripts/esbuild/ContentScript.js"],
-                matches: MATCHES,          // derived from the tab's origin
-                runAt: "document_idle",    // or "document_start"/"document_end"
-                allFrames: true,
-                world: "ISOLATED"
-                // TODO P2: should the following be true or false?
-                // persistAcrossSessions: true, // default is true
-            }]);
-            console.log("KERIAuth BW: Registered persistent content script:", scriptId, "for", MATCHES);
+                // 4) One-shot injection NOW (authorized via activeTab + user click)
+                /*
+                try {
+                    const results = await chrome.scripting.executeScript({
+                        target: { tabId: tab.id, allFrames: true },
+                        world: "MAIN", // or "ISOLATED" (safer default)
+                        func: injectedOnce,
+                        args: ["Hello from first run!"]
+                    });
+                    console.log("KERIAuth BW: One-shot results per frame:", results);
+                } catch (e) {
+                    console.error("KERIAuth BW: One-shot injection failed:", e);
+                    return;
+                }
+                */
+
+
+                // 5) Register a persistent content script for this origin
+                await chrome.scripting.registerContentScripts([{
+                    id: scriptId,
+                    js: ["scripts/esbuild/ContentScript.js"],
+                    matches: MATCHES,          // derived from the tab's origin
+                    runAt: "document_idle",    // or "document_start"/"document_end"
+                    allFrames: true,
+                    world: "ISOLATED"
+                    // TODO P2: should the following be true or false?
+                    // persistAcrossSessions: true, // default is true
+                }]);
+                console.log("app.js: Registered persistent content script:", scriptId, "for", MATCHES);
+                
+            };
         });
     }
 }
@@ -89,20 +96,20 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
  *   on the extension's details page, even if permission is granted here.
  */
 function matchPatternsFromTabUrl(tabUrl) {
-  try {
-    const u = new URL(tabUrl);
-    if (u.protocol === "http:" || u.protocol === "https:") {
-      // Exact host only:
-      return [`${u.protocol}//${u.hostname}/*`];
+    try {
+        const u = new URL(tabUrl);
+        if (u.protocol === "http:" || u.protocol === "https:") {
+            // Exact host only:
+            return [`${u.protocol}//${u.hostname}/*`];
 
-      // If you prefer to cover subdomains too, replace the above with a base-domain
-      // calculation and use: `${u.protocol}//*.${baseDomain}/*`
-      // (left out here to avoid false positives).
+            // If you prefer to cover subdomains too, replace the above with a base-domain
+            // calculation and use: `${u.protocol}//*.${baseDomain}/*`
+            // (left out here to avoid false positives).
+        }
+    } catch (e) {
+        // file:///*, about:blank, data:, chrome://, chrome-extension://, etc.
     }
-  } catch (e) {
-    // file:///*, about:blank, data:, chrome://, chrome-extension://, etc.
-  }
-  return [];
+    return [];
 }
 
 /**
@@ -110,8 +117,8 @@ function matchPatternsFromTabUrl(tabUrl) {
  *Function serialized into the page for the one-shot run 
  */
 function injectedOnce(message) {
-  console.log("KERIAuth BW: One-shot injected in", window.location.href, "message:", message);
-  return { href: location.href, title: document.title };
+    console.log("app.js: One-shot injected in", window.location.href, "message:", message);
+    return { href: location.href, title: document.title };
 }
 
 /**
@@ -120,5 +127,6 @@ function injectedOnce(message) {
  */
 export function afterStarted(blazor) {
     console.log("app.js: afterStarted");
+
 }
 
