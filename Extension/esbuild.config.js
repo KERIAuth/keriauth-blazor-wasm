@@ -28,7 +28,7 @@ const sharedOptions = {
     minify: process.env.NODE_ENV === 'production',
     sourcemap: true,
     platform: 'browser',
-    format: 'esm',
+    format: 'iife',  // Changed from 'esm' to 'iife' for content scripts
     loader: { '.ts': 'ts' },
     define: {
         'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
@@ -42,6 +42,7 @@ const builds = [
         entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/signify_ts_shim.js',
         platform: "browser",
+        format: 'esm',  // Keep ESM for this module
         plugins: [
             alias({
                 '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
@@ -52,11 +53,13 @@ const builds = [
         name: 'ContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js'
+        // Will use IIFE format from sharedOptions
     },
     {
         name: 'MainWorldContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/MainWorldContentScript.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/MainWorldContentScript.js'
+        // Will use IIFE format from sharedOptions
     }
 ];
 

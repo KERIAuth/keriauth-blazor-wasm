@@ -13,10 +13,6 @@
   "default_locale": "en",
   "description": "Authenticate with decentralized identifiers and credentials, rooted in KERI and GLEIF vLEIs.",
   "host_permissions": [],
-  "optional_host_permissions": [
-    "https://*/*",
-    "http://localhost/*/*"
-  ],
   "icons": {
     "16": "images/16_keri_logo.png",
     "48": "images/48_keri_logo.png",
@@ -26,6 +22,10 @@
   "manifest_version": 3,
   "minimum_chrome_version": "127",
   "name": "KERI Auth",
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*/*"
+  ],
   "options_ui": {
     "page": "index.html",
     "open_in_tab": true

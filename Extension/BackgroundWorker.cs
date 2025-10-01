@@ -11,8 +11,6 @@ using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
-using WebExtensions.Net.Scripting;
-using ScriptingExecutionWorld = WebExtensions.Net.Scripting.ExecutionWorld;
 // using ExtensionTypesRunAt = WebExtensions.Net.ExtensionTypes.RunAt;
 
 namespace Extension;
@@ -500,6 +498,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("OnActionClickedAsync event handler called");
 
+            // TODO P2: Remove most of this?
+
             // Deserialize to strongly-typed object
             var tabJson = JsonSerializer.Serialize(tabObj);
             var tab = JsonSerializer.Deserialize<Tab>(tabJson);
@@ -537,32 +537,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 _logger.LogWarning(ex, "KERIAuth BW: Could not check persistent host permissions - will use activeTab");
             }
 
-            // 3) Check if content scripts are already active in this tab by checking for port connections
-            var uri = new Uri(tab.Url);
-            var scriptId = $"after-click-auto-inject-{uri.Host}";
-
-            // indicates the scripts are already injected and running in this tab.
-            var hasActiveConnection = _pageCsConnections.Values.Any(conn => conn.TabId == tab.Id);
-            if (hasActiveConnection) {
-                _logger.LogInformation("KERIAuth BW: Active content script connection detected for tab {TabId} - skipping duplicate injection", tab.Id);
-                return;
-            }
-            else {
-                // 4) One-shot injection NOW (authorized via activeTab + user click)
-                try {
-                    var isolatedScript = new ScriptInjection {
-                        Target = new InjectionTarget { TabId = tab.Id, AllFrames = true },
-                        Files = new List<string> { "scripts/esbuild/ContentScript.js" },
-                        World = ScriptingExecutionWorld.ISOLATED
-                    };
-                    await WebExtensions.Scripting.ExecuteScript(isolatedScript);
-                    _logger.LogInformation("KERIAuth BW: One-shot injection completed for ContentScript.js");
-                }
-                catch (Exception ex) {
-                    _logger.LogError(ex, "KERIAuth BW: One-shot injection failed for ContentScript.js");
-                    return;
-                }
-            }
+            // NOTE: Content script injection is now handled in app.js beforeStart() hook
+            // This preserves the user gesture required for permission requests
+            // The JavaScript handler runs before this C# handler and handles all injection logic
+            _logger.LogInformation("KERIAuth BW: Content script injection handled by app.js - no action needed in C# handler");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling action click");

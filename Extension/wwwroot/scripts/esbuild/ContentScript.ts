@@ -28,6 +28,17 @@ type IPageMessageData =
 /*
  * This section is evaluated on document-start, as specified in the extension manifest
  */
+
+// Sentinel pattern to prevent double-injection
+(() => {
+    const KEY = '__KERIAUTH_CS_INJECTED__';
+    if ((globalThis as unknown as Record<string, boolean>)[KEY]) {
+        console.log('KeriAuthCs: Already injected, skipping initialization');
+        return; // already active, do nothing
+    }
+    (globalThis as unknown as Record<string, boolean>)[KEY] = true;
+})();
+
 console.log('KeriAuthCs initializing');
 const currentOrigin = window.location.origin;
 console.log('KeriAuthCs currentOrigin:', currentOrigin);
@@ -35,6 +46,16 @@ console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.r
 
 // Add a listener for messages and create port with BW
 window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
+
+// Respond to ping messages from the service worker to detect if content script is already injected
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg?.type === 'ping') {
+        (sendResponse as (response?: unknown) => void)({ ok: true });
+        return true; // keep channel open if needed
+    }
+    // Return false for other messages to allow other listeners to handle them
+    return false;
+});
 
 // Unique port name for communications between the content script and the extension
 const uniquePortName: string = `CS|${generateUniqueIdentifier()}`;
