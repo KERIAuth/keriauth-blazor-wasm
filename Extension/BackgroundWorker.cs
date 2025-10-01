@@ -72,7 +72,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
-        WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
+        // NOTE: Action.OnClicked is handled by TypeScript ActionClickHandler to preserve user gesture
+        // for permission requests. See OnActionClickedWithPermissionsAsync() below.
+        // WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
         WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
@@ -84,6 +86,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         //   Parameters: message (any), sender (MessageSender), sendResponse (function)
         // TODO P2 chrome.webRequest.onBeforeRequest // (network/page events)
         //   Parameters: details - Object with requestId, url, method, frameId, tabId, type, timeStamp, requestBody
+    }
+
+    private async Task InitializeActionClickHandlerAsync() {
+        try {
+            var actionHandlerModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/esbuild/ActionClickHandler.js");
+            await actionHandlerModule.InvokeVoidAsync("initializeActionClickHandler");
+            _logger.LogInformation("ActionClickHandler TypeScript module initialized successfully");
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to initialize ActionClickHandler TypeScript module");
+        }
     }
 
     // DEPRECATED: This method is no longer used - see OnInstalledAsync() instead
@@ -170,6 +183,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("OnStartupAsync event handler called");
             _logger.LogInformation("Browser startup detected - reinitializing background worker");
+
+            // Initialize TypeScript ActionClickHandler after Blazor is ready
+            await InitializeActionClickHandlerAsync();
 
             // TODO P2 Reinitialize inactivity timer?
             // TODO P2 add a lock icon to the extension icon
@@ -492,6 +508,152 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // New handler called from TypeScript ActionClickHandler after permission request
+    // This receives the permission status determined by TypeScript while user gesture was active
+    [JSInvokable("OnActionClickedWithPermissionsAsync")]
+    public async Task OnActionClickedWithPermissionsAsync(object tabObj, bool permissionsGranted) {
+        try {
+            _logger.LogInformation("OnActionClickedWithPermissionsAsync called with permissionsGranted: {PermissionsGranted}", permissionsGranted);
+
+            // Deserialize to strongly-typed object
+            var tabJson = JsonSerializer.Serialize(tabObj);
+            var tab = JsonSerializer.Deserialize<Tab>(tabJson);
+
+            if (tab == null || tab.Id <= 0 || string.IsNullOrEmpty(tab.Url)) {
+                _logger.LogWarning("Invalid tab information");
+                return;
+            }
+
+            _logger.LogInformation("Action button clicked on tab: {TabId}, URL: {Url}", tab.Id, tab.Url);
+
+            // Call the core injection logic with permission status
+            await HandleActionClickWithPermissionsAsync(tab, permissionsGranted);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in OnActionClickedWithPermissionsAsync");
+        }
+    }
+
+    /// <summary>
+    /// Core logic for handling action clicks with permission status from TypeScript.
+    /// This method is called after TypeScript has handled permission requests while preserving user gesture.
+    /// </summary>
+    private async Task HandleActionClickWithPermissionsAsync(Tab tab, bool permissionsGranted) {
+        try {
+            if (string.IsNullOrEmpty(tab.Url)) {
+                _logger.LogWarning("Tab URL is null or empty");
+                return;
+            }
+
+            // 1) Compute per-origin match patterns from the clicked tab
+            var matchPatterns = BuildMatchPatternsFromTabUrl(tab.Url);
+            if (matchPatterns.Count == 0) {
+                _logger.LogInformation("KERIAuth BW: Unsupported or restricted URL scheme; not registering persistence. URL: {Url}", tab.Url);
+                return;
+            }
+
+            // 2) Permission status was already determined by TypeScript ActionClickHandler
+            _logger.LogInformation("KERIAuth BW: Permissions granted: {PermissionsGranted} for {Patterns}", permissionsGranted, string.Join(", ", matchPatterns));
+
+            // 3) Check if content scripts are already active in this tab by checking for port connections
+            var uri = new Uri(tab.Url);
+            var scriptId = $"after-click-auto-inject-{uri.Host}";
+
+            // Check if we have an active content script connection for this tab.
+            // Content scripts establish port connections when they load, so an active connection
+            // indicates the scripts are already injected and running in this tab.
+            var hasActiveConnection = _pageCsConnections.Values.Any(conn => conn.TabId == tab.Id);
+            if (hasActiveConnection) {
+                _logger.LogInformation("KERIAuth BW: Active content script connection detected for tab {TabId} - skipping duplicate injection", tab.Id);
+                return;
+            }
+
+            // Try to get registered scripts, but handle deserialization errors gracefully.
+            // The browser may return script paths in a format that doesn't match our strict validation.
+            bool scriptAlreadyRegistered = false;
+            try {
+                var registeredScripts = await WebExtensions.Scripting.GetRegisteredContentScripts();
+                scriptAlreadyRegistered = registeredScripts != null && registeredScripts.Any(s => s.Id == scriptId);
+
+                if (scriptAlreadyRegistered) {
+                    _logger.LogInformation("KERIAuth BW: Persistent content scripts already registered for {ScriptId} - skipping one-shot injection and re-registration", scriptId);
+                    return;
+                }
+            }
+            catch (Exception ex) {
+                // Deserialization errors can occur if the browser returns paths in an unexpected format.
+                // We'll proceed with injection - registration will be attempted but may fail gracefully.
+                _logger.LogDebug(ex, "Could not retrieve registered content scripts - will attempt injection and registration");
+            }
+
+            // 4) One-shot injection NOW (authorized via user click + granted permissions)
+            try {
+                var mainWorldScript = new ScriptInjection {
+                    Target = new InjectionTarget { TabId = tab.Id, AllFrames = true },
+                    Files = new List<string> { "scripts/esbuild/MainWorldContentScript.js" },
+                    World = ScriptingExecutionWorld.MAIN
+                };
+                await WebExtensions.Scripting.ExecuteScript(mainWorldScript);
+                _logger.LogInformation("KERIAuth BW: One-shot injection completed for MainWorldContentScript.js");
+
+                var isolatedScript = new ScriptInjection {
+                    Target = new InjectionTarget { TabId = tab.Id, AllFrames = true },
+                    Files = new List<string> { "scripts/esbuild/ContentScript.js" },
+                    World = ScriptingExecutionWorld.ISOLATED
+                };
+                await WebExtensions.Scripting.ExecuteScript(isolatedScript);
+                _logger.LogInformation("KERIAuth BW: One-shot injection completed for ContentScript.js");
+
+                // Note: We don't need to manually track injection state. The content scripts will
+                // establish port connections, and we check _pageCsConnections to detect active scripts.
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "KERIAuth BW: One-shot injection failed");
+                return;
+            }
+
+            // 5) Register persistent content scripts for this origin (only if we have permissions)
+            // Note: We already checked above and returned early if scripts were already registered.
+            // Persistent registration requires host permissions - without them, registration will fail.
+            if (permissionsGranted) {
+                try {
+                    var mainWorldContentScript = new RegisteredContentScript {
+                        Id = scriptId,
+                        Js = new List<ExtensionUrl> { new ExtensionUrl("/scripts/esbuild/MainWorldContentScript.js") },
+                        Matches = matchPatterns,
+                        RunAt = ExtensionTypesRunAt.DocumentIdle,
+                        AllFrames = true,
+                        World = ScriptingExecutionWorld.MAIN,
+                        PersistAcrossSessions = true
+                    };
+                    var isolatedContentScript = new RegisteredContentScript {
+                        Id = $"{scriptId}-isolated",
+                        Js = new List<ExtensionUrl> { new ExtensionUrl("/scripts/esbuild/ContentScript.js") },
+                        Matches = matchPatterns,
+                        RunAt = ExtensionTypesRunAt.DocumentIdle,
+                        AllFrames = true,
+                        World = ScriptingExecutionWorld.ISOLATED,
+                        PersistAcrossSessions = true
+                    };
+                    await WebExtensions.Scripting.RegisterContentScripts(new List<RegisteredContentScript> { mainWorldContentScript, isolatedContentScript });
+                    _logger.LogInformation("KERIAuth BW: Registered persistent content scripts: {ScriptId} for {Matches}", scriptId, string.Join(", ", matchPatterns));
+                }
+                catch (Exception ex) {
+                    _logger.LogInformation(ex, "Could not register persistent content scripts: {ScriptId}", scriptId);
+                }
+            }
+            else {
+                _logger.LogInformation("KERIAuth BW: Skipping persistent content script registration (no host permissions). Scripts injected for current tab only.");
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleActionClickWithPermissionsAsync");
+        }
+    }
+
+    // DEPRECATED: This method is no longer used - TypeScript ActionClickHandler handles action clicks
+    // to preserve user gesture for permission requests. See OnActionClickedWithPermissionsAsync() above.
+    // Kept for reference only.
     // onClicked event fires when user clicks the extension's toolbar icon.
     // Typical use: Open popup, toggle feature, inject script
     // Note that the default_action is intentionally not defined in our manifest.json, since the click event handling will be dependant on UX state
@@ -736,6 +898,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task HandleInstallAsync() {
         try {
+            // Initialize TypeScript ActionClickHandler after Blazor is ready
+            await InitializeActionClickHandlerAsync();
+
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=install";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl

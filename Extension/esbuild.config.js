@@ -57,6 +57,11 @@ const builds = [
         name: 'MainWorldContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/MainWorldContentScript.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/MainWorldContentScript.js'
+    },
+    {
+        name: 'ActionClickHandler',
+        entryPoints: ['wwwroot/scripts/esbuild/ActionClickHandler.ts'],
+        outfile: 'dist/wwwroot/scripts/esbuild/ActionClickHandler.js'
     }
 ];
 
