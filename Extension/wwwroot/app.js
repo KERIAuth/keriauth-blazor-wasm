@@ -15,6 +15,9 @@ export function beforeStart(options, extensions, blazorBrowserExtension) {
     if (blazorBrowserExtension.BrowserExtension.Mode === 'Background') {
         console.log("app.js: Background mode detected");
         // You can perform background-specific initialization here if needed
+        
+        // Note this onClicked handler is here to preserve user gesture for permission requests, which must be done in direct response to user action, and the user gesture is lost if we call into C# first.
+        // Note that the default_action is intentionally not defined in our manifest.json, since the click event handling will be dependant on UX state and permissions, and we want minimal permissions declared in the manifest, to minimize scary worded warnings from the browser during the extension installation
         chrome.action.onClicked.addListener(async (tab) => {
             if (!tab?.id || !tab.url) return;
 

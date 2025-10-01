@@ -12,8 +12,7 @@
   },
   "default_locale": "en",
   "description": "Authenticate with websites using the decentralized trust of KERI and ACDC, plus centralized roots of trust including GLEIF vLEIs.",
-  "host_permissions": [
-  ],
+  "host_permissions": [],
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*/*"

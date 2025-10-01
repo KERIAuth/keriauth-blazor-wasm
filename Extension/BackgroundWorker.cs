@@ -72,9 +72,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
-        // NOTE: Action.OnClicked is handled by TypeScript ActionClickHandler to preserve user gesture
-        // for permission requests. See OnActionClickedWithPermissionsAsync() below.
-        // WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
+        WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
         WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
@@ -651,12 +649,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // DEPRECATED: This method is no longer used - TypeScript ActionClickHandler handles action clicks
-    // to preserve user gesture for permission requests. See OnActionClickedWithPermissionsAsync() above.
-    // Kept for reference only.
+    // See also the onClicked listener in App.js, which will be registered and called before this one.
+    
     // onClicked event fires when user clicks the extension's toolbar icon.
-    // Typical use: Open popup, toggle feature, inject script
-    // Note that the default_action is intentionally not defined in our manifest.json, since the click event handling will be dependant on UX state
+    // Typical use: Open popup, toggle feature, 
+    
     [JSInvokable]
     public async Task OnActionClickedAsync(object tabObj) {
         try {
