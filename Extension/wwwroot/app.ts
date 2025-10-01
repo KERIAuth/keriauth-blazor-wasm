@@ -40,23 +40,6 @@ export function beforeStart(
     if (blazorBrowserExtension.BrowserExtension.Mode === 'Background') {
         console.log('app.ts: Background mode detected');
 
-        // Helper functions
-        function originFromUrl(url: string): string | null {
-            try {
-                const u = new URL(url);
-                return `${u.protocol}//${u.host}`; // includes port if present
-            } catch {
-                return null;
-            }
-        }
-
-        function isOriginGranted(origin: string): boolean {
-            chrome.permissions.contains({ origins: [`${origin}/*`] })
-                .then((hasPermission) => hasPermission)
-                .catch(() => false);
-            return false;
-        }
-
         function matchPatternsFromTabUrl(tabUrl: string): string[] {
             try {
                 const u = new URL(tabUrl);
@@ -106,7 +89,6 @@ export function beforeStart(
                 // 3) Check if persistent content script is already registered for this origin
                 const scriptId = `${CS_ID_PREFIX}-${new URL(tab.url).hostname}`;
                 const already = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
-
                 if (already.length > 0) {
                     console.log("app.ts: Persistent content script already registered");
                     return;
@@ -120,7 +102,11 @@ export function beforeStart(
                         injectImmediately: false,
                         world: "ISOLATED",
                     });
-                    console.log("app.ts: One-shot injection result:", oneShotResult);
+                    // console.log("app.ts: One-shot injection result:", oneShotResult);
+                    if (!oneShotResult?.[0]?.documentId) {
+                        console.error("app.ts: One-shot injection failed.", oneShotResult);
+                        return;
+                    }
 
                     // 5) Register a persistent content script for this origin
                     await chrome.scripting.registerContentScripts([{
@@ -140,19 +126,13 @@ export function beforeStart(
             }
         });
 
-        // Function serialized into the page for the one-shot run
-        function injectedOnce(message: any): { href: string; title: string } {
-            console.log("app.ts: One-shot injected in", window.location.href, "message:", message);
-            return { href: location.href, title: document.title };
-        }
-
         // Keep registrations in sync when permissions change:
         chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
             const origins = perm?.origins || [];
             for (const pattern of origins) {
                 // pattern looks like "https://example.com/*"
                 const origin = pattern.slice(0, pattern.length - 1); // strip trailing '*'
-                // TODO
+                // TODO P2: Consider checking if already registered first
                 // await ensureRegisteredForOrigin(origin.slice(0, -1)); // also remove trailing '/'
             }
         });
@@ -166,6 +146,7 @@ export function beforeStart(
         });
 
         chrome.runtime.onInstalled.addListener(async () => {
+            // TODO P2: Implement migration/cleanup logic here
             // Optional: migration/cleanup if you change CS ids or structure between versions.
         });
     }
