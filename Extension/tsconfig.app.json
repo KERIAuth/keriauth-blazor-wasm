@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./wwwroot",
+    "rootDir": "./wwwroot",
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": [
+    "wwwroot/app.ts"
+  ]
+}

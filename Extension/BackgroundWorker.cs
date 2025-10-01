@@ -68,7 +68,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
-        WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
+        // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
+        // WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
         WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);

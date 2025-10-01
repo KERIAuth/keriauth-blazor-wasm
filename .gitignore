@@ -435,6 +435,7 @@ obj/
 /Extension/wwwroot/scripts/esbuild/*.d.ts
 /Extension/dist/wwwroot/scripts/es6/
 /Extension/dist/wwwroot/scripts/esbuild/
+/Extension/wwwroot/app.js
 # Source maps
 *.map
 
@@ -448,4 +449,6 @@ obj/
 
 # Claude Code settings
 .claude/settings.local.json
+
+
 

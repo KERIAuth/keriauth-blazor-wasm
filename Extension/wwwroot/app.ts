@@ -1,0 +1,180 @@
+/// <reference types="chrome-types" />
+/*
+ * For details, see https://mingyaulee.github.io/Blazor.BrowserExtension/app-js
+ */
+
+const CS_ID_PREFIX = 'keriauth-cs';
+
+// Type definitions for Blazor Browser Extension types
+interface WebAssemblyStartOptions {
+    [key: string]: unknown;
+}
+
+interface BrowserExtensionInstance {
+    BrowserExtension: {
+        Mode: string;
+    };
+}
+
+interface PingMessage {
+    type: 'ping';
+}
+
+interface PingResponse {
+    ok: boolean;
+}
+
+/**
+ * Called before Blazor starts.
+ * @param options Blazor WebAssembly start options. Refer to https://github.com/dotnet/aspnetcore/blob/main/src/Components/Web.JS/src/Platform/WebAssemblyStartOptions.ts
+ * @param extensions Extensions added during publishing
+ * @param blazorBrowserExtension Blazor browser extension instance
+ */
+export function beforeStart(
+    options: WebAssemblyStartOptions,
+    extensions: Record<string, unknown>,
+    blazorBrowserExtension: BrowserExtensionInstance
+): void {
+    console.log('app.ts: beforeStart', { options, extensions, blazorBrowserExtension });
+
+    if (blazorBrowserExtension.BrowserExtension.Mode === 'Background') {
+        console.log('app.ts: Background mode detected');
+
+        // Helper functions
+        function originFromUrl(url: string): string | null {
+            try {
+                const u = new URL(url);
+                return `${u.protocol}//${u.host}`; // includes port if present
+            } catch {
+                return null;
+            }
+        }
+
+        function isOriginGranted(origin: string): boolean {
+            chrome.permissions.contains({ origins: [`${origin}/*`] })
+                .then((hasPermission) => hasPermission)
+                .catch(() => false);
+            return false;
+        }
+
+        function matchPatternsFromTabUrl(tabUrl: string): string[] {
+            try {
+                const u = new URL(tabUrl);
+                if (u.protocol === "http:" || u.protocol === "https:") {
+                    // Exact host only:
+                    return [`${u.protocol}//${u.hostname}/*`];
+
+                    // If you prefer to cover subdomains too, replace the above with a base-domain
+                    // calculation and use: `${u.protocol}//*.${baseDomain}/*`
+                    // (left out here to avoid false positives).
+                }
+            } catch (e) {
+                // file:///*, about:blank, data:, chrome://, chrome-extension://, etc.
+            }
+            return [];
+        }
+
+        async function unregisterForOrigin(origin: string): Promise<void> {
+            const id = CS_ID_PREFIX + origin;
+            try {
+                await chrome.scripting.unregisterContentScripts({ ids: [id] });
+            } catch { /* ignore if already gone */ }
+        }
+
+        // Main extension icon click handler
+        // Checks existing permissions first, only prompts if needed
+        chrome.action.onClicked.addListener(async (tab: chrome.tabs.Tab) => {
+            try {
+                if (!tab?.id || !tab.url) return;
+
+                // 1) Compute per-origin match patterns from the clicked tab
+                const MATCHES = matchPatternsFromTabUrl(tab.url);
+                if (MATCHES.length === 0) {
+                    console.log("app.ts: Unsupported or restricted URL scheme; not registering persistence.", tab.url);
+                    return;
+                }
+
+                // 2) Request persistent host permission FIRST (while user gesture is still active)
+                // Note: request() must be the first async call to preserve the user gesture
+                const wanted = { origins: MATCHES };
+                const granted = await chrome.permissions.request(wanted);
+                if (!granted) {
+                    console.log("app.ts: User declined persistent host permission; stopping.");
+                    return;
+                }
+
+                // 3) Check if persistent content script is already registered for this origin
+                const scriptId = `${CS_ID_PREFIX}-${new URL(tab.url).hostname}`;
+                const already = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
+
+                if (already.length > 0) {
+                    console.log("app.ts: Persistent content script already registered");
+                    return;
+                } else {
+                    console.log("app.ts: No persistent content script registered yet - proceeding", { MATCHES, scriptId });
+
+                    // 4) Inject a one-shot script into the current page
+                    const oneShotResult = await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        files: ["scripts/esbuild/ContentScript.js"],
+                        injectImmediately: false,
+                        world: "ISOLATED",
+                    });
+                    console.log("app.ts: One-shot injection result:", oneShotResult);
+
+                    // 5) Register a persistent content script for this origin
+                    await chrome.scripting.registerContentScripts([{
+                        id: scriptId,
+                        js: ["scripts/esbuild/ContentScript.js"],
+                        matches: MATCHES,          // derived from the tab's origin
+                        runAt: "document_idle",    // or "document_start"/"document_end"
+                        allFrames: true,
+                        world: "ISOLATED",
+                        persistAcrossSessions: true, // default is true
+                    }]);
+                    console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
+                }
+
+            } catch (error: any) {
+                console.error('app.ts: Error in action.onClicked handler:', error);
+            }
+        });
+
+        // Function serialized into the page for the one-shot run
+        function injectedOnce(message: any): { href: string; title: string } {
+            console.log("app.ts: One-shot injected in", window.location.href, "message:", message);
+            return { href: location.href, title: document.title };
+        }
+
+        // Keep registrations in sync when permissions change:
+        chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
+            const origins = perm?.origins || [];
+            for (const pattern of origins) {
+                // pattern looks like "https://example.com/*"
+                const origin = pattern.slice(0, pattern.length - 1); // strip trailing '*'
+                // TODO
+                // await ensureRegisteredForOrigin(origin.slice(0, -1)); // also remove trailing '/'
+            }
+        });
+
+        chrome.permissions.onRemoved.addListener(async (perm: chrome.permissions.Permissions) => {
+            const origins = perm?.origins || [];
+            for (const pattern of origins) {
+                const origin = pattern.slice(0, pattern.length - 1);
+                await unregisterForOrigin(origin.slice(0, -1));
+            }
+        });
+
+        chrome.runtime.onInstalled.addListener(async () => {
+            // Optional: migration/cleanup if you change CS ids or structure between versions.
+        });
+    }
+}
+
+/**
+ * Called after Blazor is ready to receive calls from JS.
+ * @param blazor The Blazor instance
+ */
+export function afterStarted(blazor: unknown): void {
+    console.log('app.ts: afterStarted');
+}
