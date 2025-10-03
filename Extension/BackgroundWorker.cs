@@ -26,7 +26,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private const string BlazorAppPortPrefix = "blazorAppPort";
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
-    
+
     // Cached JsonSerializerOptions for port message deserialization
     private static readonly JsonSerializerOptions PortMessageJsonOptions = new() {
         PropertyNameCaseInsensitive = true
@@ -53,7 +53,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Port connections tracking
     private readonly ConcurrentDictionary<string, CsConnection> _pageCsConnections = new();
+    private readonly ConcurrentDictionary<string, BlazorAppConnection> _blazorAppConnections = new();
     private readonly DotNetObjectReference<BackgroundWorker>? _dotNetObjectRef;
+
+    // State tracking for KERIA operations
+    private bool _isWaitingOnKeria;
+    private string? _pendingRequestId;
 
     [BackgroundWorkerMain]
     public override void Main() {
@@ -229,13 +234,29 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private void SetUpContentScriptMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
         _logger.LogInformation("Setting up ContentScript message handling for port {ConnectionId}", connectionId);
-        port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
+
+        // Store the content script connection
+        var tabId = port.Sender?.Tab?.Id ?? -1;
+        var origin = port.Sender?.Url ?? "unknown";
+        _pageCsConnections[connectionId] = new CsConnection {
+            Port = port,
+            TabId = tabId,
+            PageAuthority = GetAuthorityFromUrl(origin)
+        };
+
+        // Clean up on disconnect
+        port.OnDisconnect.AddListener(() => {
+            _logger.LogInformation("Content Script port disconnected: {ConnectionId}", connectionId);
+            _pageCsConnections.TryRemove(connectionId, out _);
+        });
+
+        port.OnMessage.AddListener(async (object message, MessageSender sender, Action sendResponse) => {
             _logger.LogInformation("Received ContentScript message on port {ConnectionId}: {Message}", connectionId, message);
 
             try {
                 // Try to deserialize the message as CsBwMsg
                 CsBwMsg? csBwMsg = null;
-                
+
                 // Handle different types of incoming message formats
                 if (message is JsonElement jsonElement) {
                     // Message came as JsonElement
@@ -274,7 +295,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             break;
 
                         case CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE:
-                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
+                            await HandleSelectAuthorizeAsync(csBwMsg, port);
                             break;
 
                         case CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
@@ -284,6 +305,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         case CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_AID:
                             _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
                             break;
+
 
                         case CsBwMsgTypes.POLARIS_SIGN_REQUEST:
                             _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
@@ -323,28 +345,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     _logger.LogError(sendEx, "Failed to send error response to ContentScript on port {ConnectionId}", connectionId);
                 }
             }
-            
+
             return false;
         });
     }
 
     private void SetUpBlazorAppMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId, string portType) {
         _logger.LogInformation("Setting up Blazor App ({portType}) message handling for port {ConnectionId}", portType, connectionId);
-        port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogInformation("Received Blazor App message on port {ConnectionId}: {Message}", connectionId, message);
+
+        // Store the Blazor app connection
+        var tabId = port.Sender?.Tab?.Id ?? -1;
+        _blazorAppConnections[connectionId] = new BlazorAppConnection {
+            Port = port,
+            ConnectionId = connectionId,
+            TabId = tabId,
+            PortType = portType
+        };
+
+        port.OnMessage.AddListener(async (object message, MessageSender sender, Action sendResponse) => {
+            _logger.LogInformation("BW🡠App message on port {ConnectionId}: {Message}", connectionId, message);
 
             try {
-                // Handle Blazor App specific messages
-                // TODO: Implement Blazor App message handling logic
-                _logger.LogInformation("Processing Blazor App message from {portType}", portType);
-                
-                // For now, just log the message - actual message handling will be implemented later
+                await HandleMessageFromAppAsync(message, port, connectionId);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Error processing Blazor App message on port {ConnectionId}", connectionId);
             }
-            
+
             return false;
+        });
+
+        // Clean up on disconnect
+        port.OnDisconnect.AddListener(() => {
+            _logger.LogInformation("Blazor App port disconnected: {ConnectionId}", connectionId);
+            _blazorAppConnections.TryRemove(connectionId, out _);
         });
     }
 
@@ -355,7 +389,220 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return false;
         });
     }
-    
+
+    /// <summary>
+    /// Handles messages from the Blazor App (popup/tab/sidepanel) and forwards them to the appropriate content script
+    /// </summary>
+    private async Task HandleMessageFromAppAsync(object messageObj, WebExtensions.Net.Runtime.Port appPort, string appConnectionId) {
+        try {
+            _logger.LogInformation("BW🡠App message, port: {Message}", JsonSerializer.Serialize(messageObj));
+
+            // Deserialize the message
+            var messageJson = JsonSerializer.Serialize(messageObj);
+            var message = JsonSerializer.Deserialize<BwCsMsg>(messageJson, PortMessageJsonOptions);
+
+            if (message == null) {
+                _logger.LogWarning("Failed to deserialize message from Blazor App");
+                return;
+            }
+
+            // Send acknowledgement back to the app
+            var ackMsg = new {
+                type = BwCsMsgTypes.FSW,
+                data = $"BW received your message: {message.Type} for tab {appPort.Sender?.Tab?.Id}"
+            };
+            appPort.PostMessage(ackMsg);
+
+            // Find the associated content script connection
+            // For now, we'll use the first available CS connection (TODO P2: improve tab matching)
+            var csConnection = _pageCsConnections.Values.FirstOrDefault();
+
+            if (csConnection != null) {
+                _logger.LogInformation("BW handling App message of type: {Type}", message.Type);
+
+                switch (message.Type) {
+                    case BwCsMsgTypes.REPLY:
+                        await HandleReplyMessageAsync(message, csConnection);
+                        break;
+
+                    case "ApprovedSignRequest":
+                        await HandleApprovedSignRequestAsync(message, csConnection);
+                        break;
+
+                    case BwCsMsgTypes.REPLY_CRED:
+                        await HandleReplyCredentialAsync(message, csConnection);
+                        break;
+
+                    case BwCsMsgTypes.REPLY_CANCELED:
+                    case "/KeriAuth/signify/replyCancel":
+                        await HandleReplyCanceledAsync(message, csConnection);
+                        break;
+
+                    case BwCsMsgTypes.APP_CLOSED:
+                        await HandleAppClosedAsync(csConnection);
+                        break;
+
+                    default:
+                        _logger.LogWarning("Unknown message type from Blazor App: {Type}", message.Type);
+                        break;
+                }
+            }
+            else {
+                _logger.LogWarning("No content script connection found to forward message to");
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling message from Blazor App");
+        }
+    }
+
+    private async Task HandleReplyMessageAsync(BwCsMsg message, CsConnection csConnection) {
+        _isWaitingOnKeria = true;
+        _logger.LogInformation("BW🡢CS {Type}", message.Type);
+        csConnection.Port.PostMessage(message);
+        ResetPendingRequest();
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleApprovedSignRequestAsync(BwCsMsg message, CsConnection csConnection) {
+        _isWaitingOnKeria = true;
+        await SignRequestSendToTabAsync(message, csConnection);
+        ResetPendingRequest();
+    }
+
+    private async Task HandleReplyCredentialAsync(BwCsMsg message, CsConnection csConnection) {
+        _isWaitingOnKeria = true;
+        try {
+            if (message.Payload == null) {
+                _logger.LogWarning("REPLY_CRED message has null payload");
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(message.Payload);
+            var payload = JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson);
+
+            if (payload == null) {
+                _logger.LogWarning("Failed to deserialize REPLY_CRED payload");
+                return;
+            }
+
+            // Extract credential and identifier from payload
+            // TODO: Parse credential.rawJson and get signed headers from SignifyService
+            // For now, just forward the message as-is
+            _logger.LogInformation("Processing REPLY_CRED - credential signing not yet fully implemented");
+
+            // Calculate expiry (30 minutes from now)
+            var expiry = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
+
+            // TODO: Connect to KERIA and get signed headers
+            // var isConnected = await _signifyService.IsConnectedAsync();
+            // if (isConnected) {
+            //     var headers = await _signifyService.GetSignedHeadersAsync(...);
+            //     ...
+            // }
+
+            // For now, forward a simplified response
+            var authorizeResult = new BwCsMsg(
+                type: BwCsMsgTypes.REPLY,
+                requestId: message.RequestId,
+                payload: new {
+                    credential = payload.GetValueOrDefault("credential"),
+                    expiry,
+                    headers = new Dictionary<string, string>() // TODO: Get from SignifyService
+                }
+            );
+
+            _logger.LogInformation("BW🡢CS authorizeResult");
+            csConnection.Port.PostMessage(authorizeResult);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error processing REPLY_CRED message");
+        }
+
+        ResetPendingRequest();
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleReplyCanceledAsync(BwCsMsg message, CsConnection csConnection) {
+        _isWaitingOnKeria = true;
+        try {
+            var cancelResult = new CsPageMsgData<object?>(
+                type: BwCsMsgTypes.REPLY_CANCELED,
+                requestId: message.RequestId ?? "unknown",
+                source: CsPageConstants.CsPageMsgTag,
+                payload: null,
+                error: "Canceled or timed out"
+            );
+
+            _logger.LogInformation("BW🡢CS cancelResult");
+            csConnection.Port.PostMessage(cancelResult);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error processing REPLY_CANCELED message");
+        }
+
+        ResetPendingRequest();
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleAppClosedAsync(CsConnection csConnection) {
+        try {
+            if (_pendingRequestId != null) {
+                if (!_isWaitingOnKeria) {
+                    var cancelResult = new CsPageMsgData<object?>(
+                        type: BwCsMsgTypes.REPLY_CANCELED,
+                        requestId: _pendingRequestId,
+                        source: CsPageConstants.CsPageMsgTag,
+                        payload: null,
+                        error: "User canceled or KERI Auth timed out"
+                    );
+
+                    _logger.LogInformation("BW🡢CS cancelResult (app closed)");
+                    csConnection.Port.PostMessage(cancelResult);
+                }
+                else {
+                    _logger.LogInformation("BW not sending cancel to CS to allow Signify signing to complete");
+                }
+            }
+            else {
+                var closeAppMsg = new CsPageMsgData<object?>(
+                    type: BwCsMsgTypes.APP_CLOSED,
+                    requestId: "none",
+                    source: CsPageConstants.CsPageMsgTag,
+                    payload: null,
+                    error: "KERI Auth action popup closed"
+                );
+
+                _logger.LogInformation("BW🡢CS closeAppMsg");
+                csConnection.Port.PostMessage(closeAppMsg);
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error processing APP_CLOSED message");
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async Task SignRequestSendToTabAsync(BwCsMsg message, CsConnection csConnection) {
+        try {
+            // TODO: Implement sign request logic
+            // This should process the approved sign request and send it to the content script
+            _logger.LogInformation("SignRequestSendToTab not yet fully implemented");
+            csConnection.Port.PostMessage(message);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in SignRequestSendToTab");
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private void ResetPendingRequest() {
+        _isWaitingOnKeria = false;
+        _pendingRequestId = null;
+    }
+
 
     // onConnect fires when a connection is made from content scripts or other extension pages
     // Parameter: port - Port object with name and sender properties
@@ -686,55 +933,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task HandleContentScriptConnectionAsync(string connectionId, object portObj, Extension.Models.Port port, int tabId) {
-        _logger.LogInformation("In HandleContentScriptConnectionAsync");
-        try {
-            _logger.LogInformation("HandleContentScriptConnectionAsync called for {ConnectionId}", connectionId);
-            _pageCsConnections[connectionId] = new CsConnection {
-                PortObject = portObj,
-                PortData = port,
-                TabId = tabId,
-                PageAuthority = "?"
-            };
-
-            _logger.LogInformation("Content script connected: {ConnectionId}, TabId: {TabId}", connectionId, tabId);
-
-            // Set up message listener for this content script
-            await SetUpPortMessageListenerAsync(portObj, connectionId, true);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling content script connection");
-        }
-    }
-
-    private async Task HandleBlazorAppConnectionAsync(string connectionId, object portObj, Extension.Models.Port port, int tabId, string origin) {
-        try {
-            _logger.LogInformation("HandleBlazorAppConnectionAsync called for {ConnectionId}", connectionId);
-            var authority = GetAuthorityFromUrl(origin);
-
-            _pageCsConnections[connectionId] = new CsConnection {
-                PortObject = portObj,
-                PortData = port,
-                TabId = tabId,
-                PageAuthority = authority
-            };
-
-            _logger.LogInformation("Blazor app connected: {ConnectionId}, Authority: {Authority}", connectionId, authority);
-
-            // Set up message listener for this app
-            await SetUpPortMessageListenerAsync(portObj, connectionId, false);
-
-            // Send initial connection message
-            var message = new PortMessage(
-                Type: FromBackgroundWorkerType,
-                Data: "Background worker connected"
-            );
-            await SendPortMessageAsync(portObj, message);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling Blazor app connection");
-        }
-    }
 
     private async Task<object?> HandleUnknownMessageAsync(string? action) {
         _logger.LogInformation("HandleUnknownMessageAsync called for action: {Action}", action);
@@ -784,7 +982,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
 
-/*
+    /*
 
 
 
@@ -793,35 +991,35 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
 
-                // Request permission from the user
-                // var hasPermission = await RequestOriginPermissionAsync(origin);
-                if (hasPermission) {
-                    _logger.LogInformation("Permission granted for: {Origin}", origin);
-                    await UseActionPopupAsync(tabId);
+                    // Request permission from the user
+                    // var hasPermission = await RequestOriginPermissionAsync(origin);
+                    if (hasPermission) {
+                        _logger.LogInformation("Permission granted for: {Origin}", origin);
+                        await UseActionPopupAsync(tabId);
+                    }
+                    else {
+                        _logger.LogInformation("Permission denied for: {Origin}", origin);
+                        await CreateExtensionTabAsync();
+                    }
                 }
                 else {
-                    _logger.LogInformation("Permission denied for: {Origin}", origin);
+                    // If user clicks on the action icon on a page already allowed permission, 
+                    // but for an interaction not initiated from the content script
                     await CreateExtensionTabAsync();
+                    // TODO P2: Consider implementing useActionPopup(tabId) for direct popup interaction
                 }
-            }
-            else {
-                // If user clicks on the action icon on a page already allowed permission, 
-                // but for an interaction not initiated from the content script
-                await CreateExtensionTabAsync();
-                // TODO P2: Consider implementing useActionPopup(tabId) for direct popup interaction
-            }
 
-            // Clear the popup url for the action button, if it is set, 
-            // so that future use of the action button will also trigger this same handler
-            await WebExtensions.Action.SetPopup(new() { Popup = "" });
+                // Clear the popup url for the action button, if it is set, 
+                // so that future use of the action button will also trigger this same handler
+                await WebExtensions.Action.SetPopup(new() { Popup = "" });
 
-            return;
+                return;
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error handling action click on web page");
+            }
         }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling action click on web page");
-        }
-    }
-    */
+        */
 
     private async Task<bool> CheckOriginPermissionAsync(string origin) {
         try {
@@ -846,7 +1044,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("Requesting permission for origin: {Origin}", origin);
 
-var isGranted = false;
+            var isGranted = false;
             /*
                         var pt = new AnyPermissions
                         {
@@ -855,9 +1053,8 @@ var isGranted = false;
                         var isGranted = await WebExtensions.Permissions.Contains(pt);
                         _logger.LogInformation("Current permission for {Origin}: {IsGranted}", origin, isGranted);
             */
-            var ptt = new PermissionsType
-            {
-                Origins = [new MatchPattern( new MatchPatternRestricted(origin))]
+            var ptt = new PermissionsType {
+                Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
             };
             if (!isGranted) {
                 // prompt via browser UI for permission
@@ -1139,7 +1336,9 @@ var isGranted = false;
         );
 
         if (_pageCsConnections.TryGetValue(connectionId, out var connection)) {
-            await SendPortMessageAsync(connection.PortObject, response);
+            // TODO: Use Port.PostMessage directly instead of SendPortMessageAsync
+            // await SendPortMessageAsync(connection.Port, response);
+            connection.Port.PostMessage(response);
         }
     }
 
@@ -1168,6 +1367,114 @@ var isGranted = false;
     }
 
 
+    /// <summary>
+    /// Handles SELECT_AUTHORIZE_AID message - opens popup for user to select and authorize an AID
+    /// </summary>
+    private async Task HandleSelectAuthorizeAsync(CsBwMsg msg, WebExtensions.Net.Runtime.Port csTabPort) {
+        try {
+            _logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
+
+            var sender = csTabPort.Sender;
+            if (sender?.Tab?.Id == null) {
+                _logger.LogWarning("BW HandleSelectAuthorize: no tabId found");
+                return;
+            }
+
+            var tabId = sender.Tab.Id.Value;
+            // Get origin from sender - WebExtensions.Net.Runtime.MessageSender has Url property
+            var origin = sender.Url ?? "unknown";
+            var jsonOrigin = JsonSerializer.Serialize(origin);
+
+            _logger.LogInformation("BW HandleSelectAuthorize: tabId: {TabId}, message: {Message}, origin: {Origin}",
+                tabId, JsonSerializer.Serialize(msg), jsonOrigin);
+
+            var encodedMsg = SerializeAndEncode(msg);
+            await UseActionPopupAsync(tabId, [
+                new QueryParam("message", encodedMsg),
+                new QueryParam("origin", jsonOrigin),
+                new QueryParam("popupType", "SelectAuthorize")
+            ]);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSelectAuthorize");
+        }
+    }
+
+    /// <summary>
+    /// Serializes an object to JSON and URL-encodes it
+    /// </summary>
+    private static string SerializeAndEncode(object obj) {
+        var jsonString = JsonSerializer.Serialize(obj);
+        var encodedString = Uri.EscapeDataString(jsonString);
+        return encodedString;
+    }
+
+    /// <summary>
+    /// Opens an action popup for the specified tab with query parameters
+    /// </summary>
+    private async Task UseActionPopupAsync(int tabId, List<QueryParam> queryParams) {
+        try {
+            _logger.LogInformation("BW UseActionPopup acting on tab {TabId}", tabId);
+
+            // Add environment parameter
+            queryParams.Add(new QueryParam("environment", "ActionPopup"));
+
+            // Build URL with encoded query strings
+            var url = CreateUrlWithEncodedQueryStrings("./index.html", queryParams);
+
+            // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
+            await WebExtensions.Action.SetPopup(new() {
+                Popup = url
+            });
+
+            // Open the popup
+            try {
+                WebExtensions.Action.OpenPopup();
+                _logger.LogInformation("BW UseActionPopup succeeded");
+            }
+            catch (Exception ex) {
+                // Note: openPopup() sometimes throws even when successful
+                _logger.LogDebug(ex, "BW UseActionPopup openPopup() exception (may be expected)");
+            }
+
+            // Clear the popup so future clicks trigger OnActionClicked handler
+            await WebExtensions.Action.SetPopup(new() { Popup = "" });
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in UseActionPopup for tab {TabId}", tabId);
+        }
+    }
+
+    /// <summary>
+    /// Creates a URL with encoded query string parameters
+    /// </summary>
+    private string CreateUrlWithEncodedQueryStrings(string baseUrl, List<QueryParam> queryParams) {
+        var fullUrl = _webExtensionsApi.Runtime.GetURL(baseUrl);
+        var uriBuilder = new UriBuilder(fullUrl);
+        var query = System.Web.HttpUtility.ParseQueryString(uriBuilder.Query);
+
+        foreach (var param in queryParams) {
+            if (IsValidKey(param.Key)) {
+                // Parameters are already URL-encoded by the caller where needed
+                query[param.Key] = param.Value;
+            }
+            else {
+                _logger.LogWarning("BW Invalid key skipped: {Key}", param.Key);
+            }
+        }
+
+        uriBuilder.Query = query.ToString();
+        return uriBuilder.ToString();
+    }
+
+    /// <summary>
+    /// Validates that a query parameter key contains only safe characters
+    /// </summary>
+    private static bool IsValidKey(string key) {
+        // Allow alphanumeric characters, hyphens, and underscores
+        return System.Text.RegularExpressions.Regex.IsMatch(key, @"^[a-zA-Z0-9\-_]+$");
+    }
+
     private string GetAuthorityFromUrl(string url) {
         try {
             if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri)) {
@@ -1181,12 +1488,23 @@ var isGranted = false;
         return "unknown";
     }
 
+    /// <summary>
+    /// Helper record for query parameters
+    /// </summary>
+    private sealed record QueryParam(string Key, string Value);
+
     // Supporting classes
     private sealed class CsConnection {
-        public object PortObject { get; set; } = default!; // Raw JS object for method calls
-        public Extension.Models.Port PortData { get; set; } = default!; // Strongly typed port data
+        public WebExtensions.Net.Runtime.Port Port { get; set; } = default!;
         public int TabId { get; set; }
         public string PageAuthority { get; set; } = "?";
+    }
+
+    private sealed class BlazorAppConnection {
+        public WebExtensions.Net.Runtime.Port Port { get; set; } = default!;
+        public string ConnectionId { get; set; } = default!;
+        public int TabId { get; set; }
+        public string PortType { get; set; } = default!; // BA_TAB, BA_POPUP, BA_SIDEPANEL
     }
 
     private sealed class UpdateDetails {
