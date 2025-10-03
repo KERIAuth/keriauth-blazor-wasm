@@ -3,6 +3,12 @@
 // This ContentScript is inserted into tabs after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension BackgroundWorker.
 
+/**
+ * High-level flow:
+ * Page  --(window.postMessage one-shot)-->  CS  --(port msg)-->  BW
+ * Page  <--(window.postMessage reply)---   CS  <--(port msg)--  BW
+ */
+
 import {
     type ICsPageMsgData,
     type ICsPageMsgDataData,
@@ -65,11 +71,6 @@ let portWithBw: chrome.runtime.Port | null = null;
 try {
     portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
     createPortListeners();
-    // TODO P1 tmp
-    portWithBw.postMessage({ type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT } as ICsBwMsg);
-    // TODO P1 tmp
-    const initMsg2: ICsBwMsg = { type: CsBwMsgEnum.INIT };
-    portWithBw.postMessage(initMsg2);
 } catch (error) {
     console.error('KeriAuthCs: Failed to create initial port connection:', error);
     // Will attempt to reconnect when first message needs to be sent
@@ -120,6 +121,9 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
     console.log(message);
     switch (message.type) {
         case BwCsMsgEnum.READY:
+            // In the case the user has just clicked on Action Button and provided CS inject permission for first time,
+            // assure the page is notified the extension is ready.
+            postMessageToPageSignifyExtension();
             break;
 
         case BwCsMsgEnum.REPLY:
@@ -240,6 +244,15 @@ function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
         throw error;
     }
 }
+function postMessageToPageSignifyExtension(): void {
+    const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string }> = {
+        source: CsPageMsgTag,
+        type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
+        data: { extensionId: chrome.runtime.id },
+        requestId: "0"
+    };
+    postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
+}
 
 /**
  * Handle messages from the web page and route them to the BackgroundWorker
@@ -249,7 +262,7 @@ function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
 function handleWindowMessage(event: MessageEvent<IPageMessageData>): void {
 
     // Ignore messages with undefined events or .data, such as those sent from pages with advertising
-    if (event === undefined || event.data === undefined ) {
+    if (event === undefined || event.data === undefined) {
         return;
     }
 
@@ -270,23 +283,7 @@ function handleWindowMessage(event: MessageEvent<IPageMessageData>): void {
         const requestId = event.data.requestId;
         switch (event.data.type) {
             case CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION_CLIENT: {
-                const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string }> = {
-                    source: CsPageMsgTag,
-                    type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
-                    data: { extensionId: chrome.runtime.id },
-                    requestId
-                };
-                postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
-                break;
-            }
-            case CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION: {
-                const extensionMessage: ICsPageMsgDataData<{ extensionId: string }> = {
-                    source: CsPageMsgTag,
-                    type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
-                    data: { extensionId: chrome.runtime.id },
-                    requestId
-                };
-                postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionMessage);
+                postMessageToPageSignifyExtension();
                 break;
             }
             case CsBwMsgEnum.POLARIS_GET_SESSION_INFO: {

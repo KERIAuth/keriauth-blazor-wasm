@@ -11,7 +11,6 @@ using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
-// using ExtensionTypesRunAt = WebExtensions.Net.ExtensionTypes.RunAt;
 
 namespace Extension;
 
@@ -19,7 +18,6 @@ namespace Extension;
 /// Background worker for the browser extension, handling message routing between
 /// content scripts, the Blazor app, and KERIA services.
 /// </summary>
-
 
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
@@ -134,8 +132,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // TODO P3 set a URL that Chrome will open when the extension is uninstalled. Typically used for surveys or cleanup instructions
-            await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
+            // TODO P3 set a URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
+            // await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
+            _ = UninstallUrl;
 
             _logger.LogInformation("Extension installed/updated: {Reason}", details.Reason);
 
@@ -265,27 +264,34 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 if (csBwMsg != null) {
                     //_logger.LogInformation("Successfully deserialized CsBwMsg with type: {Type}", csBwMsg.Type);
 
+                    _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
                     // Handle different message types using the new message type constants
                     switch (csBwMsg.Type) {
                         case CsBwMsgTypes.INIT:
-                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
                             // Send READY response using the proper message type
                             var readyMsg = new BwCsMsgPong();
                             port.PostMessage(readyMsg);
                             break;
 
                         case CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE:
-                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
-                            // TODO: Handle authorize request
+                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
+                            break;
+
+                        case CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
+                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
+                            break;
+
+                        case CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_AID:
+                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
                             break;
 
                         case CsBwMsgTypes.POLARIS_SIGN_REQUEST:
-                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
+                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
                             // TODO: Handle sign request
                             break;
 
                         case CsBwMsgTypes.POLARIS_SIGNIFY_EXTENSION_CLIENT:
-                            _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
+                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
                             // TODO: Handle response with extension client info
                             break;
 
@@ -522,7 +528,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Check if permissions are already granted.
             var anyPermissions = new AnyPermissions {
-                Origins = matchPatterns.Select(pattern => new MatchPattern(new MatchPatternRestricted(pattern))).ToArray()
+                Origins = [.. matchPatterns.Select(pattern => new MatchPattern(new MatchPatternRestricted(pattern)))]
             };
             bool granted = false;
             try {
@@ -562,13 +568,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var uri = new Uri(tabUrl);
             if (uri.Scheme == "http" || uri.Scheme == "https") {
                 // Exact host only - returns pattern like "https://example.com/*"
-                return new List<string> { $"{uri.Scheme}://{uri.Host}/*" };
+                return [$"{uri.Scheme}://{uri.Host}/*"];
             }
         }
         catch (Exception ex) {
             _logger.LogDebug(ex, "Error parsing tab URL: {TabUrl}", tabUrl);
         }
-        return new List<string>();
+        return [];
     }
 
     // onRemoved fires when a tab is closed
@@ -974,7 +980,7 @@ var isGranted = false;
             // Since we can't easily bind existing JS objects to WebExtensions.Net classes,
             // we'll return null to trigger the JavaScript fallback approach
             // This is the most reliable approach for port message handling in this context
-
+            _ = portObj;
             _logger.LogDebug("WebExtensions.Net Port binding not implemented for runtime JS objects, using JS fallback");
             return null;
         }
@@ -1100,7 +1106,7 @@ var isGranted = false;
             // Handle different message types
             switch (message.Type) {
                 case "keepAlive":
-                    await HandleKeepAliveMessageAsync(connectionId, message);
+                    await HandleKeepAliveMessageAsync(connectionId);
                     break;
 
                 case "authRequest":
@@ -1123,7 +1129,7 @@ var isGranted = false;
         }
     }
 
-    private async Task HandleKeepAliveMessageAsync(string connectionId, PortMessage message) {
+    private async Task HandleKeepAliveMessageAsync(string connectionId) {
         _logger.LogInformation("Keep-alive message received from {ConnectionId}", connectionId);
 
         // Send keep-alive response
@@ -1147,7 +1153,7 @@ var isGranted = false;
         // 2. Checking user permissions
         // 3. Processing through SignifyService
         // 4. Sending response back through port
-
+        _ = message;
         await Task.CompletedTask;
     }
 
