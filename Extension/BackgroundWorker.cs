@@ -32,6 +32,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         PropertyNameCaseInsensitive = true
     };
 
+    // Cached JsonSerializerOptions for credential deserialization with increased depth
+    // vLEI credentials can have deeply nested structures (edges, rules, chains, etc.)
+    private static readonly JsonSerializerOptions CredentialJsonOptions = new() {
+        PropertyNameCaseInsensitive = true,
+        MaxDepth = 128  // Increased from default 32 to handle deeply nested vLEI credential structures
+    };
+
     // Install reasons
     private const string InstallReason = "install";
     private const string UpdateReason = "update";
@@ -478,16 +485,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var payloadJson = JsonSerializer.Serialize(message.Payload);
-            var payload = JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson);
-
-            if (payload == null) {
-                _logger.LogWarning("Failed to deserialize REPLY_CRED payload");
-                return;
-            }
-
             // Extract credential and identifier from payload
-            // TODO: Parse credential.rawJson and get signed headers from SignifyService
+            // TODO: Parse credential.raw and get signed headers from SignifyService
             // For now, just forward the message as-is
             _logger.LogInformation("Processing REPLY_CRED - credential signing not yet fully implemented");
 
@@ -501,15 +500,32 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             //     ...
             // }
 
-            // For now, forward a simplified response
+            // Parse and reconstruct payload with expiry and headers
+            var payloadJson = JsonSerializer.Serialize(message.Payload);
+            using var jsonDoc = JsonDocument.Parse(payloadJson);
+            var root = jsonDoc.RootElement;
+
+            if (!root.TryGetProperty("credential", out var credentialElement)) {
+                _logger.LogWarning("REPLY_CRED payload missing 'credential' property");
+                return;
+            }
+
+            // Extract the raw credential JSON string to avoid deep serialization issues
+            // The credential will be parsed on the JavaScript side
+            var credentialJson = credentialElement.GetRawText();
+
+            // Create a payload object that includes the credential as a raw JSON string
+            // JavaScript will parse this string to get the actual credential object
+            var payloadObj = new {
+                credentialJson,  // Send as string, JS will parse it
+                expiry,
+                headers = new Dictionary<string, string>() // TODO: Get from SignifyService
+            };
+
             var authorizeResult = new BwCsMsg(
                 type: BwCsMsgTypes.REPLY,
                 requestId: message.RequestId,
-                payload: new {
-                    credential = payload.GetValueOrDefault("credential"),
-                    expiry,
-                    headers = new Dictionary<string, string>() // TODO: Get from SignifyService
-                }
+                payload: payloadObj
             );
 
             _logger.LogInformation("BW🡢CS authorizeResult");

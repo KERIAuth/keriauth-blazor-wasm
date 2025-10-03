@@ -136,11 +136,26 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
                 };
                 postMessageToPage<ICsPageMsgData<null>>(errorMsg);
             } else {
+                // Check if payload contains credentialJson string that needs to be parsed
+                let payload = message.payload as any;
+                if (payload && payload.credentialJson && typeof payload.credentialJson === 'string') {
+                    // Parse the credentialJson string to get the actual credential object
+                    try {
+                        payload = {
+                            ...payload,
+                            credential: JSON.parse(payload.credentialJson)
+                        };
+                        delete payload.credentialJson;
+                    } catch (parseError) {
+                        console.error('KeriAuthCs: Failed to parse credentialJson', parseError);
+                    }
+                }
+
                 const msg: ICsPageMsgData<PW.AuthorizeResult> = {
                     source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
-                    payload: message.payload as PW.AuthorizeResult
+                    payload: payload as PW.AuthorizeResult
                 };
                 postMessageToPage<ICsPageMsgData<PW.AuthorizeResult>>(msg);
             }

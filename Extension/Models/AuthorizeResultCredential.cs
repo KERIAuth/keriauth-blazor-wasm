@@ -3,13 +3,13 @@
 namespace Extension.Models {
     public record AuthorizeResultCredential : IEquatable<AuthorizeResultCredential> {
         [JsonConstructor]
-        public AuthorizeResultCredential(string rawJson, string cesr) {
-            RawJson = rawJson;
+        public AuthorizeResultCredential(object raw, string cesr) {
+            Raw = raw;
             Cesr = cesr;
         }
 
-        [JsonPropertyName("rawJson")]
-        public string RawJson { get; }
+        [JsonPropertyName("raw")]
+        public object Raw { get; }
 
 
         [JsonPropertyName("cesr")]

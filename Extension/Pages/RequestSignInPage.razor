@@ -206,10 +206,9 @@
                 }
 
                 var credentialDict = JsonSerializer.Deserialize<Dictionary<string, object>>(json); //, options);
-                var credentialRecursive = credentialDict != null ? RecursiveDictionary.FromObjectDictionary(credentialDict) : null;
 
-                logger.LogInformation("SignIn with Credential: {0}", credentialRecursive);
-                if (credentialRecursive is null || SelectedPrefix is null || SelectedAlias is null)
+                logger.LogInformation("SignIn with Credential: {0}", credentialDict);
+                if (credentialDict is null || SelectedPrefix is null || SelectedAlias is null)
                 {
                     var error = new ValidationError("Credential", "Credential data is incomplete");
                     snackbar.Add(error.Message, Severity.Error);
@@ -220,7 +219,7 @@
                 replyMessageData = new(
                     type: "/KeriAuth/signify/replyCredential",
                     payload: new AuthorizeResult(
-                        new AuthorizeResultCredential(JsonSerializer.Serialize(credentialDict), cesr), 
+                        new AuthorizeResultCredential(credentialDict, cesr),
                         new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)
                     ),
                     requestId: requestId);
