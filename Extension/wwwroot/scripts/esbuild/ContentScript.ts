@@ -207,6 +207,17 @@ function createPortListeners(): void {
     console.log('KeriAuthCs→BW Init:', initMsg);
     try {
         portWithBw.postMessage(initMsg);
+        // Even though the Page hasn't requested the extension id via signify-extension-client here,
+        // we send it anyway in case of when the script has been injected after user clicked the action button?
+        // The following is not picked up by the page (that leverages polaris-web) if it has not requested it. So, user needs to reload the page.
+        // postMessageToPageSignifyExtension();
+        // TODO P2 Consider a reload message when permission is first granted and CS injected, to help the page pick up the extension id without user reload, e.g.:
+        /* const ok = window.confirm("The extension needs to reload this page to finish setup. Reload now?");
+            if (ok) {
+                // Avoid touching DOM; just trigger a navigation:
+                window.location.reload(); // or message BW to chrome.tabs.reload
+            }
+        */
     } catch (error) {
         console.error('KeriAuthCs→BW: Failed to send INIT message:', error);
         // Port may have disconnected already, set to null for reconnection
@@ -237,6 +248,7 @@ function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
     console.info('KeriAuthCs→BW: postMessage:', msg);
     try {
         portWithBw.postMessage(msg);
+        // TODO P1 consider adding a timeout mechanism to detect if message was not delivered, and if READY is received within expected time.
     } catch (error) {
         console.error('KeriAuthCs→BW: Failed to send message:', error);
         // Port may have disconnected, set to null and re-throw
@@ -249,7 +261,7 @@ function postMessageToPageSignifyExtension(): void {
         source: CsPageMsgTag,
         type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
         data: { extensionId: chrome.runtime.id },
-        requestId: "0"
+        requestId: '' // may be unsolicited message or with no requestId, so no requestId set in this response
     };
     postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
 }
