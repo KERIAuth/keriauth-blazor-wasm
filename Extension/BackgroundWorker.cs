@@ -69,6 +69,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     [BackgroundWorkerMain]
     public override void Main() {
+        // JavaScript module imports are handled in app.ts afterStarted() hook
+        // which is called after Blazor is fully initialized and ready
+
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
@@ -315,8 +318,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
                         case CsBwMsgTypes.POLARIS_SIGN_REQUEST:
-                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
-                            // TODO: Handle sign request
+                            await HandleSignRequestAsync(csBwMsg, port);
                             break;
 
                         case CsBwMsgTypes.POLARIS_SIGNIFY_EXTENSION_CLIENT:
@@ -1413,6 +1415,214 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleSelectAuthorize");
+        }
+    }
+
+    /// <summary>
+    /// Handles sign request messages from content scripts.
+    /// Based on signify-browser-extension handleFetchSignifyHeaders:
+    /// https://github.com/WebOfTrust/signify-browser-extension/blob/67ce30fa671e39cba6192e2f8f826ccbb424e37a/src/pages/background/handlers/resource.ts#L40
+    /// </summary>
+    private async Task HandleSignRequestAsync(CsBwMsg msg, WebExtensions.Net.Runtime.Port csTabPort) {
+        try {
+            _logger.LogInformation("BW HandleSignRequest: {Message}", JsonSerializer.Serialize(msg));
+
+            var sender = csTabPort.Sender;
+            if (sender?.Tab?.Id == null) {
+                _logger.LogWarning("BW HandleSignRequest: no tabId found");
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: "No tab ID found"
+                );
+                csTabPort.PostMessage(errorMsg);
+                return;
+            }
+
+            var tabId = sender.Tab.Id.Value;
+            var origin = sender.Url ?? "unknown";
+
+            // Extract origin domain from URL
+            string originDomain = origin;
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+                originDomain = $"{originUri.Scheme}://{originUri.Host}";
+                if (!originUri.IsDefaultPort) {
+                    originDomain += $":{originUri.Port}";
+                }
+            }
+
+            _logger.LogInformation("BW HandleSignRequest: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+
+            // Deserialize payload to extract method and url
+            var payloadJson = JsonSerializer.Serialize(msg.Payload);
+            var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(payloadJson, PortMessageJsonOptions);
+
+            if (payload == null) {
+                _logger.LogWarning("BW HandleSignRequest: failed to deserialize payload");
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: "Invalid payload"
+                );
+                csTabPort.PostMessage(errorMsg);
+                return;
+            }
+
+            // Extract method and url from payload
+            if (!payload.TryGetValue("method", out var methodElement)) {
+                _logger.LogWarning("BW HandleSignRequest: no method in payload");
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: "Method not specified"
+                );
+                csTabPort.PostMessage(errorMsg);
+                return;
+            }
+
+            if (!payload.TryGetValue("url", out var urlElement)) {
+                _logger.LogWarning("BW HandleSignRequest: no url in payload");
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: "URL not specified"
+                );
+                csTabPort.PostMessage(errorMsg);
+                return;
+            }
+
+            var method = methodElement.GetString() ?? "GET";
+            var rurl = urlElement.GetString() ?? "";
+
+            if (string.IsNullOrEmpty(rurl)) {
+                _logger.LogWarning("BW HandleSignRequest: url is empty");
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: "URL is empty"
+                );
+                csTabPort.PostMessage(errorMsg);
+                return;
+            }
+
+            // Get signed headers from signify service
+            try {
+                // Check if we're connected to KERIA
+                // TODO P1 implement connection status caching to avoid repeated calls
+                /*
+                var connectResult = await _signifyService.Connect();
+                if (connectResult.IsFailed) {
+                    _logger.LogWarning("BW HandleSignRequest: not connected to KERIA");
+                    var errorMsg = new BwCsMsg(
+                        type: BwCsMsgTypes.REPLY,
+                        requestId: msg.RequestId,
+                        error: "Not connected to KERIA"
+                    );
+                    csTabPort.PostMessage(errorMsg);
+                    return;
+                }
+                */
+
+                // Get session/identifier for this origin and tab
+                // For now, we'll use the remembered prefix from website config
+                string? aidName = null;
+
+                if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+                    var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+                    if (websiteConfigResult.IsSuccess &&
+                        websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+
+                        var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+                        aidName = await Signify_ts_shim.GetNameByPrefix(prefix);
+                        _logger.LogInformation("BW HandleSignRequest: found AID name {AidName} for origin {Origin}",
+                            aidName, originDomain);
+                    }
+                }
+
+                if (string.IsNullOrEmpty(aidName)) {
+                    _logger.LogWarning("BW HandleSignRequest: no identifier configured for origin {Origin}", originDomain);
+                    var errorMsg = new BwCsMsg(
+                        type: BwCsMsgTypes.REPLY,
+                        requestId: msg.RequestId,
+                        error: $"No identifier configured for {originDomain}"
+                    );
+                    csTabPort.PostMessage(errorMsg);
+                    return;
+                }
+
+                // Prepare headers dictionary for the request
+                var headersDict = new Dictionary<string, string>();
+                if (payload.TryGetValue("headers", out var headersElement)) {
+                    try {
+                        var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(headersElement.GetRawText());
+                        if (headers != null) {
+                            headersDict = headers;
+                        }
+                    } catch (Exception ex) {
+                        _logger.LogWarning(ex, "BW HandleSignRequest: failed to parse headers");
+                    }
+                }
+
+                // Call signify-ts to get signed headers
+                var headersDictJson = JsonSerializer.Serialize(headersDict);
+                var signedHeadersJson = await Signify_ts_shim.GetSignedHeaders(
+                    originDomain,
+                    rurl,
+                    method,
+                    headersDictJson,
+                    aidName
+                );
+
+                var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
+
+                if (signedHeaders == null) {
+                    _logger.LogWarning("BW HandleSignRequest: failed to get signed headers");
+                    var errorMsg = new BwCsMsg(
+                        type: BwCsMsgTypes.REPLY,
+                        requestId: msg.RequestId,
+                        error: "Failed to generate signed headers"
+                    );
+                    csTabPort.PostMessage(errorMsg);
+                    return;
+                }
+
+                _logger.LogInformation("BW HandleSignRequest: successfully generated signed headers with {Count} entries",
+                    signedHeaders.Count);
+
+                // Send success response with signed headers
+                var replyMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    payload: signedHeaders
+                );
+
+                csTabPort.PostMessage(replyMsg);
+                _logger.LogInformation("BW HandleSignRequest: sent signed headers to tab");
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "BW HandleSignRequest: error getting signed headers");
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: $"Error: {ex.Message}"
+                );
+                csTabPort.PostMessage(errorMsg);
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSignRequest");
+            try {
+                var errorMsg = new BwCsMsg(
+                    type: BwCsMsgTypes.REPLY,
+                    requestId: msg.RequestId,
+                    error: $"Internal error: {ex.Message}"
+                );
+                csTabPort.PostMessage(errorMsg);
+            }
+            catch (Exception sendEx) {
+                _logger.LogError(sendEx, "Failed to send error response");
+            }
         }
     }
 

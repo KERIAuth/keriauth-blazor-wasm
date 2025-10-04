@@ -157,5 +157,7 @@ export function beforeStart(
  * @param blazor The Blazor instance
  */
 export function afterStarted(blazor: unknown): void {
-    console.log('app.ts: afterStarted');
+    console.log('app.ts: afterStarted - Blazor runtime ready');
+    // Module imports are handled in Program.cs using JSHost.ImportAsync()
+    // which is the proper way to import modules for [JSImport] attributes
 }

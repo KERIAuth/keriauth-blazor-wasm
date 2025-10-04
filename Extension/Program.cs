@@ -5,7 +5,6 @@ using Extension.Services.SignifyService;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
-using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
 
 // Program and Main are implicit and static
@@ -53,55 +52,36 @@ var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("WASM host built");
 
-// Import JS modules for use in C# classes
-Debug.Assert(OperatingSystem.IsBrowser());
-
+// Import JavaScript modules for JSImport interop
+// This must happen BEFORE host.RunAsync() to ensure modules are available when C# code uses [JSImport]
+// Use absolute paths from extension root to work in all contexts (BackgroundWorker, SPA, etc.)
 try {
-    // Adding imports of modules here for use via [JSImport...] attributes in C# classes
-    List<(string, string)> imports = [
-        // ("uiHelper", "/scripts/es6/uiHelper.js"),
+    logger.LogInformation("Program: Importing JavaScript modules for JSImport interop...");
+
+    var modules = new[] {
         ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
         ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
         ("storageHelper", "/scripts/es6/storageHelper.js")
-    ];
-    foreach (var (moduleName, modulePath) in imports) {
-        logger.LogInformation("Importing {moduleName}", moduleName);
+    };
+
+    foreach (var (moduleName, modulePath) in modules) {
         try {
-            // Note: JSHost.ImportAsync can throw either Microsoft.JSInterop.JSException or System.Runtime.InteropServices.JavaScript.JSException
-            // depending on whether the exception happens in the JSInterop layer or in the actual JS code.
-            // See https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.javascript.jsexception?view=net-7.0
-            // and https://learn.microsoft.com/en-us/dotnet/api/microsoft.jsinterop.jsexception?view=aspnetcore-7.0
-            // and https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.javascript.jsexception?view=net-7.0
-            _ = await JSHost.ImportAsync(moduleName, modulePath);
-            logger.LogInformation("Imported {moduleName}", moduleName);
+            logger.LogInformation("Program: Importing {ModuleName} from {ModulePath}", moduleName, modulePath);
+            await JSHost.ImportAsync(moduleName, modulePath);
+            logger.LogInformation("Program: Successfully imported {ModuleName}", moduleName);
         }
-        catch (Microsoft.JSInterop.JSException e) {
-            logger.LogError("Program: Initialize: ImportAsync {moduleName}: JSInterop.JSException: {e}{s}", moduleName, e.Message, e.StackTrace);
-            throw;
-        }
-        catch (System.Runtime.InteropServices.JavaScript.JSException e) {
-            logger.LogError("Program: Initialize: ImportAsync {moduleName}: JSException: {e}{s}", moduleName, e.Message, e.StackTrace);
-            throw;
-        }
-        catch (Exception e) {
-            logger.LogError("Program: Initialize: ImportAsync {moduleName}: Exception: {e}", moduleName, e);
+        catch (Exception ex) {
+            logger.LogError(ex, "Program: Failed to import {ModuleName}: {Message}", moduleName, ex.Message);
             throw;
         }
     }
-}
-catch (Microsoft.JSInterop.JSException e) {
-    logger.LogError("Program: Initialize: JSInterop.JSException: {e}{s}", e.Message, e.StackTrace);
-    return;
-}
-catch (System.Runtime.InteropServices.JavaScript.JSException e) {
-    logger.LogError("Program: Initialize: JSException: {e}{s}", e.Message, e.StackTrace);
-    return;
-}
-catch (Exception e) {
-    logger.LogError("Program: Initialize: Exception: {e}", e);
-    return;
-}
 
+    logger.LogInformation("Program: All JavaScript modules imported successfully");
+}
+catch (Exception ex) {
+    logger.LogError(ex, "Program: Critical error importing JavaScript modules");
+    throw;
+}
 
 logger.LogInformation("Running WASM Host...");
 
