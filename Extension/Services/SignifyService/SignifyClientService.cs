@@ -4,7 +4,7 @@ using FluentResults;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
-using static Extension.Services.SignifyService.Signify_ts_shim;
+// using static Extension.Services.SignifyService.Signify_ts_shim;
 using Group = Extension.Services.SignifyService.Models.Group;
 using State = Extension.Services.SignifyService.Models.State;
 
@@ -94,6 +94,14 @@ namespace Extension.Services.SignifyService {
         public Task<Result<bool>> Connect() {
             throw new NotImplementedException();
             // return Task.FromResult(Result.Fail<bool>("Not implemented"));
+        }
+
+        public async Task<Result<string>> GetNameByPrefix2(string prefix) {
+            // TODO P1: wrap in timeout, try/catch
+            logger.LogWarning("GetNameByPrefix2 prefix: {prefix} {t}", prefix, nameof(GetNameByPrefix));
+            var identifier = await GetIdentifierByPrefix(prefix);
+            logger.LogWarning("GetIdentifierByPrefix {ide}", identifier);
+            return identifier; // TODO P0 bad
         }
 
         public async Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null) {
@@ -343,7 +351,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("IpexApply: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexApply: Exception: " + e);
             }
@@ -361,7 +370,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("IpexOffer: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexOffer: Exception: " + e);
             }
@@ -379,7 +389,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("IpexAgree: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexAgree: Exception: " + e);
             }
@@ -397,7 +408,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("IpexGrant: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexGrant: Exception: " + e);
             }
@@ -415,7 +427,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("IpexAdmit: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexAdmit: Exception: " + e);
             }
@@ -435,7 +448,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("GetOobi: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("GetOobi: Exception: " + e);
             }
@@ -453,7 +467,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("ResolveOobi: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("ResolveOobi: Exception: " + e);
             }
@@ -472,7 +487,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Operation>("Failed to deserialize Operation");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("GetOperation: Exception: {e}", e);
                 return Result.Fail<Operation>("GetOperation: Exception: " + e);
             }
@@ -489,7 +505,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<List<Operation>>("Failed to deserialize Operations list");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("ListOperations: Exception: {e}", e);
                 return Result.Fail<List<Operation>>("ListOperations: Exception: " + e);
             }
@@ -502,7 +519,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteOperation returned null");
                 }
                 return Result.Ok();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("DeleteOperation: Exception: {e}", e);
                 return Result.Fail("DeleteOperation: Exception: " + e);
             }
@@ -521,7 +539,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Operation>("Failed to deserialize Operation result");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("WaitForOperation: Exception: {e}", e);
                 return Result.Fail<Operation>("WaitForOperation: Exception: " + e);
             }
@@ -540,7 +559,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<List<Contact>>("Failed to deserialize Contacts list");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("ListContacts: Exception: {e}", e);
                 return Result.Fail<List<Contact>>("ListContacts: Exception: " + e);
             }
@@ -557,7 +577,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Contact>("Failed to deserialize Contact");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("GetContact: Exception: {e}", e);
                 return Result.Fail<Contact>("GetContact: Exception: " + e);
             }
@@ -575,7 +596,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Contact>("Failed to deserialize Contact");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("AddContact: Exception: {e}", e);
                 return Result.Fail<Contact>("AddContact: Exception: " + e);
             }
@@ -593,7 +615,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Contact>("Failed to deserialize Contact");
                 }
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("UpdateContact: Exception: {e}", e);
                 return Result.Fail<Contact>("UpdateContact: Exception: " + e);
             }
@@ -606,7 +629,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteContact returned null");
                 }
                 return Result.Ok();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("DeleteContact: Exception: {e}", e);
                 return Result.Fail("DeleteContact: Exception: " + e);
             }
@@ -626,7 +650,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("ListRegistries: Exception: {e}", e);
                 return Result.Fail<List<RecursiveDictionary>>("ListRegistries: Exception: " + e);
             }
@@ -653,7 +678,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("CreateRegistry: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("CreateRegistry: Exception: " + e);
             }
@@ -672,7 +698,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("IssueCredential: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("IssueCredential: Exception: " + e);
             }
@@ -690,7 +717,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("RevokeCredential: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("RevokeCredential: Exception: " + e);
             }
@@ -708,7 +736,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("GetCredentialState: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("GetCredentialState: Exception: " + e);
             }
@@ -721,7 +750,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteCredential returned null");
                 }
                 return Result.Ok();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("DeleteCredential: Exception: {e}", e);
                 return Result.Fail("DeleteCredential: Exception: " + e);
             }
@@ -739,7 +769,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("GetSchema: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("GetSchema: Exception: " + e);
             }
@@ -757,7 +788,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("ListSchemas: Exception: {e}", e);
                 return Result.Fail<List<RecursiveDictionary>>("ListSchemas: Exception: " + e);
             }
@@ -775,7 +807,8 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("ListNotifications: Exception: {e}", e);
                 return Result.Fail<List<RecursiveDictionary>>("ListNotifications: Exception: " + e);
             }
@@ -788,7 +821,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<string>("MarkNotification returned null");
                 }
                 return Result.Ok(jsonString);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("MarkNotification: Exception: {e}", e);
                 return Result.Fail<string>("MarkNotification: Exception: " + e);
             }
@@ -801,7 +835,8 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteNotification returned null");
                 }
                 return Result.Ok();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.LogWarning("DeleteNotification: Exception: {e}", e);
                 return Result.Fail("DeleteNotification: Exception: " + e);
             }

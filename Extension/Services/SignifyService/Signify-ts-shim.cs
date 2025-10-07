@@ -42,7 +42,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> GetIdentifierByPrefix(string prefix);
 
         // ===================== IPEX Protocol Methods =====================
-        
+
         [JSImport("ipexApply", "signify_ts_shim")]
         internal static partial Task<string> IpexApply(string argsJson);
 
@@ -74,7 +74,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> IpexSubmitAdmit(string name, string exnJson, string sigsJson, string atc, string recipientsJson);
 
         // ===================== OOBI Operations =====================
-        
+
         [JSImport("oobiGet", "signify_ts_shim")]
         internal static partial Task<string> OobiGet(string name, string? role);
 
@@ -82,7 +82,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> OobiResolve(string oobi, string? alias);
 
         // ===================== Operations Management =====================
-        
+
         [JSImport("operationsGet", "signify_ts_shim")]
         internal static partial Task<string> OperationsGet(string name);
 
@@ -96,7 +96,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> OperationsWait(string operationJson, string? optionsJson);
 
         // ===================== Registry Management =====================
-        
+
         [JSImport("registriesList", "signify_ts_shim")]
         internal static partial Task<string> RegistriesList(string name);
 
@@ -107,7 +107,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> RegistriesRename(string name, string registryName, string newName);
 
         // ===================== Contact Management =====================
-        
+
         [JSImport("contactsList", "signify_ts_shim")]
         internal static partial Task<string> ContactsList(string? group, string? filterField, string? filterValue);
 
@@ -124,7 +124,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> ContactsDelete(string prefix);
 
         // ===================== Additional Credential Operations =====================
-        
+
         [JSImport("credentialsIssue", "signify_ts_shim")]
         internal static partial Task<string> CredentialsIssue(string name, string argsJson);
 
@@ -138,7 +138,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> CredentialsDelete(string said);
 
         // ===================== Schemas Operations =====================
-        
+
         [JSImport("schemasGet", "signify_ts_shim")]
         internal static partial Task<string> SchemasGet(string said);
 
@@ -146,7 +146,7 @@ namespace Extension.Services.SignifyService {
         internal static partial Task<string> SchemasList();
 
         // ===================== Notifications Operations =====================
-        
+
         [JSImport("notificationsList", "signify_ts_shim")]
         internal static partial Task<string> NotificationsList(int? start, int? end);
 

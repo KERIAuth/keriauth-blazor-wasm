@@ -99,10 +99,6 @@ export const bootAndConnect = async (
         throw error;
     }
 
-
-    
-
-
     // note that uncommenting the next line might expose the passkey
     // console.error('signify_ts_shim: client', {agent: _client.agent?.pre,controller: _client.controller.pre});
     const state = await getState();
@@ -114,15 +110,13 @@ export const bootAndConnect = async (
 
 const objectToJson = (obj: object): string => JSON.stringify(obj);
 
-const validateClient = (): Promise<SignifyClient> => {
-    return new Promise((resolve, reject) => {
-        if (!_client) {
-            reject(new Error('signify_ts_shim: Client not connected'));
-        } else {
-            resolve(_client as SignifyClient);
-        }
-    });
-};
+const validateClient = (): Promise<SignifyClient> => new Promise((resolve, reject) => {
+    if (!_client) {
+        reject(new Error('signify_ts_shim: Client not connected'));
+    } else {
+        resolve(_client as SignifyClient);
+    }
+});
 
 export const getState = async (): Promise<string> => {
     const c = await validateClient();
@@ -221,17 +215,19 @@ export interface IIdentifier {
     prefix: string;
 }
 
-export async function getNameByPrefix(prefix: string): Promise<string> {
+export const getNameByPrefix = async (prefix: string): Promise<string> => {
     try {
+        validateClient();
         const aid = await getIdentifierByPrefix(prefix);
-        return aid.name as string;
+        const name = aid.name ? aid.name : '';
+        return name;
     } catch (error) {
         console.error('signify_ts_shim: getPrefixByName: prefix, error:', prefix, error);
         throw error;
     }
-}
+};
 
-export async function getIdentifierByPrefix(prefix: string): Promise<IIdentifier> {
+export const getIdentifierByPrefix = async (prefix: string): Promise<IIdentifier> => {
     try {
         validateClient();
         const client: SignifyClient = _client as SignifyClient;
@@ -247,10 +243,10 @@ export async function getIdentifierByPrefix(prefix: string): Promise<IIdentifier
         console.error('signify_ts_shim: getIdentifierByPrefix: prefix, error:', prefix, error);
         throw error;
     }
-}
+};
 
 export async function getCredentialsList(
-    // filter: object
+// filter: object
 ): Promise<string> {  // TODO P3 define the return type?
     try {
         validateClient();
@@ -594,7 +590,7 @@ export const operationsDelete = async (name: string): Promise<string> => {
 };
 
 export const operationsWait = async <T = unknown>(
-    operationJson: string, 
+    operationJson: string,
     optionsJson?: string
 ): Promise<string> => {
     try {

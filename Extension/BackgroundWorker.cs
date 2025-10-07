@@ -293,7 +293,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
 
                 if (csBwMsg != null) {
-                    //_logger.LogInformation("Successfully deserialized CsBwMsg with type: {Type}", csBwMsg.Type);
+                    // _logger.LogInformation("Successfully deserialized CsBwMsg with type: {Type}", csBwMsg.Type);
 
                     _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
                     // Handle different message types using the new message type constants
@@ -1524,7 +1524,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 */
 
                 // Get session/identifier for this origin and tab
-                // For now, we'll use the remembered prefix from website config
+                // TODO P2 For now, we'll use the remembered prefix from website config
                 string? aidName = null;
 
                 if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
@@ -1534,9 +1534,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
 
                         var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                        aidName = await Signify_ts_shim.GetNameByPrefix(prefix);
-                        _logger.LogInformation("BW HandleSignRequest: found AID name {AidName} for origin {Origin}",
-                            aidName, originDomain);
+                        var aidNameRes = await _signifyService.GetNameByPrefix2(prefix);
+                        if (aidNameRes != null && aidNameRes.IsSuccess) {
+                            aidName = aidNameRes.Value;
+                            _logger.LogInformation("BW HandleSignRequest: found AID name {AidName} for origin {Origin}", aidName, originDomain);
+                        }
                     }
                 }
 
@@ -1559,7 +1561,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         if (headers != null) {
                             headersDict = headers;
                         }
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex) {
                         _logger.LogWarning(ex, "BW HandleSignRequest: failed to parse headers");
                     }
                 }
