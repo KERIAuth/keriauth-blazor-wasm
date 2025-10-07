@@ -10,7 +10,7 @@ namespace Extension.Services.SignifyService {
         Task<Result<State>> Connect(string url, string passcode, string? bootUrl = null, bool isBootForced = false, TimeSpan? timeout = null);
         Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null);
 
-        Task<Result<string>> GetNameByPrefix2(string prefix);
+        Task<Result<string>> GetNameByPrefix(string prefix);
         Task<Result<State>> GetState();
         Task<Result<bool>> Connect();
         Task<Result<HttpResponseMessage>> Fetch(string path, string method, object data, Dictionary<string, string>? extraHeaders = null);

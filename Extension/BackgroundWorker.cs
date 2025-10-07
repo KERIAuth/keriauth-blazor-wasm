@@ -84,10 +84,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
-
         WebExtensions.Runtime.OnConnect.AddListener(OnConnect);
-
-
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
         // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
@@ -103,23 +100,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         //   Parameters: message (any), sender (MessageSender), sendResponse (function)
         // TODO P2 chrome.webRequest.onBeforeRequest // (network/page events)
         //   Parameters: details - Object with requestId, url, method, frameId, tabId, type, timeStamp, requestBody
-    }
-
-    // DEPRECATED: This method is no longer used - see OnInstalledAsync() instead
-    // Kept for reference only
-    private async Task OnInstalled() {
-        _logger.LogInformation("BW: OnInstalled...");
-        var indexPageUrl = WebExtensions.Runtime.GetURL("index.html");
-
-        var tab = await WebExtensions.Tabs.Create(new() {
-            Url = indexPageUrl
-        });
-        if (tab is not null) {
-            tab.Active = true;
-        }
-        else {
-            throw new ArgumentException("indexPageUrl");
-        }
     }
 
     private readonly SignifyClientShim _signifyClientShim;
@@ -143,7 +123,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _dotNetObjectRef = DotNetObjectReference.Create(this);
     }
 
-    // OnInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
+    // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
     // Parameter: details - OnInstalledDetails with reason, previousVersion, and id
     [JSInvokable]
     public async Task OnInstalledAsync(object detailsObj) {
@@ -160,7 +140,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // TODO P3 set a URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
+            // TODO P3 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
             // await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
             _ = UninstallUrl;
 
@@ -709,7 +689,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
 
-    // OnMessage fires when extension parts or external apps send messages.
+    // onMessage fires when extension parts or external apps send messages.
     // Typical use: Coordination, data requests.
     // Returns: Response to send back to the message sender (or null)
     [JSInvokable]
@@ -924,6 +904,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onInstall fires when the extension is installed
     private async Task HandleInstallAsync() {
         try {
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=install";
@@ -938,10 +919,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // onUpdated fires when the extension is already installed, but updated, which may occur automatically from Chrome and ChromeWebStore, without user intervention
+    // This will be triggered by a Chrome Web Store push,
+    // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
+
     private async Task HandleUpdateAsync(string previousVersion) {
         try {
-            // Note this will be triggered by a Chrome Web Store push,
-            // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
             var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;
             _logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
@@ -963,7 +946,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogError(ex, "Error handling update");
         }
     }
-
 
     private async Task<object?> HandleUnknownMessageAsync(string? action) {
         _logger.LogInformation("HandleUnknownMessageAsync called for action: {Action}", action);
@@ -1009,49 +991,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-
-
-
-
-    /*
-
-
-
-
-
-
-
-
-                    // Request permission from the user
-                    // var hasPermission = await RequestOriginPermissionAsync(origin);
-                    if (hasPermission) {
-                        _logger.LogInformation("Permission granted for: {Origin}", origin);
-                        await UseActionPopupAsync(tabId);
-                    }
-                    else {
-                        _logger.LogInformation("Permission denied for: {Origin}", origin);
-                        await CreateExtensionTabAsync();
-                    }
-                }
-                else {
-                    // If user clicks on the action icon on a page already allowed permission, 
-                    // but for an interaction not initiated from the content script
-                    await CreateExtensionTabAsync();
-                    // TODO P2: Consider implementing useActionPopup(tabId) for direct popup interaction
-                }
-
-                // Clear the popup url for the action button, if it is set, 
-                // so that future use of the action button will also trigger this same handler
-                await WebExtensions.Action.SetPopup(new() { Popup = "" });
-
-                return;
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error handling action click on web page");
-            }
-        }
-        */
-
     private async Task<bool> CheckOriginPermissionAsync(string origin) {
         try {
             _logger.LogInformation("Checking permission for origin: {Origin}", origin);
@@ -1071,19 +1010,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    // TODO P1: is this now done in app.js?
     private async Task<bool> RequestOriginPermissionAsync(string origin) {
         try {
             _logger.LogInformation("Requesting permission for origin: {Origin}", origin);
 
             var isGranted = false;
-            /*
-                        var pt = new AnyPermissions
-                        {
-                            Origins = [new MatchPattern( new MatchPatternRestricted(origin))]
-                        };
-                        var isGranted = await WebExtensions.Permissions.Contains(pt);
-                        _logger.LogInformation("Current permission for {Origin}: {IsGranted}", origin, isGranted);
-            */
             var ptt = new PermissionsType {
                 Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
             };
@@ -1547,10 +1479,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
 
                         var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                        var aidNameRes = await _signifyService.GetNameByPrefix2(prefix);
-                        if (aidNameRes != null && aidNameRes.IsSuccess) {
+                        var aidNameRes = await _signifyService.GetNameByPrefix(prefix);
+                        if (aidNameRes.IsSuccess && !string.IsNullOrEmpty(aidNameRes.Value)) {
                             aidName = aidNameRes.Value;
-                            _logger.LogInformation("BW HandleSignRequest: found AID name {AidName} for origin {Origin}", aidName, originDomain);
+                            _logger.LogInformation("BW HandleSignRequest: found AID name '{AidName}' for origin {Origin}", aidName, originDomain);
+                        }
+                        else {
+                            _logger.LogWarning("BW HandleSignRequest: failed to get AID name for prefix {Prefix}: {Error}",
+                                prefix, aidNameRes.IsFailed ? aidNameRes.Errors[0].Message : "empty result");
                         }
                     }
                 }

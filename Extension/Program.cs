@@ -60,7 +60,8 @@ try {
 
     var modules = new[] {
         ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
-        ("storageHelper", "/scripts/es6/storageHelper.js")
+        ("storageHelper", "/scripts/es6/storageHelper.js"),
+        ("signifyClient", "/scripts/esbuild/signifyClient.js")
     };
 
     foreach (var (moduleName, modulePath) in modules) {
@@ -68,6 +69,10 @@ try {
             logger.LogInformation("Program: Importing {ModuleName} from {ModulePath}", moduleName, modulePath);
             await JSHost.ImportAsync(moduleName, modulePath);
             logger.LogInformation("Program: Successfully imported {ModuleName}", moduleName);
+        }
+        catch (JSException e) {
+            logger.LogError(e, "Program: javascript Failed to import {ModuleName}: {Message}", moduleName, e.Message);
+            throw;
         }
         catch (Exception ex) {
             logger.LogError(ex, "Program: Failed to import {ModuleName}: {Message}", moduleName, ex.Message);

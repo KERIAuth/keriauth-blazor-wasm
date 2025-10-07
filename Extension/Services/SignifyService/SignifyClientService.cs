@@ -92,12 +92,46 @@ namespace Extension.Services.SignifyService {
             // return Task.FromResult(Result.Fail<bool>("Not implemented"));
         }
 
-        public async Task<Result<string>> GetNameByPrefix2(string prefix) {
-            // TODO P1: wrap in timeout, try/catch
-            logger.LogWarning("GetNameByPrefix2 prefix: {prefix} method: {t}", prefix, "GetNameByPrefix");
-            var identifier = await _shim.GetIdentifierByPrefix(prefix);
-            logger.LogWarning("GetIdentifierByPrefix {ide}", identifier);
-            return identifier; // TODO P0 bad
+        public async Task<Result<string>> GetNameByPrefix(string prefix) {
+            logger.LogInformation("GetNameByPrefix: Looking up name for prefix: {prefix}", prefix);
+
+            TimeSpan timeout = TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+
+            try {
+                var identifierJson = await TimeoutHelper.WithTimeout<string>(
+                    ct => _shim.GetIdentifierByPrefix(prefix, ct),
+                    timeout
+                );
+
+                if (identifierJson.IsFailed) {
+                    logger.LogWarning("GetNameByPrefix: Failed to get identifier by prefix: {error}", identifierJson.Errors[0].Message);
+                    return Result.Fail<string>($"Failed to get identifier: {identifierJson.Errors[0].Message}");
+                }
+
+                // Parse the JSON to extract the name field
+                var identifier = JsonSerializer.Deserialize<Dictionary<string, object>>(identifierJson.Value);
+                if (identifier == null) {
+                    logger.LogWarning("GetNameByPrefix: Failed to deserialize identifier JSON");
+                    return Result.Fail<string>("Failed to deserialize identifier");
+                }
+
+                if (identifier.TryGetValue("name", out var nameObj) && nameObj != null) {
+                    var name = nameObj.ToString() ?? string.Empty;
+                    logger.LogInformation("GetNameByPrefix: Found name '{name}' for prefix {prefix}", name, prefix);
+                    return Result.Ok(name);
+                }
+
+                logger.LogWarning("GetNameByPrefix: No name field found in identifier for prefix {prefix}", prefix);
+                return Result.Fail<string>($"No name field found for prefix {prefix}");
+            }
+            catch (OperationCanceledException) {
+                logger.LogWarning("GetNameByPrefix: Timeout getting identifier for prefix {prefix}", prefix);
+                return Result.Fail<string>($"Timeout getting identifier for prefix {prefix}");
+            }
+            catch (Exception e) {
+                logger.LogWarning(e, "GetNameByPrefix: Exception getting identifier for prefix {prefix}", prefix);
+                return Result.Fail<string>($"Exception getting identifier: {e.Message}");
+            }
         }
 
         public async Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null) {
