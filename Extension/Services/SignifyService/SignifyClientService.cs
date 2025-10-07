@@ -4,7 +4,7 @@ using FluentResults;
 using System.Diagnostics;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
-// using static Extension.Services.SignifyService.Signify_ts_shim;
+using static Extension.Services.SignifyService.Signify_ts_shim;
 using Group = Extension.Services.SignifyService.Models.Group;
 using State = Extension.Services.SignifyService.Models.State;
 
