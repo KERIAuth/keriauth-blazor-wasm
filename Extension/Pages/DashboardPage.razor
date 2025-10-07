@@ -5,10 +5,10 @@
 @inject IJSRuntime js
 @inject IStateService stateService
 @inject ILogger<DashboardPage> logger
-@inject IdentifiersService identifiersService
 @inject IWebsiteConfigService websiteConfigService
 @inject ISignifyClientService signifyClientService;
 
+@using Extension.Services.SignifyService.Models
 
 @code {
     // CascadingParameters will also update from App's StateHasChanged(), triggering OnParametersAsync()
@@ -19,7 +19,7 @@
     int identifiersCount = 0;
 
     // properties
-    IdentifierHeadline? SelectedIdentifierHeadline { get; set; }
+    Aid? SelectedAid { get; set; }
     int NumWebsites { get; set; } = 0;
     List<RecursiveDictionary> Credentials = [];
 
@@ -29,16 +29,16 @@
     List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => Prefs.SelectedPrefix;
-    string? SelectedIdenticon => SelectedIdentifierHeadline?.Identicon;
-    string SelectedAlias => SelectedIdentifierHeadline?.Alias ?? "";
+    string? SelectedIdenticon => SelectedAid != null ? Helper.Identicon.MakeIdenticon(SelectedAid.Prefix) : null;
+    string SelectedAlias => SelectedAid?.Name ?? "";
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        var res = await identifiersService.GetIdentifierHeadlines();
+        var res = await signifyClientService.GetIdentifiers();
         if (res is not null && res.IsSuccess)
         {
-            identifiersCount = res.Value.Count();
+            identifiersCount = res.Value.Aids.Count();
         }
     }
 
@@ -56,10 +56,10 @@
         }
 
         // Handle effects of value of Prefs updates
-        var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
-        if (identifierHeadlinesRes is not null && identifierHeadlinesRes.IsSuccess && SelectedPrefix != string.Empty)
+        var identifiersRes = await signifyClientService.GetIdentifiers();
+        if (identifiersRes is not null && identifiersRes.IsSuccess && SelectedPrefix != string.Empty)
         {
-            SelectedIdentifierHeadline = identifierHeadlinesRes.Value.Where<IdentifierHeadline>((h) => h.Prefix == SelectedPrefix).First();
+            SelectedAid = identifiersRes.Value.Aids.FirstOrDefault(aid => aid.Prefix == SelectedPrefix);
         }
 
         // Get credentials for the number of credentials

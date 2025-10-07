@@ -29,7 +29,6 @@
 @inject NavigationManager navManager
 @using static Extension.Helper.PreviousPage
 @inject ILogger<RequestSignPage> logger
-@inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
@@ -65,15 +64,12 @@
     bool IsInitialized { get; set; }
     bool IsExpanded { get; set; }
     string AppActivePrefix { get; set; } = string.Empty;
-    List<IdentifierHeadline> IdentifierHeadlines { get; set; } = [];
     enum SignInMode { Credential, Identifier, Prompt }
     Preferences? Prefs { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
     List<RecursiveDictionary> credentials = new();
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
-    IdentifierHeadline? SelectedHeadlineOrNothing { get; set; }
     string SelectedPrefix { get; set; } = "unknown";
-    string SelectedAidAlias { get; set; } = "unknown";
 
     // reactive properties
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
@@ -100,7 +96,6 @@
     {
         logger.LogInformation($"OnParametersSetAsync");
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
-        await GetInitialHeadlines();
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
 
@@ -137,7 +132,8 @@
 
             if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
             {
-                await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
+                // TODO P1: Get identifier name from SelectedPrefix instead of fetching all identifiers
+                await SignRequest(RequestedSignInMode, RequestId, null, PayloadJson);
                 // TODO P2 notify the user signing is happening, and close?
             }
             return;
@@ -187,58 +183,6 @@
         Prefs = prefs with { ShowSignRequestDetail = isDetailShown };
         await preferencesService.SetPreferences(Prefs);
         return;
-    }
-
-
-    // TODO P2 simplify GetInitialHeadlines
-    // Here, GetInitialHeadlines is a overly complex way of getting the alias name of the identifier to sign the headers. Signify-ts and KERIA might
-    // now be able to sign using the Prefix.
-    async Task GetInitialHeadlines()
-    {
-        logger.LogInformation("GetHeadlines...");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res != null && res.IsSuccess)
-        {
-            logger.LogInformation("GetIdentifierHeadlines: count {1}", res.Value.Count);
-            IdentifierHeadlines = res.Value;
-            IdentifierHeadlines = IdentifierHeadlines.OrderBy(a => a.Alias).ToList();
-            if (IdentifierHeadlines.Count > 0)
-            {
-                Debug.Assert(GetOriginUri() is not null); // TODO P2 convert to a throw
-                var wcRes = await websiteConfigService.GetOrCreateWebsiteConfig(GetOriginUri()!);
-                logger.LogInformation("GetHeadlines: getOrCreateWebsite: {0}", JsonSerializer.Serialize(wcRes));
-                if (wcRes.IsFailed)
-                {
-                    logger.LogError("Error in websiteService: {0}", wcRes.Errors);
-                    return;
-                }
-                WebsiteConfig newWebsiteConfig = wcRes.Value.websiteConfig1;
-                if (newWebsiteConfig.RememberedPrefixOrNothing is not null)
-                {
-                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == newWebsiteConfig.RememberedPrefixOrNothing);
-                }
-                else
-                {
-                    // use the user's general preferences or otherwise the first headline
-                    SelectedHeadlineOrNothing = IdentifierHeadlines.First(a => a.Prefix == AppActivePrefix);
-                    if (SelectedHeadlineOrNothing is null)
-                    {
-                        SelectedHeadlineOrNothing = IdentifierHeadlines.First();
-                    }
-                }
-                logger.LogInformation("SelectedHeadlineOrNothing: Alias: {0}", SelectedHeadlineOrNothing?.Alias ?? "UNSET!");
-                SelectedPrefix = SelectedHeadlineOrNothing?.Prefix ?? "UNSET!";
-                SelectedAidAlias = SelectedHeadlineOrNothing?.Alias ?? "UNSET!";
-                Debug.Assert(SelectedHeadlineOrNothing is null, "Unexpected null value ???? for SelectedHeadlineOrNothing");
-                Debug.Assert(GetOriginUri() is not null);
-                // await getWebsiteConfig(GetOriginUri()!);
-                StateHasChanged();
-            }
-            else
-            {
-                throw new Exception("No Identifiers found");
-            }
-        };
     }
 
     //
@@ -332,6 +276,11 @@
         }
         logger.LogInformation("SignRequest: request: {d}", request.ToString());
 
+        // TODO P1: SelectedName parameter is currently unused by BackgroundWorker and signify-ts.
+        // Either use it for signing (if signify-ts requires the name/alias instead of prefix),
+        // or remove it entirely if SelectedPrefix is sufficient for signing operations.
+        // For now, accepting null since the field is not actually used downstream.
+
         // prepare to create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
         if (SelectedName is null)
         {
@@ -386,7 +335,10 @@
     {
         var replyMessageData = new ReplyMessageData<AuthorizeResult>(
             "/KeriAuth/signify/replyCancel",
-            new AuthorizeResult(null, null),
+            new AuthorizeResult {
+                ARCredential = null,
+                ARIdentifier = null
+            },
             requestId: RequestId,
             null,
             "KeriAuth"
@@ -460,7 +412,8 @@
     //
     private async Task SignRequestHandler()
     {
-        await SignRequest(RequestedSignInMode, RequestId, SelectedAidAlias, PayloadJson);
+        // TODO P1: Get identifier name from SelectedPrefix instead of fetching all identifiers
+        await SignRequest(RequestedSignInMode, RequestId, null, PayloadJson);
     }
 
     //

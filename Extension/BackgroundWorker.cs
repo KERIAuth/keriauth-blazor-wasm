@@ -1,4 +1,5 @@
 ﻿using Blazor.BrowserExtension;
+using Extension.Helper;
 using Extension.Models;
 using Extension.Models.ExCsMessages;
 using Extension.Services;
@@ -37,6 +38,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private static readonly JsonSerializerOptions CredentialJsonOptions = new() {
         PropertyNameCaseInsensitive = true,
         MaxDepth = 128  // Increased from default 32 to handle deeply nested vLEI credential structures
+    };
+
+    // Cached JsonSerializerOptions for AuthorizeResult deserialization with RecursiveDictionary support
+    // MaxDepth increased to handle deeply nested vLEI credential structures
+    private static readonly JsonSerializerOptions AuthorizeResultJsonOptions = new() {
+        PropertyNameCaseInsensitive = true,
+        MaxDepth = 128,
+        Converters = { new RecursiveDictionaryConverter() }
     };
 
     // Install reasons
@@ -491,9 +500,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Extract credential and identifier from payload
-            // TODO: Parse credential.raw and get signed headers from SignifyService
-            // For now, just forward the message as-is
+            // Deserialize payload as AuthorizeResult with RecursiveDictionaryConverter
+            // This preserves CESR/SAID ordering in the credential
+            var payloadJson = JsonSerializer.Serialize(message.Payload);
+            _logger.LogInformation("REPLY_CRED payload JSON: {json}", payloadJson);
+            var authorizeResult = JsonSerializer.Deserialize<AuthorizeResult>(payloadJson, AuthorizeResultJsonOptions);
+
+            if (authorizeResult?.ARCredential == null) {
+                _logger.LogWarning("REPLY_CRED payload missing credential");
+                return;
+            }
+
             _logger.LogInformation("Processing REPLY_CRED - credential signing not yet fully implemented");
 
             // Calculate expiry (30 minutes from now)
@@ -506,36 +523,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             //     ...
             // }
 
-            // Parse and reconstruct payload with expiry and headers
-            var payloadJson = JsonSerializer.Serialize(message.Payload);
-            using var jsonDoc = JsonDocument.Parse(payloadJson);
-            var root = jsonDoc.RootElement;
+            // Convert RecursiveDictionary to object for JavaScript
+            // This preserves CESR/SAID ordering since RecursiveDictionary maintains insertion order
+            var credentialObj = new {
+                raw = authorizeResult.ARCredential.Raw.ToObjectDictionary(),
+                cesr = authorizeResult.ARCredential.Cesr
+            };
 
-            if (!root.TryGetProperty("credential", out var credentialElement)) {
-                _logger.LogWarning("REPLY_CRED payload missing 'credential' property");
-                return;
-            }
-
-            // Extract the raw credential JSON string to avoid deep serialization issues
-            // The credential will be parsed on the JavaScript side
-            var credentialJson = credentialElement.GetRawText();
-
-            // Create a payload object that includes the credential as a raw JSON string
-            // JavaScript will parse this string to get the actual credential object
+            // Create payload with credential object, expiry, and headers
             var payloadObj = new {
-                credentialJson,  // Send as string, JS will parse it
+                credential = credentialObj,
                 expiry,
                 headers = new Dictionary<string, string>() // TODO: Get from SignifyService
             };
 
-            var authorizeResult = new BwCsMsg(
+            var replyMsg = new BwCsMsg(
                 type: BwCsMsgTypes.REPLY,
                 requestId: message.RequestId,
                 payload: payloadObj
             );
 
             _logger.LogInformation("BW🡢CS authorizeResult");
-            csConnection.Port.PostMessage(authorizeResult);
+            csConnection.Port.PostMessage(replyMsg);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error processing REPLY_CRED message");

@@ -309,6 +309,51 @@ interface ExtensionMessage {
   - Holder presents credential to Verifier
   - Verifier verifies credential from Holder
 
+### CRITICAL: Credential Handling and CESR/SAID Ordering
+
+**NEVER serialize/deserialize credentials using System.Text.Json or Newtonsoft.Json** - This WILL break CESR/SAID ordering and invalidate cryptographic signatures.
+
+**Correct approaches for handling credentials in C#:**
+
+1. **Use RecursiveDictionary for credential data**: This type preserves insertion order required for SAID verification
+   ```csharp
+   // Credential received from signify-ts
+   RecursiveDictionary credential = await signifyClient.GetCredential(...);
+
+   // Store as RecursiveDictionary, NEVER serialize/deserialize
+   myModel.Credential = credential;
+   ```
+
+2. **Convert to object only when passing to JavaScript**: Use JsBind.Net's ToJsObject() method
+   ```csharp
+   // When sending to Content Script via BackgroundWorker
+   var credentialObj = credential.ToJsObject();
+   await SendToContentScript(credentialObj);
+   ```
+
+3. **NEVER do this**:
+   ```csharp
+   // ❌ WRONG - Breaks CESR/SAID ordering
+   var json = JsonSerializer.Serialize(credential);
+   var parsed = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+
+   // ❌ WRONG - Also breaks ordering
+   var json = JsonConvert.SerializeObject(credential);
+   ```
+
+**Why this matters:**
+- SAID (Self-Addressing IDentifier) is a cryptographic hash of the credential content
+- The hash depends on exact field ordering in the JSON representation
+- Standard C# JSON serializers do not preserve insertion order
+- Re-serializing scrambles field order, making the SAID invalid
+- Invalid SAID = credential verification fails
+
+**Data types for credentials:**
+- Received from signify-ts: `RecursiveDictionary`
+- Stored in C# models: `RecursiveDictionary`
+- Passed to JavaScript: Convert using `ToJsObject()` only at message boundary
+- Never use: `string`, `Dictionary<string, object>`, or any JSON serialization
+
 ### vLEI Credential Schema Definitions
 
 Schema repository: <https://github.com/GLEIF-IT/vLEI-schema>

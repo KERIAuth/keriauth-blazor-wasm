@@ -4,7 +4,6 @@
 @inject IWebsiteConfigService websiteConfigService
 @inject IStateService stateService
 @inject ISignifyClientService signifyClientService
-@inject IdentifiersService identifiersService
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject IDialogService dialogService
@@ -13,6 +12,8 @@
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 @inject NavigationManager navManager
+
+@using Extension.Services.SignifyService.Models
 
 @code {
     [Parameter] public required string? OriginStr { get; init; }
@@ -23,7 +24,7 @@
 
     // properties
     bool IsCredListExpanded { get; set; }
-    List<IdentifierHeadline>? IdentifierHeadlines { get; set; }
+    List<Aid>? Identifiers { get; set; }
     bool IsAutoSignInIdentifier { get; set; }
     string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
@@ -41,7 +42,7 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync...");
-        await getInitialIdentifierHeadlines();
+        await getInitialIdentifiers();
         await getCredentials();
         // inform parent so it can enable or disable Sign In button, for example
         await sendValueToParent();
@@ -85,12 +86,12 @@
         StateHasChanged(); // update reactive properties
         logger.LogInformation($"SendValueToParent prefix: {SelectedPrefix} | SelectedCredential {SelectedCredentialOrNothing is not null}");
 
-        if (ValueChanged.HasDelegate && IdentifierHeadlines is not null)
+        if (ValueChanged.HasDelegate && Identifiers is not null)
         {
-            var selectedIdentifierHeadline = IdentifierHeadlines.Find(x => x.Prefix == SelectedPrefix);
-            if (selectedIdentifierHeadline is not null)
+            var selectedAid = Identifiers.Find(x => x.Prefix == SelectedPrefix);
+            if (selectedAid is not null)
             {
-                var selectedAlias = selectedIdentifierHeadline.Alias;
+                var selectedAlias = selectedAid.Name;
                 await ValueChanged.InvokeAsync((SelectedPrefix, selectedAlias, SelectedCredentialOrNothing));
             }
         }
@@ -139,20 +140,20 @@
         logger.LogInformation("RefreshFromWebsiteConfig: done");
     }
 
-    private async Task getInitialIdentifierHeadlines()
+    private async Task getInitialIdentifiers()
     {
-        // logger.LogWarning("GetInitialIdentifierHeadlines() ...");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res?.IsSuccess == true && res.Value is not null)
+        // logger.LogWarning("GetInitialIdentifiers() ...");
+        var res = await signifyClientService.GetIdentifiers();
+        if (res?.IsSuccess == true && res.Value?.Aids is not null)
         {
-            IdentifierHeadlines = res.Value.OrderBy(a => a.Alias).ToList();
+            Identifiers = res.Value.Aids.OrderBy(a => a.Name).ToList();
         }
         else
         {
-            throw new Exception("unexpected null identifier Headlines");
+            throw new Exception("unexpected null identifiers");
         }
         // StateHasChanged(); // TODO needed?
-        // logger.LogWarning("GetInitialIdentifierHeadlines() done count: {c}", IdentifierHeadlines?.Count());
+        // logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
     }
 
     // TODO P2 DRY move this filterCredentials to a helper
@@ -319,20 +320,20 @@
     }
 
     <!-- assure prerequisites for below are set, and to assure loading all at once versus rolling -->
-    @if (IdentifierHeadlines is not null && IdentifierHeadlines.Any() && CredentialsDict is not null)
+    @if (Identifiers is not null && Identifiers.Any() && CredentialsDict is not null)
     {
         <!-- Select Identifier -->
         <MudStack Class="gap-0">
             <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
                 <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)" Placeholder="Select">
-                    @foreach (var identifierHeadline in IdentifierHeadlines)
+                    @foreach (var aid in Identifiers)
                     {
-                        <MudSelectItem T="string" Value="identifierHeadline.Prefix" Class="@getIdentifierItemClass(identifierHeadline.Prefix)">
+                        <MudSelectItem T="string" Value="aid.Prefix" Class="@getIdentifierItemClass(aid.Prefix)">
                             <MudStack Row Style="align-items:center;">
-                                <MudIcon Icon=@identifierHeadline.Identicon ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(aid.Prefix) ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                                 <div class="bt-sad-2" style="display:contents;">
-                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@identifierHeadline.Alias</MudText>
+                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@aid.Name</MudText>
                                 </div>
                             </MudStack>
                         </MudSelectItem>

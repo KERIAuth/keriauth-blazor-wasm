@@ -7,10 +7,11 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<IdentifiersPage> logger
-@inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
+
+@using Extension.Services.SignifyService.Models
 
 @code {
     [CascadingParameter]
@@ -21,10 +22,10 @@
 
     // properties
     bool IsAddingAid { get; set; }
-    List<IdentifierHeadline>? MyIdentifierHeadlines { get; set; }
+    List<Aid>? MyIdentifiers { get; set; }
 
     // reactive properties
-    string CountLabel => (MyIdentifierHeadlines is not null) ? "(" + MyIdentifierHeadlines.Count + ")" : "...";
+    string CountLabel => (MyIdentifiers is not null) ? "(" + MyIdentifiers.Count + ")" : "...";
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
     string ActiveAid => Prefs.SelectedPrefix;
 
@@ -36,23 +37,17 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        await GetHeadlines();
+        await GetIdentifiers();
     }
 
-    private async Task GetHeadlines()
+    private async Task GetIdentifiers()
     {
-        logger.LogInformation("GetHeadlines");
-        var res = await identifiersService.GetIdentifierHeadlines();
-        if (res != null)
+        logger.LogInformation("GetIdentifiers");
+        var res = await signifyClientService.GetIdentifiers();
+        if (res != null && res.IsSuccess)
         {
-            logger.LogInformation("GetIdentifierHeadlines: {1}", res.Value.Count);
-            MyIdentifierHeadlines = new();
-            foreach (var item in res.Value)
-            {
-                // logger.LogWarning("adding aid {1}", item.Prefix);
-                MyIdentifierHeadlines.Add(new IdentifierHeadline(item.Prefix, item.Alias, Guid.NewGuid()));
-            }
-            MyIdentifierHeadlines = MyIdentifierHeadlines.OrderBy(a => a.Alias).ToList();
+            logger.LogInformation("GetIdentifiers: {1}", res.Value.Aids.Count);
+            MyIdentifiers = res.Value.Aids.OrderBy(a => a.Name).ToList();
         };
     }
 
@@ -80,7 +75,7 @@
             logger.LogInformation("AddIdentifier: {1}", result.Data);
             IsAddingAid = true;
             StateHasChanged();
-            var res = await identifiersService.Add(result.Data?.ToString() ?? String.Empty);
+            var res = await signifyClientService.RunCreateAid(result.Data?.ToString() ?? String.Empty);
             if (res.IsFailed || res.Value is null)
             {
                 logger.LogWarning("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
@@ -89,7 +84,7 @@
             else
             {
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
-                await GetHeadlines();
+                await GetIdentifiers();
                 var prefs = await preferencesService.GetPreferences();
                 await preferencesService.SetPreferences(prefs with { SelectedPrefix = res.Value });
             }
@@ -118,19 +113,19 @@
 
             </MudStack>
 
-            @if (MyIdentifierHeadlines is not null)
+            @if (MyIdentifiers is not null)
             {
-                @foreach (IdentifierHeadline identifierHeadline in MyIdentifierHeadlines)
+                @foreach (Aid aid in MyIdentifiers)
                 {
-                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + identifierHeadline.Prefix)">
+                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + aid.Prefix)">
                         <MudCard Class="py-0 my-1">
-                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)(ActiveAid ?? ""), identifierHeadline.Prefix))>
+                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)(ActiveAid ?? ""), aid.Prefix))>
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">
-                                    <MudButton OnClick="async () => await SetActiveAid(identifierHeadline.Prefix)">
-                                        <MudIcon ViewBox="0 0 100 100" Icon="@identifierHeadline.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                                     </MudButton>
                                 </MudTooltip>
-                                <MudText Typo="Typo.h6">@identifierHeadline.Alias</MudText>
+                                <MudText Typo="Typo.h6">@aid.Name</MudText>
                             </div>
                         </MudCard>
                     </MudLink>

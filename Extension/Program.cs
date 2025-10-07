@@ -43,7 +43,6 @@ builder.Services.AddSingleton<IAlarmService, AlarmService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
 builder.Services.AddSingleton<SignifyClientShim>();
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
-builder.Services.AddSingleton<IdentifiersService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 builder.Services.AddSingleton<IAppBwMessagingService, AppBwMessagingService>();
 builder.Services.AddSingleton<IWebauthnService, WebauthnService>();

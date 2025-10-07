@@ -7,10 +7,11 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<IdentifierPage> logger
-@inject IdentifiersService identifiersService;
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
+
+@using Extension.Services.SignifyService.Models
 
 @code {
     // "Prefix" here is the Prefix under inspection, not necessarily the one in Prefs.Prefix
@@ -68,14 +69,13 @@
 
     // properties
     bool IsWaiting { get; set; }
-    // TODO add IsTransferrable is needed, then add this to IdentifierHeadline and make it reactive
+    // TODO add IsTransferrable is needed, then add this to Aid and make it reactive
     bool IsTransferrable { get; set; }
-    List<IdentifierHeadline> MyIdentifierHeadlines { get; set; } = [];
     string DialogResult { get; set; } = "unknown";
 
     // reactive properties
-    string? Identicon => MyIdentifierHeadlines.FirstOrDefault(a => a.Prefix == Prefix)?.Identicon;
-    string? AliasOrNothing => MyIdentifierHeadlines.FirstOrDefault(a => a.Prefix == Prefix)?.Alias;
+    string? Identicon => Helper.Identicon.MakeIdenticon(Prefix);
+    string? AliasOrNothing => null; // TODO P2: Fetch identifier details by Prefix when needed
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,35 +85,20 @@
     {
         logger.LogInformation($"OnParametersSetAsync");
 
-        await GetHeadlines();
-
         // TODO P3 move this comment to a better place...
         // Use Alias (versus Prefix) to get the full Identifier.
         // Its awkward that the underlying signify-ts get() method does not seem to accept a Prefix value, even though the code implies that
         // Root issue might be how the underlying KERIA hab is storing it. signify-ts tests all seem to have Alias names
         // https://github.com/WebOfTrust/signify-ts/blob/f368351f976ceeefc19082fc8351adbb359c4e77/src/keri/app/aiding.ts#L116
 
-        // TODO P2 get identifierService and then full Identifier record
-        // var res = await identifiersService.GetIdentifierService(Prefix);
+        // TODO P2 get full Identifier record by Prefix if needed
+        await Task.CompletedTask;
     }
 
     async Task UpdateKeyState()
     {
         await Task.Delay(0);
         snackbar.Add("Not implemented", Severity.Error);
-    }
-
-    private async Task GetHeadlines()
-    {
-        logger.LogInformation("GetHeadlines");
-        var identifierHeadlinesRes = await identifiersService.GetIdentifierHeadlines();
-        if (identifierHeadlinesRes != null && identifierHeadlinesRes.IsSuccess)
-        {
-            MyIdentifierHeadlines = identifierHeadlinesRes.Value;
-        } else
-        {
-            logger.LogError("Could not get IdentifierHeadlines");
-        };
     }
 
     public static string cardClass(string activeAid2, string rowIdentifier) =>

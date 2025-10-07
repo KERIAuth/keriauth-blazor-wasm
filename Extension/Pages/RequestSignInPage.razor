@@ -28,7 +28,6 @@
 @inject IJSRuntime js
 @using static Extension.Helper.PreviousPage
 @inject ILogger<RequestSignInPage> logger
-@inject IdentifiersService identifiersService
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
@@ -173,32 +172,22 @@
                 }
                 replyMessageData = new(
                     "/signify/reply",
-                    new AuthorizeResult(null, new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)),
+                    new AuthorizeResult {
+                        ARCredential = null,
+                        ARIdentifier = new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)
+                    },
                     requestId: requestId
                 );
                 break;
             case SignInMode.Credential:
-                // Populate a C# record that mirrors the JSON structure and typescript of ICredential from signify-browser-extension/src/config/types.ts
-                // Deserialize JSON string to ICredential record
-                var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase, // Camel case property names
-                        PropertyNameCaseInsensitive = true,                 // Case-insensitive properties
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // Ignore null values
-                        IgnoreReadOnlyProperties = true,                    // Ignore read-only properties
-                        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip // Ignore unmapped members
-                    };
-
-                var json = JsonSerializer.Serialize(SelectedCredentialOrNothing, options);
-
-                if (SelectedCredentialOrNothing is null)
+                if (SelectedCredentialOrNothing is null || SelectedPrefix is null || SelectedAlias is null)
                 {
-                    var error = new ValidationError("Credential", "No credential selected");
+                    var error = new ValidationError("Credential", "No credential is selected");
                     snackbar.Add(error.Message, Severity.Error);
                     return Result.Fail(error);
                 }
 
-                var selectedCredentialSaid = SelectedCredentialOrNothing?.GetValueByPath("sad.d")?.Value as string; 
+                var selectedCredentialSaid = SelectedCredentialOrNothing.GetValueByPath("sad.d")?.Value as string;
                 if (selectedCredentialSaid is null)
                 {
                     var error = new ValidationError("Credential", "Credential SAID is missing");
@@ -206,23 +195,17 @@
                     return Result.Fail(error);
                 }
 
-                var credentialDict = JsonSerializer.Deserialize<Dictionary<string, object>>(json); //, options);
-
-                logger.LogInformation("SignIn with Credential: {0}", credentialDict);
-                if (credentialDict is null || SelectedPrefix is null || SelectedAlias is null)
-                {
-                    var error = new ValidationError("Credential", "Credential data is incomplete");
-                    snackbar.Add(error.Message, Severity.Error);
-                    return Result.Fail(error);
-                };
-
+                // Get CESR representation of credential
                 var cesr = await signifyClientShim.GetCredential(selectedCredentialSaid, true);
+
+                // Pass RecursiveDictionary directly - NEVER serialize/deserialize credentials
+                // RecursiveDictionary preserves CESR/SAID ordering required for verification
                 replyMessageData = new(
                     type: "/KeriAuth/signify/replyCredential",
-                    payload: new AuthorizeResult(
-                        new AuthorizeResultCredential(credentialDict, cesr),
-                        new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)
-                    ),
+                    payload: new AuthorizeResult {
+                        ARCredential = new AuthorizeResultCredential(SelectedCredentialOrNothing, cesr),
+                        ARIdentifier = new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)
+                    },
                     requestId: requestId);
                 break;
             default:
@@ -244,7 +227,10 @@
     {
         var cr = new ReplyMessageData<AuthorizeResult>(
             "/KeriAuth/signify/replyCancel",
-            new AuthorizeResult(null, null),
+            new AuthorizeResult {
+                ARCredential = null,
+                ARIdentifier = null
+            },
             requestId: requestId
         );
         await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(cr);
