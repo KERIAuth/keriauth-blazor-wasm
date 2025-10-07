@@ -28,7 +28,8 @@
       "Bash(dotnet list:*)",
       "WebFetch(domain:developer.chrome.com)",
       "Bash(npx eslint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

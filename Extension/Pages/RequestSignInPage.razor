@@ -38,6 +38,7 @@
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
+@inject SignifyClientShim signifyClientShim
 
 @code {
     [Parameter] public string encodedOrigin { get; set; } = "";
@@ -215,7 +216,7 @@
                     return Result.Fail(error);
                 };
 
-                var cesr = await Signify_ts_shim.GetCredential(selectedCredentialSaid, true);
+                var cesr = await signifyClientShim.GetCredential(selectedCredentialSaid, true);
                 replyMessageData = new(
                     type: "/KeriAuth/signify/replyCredential",
                     payload: new AuthorizeResult(

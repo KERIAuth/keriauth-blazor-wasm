@@ -113,15 +113,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    private readonly SignifyClientShim _signifyClientShim;
+
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
         IJSRuntime jsRuntime,
         IJsRuntimeAdapter jsRuntimeAdapter,
         IStorageService storageService,
         ISignifyClientService signifyService,
+        SignifyClientShim signifyClientShim,
         IWebsiteConfigService websiteConfigService) {
         _logger = logger;
         _jsRuntime = jsRuntime;
+        _signifyClientShim = signifyClientShim;
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageService = storageService;
         _signifyService = signifyService;
@@ -1569,7 +1573,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 // Call signify-ts to get signed headers
                 var headersDictJson = JsonSerializer.Serialize(headersDict);
-                var signedHeadersJson = await Signify_ts_shim.GetSignedHeaders(
+                var signedHeadersJson = await _signifyClientShim.GetSignedHeaders(
                     originDomain,
                     rurl,
                     method,

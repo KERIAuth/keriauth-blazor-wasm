@@ -41,6 +41,7 @@ builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddSingleton<IStateService, StateService>();
 builder.Services.AddSingleton<IAlarmService, AlarmService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
+builder.Services.AddSingleton<SignifyClientShim>();
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
 builder.Services.AddSingleton<IdentifiersService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
@@ -59,7 +60,6 @@ try {
     logger.LogInformation("Program: Importing JavaScript modules for JSImport interop...");
 
     var modules = new[] {
-        ("signify_ts_shim", "/scripts/esbuild/signify_ts_shim.js"),
         ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
         ("storageHelper", "/scripts/es6/storageHelper.js")
     };

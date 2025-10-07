@@ -38,11 +38,11 @@ const sharedOptions = {
 // Build configurations
 const builds = [
     {
-        name: 'signify_ts_shim',
-        entryPoints: ['wwwroot/scripts/esbuild/signify_ts_shim.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/signify_ts_shim.js',
+        name: 'signifyClient',
+        entryPoints: ['wwwroot/scripts/esbuild/signifyClient.ts'],
+        outfile: 'dist/wwwroot/scripts/esbuild/signifyClient.js',
         platform: "browser",
-        format: 'esm',  // Keep ESM for this module
+        format: 'esm',  // Keep ESM for C# interop
         plugins: [
             alias({
                 '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
