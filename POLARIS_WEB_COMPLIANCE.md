@@ -4,9 +4,9 @@
 
 This document summarizes conformance to the [polaris-web protocol specification](https://github.com/WebOfTrust/polaris-web), which defines a communication protocol between web pages and browser extensions for KERI/ACDC operations.
 
-## Protocol Compliance Matrix
+## Protocol Compliance
 
-| Capability | Message Type | Supported | Comments |
+| Polaris-Web Capability | Message Type | Supported? | Comments |
 |-------------------|--------------|-----------|----------|
 | **Extension Detection** | `signify-extension-client` | ✅ Yes |  |
 | **Extension Ready Signal** | `signify-extension` | ✅ Yes |  |
