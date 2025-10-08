@@ -5,6 +5,8 @@ using Extension.Models.ExCsMessages;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
+using Extension.Services.SignifyService.Models;
+using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using MudBlazor.Extensions;
@@ -1454,21 +1456,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Get signed headers from signify service
             try {
-                // Check if we're connected to KERIA
-                // TODO P1 implement connection status caching to avoid repeated calls
-                /*
-                var connectResult = await _signifyService.Connect();
-                if (connectResult.IsFailed) {
-                    _logger.LogWarning("BW HandleSignRequest: not connected to KERIA");
-                    var errorMsg = new BwCsMsg(
-                        type: BwCsMsgTypes.REPLY,
-                        requestId: msg.RequestId,
-                        error: "Not connected to KERIA"
-                    );
-                    csTabPort.PostMessage(errorMsg);
-                    return;
+                // Check if we're connected to KERIA - BackgroundWorker has separate SignifyClient instance
+                // that needs to be connected independently from the App runtime
+                var stateResult = await TryGetSignifyStateAsync();
+                if (stateResult.IsFailed) {
+                    // Not connected - try to connect using stored credentials
+                    _logger.LogInformation("BW HandleSignRequest: SignifyClient not connected, attempting to connect");
+
+                    var connectResult = await TryConnectSignifyClientAsync();
+                    if (connectResult.IsFailed) {
+                        _logger.LogWarning("BW HandleSignRequest: failed to connect to KERIA: {Error}",
+                            connectResult.Errors[0].Message);
+                        var errorMsg = new BwCsMsg(
+                            type: BwCsMsgTypes.REPLY,
+                            requestId: msg.RequestId,
+                            error: $"Not connected to KERIA: {connectResult.Errors[0].Message}"
+                        );
+                        csTabPort.PostMessage(errorMsg);
+                        return;
+                    }
+
+                    _logger.LogInformation("BW HandleSignRequest: successfully connected to KERIA");
                 }
-                */
 
                 // Get session/identifier for this origin and tab
                 // TODO P2 For now, we'll use the remembered prefix from website config
@@ -1695,6 +1704,87 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         public string PreviousVersion { get; set; } = "";
         public string CurrentVersion { get; set; } = "";
         public string Timestamp { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Try to get the current SignifyClient state to check if it's connected
+    /// </summary>
+    private async Task<Result<State>> TryGetSignifyStateAsync() {
+        try {
+            var state = await _signifyService.GetState();
+            return state;
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, "BW TryGetSignifyStateAsync: not connected");
+            return Result.Fail<State>("SignifyClient not connected");
+        }
+    }
+
+    /// <summary>
+    /// Try to connect the BackgroundWorker's SignifyClient instance using stored credentials
+    /// This is needed because BackgroundWorker has a separate Blazor runtime from the App (popup/tab)
+    /// </summary>
+    private async Task<Result> TryConnectSignifyClientAsync() {
+        try {
+            // Get connection config from storage
+            var configResult = await _storageService.GetItem<KeriaConnectConfig>();
+            if (configResult.IsFailed || configResult.Value == null) {
+                return Result.Fail("No KERIA connection configuration found");
+            }
+
+            var config = configResult.Value;
+
+            if (string.IsNullOrEmpty(config.AdminUrl)) {
+                return Result.Fail("Admin URL not configured");
+            }
+
+            if (string.IsNullOrEmpty(config.BootUrl)) {
+                return Result.Fail("Boot URL not configured");
+            }
+
+            // Get passcode from session storage
+            var passcodeResult = await _webExtensionsApi.Storage.Session.Get("passcode");
+
+            // Extract passcode string from the result
+            string? passcode = null;
+            if (passcodeResult is JsonElement jsonElement) {
+                if (jsonElement.ValueKind == JsonValueKind.Undefined || jsonElement.ValueKind == JsonValueKind.Null) {
+                    return Result.Fail("Passcode not found in session storage");
+                }
+
+                if (jsonElement.TryGetProperty("passcode", out var passcodeProperty)) {
+                    passcode = passcodeProperty.GetString();
+                }
+            }
+
+            if (string.IsNullOrEmpty(passcode)) {
+                return Result.Fail("Passcode not available");
+            }
+
+            if (passcode.Length != 21) {
+                return Result.Fail("Invalid passcode length");
+            }
+
+            // Connect to KERIA
+            _logger.LogInformation("BW TryConnectSignifyClient: connecting to {AdminUrl}", config.AdminUrl);
+            var connectResult = await _signifyService.Connect(
+                config.AdminUrl,
+                passcode,
+                config.BootUrl,
+                isBootForced: false  // Don't force boot - just connect
+            );
+
+            if (connectResult.IsFailed) {
+                return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
+            }
+
+            _logger.LogInformation("BW TryConnectSignifyClient: connected successfully");
+            return Result.Ok();
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "BW TryConnectSignifyClient: exception");
+            return Result.Fail($"Exception connecting to KERIA: {ex.Message}");
+        }
     }
 
     public void Dispose() {

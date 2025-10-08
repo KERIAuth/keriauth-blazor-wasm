@@ -3,12 +3,19 @@
  * For details, see https://mingyaulee.github.io/Blazor.BrowserExtension/app-js
  */
 
-// Polyfill crypto.randomBytes for libsodium
+// Polyfills for libsodium WASM initialization
 //
+// 1. Polyfill global object (service workers only have 'self', not 'global' or 'window')
+// This must be set BEFORE any module imports libsodium
+if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefined') {
+    (globalThis as any).global = self;
+    console.log('app.ts: Polyfilled global object for libsodium');
+}
+
+// 2. Polyfill crypto.randomBytes for libsodium
 // Note: In service workers, self.crypto is read-only and already exists.
 // We need to add the randomBytes() method using Object.defineProperty
 // to avoid "Cannot set property" errors on read-only objects.
-
 if (typeof self !== 'undefined' && self.crypto && !(self.crypto as any).randomBytes) {
     try {
         Object.defineProperty(self.crypto, 'randomBytes', {

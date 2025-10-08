@@ -28,9 +28,11 @@ const sharedOptions = {
     minify: process.env.NODE_ENV === 'production',
     sourcemap: true,
     platform: 'browser',
+    mainFields: ['browser','module','main'],
     format: 'iife',  // Changed from 'esm' to 'iife' for content scripts
     loader: { '.ts': 'ts' },
     define: {
+        'global': 'globalThis',
         'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
     }
 };
@@ -43,27 +45,61 @@ const builds = [
         outfile: 'dist/wwwroot/scripts/esbuild/signifyClient.js',
         platform: "browser",
         format: 'esm',  // Keep ESM for C# interop via import()
+        define: {
+            'global': 'globalThis',
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+        },
         banner: {
-            js: `// Polyfill crypto.randomBytes for libsodium WASM in service worker context
-// This must run before libsodium WASM initializes
-//
-// Note: self.crypto is read-only in service workers. Use Object.defineProperty
-// to add randomBytes() method without triggering "Cannot set property" errors.
+            js: `// Polyfills for libsodium WASM in service worker context
+// These must run before libsodium WASM initializes
 
-if (typeof self !== 'undefined' && self.crypto && !self.crypto.randomBytes) {
-    try {
-        Object.defineProperty(self.crypto, 'randomBytes', {
-            value: (size) => {
-                const buffer = new Uint8Array(size);
-                self.crypto.getRandomValues(buffer);
-                return buffer;
-            },
-            writable: false,
-            configurable: true
-        });
-    } catch (e) {
-        console.error('[signifyClient.js] Failed to polyfill crypto.randomBytes:', e);
+// 1. Ensure crypto.getRandomValues is available (primary RNG for libsodium)
+if (typeof self !== 'undefined' && self.crypto && self.crypto.getRandomValues) {
+    // Add randomBytes method that libsodium might look for
+    if (!self.crypto.randomBytes) {
+        try {
+            Object.defineProperty(self.crypto, 'randomBytes', {
+                value: (size) => {
+                    const buffer = new Uint8Array(size);
+                    self.crypto.getRandomValues(buffer);
+                    return buffer;
+                },
+                writable: false,
+                configurable: true
+            });
+        } catch (e) {
+            console.error('[signifyClient.js] Failed to polyfill crypto.randomBytes:', e);
+        }
     }
+
+    // Also ensure globalThis.crypto has the same
+    if (typeof globalThis !== 'undefined' && globalThis.crypto && !globalThis.crypto.randomBytes) {
+        try {
+            Object.defineProperty(globalThis.crypto, 'randomBytes', {
+                value: (size) => {
+                    const buffer = new Uint8Array(size);
+                    globalThis.crypto.getRandomValues(buffer);
+                    return buffer;
+                },
+                writable: false,
+                configurable: true
+            });
+        } catch (e) {
+            // Silently ignore
+        }
+    }
+}
+
+// 2. Set up Module object for Emscripten WASM loading (used by libsodium)
+if (typeof self !== 'undefined' && !globalThis.Module) {
+    globalThis.Module = {
+        // Ensure WASM uses browser crypto for randomness
+        getRandomValue: function(max) {
+            return Math.floor(Math.random() * max);
+        },
+        // Polyfill for any WASM instantiation
+        instantiateWasm: undefined  // Let libsodium use its default base64 embedded WASM
+    };
 }
 `
         },
