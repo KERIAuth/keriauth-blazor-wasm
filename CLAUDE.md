@@ -29,6 +29,80 @@ The extension follows a multi-component architecture:
 
 Services use dependency injection with primarily singleton lifetime for state management across the extension. The StorageService provides persistent storage using chrome.storage API.
 
+## JavaScript Module Loading Architecture
+
+**CRITICAL**: The extension has **two separate Blazor WASM runtime instances**, each with its own `IJSRuntime` and module cache:
+
+1. **BackgroundWorker Runtime** - Service worker context (loaded via `content/BackgroundWorker.js`)
+2. **App Runtime** - UI context for popup/tab/sidepanel (loaded via `index.html`)
+
+**Module Loading Pattern:**
+
+JavaScript ES modules are loaded by `app.ts beforeStart()` hook **BEFORE** Blazor starts:
+
+```typescript
+// Extension/wwwroot/app.ts
+export async function beforeStart(
+    options: WebAssemblyStartOptions,
+    extensions: Record<string, unknown>,
+    blazorBrowserExtension: BrowserExtensionInstance
+): Promise<void> {
+    const mode = blazorBrowserExtension.BrowserExtension.Mode;
+
+    if (mode === 'Background') {
+        // Load modules for BackgroundWorker
+        await Promise.all([
+            import('./scripts/esbuild/signifyClient.js'),
+            import('./scripts/es6/storageHelper.js'),
+            // ... other modules
+        ]);
+    } else if (mode === 'Standard' || mode === 'Debug') {
+        // Load modules for App (includes WebAuthn)
+        await Promise.all([
+            import('./scripts/esbuild/signifyClient.js'),
+            import('./scripts/es6/webauthnCredentialWithPRF.js'),
+            // ... other modules
+        ]);
+    }
+}
+```
+
+**How It Works:**
+
+1. `app.ts beforeStart()` executes **separately in each runtime context**
+2. Modules are loaded and cached by the browser's native module system
+3. C# code accesses modules via `IJSRuntime.InvokeAsync("import", path)` - **instant return from browser cache**
+4. If module loading fails, Blazor startup is prevented (fail-fast)
+
+**Benefits:**
+- ✅ Each runtime gets its own module cache
+- ✅ Modules loaded before C# code needs them
+- ✅ Fail-fast if modules missing
+- ✅ No race conditions
+- ✅ Uses native browser module caching
+
+**C# Service Pattern:**
+```csharp
+// Services access pre-loaded modules from browser cache
+public class MyService {
+    private readonly IJSRuntime _jsRuntime;
+
+    public async Task DoSomethingAsync() {
+        // Import from browser's module cache (instant - already loaded by app.ts)
+        var module = await _jsRuntime.InvokeAsync<IJSObjectReference>(
+            "import", "./scripts/es6/myModule.js"
+        );
+        await module.InvokeVoidAsync("myFunction");
+    }
+}
+```
+
+**Key Files:**
+- [Extension/wwwroot/app.ts](Extension/wwwroot/app.ts) - beforeStart/afterStarted hooks, module loading
+- [Extension/Program.cs](Extension/Program.cs) - Blazor startup (modules already loaded)
+- [Extension/BackgroundWorker.cs](Extension/BackgroundWorker.cs) - Service worker main entry
+- [BLAZOR_WASM_STARTUP_FLOWS.md](BLAZOR_WASM_STARTUP_FLOWS.md) - Detailed startup flow documentation
+
 ## Message Flow Architecture
 
 The extension uses a multi-layered messaging system with strict boundaries:

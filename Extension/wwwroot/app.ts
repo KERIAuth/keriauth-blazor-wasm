@@ -3,6 +3,25 @@
  * For details, see https://mingyaulee.github.io/Blazor.BrowserExtension/app-js
  */
 
+// Static imports - work in both ServiceWorker and standard contexts
+// Import modules with names so they're registered in the module system
+import * as signifyClient from './scripts/esbuild/signifyClient.js';
+import * as storageHelper from './scripts/es6/storageHelper.js';
+import * as permissionsHelper from './scripts/es6/PermissionsHelper.js';
+import * as portMessageHelper from './scripts/es6/PortMessageHelper.js';
+import * as swAppInterop from './scripts/es6/SwAppInterop.js';
+import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWithPRF.js';
+
+// Make modules available globally for debugging
+(globalThis as any).appModules = {
+    signifyClient,
+    storageHelper,
+    permissionsHelper,
+    portMessageHelper,
+    swAppInterop,
+    webauthnCredentialWithPRF
+};
+
 const CS_ID_PREFIX = 'keriauth-cs';
 
 // Type definitions for Blazor Browser Extension types
@@ -26,19 +45,29 @@ interface PingResponse {
 
 /**
  * Called before Blazor starts.
+ * This hook loads JavaScript ES modules into the browser's module cache for the current runtime context.
+ * Each Blazor runtime (BackgroundWorker and App) runs this separately with its own module cache.
+ *
  * @param options Blazor WebAssembly start options. Refer to https://github.com/dotnet/aspnetcore/blob/main/src/Components/Web.JS/src/Platform/WebAssemblyStartOptions.ts
  * @param extensions Extensions added during publishing
  * @param blazorBrowserExtension Blazor browser extension instance
  */
-export function beforeStart(
+export async function beforeStart(
     options: WebAssemblyStartOptions,
     extensions: Record<string, unknown>,
     blazorBrowserExtension: BrowserExtensionInstance
-): void {
+): Promise<void> {
     console.log('app.ts: beforeStart', { options, extensions, blazorBrowserExtension });
 
-    if (blazorBrowserExtension.BrowserExtension.Mode === 'Background') {
-        console.log('app.ts: Background mode detected');
+    const mode = blazorBrowserExtension.BrowserExtension.Mode;
+
+    // JavaScript ES modules are statically imported at the top of this file
+    // This works in both ServiceWorker (Background) and standard (App) contexts
+    // The modules are now available to C# code via IJSRuntime.InvokeAsync("import", path)
+    console.log('app.ts: Modules loaded via static imports:', Object.keys((globalThis as any).appModules));
+
+    if (mode === 'Background') {
+        console.log('app.ts: Setting up Background mode event handlers');
 
         function matchPatternsFromTabUrl(tabUrl: string): string[] {
             try {
@@ -158,5 +187,6 @@ export function beforeStart(
  */
 export function afterStarted(blazor: unknown): void {
     console.log('app.ts: afterStarted - Blazor runtime ready');
-    // Note: Module imports are handled in Program.cs using JSHost.ImportAsync()
+    // Note: JavaScript modules are already loaded and cached by beforeStart() hook above
+    // C# code can access them via IJSRuntime.InvokeAsync("import", path) which returns instantly from browser cache
 }

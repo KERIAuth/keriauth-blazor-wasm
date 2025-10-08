@@ -57,49 +57,14 @@ var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("WASM host built");
 
-// Load all JavaScript ES modules (fail-fast pattern)
-logger.LogInformation("Program: Loading JavaScript ES modules via JsModuleLoader...");
+// JavaScript ES modules are loaded by app.ts beforeStart() hook before Blazor starts
+// The beforeStart hook runs separately in each runtime context (BackgroundWorker and App)
+// and loads the appropriate modules into the browser's module cache
+// Now we just need to "register" them with JsModuleLoader (instant from cache)
+logger.LogInformation("Registering JavaScript modules (pre-loaded by app.ts beforeStart)...");
 var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
 await moduleLoader.LoadAllModulesAsync();
-logger.LogInformation("Program: All ES modules loaded successfully");
-
-// Import JavaScript modules for JSImport interop
-// This must happen BEFORE host.RunAsync() to ensure modules are available when C# code uses [JSImport]
-// Use absolute paths from extension root to work in all contexts (BackgroundWorker, SPA, etc.)
-/*
-try {
-    logger.LogInformation("Program: Importing JavaScript modules for JSImport interop...");
-
-    var modules = new[] {
-        ("webauthnCredentialWithPRF", "/scripts/es6/webauthnCredentialWithPRF.js"),
-        ("storageHelper", "/scripts/es6/storageHelper.js"),
-        ("signifyClient", "/scripts/esbuild/signifyClient.js")
-    };
-
-    foreach (var (moduleName, modulePath) in modules) {
-        try {
-            logger.LogInformation("Program: Importing {ModuleName} from {ModulePath}", moduleName, modulePath);
-            await JSHost.ImportAsync(moduleName, modulePath);
-            logger.LogInformation("Program: Successfully imported {ModuleName}", moduleName);
-        }
-        catch (JSException e) {
-            logger.LogError(e, "Program: javascript Failed to import {ModuleName}: {Message}", moduleName, e.Message);
-            throw;
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Program: Failed to import {ModuleName}: {Message}", moduleName, ex.Message);
-            throw;
-        }
-    }
-
-    logger.LogInformation("Program: All JavaScript modules imported successfully");
-    
-}
-catch (Exception ex) {
-    logger.LogError(ex, "Program: Critical error importing JavaScript modules");
-    throw;
-}
-*/
+logger.LogInformation("All modules registered successfully");
 
 logger.LogInformation("Running WASM Host...");
 

@@ -79,8 +79,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     [BackgroundWorkerMain]
     public override void Main() {
-        // JavaScript module imports are handled in app.ts afterStarted() hook
-        // which is called after Blazor is fully initialized and ready
+        // JavaScript ES modules are loaded by app.ts beforeStart() hook BEFORE Blazor starts
+        // The modules are cached in BackgroundWorker's runtime context and available via IJSRuntime
+        // Services can import modules using IJSRuntime.InvokeAsync("import", path) - instant from cache
 
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
