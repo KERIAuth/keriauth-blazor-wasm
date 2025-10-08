@@ -3,9 +3,33 @@
  * For details, see https://mingyaulee.github.io/Blazor.BrowserExtension/app-js
  */
 
+// Polyfill crypto.randomBytes for libsodium
+//
+// Note: In service workers, self.crypto is read-only and already exists.
+// We need to add the randomBytes() method using Object.defineProperty
+// to avoid "Cannot set property" errors on read-only objects.
+
+if (typeof self !== 'undefined' && self.crypto && !(self.crypto as any).randomBytes) {
+    try {
+        Object.defineProperty(self.crypto, 'randomBytes', {
+            value: (size: number) => {
+                const buffer = new Uint8Array(size);
+                self.crypto.getRandomValues(buffer);
+                return buffer;
+            },
+            writable: false,
+            configurable: true
+        });
+        console.log('app.ts: Polyfilled crypto.randomBytes for libsodium');
+    } catch (e) {
+        console.error('app.ts: Failed to polyfill crypto.randomBytes:', e);
+    }
+}
+
 // Static imports - work in both ServiceWorker and standard contexts
 // Import modules with names so they're registered in the module system
-import * as signifyClient from './scripts/esbuild/signifyClient.js';
+// NOTE: signifyClient is NOT statically imported because it contains libsodium
+// which needs crypto APIs to be ready first
 import * as storageHelper from './scripts/es6/storageHelper.js';
 import * as permissionsHelper from './scripts/es6/PermissionsHelper.js';
 import * as portMessageHelper from './scripts/es6/PortMessageHelper.js';
@@ -14,7 +38,6 @@ import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWith
 
 // Make modules available globally for debugging
 (globalThis as any).appModules = {
-    signifyClient,
     storageHelper,
     permissionsHelper,
     portMessageHelper,
@@ -65,6 +88,16 @@ export async function beforeStart(
     // This works in both ServiceWorker (Background) and standard (App) contexts
     // The modules are now available to C# code via IJSRuntime.InvokeAsync("import", path)
     console.log('app.ts: Modules loaded via static imports:', Object.keys((globalThis as any).appModules));
+
+    // NOTE: signifyClient is NOT preloaded here because:
+    // 1. libsodium WASM initializes during ES module evaluation (not in a function)
+    // 2. This happens DURING the import() call, before any polyfill code in the module can run
+    // 3. The error occurs before the module's banner or any code executes
+    //
+    // SOLUTION: signifyClient will be lazy-loaded by C# services via IJSRuntime.InvokeAsync("import", ...)
+    // when first needed. By that time, Blazor and all crypto APIs are guaranteed to be fully available.
+    // The polyfill in signifyClient.js banner will run first and libsodium will initialize successfully.
+    console.log('app.ts: signifyClient will be lazy-loaded by C# when needed');
 
     if (mode === 'Background') {
         console.log('app.ts: Setting up Background mode event handlers');

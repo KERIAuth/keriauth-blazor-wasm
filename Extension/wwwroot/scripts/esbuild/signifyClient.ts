@@ -30,6 +30,9 @@ import {
     ready
 } from 'signify-ts';
 
+// Re-export ready for libsodium initialization
+export { ready };
+
 // ===================== Type Definitions =====================
 
 // Controller state interface (based on signify-ts ClientState)
