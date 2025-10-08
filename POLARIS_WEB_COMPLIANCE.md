@@ -24,4 +24,4 @@ This document summarizes conformance to the [polaris-web protocol specification]
 <br/>
 <br/>
 
-**Analysis Date:** 2025-10-07
+**Analysis Date:** 2025-10-07.  May include unreleased KERI Auth features.
