@@ -158,5 +158,5 @@ export function beforeStart(
  */
 export function afterStarted(blazor: unknown): void {
     console.log('app.ts: afterStarted - Blazor runtime ready');
-    // Module imports are handled in Program.cs using JSHost.ImportAsync()
+    // Note: Module imports are handled in Program.cs using JSHost.ImportAsync()
 }

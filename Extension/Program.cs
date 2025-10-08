@@ -1,11 +1,11 @@
 ﻿using Blazor.BrowserExtension;
 using Extension;
 using Extension.Services;
+using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
-using System.Runtime.InteropServices.JavaScript;
 
 // Program and Main are implicit and static
 
@@ -27,6 +27,7 @@ builder.UseBrowserExtension(browserExtension => {
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:
         default:
+            builder.Services.AddMudServices();
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
             break;
@@ -34,27 +35,38 @@ builder.UseBrowserExtension(browserExtension => {
 });
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-builder.Services.AddMudServices();
 builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironmentService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddSingleton<IStateService, StateService>();
 builder.Services.AddSingleton<IAlarmService, AlarmService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
-builder.Services.AddSingleton<SignifyClientShim>();
+// JavaScript module bindings
+builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
+builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
+
+// Application services
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 builder.Services.AddSingleton<IAppBwMessagingService, AppBwMessagingService>();
 builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
+builder.Services.AddJsBind();
 
 var host = builder.Build();
 
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("WASM host built");
 
+// Load all JavaScript ES modules (fail-fast pattern)
+logger.LogInformation("Program: Loading JavaScript ES modules via JsModuleLoader...");
+var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
+await moduleLoader.LoadAllModulesAsync();
+logger.LogInformation("Program: All ES modules loaded successfully");
+
 // Import JavaScript modules for JSImport interop
 // This must happen BEFORE host.RunAsync() to ensure modules are available when C# code uses [JSImport]
 // Use absolute paths from extension root to work in all contexts (BackgroundWorker, SPA, etc.)
+/*
 try {
     logger.LogInformation("Program: Importing JavaScript modules for JSImport interop...");
 
@@ -81,11 +93,13 @@ try {
     }
 
     logger.LogInformation("Program: All JavaScript modules imported successfully");
+    
 }
 catch (Exception ex) {
     logger.LogError(ex, "Program: Critical error importing JavaScript modules");
     throw;
 }
+*/
 
 logger.LogInformation("Running WASM Host...");
 

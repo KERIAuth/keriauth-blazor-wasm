@@ -8,6 +8,7 @@
 @using Extension.Components
 @using Extension.Pages
 @using Extension.Services
+@using Extension.Services.JsBindings
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig
@@ -37,7 +38,7 @@
 @inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
-@inject SignifyClientShim signifyClientShim
+@inject ISignifyClientBinding signifyClientBinding
 
 @code {
     [Parameter] public string encodedOrigin { get; set; } = "";
@@ -196,7 +197,7 @@
                 }
 
                 // Get CESR representation of credential
-                var cesr = await signifyClientShim.GetCredential(selectedCredentialSaid, true);
+                var cesr = await signifyClientBinding.GetCredentialAsync(selectedCredentialSaid, true);
 
                 // Pass RecursiveDictionary directly - NEVER serialize/deserialize credentials
                 // RecursiveDictionary preserves CESR/SAID ordering required for verification

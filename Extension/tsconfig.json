@@ -52,7 +52,7 @@
     "isolatedModules": true
   },
   "include": [
-    "wwwroot/scripts/**/*.ts",
+    "wwwroot/scripts/es6/**/*.ts",
     "wwwroot/scripts/types/**/*.d.ts"
   ],
   "typeRoots": [

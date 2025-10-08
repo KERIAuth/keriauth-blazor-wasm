@@ -42,7 +42,7 @@ const builds = [
         entryPoints: ['wwwroot/scripts/esbuild/signifyClient.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/signifyClient.js',
         platform: "browser",
-        format: 'esm',  // Keep ESM for C# interop
+        format: 'esm',  // Keep ESM for C# interop via import()
         plugins: [
             alias({
                 '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
@@ -53,12 +53,6 @@ const builds = [
         name: 'ContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
         outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js'
-        // Will use IIFE format from sharedOptions
-    },
-    {
-        name: 'MainWorldContentScript',
-        entryPoints: ['wwwroot/scripts/esbuild/MainWorldContentScript.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/MainWorldContentScript.js'
         // Will use IIFE format from sharedOptions
     }
 ];

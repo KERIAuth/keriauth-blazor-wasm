@@ -29,7 +29,12 @@
       "WebFetch(domain:developer.chrome.com)",
       "Bash(npx eslint:*)",
       "Bash(npx tsc:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(if [ -f wwwroot/scripts/es6/signifyClient.ts ])",
+      "Bash(then mv wwwroot/scripts/es6/signifyClient.ts wwwroot/scripts/esbuild/signifyClient.ts)",
+      "Bash(else echo \"File already moved or doesn''t exist\")",
+      "Bash(fi)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

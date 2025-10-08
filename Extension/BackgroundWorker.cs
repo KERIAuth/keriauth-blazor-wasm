@@ -3,6 +3,7 @@ using Extension.Helper;
 using Extension.Models;
 using Extension.Models.ExCsMessages;
 using Extension.Services;
+using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
 using JsBind.Net;
 using Microsoft.JSInterop;
@@ -102,7 +103,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         //   Parameters: details - Object with requestId, url, method, frameId, tabId, type, timeStamp, requestBody
     }
 
-    private readonly SignifyClientShim _signifyClientShim;
+    private readonly ISignifyClientBinding _signifyClientBinding;
 
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
@@ -110,11 +111,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IJsRuntimeAdapter jsRuntimeAdapter,
         IStorageService storageService,
         ISignifyClientService signifyService,
-        SignifyClientShim signifyClientShim,
+        ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService) {
         _logger = logger;
         _jsRuntime = jsRuntime;
-        _signifyClientShim = signifyClientShim;
+        _signifyClientBinding = signifyClientBinding;
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageService = storageService;
         _signifyService = signifyService;
@@ -1479,14 +1480,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
 
                         var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                        var aidNameRes = await _signifyService.GetNameByPrefix(prefix);
-                        if (aidNameRes.IsSuccess && !string.IsNullOrEmpty(aidNameRes.Value)) {
-                            aidName = aidNameRes.Value;
-                            _logger.LogInformation("BW HandleSignRequest: found AID name '{AidName}' for origin {Origin}", aidName, originDomain);
+
+
+                        // GetNameByPrefix
+                        var identifiers = await _signifyService.GetIdentifiers();
+                        if (identifiers.IsSuccess && identifiers.Value is not null) {
+                            var aids = identifiers.Value.Aids;
+                            aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
                         }
                         else {
                             _logger.LogWarning("BW HandleSignRequest: failed to get AID name for prefix {Prefix}: {Error}",
-                                prefix, aidNameRes.IsFailed ? aidNameRes.Errors[0].Message : "empty result");
+                                prefix, identifiers.IsFailed ? identifiers.Errors[0].Message : "empty result");
                         }
                     }
                 }
@@ -1518,7 +1522,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 // Call signify-ts to get signed headers
                 var headersDictJson = JsonSerializer.Serialize(headersDict);
-                var signedHeadersJson = await _signifyClientShim.GetSignedHeaders(
+                var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
                     originDomain,
                     rurl,
                     method,

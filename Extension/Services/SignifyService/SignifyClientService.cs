@@ -1,4 +1,5 @@
 ﻿using Extension.Helper;
+using Extension.Services.JsBindings;
 using Extension.Services.SignifyService.Models;
 using FluentResults;
 using System.Diagnostics;
@@ -8,8 +9,8 @@ using Group = Extension.Services.SignifyService.Models.Group;
 using State = Extension.Services.SignifyService.Models.State;
 
 namespace Extension.Services.SignifyService {
-    public class SignifyClientService(ILogger<SignifyClientService> logger, SignifyClientShim signifyClientShim) : ISignifyClientService {
-        private readonly SignifyClientShim _shim = signifyClientShim;
+    public class SignifyClientService(ILogger<SignifyClientService> logger, ISignifyClientBinding signifyClientBinding) : ISignifyClientService {
+        private readonly ISignifyClientBinding _binding = signifyClientBinding;
         public Task<Result<HttpResponseMessage>> ApproveDelegation() {
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
@@ -41,7 +42,7 @@ namespace Extension.Services.SignifyService {
                 if (OperatingSystem.IsBrowser()) {
                     if (isBootForced) {
                         logger.LogInformation("Connect: BootAndConnect to {url} and {bootUrl}...", url, bootUrl);
-                        var res = await TimeoutHelper.WithTimeout<string>(ct => _shim.BootAndConnect(url, bootUrl, passcode, ct), timeout2);
+                        var res = await TimeoutHelper.WithTimeout<string>(ct => _binding.BootAndConnectAsync(url, bootUrl, passcode, ct), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
                         // Don't log the following, since it contains the bran, passcode.
@@ -57,7 +58,7 @@ namespace Extension.Services.SignifyService {
                     }
                     else {
                         logger.LogInformation("Connect: Connecting to {url}...", url);
-                        var res = await TimeoutHelper.WithTimeout<string>(ct => _shim.Connect(url, passcode, ct), timeout2);
+                        var res = await TimeoutHelper.WithTimeout<string>(ct => _binding.ConnectAsync(url, passcode, ct), timeout2);
                         if (res is null) {
                             return Result.Fail("Connect failed with null");
                         }
@@ -92,6 +93,8 @@ namespace Extension.Services.SignifyService {
             // return Task.FromResult(Result.Fail<bool>("Not implemented"));
         }
 
+        /* obsolete */
+        /*
         public async Task<Result<string>> GetNameByPrefix(string prefix) {
             logger.LogInformation("GetNameByPrefix: Looking up name for prefix: {prefix}", prefix);
 
@@ -133,6 +136,7 @@ namespace Extension.Services.SignifyService {
                 return Result.Fail<string>($"Exception getting identifier: {e.Message}");
             }
         }
+        */
 
         public async Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null) {
             TimeSpan timeout2;
@@ -143,7 +147,7 @@ namespace Extension.Services.SignifyService {
                 timeout2 = (TimeSpan)timeout;
             }
             try {
-                var res = await TimeoutHelper.WithTimeout<string>(ct => _shim.CreateAID(aliasStr, ct), timeout2);
+                var res = await TimeoutHelper.WithTimeout<string>(ct => _binding.CreateAIDAsync(aliasStr, ct), timeout2);
                 if (res.IsSuccess) {
                     logger.LogInformation("RunCreateAid: {res}", res.Value);
                     var jsonString = res.Value;
@@ -199,7 +203,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<Identifiers>> GetIdentifiers() {
             try {
-                var jsonString = await _shim.GetAIDs();
+                var jsonString = await _binding.GetAIDsAsync();
                 if (jsonString is null) {
                     return Result.Fail<Identifiers>("GetAIDs returned null");
                 }
@@ -221,7 +225,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<Aid>> GetIdentifier(string name) {
             try {
-                var jsonString = await _shim.GetAID(name);
+                var jsonString = await _binding.GetAIDAsync(name);
                 if (jsonString is null) {
                     return Result.Fail<Aid>("GetAID returned null");
                 }
@@ -275,7 +279,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<State>> GetState() {
             try {
-                var jsonString = await _shim.GetState();
+                var jsonString = await _binding.GetStateAsync();
                 if (jsonString is null) {
                     return Result.Fail<State>("GetAIDs returned null");
                 }
@@ -333,7 +337,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<List<RecursiveDictionary>>> GetCredentials() {
             try {
-                var jsonString = await _shim.GetCredentialsList();
+                var jsonString = await _binding.GetCredentialsListAsync();
                 // logger.LogInformation("GetCredentials: {jsonString}", jsonString);
                 if (jsonString is null) {
                     return Result.Fail("GetCredentials returned null");
@@ -372,7 +376,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<IpexExchangeResult>> IpexApply(IpexApplyArgs args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.IpexApply(argsJson);
+                var jsonString = await _binding.IpexApplyAsync(argsJson);
                 if (jsonString is null) {
                     return Result.Fail<IpexExchangeResult>("IpexApply returned null");
                 }
@@ -391,7 +395,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<IpexExchangeResult>> IpexOffer(IpexOfferArgs args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.IpexOffer(argsJson);
+                var jsonString = await _binding.IpexOfferAsync(argsJson);
                 if (jsonString is null) {
                     return Result.Fail<IpexExchangeResult>("IpexOffer returned null");
                 }
@@ -410,7 +414,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<IpexExchangeResult>> IpexAgree(IpexAgreeArgs args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.IpexAgree(argsJson);
+                var jsonString = await _binding.IpexAgreeAsync(argsJson);
                 if (jsonString is null) {
                     return Result.Fail<IpexExchangeResult>("IpexAgree returned null");
                 }
@@ -429,7 +433,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<IpexExchangeResult>> IpexGrant(IpexGrantArgs args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.IpexGrant(argsJson);
+                var jsonString = await _binding.IpexGrantAsync(argsJson);
                 if (jsonString is null) {
                     return Result.Fail<IpexExchangeResult>("IpexGrant returned null");
                 }
@@ -448,7 +452,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<IpexExchangeResult>> IpexAdmit(IpexAdmitArgs args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.IpexAdmit(argsJson);
+                var jsonString = await _binding.IpexAdmitAsync(argsJson);
                 if (jsonString is null) {
                     return Result.Fail<IpexExchangeResult>("IpexAdmit returned null");
                 }
@@ -468,7 +472,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<RecursiveDictionary>> GetOobi(string name, string? role = null) {
             try {
-                var jsonString = await _shim.OobiGet(name, role);
+                var jsonString = await _binding.OobiGetAsync(name, role);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("GetOobi returned null");
                 }
@@ -487,7 +491,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<RecursiveDictionary>> ResolveOobi(string oobi, string? aliasName = null) {
             try {
-                var jsonString = await _shim.OobiResolve(oobi, aliasName);
+                var jsonString = await _binding.OobiResolveAsync(oobi, aliasName);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("ResolveOobi returned null");
                 }
@@ -508,7 +512,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<Operation>> GetOperation(string name) {
             try {
-                var jsonString = await _shim.OperationsGet(name);
+                var jsonString = await _binding.OperationsGetAsync(name);
                 if (jsonString is null) {
                     return Result.Fail<Operation>("GetOperation returned null");
                 }
@@ -526,7 +530,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<List<Operation>>> ListOperations(string? type = null) {
             try {
-                var jsonString = await _shim.OperationsList(type);
+                var jsonString = await _binding.OperationsListAsync(type);
                 if (jsonString is null) {
                     return Result.Fail<List<Operation>>("ListOperations returned null");
                 }
@@ -544,7 +548,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result> DeleteOperation(string name) {
             try {
-                var jsonString = await _shim.OperationsDelete(name);
+                var jsonString = await _binding.OperationsDeleteAsync(name);
                 if (jsonString is null) {
                     return Result.Fail("DeleteOperation returned null");
                 }
@@ -560,7 +564,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var operationJson = System.Text.Json.JsonSerializer.Serialize(operation, jsonSerializerOptions);
                 var optionsJson = options != null ? System.Text.Json.JsonSerializer.Serialize(options, jsonSerializerOptions) : null;
-                var jsonString = await _shim.OperationsWait(operationJson, optionsJson);
+                var jsonString = await _binding.OperationsWaitAsync(operationJson, optionsJson);
                 if (jsonString is null) {
                     return Result.Fail<Operation>("WaitForOperation returned null");
                 }
@@ -580,7 +584,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<List<Contact>>> ListContacts(string? group = null, string? filterField = null, string? filterValue = null) {
             try {
-                var jsonString = await _shim.ContactsList(group, filterField, filterValue);
+                var jsonString = await _binding.ContactsListAsync(group, filterField, filterValue);
                 if (jsonString is null) {
                     return Result.Fail<List<Contact>>("ListContacts returned null");
                 }
@@ -598,7 +602,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<Contact>> GetContact(string prefix) {
             try {
-                var jsonString = await _shim.ContactsGet(prefix);
+                var jsonString = await _binding.ContactsGetAsync(prefix);
                 if (jsonString is null) {
                     return Result.Fail<Contact>("GetContact returned null");
                 }
@@ -617,7 +621,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<Contact>> AddContact(string prefix, ContactInfo info) {
             try {
                 var infoJson = System.Text.Json.JsonSerializer.Serialize(info, jsonSerializerOptions);
-                var jsonString = await _shim.ContactsAdd(prefix, infoJson);
+                var jsonString = await _binding.ContactsAddAsync(prefix, infoJson);
                 if (jsonString is null) {
                     return Result.Fail<Contact>("AddContact returned null");
                 }
@@ -636,7 +640,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<Contact>> UpdateContact(string prefix, ContactInfo info) {
             try {
                 var infoJson = System.Text.Json.JsonSerializer.Serialize(info, jsonSerializerOptions);
-                var jsonString = await _shim.ContactsUpdate(prefix, infoJson);
+                var jsonString = await _binding.ContactsUpdateAsync(prefix, infoJson);
                 if (jsonString is null) {
                     return Result.Fail<Contact>("UpdateContact returned null");
                 }
@@ -654,7 +658,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result> DeleteContact(string prefix) {
             try {
-                var jsonString = await _shim.ContactsDelete(prefix);
+                var jsonString = await _binding.ContactsDeleteAsync(prefix);
                 if (jsonString is null) {
                     return Result.Fail("DeleteContact returned null");
                 }
@@ -670,7 +674,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<List<RecursiveDictionary>>> ListRegistries(string name) {
             try {
-                var jsonString = await _shim.RegistriesList(name);
+                var jsonString = await _binding.RegistriesListAsync(name);
                 if (jsonString is null) {
                     return Result.Fail<List<RecursiveDictionary>>("ListRegistries returned null");
                 }
@@ -698,7 +702,7 @@ namespace Extension.Services.SignifyService {
                     nonce
                 };
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.RegistriesCreate(argsJson);
+                var jsonString = await _binding.RegistriesCreateAsync(argsJson);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("CreateRegistry returned null");
                 }
@@ -718,7 +722,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<RecursiveDictionary>> IssueCredential(string name, CredentialData args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
-                var jsonString = await _shim.CredentialsIssue(name, argsJson);
+                var jsonString = await _binding.CredentialsIssueAsync(name, argsJson);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("IssueCredential returned null");
                 }
@@ -737,7 +741,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<RecursiveDictionary>> RevokeCredential(string name, string said, string? datetime = null) {
             try {
-                var jsonString = await _shim.CredentialsRevoke(name, said, datetime);
+                var jsonString = await _binding.CredentialsRevokeAsync(name, said, datetime);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("RevokeCredential returned null");
                 }
@@ -756,7 +760,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<RecursiveDictionary>> GetCredentialState(string ri, string said) {
             try {
-                var jsonString = await _shim.CredentialsState(ri, said);
+                var jsonString = await _binding.CredentialsStateAsync(ri, said);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("GetCredentialState returned null");
                 }
@@ -775,7 +779,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result> DeleteCredential(string said) {
             try {
-                var jsonString = await _shim.CredentialsDelete(said);
+                var jsonString = await _binding.CredentialsDeleteAsync(said);
                 if (jsonString is null) {
                     return Result.Fail("DeleteCredential returned null");
                 }
@@ -789,7 +793,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<RecursiveDictionary>> GetSchema(string said) {
             try {
-                var jsonString = await _shim.SchemasGet(said);
+                var jsonString = await _binding.SchemasGetAsync(said);
                 if (jsonString is null) {
                     return Result.Fail<RecursiveDictionary>("GetSchema returned null");
                 }
@@ -808,7 +812,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<List<RecursiveDictionary>>> ListSchemas() {
             try {
-                var jsonString = await _shim.SchemasList();
+                var jsonString = await _binding.SchemasListAsync();
                 if (jsonString is null) {
                     return Result.Fail<List<RecursiveDictionary>>("ListSchemas returned null");
                 }
@@ -827,7 +831,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<List<RecursiveDictionary>>> ListNotifications(int? start = null, int? endIndex = null) {
             try {
-                var jsonString = await _shim.NotificationsList(start, endIndex);
+                var jsonString = await _binding.NotificationsListAsync(start, endIndex);
                 if (jsonString is null) {
                     return Result.Fail<List<RecursiveDictionary>>("ListNotifications returned null");
                 }
@@ -846,7 +850,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<string>> MarkNotification(string said) {
             try {
-                var jsonString = await _shim.NotificationsMark(said);
+                var jsonString = await _binding.NotificationsMarkAsync(said);
                 if (jsonString is null) {
                     return Result.Fail<string>("MarkNotification returned null");
                 }
@@ -860,7 +864,7 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result> DeleteNotification(string said) {
             try {
-                var jsonString = await _shim.NotificationsDelete(said);
+                var jsonString = await _binding.NotificationsDeleteAsync(said);
                 if (jsonString is null) {
                     return Result.Fail("DeleteNotification returned null");
                 }
