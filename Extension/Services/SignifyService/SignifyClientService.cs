@@ -21,6 +21,8 @@ namespace Extension.Services.SignifyService {
             return postResult.IsSuccess ? Result.Ok() : Result.Fail(postResult.Reasons.First().Message);
         }
 
+        // Note: bootUrl can be null, but only if isBootForced is false (meaning we are just connecting, not booting and connecting)
+        // TODO P1: consider default isBootForced to be false, since most of the time we will just be connecting
         public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = true, TimeSpan? timeout = null) {
             Debug.Assert(bootUrl is not null);
             if (passcode.Length != 21) {
@@ -92,51 +94,6 @@ namespace Extension.Services.SignifyService {
             throw new NotImplementedException();
             // return Task.FromResult(Result.Fail<bool>("Not implemented"));
         }
-
-        /* obsolete */
-        /*
-        public async Task<Result<string>> GetNameByPrefix(string prefix) {
-            logger.LogInformation("GetNameByPrefix: Looking up name for prefix: {prefix}", prefix);
-
-            TimeSpan timeout = TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
-
-            try {
-                var identifierJson = await TimeoutHelper.WithTimeout<string>(
-                    ct => _shim.GetIdentifierByPrefix(prefix, ct),
-                    timeout
-                );
-
-                if (identifierJson.IsFailed) {
-                    logger.LogWarning("GetNameByPrefix: Failed to get identifier by prefix: {error}", identifierJson.Errors[0].Message);
-                    return Result.Fail<string>($"Failed to get identifier: {identifierJson.Errors[0].Message}");
-                }
-
-                // Parse the JSON to extract the name field
-                var identifier = JsonSerializer.Deserialize<Dictionary<string, object>>(identifierJson.Value);
-                if (identifier == null) {
-                    logger.LogWarning("GetNameByPrefix: Failed to deserialize identifier JSON");
-                    return Result.Fail<string>("Failed to deserialize identifier");
-                }
-
-                if (identifier.TryGetValue("name", out var nameObj) && nameObj != null) {
-                    var name = nameObj.ToString() ?? string.Empty;
-                    logger.LogInformation("GetNameByPrefix: Found name '{name}' for prefix {prefix}", name, prefix);
-                    return Result.Ok(name);
-                }
-
-                logger.LogWarning("GetNameByPrefix: No name field found in identifier for prefix {prefix}", prefix);
-                return Result.Fail<string>($"No name field found for prefix {prefix}");
-            }
-            catch (OperationCanceledException) {
-                logger.LogWarning("GetNameByPrefix: Timeout getting identifier for prefix {prefix}", prefix);
-                return Result.Fail<string>($"Timeout getting identifier for prefix {prefix}");
-            }
-            catch (Exception e) {
-                logger.LogWarning(e, "GetNameByPrefix: Exception getting identifier for prefix {prefix}", prefix);
-                return Result.Fail<string>($"Exception getting identifier: {e.Message}");
-            }
-        }
-        */
 
         public async Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null) {
             TimeSpan timeout2;
@@ -281,7 +238,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var jsonString = await _binding.GetStateAsync();
                 if (jsonString is null) {
-                    return Result.Fail<State>("GetAIDs returned null");
+                    return Result.Fail<State>("GetState returned null");
                 }
                 var state = System.Text.Json.JsonSerializer.Deserialize<State>(jsonString);
                 if (state is null) {
@@ -290,11 +247,11 @@ namespace Extension.Services.SignifyService {
                 return Result.Ok(state);
             }
             catch (JSException e) {
-                logger.LogWarning("GetIdentifiers: JSException: {e}", e);
+                logger.LogWarning("GetState: JSException: {e}", e);
                 return Result.Fail<State>("SignifyClientService: GetState: Exception: " + e);
             }
             catch (Exception e) {
-                logger.LogWarning("GetIdentifiers: Exception: {e}", e);
+                logger.LogWarning("GetState: Exception: {e}", e);
                 return Result.Fail<State>("SignifyClientService: GetState: Exception: " + e);
             }
         }
