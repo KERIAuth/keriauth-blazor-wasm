@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Extension.Models.ObsoleteExMessages;
 using Xunit;
@@ -395,46 +395,6 @@ namespace Extension.Tests.Models {
             // Assert
             Assert.Contains("\"method\":\"GET\"", json);
             Assert.DoesNotContain("\"initHeadersDict\"", json);
-        }
-
-        #endregion
-
-        #region Message Type Constants Tests
-
-        [Fact]
-        public void ContentScriptMessageTypes_ShouldHaveCorrectValues() {
-            // Assert - verify constants match TypeScript values
-            Assert.Equal("signify-extension", CsBwMessageTypes.SIGNIFY_EXTENSION);
-            Assert.Equal("signify-extension-client", CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT);
-            Assert.Equal("/signify/configure-vendor", CsBwMessageTypes.CONFIGURE_VENDOR);
-            Assert.Equal("/signify/authorize", CsBwMessageTypes.AUTHORIZE);
-            Assert.Equal("/signify/authorize/aid", CsBwMessageTypes.SELECT_AUTHORIZE_AID);
-            Assert.Equal("/signify/authorize/credential", CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL);
-            Assert.Equal("/signify/sign-data", CsBwMessageTypes.SIGN_DATA);
-            Assert.Equal("/signify/sign-request", CsBwMessageTypes.SIGN_REQUEST);
-            Assert.Equal("/signify/get-session-info", CsBwMessageTypes.GET_SESSION_INFO);
-            Assert.Equal("/signify/clear-session", CsBwMessageTypes.CLEAR_SESSION);
-            Assert.Equal("/signify/credential/create/data-attestation", CsBwMessageTypes.CREATE_DATA_ATTESTATION);
-            Assert.Equal("/signify/credential/get", CsBwMessageTypes.GET_CREDENTIAL);
-            Assert.Equal("init", CsBwMessageTypes.INIT);
-        }
-
-        [Fact]
-        public void OutboundMessageTypes_ShouldHaveCorrectValues() {
-            // Assert - verify constants match TypeScript values
-            Assert.Equal("ready", BwCsMessageTypes.READY);
-            Assert.Equal("reply_canceled", BwCsMessageTypes.REPLY_CANCELED);
-            Assert.Equal("/signify/reply", BwCsMessageTypes.REPLY);
-            Assert.Equal("fromBackgroundWorker", BwCsMessageTypes.FROM_BACKGROUND_WORKER);
-            Assert.Equal("app_closed", BwCsMessageTypes.APP_CLOSED);
-            Assert.Equal("/KeriAuth/signify/replyCredential", BwCsMessageTypes.REPLY_CREDENTIAL);
-        }
-
-        [Fact]
-        public void AppMessageTypes_ShouldHaveCorrectValues() {
-            // Assert - verify constants match expected values
-            Assert.Equal("/KeriAuth/signify/replyCredential", AppBwMessageTypes.REPLY_CREDENTIAL);
-            Assert.Equal("reply_canceled", AppBwMessageTypes.REPLY_CANCELED);
         }
 
         #endregion

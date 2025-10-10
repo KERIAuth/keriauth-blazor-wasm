@@ -6,7 +6,16 @@ namespace Extension.Models;
 /// Type definitions for browser extension event handler parameters
 /// </summary>
 
-// TODO P2 unclear why this isn't readily available from existing libraries and duplicating these types here.
+// TODO P2: Replace redundant type definitions with WebExtensions.Net equivalents:
+//   - OnInstalledDetails -> WebExtensions.Net.Runtime.OnInstalledEventCallbackDetails
+//   - MessageSender -> WebExtensions.Net.Runtime.MessageSender
+//   - Tab -> WebExtensions.Net.Tabs.Tab
+//   - Alarm -> WebExtensions.Net.Alarms.Alarm
+//   - TabRemoveInfo -> WebExtensions.Net.Tabs.RemoveInfo
+//   - ActiveInfo -> WebExtensions.Net.Tabs.ActiveInfo
+//   - HighlightInfo -> WebExtensions.Net.Tabs.CallbackHighlightInfo or HighlightHighlightInfo
+//   - TabChangeInfo -> WebExtensions.Net.Tabs.ChangeInfo
+// RuntimeMessage is application-specific and should remain.
 
 // Runtime.OnInstalled event details
 public record OnInstalledDetails(
@@ -44,15 +53,6 @@ public record Tab(
     [property: JsonPropertyName("groupId")] int? GroupId = null
 );
 
-// Port connection for messaging
-public record Port(
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("sender")] MessageSender? Sender = null
-) {
-    // Note: postMessage, disconnect, onMessage, onDisconnect are methods/events
-    // that can't be directly represented in a record but exist on the JS object
-}
-
 // Alarm information
 public record Alarm(
     [property: JsonPropertyName("name")] string Name,
@@ -72,12 +72,6 @@ public record RuntimeMessage(
     [property: JsonPropertyName("type")] string? Type = null,
     [property: JsonPropertyName("data")] object? Data = null,
     [property: JsonPropertyName("payload")] object? Payload = null
-);
-
-// Port message structure
-public record PortMessage(
-    [property: JsonPropertyName("type")] string Type,
-    [property: JsonPropertyName("data")] object? Data = null
 );
 
 // Tabs.OnActivated event information

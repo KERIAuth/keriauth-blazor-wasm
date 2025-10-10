@@ -12,6 +12,7 @@ using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
+using WebExtensions.Net.Runtime;
 
 namespace Extension;
 
@@ -23,6 +24,7 @@ namespace Extension;
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Constants
+    // TODO P2 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
 
@@ -37,12 +39,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         PropertyNameCaseInsensitive = true,
         MaxDepth = 128  // Increased from default 32 to handle deeply nested vLEI credential structures
     };
-
-    // Install reasons
-    private const string InstallReason = "install";
-    private const string UpdateReason = "update";
-    private const string ChromeUpdateReason = "chrome_update";
-    private const string SharedModuleUpdateReason = "shared_module_update";
 
     // Message types
     private const string LockAppAction = "LockApp";
@@ -108,19 +104,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
     // Parameter: details - OnInstalledDetails with reason, previousVersion, and id
     [JSInvokable]
-    public async Task OnInstalledAsync(object detailsObj) {
+    public async Task OnInstalledAsync(OnInstalledEventCallbackDetails details) {
         try {
             _logger.LogInformation("OnInstalledAsync event handler called");
             _logger.LogInformation("Extension installed/updated event received");
 
-            // Deserialize to strongly-typed object
-            var detailsJson = JsonSerializer.Serialize(detailsObj);
-            var details = JsonSerializer.Deserialize<OnInstalledDetails>(detailsJson);
-
-            if (details == null) {
-                _logger.LogWarning("Failed to deserialize installation details");
-                return;
-            }
 
             // TODO P3 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
             // await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
@@ -129,14 +117,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("Extension installed/updated: {Reason}", details.Reason);
 
             switch (details.Reason) {
-                case InstallReason:
+                case OnInstalledReason.Install:
                     await HandleInstallAsync();
                     break;
-                case UpdateReason:
+                case OnInstalledReason.Update:
                     await HandleUpdateAsync(details.PreviousVersion ?? DefaultVersion);
                     break;
-                case ChromeUpdateReason:
-                case SharedModuleUpdateReason:
+                case OnInstalledReason.BrowserUpdate:
                 default:
                     _logger.LogInformation("Unhandled install reason: {Reason}", details.Reason);
                     break;
@@ -455,7 +442,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
             var updateDetails = new UpdateDetails {
-                Reason = UpdateReason,
+                Reason = OnInstalledReason.Update.ToString(),
                 PreviousVersion = previousVersion,
                 CurrentVersion = currentVersion,
                 Timestamp = DateTime.UtcNow.ToString("O")
@@ -904,8 +891,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
-                    // Return extension ID
-                    // TODO P0
+                    // Send the extension ID, although this may be redundantas ContentScript can get it via chrome.runtime.id
+                    // TODO P2
                     /*
                     return new {
                         type = BwCsMessageTypes.REPLY,
@@ -1044,8 +1031,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("BW HandleSignRequestAsync: {Message}", JsonSerializer.Serialize(msg));
 
             if (sender?.Tab?.Id == null) {
-                _logger.LogWarning("BW HandleSignRequestAsync: no tabId found");
-                return; // new ErrorReplyMessage(msg.RequestId, "No tab ID found");
+                _logger.LogError("BW HandleSignRequestAsync: no tabId found");
+                return; // don't have tabId to send error back
             }
 
             var tabId = sender.Tab.Id;
@@ -1068,25 +1055,30 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (payload == null) {
                 _logger.LogWarning("BW HandleSignRequestAsync: invalid payload");
-                return; // new ErrorReplyMessage(msg.RequestId, "Invalid payload");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
+                return;
             }
 
             // Extract method and url
             if (!payload.TryGetValue("method", out var methodElement)) {
                 _logger.LogWarning("BW HandleSignRequestAsync: method not specified");
-                return; // new ErrorReplyMessage(msg.RequestId, "Method not specified");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Method not specified"));
+                return;
             }
 
             if (!payload.TryGetValue("url", out var urlElement)) {
                 _logger.LogWarning("BW HandleSignRequestAsync: URL not specified");
-                return; // new ErrorReplyMessage(msg.RequestId, "URL not specified");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL not specified"));
+                return;
             }
 
             var method = methodElement.GetString() ?? "GET";
             var rurl = urlElement.GetString() ?? "";
 
             if (string.IsNullOrEmpty(rurl)) {
-                return; // new ErrorReplyMessage(msg.RequestId, "URL is empty");
+                _logger.LogWarning("BW HandleSignRequestAsync: URL is empty");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is empty"));
+                return;
             }
 
             // Check if connected to KERIA
@@ -1094,9 +1086,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (stateResult.IsFailed) {
                 var connectResult = await TryConnectSignifyClientAsync();
                 if (connectResult.IsFailed) {
-                    _logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}",
-                        connectResult.Errors[0].Message);
-                    return; // new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}");
+                    _logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
+                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
+                    return;
                 }
             }
 
@@ -1119,7 +1111,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (string.IsNullOrEmpty(aidName)) {
                 _logger.LogWarning("BW HandleSignRequestAsync: no identifier configured for origin {Origin}", originDomain);
-                return; // new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+                return;
             }
 
             // Get headers from payload
@@ -1136,7 +1129,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
 
-            // Get signed headers from signify-ts
+            // Validate URL is well-formed
+            if (!Uri.IsWellFormedUriString(rurl, UriKind.Absolute)) {
+                _logger.LogWarning("BW HandleSignRequestAsync: URL is not well-formed: {Url}", rurl);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is not well-formed"));
+                return;
+            }
+
+            // TODO P1: Check origin permission previously provided by user in website config, and depending on METHOD (get/post )
+
+
+            // Get generated signed headers from signify-ts
             var headersDictJson = JsonSerializer.Serialize(headersDict);
             var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
                 originDomain,
@@ -1147,20 +1150,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             );
 
             var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
-
             if (signedHeaders == null) {
                 _logger.LogWarning("BW HandleSignRequestAsync: failed to generate signed headers");
-                return; // new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers"));
+                return;
             }
 
             _logger.LogInformation("BW HandleSignRequestAsync: successfully generated signed headers");
-
-            // // TODO P0: Return signed headers
-            return; // new ReplyMessage<Dictionary<string, string>>(msg.RequestId, signedHeaders);
+            await SendMessageToTabAsync(tabId, new ReplyMessage<Dictionary<string, string>>(msg.RequestId, signedHeaders));
+            return;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleSignRequestAsync");
-            return; // new ErrorReplyMessage(msg.RequestId, $"Internal error: {ex.Message}");
+            return; // don't have the tabId here to send error back
         }
     }
 

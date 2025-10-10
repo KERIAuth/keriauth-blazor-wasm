@@ -267,7 +267,7 @@
         }
         else
         {
-            // TODO P0 we don't need to create another AID, but still pick a default one
+            // Set default Prefix
             await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
         }
         // logger.LogWarning("ConnectToKeria 3");
