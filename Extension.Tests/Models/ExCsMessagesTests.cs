@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Extension.Models.ExCsMessages;
+using Extension.Models.ObsoleteExMessages;
 using Xunit;
 
 namespace Extension.Tests.Models {
@@ -15,13 +15,13 @@ namespace Extension.Tests.Models {
             };
         }
 
-        #region CsBwMsg Tests
+        #region ContentScriptMessage Tests
 
         [Fact]
-        public void CsBwMsg_ShouldSerializeCorrectly() {
+        public void ContentScriptMessage_ShouldSerializeCorrectly() {
             // Arrange
-            var msg = new CsBwMsg(
-                type: CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE,
+            var msg = new CsBwMessage(
+                type: CsBwMessageTypes.AUTHORIZE,
                 requestId: "req-123",
                 payload: new { test = "data" }
             );
@@ -35,24 +35,24 @@ namespace Extension.Tests.Models {
         }
 
         [Fact]
-        public void CsBwMsg_ShouldDeserializeCorrectly() {
+        public void ContentScriptMessage_ShouldDeserializeCorrectly() {
             // Arrange
             var json = "{\"type\":\"/signify/authorize\",\"requestId\":\"req-123\",\"payload\":{\"test\":\"data\"}}";
 
             // Act
-            var msg = JsonSerializer.Deserialize<CsBwMsg>(json, _jsonOptions);
+            var msg = JsonSerializer.Deserialize<CsBwMessage>(json, _jsonOptions);
 
             // Assert
             Assert.NotNull(msg);
-            Assert.Equal(CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE, msg.Type);
+            Assert.Equal(CsBwMessageTypes.AUTHORIZE, msg.Type);
             Assert.Equal("req-123", msg.RequestId);
             Assert.NotNull(msg.Payload);
         }
 
         [Fact]
-        public void CsBwMsg_WithNullOptionalFields_ShouldSerializeCorrectly() {
+        public void ContentScriptMessage_WithNullOptionalFields_ShouldSerializeCorrectly() {
             // Arrange
-            var msg = new CsBwMsg(type: CsBwMsgTypes.INIT);
+            var msg = new CsBwMessage(type: CsBwMessageTypes.INIT);
 
             // Act
             var json = JsonSerializer.Serialize(msg, _jsonOptions);
@@ -63,13 +63,53 @@ namespace Extension.Tests.Models {
 
         #endregion
 
-        #region BwCsMsg Tests
+        #region AppMessage Tests
 
         [Fact]
-        public void BwCsMsg_ShouldSerializeCorrectly() {
+        public void AppMessage_ShouldSerializeCorrectly() {
             // Arrange
-            var msg = new BwCsMsg(
-                type: BwCsMsgTypes.REPLY,
+            var msg = new AppBwMessage(
+                type: AppBwMessageTypes.REPLY_CREDENTIAL,
+                tabId: 42,
+                requestId: "req-456",
+                payload: new { credential = "data" }
+            );
+
+            // Act
+            var json = JsonSerializer.Serialize(msg, _jsonOptions);
+
+            // Assert
+            Assert.Contains("\"type\":\"/KeriAuth/signify/replyCredential\"", json);
+            Assert.Contains("\"tabId\":42", json);
+            Assert.Contains("\"requestId\":\"req-456\"", json);
+            Assert.Contains("\"payload\":{\"credential\":\"data\"}", json);
+        }
+
+        [Fact]
+        public void AppMessage_ShouldDeserializeCorrectly() {
+            // Arrange
+            var json = "{\"type\":\"/KeriAuth/signify/replyCredential\",\"tabId\":42,\"requestId\":\"req-456\",\"payload\":{\"credential\":\"data\"}}";
+
+            // Act
+            var msg = JsonSerializer.Deserialize<AppBwMessage>(json, _jsonOptions);
+
+            // Assert
+            Assert.NotNull(msg);
+            Assert.Equal(AppBwMessageTypes.REPLY_CREDENTIAL, msg.Type);
+            Assert.Equal(42, msg.TabId);
+            Assert.Equal("req-456", msg.RequestId);
+            Assert.NotNull(msg.Payload);
+        }
+
+        #endregion
+
+        #region OutboundMessage Tests
+
+        [Fact]
+        public void OutboundMessage_ShouldSerializeCorrectly() {
+            // Arrange
+            var msg = new BwCsMessage(
+                type: BwCsMessageTypes.REPLY,
                 requestId: "req-456",
                 payload: new { result = "success" },
                 error: null
@@ -84,10 +124,10 @@ namespace Extension.Tests.Models {
         }
 
         [Fact]
-        public void BwCsMsg_WithError_ShouldSerializeCorrectly() {
+        public void OutboundMessage_WithError_ShouldSerializeCorrectly() {
             // Arrange
-            var msg = new BwCsMsg(
-                type: BwCsMsgTypes.REPLY_CANCELED,
+            var msg = new BwCsMessage(
+                type: BwCsMessageTypes.REPLY_CANCELED,
                 requestId: "req-789",
                 error: "User canceled the operation"
             );
@@ -101,9 +141,9 @@ namespace Extension.Tests.Models {
         }
 
         [Fact]
-        public void BwCsMsgPong_ShouldSerializeCorrectly() {
+        public void ReadyMessage_ShouldSerializeCorrectly() {
             // Arrange
-            var msg = new BwCsMsgPong();
+            var msg = new ReadyMessage();
 
             // Act
             var json = JsonSerializer.Serialize(msg, _jsonOptions);
@@ -112,12 +152,47 @@ namespace Extension.Tests.Models {
             Assert.Equal("{\"type\":\"ready\"}", json);
         }
 
-        #endregion
+        [Fact]
+        public void ErrorReplyMessage_ShouldSerializeCorrectly() {
+            // Arrange
+            var msg = new ErrorReplyMessage("req-789", "Something went wrong");
 
-        #region PortIdentifier Tests
+            // Act
+            var json = JsonSerializer.Serialize(msg, _jsonOptions);
+
+            // Assert
+            Assert.Contains("\"type\":\"/signify/reply\"", json);
+            Assert.Contains("\"requestId\":\"req-789\"", json);
+            Assert.Contains("\"error\":\"Something went wrong\"", json);
+        }
 
         [Fact]
-        public void PortIdentifier_ShouldSerializeCorrectly() {
+        public void ReplyMessage_ShouldSerializeCorrectly() {
+            // Arrange
+            var msg = new ReplyMessage<Dictionary<string, string>>(
+                "req-123",
+                new Dictionary<string, string> {
+                    ["key1"] = "value1",
+                    ["key2"] = "value2"
+                }
+            );
+
+            // Act
+            var json = JsonSerializer.Serialize(msg, _jsonOptions);
+
+            // Assert
+            Assert.Contains("\"type\":\"/signify/reply\"", json);
+            Assert.Contains("\"requestId\":\"req-123\"", json);
+            Assert.Contains("\"payload\":{", json);
+            Assert.Contains("\"key1\":\"value1\"", json);
+        }
+
+        #endregion
+
+        #region Identifier Tests (renamed from PortIdentifier)
+
+        [Fact]
+        public void Identifier_ShouldSerializeCorrectly() {
             // Arrange
             var identifier = new PortIdentifier(
                 prefix: "EIDPKZjEBB2yh-XGIhYtx3D2c9pLWcJ2R4yyPVm9e7_A",
@@ -133,7 +208,7 @@ namespace Extension.Tests.Models {
         }
 
         [Fact]
-        public void PortIdentifier_WithoutName_ShouldSerializeCorrectly() {
+        public void Identifier_WithoutName_ShouldSerializeCorrectly() {
             // Arrange
             var identifier = new PortIdentifier(prefix: "EIDPKZjEBB2yh-XGIhYtx3D2c9pLWcJ2R4yyPVm9e7_A");
 
@@ -147,12 +222,12 @@ namespace Extension.Tests.Models {
 
         #endregion
 
-        #region PortCredential Tests
+        #region Credential Tests (renamed from PortCredential)
 
         private static readonly string[] TestAnchors = { "anchor1", "anchor2" };
 
         [Fact]
-        public void PortCredential_ComplexNested_ShouldSerializeCorrectly() {
+        public void Credential_ComplexNested_ShouldSerializeCorrectly() {
             // Arrange
             var credential = new PortCredential(
                 issueeName: "Test Issuer",
@@ -183,7 +258,7 @@ namespace Extension.Tests.Models {
         }
 
         [Fact]
-        public void PortCredential_ShouldDeserializeCorrectly() {
+        public void Credential_ShouldDeserializeCorrectly() {
             // Arrange
             var json = @"{
                 ""issueeName"": ""Test Issuer"",
@@ -219,10 +294,10 @@ namespace Extension.Tests.Models {
 
         #endregion
 
-        #region PortSignature Tests
+        #region Signature Tests (renamed from PortSignature)
 
         [Fact]
-        public void PortSignature_ShouldSerializeCorrectly() {
+        public void Signature_ShouldSerializeCorrectly() {
             // Arrange
             var signature = new PortSignature(
                 headers: new Dictionary<string, string> {
@@ -276,10 +351,10 @@ namespace Extension.Tests.Models {
 
         #endregion
 
-        #region PortApprovedSignRequest Tests
+        #region ApprovedSignRequest Tests (renamed from PortApprovedSignRequest)
 
         [Fact]
-        public void PortApprovedSignRequest_ShouldSerializeCorrectly() {
+        public void ApprovedSignRequest_ShouldSerializeCorrectly() {
             // Arrange
             var request = new PortApprovedSignRequest(
                 originStr: "https://example.com",
@@ -305,7 +380,7 @@ namespace Extension.Tests.Models {
         }
 
         [Fact]
-        public void PortApprovedSignRequest_WithoutHeaders_ShouldSerializeCorrectly() {
+        public void ApprovedSignRequest_WithoutHeaders_ShouldSerializeCorrectly() {
             // Arrange
             var request = new PortApprovedSignRequest(
                 originStr: "https://example.com",
@@ -327,32 +402,39 @@ namespace Extension.Tests.Models {
         #region Message Type Constants Tests
 
         [Fact]
-        public void CsBwMsgTypes_ShouldHaveCorrectValues() {
+        public void ContentScriptMessageTypes_ShouldHaveCorrectValues() {
             // Assert - verify constants match TypeScript values
-            Assert.Equal("signify-extension", CsBwMsgTypes.POLARIS_SIGNIFY_EXTENSION);
-            Assert.Equal("signify-extension-client", CsBwMsgTypes.POLARIS_SIGNIFY_EXTENSION_CLIENT);
-            Assert.Equal("/signify/configure-vendor", CsBwMsgTypes.POLARIS_CONFIGURE_VENDOR);
-            Assert.Equal("/signify/authorize", CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE);
-            Assert.Equal("/signify/authorize/aid", CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_AID);
-            Assert.Equal("/signify/authorize/credential", CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_CREDENTIAL);
-            Assert.Equal("/signify/sign-data", CsBwMsgTypes.POLARIS_SIGN_DATA);
-            Assert.Equal("/signify/sign-request", CsBwMsgTypes.POLARIS_SIGN_REQUEST);
-            Assert.Equal("/signify/get-session-info", CsBwMsgTypes.POLARIS_GET_SESSION_INFO);
-            Assert.Equal("/signify/clear-session", CsBwMsgTypes.POLARIS_CLEAR_SESSION);
-            Assert.Equal("/signify/credential/create/data-attestation", CsBwMsgTypes.POLARIS_CREATE_DATA_ATTESTATION);
-            Assert.Equal("/signify/credential/get", CsBwMsgTypes.POLARIS_GET_CREDENTIAL);
-            Assert.Equal("init", CsBwMsgTypes.INIT);
+            Assert.Equal("signify-extension", CsBwMessageTypes.SIGNIFY_EXTENSION);
+            Assert.Equal("signify-extension-client", CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT);
+            Assert.Equal("/signify/configure-vendor", CsBwMessageTypes.CONFIGURE_VENDOR);
+            Assert.Equal("/signify/authorize", CsBwMessageTypes.AUTHORIZE);
+            Assert.Equal("/signify/authorize/aid", CsBwMessageTypes.SELECT_AUTHORIZE_AID);
+            Assert.Equal("/signify/authorize/credential", CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL);
+            Assert.Equal("/signify/sign-data", CsBwMessageTypes.SIGN_DATA);
+            Assert.Equal("/signify/sign-request", CsBwMessageTypes.SIGN_REQUEST);
+            Assert.Equal("/signify/get-session-info", CsBwMessageTypes.GET_SESSION_INFO);
+            Assert.Equal("/signify/clear-session", CsBwMessageTypes.CLEAR_SESSION);
+            Assert.Equal("/signify/credential/create/data-attestation", CsBwMessageTypes.CREATE_DATA_ATTESTATION);
+            Assert.Equal("/signify/credential/get", CsBwMessageTypes.GET_CREDENTIAL);
+            Assert.Equal("init", CsBwMessageTypes.INIT);
         }
 
         [Fact]
-        public void BwCsMsgTypes_ShouldHaveCorrectValues() {
+        public void OutboundMessageTypes_ShouldHaveCorrectValues() {
             // Assert - verify constants match TypeScript values
-            Assert.Equal("ready", BwCsMsgTypes.READY);
-            Assert.Equal("reply_canceled", BwCsMsgTypes.REPLY_CANCELED);
-            Assert.Equal("/signify/reply", BwCsMsgTypes.REPLY);
-            Assert.Equal("fromBackgroundWorker", BwCsMsgTypes.FSW);
-            Assert.Equal("app_closed", BwCsMsgTypes.APP_CLOSED);
-            Assert.Equal("/KeriAuth/signify/replyCredential", BwCsMsgTypes.REPLY_CRED);
+            Assert.Equal("ready", BwCsMessageTypes.READY);
+            Assert.Equal("reply_canceled", BwCsMessageTypes.REPLY_CANCELED);
+            Assert.Equal("/signify/reply", BwCsMessageTypes.REPLY);
+            Assert.Equal("fromBackgroundWorker", BwCsMessageTypes.FROM_BACKGROUND_WORKER);
+            Assert.Equal("app_closed", BwCsMessageTypes.APP_CLOSED);
+            Assert.Equal("/KeriAuth/signify/replyCredential", BwCsMessageTypes.REPLY_CREDENTIAL);
+        }
+
+        [Fact]
+        public void AppMessageTypes_ShouldHaveCorrectValues() {
+            // Assert - verify constants match expected values
+            Assert.Equal("/KeriAuth/signify/replyCredential", AppBwMessageTypes.REPLY_CREDENTIAL);
+            Assert.Equal("reply_canceled", AppBwMessageTypes.REPLY_CANCELED);
         }
 
         #endregion
@@ -362,16 +444,16 @@ namespace Extension.Tests.Models {
         [Fact]
         public void ComplexMessage_ShouldSurviveRoundTrip() {
             // Arrange
-            var original = new BwCsMsg(
-                type: BwCsMsgTypes.REPLY,
+            var original = new BwCsMessage(
+                type: BwCsMessageTypes.REPLY,
                 requestId: "complex-123",
                 payload: new {
                     identifier = new PortIdentifier("EIDPKZjEBB2yh", "Test ID"),
-                    credentials = new[] { 
-                        new { 
-                            id = "cred1", 
-                            type = "vLEI" 
-                        } 
+                    credentials = new[] {
+                        new {
+                            id = "cred1",
+                            type = "vLEI"
+                        }
                     },
                     nested = new {
                         deep = new {
@@ -383,14 +465,14 @@ namespace Extension.Tests.Models {
 
             // Act - serialize and deserialize
             var json = JsonSerializer.Serialize(original, _jsonOptions);
-            var deserialized = JsonSerializer.Deserialize<BwCsMsg>(json, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<BwCsMessage>(json, _jsonOptions);
 
             // Assert
             Assert.NotNull(deserialized);
             Assert.Equal(original.Type, deserialized.Type);
             Assert.Equal(original.RequestId, deserialized.RequestId);
             Assert.NotNull(deserialized.Payload);
-            
+
             // Verify JSON structure matches TypeScript expectations
             Assert.Contains("\"type\":\"/signify/reply\"", json);
             Assert.Contains("\"requestId\":\"complex-123\"", json);

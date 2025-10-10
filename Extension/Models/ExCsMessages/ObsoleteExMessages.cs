@@ -1,79 +1,9 @@
 using System.Text.Json.Serialization;
 
-namespace Extension.Models.ExCsMessages {
-    // Message from Content Script to BackgroundWorker
-    public record CsBwMsg {
-        [JsonPropertyName("type")]
-        public string Type { get; init; }
-
-        [JsonPropertyName("requestId")]
-        public string? RequestId { get; init; }
-
-        [JsonPropertyName("payload")]
-        public object? Payload { get; init; }
-
-        [JsonConstructor]
-        public CsBwMsg(string type, string? requestId = null, object? payload = null) {
-            Type = type;
-            RequestId = requestId;
-            Payload = payload;
-        }
-    }
-
-    // Message types from Page to CS, forwarded to BackgroundWorker
-    public static class CsBwMsgTypes {
-        public const string POLARIS_SIGNIFY_EXTENSION = "signify-extension";
-        public const string POLARIS_SIGNIFY_EXTENSION_CLIENT = "signify-extension-client";
-        public const string POLARIS_CONFIGURE_VENDOR = "/signify/configure-vendor";
-        public const string POLARIS_SIGNIFY_AUTHORIZE = "/signify/authorize";
-        public const string POLARIS_SELECT_AUTHORIZE_AID = "/signify/authorize/aid";
-        public const string POLARIS_SELECT_AUTHORIZE_CREDENTIAL = "/signify/authorize/credential";
-        public const string POLARIS_SIGN_DATA = "/signify/sign-data";
-        public const string POLARIS_SIGN_REQUEST = "/signify/sign-request";
-        public const string POLARIS_GET_SESSION_INFO = "/signify/get-session-info";
-        public const string POLARIS_CLEAR_SESSION = "/signify/clear-session";
-        public const string POLARIS_CREATE_DATA_ATTESTATION = "/signify/credential/create/data-attestation";
-        public const string POLARIS_GET_CREDENTIAL = "/signify/credential/get";
-        public const string INIT = "init";
-    }
-
-    // Message from BackgroundWorker to Content Script
-    public record BwCsMsg {
-        [JsonPropertyName("type")]
-        public string Type { get; init; }
-
-        [JsonPropertyName("requestId")]
-        public string? RequestId { get; init; }
-
-        [JsonPropertyName("payload")]
-        public object? Payload { get; init; }
-
-        [JsonPropertyName("error")]
-        public string? Error { get; init; }
-
-        [JsonConstructor]
-        public BwCsMsg(string type, string? requestId = null, object? payload = null, string? error = null) {
-            Type = type;
-            RequestId = requestId;
-            Payload = payload;
-            Error = error;
-        }
-    }
-
-    // Message types from Extension to CS
-    public static class BwCsMsgTypes {
-        public const string READY = "ready";
-        public const string REPLY_CANCELED = "reply_canceled";
-        public const string REPLY = "/signify/reply";
-        public const string FSW = "fromBackgroundWorker";
-        public const string APP_CLOSED = "app_closed";
-        public const string REPLY_CRED = "/KeriAuth/signify/replyCredential";
-    }
-
-    // Specialized message for READY response
-    public record BwCsMsgPong : BwCsMsg {
-        public BwCsMsgPong() : base(BwCsMsgTypes.READY) { }
-    }
+namespace Extension.Models.ObsoleteExMessages {
+    // NOTE: Message types have been refactored to InboundMessages.cs and OutboundMessages.cs
+    // for better type safety and clearer directional flow.
+    // This file now only contains shared data structures used in message payloads.
 
     // Identifier used in responses
     public record PortIdentifier {

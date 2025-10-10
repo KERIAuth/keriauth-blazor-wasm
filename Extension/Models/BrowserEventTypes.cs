@@ -6,6 +6,8 @@ namespace Extension.Models;
 /// Type definitions for browser extension event handler parameters
 /// </summary>
 
+// TODO P2 unclear why this isn't readily available from existing libraries and duplicating these types here.
+
 // Runtime.OnInstalled event details
 public record OnInstalledDetails(
     [property: JsonPropertyName("reason")] string Reason,
@@ -19,6 +21,7 @@ public record MessageSender(
     [property: JsonPropertyName("url")] string? Url = null,
     [property: JsonPropertyName("origin")] string? Origin = null,
     [property: JsonPropertyName("frameId")] int? FrameId = null,
+    [property: JsonPropertyName("documentId")] string? DocumentId = null,
     [property: JsonPropertyName("tab")] Tab? Tab = null,
     [property: JsonPropertyName("tlsChannelId")] string? TlsChannelId = null
 );

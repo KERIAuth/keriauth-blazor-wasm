@@ -50,31 +50,26 @@ const currentOrigin = window.location.origin;
 console.log('KeriAuthCs currentOrigin:', currentOrigin);
 console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
-// Add a listener for messages and create port with BW
+// Add a listener for messages from the web page
 window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
 
-// Respond to ping messages from the service worker to detect if content script is already injected
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+// Listen for messages from BackgroundWorker (responses to our sendMessage calls)
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // Respond to ping messages from the service worker to detect if content script is already injected
     if (msg?.type === 'ping') {
         (sendResponse as (response?: unknown) => void)({ ok: true });
         return true; // keep channel open if needed
     }
+
+    // Handle messages from BackgroundWorker
+    if (msg && typeof msg === 'object' && 'type' in msg) {
+        console.log('KeriAuthCs←BW (via onMessage):', msg);
+        handleMsgFromBW(msg as PW.MessageData<unknown>);
+    }
+
     // Return false for other messages to allow other listeners to handle them
     return false;
 });
-
-// Unique port name for communications between the content script and the extension
-const uniquePortName: string = `CS|${generateUniqueIdentifier()}`;
-let portWithBw: chrome.runtime.Port | null = null;
-
-// Initialize port connection with error handling
-try {
-    portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-    createPortListeners();
-} catch (error) {
-    console.error('KeriAuthCs: Failed to create initial port connection:', error);
-    // Will attempt to reconnect when first message needs to be sent
-}
 
 // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
 window.addEventListener('popstate', (event) => {
@@ -86,16 +81,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
     console.info(`KeriAuthCs ${event.type}`);
 });
 
-/**
- * Generate a unique and unguessable identifier for the port name for communications between the content script and the extension
- * @returns A cryptographically random string identifier
- */
-function generateUniqueIdentifier(): string {
-    const array = new Uint32Array(4);
-    // TODO P4 consider randomUUID() instead
-    window.crypto.getRandomValues(array);
-    return Array.from(array, dec => (`00000000${dec.toString(16)}`).slice(-8)).join('-');
-}
 
 /**
  * Send a message from the content script to the web page
@@ -193,81 +178,17 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
 }
 
 /**
- * Initialize the port connection with the BackgroundWorker
- * Sets up message and disconnect listeners, sends initial INIT message
- * Assumes portWithBw has already been created via chrome.runtime.connect()
- */
-function createPortListeners(): void {
-    console.log('KeriAuthCs→BW: creating port listeners');
-
-    if (!portWithBw) {
-        console.error('KeriAuthCs→BW: Port is null, cannot setup listeners');
-        return;
-    }
-
-    console.log('KeriAuthCs→BW connected port:', portWithBw);
-
-    // register to receive and handle messages from the extension (and indirectly also from the web page)
-    portWithBw.onMessage.addListener((message: PW.MessageData<unknown>) => handleMsgFromBW(message));
-
-    portWithBw.onDisconnect.addListener(() => {
-        // disconnect will typically happen when the BackgroundWorker becomes inactive
-        console.info('KeriAuthCs Port with BackgroundWorker was disconnected, likely due to BackgroundWorker going inactive.');
-        // Set to null so assurePortAndSend knows to reconnect
-        portWithBw = null;
-    });
-
-    // Send a ping message to the BackgroundWorker to help complete the setup of connection port
-    const initMsg: ICsBwMsg = { type: CsBwMsgEnum.INIT };
-    console.log('KeriAuthCs→BW Init:', initMsg);
-    try {
-        portWithBw.postMessage(initMsg);
-        // Even though the Page hasn't requested the extension id via signify-extension-client here,
-        // we send it anyway in case of when the script has been injected after user clicked the action button?
-        // The following is not picked up by the page (that leverages polaris-web) if it has not requested it. So, user needs to reload the page.
-        // postMessageToPageSignifyExtension();
-        // TODO P2 Consider a reload message when permission is first granted and CS injected, to help the page pick up the extension id without user reload, e.g.:
-        /* const ok = window.confirm("The extension needs to reload this page to finish setup. Reload now?");
-            if (ok) {
-                // Avoid touching DOM; just trigger a navigation:
-                window.location.reload(); // or message BW to chrome.tabs.reload
-            }
-        */
-    } catch (error) {
-        console.error('KeriAuthCs→BW: Failed to send INIT message:', error);
-        // Port may have disconnected already, set to null for reconnection
-        portWithBw = null;
-    }
-    return;
-}
-
-/**
- * Ensure port connection exists and send message to BackgroundWorker
- * Automatically reconnects if port was disconnected (e.g., when BackgroundWorker went inactive)
+ * Send message to BackgroundWorker using runtime.sendMessage
  * @param msg Message to send, either polaris-web protocol or internal CS-BW message
- * @throws Error if unable to connect or send message
  */
-function assurePortAndSend(msg: PW.MessageData<unknown> | ICsBwMsg): void {
-    // Check if port is null (happens when BackgroundWorker goes inactive and disconnects)
-    // Chrome extension ports cannot be reused after disconnection - must create new connection
-    if (portWithBw === null) {
-        console.info('KeriAuthCs re-creating port connection to BackgroundWorker');
-        try {
-            portWithBw = chrome.runtime.connect(chrome.runtime.id, { name: uniquePortName });
-            createPortListeners();
-        } catch (error) {
-            console.error('KeriAuthCs→BW: Failed to reconnect to BackgroundWorker:', error);
-            throw error; // Re-throw to let caller handle the error
-        }
-    }
-    console.info('KeriAuthCs→BW: postMessage:', msg);
+async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise<void> {
+    console.info('KeriAuthCs→BW: sendMessage:', msg);
     try {
-        portWithBw.postMessage(msg);
-        // TODO P1 consider adding a timeout mechanism to detect if message was not delivered, and if READY is received within expected time.
+        const response = await chrome.runtime.sendMessage(msg);
+        console.log('KeriAuthCs←BW response:', response);
+        // Response handling can be added here if needed
     } catch (error) {
         console.error('KeriAuthCs→BW: Failed to send message:', error);
-        // Port may have disconnected, set to null and re-throw
-        portWithBw = null;
         throw error;
     }
 }
@@ -286,7 +207,7 @@ function postMessageToPageSignifyExtension(): void {
  * Validates message origin and filters out echo messages from content script
  * @param event Message event from the web page containing polaris-web protocol messages
  */
-function handleWindowMessage(event: MessageEvent<IPageMessageData>): void {
+async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promise<void> {
 
     // Ignore messages with undefined events or .data, such as those sent from pages with advertising
     if (event === undefined || event.data === undefined) {
@@ -356,7 +277,7 @@ function handleWindowMessage(event: MessageEvent<IPageMessageData>): void {
                             }
                         }
                     }
-                    assurePortAndSend(event.data);
+                    await sendMessageToBW(event.data);
                 } catch (error) {
                     console.error('KeriAuthCs→BW: error sending message {event.data} {e}:', event.data, error);
                     return;

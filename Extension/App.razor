@@ -63,7 +63,10 @@
         });
 
         // Initialize messaging with background worker
-        await appBwMessagingService.Initialize(InitialUri.Authority);
+        // Extract tabId from query string if present, otherwise use null
+        var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
+        var tabIdParam = query["tabId"];
+        await appBwMessagingService.Initialize(tabIdParam ?? "");
 
         // TODO P1 (for inactivity timer)  await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
         // TODO P1 await jsRuntime.InvokeVoidAsync("registerLockListener");

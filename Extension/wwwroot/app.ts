@@ -39,16 +39,12 @@ if (typeof self !== 'undefined' && self.crypto && !(self.crypto as any).randomBy
 // which needs crypto APIs to be ready first
 import * as storageHelper from './scripts/es6/storageHelper.js';
 import * as permissionsHelper from './scripts/es6/PermissionsHelper.js';
-import * as portMessageHelper from './scripts/es6/PortMessageHelper.js';
-import * as swAppInterop from './scripts/es6/SwAppInterop.js';
 import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWithPRF.js';
 
 // Make modules available globally for debugging
 (globalThis as any).appModules = {
     storageHelper,
     permissionsHelper,
-    portMessageHelper,
-    swAppInterop,
     webauthnCredentialWithPRF
 };
 

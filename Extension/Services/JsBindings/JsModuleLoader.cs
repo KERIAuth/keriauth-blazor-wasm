@@ -35,8 +35,6 @@ public class JsModuleLoader : IJsModuleLoader, IAsyncDisposable {
         { "signifyClient", "./scripts/esbuild/signifyClient.js" },
         { "storageHelper", "./scripts/es6/storageHelper.js" },
         { "permissionsHelper", "./scripts/es6/PermissionsHelper.js" },
-        { "portMessageHelper", "./scripts/es6/PortMessageHelper.js" },
-        { "swAppInterop", "./scripts/es6/SwAppInterop.js" },
         { "webauthnCredentialWithPRF", "./scripts/es6/webauthnCredentialWithPRF.js" }
     };
 

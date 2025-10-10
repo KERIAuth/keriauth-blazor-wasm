@@ -1,7 +1,6 @@
 ﻿using Blazor.BrowserExtension;
-using Extension.Helper;
 using Extension.Models;
-using Extension.Models.ExCsMessages;
+using Extension.Models.ObsoleteExMessages;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
@@ -9,8 +8,6 @@ using Extension.Services.SignifyService.Models;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
-using MudBlazor.Extensions;
-using System.Collections.Concurrent;
 using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
@@ -26,12 +23,10 @@ namespace Extension;
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Constants
-    private const string ContentScriptPortPattern = @"^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}$";
-    private const string BlazorAppPortPrefix = "blazorAppPort";
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
 
-    // Cached JsonSerializerOptions for port message deserialization
+    // Cached JsonSerializerOptions for message deserialization
     private static readonly JsonSerializerOptions PortMessageJsonOptions = new() {
         PropertyNameCaseInsensitive = true
     };
@@ -43,14 +38,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         MaxDepth = 128  // Increased from default 32 to handle deeply nested vLEI credential structures
     };
 
-    // Cached JsonSerializerOptions for AuthorizeResult deserialization with RecursiveDictionary support
-    // MaxDepth increased to handle deeply nested vLEI credential structures
-    private static readonly JsonSerializerOptions AuthorizeResultJsonOptions = new() {
-        PropertyNameCaseInsensitive = true,
-        MaxDepth = 128,
-        Converters = { new RecursiveDictionaryConverter() }
-    };
-
     // Install reasons
     private const string InstallReason = "install";
     private const string UpdateReason = "update";
@@ -60,7 +47,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // Message types
     private const string LockAppAction = "LockApp";
     private const string SystemLockDetectedAction = "systemLockDetected";
-    private const string FromBackgroundWorkerType = "fromBackgroundWorker";
 
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly IJSRuntime _jsRuntime;
@@ -70,14 +56,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IWebsiteConfigService _websiteConfigService;
     private readonly WebExtensionsApi _webExtensionsApi;
 
-    // Port connections tracking
-    private readonly ConcurrentDictionary<string, CsConnection> _pageCsConnections = new();
-    private readonly ConcurrentDictionary<string, BlazorAppConnection> _blazorAppConnections = new();
-    private readonly DotNetObjectReference<BackgroundWorker>? _dotNetObjectRef;
-
-    // State tracking for KERIA operations
-    private bool _isWaitingOnKeria;
-    private string? _pendingRequestId;
+    // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
+    // All state is derived from message sender info or retrieved from persistent storage
 
     [BackgroundWorkerMain]
     public override void Main() {
@@ -88,7 +68,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
-        WebExtensions.Runtime.OnConnect.AddListener(OnConnect);
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
         // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
@@ -124,7 +103,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _signifyService = signifyService;
         _websiteConfigService = websiteConfigService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
-        _dotNetObjectRef = DotNetObjectReference.Create(this);
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -190,514 +168,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-
-    [JSInvokable]
-    public Task OnConnect(WebExtensions.Net.Runtime.Port port) {
-        _logger.LogInformation("Port connected: name: { Name } url: {url} port: {port}", port.Name, port.Sender?.Url, port.ToString());
-        string? connectionId = port.Name ?? Guid.NewGuid().ToString();
-        _logger.LogInformation("Port connected: { ConnectionId} ", connectionId);
-
-        // Parse port name to determine the connection type
-        var (portType, portGuid) = ParsePortName(connectionId);
-        _logger.LogInformation("Port connection type: {portType}, GUID: {portGuid}", portType, portGuid);
-
-        // Set up appropriate message handling based on port type
-        switch (portType) {
-            case "CS":
-                SetUpContentScriptMessageHandling(port, connectionId);
-                break;
-            case "BA_TAB":
-            case "BA_POPUP":
-            case "BA_SIDEPANEL":
-                SetUpBlazorAppMessageHandling(port, connectionId, portType);
-                break;
-            default:
-                _logger.LogWarning("Unknown port type: {portType} for connection {connectionId}", portType, connectionId);
-                SetUpDefaultMessageHandling(port, connectionId);
-                break;
-        }
-
-        // Clean up on disconnect
-        port.OnDisconnect.AddListener(() => {
-            _logger.LogInformation("Port disconnected: {ConnectionId}", connectionId);
-        });
-
-        return Task.CompletedTask;
-    }
-
-    private static (string portType, string portGuid) ParsePortName(string portName) {
-        if (string.IsNullOrEmpty(portName)) {
-            return ("UNKNOWN", Guid.NewGuid().ToString());
-        }
-
-        var parts = portName.Split('|', 2);
-        if (parts.Length == 2) {
-            return (parts[0], parts[1]);
-        }
-
-        // Legacy format or unexpected format - treat as unknown
-        return ("LEGACY", portName);
-    }
-
-    private void SetUpContentScriptMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
-        _logger.LogInformation("Setting up ContentScript message handling for port {ConnectionId}", connectionId);
-
-        // Store the content script connection
-        var tabId = port.Sender?.Tab?.Id ?? -1;
-        var origin = port.Sender?.Url ?? "unknown";
-        _pageCsConnections[connectionId] = new CsConnection {
-            Port = port,
-            TabId = tabId,
-            PageAuthority = GetAuthorityFromUrl(origin)
-        };
-
-        // Clean up on disconnect
-        port.OnDisconnect.AddListener(() => {
-            _logger.LogInformation("Content Script port disconnected: {ConnectionId}", connectionId);
-            _pageCsConnections.TryRemove(connectionId, out _);
-        });
-
-        port.OnMessage.AddListener(async (object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogInformation("Received ContentScript message on port {ConnectionId}: {Message}", connectionId, message);
-
-            try {
-                // Try to deserialize the message as CsBwMsg
-                CsBwMsg? csBwMsg = null;
-
-                // Handle different types of incoming message formats
-                if (message is JsonElement jsonElement) {
-                    // Message came as JsonElement
-                    var json = jsonElement.GetRawText();
-                    _logger.LogInformation("Message as JsonElement: {json}", json);
-                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(json, PortMessageJsonOptions);
-                }
-                else if (message is string jsonString) {
-                    // Message came as string
-                    _logger.LogInformation("Message as string: {jsonString}", jsonString);
-                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(jsonString, PortMessageJsonOptions);
-                }
-                else if (message is Dictionary<string, object> msgDict) {
-                    // Message came as Dictionary (legacy path)
-                    _logger.LogInformation("Message as Dictionary");
-                    var json = JsonSerializer.Serialize(msgDict);
-                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(json, PortMessageJsonOptions);
-                }
-                else {
-                    // Try to serialize then deserialize to handle other object types
-                    var json = JsonSerializer.Serialize(message);
-                    _logger.LogInformation("Message serialized from object: {json}", json);
-                    csBwMsg = JsonSerializer.Deserialize<CsBwMsg>(json, PortMessageJsonOptions);
-                }
-
-                if (csBwMsg != null) {
-                    // _logger.LogInformation("Successfully deserialized CsBwMsg with type: {Type}", csBwMsg.Type);
-
-                    _logger.LogInformation("Received {Type} message from ContentScript", csBwMsg.Type);
-                    // Handle different message types using the new message type constants
-                    switch (csBwMsg.Type) {
-                        case CsBwMsgTypes.INIT:
-                            // Send READY response using the proper message type
-                            var readyMsg = new BwCsMsgPong();
-                            port.PostMessage(readyMsg);
-                            break;
-
-                        case CsBwMsgTypes.POLARIS_SIGNIFY_AUTHORIZE:
-                            await HandleSelectAuthorizeAsync(csBwMsg, port);
-                            break;
-
-                        case CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
-                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
-                            break;
-
-                        case CsBwMsgTypes.POLARIS_SELECT_AUTHORIZE_AID:
-                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
-                            break;
-
-
-                        case CsBwMsgTypes.POLARIS_SIGN_REQUEST:
-                            await HandleSignRequestAsync(csBwMsg, port);
-                            break;
-
-                        case CsBwMsgTypes.POLARIS_SIGNIFY_EXTENSION_CLIENT:
-                            _logger.LogWarning("Behavior for message {Type} not yet implemented", csBwMsg.Type);
-                            // TODO: Handle response with extension client info
-                            break;
-
-                        default:
-                            _logger.LogWarning("Unknown message type on port: {ConnectionId} type: {Type}", connectionId, csBwMsg.Type);
-                            var errorMsg = new BwCsMsg(
-                                type: BwCsMsgTypes.REPLY,
-                                requestId: csBwMsg.RequestId,
-                                error: $"Unknown message type: {csBwMsg.Type}"
-                            );
-                            port.PostMessage(errorMsg);
-                            break;
-                    }
-                }
-                else {
-                    _logger.LogWarning("Failed to deserialize message from ContentScript as CsBwMsg");
-                }
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error processing ContentScript message on port {ConnectionId}", connectionId);
-                try {
-                    var errorMsg = new BwCsMsg(
-                        type: BwCsMsgTypes.REPLY,
-                        error: $"Error processing ContentScript message: {ex.Message}"
-                    );
-                    port.PostMessage(errorMsg);
-                }
-                catch (Exception sendEx) {
-                    _logger.LogError(sendEx, "Failed to send error response to ContentScript on port {ConnectionId}", connectionId);
-                }
-            }
-
-            return false;
-        });
-    }
-
-    private void SetUpBlazorAppMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId, string portType) {
-        _logger.LogInformation("Setting up Blazor App ({portType}) message handling for port {ConnectionId}", portType, connectionId);
-
-        // Store the Blazor app connection
-        var tabId = port.Sender?.Tab?.Id ?? -1;
-        _blazorAppConnections[connectionId] = new BlazorAppConnection {
-            Port = port,
-            ConnectionId = connectionId,
-            TabId = tabId,
-            PortType = portType
-        };
-
-        port.OnMessage.AddListener(async (object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogInformation("BW🡠App message on port {ConnectionId}: {Message}", connectionId, message);
-
-            try {
-                await HandleMessageFromAppAsync(message, port, connectionId);
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error processing Blazor App message on port {ConnectionId}", connectionId);
-            }
-
-            return false;
-        });
-
-        // Clean up on disconnect
-        port.OnDisconnect.AddListener(() => {
-            _logger.LogInformation("Blazor App port disconnected: {ConnectionId}", connectionId);
-            _blazorAppConnections.TryRemove(connectionId, out _);
-        });
-    }
-
-    private void SetUpDefaultMessageHandling(WebExtensions.Net.Runtime.Port port, string connectionId) {
-        _logger.LogWarning("Setting up default message handling for port {ConnectionId}", connectionId);
-        port.OnMessage.AddListener((object message, MessageSender sender, Action sendResponse) => {
-            _logger.LogWarning("Received message on legacy/unknown port {ConnectionId}: {Message}", connectionId, message);
-            return false;
-        });
-    }
-
-    /// <summary>
-    /// Handles messages from the Blazor App (popup/tab/sidepanel) and forwards them to the appropriate content script
-    /// </summary>
-    private async Task HandleMessageFromAppAsync(object messageObj, WebExtensions.Net.Runtime.Port appPort, string appConnectionId) {
-        try {
-            _logger.LogInformation("BW🡠App message, port: {Message}", JsonSerializer.Serialize(messageObj));
-
-            // Deserialize the message
-            var messageJson = JsonSerializer.Serialize(messageObj);
-            var message = JsonSerializer.Deserialize<BwCsMsg>(messageJson, PortMessageJsonOptions);
-
-            if (message == null) {
-                _logger.LogWarning("Failed to deserialize message from Blazor App");
-                return;
-            }
-
-            // Send acknowledgement back to the app
-            var ackMsg = new {
-                type = BwCsMsgTypes.FSW,
-                data = $"BW received your message: {message.Type} for tab {appPort.Sender?.Tab?.Id}"
-            };
-            appPort.PostMessage(ackMsg);
-
-            // Find the associated content script connection
-            // For now, we'll use the first available CS connection (TODO P2: improve tab matching)
-            var csConnection = _pageCsConnections.Values.FirstOrDefault();
-
-            if (csConnection != null) {
-                _logger.LogInformation("BW handling App message of type: {Type}", message.Type);
-
-                switch (message.Type) {
-                    case BwCsMsgTypes.REPLY:
-                        await HandleReplyMessageAsync(message, csConnection);
-                        break;
-
-                    case "ApprovedSignRequest":
-                        await HandleApprovedSignRequestAsync(message, csConnection);
-                        break;
-
-                    case BwCsMsgTypes.REPLY_CRED:
-                        await HandleReplyCredentialAsync(message, csConnection);
-                        break;
-
-                    case BwCsMsgTypes.REPLY_CANCELED:
-                    case "/KeriAuth/signify/replyCancel":
-                        await HandleReplyCanceledAsync(message, csConnection);
-                        break;
-
-                    case BwCsMsgTypes.APP_CLOSED:
-                        await HandleAppClosedAsync(csConnection);
-                        break;
-
-                    default:
-                        _logger.LogWarning("Unknown message type from Blazor App: {Type}", message.Type);
-                        break;
-                }
-            }
-            else {
-                _logger.LogWarning("No content script connection found to forward message to");
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling message from Blazor App");
-        }
-    }
-
-    private async Task HandleReplyMessageAsync(BwCsMsg message, CsConnection csConnection) {
-        _isWaitingOnKeria = true;
-        _logger.LogInformation("BW🡢CS {Type}", message.Type);
-        csConnection.Port.PostMessage(message);
-        ResetPendingRequest();
-        await Task.CompletedTask;
-    }
-
-    private async Task HandleApprovedSignRequestAsync(BwCsMsg message, CsConnection csConnection) {
-        _isWaitingOnKeria = true;
-        await SignRequestSendToTabAsync(message, csConnection);
-        ResetPendingRequest();
-    }
-
-    private async Task HandleReplyCredentialAsync(BwCsMsg message, CsConnection csConnection) {
-        _isWaitingOnKeria = true;
-        try {
-            if (message.Payload == null) {
-                _logger.LogWarning("REPLY_CRED message has null payload");
-                return;
-            }
-
-            // Deserialize payload as AuthorizeResult with RecursiveDictionaryConverter
-            // This preserves CESR/SAID ordering in the credential
-            var payloadJson = JsonSerializer.Serialize(message.Payload);
-            _logger.LogInformation("REPLY_CRED payload JSON: {json}", payloadJson);
-            var authorizeResult = JsonSerializer.Deserialize<AuthorizeResult>(payloadJson, AuthorizeResultJsonOptions);
-
-            if (authorizeResult?.ARCredential == null) {
-                _logger.LogWarning("REPLY_CRED payload missing credential");
-                return;
-            }
-
-            _logger.LogInformation("Processing REPLY_CRED - credential signing not yet fully implemented");
-
-            // Calculate expiry (30 minutes from now)
-            var expiry = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
-
-            // TODO: Connect to KERIA and get signed headers
-            // var isConnected = await _signifyService.IsConnectedAsync();
-            // if (isConnected) {
-            //     var headers = await _signifyService.GetSignedHeadersAsync(...);
-            //     ...
-            // }
-
-            // Convert RecursiveDictionary to object for JavaScript
-            // This preserves CESR/SAID ordering since RecursiveDictionary maintains insertion order
-            var credentialObj = new {
-                raw = authorizeResult.ARCredential.Raw.ToObjectDictionary(),
-                cesr = authorizeResult.ARCredential.Cesr
-            };
-
-            // Create payload with credential object, expiry, and headers
-            var payloadObj = new {
-                credential = credentialObj,
-                expiry,
-                headers = new Dictionary<string, string>() // TODO: Get from SignifyService
-            };
-
-            var replyMsg = new BwCsMsg(
-                type: BwCsMsgTypes.REPLY,
-                requestId: message.RequestId,
-                payload: payloadObj
-            );
-
-            _logger.LogInformation("BW🡢CS authorizeResult");
-            csConnection.Port.PostMessage(replyMsg);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error processing REPLY_CRED message");
-        }
-
-        ResetPendingRequest();
-        await Task.CompletedTask;
-    }
-
-    private async Task HandleReplyCanceledAsync(BwCsMsg message, CsConnection csConnection) {
-        _isWaitingOnKeria = true;
-        try {
-            var cancelResult = new CsPageMsgData<object?>(
-                type: BwCsMsgTypes.REPLY_CANCELED,
-                requestId: message.RequestId ?? "unknown",
-                source: CsPageConstants.CsPageMsgTag,
-                payload: null,
-                error: "Canceled or timed out"
-            );
-
-            _logger.LogInformation("BW🡢CS cancelResult");
-            csConnection.Port.PostMessage(cancelResult);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error processing REPLY_CANCELED message");
-        }
-
-        ResetPendingRequest();
-        await Task.CompletedTask;
-    }
-
-    private async Task HandleAppClosedAsync(CsConnection csConnection) {
-        try {
-            if (_pendingRequestId != null) {
-                if (!_isWaitingOnKeria) {
-                    var cancelResult = new CsPageMsgData<object?>(
-                        type: BwCsMsgTypes.REPLY_CANCELED,
-                        requestId: _pendingRequestId,
-                        source: CsPageConstants.CsPageMsgTag,
-                        payload: null,
-                        error: "User canceled or KERI Auth timed out"
-                    );
-
-                    _logger.LogInformation("BW🡢CS cancelResult (app closed)");
-                    csConnection.Port.PostMessage(cancelResult);
-                }
-                else {
-                    _logger.LogInformation("BW not sending cancel to CS to allow Signify signing to complete");
-                }
-            }
-            else {
-                var closeAppMsg = new CsPageMsgData<object?>(
-                    type: BwCsMsgTypes.APP_CLOSED,
-                    requestId: "none",
-                    source: CsPageConstants.CsPageMsgTag,
-                    payload: null,
-                    error: "KERI Auth action popup closed"
-                );
-
-                _logger.LogInformation("BW🡢CS closeAppMsg");
-                csConnection.Port.PostMessage(closeAppMsg);
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error processing APP_CLOSED message");
-        }
-
-        await Task.CompletedTask;
-    }
-
-    private async Task SignRequestSendToTabAsync(BwCsMsg message, CsConnection csConnection) {
-        try {
-            // TODO: Implement sign request logic
-            // This should process the approved sign request and send it to the content script
-            _logger.LogInformation("SignRequestSendToTab not yet fully implemented");
-            csConnection.Port.PostMessage(message);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in SignRequestSendToTab");
-        }
-
-        await Task.CompletedTask;
-    }
-
-    private void ResetPendingRequest() {
-        _isWaitingOnKeria = false;
-        _pendingRequestId = null;
-    }
-
-
-    // onConnect fires when a connection is made from content scripts or other extension pages
-    // Parameter: port - Port object with name and sender properties
-    [JSInvokable]
-    public async Task OnConnectAsync(object portObjRaw) {
-        try {
-            _logger.LogInformation("OnConnectAsync event handler called");
-
-            /*
-            // Deserialize to strongly-typed object
-            var portJson = JsonSerializer.Serialize(portObj);
-            var port = JsonSerializer.Deserialize<Extension.Models.Port>(portJson);
-
-            
-            
-            
-            if (port == null) {
-                _logger.LogWarning("Failed to deserialize port connection");
-                return;
-            }
-
-            var connectionId = port.Name ?? Guid.NewGuid().ToString();
-            _logger.LogInformation("Port connected: {Name}", connectionId);
-
-            var tabId = port.Sender?.Tab?.Id ?? -1;
-            var origin = port.Sender?.Origin ?? port.Sender?.Url ?? "unknown";
-            
-
-            // Check if this is a content script port (UUID pattern)
-            if (Regex.IsMatch(connectionId, ContentScriptPortPattern)) {
-            */
-            _logger.LogInformation("Port connected as Regex");
-
-            // Attempt to cast to WebExtensions.Net.Runtime.Port
-            var portObj = portObjRaw.As<WebExtensions.Net.Runtime.Port>();
-            _logger.LogWarning("Port object received: {PortObjRaw}", portObjRaw);
-
-            // var portObj = portObjRaw as WebExtensions.Net.Runtime.Port;
-            if (portObj == null) {
-                _logger.LogWarning("Failed to cast port object {PortObjRaw} to WebExtensions.Net.Runtime.Port", JsonSerializer.Serialize(portObjRaw));
-                return;
-            }
-
-
-            // EE TMP
-            // var port2obj = portObj as WebExtensions.Net.Runtime.Port;
-            portObj!.PostMessage(new { foo = "hello from BW" });
-
-            portObj!.OnMessage.AddListener((object message, MessageSender sender, Action<object> sendResponse, bool b) => {
-                _logger.LogInformation("Port2obj message received: message {Message} sender {Sender} action {Action}, bool {B}", JsonSerializer.Serialize(message), JsonSerializer.Serialize(sender), sendResponse.ToString(), b.ToString());
-                return true;
-            });
-
-
-
-
-
-            // await HandleContentScriptConnectionAsync(connectionId, portObj, port, tabId);
-            /*
-        }
-        else if (connectionId.StartsWith(BlazorAppPortPrefix, StringComparison.OrdinalIgnoreCase)) {
-            _logger.LogInformation("Port connected as AppPort");
-            await HandleBlazorAppConnectionAsync(connectionId, portObj, port, tabId, origin);
-        }
-        else {
-            _logger.LogWarning("Unknown port connection: {ConnectionId}", connectionId);
-        }
-        */
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling port connection");
-        }
-    }
-
-
     // onMessage fires when extension parts or external apps send messages.
     // Typical use: Coordination, data requests.
     // Returns: Response to send back to the message sender (or null)
-    [JSInvokable]
-    public async Task<object?> OnMessageAsync(object messageObj, object senderObj) {
+    // [JSInvokable]
+    public async Task OnMessageAsync(object messageObj, object senderObj) {
         try {
             _logger.LogInformation("OnMessageAsync event handler called");
 
@@ -705,26 +180,79 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var senderJson = JsonSerializer.Serialize(senderObj);
             var sender = JsonSerializer.Deserialize<Extension.Models.MessageSender>(senderJson);
 
-            // Deserialize message as RuntimeMessage
-            var messageJson = JsonSerializer.Serialize(messageObj);
-            var message = JsonSerializer.Deserialize<RuntimeMessage>(messageJson);
-
-            if (message?.Action != null) {
-                _logger.LogInformation("Runtime message received: {Action} from {SenderId}", message.Action, sender?.Id);
-
-                return message.Action switch {
-                    // "resetInactivityTimer" => await ResetInactivityTimerAsync(),
-                    LockAppAction => await HandleLockAppMessageAsync(),
-                    SystemLockDetectedAction => await HandleSystemLockDetectedAsync(),
-                    _ => await HandleUnknownMessageAsync(message.Action)
-                };
+            // SECURITY: Validate message origin to prevent subdomain attacks
+            // Only messages from the extension itself or explicitly permitted origins are allowed
+            var isValidSender = await ValidateMessageSenderAsync(sender, messageObj);
+            if (!isValidSender) {
+                _logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender: {SenderJson}", senderJson);
+                return;
             }
 
-            return null;
+            // Try to deserialize as InboundMessage
+            var messageJson = JsonSerializer.Serialize(messageObj);
+            _logger.LogDebug("OnMessageAsync messageJson: {MessageJson}", messageJson);
+            var inboundMsg = JsonSerializer.Deserialize<ToBwMessage>(messageJson, PortMessageJsonOptions);
+
+            if (inboundMsg?.Type != null) {
+                _logger.LogInformation("Message received: {Type} from {Url}", inboundMsg.Type, sender?.Url);
+
+                // Check if message is from extension (App) or from content script
+                var isFromExtension = sender?.Url?.StartsWith($"chrome-extension://{WebExtensions.Runtime.Id}", StringComparison.OrdinalIgnoreCase) ?? false;
+
+                // Messages from App that need forwarding to ContentScript
+                if (isFromExtension) {
+                    var appMsg = JsonSerializer.Deserialize<AppBwMessage>(messageJson, PortMessageJsonOptions);
+                    _logger.LogDebug("AppMessage deserialized - TabId: {TabId}", appMsg?.TabId);
+                    if (appMsg != null) {
+                        await HandleAppMessageAsync(appMsg);
+                        return;
+                    }
+                    else {
+                        _logger.LogWarning("Failed to deserialize AppMessage {appMsg}", messageJson);
+                        await HandleUnknownMessageActionAsync(inboundMsg.Type);
+                        return;
+                    }
+                }
+                else {
+                    // Handle ContentScript messages (from web pages)
+                    var contentScriptMsg = JsonSerializer.Deserialize<CsBwMessage>(messageJson, PortMessageJsonOptions);
+                    if (contentScriptMsg != null) {
+                        await HandleContentScriptMessageAsync(contentScriptMsg, sender);
+                        return;
+                    }
+                }
+
+                // Try to deserialize as RuntimeMessage (internal extension messages)
+                var message = JsonSerializer.Deserialize<RuntimeMessage>(messageJson);
+
+                if (message?.Action != null) {
+                    _logger.LogInformation("Runtime message received: {Action} from {SenderId}", message.Action, sender?.Id);
+
+                    switch (message.Action) {
+                        case "resetInactivityTimer":
+                            // await ResetInactivityTimerAsync();
+                            break;
+                        case LockAppAction:
+                            await HandleLockAppMessageAsync();
+                            break;
+                        case SystemLockDetectedAction:
+                            await HandleSystemLockDetectedAsync();
+                            break;
+                        default:
+                            await HandleUnknownMessageActionAsync(message.Action);
+                            break;
+                    }
+                    return;
+                }
+            }
+            else {
+                _logger.LogWarning("Failed to deserialize InboundMessage.Type {MessageJson}", messageJson);
+                return;
+            }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling runtime message");
-            return null;
+            return;
         }
     }
 
@@ -788,7 +316,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Check if permissions are already granted.
+            // SECURITY: Check if permissions are already granted for this specific origin.
+            // This prevents subdomain attacks - if permission was granted for https://example.com/*,
+            // then https://evil.example.com/* will NOT have permission and cannot inject scripts.
+            // Only exact origin matches are permitted.
             var anyPermissions = new AnyPermissions {
                 Origins = [.. matchPatterns.Select(pattern => new MatchPattern(new MatchPatternRestricted(pattern)))]
             };
@@ -852,17 +383,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}",
                 tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
 
-            // Remove any connections associated with this tab
-            var connectionToRemove = _pageCsConnections
-                .Where(kvp => kvp.Value.TabId == tabId)
-                .Select(kvp => kvp.Key)
-                .FirstOrDefault();
-
-            if (!string.IsNullOrEmpty(connectionToRemove)) {
-                _pageCsConnections.TryRemove(connectionToRemove, out _);
-                _logger.LogInformation("Removed connection for closed tab: {TabId}", tabId);
-            }
-            // Note: No need for separate injection tracking - port connection removal handles cleanup
+            // NOTE: No cleanup needed with runtime.sendMessage approach
+            // All message handling is stateless - no connection tracking required
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling tab removal");
@@ -951,29 +473,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task<object?> HandleUnknownMessageAsync(string? action) {
-        _logger.LogInformation("HandleUnknownMessageAsync called for action: {Action}", action);
-        _logger.LogWarning("Unknown message action: {Action}", action);
+    private async Task HandleUnknownMessageActionAsync(string? action) {
+        _logger.LogWarning("HandleUnknownMessageActionAsync: Unknown message action: {Action}", action);
         await Task.CompletedTask;
-        return null;
+        return;
     }
 
-    private async Task<object> HandleLockAppMessageAsync() {
+    private async Task HandleLockAppMessageAsync() {
         try {
             _logger.LogInformation("HandleLockAppMessageAsync called");
             _logger.LogInformation("Lock app message received - app should be locked");
 
             // The InactivityTimerService handles the actual locking logic
             _logger.LogInformation("App lock request processed");
-            return new { success = true, message = "App locked" };
+            return;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling lock app message");
-            return new { success = false, error = ex.Message };
+            return;
         }
     }
 
-    private async Task<object> HandleSystemLockDetectedAsync() {
+    private async Task HandleSystemLockDetectedAsync() {
         try {
             _logger.LogInformation("HandleSystemLockDetectedAsync called");
             _logger.LogWarning("System lock/suspend/hibernate detected in background worker");
@@ -986,12 +507,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             catch (Exception ex) {
                 _logger.LogInformation(ex, "Could not send LockApp message (expected if no pages open)");
             }
-
-            return new { success = true, message = "System lock detected and app locked" };
+            return;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error handling system lock detection");
-            return new { success = false, error = ex.Message };
+            return;
         }
     }
 
@@ -1078,517 +598,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error creating extension tab");
-        }
-    }
-
-    private async Task SetUpPortMessageListenerAsync(object portObj, string connectionId, bool isContentScript) {
-        try {
-            _logger.LogInformation("SetUpPortMessageListenerAsync called for {ConnectionId}", connectionId);
-
-            // Use WebExtensionsApi to properly bind the port object to JSRuntime
-            // This follows the same pattern as other WebExtensions.Net APIs in the class
-            var webExtPort = await CreateBoundWebExtensionsPortAsync(portObj);
-
-            if (webExtPort?.OnMessage != null) {
-                // Set up message listener using WebExtensions.Net OnMessage event
-                // Explicitly cast to resolve ambiguity between different MessageSender types
-                webExtPort.OnMessage.AddListener((Func<object, WebExtensions.Net.Runtime.MessageSender, Action, bool>)((message, sender, sendResponse) => {
-                    try {
-                        _logger.LogDebug("Port message received for connection {ConnectionId}", connectionId);
-                        // Handle the message asynchronously without blocking the event handler
-                        _ = Task.Run(async () => {
-                            try {
-                                await OnPortMessageReceived(connectionId, message);
-                            }
-                            catch (Exception ex) {
-                                _logger.LogError(ex, "Error handling port message for {ConnectionId}", connectionId);
-                            }
-                        });
-                        return true; // Indicate that the message was handled
-                    }
-                    catch (Exception ex) {
-                        _logger.LogError(ex, "Error in port message event handler for {ConnectionId}", connectionId);
-                        return false;
-                    }
-                }));
-
-                _logger.LogInformation("Set up WebExtensions.Net port message listener for {ConnectionId}, IsContentScript: {IsContentScript}",
-                    connectionId, isContentScript);
-            }
-            else {
-                _logger.LogWarning("Failed to create bound WebExtensions.Net Port object for {ConnectionId}", connectionId);
-
-                // Fallback to JavaScript interop if WebExtensions.Net binding fails
-                await SetUpPortMessageListenerJSFallbackAsync(portObj, connectionId, isContentScript);
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error setting up port message listener");
-
-            // Fallback to JavaScript interop
-            try {
-                await SetUpPortMessageListenerJSFallbackAsync(portObj, connectionId, isContentScript);
-            }
-            catch (Exception fallbackEx) {
-                _logger.LogError(fallbackEx, "Fallback JavaScript interop also failed for {ConnectionId}", connectionId);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Creates a properly bound WebExtensions.Net Port object using WebExtensionsApi
-    /// </summary>
-    private async Task<WebExtensions.Net.Runtime.Port?> CreateBoundWebExtensionsPortAsync(object portObj) {
-        try {
-            // WebExtensions.Net objects need to be properly bound to JSRuntime to function
-            // Since we can't easily bind existing JS objects to WebExtensions.Net classes,
-            // we'll return null to trigger the JavaScript fallback approach
-            // This is the most reliable approach for port message handling in this context
-            _ = portObj;
-            _logger.LogDebug("WebExtensions.Net Port binding not implemented for runtime JS objects, using JS fallback");
-            return null;
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "Error in CreateBoundWebExtensionsPortAsync");
-            return null;
-        }
-    }
-
-
-    /// <summary>
-    /// JavaScript fallback for port message listening when WebExtensions.Net binding fails
-    /// Uses secure TypeScript module instead of eval() to comply with CSP
-    /// </summary>
-    private async Task SetUpPortMessageListenerJSFallbackAsync(object portObj, string connectionId, bool isContentScript) {
-        try {
-            _logger.LogInformation("Setting up JavaScript fallback port message listener for {ConnectionId}", connectionId);
-
-            // Use TypeScript module for secure port message handling (no eval())
-            // Following CLAUDE.md security constraints: "NEVER use eval() or any form of dynamic code evaluation"
-            var portMessageModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PortMessageHelper.js");
-
-            // Access the exported PortMessageHelper class from the module (ES6 class export)
-            // Use direct property access to get the class from the module
-            await portMessageModule.InvokeVoidAsync("PortMessageHelper.setupPortMessageListener",
-                portObj, connectionId, _dotNetObjectRef);
-
-            _logger.LogInformation("JavaScript fallback port message listener set up for {ConnectionId}, IsContentScript: {IsContentScript}",
-                connectionId, isContentScript);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error setting up JavaScript fallback port message listener for {ConnectionId}", connectionId);
-            throw;
-        }
-    }
-
-    private async Task SendPortMessageAsync(object portObj, object message) {
-        try {
-            _logger.LogInformation("SendPortMessageAsync called");
-
-            // Use TypeScript module for secure port message sending (no eval())
-            // Following CLAUDE.md security constraints: "NEVER use eval() or any form of dynamic code evaluation"
-            var portMessageModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PortMessageHelper.js");
-
-            // Access the exported PortMessageHelper class from the module (ES6 class export)
-            // Use direct property access to call the static method
-            var success = await portMessageModule.InvokeAsync<bool>("PortMessageHelper.sendPortMessage", portObj, message);
-
-            if (success) {
-                _logger.LogInformation("Sent port message: {Message}", JsonSerializer.Serialize(message));
-            }
-            else {
-                _logger.LogWarning("Failed to send port message: {Message}", JsonSerializer.Serialize(message));
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error sending port message");
-        }
-    }
-
-    /// <summary>
-    /// JavaScript-invokable method called when a port message is received
-    /// </summary>
-    [JSInvokable]
-    public async Task OnPortMessageReceived(string connectionId, object messageObj) {
-        try {
-            _logger.LogInformation("OnPortMessageReceived called for {ConnectionId}", connectionId);
-
-            // Deserialize to strongly-typed PortMessage
-            var messageJson = JsonSerializer.Serialize(messageObj);
-            var message = JsonSerializer.Deserialize<PortMessage>(messageJson);
-
-            if (message == null) {
-                _logger.LogWarning("Failed to deserialize port message from {ConnectionId}", connectionId);
-                return;
-            }
-
-            _logger.LogInformation("Port message received from {ConnectionId}: Type={MessageType}",
-                connectionId, message.Type);
-
-            // Get the connection details
-            if (_pageCsConnections.TryGetValue(connectionId, out var connection)) {
-                await HandlePortMessageAsync(connectionId, message, connection);
-            }
-            else {
-                _logger.LogWarning("No connection found for {ConnectionId}", connectionId);
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling port message from {ConnectionId}", connectionId);
-        }
-    }
-
-    /// <summary>
-    /// JavaScript-invokable method called when a port is disconnected
-    /// </summary>
-    [JSInvokable]
-    public async Task OnPortDisconnected(string connectionId) {
-        try {
-            _logger.LogInformation("OnPortDisconnected called for {ConnectionId}", connectionId);
-
-            // Remove the connection from our tracking
-            if (_pageCsConnections.TryRemove(connectionId, out var connection)) {
-                _logger.LogInformation("Removed disconnected connection {ConnectionId} from tab {TabId}",
-                    connectionId, connection.TabId);
-            }
-
-            await Task.CompletedTask;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling port disconnection for {ConnectionId}", connectionId);
-        }
-    }
-
-    /// <summary>
-    /// Handles incoming port messages based on their type and connection
-    /// </summary>
-    private async Task HandlePortMessageAsync(string connectionId, PortMessage message, CsConnection connection) {
-        try {
-            _logger.LogInformation("HandlePortMessageAsync: Processing message type '{MessageType}' from {ConnectionId}",
-                message.Type, connectionId);
-
-            // Handle different message types
-            switch (message.Type) {
-                case "keepAlive":
-                    await HandleKeepAliveMessageAsync(connectionId);
-                    break;
-
-                case "authRequest":
-                    await HandleAuthRequestMessageAsync(connectionId, message, connection);
-                    break;
-
-                case "statusUpdate":
-                    await HandleStatusUpdateMessageAsync(connectionId, message);
-                    break;
-
-                default:
-                    _logger.LogWarning("Unknown port message type '{MessageType}' from {ConnectionId}",
-                        message.Type, connectionId);
-                    break;
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error handling port message type '{MessageType}' from {ConnectionId}",
-                message.Type, connectionId);
-        }
-    }
-
-    private async Task HandleKeepAliveMessageAsync(string connectionId) {
-        _logger.LogInformation("Keep-alive message received from {ConnectionId}", connectionId);
-
-        // Send keep-alive response
-        var response = new PortMessage(
-            Type: "keepAliveResponse",
-            Data: new { timestamp = DateTime.UtcNow.ToString("O") }
-        );
-
-        if (_pageCsConnections.TryGetValue(connectionId, out var connection)) {
-            // TODO: Use Port.PostMessage directly instead of SendPortMessageAsync
-            // await SendPortMessageAsync(connection.Port, response);
-            connection.Port.PostMessage(response);
-        }
-    }
-
-    private async Task HandleAuthRequestMessageAsync(string connectionId, PortMessage message, CsConnection connection) {
-        _logger.LogInformation("Authentication request received from {ConnectionId} on tab {TabId}",
-            connectionId, connection.TabId);
-
-        // TODO: Implement authentication request handling
-        // This would typically involve:
-        // 1. Validating the request
-        // 2. Checking user permissions
-        // 3. Processing through SignifyService
-        // 4. Sending response back through port
-        _ = message;
-        await Task.CompletedTask;
-    }
-
-    private async Task HandleStatusUpdateMessageAsync(string connectionId, PortMessage message) {
-        _logger.LogInformation("Status update received from {ConnectionId}: {Data}",
-            connectionId, JsonSerializer.Serialize(message.Data));
-
-        // TODO: Implement status update handling
-        // This could update UI state or trigger other background actions
-
-        await Task.CompletedTask;
-    }
-
-
-    /// <summary>
-    /// Handles SELECT_AUTHORIZE_AID message - opens popup for user to select and authorize an AID
-    /// </summary>
-    private async Task HandleSelectAuthorizeAsync(CsBwMsg msg, WebExtensions.Net.Runtime.Port csTabPort) {
-        try {
-            _logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
-
-            var sender = csTabPort.Sender;
-            if (sender?.Tab?.Id == null) {
-                _logger.LogWarning("BW HandleSelectAuthorize: no tabId found");
-                return;
-            }
-
-            var tabId = sender.Tab.Id.Value;
-            // Get origin from sender - WebExtensions.Net.Runtime.MessageSender has Url property
-            var origin = sender.Url ?? "unknown";
-            var jsonOrigin = JsonSerializer.Serialize(origin);
-
-            _logger.LogInformation("BW HandleSelectAuthorize: tabId: {TabId}, message: {Message}, origin: {Origin}",
-                tabId, JsonSerializer.Serialize(msg), jsonOrigin);
-
-            var encodedMsg = SerializeAndEncode(msg);
-            await UseActionPopupAsync(tabId, [
-                new QueryParam("message", encodedMsg),
-                new QueryParam("origin", jsonOrigin),
-                new QueryParam("popupType", "SelectAuthorize")
-            ]);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleSelectAuthorize");
-        }
-    }
-
-    /// <summary>
-    /// Handles sign request messages from content scripts.
-    /// Based on signify-browser-extension handleFetchSignifyHeaders:
-    /// https://github.com/WebOfTrust/signify-browser-extension/blob/67ce30fa671e39cba6192e2f8f826ccbb424e37a/src/pages/background/handlers/resource.ts#L40
-    /// </summary>
-    private async Task HandleSignRequestAsync(CsBwMsg msg, WebExtensions.Net.Runtime.Port csTabPort) {
-        try {
-            _logger.LogInformation("BW HandleSignRequest: {Message}", JsonSerializer.Serialize(msg));
-
-            var sender = csTabPort.Sender;
-            if (sender?.Tab?.Id == null) {
-                _logger.LogWarning("BW HandleSignRequest: no tabId found");
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: "No tab ID found"
-                );
-                csTabPort.PostMessage(errorMsg);
-                return;
-            }
-
-            var tabId = sender.Tab.Id.Value;
-            var origin = sender.Url ?? "unknown";
-
-            // Extract origin domain from URL
-            string originDomain = origin;
-            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
-                originDomain = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort) {
-                    originDomain += $":{originUri.Port}";
-                }
-            }
-
-            _logger.LogInformation("BW HandleSignRequest: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
-
-            // Deserialize payload to extract method and url
-            var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(payloadJson, PortMessageJsonOptions);
-
-            if (payload == null) {
-                _logger.LogWarning("BW HandleSignRequest: failed to deserialize payload");
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: "Invalid payload"
-                );
-                csTabPort.PostMessage(errorMsg);
-                return;
-            }
-
-            // Extract method and url from payload
-            if (!payload.TryGetValue("method", out var methodElement)) {
-                _logger.LogWarning("BW HandleSignRequest: no method in payload");
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: "Method not specified"
-                );
-                csTabPort.PostMessage(errorMsg);
-                return;
-            }
-
-            if (!payload.TryGetValue("url", out var urlElement)) {
-                _logger.LogWarning("BW HandleSignRequest: no url in payload");
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: "URL not specified"
-                );
-                csTabPort.PostMessage(errorMsg);
-                return;
-            }
-
-            var method = methodElement.GetString() ?? "GET";
-            var rurl = urlElement.GetString() ?? "";
-
-            if (string.IsNullOrEmpty(rurl)) {
-                _logger.LogWarning("BW HandleSignRequest: url is empty");
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: "URL is empty"
-                );
-                csTabPort.PostMessage(errorMsg);
-                return;
-            }
-
-            // Get signed headers from signify service
-            try {
-                // Check if we're connected to KERIA - BackgroundWorker has separate SignifyClient instance
-                // that needs to be connected independently from the App runtime
-                var stateResult = await TryGetSignifyStateAsync();
-                if (stateResult.IsFailed) {
-                    // Not connected - try to connect using stored credentials
-                    _logger.LogInformation("BW HandleSignRequest: SignifyClient not connected, attempting to connect");
-
-                    var connectResult = await TryConnectSignifyClientAsync();
-                    if (connectResult.IsFailed) {
-                        _logger.LogWarning("BW HandleSignRequest: failed to connect to KERIA: {Error}",
-                            connectResult.Errors[0].Message);
-                        var errorMsg = new BwCsMsg(
-                            type: BwCsMsgTypes.REPLY,
-                            requestId: msg.RequestId,
-                            error: $"Not connected to KERIA: {connectResult.Errors[0].Message}"
-                        );
-                        csTabPort.PostMessage(errorMsg);
-                        return;
-                    }
-
-                    _logger.LogInformation("BW HandleSignRequest: successfully connected to KERIA");
-                }
-
-                // Get session/identifier for this origin and tab
-                // TODO P2 For now, we'll use the remembered prefix from website config
-                string? aidName = null;
-
-                if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
-                    var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
-
-                    if (websiteConfigResult.IsSuccess &&
-                        websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-
-                        var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-
-
-                        // GetNameByPrefix
-                        var identifiers = await _signifyService.GetIdentifiers();
-                        if (identifiers.IsSuccess && identifiers.Value is not null) {
-                            var aids = identifiers.Value.Aids;
-                            aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
-                        }
-                        else {
-                            _logger.LogWarning("BW HandleSignRequest: failed to get AID name for prefix {Prefix}: {Error}",
-                                prefix, identifiers.IsFailed ? identifiers.Errors[0].Message : "empty result");
-                        }
-                    }
-                }
-
-                if (string.IsNullOrEmpty(aidName)) {
-                    _logger.LogWarning("BW HandleSignRequest: no identifier configured for origin {Origin}", originDomain);
-                    var errorMsg = new BwCsMsg(
-                        type: BwCsMsgTypes.REPLY,
-                        requestId: msg.RequestId,
-                        error: $"No identifier configured for {originDomain}"
-                    );
-                    csTabPort.PostMessage(errorMsg);
-                    return;
-                }
-
-                // Prepare headers dictionary for the request
-                var headersDict = new Dictionary<string, string>();
-                if (payload.TryGetValue("headers", out var headersElement)) {
-                    try {
-                        var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(headersElement.GetRawText());
-                        if (headers != null) {
-                            headersDict = headers;
-                        }
-                    }
-                    catch (Exception ex) {
-                        _logger.LogWarning(ex, "BW HandleSignRequest: failed to parse headers");
-                    }
-                }
-
-                // Call signify-ts to get signed headers
-                var headersDictJson = JsonSerializer.Serialize(headersDict);
-                var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
-                    originDomain,
-                    rurl,
-                    method,
-                    headersDictJson,
-                    aidName
-                );
-
-                var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
-
-                if (signedHeaders == null) {
-                    _logger.LogWarning("BW HandleSignRequest: failed to get signed headers");
-                    var errorMsg = new BwCsMsg(
-                        type: BwCsMsgTypes.REPLY,
-                        requestId: msg.RequestId,
-                        error: "Failed to generate signed headers"
-                    );
-                    csTabPort.PostMessage(errorMsg);
-                    return;
-                }
-
-                _logger.LogInformation("BW HandleSignRequest: successfully generated signed headers with {Count} entries",
-                    signedHeaders.Count);
-
-                // Send success response with signed headers
-                var replyMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    payload: signedHeaders
-                );
-
-                csTabPort.PostMessage(replyMsg);
-                _logger.LogInformation("BW HandleSignRequest: sent signed headers to tab");
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "BW HandleSignRequest: error getting signed headers");
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: $"Error: {ex.Message}"
-                );
-                csTabPort.PostMessage(errorMsg);
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleSignRequest");
-            try {
-                var errorMsg = new BwCsMsg(
-                    type: BwCsMsgTypes.REPLY,
-                    requestId: msg.RequestId,
-                    error: $"Internal error: {ex.Message}"
-                );
-                csTabPort.PostMessage(errorMsg);
-            }
-            catch (Exception sendEx) {
-                _logger.LogError(sendEx, "Failed to send error response");
-            }
         }
     }
 
@@ -1685,25 +694,474 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private sealed record QueryParam(string Key, string Value);
 
-    // Supporting classes
-    private sealed class CsConnection {
-        public WebExtensions.Net.Runtime.Port Port { get; set; } = default!;
-        public int TabId { get; set; }
-        public string PageAuthority { get; set; } = "?";
-    }
-
-    private sealed class BlazorAppConnection {
-        public WebExtensions.Net.Runtime.Port Port { get; set; } = default!;
-        public string ConnectionId { get; set; } = default!;
-        public int TabId { get; set; }
-        public string PortType { get; set; } = default!; // BA_TAB, BA_POPUP, BA_SIDEPANEL
-    }
+    // NOTE: CsConnection and BlazorAppConnection classes removed
+    // No longer needed with stateless runtime.sendMessage approach
 
     private sealed class UpdateDetails {
         public string Reason { get; set; } = "";
         public string PreviousVersion { get; set; } = "";
         public string CurrentVersion { get; set; } = "";
         public string Timestamp { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Sends a message to a ContentScript in a specific tab using runtime.sendMessage.
+    /// </summary>
+    /// <param name="tabId">The tab ID to send the message to</param>
+    /// <param name="message">The message to send</param>
+    private async Task SendMessageToTabAsync(int tabId, object message) {
+        try {
+            _logger.LogInformation("BW→CS (tab {TabId}): {Message}", tabId, JsonSerializer.Serialize(message));
+            await WebExtensions.Tabs.SendMessage(tabId, message);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error sending message to tab {TabId}", tabId);
+        }
+    }
+
+    /// <summary>
+    /// Validates that a message sender is from an allowed origin.
+    /// SECURITY: This prevents subdomain attacks - only messages from the extension itself
+    /// or from origins with explicit permission grants are allowed.
+    ///
+    /// SECURITY CHECKS:
+    /// 1. Sender must be from this extension (sender.id === chrome.runtime.id)
+    /// 2. Sender must have a valid URL
+    /// 3. Sender's origin must have explicit permission grant (prevents subdomain attacks)
+    /// 4. documentId is checked but not required (Chrome 106+, may not be available in all contexts)
+    /// 5. Message payload must be an object with a type field
+    /// </summary>
+    /// <param name="sender">The message sender</param>
+    /// <param name="messageObj">The message object for payload validation</param>
+    /// <returns>True if sender and message are valid, false otherwise</returns>
+    private async Task<bool> ValidateMessageSenderAsync(Extension.Models.MessageSender? sender, object messageObj) {
+        try {
+            // 1. Check that sender is from this extension
+            if (sender?.Id != WebExtensions.Runtime.Id) {
+                _logger.LogWarning(
+                    "ValidateMessageSender: Message from different extension ID. Expected: {Expected}, Actual: {Actual}",
+                    WebExtensions.Runtime.Id,
+                    sender?.Id ?? "null"
+                );
+                return false;
+            }
+
+            // 2. Check that sender has a URL
+            if (string.IsNullOrEmpty(sender.Url)) {
+                _logger.LogWarning("ValidateMessageSender: Message sender has no URL");
+                return false;
+            }
+
+            // 3. Validate origin has explicit permission grant
+            // SECURITY: This prevents subdomain attacks. If permission was granted for
+            // https://example.com/*, then https://evil.example.com/* will NOT pass this check.
+            string senderOrigin;
+            try {
+                var url = new Uri(sender.Url);
+                senderOrigin = url.GetLeftPart(UriPartial.Authority);
+            }
+            catch (UriFormatException) {
+                _logger.LogWarning("ValidateMessageSender: Invalid sender URL: {Url}", sender.Url);
+                return false;
+            }
+
+            // Extension pages (popup, tab, sidepanel) are always allowed
+            var extensionOrigin = $"chrome-extension://{WebExtensions.Runtime.Id}";
+            if (senderOrigin.Equals(extensionOrigin, StringComparison.OrdinalIgnoreCase)) {
+                // Extension's own pages are trusted
+                _logger.LogDebug("ValidateMessageSender: Message from extension page (trusted)");
+                return await ValidatePayloadAsync(messageObj);
+            }
+
+            // For content scripts on web pages: check if origin has explicit permission
+            // Match pattern for the origin (e.g., "https://example.com/*")
+            var matchPattern = $"{senderOrigin}/*";
+
+            var anyPermissions = new WebExtensions.Net.Permissions.AnyPermissions {
+                Origins = [new WebExtensions.Net.Manifest.MatchPattern(new WebExtensions.Net.Manifest.MatchPatternRestricted(matchPattern))]
+            };
+
+            var hasPermission = await WebExtensions.Permissions.Contains(anyPermissions);
+
+            if (!hasPermission) {
+                _logger.LogWarning(
+                    "ValidateMessageSender: Sender origin not in granted permissions. Origin: {Origin}, Pattern: {Pattern}. " +
+                    "This prevents subdomain attacks - only explicitly granted origins can send messages.",
+                    senderOrigin,
+                    matchPattern
+                );
+                return false;
+            }
+
+            // 4. Check for documentId (Chrome 106+, recommended but not required)
+            // Note: documentId may not be present in all contexts (e.g., messages from service worker)
+            // We already validated sender via extension ID, URL, and explicit permissions
+            if (string.IsNullOrEmpty(sender.DocumentId)) {
+                _logger.LogDebug(
+                    "ValidateMessageSender: Message sender has no documentId. Origin: {Origin}. " +
+                    "documentId not available in all contexts, proceeding with other validations.",
+                    senderOrigin
+                );
+            }
+
+            // 5. Validate payload
+            var payloadValid = await ValidatePayloadAsync(messageObj);
+            if (!payloadValid) {
+                return false;
+            }
+
+            // All checks passed
+            _logger.LogDebug(
+                "ValidateMessageSender: Sender validation passed. Origin: {Origin}, DocumentId: {DocumentId}",
+                senderOrigin,
+                sender.DocumentId ?? "not available"
+            );
+            return true;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error validating message sender");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Validates message payload structure.
+    /// Basic validation - message should be an object with a type field.
+    /// </summary>
+    /// <param name="messageObj">The message payload object</param>
+    /// <returns>True if payload is valid, false otherwise</returns>
+    private Task<bool> ValidatePayloadAsync(object messageObj) {
+        // Basic validation: message should be an object
+        if (messageObj == null) {
+            _logger.LogWarning("ValidateMessageSender: Invalid message payload (null)");
+            return Task.FromResult(false);
+        }
+
+        // Try to serialize and deserialize to check structure
+        try {
+            var messageJson = JsonSerializer.Serialize(messageObj);
+            var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
+
+            if (messageDict == null) {
+                _logger.LogWarning("ValidateMessageSender: Invalid message payload (not an object)");
+                return Task.FromResult(false);
+            }
+
+            // Check for type field
+            if (!messageDict.TryGetValue("type", out var typeElement) || typeElement.ValueKind != JsonValueKind.String) {
+                _logger.LogWarning("ValidateMessageSender: Message payload missing or invalid type field");
+                return Task.FromResult(false);
+            }
+
+            return Task.FromResult(true);
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, "ValidateMessageSender: Error validating message payload structure");
+            return Task.FromResult(false);
+        }
+    }
+
+    /// <summary>
+    /// Handles messages from ContentScript sent via runtime.sendMessage.
+    /// These may include polaris-web protocol messages and other messages from CS, and routes them appropriately.
+    /// </summary>
+    /// <param name="msg">The ContentScript message</param>
+    /// <param name="sender">Message sender information</param>
+    /// <returns>Response object to send back to ContentScript</returns>
+    private async Task HandleContentScriptMessageAsync(CsBwMessage msg, Extension.Models.MessageSender? sender) {
+        try {
+            _logger.LogInformation("BW←CS: {Type}", msg.Type);
+
+            switch (msg.Type) {
+                case CsBwMessageTypes.INIT:
+                    // ContentScript is initializing - send READY response
+                    // TODO P1 send new ReadyMessage();
+                    break;
+
+                case CsBwMessageTypes.AUTHORIZE:
+                    // Store tab ID for later use
+                    var tabId = sender?.Tab?.Id ?? -1;
+                    if (tabId == -1) {
+                        _logger.LogWarning("BW←CS: No tab ID found for authorize request");
+                        return;
+                    }
+
+                    // Open popup for user to select and authorize
+                    await HandleSelectAuthorizeAsync(msg, sender);
+                    // Note: Response will be sent back via separate runtime.sendMessage when user completes action
+                    return;
+
+                case CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL:
+                    _logger.LogWarning("BW←CS: {Type} not yet implemented", msg.Type);
+                    return;
+
+                case CsBwMessageTypes.SELECT_AUTHORIZE_AID:
+                    _logger.LogWarning("BW←CS: {Type} not yet implemented", msg.Type);
+                    return;
+
+                case CsBwMessageTypes.SIGN_REQUEST:
+                    await HandleSignRequestAsync(msg, sender);
+                    return;
+
+                case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
+                    // Return extension ID
+                    // TODO P0
+                    /*
+                    return new {
+                        type = BwCsMessageTypes.REPLY,
+                        requestId = msg.RequestId,
+                        payload = new { extensionId = WebExtensions.Runtime.Id }
+                    };
+                    */
+                    _logger.LogWarning("BW←CS: {Type} not yet implemented", msg.Type);
+                    return;
+
+                case CsBwMessageTypes.CREATE_DATA_ATTESTATION:
+                case CsBwMessageTypes.CLEAR_SESSION:
+                case CsBwMessageTypes.CONFIGURE_VENDOR:
+                case CsBwMessageTypes.GET_CREDENTIAL:
+                case CsBwMessageTypes.GET_SESSION_INFO:
+                case CsBwMessageTypes.SIGNIFY_EXTENSION:
+                case CsBwMessageTypes.SIGN_DATA:
+                default:
+                    _logger.LogWarning("BW←CS: Unknown message type: {Type}", msg.Type);
+                    return;
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling ContentScript message");
+            return; // new ErrorReplyMessage(msg.RequestId, $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles messages from App (popup/tab/sidepanel).
+    /// These messages are typically replies that need to be forwarded to ContentScript.
+    /// The App includes the TabId in the message so we know which ContentScript to forward to.
+    ///
+    /// IMPORTANT: Message type transformation happens here.
+    /// App→BW message types (e.g., /KeriAuth/signify/replyCredential) are transformed to
+    /// BW→CS message types (e.g., /signify/reply) to maintain separate contracts.
+    /// </summary>
+    /// <param name="msg">The App message with TabId indicating target tab</param>
+    /// <returns>Status response</returns>
+    private async Task HandleAppMessageAsync(AppBwMessage msg) {
+        try {
+            _logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId}", msg.Type, msg.TabId);
+
+            if (msg.TabId == null || msg.TabId <= 0) {
+                _logger.LogWarning("BW←App: Cannot forward message - no valid tab ID in message");
+                return;
+            }
+
+            // Transform App message type to ContentScript message type
+            // App uses /KeriAuth/signify/replyCredential
+            // ContentScript expects /signify/reply
+            string contentScriptMessageType;
+            switch (msg.Type) {
+                case AppBwMessageTypes.REPLY_SIGN:
+                case AppBwMessageTypes.REPLY_ERROR:
+                case AppBwMessageTypes.REPLY_AID:
+                case AppBwMessageTypes.REPLY_CREDENTIAL:
+                    contentScriptMessageType = BwCsMessageTypes.REPLY;
+                    break;
+                case AppBwMessageTypes.REPLY_CANCELED:
+                    contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
+                    break;
+                case AppBwMessageTypes.APP_CLOSED:
+                    contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
+                    break;
+                default:
+                    _logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
+                    contentScriptMessageType = msg.Type;
+                    break;
+            }
+
+            // Create OutboundMessage for forwarding to ContentScript
+            var forwardMsg = new BwCsMessage(
+                type: contentScriptMessageType,
+                requestId: msg.RequestId,
+                payload: msg.Payload,
+                error: null
+            );
+
+            // Forward the message to the ContentScript on the specified tab
+            _logger.LogInformation("BW→CS: Forwarding message type {Type} (transformed from {OriginalType}) to tab {TabId}",
+                contentScriptMessageType, msg.Type, msg.TabId);
+
+            var messageJson = JsonSerializer.Serialize(forwardMsg);
+            _logger.LogDebug("BW→CS: Message payload: {MessageJson}", messageJson);
+
+            await SendMessageToTabAsync(msg.TabId.Value, forwardMsg);
+
+            _logger.LogInformation("BW→CS: Successfully sent message to tab {TabId}", msg.TabId);
+
+            return;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error forwarding App message to ContentScript");
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port
+    /// </summary>
+    private async Task HandleSelectAuthorizeAsync(CsBwMessage msg, Extension.Models.MessageSender? sender) {
+        try {
+            _logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
+
+            if (sender?.Tab?.Id == null) {
+                _logger.LogWarning("BW HandleSelectAuthorize: no tabId found");
+                return;
+            }
+
+            var tabId = sender.Tab.Id;
+            var origin = sender.Url ?? "unknown";
+            var jsonOrigin = JsonSerializer.Serialize(origin);
+
+            _logger.LogInformation("BW HandleSelectAuthorize: tabId: {TabId}, origin: {Origin}",
+                tabId, jsonOrigin);
+
+            var encodedMsg = SerializeAndEncode(msg);
+            await UseActionPopupAsync(tabId, [
+                new QueryParam("message", encodedMsg),
+                new QueryParam("origin", jsonOrigin),
+                new QueryParam("popupType", "SelectAuthorize"),
+                new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            ]);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSelectAuthorize");
+        }
+    }
+
+    /// <summary>
+    /// Handles sign request via runtime.sendMessage instead of port
+    /// </summary>
+    private async Task HandleSignRequestAsync(CsBwMessage msg, Extension.Models.MessageSender? sender) {
+        try {
+            _logger.LogInformation("BW HandleSignRequestAsync: {Message}", JsonSerializer.Serialize(msg));
+
+            if (sender?.Tab?.Id == null) {
+                _logger.LogWarning("BW HandleSignRequestAsync: no tabId found");
+                return; // new ErrorReplyMessage(msg.RequestId, "No tab ID found");
+            }
+
+            var tabId = sender.Tab.Id;
+            var origin = sender.Url ?? "unknown";
+
+            // Extract origin domain from URL
+            string originDomain = origin;
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+                originDomain = $"{originUri.Scheme}://{originUri.Host}";
+                if (!originUri.IsDefaultPort) {
+                    originDomain += $":{originUri.Port}";
+                }
+            }
+
+            _logger.LogInformation("BW HandleSignRequestAsync: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+
+            // Deserialize payload to extract method and url
+            var payloadJson = JsonSerializer.Serialize(msg.Payload);
+            var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(payloadJson, PortMessageJsonOptions);
+
+            if (payload == null) {
+                _logger.LogWarning("BW HandleSignRequestAsync: invalid payload");
+                return; // new ErrorReplyMessage(msg.RequestId, "Invalid payload");
+            }
+
+            // Extract method and url
+            if (!payload.TryGetValue("method", out var methodElement)) {
+                _logger.LogWarning("BW HandleSignRequestAsync: method not specified");
+                return; // new ErrorReplyMessage(msg.RequestId, "Method not specified");
+            }
+
+            if (!payload.TryGetValue("url", out var urlElement)) {
+                _logger.LogWarning("BW HandleSignRequestAsync: URL not specified");
+                return; // new ErrorReplyMessage(msg.RequestId, "URL not specified");
+            }
+
+            var method = methodElement.GetString() ?? "GET";
+            var rurl = urlElement.GetString() ?? "";
+
+            if (string.IsNullOrEmpty(rurl)) {
+                return; // new ErrorReplyMessage(msg.RequestId, "URL is empty");
+            }
+
+            // Check if connected to KERIA
+            var stateResult = await TryGetSignifyStateAsync();
+            if (stateResult.IsFailed) {
+                var connectResult = await TryConnectSignifyClientAsync();
+                if (connectResult.IsFailed) {
+                    _logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}",
+                        connectResult.Errors[0].Message);
+                    return; // new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}");
+                }
+            }
+
+            // Get AID name for this origin
+            string? aidName = null;
+            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+                if (websiteConfigResult.IsSuccess &&
+                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+
+                    var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+                    var identifiers = await _signifyService.GetIdentifiers();
+                    if (identifiers.IsSuccess && identifiers.Value is not null) {
+                        var aids = identifiers.Value.Aids;
+                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(aidName)) {
+                _logger.LogWarning("BW HandleSignRequestAsync: no identifier configured for origin {Origin}", originDomain);
+                return; // new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin");
+            }
+
+            // Get headers from payload
+            var headersDict = new Dictionary<string, string>();
+            if (payload.TryGetValue("headers", out var headersElement)) {
+                try {
+                    var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(headersElement.GetRawText());
+                    if (headers != null) {
+                        headersDict = headers;
+                    }
+                }
+                catch (Exception ex) {
+                    _logger.LogWarning(ex, "BW HandleSignRequestAsync: failed to parse headers");
+                }
+            }
+
+            // Get signed headers from signify-ts
+            var headersDictJson = JsonSerializer.Serialize(headersDict);
+            var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
+                originDomain,
+                rurl,
+                method,
+                headersDictJson,
+                aidName
+            );
+
+            var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
+
+            if (signedHeaders == null) {
+                _logger.LogWarning("BW HandleSignRequestAsync: failed to generate signed headers");
+                return; // new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers");
+            }
+
+            _logger.LogInformation("BW HandleSignRequestAsync: successfully generated signed headers");
+
+            // // TODO P0: Return signed headers
+            return; // new ReplyMessage<Dictionary<string, string>>(msg.RequestId, signedHeaders);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSignRequestAsync");
+            return; // new ErrorReplyMessage(msg.RequestId, $"Internal error: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -1788,12 +1246,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     public void Dispose() {
-        try {
-            _dotNetObjectRef?.Dispose();
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error disposing BackgroundWorker");
-        }
+        // No resources to dispose - BackgroundWorker uses only injected services
         GC.SuppressFinalize(this);
     }
 }
