@@ -1,4 +1,5 @@
 ﻿using Blazor.BrowserExtension;
+using Extension.Helper;
 using Extension.Models;
 using Extension.Models.ObsoleteExMessages;
 using Extension.Services;
@@ -38,6 +39,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private static readonly JsonSerializerOptions CredentialJsonOptions = new() {
         PropertyNameCaseInsensitive = true,
         MaxDepth = 128  // Increased from default 32 to handle deeply nested vLEI credential structures
+    };
+
+    // Cached JsonSerializerOptions for RecursiveDictionary to preserve field ordering for CESR/SAID
+    private static readonly JsonSerializerOptions RecursiveDictionaryJsonOptions = new() {
+        Converters = { new RecursiveDictionaryConverter() }
     };
 
     // Message types
@@ -1136,7 +1142,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // TODO P1: Check origin permission previously provided by user in website config, and depending on METHOD (get/post )
+            // TODO P1: Check origin permission previously provided by user in website config, and depending on METHOD (get/post ), and ask user if not granted
 
 
             // Get generated signed headers from signify-ts
@@ -1157,7 +1163,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             _logger.LogInformation("BW HandleSignRequestAsync: successfully generated signed headers");
-            await SendMessageToTabAsync(tabId, new ReplyMessage<Dictionary<string, string>>(msg.RequestId, signedHeaders));
+            await SendMessageToTabAsync(tabId, new BwCsMessage(
+                type: BwCsMessageTypes.REPLY,
+                requestId: msg.RequestId,
+                payload: new { headers = signedHeaders },
+                error: null
+            ));
             return;
         }
         catch (Exception ex) {

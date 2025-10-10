@@ -65,10 +65,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg && typeof msg === 'object' && 'type' in msg) {
         console.log('KeriAuthCs←BW (via onMessage):', msg);
         handleMsgFromBW(msg as PW.MessageData<unknown>);
+    } else {
+        console.log('KeriAuthCs←BW unhandled (via onMessage):', msg, sender, sendResponse.toString());
+        // Return false for other messages to allow other listeners to handle them
+        return false;
     }
 
-    // Return false for other messages to allow other listeners to handle them
-    return false;
+
 });
 
 // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
@@ -102,7 +105,7 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
         return;
     }
 
-    console.groupCollapsed(`KeriAuthCs←BW: ${message.type}`);
+    console.log(`KeriAuthCs←BW: ${message.type}`);
     console.log(message);
     switch (message.type) {
         case BwCsMsgEnum.READY:
@@ -112,6 +115,7 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
             break;
 
         case BwCsMsgEnum.REPLY:
+            console.log('KeriAuthCs←BW: reply:', message);
             if (message.error) {
                 const errorMsg: ICsPageMsgData<null> = {
                     source: CsPageMsgTag,
@@ -174,7 +178,6 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
             console.warn(`KeriAuthCs unrecognized message type ${message.type}`);
             break;
     }
-    console.groupEnd();
 }
 
 /**
@@ -185,7 +188,7 @@ async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise
     console.info('KeriAuthCs→BW: sendMessage:', msg);
     try {
         const response = await chrome.runtime.sendMessage(msg);
-        console.log('KeriAuthCs←BW response:', response);
+        console.log('KeriAuthCs→BW: sendMessage:', msg);
         // Response handling can be added here if needed
     } catch (error) {
         console.error('KeriAuthCs→BW: Failed to send message:', error);
@@ -225,7 +228,7 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
     }
 
     // handle messages from current page
-    console.groupCollapsed(`KeriAuthCs←Page: ${event.data.type}`);
+    console.log(`KeriAuthCs←Page: ${event.data.type}`);
     console.log(event.data);
     try {
         const requestId = event.data.requestId;
@@ -318,5 +321,4 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
         // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
         console.info('KeriAuthCs error in handling event: ', event.data, 'Extension may have been reloaded. Try reloading page.', 'Error:', error);
     }
-    console.groupEnd();
 };
