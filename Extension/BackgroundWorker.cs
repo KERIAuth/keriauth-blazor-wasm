@@ -14,6 +14,9 @@ using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
 using WebExtensions.Net.Runtime;
+using BrowserAlarm = WebExtensions.Net.Alarms.Alarm;
+using BrowserTab = WebExtensions.Net.Tabs.Tab;
+using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
 
 namespace Extension;
 
@@ -165,19 +168,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // Typical use: Coordination, data requests.
     // Returns: Response to send back to the message sender (or null)
     // [JSInvokable]
-    public async Task OnMessageAsync(object messageObj, object senderObj) {
+    public async Task OnMessageAsync(object messageObj, WebExtensions.Net.Runtime.MessageSender sender) {
         try {
             _logger.LogInformation("OnMessageAsync event handler called");
-
-            // Deserialize sender to strongly-typed object
-            var senderJson = JsonSerializer.Serialize(senderObj);
-            var sender = JsonSerializer.Deserialize<Extension.Models.MessageSender>(senderJson);
 
             // SECURITY: Validate message origin to prevent subdomain attacks
             // Only messages from the extension itself or explicitly permitted origins are allowed
             var isValidSender = await ValidateMessageSenderAsync(sender, messageObj);
             if (!isValidSender) {
-                _logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender: {SenderJson}", senderJson);
+                _logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender URL: {Url}, ID: {Id}", sender?.Url, sender?.Id);
                 return;
             }
 
@@ -252,14 +251,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onAlarm fires at a scheduled interval/time.
     // Typical use: Periodic tasks, background sync
     [JSInvokable]
-    public async Task OnAlarmAsync(object alarmObj) {
+    public async Task OnAlarmAsync(BrowserAlarm alarm) {
         try {
             _logger.LogInformation("OnAlarmAsync event handler called");
             _logger.LogInformation("LIFECYCLE: Background worker reactivated by alarm event at {Timestamp}", DateTime.UtcNow);
-
-            // Deserialize to strongly-typed object
-            var alarmJson = JsonSerializer.Serialize(alarmObj);
-            var alarm = JsonSerializer.Deserialize<Alarm>(alarmJson);
 
             if (alarm != null) {
                 _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarm.Name);
@@ -284,17 +279,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // This OnActionClickedAsync method will be invoked after the handler above, since this one is registered after it.
     // Typical use: Open popup, toggle feature, 
     [JSInvokable]
-    public async Task OnActionClickedAsync(object tabObj) {
+    public async Task OnActionClickedAsync(BrowserTab tab) {
         try {
             _logger.LogInformation("OnActionClickedAsync event handler called");
 
-            // TODO P2: Remove most of this?
-
-            // Deserialize to strongly-typed object
-            var tabJson = JsonSerializer.Serialize(tabObj);
-            var tab = JsonSerializer.Deserialize<Tab>(tabJson);
-
-            if (tab == null || tab.Id <= 0 || string.IsNullOrEmpty(tab.Url)) {
+            // Validate tab information
+            if (tab is null || string.IsNullOrEmpty(tab.Url)) {
                 _logger.LogWarning("Invalid tab information");
                 return;
             }
@@ -365,13 +355,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // onRemoved fires when a tab is closed
     [JSInvokable]
-    public async Task OnTabRemovedAsync(int tabId, object removeInfoObj) {
+    public async Task OnTabRemovedAsync(int tabId, RemoveInfo removeInfo) {
         try {
             _logger.LogInformation("OnTabRemovedAsync event handler called");
-
-            // Deserialize to strongly-typed object
-            var removeInfoJson = JsonSerializer.Serialize(removeInfoObj);
-            var removeInfo = JsonSerializer.Deserialize<TabRemoveInfo>(removeInfoJson);
 
             _logger.LogInformation("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}",
                 tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
@@ -727,7 +713,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <param name="sender">The message sender</param>
     /// <param name="messageObj">The message object for payload validation</param>
     /// <returns>True if sender and message are valid, false otherwise</returns>
-    private async Task<bool> ValidateMessageSenderAsync(Extension.Models.MessageSender? sender, object messageObj) {
+    private async Task<bool> ValidateMessageSenderAsync(WebExtensions.Net.Runtime.MessageSender? sender, object messageObj) {
         try {
             // 1. Check that sender is from this extension
             if (sender?.Id != WebExtensions.Runtime.Id) {
@@ -786,16 +772,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return false;
             }
 
-            // 4. Check for documentId (Chrome 106+, recommended but not required)
+            // 4. na Check for documentId (Chrome 106+, recommended but not required)
             // Note: documentId may not be present in all contexts (e.g., messages from service worker)
             // We already validated sender via extension ID, URL, and explicit permissions
-            if (string.IsNullOrEmpty(sender.DocumentId)) {
-                _logger.LogDebug(
-                    "ValidateMessageSender: Message sender has no documentId. Origin: {Origin}. " +
-                    "documentId not available in all contexts, proceeding with other validations.",
-                    senderOrigin
-                );
-            }
+            _logger.LogDebug("ValidateMessageSender: Proceeding with validation. Origin: {Origin}", senderOrigin);
 
             // 5. Validate payload
             var payloadValid = await ValidatePayloadAsync(messageObj);
@@ -805,9 +785,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // All checks passed
             _logger.LogDebug(
-                "ValidateMessageSender: Sender validation passed. Origin: {Origin}, DocumentId: {DocumentId}",
-                senderOrigin,
-                sender.DocumentId ?? "not available"
+                "ValidateMessageSender: Sender validation passed. Origin: {Origin}",
+                senderOrigin
             );
             return true;
         }
@@ -861,7 +840,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <param name="msg">The ContentScript message</param>
     /// <param name="sender">Message sender information</param>
     /// <returns>Response object to send back to ContentScript</returns>
-    private async Task HandleContentScriptMessageAsync(CsBwMessage msg, Extension.Models.MessageSender? sender) {
+    private async Task HandleContentScriptMessageAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
             _logger.LogInformation("BW←CS: {Type}", msg.Type);
 
@@ -1000,7 +979,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <summary>
     /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port
     /// </summary>
-    private async Task HandleSelectAuthorizeAsync(CsBwMessage msg, Extension.Models.MessageSender? sender) {
+    private async Task HandleSelectAuthorizeAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
             _logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
 
@@ -1009,7 +988,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var tabId = sender.Tab.Id;
+            var tabId = sender.Tab.Id.Value;
             var origin = sender.Url ?? "unknown";
             var jsonOrigin = JsonSerializer.Serialize(origin);
 
@@ -1032,7 +1011,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <summary>
     /// Handles sign request via runtime.sendMessage instead of port
     /// </summary>
-    private async Task HandleSignRequestAsync(CsBwMessage msg, Extension.Models.MessageSender? sender) {
+    private async Task HandleSignRequestAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
             _logger.LogInformation("BW HandleSignRequestAsync: {Message}", JsonSerializer.Serialize(msg));
 
@@ -1041,7 +1020,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return; // don't have tabId to send error back
             }
 
-            var tabId = sender.Tab.Id;
+            var tabId = sender.Tab.Id.Value;
             var origin = sender.Url ?? "unknown";
 
             // Extract origin domain from URL
