@@ -33,6 +33,7 @@
     <DefineConstants>ASSERTIONS</DefineConstants>
     <NoWarn>1998</NoWarn>
 	<NoWarn>$(NoWarn);1591</NoWarn>
+	<WarningsAsErrors>CS4014</WarningsAsErrors>
   </PropertyGroup>
 
   <!-- Debug-Specific Properties -->
