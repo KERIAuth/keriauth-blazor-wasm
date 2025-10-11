@@ -51,6 +51,15 @@ namespace Extension.Models.ObsoleteExMessages {
     }
 
     /// <summary>
+    /// Payload for CREATE_DATA_ATTESTATION message.
+    /// Contains credential data and schema SAID for data attestation credential creation.
+    /// </summary>
+    public record CreateDataAttestationPayload(
+        [property: JsonPropertyName("credData")] Dictionary<string, object> CredData,
+        [property: JsonPropertyName("schemaSaid")] string SchemaSaid
+    );
+
+    /// <summary>
     /// Message types originating from ContentScript (via web page polaris-web protocol).
     /// These are received by BackgroundWorker from ContentScript.
     /// </summary>

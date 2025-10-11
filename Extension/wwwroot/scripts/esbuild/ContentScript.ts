@@ -301,7 +301,9 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
             }
             case CsBwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION: {
                 const createDataAttestationMessage = event.data as PW.MessageData<PW.CreateCredentialArgs>;
-                console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, { createDataAttestationMessage });
+                // In this case, the event.data (payload) has shape of:
+                // { credData: { digest: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", digestAlgo: "SHA-256"}, schemaSaid: "ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD" }
+                await sendMessageToBW(event.data);
                 break;
             }
             case CsBwMsgEnum.POLARIS_GET_CREDENTIAL:

@@ -889,6 +889,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case CsBwMessageTypes.CREATE_DATA_ATTESTATION:
+                    await HandleCreateDataAttestationAsync(msg, sender);
+                    return;
+
                 case CsBwMessageTypes.CLEAR_SESSION:
                 case CsBwMessageTypes.CONFIGURE_VENDOR:
                 case CsBwMessageTypes.GET_CREDENTIAL:
@@ -1153,6 +1156,189 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleSignRequestAsync");
             return; // don't have the tabId here to send error back
+        }
+    }
+
+    /// <summary>
+    /// Handles data attestation credential creation request from ContentScript.
+    /// Creates a credential based on provided credData and schemaSaid.
+    /// </summary>
+    private async Task HandleCreateDataAttestationAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
+        try {
+            _logger.LogInformation("BW HandleCreateDataAttestation: {Message}", JsonSerializer.Serialize(msg));
+
+            if (sender?.Tab?.Id == null) {
+                _logger.LogError("BW HandleCreateDataAttestation: no tabId found");
+                return;
+            }
+
+            var tabId = sender.Tab.Id.Value;
+            var origin = sender.Url ?? "unknown";
+
+            // Extract origin domain from URL
+            string originDomain = origin;
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+                originDomain = $"{originUri.Scheme}://{originUri.Host}";
+                if (!originUri.IsDefaultPort) {
+                    originDomain += $":{originUri.Port}";
+                }
+            }
+
+            _logger.LogInformation("BW HandleCreateDataAttestation: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+
+            // Deserialize payload using specific type
+            var payloadJson = JsonSerializer.Serialize(msg.Payload);
+            var payload = JsonSerializer.Deserialize<CreateDataAttestationPayload>(payloadJson, PortMessageJsonOptions);
+
+            if (payload == null) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: invalid payload");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
+                return;
+            }
+
+            // Validate required fields
+            if (payload.CredData == null || payload.CredData.Count == 0) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: credData is empty or missing");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Credential data not specified"));
+                return;
+            }
+
+            if (string.IsNullOrEmpty(payload.SchemaSaid)) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: schemaSaid is empty or missing");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Schema SAID not specified"));
+                return;
+            }
+
+            // Convert credData to OrderedDictionary to preserve field order (critical for CESR/SAID)
+            var credDataOrdered = new System.Collections.Specialized.OrderedDictionary();
+            foreach (var kvp in payload.CredData) {
+                credDataOrdered.Add(kvp.Key, kvp.Value);
+            }
+
+            // Check if connected to KERIA
+            var stateResult = await TryGetSignifyStateAsync();
+            if (stateResult.IsFailed) {
+                var connectResult = await TryConnectSignifyClientAsync();
+                if (connectResult.IsFailed) {
+                    _logger.LogWarning("BW HandleCreateDataAttestation: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
+                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
+                    return;
+                }
+            }
+
+            // Get AID name for this origin (using website configuration)
+            string? aidName = null;
+            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+                if (websiteConfigResult.IsSuccess &&
+                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+
+                    var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+                    var identifiers = await _signifyService.GetIdentifiers();
+                    if (identifiers.IsSuccess && identifiers.Value is not null) {
+                        var aids = identifiers.Value.Aids;
+                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(aidName)) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: no identifier configured for origin {Origin}", originDomain);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+                return;
+            }
+
+            // Get identifier details
+            var aidResult = await _signifyService.GetIdentifier(aidName);
+            if (aidResult.IsFailed) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: failed to get identifier: {Error}", aidResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
+                return;
+            }
+
+            var aid = aidResult.Value;
+
+            // TODO P1: Check if this is a group AID (multisig not currently supported)
+            // The TypeScript implementation checks for aid.group property
+            // Need to add Group property to Aid model to support this check
+            // For now, skipping this validation - multisig credential issuance may fail at KERIA level
+
+            // Get registry for this AID
+            var registriesResult = await _signifyService.ListRegistries(aidName);
+            if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
+                // TODO P1: Consider automatic registry creation if none exists
+                // The TypeScript implementation may create a registry automatically
+                // For now, return an error requiring user to create registry first
+                _logger.LogWarning("BW HandleCreateDataAttestation: no registry found for AID {AidName}", aidName);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No credential registry found for this identifier. Please create a registry first."));
+                return;
+            }
+
+            var registry = registriesResult.Value[0]; // Use first registry
+            var registryId = registry.GetValueOrDefault("regk")?.ToString() ?? "";
+
+            if (string.IsNullOrEmpty(registryId)) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: registry ID is empty for AID {AidName}", aidName);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid registry configuration"));
+                return;
+            }
+
+            // Verify schema exists
+            var schemaResult = await _signifyService.GetSchema(payload.SchemaSaid);
+            if (schemaResult.IsFailed) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: failed to get schema {SchemaSaid}: {Error}", payload.SchemaSaid, schemaResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Schema not found: {schemaResult.Errors[0].Message}"));
+                return;
+            }
+
+            // TODO P1: Consider adding user approval flow before credential creation
+            // Depending on security requirements, may want to prompt user similar to HandleSelectAuthorizeAsync
+            // This would open a popup for user to review and approve credential creation
+            // For now, proceeding with automatic creation for data attestations
+
+            // Build credential data structure
+            var credentialData = new CredentialData(
+                I: aid.Prefix,              // Issuer prefix
+                Ri: registryId,             // Registry ID
+                S: payload.SchemaSaid,      // Schema SAID
+                A: credDataOrdered          // Credential attributes (order-preserved)
+            );
+
+            _logger.LogInformation("BW HandleCreateDataAttestation: issuing credential for AID {AidName} with schema {SchemaSaid}", aidName, payload.SchemaSaid);
+
+            // Issue the credential
+            var issueResult = await _signifyService.IssueCredential(aidName, credentialData);
+            if (issueResult.IsFailed) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: failed to issue credential: {Error}", issueResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+                return;
+            }
+
+            var credential = issueResult.Value;
+
+            // TODO P1: Add operation waiting if credential issuance returns an operation
+            // The TypeScript implementation calls waitOperation() to ensure the credential
+            // issuance operation completes before returning to the caller
+            // This may require extracting an operation object from the result and waiting for it
+
+            _logger.LogInformation("BW HandleCreateDataAttestation: successfully created credential");
+
+            // Send credential back to ContentScript
+            // CRITICAL: Pass RecursiveDictionary directly as payload to preserve CESR/SAID ordering
+            // RecursiveDictionary maintains insertion order required for SAID verification
+            // The messaging infrastructure will handle serialization properly
+            await SendMessageToTabAsync(tabId, new BwCsMessage(
+                type: BwCsMessageTypes.REPLY,
+                requestId: msg.RequestId,
+                payload: credential,
+                error: null
+            ));
+            return;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleCreateDataAttestation");
+            return;
         }
     }
 
