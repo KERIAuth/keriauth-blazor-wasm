@@ -107,8 +107,10 @@ export async function beforeStart(
             try {
                 const u = new URL(tabUrl);
                 if (u.protocol === "http:" || u.protocol === "https:") {
-                    // Exact host only:
-                    return [`${u.protocol}//${u.hostname}/*`];
+                    // Exact host with port (if specified):
+                    // This creates port-specific permissions for granular security control
+                    // e.g., http://localhost:8080/* vs http://localhost:3000/*
+                    return [`${u.protocol}//${u.host}/*`];
 
                     // If you prefer to cover subdomains too, replace the above with a base-domain
                     // calculation and use: `${u.protocol}//*.${baseDomain}/*`
