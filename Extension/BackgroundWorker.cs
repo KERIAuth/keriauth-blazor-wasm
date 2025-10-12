@@ -498,11 +498,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("Checking permission for origin: {Origin}", origin);
 
-            // Use JavaScript helper module for permissions (CSP-compliant)
-            // NOTE: WebExtensions.Net.Permissions API has type conversion issues - see RequestOriginPermissionAsync for details
-            var permissionsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./scripts/es6/PermissionsHelper.js");
-            var hasPermission = await permissionsModule.InvokeAsync<bool>("PermissionsHelper.contains",
-                new { origins = new[] { origin } });
+            var anyPermissions = new AnyPermissions {
+                Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
+            };
+            var hasPermission = await WebExtensions.Permissions.Contains(anyPermissions);
 
             _logger.LogInformation("Permission check result for {Origin}: {HasPermission}", origin, hasPermission);
             return hasPermission;

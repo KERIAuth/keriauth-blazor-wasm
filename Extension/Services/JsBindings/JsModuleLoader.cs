@@ -34,7 +34,6 @@ public class JsModuleLoader : IJsModuleLoader, IAsyncDisposable {
     private readonly Dictionary<string, string> _moduleDefinitions = new() {
         { "signifyClient", "./scripts/esbuild/signifyClient.js" },
         { "storageHelper", "./scripts/es6/storageHelper.js" },
-        { "permissionsHelper", "./scripts/es6/PermissionsHelper.js" },
         { "webauthnCredentialWithPRF", "./scripts/es6/webauthnCredentialWithPRF.js" }
     };
 

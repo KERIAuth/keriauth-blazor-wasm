@@ -38,13 +38,11 @@ if (typeof self !== 'undefined' && self.crypto && !(self.crypto as any).randomBy
 // NOTE: signifyClient is NOT statically imported because it contains libsodium
 // which needs crypto APIs to be ready first
 import * as storageHelper from './scripts/es6/storageHelper.js';
-import * as permissionsHelper from './scripts/es6/PermissionsHelper.js';
 import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWithPRF.js';
 
 // Make modules available globally for debugging
 (globalThis as any).appModules = {
     storageHelper,
-    permissionsHelper,
     webauthnCredentialWithPRF
 };
 
@@ -184,6 +182,19 @@ export async function beforeStart(
                         persistAcrossSessions: true, // default is true
                     }]);
                     console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
+
+                    // 6) Prompt user to reload page to activate persistent content script
+                    const reloadResponse = await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to activate?')
+                    });
+
+                    if (reloadResponse?.[0]?.result === true) {
+                        console.log("app.ts: User accepted reload prompt - reloading tab");
+                        await chrome.tabs.reload(tab.id);
+                    } else {
+                        console.log("app.ts: User declined reload - persistent script will activate on next page load");
+                    }
                 }
 
             } catch (error: any) {
