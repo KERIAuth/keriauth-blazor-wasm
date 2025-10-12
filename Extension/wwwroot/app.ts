@@ -103,31 +103,71 @@ export async function beforeStart(
     if (mode === 'Background') {
         console.log('app.ts: Setting up Background mode event handlers');
 
-        function matchPatternsFromTabUrl(tabUrl: string): string[] {
+        /**
+         * Generates match patterns from a tab URL for port-specific permission tracking.
+         * @param tabUrl The full URL of the tab
+         * @returns Array of match patterns (e.g., ["http://foo.example.com:8080/*"])
+         */
+        const matchPatternsFromTabUrl = (tabUrl: string): string[] => {
             try {
                 const u = new URL(tabUrl);
                 if (u.protocol === "http:" || u.protocol === "https:") {
                     // Exact host with port (if specified):
                     // This creates port-specific permissions for granular security control
-                    // e.g., http://localhost:8080/* vs http://localhost:3000/*
+                    // e.g., http://foo.example.com:8080/* vs http://example.com/*
                     return [`${u.protocol}//${u.host}/*`];
-
-                    // If you prefer to cover subdomains too, replace the above with a base-domain
-                    // calculation and use: `${u.protocol}//*.${baseDomain}/*`
-                    // (left out here to avoid false positives).
                 }
             } catch (e) {
                 // file:///*, about:blank, data:, chrome://, chrome-extension://, etc.
             }
             return [];
-        }
+        };
 
-        async function unregisterForOrigin(origin: string): Promise<void> {
-            const id = CS_ID_PREFIX + origin;
+        /**
+         * Extracts host-with-port identifier from a match pattern.
+         * @param matchPattern Pattern like "http://foo.example.com:8080/*"
+         * @returns Host with port like "foo.example.com:8080" or empty string if invalid
+         */
+        const hostWithPortFromPattern = (matchPattern: string): string => {
             try {
-                await chrome.scripting.unregisterContentScripts({ ids: [id] });
-            } catch { /* ignore if already gone */ }
-        }
+                // Remove trailing "/*" from pattern
+                const urlString = matchPattern.slice(0, matchPattern.length - 2);
+                const u = new URL(urlString);
+                return u.host; // Returns hostname:port or just hostname if port is default
+            } catch (e) {
+                console.error(`app.ts: Invalid match pattern: ${matchPattern}`);
+                return '';
+            }
+        };
+
+        /**
+         * Generates a content script ID from host-with-port.
+         * @param hostWithPort Host with port like "foo.example.com:8080"
+         * @returns Script ID like "keriauth-cs-foo.example.com:8080"
+         */
+        const scriptIdFromHostWithPort = (hostWithPort: string): string => {
+            return `${CS_ID_PREFIX}-${hostWithPort}`;
+        };
+
+        /**
+         * Unregisters content script for a given match pattern.
+         * @param matchPattern Pattern like "http://foo.example.com:8080/*"
+         */
+        const unregisterForPattern = async (matchPattern: string): Promise<void> => {
+            const hostWithPort = hostWithPortFromPattern(matchPattern);
+            if (!hostWithPort) {
+                console.error(`app.ts: Cannot unregister - invalid pattern: ${matchPattern}`);
+                return;
+            }
+            const scriptId = scriptIdFromHostWithPort(hostWithPort);
+            try {
+                await chrome.scripting.unregisterContentScripts({ ids: [scriptId] });
+                console.log(`app.ts: Unregistered content script: ${scriptId}`);
+            } catch (e) {
+                // Script may not exist, ignore error
+                console.log(`app.ts: Script ${scriptId} not found for unregistration (may not exist)`);
+            }
+        };
 
         // Main extension icon click handler
         // Checks existing permissions first, only prompts if needed
@@ -142,31 +182,138 @@ export async function beforeStart(
                     return;
                 }
 
-                // 2) Request persistent host permission FIRST (while user gesture is still active)
-                // Note: request() must be the first async call to preserve the user gesture
+                // 2) Request persistent host permission
+                // CRITICAL: request() must be the VERY FIRST async operation to preserve user gesture
+                // Note: chrome.permissions.request() returns true immediately if permission already exists
+                // (no prompt shown to user in that case)
                 const wanted = { origins: MATCHES };
-                const granted = await chrome.permissions.request(wanted);
-                if (!granted) {
-                    console.log("app.ts: User declined persistent host permission; stopping.");
-                    return;
+                try {
+                    const granted = await chrome.permissions.request(wanted);
+                    console.log("app.ts: Permission request completed, granted:", granted);
+                    if (!granted) {
+                        console.log("app.ts: User declined persistent host permission; stopping.");
+                        return;
+                    }
+                    console.log("app.ts: Permission granted (or was already granted)");
+                } catch (error) {
+                    console.error("app.ts: ERROR in chrome.permissions.request():", error);
+                    throw error;
                 }
 
                 // 3) Check if persistent content script is already registered for this origin
-                const scriptId = `${CS_ID_PREFIX}-${new URL(tab.url).hostname}`;
-                const already = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
+                const hostWithPort = hostWithPortFromPattern(MATCHES[0] || '');
+                const scriptId = scriptIdFromHostWithPort(hostWithPort);
+                let already: chrome.scripting.RegisteredContentScript[] = [];
+                try {
+                    already = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
+                    console.log("app.ts: Script registration check completed, found:", already.length);
+                } catch (error) {
+                    console.error("app.ts: ERROR in chrome.scripting.getRegisteredContentScripts():", error);
+                    throw error;
+                }
                 if (already.length > 0) {
                     console.log("app.ts: Persistent content script already registered");
-                    return;
+
+                    // Check if there's a stale content script from a previous extension installation
+                    // This can happen when extension is uninstalled/reinstalled and page wasn't reloaded
+                    try {
+                        const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
+                        if (pingResponse?.ok) {
+                            console.log("app.ts: Content script is active and responding");
+                            return;
+                        }
+                    } catch (error) {
+                        // Content script not responding - may need reload
+                        console.log("app.ts: Content script registered but not responding - may need reload");
+                        try {
+                            const reloadResponse = await chrome.scripting.executeScript({
+                                target: { tabId: tab.id },
+                                func: () => confirm('KERI Auth needs to refresh the connection with this page.\n\nReload to ensure proper functionality?')
+                            });
+
+                            if (reloadResponse?.[0]?.result === true) {
+                                console.log("app.ts: User accepted reload prompt - reloading tab");
+                                await chrome.tabs.reload(tab.id);
+                            }
+                        } catch (execError) {
+                            console.error("app.ts: ERROR in chrome.scripting.executeScript() [stale script reload prompt]:", execError);
+                            throw execError;
+                        }
+                        return;
+                    }
                 } else {
                     console.log("app.ts: No persistent content script registered yet - proceeding", { MATCHES, scriptId });
 
-                    // 4) Inject a one-shot script into the current page
-                    const oneShotResult = await chrome.scripting.executeScript({
-                        target: { tabId: tab.id },
-                        files: ["scripts/esbuild/ContentScript.js"],
-                        injectImmediately: false,
-                        world: "ISOLATED",
-                    });
+                    // 4) Check if content script is already active in the page
+                    // This can happen if permission was removed and then re-added on same tab
+                    // The content script stays in the page even after permission removal
+                    let contentScriptAlreadyActive = false;
+                    try {
+                        const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
+                        if (pingResponse?.ok) {
+                            contentScriptAlreadyActive = true;
+                            console.log("app.ts: Content script already active (likely permission re-grant)");
+                        }
+                    } catch (error) {
+                        console.log("app.ts: No active content script detected");
+                    }
+
+                    // If content script is already active, skip one-shot injection and just register + prompt reload
+                    if (contentScriptAlreadyActive) {
+                        console.log("app.ts: Skipping one-shot injection, registering persistent script and prompting reload");
+
+                        // Register persistent content script
+                        try {
+                            await chrome.scripting.registerContentScripts([{
+                                id: scriptId,
+                                js: ["scripts/esbuild/ContentScript.js"],
+                                matches: MATCHES,
+                                runAt: "document_idle",
+                                allFrames: true,
+                                world: "ISOLATED",
+                                persistAcrossSessions: true,
+                            }]);
+                            console.log("app.ts: Registered persistent content script:", scriptId);
+                        } catch (error) {
+                            console.error("app.ts: ERROR in chrome.scripting.registerContentScripts() [contentScriptAlreadyActive branch]:", error);
+                            throw error;
+                        }
+
+                        // Strongly recommend reload to clear any stale state
+                        let reloadResponse;
+                        try {
+                            reloadResponse = await chrome.scripting.executeScript({
+                                target: { tabId: tab.id },
+                                func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to ensure clean state?')
+                            });
+                        } catch (error) {
+                            console.error("app.ts: ERROR in chrome.scripting.executeScript() [reload prompt - contentScriptAlreadyActive branch]:", error);
+                            throw error;
+                        }
+
+                        if (reloadResponse?.[0]?.result === true) {
+                            console.log("app.ts: User accepted reload - reloading tab");
+                            await chrome.tabs.reload(tab.id);
+                        } else {
+                            console.log("app.ts: User declined reload - may have stale state");
+                        }
+                        return;
+                    }
+
+                    // 5) Inject a one-shot script into the current page
+                    let oneShotResult;
+                    try {
+                        oneShotResult = await chrome.scripting.executeScript({
+                            target: { tabId: tab.id },
+                            files: ["scripts/esbuild/ContentScript.js"],
+                            injectImmediately: false,
+                            world: "ISOLATED",
+                        });
+                        console.log("app.ts: One-shot injection completed successfully");
+                    } catch (error) {
+                        console.error("app.ts: ERROR in chrome.scripting.executeScript() [one-shot injection]:", error);
+                        throw error;
+                    }
                     // console.log("app.ts: One-shot injection result:", oneShotResult);
                     if (!oneShotResult?.[0]?.documentId) {
                         console.error("app.ts: One-shot injection failed.", oneShotResult);
@@ -174,22 +321,40 @@ export async function beforeStart(
                     }
 
                     // 5) Register a persistent content script for this origin
-                    await chrome.scripting.registerContentScripts([{
-                        id: scriptId,
-                        js: ["scripts/esbuild/ContentScript.js"],
-                        matches: MATCHES,          // derived from the tab's origin
-                        runAt: "document_idle",    // or "document_start"/"document_end"
-                        allFrames: true,
-                        world: "ISOLATED",
-                        persistAcrossSessions: true, // default is true
-                    }]);
-                    console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
+                    try {
+                        await chrome.scripting.registerContentScripts([{
+                            id: scriptId,
+                            js: ["scripts/esbuild/ContentScript.js"],
+                            matches: MATCHES,          // derived from the tab's origin
+                            runAt: "document_idle",    // or "document_start"/"document_end"
+                            allFrames: true,
+                            world: "ISOLATED",
+                            persistAcrossSessions: true, // default is true
+                        }]);
+                        console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
+                    } catch (error: any) {
+                        // Handle race condition: onAdded listener may have already registered the script
+                        // when permission was just granted via the permission prompt
+                        if (error?.message?.includes('Duplicate script ID')) {
+                            console.log("app.ts: Script already registered (likely by onAdded listener) - continuing to reload prompt");
+                        } else {
+                            console.error("app.ts: ERROR in chrome.scripting.registerContentScripts() [main flow]:", error);
+                            throw error;
+                        }
+                    }
 
                     // 6) Prompt user to reload page to activate persistent content script
-                    const reloadResponse = await chrome.scripting.executeScript({
-                        target: { tabId: tab.id },
-                        func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to activate?')
-                    });
+                    let reloadResponse;
+                    try {
+                        reloadResponse = await chrome.scripting.executeScript({
+                            target: { tabId: tab.id },
+                            func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to activate?')
+                        });
+                        console.log("app.ts: Reload prompt completed");
+                    } catch (error) {
+                        console.error("app.ts: ERROR in chrome.scripting.executeScript() [reload prompt - main flow]:", error);
+                        throw error;
+                    }
 
                     if (reloadResponse?.[0]?.result === true) {
                         console.log("app.ts: User accepted reload prompt - reloading tab");
@@ -205,21 +370,125 @@ export async function beforeStart(
         });
 
         // Keep registrations in sync when permissions change:
+        // This fires when user grants permission via right-click menu ("On this site" options)
         chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
+            console.log('app.ts: onAdded event - permissions added:', perm.origins);
             const origins = perm?.origins || [];
-            for (const pattern of origins) {
-                // pattern looks like "https://example.com/*"
-                const origin = pattern.slice(0, pattern.length - 1); // strip trailing '*'
-                // TODO P2: Consider checking if already registered first
-                // await ensureRegisteredForOrigin(origin.slice(0, -1)); // also remove trailing '/'
+
+            for (const matchPattern of origins) {
+                try {
+                    // matchPattern looks like "https://example.com/*" or "http://foo.example.com:8080/*"
+                    console.log(`app.ts: Processing added permission for: ${matchPattern}`);
+
+                    // Extract host-with-port for script ID (includes port for granular tracking)
+                    const hostWithPort = hostWithPortFromPattern(matchPattern);
+                    if (!hostWithPort) {
+                        console.error(`app.ts: Invalid match pattern: ${matchPattern}`);
+                        continue;
+                    }
+
+                    const scriptId = scriptIdFromHostWithPort(hostWithPort);
+
+                    // Check if persistent content script is already registered
+                    const alreadyRegistered = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
+                    if (alreadyRegistered.length > 0) {
+                        console.log(`app.ts: Persistent content script already registered for ${hostWithPort}`);
+                        continue;
+                    }
+
+                    // Register persistent content script for this origin
+                    await chrome.scripting.registerContentScripts([{
+                        id: scriptId,
+                        js: ["scripts/esbuild/ContentScript.js"],
+                        matches: [matchPattern],
+                        runAt: "document_idle",
+                        allFrames: true,
+                        world: "ISOLATED",
+                        persistAcrossSessions: true,
+                    }]);
+                    console.log(`app.ts: Registered persistent content script for ${hostWithPort}`);
+
+                    // Find all tabs matching this origin and prompt for reload if needed
+                    const tabs = await chrome.tabs.query({ url: matchPattern });
+                    console.log(`app.ts: Found ${tabs.length} tabs matching ${matchPattern}`);
+
+                    for (const tab of tabs) {
+                        if (!tab.id) continue;
+
+                        try {
+                            // Check if content script is already active in this tab
+                            const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
+                            if (pingResponse?.ok) {
+                                console.log(`app.ts: Content script already active in tab ${tab.id}`);
+                                continue;
+                            }
+                        } catch (error) {
+                            // No content script active - prompt user to reload
+                            console.log(`app.ts: No content script in tab ${tab.id}, prompting for reload...`);
+
+                            try {
+                                const reloadResponse = await chrome.scripting.executeScript({
+                                    target: { tabId: tab.id },
+                                    func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to activate?')
+                                });
+
+                                if (reloadResponse?.[0]?.result === true) {
+                                    console.log(`app.ts: User accepted reload prompt for tab ${tab.id} - reloading`);
+                                    await chrome.tabs.reload(tab.id);
+                                } else {
+                                    console.log(`app.ts: User declined reload for tab ${tab.id} - will activate on next page load`);
+                                }
+                            } catch (promptError) {
+                                console.error(`app.ts: Error prompting for reload in tab ${tab.id}:`, promptError);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`app.ts: Error processing added permission for ${matchPattern}:`, error);
+                }
             }
         });
 
         chrome.permissions.onRemoved.addListener(async (perm: chrome.permissions.Permissions) => {
+            console.log('app.ts: onRemoved event - permissions removed:', perm.origins);
             const origins = perm?.origins || [];
-            for (const pattern of origins) {
-                const origin = pattern.slice(0, pattern.length - 1);
-                await unregisterForOrigin(origin.slice(0, -1));
+
+            for (const matchPattern of origins) {
+                console.log(`app.ts: Processing removed permission for: ${matchPattern}`);
+
+                // Unregister the content script for this match pattern
+                await unregisterForPattern(matchPattern);
+
+                // Find all tabs that match the removed origin and prompt for reload
+                // This ensures previously injected content scripts are removed
+                try {
+                    const tabs = await chrome.tabs.query({ url: matchPattern });
+                    console.log(`app.ts: Found ${tabs.length} tabs matching ${matchPattern} for removal`);
+
+                    for (const tab of tabs) {
+                        if (tab.id) {
+                            // Inject a prompt to reload the page (content script needs to be removed)
+                            try {
+                                const reloadResponse = await chrome.scripting.executeScript({
+                                    target: { tabId: tab.id },
+                                    func: () => confirm('KERI Auth permissions were removed for this site.\n\nReload the page to complete the removal?')
+                                });
+
+                                if (reloadResponse?.[0]?.result === true) {
+                                    console.log(`app.ts: User accepted reload prompt for tab ${tab.id} - reloading`);
+                                    await chrome.tabs.reload(tab.id);
+                                } else {
+                                    console.log(`app.ts: User declined reload for tab ${tab.id} - content script will remain until next navigation`);
+                                }
+                            } catch (error) {
+                                // Tab may have already been closed or navigated away
+                                console.log(`app.ts: Could not prompt tab ${tab.id} for reload:`, error);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('app.ts: Error querying tabs for removed origin:', matchPattern, error);
+                }
             }
         });
 

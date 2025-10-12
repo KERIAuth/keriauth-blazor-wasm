@@ -102,44 +102,44 @@
     <TypeScriptCompile Remove="wwwroot\scripts\types\types.ts" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Blazor.BrowserExtension.Build" Version="3.1.3" />
+    <PackageReference Include="Blazor.BrowserExtension.Build" Version="3.2.0" />
     <PackageReference Include="Castle.Core" Version="5.2.1" />
     <PackageReference Include="FluentResults" Version="4.0.0" />
-    <PackageReference Include="JsBind.Net" Version="2.2.0" />
-    <PackageReference Include="JsBind.Net.Extensions.DependencyInjection" Version="2.2.0" />
+    <PackageReference Include="JsBind.Net" Version="2.2.1" />
+    <PackageReference Include="JsBind.Net.Extensions.DependencyInjection" Version="2.2.1" />
     <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.Analyzers" Version="9.0.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Metadata" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.8" />
-    <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="9.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Analyzers" Version="9.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Metadata" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.9" />
+    <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="9.0.9" />
     <!-- Microsoft.NET.Sdk.WebAssembly.Pack is included by SDK, don't reference explicitly -->
-    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.8" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
-	  <PackageReference Include="MudBlazor" Version="8.11.0" />
-	  <PackageReference Include="Blazor.BrowserExtension" Version="3.1.3" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.9" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.9" />
+	  <PackageReference Include="MudBlazor" Version="8.13.0" />
+	  <PackageReference Include="Blazor.BrowserExtension" Version="3.2.0" />
 	  <PackageReference Include="Ensure.That" Version="10.1.0" />
 	  <PackageReference Include="Jdenticon-net" Version="3.1.2" />
 	  <PackageReference Include="MediatR" Version="13.0.0" />
-	  <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="9.0.8" />
-	  <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="9.0.8" />
-	  <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.8" />
-	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
+	  <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="9.0.9" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="9.0.9" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
 	  <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.7" />
-	  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-	  <PackageReference Include="Polly" Version="8.6.3" />
-	  <PackageReference Include="Stateless" Version="5.19.0" />
-	  <PackageReference Include="System.Reactive" Version="6.0.1" />
-	  <PackageReference Include="System.Text.Json" Version="9.0.8" />
-	  <PackageReference Include="WebExtensions.Net" Version="4.4.0" />
-	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.8" />
-	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.8" PrivateAssets="all" />
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+	  <PackageReference Include="Polly" Version="8.6.4" />
+	  <PackageReference Include="Stateless" Version="5.20.0" />
+	  <PackageReference Include="System.Reactive" Version="6.1.0" />
+	  <PackageReference Include="System.Text.Json" Version="9.0.9" />
+	  <PackageReference Include="WebExtensions.Net" Version="4.4.1" />
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.9" />
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.9" PrivateAssets="all" />
 
 	  <PackageReference Include="coverlet.collector" Version="6.0.4">
 		  <PrivateAssets>all</PrivateAssets>
