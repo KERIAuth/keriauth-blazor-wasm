@@ -57,7 +57,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IJSRuntime _jsRuntime;
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
     private readonly IStorageService _storageService;
-    private readonly ISignifyClientService _signifyService;
+    private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
     private readonly WebExtensionsApi _webExtensionsApi;
 
@@ -105,7 +105,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _signifyClientBinding = signifyClientBinding;
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageService = storageService;
-        _signifyService = signifyService;
+        _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
     }
@@ -892,12 +892,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleCreateDataAttestationAsync(msg, sender);
                     return;
 
+                case CsBwMessageTypes.SIGN_DATA:
+                    await HandleSignDataAsync(msg, sender);
+                    return;
                 case CsBwMessageTypes.CLEAR_SESSION:
                 case CsBwMessageTypes.CONFIGURE_VENDOR:
                 case CsBwMessageTypes.GET_CREDENTIAL:
                 case CsBwMessageTypes.GET_SESSION_INFO:
                 case CsBwMessageTypes.SIGNIFY_EXTENSION:
-                case CsBwMessageTypes.SIGN_DATA:
+
                 default:
                     _logger.LogWarning("BW←CS: Unknown message type: {Type}", msg.Type);
                     return;
@@ -1037,9 +1040,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             _logger.LogInformation("BW HandleSignRequestAsync: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
 
-            // Deserialize payload to extract method and url
+            // Deserialize payload to SignRequestArgs
             var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(payloadJson, PortMessageJsonOptions);
+            var payload = JsonSerializer.Deserialize<SignRequestArgs>(payloadJson, PortMessageJsonOptions);
 
             if (payload == null) {
                 _logger.LogWarning("BW HandleSignRequestAsync: invalid payload");
@@ -1047,21 +1050,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Extract method and url
-            if (!payload.TryGetValue("method", out var methodElement)) {
-                _logger.LogWarning("BW HandleSignRequestAsync: method not specified");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Method not specified"));
-                return;
-            }
-
-            if (!payload.TryGetValue("url", out var urlElement)) {
-                _logger.LogWarning("BW HandleSignRequestAsync: URL not specified");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL not specified"));
-                return;
-            }
-
-            var method = methodElement.GetString() ?? "GET";
-            var rurl = urlElement.GetString() ?? "";
+            // Extract method and url from typed payload
+            var method = payload.Method ?? "GET";
+            var rurl = payload.Url;
 
             if (string.IsNullOrEmpty(rurl)) {
                 _logger.LogWarning("BW HandleSignRequestAsync: URL is empty");
@@ -1089,7 +1080,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
 
                     var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyService.GetIdentifiers();
+                    var identifiers = await _signifyClientService.GetIdentifiers();
                     if (identifiers.IsSuccess && identifiers.Value is not null) {
                         var aids = identifiers.Value.Aids;
                         aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
@@ -1104,18 +1095,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Get headers from payload
-            var headersDict = new Dictionary<string, string>();
-            if (payload.TryGetValue("headers", out var headersElement)) {
-                try {
-                    var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(headersElement.GetRawText());
-                    if (headers != null) {
-                        headersDict = headers;
-                    }
-                }
-                catch (Exception ex) {
-                    _logger.LogWarning(ex, "BW HandleSignRequestAsync: failed to parse headers");
-                }
-            }
+            var headersDict = payload.Headers ?? [];
 
             // Validate URL is well-formed
             if (!Uri.IsWellFormedUriString(rurl, UriKind.Absolute)) {
@@ -1155,6 +1135,122 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleSignRequestAsync");
+            return; // don't have the tabId here to send error back
+        }
+    }
+
+
+    private async Task HandleSignDataAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
+        try {
+            _logger.LogInformation("BW HandleSignData: {Message}", JsonSerializer.Serialize(msg));
+
+            if (sender?.Tab?.Id == null) {
+                _logger.LogError("BW HandleSignData: no tabId found");
+                return; // don't have tabId to send error back
+            }
+
+            var tabId = sender.Tab.Id.Value;
+            var origin = sender.Url ?? "unknown";
+
+            // Extract origin domain from URL
+            string originDomain = origin;
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+                originDomain = $"{originUri.Scheme}://{originUri.Host}";
+                if (!originUri.IsDefaultPort) {
+                    originDomain += $":{originUri.Port}";
+                }
+            }
+
+            _logger.LogInformation("BW HandleSignData: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+
+            // Deserialize payload to SignDataArgs
+            var payloadJson = JsonSerializer.Serialize(msg.Payload);
+            var payload = JsonSerializer.Deserialize<SignDataArgs>(payloadJson, PortMessageJsonOptions);
+
+            if (payload == null) {
+                _logger.LogWarning("BW HandleSignData: invalid payload");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
+                return;
+            }
+
+            // TODO P2 Validate required fields
+
+            var signDataMessage = new RequestMessageData<SignDataArgs>(
+                requestId: msg.RequestId ?? "", // DODO P2 ensure requestId is always set
+                payload: payload
+            );
+
+            // Check if connected to KERIA
+            var stateResult = await TryGetSignifyStateAsync();
+            if (stateResult.IsFailed) {
+                var connectResult = await TryConnectSignifyClientAsync();
+                if (connectResult.IsFailed) {
+                    _logger.LogWarning("BW HandleSignData: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
+                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
+                    return;
+                }
+            }
+
+            // Get AID name for this origin (using website configuration)
+            string? aidName = null;
+            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+                if (websiteConfigResult.IsSuccess &&
+                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+
+                    var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+                    var identifiers = await _signifyClientService.GetIdentifiers();
+                    if (identifiers.IsSuccess && identifiers.Value is not null) {
+                        var aids = identifiers.Value.Aids;
+                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                    }
+                }
+            }
+            if (string.IsNullOrEmpty(aidName)) {
+                _logger.LogWarning("BW HandleSignData: no identifier configured for origin {Origin}", originDomain);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+                return;
+            }
+            // Get identifier details
+            var aidResult = await _signifyClientService.GetIdentifier(aidName);
+            if (aidResult.IsFailed) {
+                _logger.LogWarning("BW HandleSignData: failed to get identifier: {Error}", aidResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
+                return;
+            }
+            var aid = aidResult.Value;
+            // TODO P1: Check if this is a group AID (multisig not currently supported)
+            // The TypeScript implementation checks for aid.group property
+            // Need to add Group property to Aid model to support this check
+            // For now, skipping this validation - multisig signing may fail at KERIA level
+            // Sign the data using signify-ts
+
+            // TODO P1 finish implementation
+            _logger.LogWarning("BW HandleSignData: signing data not yet completely implemented");
+            /*
+            var signatureJson = await _signifyClientService.Sign....
+            
+            var signature = JsonSerializer.Deserialize<SignDataResult>(signatureJson);
+            if (signature == null) {
+                _logger.LogWarning("BW HandleSignData: failed to sign data");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to sign data"));
+                return;
+            }
+            _logger.LogInformation("BW HandleSignData: successfully signed data");
+            await SendMessageToTabAsync(tabId, new BwCsMessage(
+                type: BwCsMessageTypes.REPLY,
+                requestId: msg.RequestId,
+                payload: new { signature = signature.Signature, verfer = signature.Verfer },
+                error: null
+            ));
+            */
+            return;
+
+
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSignDataAsync");
             return; // don't have the tabId here to send error back
         }
     }
@@ -1235,7 +1331,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
 
                     var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyService.GetIdentifiers();
+                    var identifiers = await _signifyClientService.GetIdentifiers();
                     if (identifiers.IsSuccess && identifiers.Value is not null) {
                         var aids = identifiers.Value.Aids;
                         aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
@@ -1250,7 +1346,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Get identifier details
-            var aidResult = await _signifyService.GetIdentifier(aidName);
+            var aidResult = await _signifyClientService.GetIdentifier(aidName);
             if (aidResult.IsFailed) {
                 _logger.LogWarning("BW HandleCreateDataAttestation: failed to get identifier: {Error}", aidResult.Errors[0].Message);
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
@@ -1265,7 +1361,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // For now, skipping this validation - multisig credential issuance may fail at KERIA level
 
             // Get registry for this AID
-            var registriesResult = await _signifyService.ListRegistries(aidName);
+            var registriesResult = await _signifyClientService.ListRegistries(aidName);
             if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
                 // TODO P1: Consider automatic registry creation if none exists
                 // The TypeScript implementation may create a registry automatically
@@ -1285,7 +1381,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Verify schema exists
-            var schemaResult = await _signifyService.GetSchema(payload.SchemaSaid);
+            var schemaResult = await _signifyClientService.GetSchema(payload.SchemaSaid);
             if (schemaResult.IsFailed) {
                 _logger.LogWarning("BW HandleCreateDataAttestation: failed to get schema {SchemaSaid}: {Error}", payload.SchemaSaid, schemaResult.Errors[0].Message);
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Schema not found: {schemaResult.Errors[0].Message}"));
@@ -1308,7 +1404,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("BW HandleCreateDataAttestation: issuing credential for AID {AidName} with schema {SchemaSaid}", aidName, payload.SchemaSaid);
 
             // Issue the credential
-            var issueResult = await _signifyService.IssueCredential(aidName, credentialData);
+            var issueResult = await _signifyClientService.IssueCredential(aidName, credentialData);
             if (issueResult.IsFailed) {
                 _logger.LogWarning("BW HandleCreateDataAttestation: failed to issue credential: {Error}", issueResult.Errors[0].Message);
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to issue credential: {issueResult.Errors[0].Message}"));
@@ -1347,7 +1443,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<Result<State>> TryGetSignifyStateAsync() {
         try {
-            var state = await _signifyService.GetState();
+            var state = await _signifyClientService.GetState();
             return state;
         }
         catch (Exception ex) {
@@ -1403,7 +1499,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Connect to KERIA
             _logger.LogInformation("BW TryConnectSignifyClient: connecting to {AdminUrl}", config.AdminUrl);
-            var connectResult = await _signifyService.Connect(
+            var connectResult = await _signifyClientService.Connect(
                 config.AdminUrl,
                 passcode,
                 config.BootUrl,

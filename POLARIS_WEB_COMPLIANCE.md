@@ -11,10 +11,10 @@ This document summarizes conformance to the [polaris-web protocol specification]
 | **Extension Detection** | `signify-extension-client` | ✅ Yes |  |
 | **Extension Ready Signal** | `signify-extension` | ✅ Yes |  |
 | **Authorization (Generic)** | `/signify/authorize` | ✅ Yes | User selects an identifier or credential |
-| **Authorize with AID** | `/signify/authorize/aid` | ⚠️ Partial | Planned |
-| **Authorize with Credential** | `/signify/authorize/credential` | ⚠️ Partial | Planned |
-| **Sign HTTP Request** | `/signify/sign-request` | ⚠️ Partial | Planned |
-| **Sign Arbitrary Data** | `/signify/sign-data` | ❌ No | Planned |
+| **Authorize with AID** | `/signify/authorize/aid` | ⚠️ Partial | In Progress |
+| **Authorize with Credential** | `/signify/authorize/credential` | ⚠️ Partial | In Progress |
+| **Sign HTTP Request** | `/signify/sign-request` | ⚠️ Partial | In Progress |
+| **Sign Arbitrary Data** | `/signify/sign-data` | ⚠️ Partial | In Progress |
 | **Create Data Attestation** | `/signify/credential/create/data-attestation` | ❌ No | Planned |
 | **Get Credential** | `/signify/credential/get` | ❌ No | Planned |
 | **Session Management - Get Info** | `/signify/get-session-info` | ❌ No | Not implemented |

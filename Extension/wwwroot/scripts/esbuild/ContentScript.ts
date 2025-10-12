@@ -188,7 +188,7 @@ async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise
     console.info('KeriAuthCs→BW: sendMessage:', msg);
     try {
         const response = await chrome.runtime.sendMessage(msg);
-        console.log('KeriAuthCs→BW: sendMessage:', msg);
+        // console.log('KeriAuthCs→BW: sendMessage:', msg);
         // Response handling can be added here if needed
     } catch (error) {
         console.error('KeriAuthCs→BW: Failed to send message:', error);
@@ -270,8 +270,8 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
                     console.info(`KeriAuthCs ${event.data.type}:`, event.data);
 
                     // Log headers for POLARIS_SIGN_REQUEST
+                    const signRequestMessage = event.data as PW.MessageData<PW.SignRequestArgs>;
                     if (event.data.type === CsBwMsgEnum.POLARIS_SIGN_REQUEST) {
-                        const signRequestMessage = event.data as PW.MessageData<PW.SignRequestArgs>;
                         if (signRequestMessage.payload?.headers) {
                             console.log('KeriAuthCs payload headers: ');
                             const headers = signRequestMessage.payload.headers;
@@ -280,7 +280,7 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
                             }
                         }
                     }
-                    await sendMessageToBW(event.data);
+                    await sendMessageToBW(signRequestMessage);
                 } catch (error) {
                     console.error('KeriAuthCs→BW: error sending message {event.data} {e}:', event.data, error);
                     return;
@@ -301,9 +301,9 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
             }
             case CsBwMsgEnum.POLARIS_CREATE_DATA_ATTESTATION: {
                 const createDataAttestationMessage = event.data as PW.MessageData<PW.CreateCredentialArgs>;
-                // In this case, the event.data (payload) has shape of:
+                // In this case, createDataAttestationMessage payload has shape of:
                 // { credData: { digest: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", digestAlgo: "SHA-256"}, schemaSaid: "ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD" }
-                await sendMessageToBW(event.data);
+                await sendMessageToBW(createDataAttestationMessage);
                 break;
             }
             case CsBwMsgEnum.POLARIS_GET_CREDENTIAL:
@@ -312,7 +312,8 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
 
             case CsBwMsgEnum.POLARIS_SIGN_DATA: {
                 const signDataArgsMsg = event.data as PW.MessageData<PW.SignDataArgs>;
-                console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
+                await sendMessageToBW(signDataArgsMsg);
+                // console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
                 break;
             }
             default:
