@@ -169,8 +169,82 @@ export async function beforeStart(
             }
         };
 
-        // Main extension icon click handler
-        // Checks existing permissions first, only prompts if needed
+        /**
+         * Prompts user to reload a tab and optionally reloads if accepted.
+         * @param tabId The ID of the tab to prompt
+         * @param message The confirmation message to display
+         * @param context Description of where this prompt is being called from (for logging)
+         * @returns true if user accepted and reload was triggered, false otherwise
+         */
+        const promptAndReloadTab = async (tabId: number, message: string, context: string): Promise<boolean> => {
+            try {
+                const reloadResponse = await chrome.scripting.executeScript({
+                    target: { tabId },
+                    func: (msg: string) => confirm(msg),
+                    args: [message]
+                } as any);
+
+                const userAccepted = reloadResponse?.[0]?.result === true;
+
+                if (userAccepted) {
+                    console.log(`app.ts: User accepted reload prompt (${context}) - reloading tab ${tabId}`);
+                    await chrome.tabs.reload(tabId);
+                    return true;
+                } else {
+                    console.log(`app.ts: User declined reload prompt (${context}) for tab ${tabId}`);
+                    return false;
+                }
+            } catch (error) {
+                console.error(`app.ts: ERROR in promptAndReloadTab (${context}) for tab ${tabId}:`, error);
+                throw error;
+            }
+        };
+
+        // ==================================================================================
+        // ACTION BUTTON CLICK HANDLER
+        // ==================================================================================
+        //
+        // REQUIREMENT SCENARIOS (Action Button Click):
+        //
+        // Scenario #1: Fresh site (No Permission, No Script, No Active CS)
+        //   User Action: Click action button
+        //   Expected: 1) Show permission prompt
+        //             2) If granted: Inject one-shot script
+        //             3) Register persistent script
+        //             4) Prompt user to reload page
+        //
+        // Scenario #2: Pre-granted permission (Permission Exists, No Script, No Active CS)
+        //   User Action: Click action button
+        //   Expected: 1) No permission prompt (request returns true immediately)
+        //             2) Inject one-shot script
+        //             3) Register persistent script
+        //             4) Prompt user to reload page
+        //
+        // Scenario #3: Re-grant after removal (Permission Exists, No Script, Active CS in page)
+        //   User Action: Click action button
+        //   Expected: 1) No permission prompt
+        //             2) Skip one-shot injection (CS already in page)
+        //             3) Register persistent script
+        //             4) Prompt user to reload (clean state)
+        //
+        // Scenario #4: Already fully active (Permission Exists, Script Registered, Active CS)
+        //   User Action: Click action button
+        //   Expected: 1) Ping content script successfully
+        //             2) No action needed - return early (silent success)
+        //
+        // Scenario #5: Stale registration (Permission Exists, Script Registered, No Active CS)
+        //   User Action: Click action button
+        //   Expected: 1) Ping content script - no response
+        //             2) Prompt user to reload (reconnect)
+        //
+        // Scenario #6: User declines permission (No Permission)
+        //   User Action: Click action button, then decline permission prompt
+        //   Expected: 1) Show permission prompt
+        //             2) User declines
+        //             3) Stop - no further action
+        //
+        // ==================================================================================
+
         chrome.action.onClicked.addListener(async (tab: chrome.tabs.Tab) => {
             try {
                 if (!tab?.id || !tab.url) return;
@@ -186,11 +260,13 @@ export async function beforeStart(
                 // CRITICAL: request() must be the VERY FIRST async operation to preserve user gesture
                 // Note: chrome.permissions.request() returns true immediately if permission already exists
                 // (no prompt shown to user in that case)
+                // Implements: Scenario #1, #2, #6 (permission handling)
                 const wanted = { origins: MATCHES };
                 try {
                     const granted = await chrome.permissions.request(wanted);
                     console.log("app.ts: Permission request completed, granted:", granted);
                     if (!granted) {
+                        // Scenario #6: User declined permission
                         console.log("app.ts: User declined persistent host permission; stopping.");
                         return;
                     }
@@ -201,6 +277,7 @@ export async function beforeStart(
                 }
 
                 // 3) Check if persistent content script is already registered for this origin
+                // Implements: Branch point for Scenarios #4, #5 vs #1, #2, #3
                 const hostWithPort = hostWithPortFromPattern(MATCHES[0] || '');
                 const scriptId = scriptIdFromHostWithPort(hostWithPort);
                 let already: chrome.scripting.RegisteredContentScript[] = [];
@@ -212,6 +289,8 @@ export async function beforeStart(
                     throw error;
                 }
                 if (already.length > 0) {
+                    // Script is already registered - check if it's active or stale
+                    // Implements: Scenario #4 (active) or Scenario #5 (stale)
                     console.log("app.ts: Persistent content script already registered");
 
                     // Check if there's a stale content script from a previous extension installation
@@ -219,34 +298,28 @@ export async function beforeStart(
                     try {
                         const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
                         if (pingResponse?.ok) {
+                            // Scenario #4: Content script is active and responding - no action needed
                             console.log("app.ts: Content script is active and responding");
                             return;
                         }
                     } catch (error) {
-                        // Content script not responding - may need reload
-                        console.log("app.ts: Content script registered but not responding - may need reload");
-                        try {
-                            const reloadResponse = await chrome.scripting.executeScript({
-                                target: { tabId: tab.id },
-                                func: () => confirm('KERI Auth needs to refresh the connection with this page.\n\nReload to ensure proper functionality?')
-                            });
-
-                            if (reloadResponse?.[0]?.result === true) {
-                                console.log("app.ts: User accepted reload prompt - reloading tab");
-                                await chrome.tabs.reload(tab.id);
-                            }
-                        } catch (execError) {
-                            console.error("app.ts: ERROR in chrome.scripting.executeScript() [stale script reload prompt]:", execError);
-                            throw execError;
-                        }
+                        // Scenario #5: Content script registered but not responding (stale)
+                        console.warn("app.ts: Content script registered but not responding - may need reload");
+                        await promptAndReloadTab(
+                            tab.id,
+                            'KERI Auth needs to refresh the connection with this page.\n\nReload to ensure proper functionality?',
+                            'stale script'
+                        );
                         return;
                     }
                 } else {
+                    // Script NOT registered yet - Implements: Scenario #1, #2, or #3
                     console.log("app.ts: No persistent content script registered yet - proceeding", { MATCHES, scriptId });
 
                     // 4) Check if content script is already active in the page
                     // This can happen if permission was removed and then re-added on same tab
                     // The content script stays in the page even after permission removal
+                    // Branch point: Scenario #3 (CS active) vs Scenario #1/#2 (CS not active)
                     let contentScriptAlreadyActive = false;
                     try {
                         const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
@@ -258,7 +331,7 @@ export async function beforeStart(
                         console.log("app.ts: No active content script detected");
                     }
 
-                    // If content script is already active, skip one-shot injection and just register + prompt reload
+                    // Scenario #3: Content script already in page (permission re-grant case)
                     if (contentScriptAlreadyActive) {
                         console.log("app.ts: Skipping one-shot injection, registering persistent script and prompting reload");
 
@@ -280,26 +353,15 @@ export async function beforeStart(
                         }
 
                         // Strongly recommend reload to clear any stale state
-                        let reloadResponse;
-                        try {
-                            reloadResponse = await chrome.scripting.executeScript({
-                                target: { tabId: tab.id },
-                                func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to ensure clean state?')
-                            });
-                        } catch (error) {
-                            console.error("app.ts: ERROR in chrome.scripting.executeScript() [reload prompt - contentScriptAlreadyActive branch]:", error);
-                            throw error;
-                        }
-
-                        if (reloadResponse?.[0]?.result === true) {
-                            console.log("app.ts: User accepted reload - reloading tab");
-                            await chrome.tabs.reload(tab.id);
-                        } else {
-                            console.log("app.ts: User declined reload - may have stale state");
-                        }
+                        await promptAndReloadTab(
+                            tab.id,
+                            'KERI Auth is now enabled for this site.\n\nReload the page to ensure clean state?',
+                            'contentScriptAlreadyActive'
+                        );
                         return;
                     }
 
+                    // Scenario #1 & #2: Fresh site or pre-granted permission - need full setup
                     // 5) Inject a one-shot script into the current page
                     let oneShotResult;
                     try {
@@ -314,13 +376,14 @@ export async function beforeStart(
                         console.error("app.ts: ERROR in chrome.scripting.executeScript() [one-shot injection]:", error);
                         throw error;
                     }
-                    // console.log("app.ts: One-shot injection result:", oneShotResult);
+
                     if (!oneShotResult?.[0]?.documentId) {
                         console.error("app.ts: One-shot injection failed.", oneShotResult);
                         return;
                     }
 
-                    // 5) Register a persistent content script for this origin
+                    // 6) Register a persistent content script for this origin
+                    // Note: May encounter race condition with onAdded listener (see comment below)
                     try {
                         await chrome.scripting.registerContentScripts([{
                             id: scriptId,
@@ -334,7 +397,8 @@ export async function beforeStart(
                         console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
                     } catch (error: any) {
                         // Handle race condition: onAdded listener may have already registered the script
-                        // when permission was just granted via the permission prompt
+                        // when permission was just granted via the permission prompt in Scenario #1
+                        // This is expected behavior - we continue to the reload prompt regardless
                         if (error?.message?.includes('Duplicate script ID')) {
                             console.log("app.ts: Script already registered (likely by onAdded listener) - continuing to reload prompt");
                         } else {
@@ -343,25 +407,13 @@ export async function beforeStart(
                         }
                     }
 
-                    // 6) Prompt user to reload page to activate persistent content script
-                    let reloadResponse;
-                    try {
-                        reloadResponse = await chrome.scripting.executeScript({
-                            target: { tabId: tab.id },
-                            func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to activate?')
-                        });
-                        console.log("app.ts: Reload prompt completed");
-                    } catch (error) {
-                        console.error("app.ts: ERROR in chrome.scripting.executeScript() [reload prompt - main flow]:", error);
-                        throw error;
-                    }
-
-                    if (reloadResponse?.[0]?.result === true) {
-                        console.log("app.ts: User accepted reload prompt - reloading tab");
-                        await chrome.tabs.reload(tab.id);
-                    } else {
-                        console.log("app.ts: User declined reload - persistent script will activate on next page load");
-                    }
+                    // 7) Prompt user to reload page to activate persistent content script
+                    // Implements: Final step of Scenario #1 & #2 - user must reload to activate persistent script
+                    await promptAndReloadTab(
+                        tab.id,
+                        'KERI Auth is now enabled for this site.\n\nReload the page to activate?',
+                        'main flow'
+                    );
                 }
 
             } catch (error: any) {
@@ -369,15 +421,49 @@ export async function beforeStart(
             }
         });
 
-        // Keep registrations in sync when permissions change:
-        // This fires when user grants permission via right-click menu ("On this site" options)
+        // ==================================================================================
+        // CONTEXT MENU PERMISSION CHANGE HANDLERS
+        // ==================================================================================
+        //
+        // REQUIREMENT SCENARIOS (Permission Added via Context Menu):
+        //
+        // Scenario #7: Grant permission via context menu (No Script, No Active CS)
+        //   User Action: Right-click extension → "When you click the extension" or "On this site"
+        //   Expected: 1) onAdded listener fires
+        //             2) Register persistent script
+        //             3) Find all matching tabs
+        //             4) Prompt each tab to reload
+        //
+        // Scenario #8: Grant permission via context menu (Script Already Registered, No Active CS)
+        //   User Action: Right-click extension → Grant permission
+        //   Expected: 1) onAdded fires
+        //             2) Detect script already registered - skip registration
+        //             3) Find matching tabs without active CS
+        //             4) Prompt those tabs to reload
+        //
+        // Scenario #9: Grant permission via context menu (Script Registered, Active CS Exists)
+        //   User Action: Right-click extension → Grant permission
+        //   Expected: 1) onAdded fires
+        //             2) Detect script already registered - skip
+        //             3) Ping tabs - content script responds
+        //             4) No reload prompt needed (already active)
+        //
+        // Scenario #10: Remove permission via context menu
+        //   User Action: Right-click extension → Remove permission
+        //   Expected: 1) onRemoved listener fires
+        //             2) Unregister persistent script
+        //             3) Find all matching tabs
+        //             4) Prompt each tab to reload (cleanup)
+        //
+        // ==================================================================================
+
         chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
             console.log('app.ts: onAdded event - permissions added:', perm.origins);
             const origins = perm?.origins || [];
 
             for (const matchPattern of origins) {
                 try {
-                    // matchPattern looks like "https://example.com/*" or "http://foo.example.com:8080/*"
+                    // matchPattern looks like "https://example.com/*" or "http://localhost:8080/*"
                     console.log(`app.ts: Processing added permission for: ${matchPattern}`);
 
                     // Extract host-with-port for script ID (includes port for granular tracking)
@@ -390,25 +476,28 @@ export async function beforeStart(
                     const scriptId = scriptIdFromHostWithPort(hostWithPort);
 
                     // Check if persistent content script is already registered
+                    // Branch point: Scenario #7 vs #8/#9
                     const alreadyRegistered = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
                     if (alreadyRegistered.length > 0) {
+                        // Scenario #8 or #9: Script already registered
                         console.log(`app.ts: Persistent content script already registered for ${hostWithPort}`);
-                        continue;
+                        // Continue to check tabs - may need reload if CS not active
+                    } else {
+                        // Scenario #7: Need to register the script
+                        await chrome.scripting.registerContentScripts([{
+                            id: scriptId,
+                            js: ["scripts/esbuild/ContentScript.js"],
+                            matches: [matchPattern],
+                            runAt: "document_idle",
+                            allFrames: true,
+                            world: "ISOLATED",
+                            persistAcrossSessions: true,
+                        }]);
+                        console.log(`app.ts: Registered persistent content script for ${hostWithPort}`);
                     }
 
-                    // Register persistent content script for this origin
-                    await chrome.scripting.registerContentScripts([{
-                        id: scriptId,
-                        js: ["scripts/esbuild/ContentScript.js"],
-                        matches: [matchPattern],
-                        runAt: "document_idle",
-                        allFrames: true,
-                        world: "ISOLATED",
-                        persistAcrossSessions: true,
-                    }]);
-                    console.log(`app.ts: Registered persistent content script for ${hostWithPort}`);
-
-                    // Find all tabs matching this origin and prompt for reload if needed
+                    // Find all tabs matching this origin and check if they need reload
+                    // Implements: Scenario #7, #8, #9 - determine if reload prompt needed per tab
                     const tabs = await chrome.tabs.query({ url: matchPattern });
                     console.log(`app.ts: Found ${tabs.length} tabs matching ${matchPattern}`);
 
@@ -419,25 +508,20 @@ export async function beforeStart(
                             // Check if content script is already active in this tab
                             const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
                             if (pingResponse?.ok) {
+                                // Scenario #9: Content script already active - no reload needed
                                 console.log(`app.ts: Content script already active in tab ${tab.id}`);
                                 continue;
                             }
                         } catch (error) {
-                            // No content script active - prompt user to reload
+                            // Scenario #7 or #8: No content script active - prompt user to reload
                             console.log(`app.ts: No content script in tab ${tab.id}, prompting for reload...`);
 
                             try {
-                                const reloadResponse = await chrome.scripting.executeScript({
-                                    target: { tabId: tab.id },
-                                    func: () => confirm('KERI Auth is now enabled for this site.\n\nReload the page to activate?')
-                                });
-
-                                if (reloadResponse?.[0]?.result === true) {
-                                    console.log(`app.ts: User accepted reload prompt for tab ${tab.id} - reloading`);
-                                    await chrome.tabs.reload(tab.id);
-                                } else {
-                                    console.log(`app.ts: User declined reload for tab ${tab.id} - will activate on next page load`);
-                                }
+                                await promptAndReloadTab(
+                                    tab.id,
+                                    'KERI Auth is now enabled for this site.\n\nReload the page to activate?',
+                                    'onAdded'
+                                );
                             } catch (promptError) {
                                 console.error(`app.ts: Error prompting for reload in tab ${tab.id}:`, promptError);
                             }
@@ -450,17 +534,18 @@ export async function beforeStart(
         });
 
         chrome.permissions.onRemoved.addListener(async (perm: chrome.permissions.Permissions) => {
+            // Implements: Scenario #10 - Remove permission and clean up
             console.log('app.ts: onRemoved event - permissions removed:', perm.origins);
             const origins = perm?.origins || [];
 
             for (const matchPattern of origins) {
                 console.log(`app.ts: Processing removed permission for: ${matchPattern}`);
 
-                // Unregister the content script for this match pattern
+                // Scenario #10: Unregister the content script for this match pattern
                 await unregisterForPattern(matchPattern);
 
                 // Find all tabs that match the removed origin and prompt for reload
-                // This ensures previously injected content scripts are removed
+                // This ensures previously injected content scripts are removed from pages
                 try {
                     const tabs = await chrome.tabs.query({ url: matchPattern });
                     console.log(`app.ts: Found ${tabs.length} tabs matching ${matchPattern} for removal`);
@@ -469,17 +554,11 @@ export async function beforeStart(
                         if (tab.id) {
                             // Inject a prompt to reload the page (content script needs to be removed)
                             try {
-                                const reloadResponse = await chrome.scripting.executeScript({
-                                    target: { tabId: tab.id },
-                                    func: () => confirm('KERI Auth permissions were removed for this site.\n\nReload the page to complete the removal?')
-                                });
-
-                                if (reloadResponse?.[0]?.result === true) {
-                                    console.log(`app.ts: User accepted reload prompt for tab ${tab.id} - reloading`);
-                                    await chrome.tabs.reload(tab.id);
-                                } else {
-                                    console.log(`app.ts: User declined reload for tab ${tab.id} - content script will remain until next navigation`);
-                                }
+                                await promptAndReloadTab(
+                                    tab.id,
+                                    'KERI Auth permissions were removed for this site.\n\nReload the page to complete the removal?',
+                                    'onRemoved'
+                                );
                             } catch (error) {
                                 // Tab may have already been closed or navigated away
                                 console.log(`app.ts: Could not prompt tab ${tab.id} for reload:`, error);
