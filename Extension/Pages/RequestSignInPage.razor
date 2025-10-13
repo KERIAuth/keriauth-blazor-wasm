@@ -2,6 +2,7 @@
 @layout Layouts.DialogLayout
 
 @using System.Linq
+@using Extension.Layouts
 @using System.Text.Json
 @using Extension.Helper
 @using Extension.Models
@@ -42,6 +43,7 @@
 
 @code {
     [Parameter] public string encodedOrigin { get; set; } = "";
+    [CascadingParameter] public DialogLayout? Layout { get; set; }
 
     // fields and types
     enum SignInMode { Credential, Identifier, Prompt }
@@ -171,9 +173,10 @@
                     snackbar.Add(error.Message, Severity.Error);
                     return Result.Fail(error);
                 }
+                // TODO P1 strengthen AppEx types enumeration and constructors
                 replyMessageData = new(
-                    "/signify/reply",
-                    new AuthorizeResult {
+                    type: "/signify/reply",
+                    payload: new AuthorizeResult {
                         ARCredential = null,
                         ARIdentifier = new AuthorizeResultIdentifier(SelectedPrefix, SelectedAlias)
                     },
@@ -201,6 +204,7 @@
 
                 // Pass RecursiveDictionary directly - NEVER serialize/deserialize credentials
                 // RecursiveDictionary preserves CESR/SAID ordering required for verification
+                // TODO P2 improve typing, constructor
                 replyMessageData = new(
                     type: "/KeriAuth/signify/replyCredential",
                     payload: new AuthorizeResult {
@@ -215,6 +219,11 @@
         try
         {
             await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(replyMessageData);
+
+            if (Layout is not null) {
+                await Layout.ClosePopupAsync();
+            }
+            // maybe unreachable if popup closes
             return Result.Ok();
         }
         catch (Exception ex)
@@ -226,15 +235,19 @@
 
     async Task Cancel()
     {
-        var cr = new ReplyMessageData<AuthorizeResult>(
-            "/KeriAuth/signify/replyCancel",
-            new AuthorizeResult {
-                ARCredential = null,
-                ARIdentifier = null
-            },
-            requestId: requestId
+        // TODO P2 improve type, constructor.  The error message is not making it back to page?
+        var replyMessageData = new ReplyMessageData<object?>(
+            type: "/signify/reply", // "/KeriAuth/signify/replyCancel",
+            payload: null,
+            requestId: requestId,
+            error: "User cancelled sign-in"
         );
-        await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(cr);
+        await appBwMessagingService.SendToBackgroundWorkerAsync<object?>(replyMessageData);
+
+        if (Layout is not null) {
+            await Layout.ClosePopupAsync();
+        }
+        // maybe unreachable if popup closes
     }
 
     public void Dispose()

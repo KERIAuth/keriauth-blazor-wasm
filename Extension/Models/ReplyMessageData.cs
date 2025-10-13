@@ -1,6 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
 namespace Extension.Models {
+
+    // TODO P2 valid types should be enumerated and not take any type
     public record ReplyMessageData<T> {
         // See how this relates to the `RequestMessageData` class
 

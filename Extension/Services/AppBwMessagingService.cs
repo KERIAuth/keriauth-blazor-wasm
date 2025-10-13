@@ -82,6 +82,7 @@ namespace Extension.Services {
             }
         }
 
+        // TODO P2 Types for SendToBackgroundWorkerAsync should be enumerated and explicit.  Might be similar to 
         public async Task SendToBackgroundWorkerAsync<T>(ReplyMessageData<T> replyMessageData) {
             logger.LogInformation("SendToBackgroundWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.PayloadTypeName);
 
