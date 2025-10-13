@@ -2,14 +2,13 @@
 @using WebExtensions.Net.Tabs
 @using Extension.Models
 @using BrowserTab = WebExtensions.Net.Tabs.Tab
-@using BrowserActiveInfo = WebExtensions.Net.Tabs.ActiveInfo
+@using BrowserTabsActiveInfo = WebExtensions.Net.Tabs.ActiveInfo
+@using BrowserTabsHighlightInfo = WebExtensions.Net.Tabs.CallbackHighlightInfo
 @inherits Blazor.BrowserExtension.Pages.BasePage
 @inject ILogger<SidePanel> _logger;
 @inject IJSRuntime JSRuntime;
 
 <div class="text-container">
-
-
     <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
         <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
             <MudButton Href="@RouteToIndex"
@@ -96,12 +95,12 @@
         activeTab?.Title, activeTab?.Id, activeTab?.Url);
     }
 
-    void OnTabActivated(BrowserActiveInfo activeInfo)
+    void OnTabActivated(BrowserTabsActiveInfo activeInfo)
     {
         _ = OnTabActivatedAsync(activeInfo);
     }
 
-    async Task OnTabActivatedAsync(BrowserActiveInfo activeInfo)
+    async Task OnTabActivatedAsync(BrowserTabsActiveInfo activeInfo)
     {
         activeTab = await WebExtensions.Tabs.Get(activeInfo.TabId);
 
@@ -166,16 +165,16 @@
         }
     }
 
-    void OnTabHighlighted(HighlightInfo highlightInfo)
+    void OnTabHighlighted(BrowserTabsHighlightInfo highlightInfo)
     {
         _ = OnTabHighlightedAsync(highlightInfo);
     }
 
-    async Task OnTabHighlightedAsync(HighlightInfo highlightInfo)
+    async Task OnTabHighlightedAsync(BrowserTabsHighlightInfo highlightInfo)
     {
-        if (highlightInfo?.TabIds?.Length > 0)
+        if (highlightInfo?.TabIds?.Any() == true)
         {
-            activeTab = await WebExtensions.Tabs.Get(highlightInfo.TabIds[0]);
+            activeTab = await WebExtensions.Tabs.Get(highlightInfo.TabIds.First());
             _logger.LogInformation("SidePanel tab highlighted, tabs: [{tabIds}], title: {tab}",
             string.Join(", ", highlightInfo.TabIds), activeTab?.Title);
             StateHasChanged();

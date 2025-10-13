@@ -60,6 +60,17 @@ namespace Extension.Models.ObsoleteExMessages {
     );
 
     /// <summary>
+    /// Generic internal extension runtime message structure for chrome.runtime messages.
+    /// Used for simple internal communication between extension components.
+    /// </summary>
+    public record RuntimeMessage(
+        [property: JsonPropertyName("action")] string? Action = null,
+        [property: JsonPropertyName("type")] string? Type = null,
+        [property: JsonPropertyName("data")] object? Data = null,
+        [property: JsonPropertyName("payload")] object? Payload = null
+    );
+
+    /// <summary>
     /// Message types originating from ContentScript (via web page polaris-web protocol).
     /// These are received by BackgroundWorker from ContentScript.
     /// </summary>
