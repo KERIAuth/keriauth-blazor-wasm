@@ -1,4 +1,6 @@
-﻿using Extension.Models;
+﻿using Extension.Helper;
+using Extension.Models.AppBwMessages;
+using Extension.Models.BwAppMessages;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using System.Text.Json;
@@ -7,12 +9,29 @@ using WebExtensions.Net.Runtime;
 // using WebExtensions.Net.Scripting;
 
 namespace Extension.Services {
+    /// <summary>
+    /// Concrete implementation of BwAppMessage for deserialization purposes.
+    /// Used internally by AppBwMessagingService to deserialize messages from BackgroundWorker.
+    /// </summary>
+    internal sealed record ConcreteBwAppMessage : BwAppMessage {
+        public ConcreteBwAppMessage(string type, string? requestId = null, object? payload = null, string? error = null)
+            : base(type, requestId, payload, error) { }
+    }
+
     public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IAppBwMessagingService {
-        private readonly List<IObserver<string>> observers = [];
+        private readonly List<IObserver<BwAppMessage>> observers = [];
         private DotNetObjectReference<AppBwMessagingService> _objectReference = default!;
         private int? _currentTabId;
         private WebExtensionsApi _webExtensionsApi = default!;
         private const string FromBackgroundWorkerMessageType = "fromBackgroundWorker";
+
+        // JsonSerializerOptions for messages with nested structures (credentials, etc.)
+        // Increased MaxDepth to handle deeply nested vLEI credential structures
+        // Includes RecursiveDictionaryConverter to preserve CESR/SAID field ordering
+        private static readonly JsonSerializerOptions MessageJsonOptions = new() {
+            MaxDepth = 128,
+            Converters = { new RecursiveDictionaryConverter() }
+        };
 
         public async Task Initialize(string tabId) {
             try {
@@ -59,21 +78,31 @@ namespace Extension.Services {
                     return;
                 }
 
-                // Deserialize and check message type
+                // Deserialize to BwAppMessage by extracting properties manually
+                // This approach avoids constructor binding issues with derived record types
                 var messageJson = JsonSerializer.Serialize(messageObj);
-                var message = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
+                var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
 
-                if (message != null && message.TryGetValue("type", out var typeElement)) {
-                    var messageType = typeElement.GetString();
+                if (messageDict != null) {
+                    // Extract properties from dictionary
+                    var type = messageDict.TryGetValue("type", out var typeElem) ? typeElem.GetString() : null;
+                    var requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem.GetString() : null;
+                    var error = messageDict.TryGetValue("error", out var errorElem) ? errorElem.GetString() : null;
 
-                    // Handle messages from BackgroundWorker
-                    if (messageType == FromBackgroundWorkerMessageType) {
-                        if (message.TryGetValue("data", out var dataElement)) {
-                            var data = dataElement.GetString();
-                            if (!string.IsNullOrEmpty(data)) {
-                                ReceiveMessage(data);
-                            }
-                        }
+                    // Extract payload (could be complex object)
+                    object? payload = null;
+                    if (messageDict.TryGetValue("payload", out var payloadElem) && payloadElem.ValueKind != JsonValueKind.Null) {
+                        var payloadJson = payloadElem.GetRawText();
+                        payload = JsonSerializer.Deserialize<object>(payloadJson, MessageJsonOptions);
+                    }
+
+                    if (!string.IsNullOrEmpty(type)) {
+                        // Create a concrete BwAppMessage instance
+                        var bwAppMessage = new ConcreteBwAppMessage(type, requestId, payload, error);
+                        ReceiveMessage(bwAppMessage);
+                    }
+                    else {
+                        logger.LogWarning("AppBwMessagingService: Message missing 'type' property");
                     }
                 }
             }
@@ -82,31 +111,31 @@ namespace Extension.Services {
             }
         }
 
-        // TODO P2 Types for SendToBackgroundWorkerAsync should be enumerated and explicit.  Might be similar to 
-        public async Task SendToBackgroundWorkerAsync<T>(ReplyMessageData<T> replyMessageData) {
-            logger.LogInformation("SendToBackgroundWorkerAsync type {r}{n}", typeof(T).Name, replyMessageData.PayloadTypeName);
+        /// <summary>
+        /// Sends a strongly-typed message from App to BackgroundWorker.
+        /// T must be a subtype of AppBwMessage.
+        /// Uses MessageJsonOptions with increased MaxDepth and RecursiveDictionaryConverter
+        /// to handle deeply nested credential structures while preserving CESR/SAID ordering.
+        /// </summary>
+        public async Task SendToBackgroundWorkerAsync<T>(T message) where T : AppBwMessage {
+            logger.LogInformation("SendToBackgroundWorkerAsync type {typeName}, message type: {messageType}",
+                typeof(T).Name, message.Type);
 
             try {
-                // Serialize the replyMessageData (which has JsonPropertyName attributes for camelCase)
-                var replyJson = JsonSerializer.Serialize(replyMessageData);
+                // Serialize the strongly-typed AppBwMessage with increased depth and RecursiveDictionary support
+                var messageJson = JsonSerializer.Serialize(message, MessageJsonOptions);
 
-                // Parse to add tabId field
-                var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(replyJson);
-                if (messageDict != null) {
-                    messageDict["tabId"] = JsonSerializer.SerializeToElement(_currentTabId);
-                    replyJson = JsonSerializer.Serialize(messageDict);
-                }
+                logger.LogInformation("SendToBackgroundWorkerAsync sending message with tabId {tabId}: {json}",
+                    message.TabId, messageJson);
 
-                logger.LogInformation("SendToBackgroundWorkerAsync sending message with tabId {tabId}: {json}", _currentTabId, replyJson);
-
-                // Deserialize back to object for sending
-                var messageToSend = JsonSerializer.Deserialize<object>(replyJson);
+                // Deserialize back to object for sending via WebExtensions API
+                var messageToSend = JsonSerializer.Deserialize<object>(messageJson, MessageJsonOptions);
 
                 // Send to BackgroundWorker using WebExtensions.Net
                 // BackgroundWorker will forward to ContentScript based on tabId in message
                 await _webExtensionsApi.Runtime.SendMessage(messageToSend);
 
-                logger.LogInformation("SendToBackgroundWorkerAsync sent (message includes tabId: {tabId})", _currentTabId);
+                logger.LogInformation("SendToBackgroundWorkerAsync sent (message includes tabId: {tabId})", message.TabId);
             }
             catch (Exception ex) {
                 logger.LogError(ex, "Error sending message to BackgroundWorker");
@@ -115,9 +144,10 @@ namespace Extension.Services {
         }
 
         [JSInvokable]
-        public void ReceiveMessage(string message) {
+        public void ReceiveMessage(BwAppMessage message) {
             // Handle the message received from the background worker
-            logger.LogInformation("AppBwMessagingService from BW: {m}", message);
+            logger.LogInformation("AppBwMessagingService from BW: type={type}, requestId={requestId}",
+                message.Type, message.RequestId);
             OnNext(message);
         }
 
@@ -125,15 +155,15 @@ namespace Extension.Services {
             _objectReference?.Dispose();
         }
 
-        public IDisposable Subscribe(IObserver<string> observer) {
+        public IDisposable Subscribe(IObserver<BwAppMessage> observer) {
             if (!observers.Contains(observer)) {
                 observers.Add(observer);
             }
             return new Unsubscriber(observers, observer);
         }
 
-        private void OnNext(string value) {
-            Console.WriteLine($"Received: {value}");
+        private void OnNext(BwAppMessage value) {
+            logger.LogDebug("Notifying {count} observers of message type: {type}", observers.Count, value.Type);
             foreach (var observer in observers) {
                 observer.OnNext(value);
             }
@@ -158,7 +188,7 @@ namespace Extension.Services {
         //}
 
         // Inner class to handle unsubscribing
-        private sealed class Unsubscriber(List<IObserver<string>> observers, IObserver<string> observer) : IDisposable {
+        private sealed class Unsubscriber(List<IObserver<BwAppMessage>> observers, IObserver<BwAppMessage> observer) : IDisposable {
             public void Dispose() {
                 if (observer != null && observers.Contains(observer)) {
                     observers.Remove(observer);

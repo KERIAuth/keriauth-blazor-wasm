@@ -21,6 +21,15 @@ using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
 namespace Extension;
 
 /// <summary>
+/// Concrete implementation of AppBwMessage for deserialization purposes.
+/// Used internally by BackgroundWorker to deserialize messages from App.
+/// </summary>
+internal sealed record ConcreteAppBwMessage : Extension.Models.AppBwMessages.AppBwMessage {
+    public ConcreteAppBwMessage(string type, int? tabId = null, string? requestId = null, object? payload = null, string? error = null)
+        : base(type, tabId, requestId, payload, error) { }
+}
+
+/// <summary>
 /// Background worker for the browser extension, handling message routing between
 /// content scripts, the Blazor app, and KERIA services.
 /// </summary>
@@ -193,16 +202,39 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 // Messages from App that need forwarding to ContentScript
                 if (isFromExtension) {
-                    var appMsg = JsonSerializer.Deserialize<AppBwMessage>(messageJson, PortMessageJsonOptions);
-                    _logger.LogDebug("AppMessage deserialized - TabId: {TabId}", appMsg?.TabId);
-                    if (appMsg != null) {
-                        await HandleAppMessageAsync(appMsg);
-                        return;
-                    }
-                    else {
-                        _logger.LogWarning("Failed to deserialize AppMessage {appMsg}", messageJson);
-                        await HandleUnknownMessageActionAsync(inboundMsg.Type);
-                        return;
+                    // Deserialize directly to base AppBwMessage type
+                    // The base type contains all necessary properties (Type, TabId, RequestId, Payload, Error)
+                    // No need to deserialize to specific subtypes since they only wrap the base constructor
+                    var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
+                    if (messageDict != null) {
+                        // Extract properties from dictionary
+                        var type = messageDict.TryGetValue("type", out var typeElem) ? typeElem.GetString() : null;
+                        var tabId = messageDict.TryGetValue("tabId", out var tabIdElem) && tabIdElem.ValueKind == JsonValueKind.Number ? tabIdElem.GetInt32() : (int?)null;
+                        var requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem.GetString() : null;
+                        var error = messageDict.TryGetValue("error", out var errorElem) ? errorElem.GetString() : null;
+
+                        // Extract payload (could be complex object like RecursiveDictionary)
+                        object? payload = null;
+                        if (messageDict.TryGetValue("payload", out var payloadElem) && payloadElem.ValueKind != JsonValueKind.Null) {
+                            // Deserialize payload with RecursiveDictionary support and increased depth
+                            var payloadJson = payloadElem.GetRawText();
+                            payload = JsonSerializer.Deserialize<object>(payloadJson, RecursiveDictionaryJsonOptions);
+                        }
+
+                        if (!string.IsNullOrEmpty(type)) {
+                            // Create a concrete AppBwMessage-like object
+                            // Since we can't instantiate abstract class, we'll create a wrapper
+                            var appMsg = new ConcreteAppBwMessage(type, tabId, requestId, payload, error);
+
+                            _logger.LogDebug("AppMessage deserialized - Type: {Type}, TabId: {TabId}", appMsg.Type, appMsg.TabId);
+                            await HandleAppMessageAsync(appMsg);
+                            return;
+                        }
+                        else {
+                            _logger.LogWarning("Failed to extract message type from AppBwMessage");
+                            await HandleUnknownMessageActionAsync("unknown");
+                            return;
+                        }
                     }
                 }
                 else {
@@ -689,8 +721,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <param name="message">The message to send</param>
     private async Task SendMessageToTabAsync(int tabId, object message) {
         try {
-            _logger.LogInformation("BW→CS (tab {TabId}): {Message}", tabId, JsonSerializer.Serialize(message));
-            await WebExtensions.Tabs.SendMessage(tabId, message);
+            // Serialize with RecursiveDictionaryConverter to preserve field ordering for CESR/SAID
+            var messageJson = JsonSerializer.Serialize(message, RecursiveDictionaryJsonOptions);
+            _logger.LogInformation("BW→CS (tab {TabId}): {Message}", tabId, messageJson);
+
+            // Deserialize back to object for WebExtensions API while preserving ordering
+            var messageToSend = JsonSerializer.Deserialize<object>(messageJson, RecursiveDictionaryJsonOptions);
+            await WebExtensions.Tabs.SendMessage(tabId, messageToSend);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error sending message to tab {TabId}", tabId);
@@ -912,7 +949,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Handles messages from App (popup/tab/sidepanel).
+    /// Handles strongly-typed messages from App (popup/tab/sidepanel).
     /// These messages are typically replies that need to be forwarded to ContentScript.
     /// The App includes the TabId in the message so we know which ContentScript to forward to.
     ///
@@ -920,9 +957,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// App→BW message types (e.g., /KeriAuth/signify/replyCredential) are transformed to
     /// BW→CS message types (e.g., /signify/reply) to maintain separate contracts.
     /// </summary>
-    /// <param name="msg">The App message with TabId indicating target tab</param>
+    /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
     /// <returns>Status response</returns>
-    private async Task HandleAppMessageAsync(AppBwMessage msg) {
+    private async Task HandleAppMessageAsync(Extension.Models.AppBwMessages.AppBwMessage msg) {
         try {
             _logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId}", msg.Type, msg.TabId);
 
@@ -936,16 +973,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // ContentScript expects /signify/reply
             string contentScriptMessageType;
             switch (msg.Type) {
-                case AppBwMessageTypes.REPLY_SIGN:
-                case AppBwMessageTypes.REPLY_ERROR:
-                case AppBwMessageTypes.REPLY_AID:
-                case AppBwMessageTypes.REPLY_CREDENTIAL:
+                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_SIGN:
+                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_ERROR:
+                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_AID:
+                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_CREDENTIAL:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     break;
-                case AppBwMessageTypes.REPLY_CANCELED:
+                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_CANCELED:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
                     break;
-                case AppBwMessageTypes.APP_CLOSED:
+                case Extension.Models.AppBwMessages.AppBwMessageTypes.APP_CLOSED:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
                     break;
                 default:
@@ -965,9 +1002,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Forward the message to the ContentScript on the specified tab
             _logger.LogInformation("BW→CS: Forwarding message type {Type} (transformed from {OriginalType}) to tab {TabId}",
                 contentScriptMessageType, msg.Type, msg.TabId);
-
-            var messageJson = JsonSerializer.Serialize(forwardMsg);
-            _logger.LogDebug("BW→CS: Message payload: {MessageJson}", messageJson);
 
             await SendMessageToTabAsync(msg.TabId.Value, forwardMsg);
 

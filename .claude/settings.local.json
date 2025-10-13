@@ -34,7 +34,8 @@
       "Bash(then mv wwwroot/scripts/es6/signifyClient.ts wwwroot/scripts/esbuild/signifyClient.ts)",
       "Bash(else echo \"File already moved or doesn''t exist\")",
       "Bash(fi)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,4 +1,4 @@
-// TODO P2: Re-implement tests for refactored SignifyClientShim and SignifyClientService
+﻿// TODO P2: Re-implement tests for refactored SignifyClientShim and SignifyClientService
 //
 // The following test files were removed during refactoring from static JSImport pattern
 // to IJSRuntime instance-based pattern:

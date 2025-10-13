@@ -5,6 +5,7 @@
 @using System.Text.Json
 @using Extension.Helper
 @using Extension.Models
+@using Extension.Models.AppBwMessages
 @using Extension.Components
 @using Extension.Pages
 @using Extension.Services
@@ -57,6 +58,7 @@
 
     // properties
     string RequestId { get; set; } = "";
+    int TabId { get; set; } = -1;
     string PayloadJson { get; set; } = "";
     Dictionary<string, string> HeadersDict { get; set; } = new();
     RecursiveDictionary? SelectedCredential;
@@ -103,6 +105,17 @@
         // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
         var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
+
+        // Extract tabId from query string
+        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("tabId", out var tabIdStr))
+        {
+            if (int.TryParse(tabIdStr, out var parsedTabId))
+            {
+                TabId = parsedTabId;
+                logger.LogInformation("TabId from query string: {tabId}", TabId);
+            }
+        }
+
         // TODO P2 add try-catch
         // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
@@ -313,9 +326,41 @@
 
             if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
             {
-                ApprovedSignRequest approvedSignRequest = new("passcode", "adminUrl", OriginStr, request.Url, request.Method, request.HeadersDict, SelectedName!);
-                ReplyMessageData<ApprovedSignRequest> replyMessageData = new("ApprovedSignRequest", approvedSignRequest, requestId2, null, "KERI Auth");
-                await appBwMessagingService.SendToBackgroundWorkerAsync<ApprovedSignRequest>(replyMessageData);
+                if (TabId <= 0)
+                {
+                    var msg = "Invalid tab ID";
+                    snackbar.Add(msg, Severity.Error);
+                    logger.LogError(msg);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(adminUrl))
+                {
+                    var msg = "Admin URL must not be null";
+                    snackbar.Add(msg, Severity.Error);
+                    logger.LogError(msg);
+                    return;
+                }
+
+                if (request.HeadersDict == null)
+                {
+                    var msg = "Headers dictionary must not be null";
+                    snackbar.Add(msg, Severity.Error);
+                    logger.LogError(msg);
+                    return;
+                }
+
+                var approvedSignRequest = new Extension.Models.AppBwMessages.ApprovedSignRequest(
+                    Passcode: passcode,
+                    AdminUrl: adminUrl,
+                    Origin: OriginStr,
+                    Url: request.Url,
+                    Method: request.Method,
+                    Headers: request.HeadersDict,
+                    IdentifierName: SelectedName!
+                );
+                var message = new AppBwReplySignMessage(TabId, requestId2, approvedSignRequest);
+                await appBwMessagingService.SendToBackgroundWorkerAsync(message);
             }
             else
             {
@@ -333,17 +378,14 @@
     //
     async Task Cancel()
     {
-        var replyMessageData = new ReplyMessageData<AuthorizeResult>(
-            "/KeriAuth/signify/replyCancel",
-            new AuthorizeResult {
-                ARCredential = null,
-                ARIdentifier = null
-            },
-            requestId: RequestId,
-            null,
-            "KeriAuth"
-        );
-        await appBwMessagingService.SendToBackgroundWorkerAsync<AuthorizeResult>(replyMessageData);
+        if (TabId <= 0)
+        {
+            logger.LogWarning("Cannot cancel - invalid tab ID");
+            return;
+        }
+
+        var message = new AppBwReplyCanceledMessage(TabId, RequestId, "User cancelled sign request");
+        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
     }
 
     //

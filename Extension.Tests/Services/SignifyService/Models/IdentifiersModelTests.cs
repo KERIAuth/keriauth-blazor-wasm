@@ -1,4 +1,4 @@
-using Extension.Services.SignifyService.Models;
+﻿using Extension.Services.SignifyService.Models;
 using System.Text.Json;
 using Xunit;
 
@@ -8,16 +8,13 @@ namespace Extension.Tests.Services.SignifyService.Models;
 /// Tests for Identifiers model serialization/deserialization.
 /// Ensures compatibility with signify-ts identifier list responses.
 /// </summary>
-public class IdentifiersModelTests
-{
-    private readonly JsonSerializerOptions _jsonOptions = new()
-    {
+public class IdentifiersModelTests {
+    private readonly JsonSerializerOptions _jsonOptions = new() {
         PropertyNameCaseInsensitive = true
     };
 
     [Fact]
-    public void Identifiers_Deserialization_WithValidJson_ShouldSucceed()
-    {
+    public void Identifiers_Deserialization_WithValidJson_ShouldSucceed() {
         // Arrange - JSON similar to what signify-ts identifiers().list() returns
         const string json = """
             {
@@ -65,19 +62,18 @@ public class IdentifiersModelTests
         Assert.Equal(2, identifiers.Total);
         Assert.NotNull(identifiers.Aids);
         Assert.Equal(2, identifiers.Aids.Count);
-        
+
         var alice = identifiers.Aids[0];
         Assert.Equal("alice", alice.Name);
         Assert.Equal("EKYOFIz1dv1P2rW2yDlYgHIyS0fV-f0b1b2y3z4x5v6u", alice.Prefix);
-        
+
         var bob = identifiers.Aids[1];
         Assert.Equal("bob", bob.Name);
         Assert.Equal("EALkveIFUPvt38xhtgYYJRCCpAGO7WjjHVR37Pawv67E", bob.Prefix);
     }
 
     [Fact]
-    public void Identifiers_WithEmptyAids_ShouldDeserializeCorrectly()
-    {
+    public void Identifiers_WithEmptyAids_ShouldDeserializeCorrectly() {
         // Arrange
         const string json = """
             {
@@ -101,8 +97,7 @@ public class IdentifiersModelTests
     }
 
     [Fact]
-    public void Identifiers_Serialization_ShouldProduceValidJson()
-    {
+    public void Identifiers_Serialization_ShouldProduceValidJson() {
         // Arrange
         var salty = new Salty("sxlt", 0, 0, "stem", "low", "E", ["A"], ["A"], true);
         var aids = new List<Aid>
@@ -124,8 +119,7 @@ public class IdentifiersModelTests
     }
 
     [Fact]
-    public void Identifiers_Constructor_ShouldSetPropertiesCorrectly()
-    {
+    public void Identifiers_Constructor_ShouldSetPropertiesCorrectly() {
         // Arrange
         const int start = 5;
         const int end = 10;
@@ -144,8 +138,7 @@ public class IdentifiersModelTests
     }
 
     [Fact]
-    public void Identifiers_RoundTripSerialization_ShouldPreserveData()
-    {
+    public void Identifiers_RoundTripSerialization_ShouldPreserveData() {
         // Arrange
         var salty = new Salty("sxlt", 0, 0, "stem", "low", "E", ["A"], ["A"], true);
         var originalAids = new List<Aid>
@@ -165,17 +158,15 @@ public class IdentifiersModelTests
         Assert.Equal(originalIdentifiers.End, deserializedIdentifiers.End);
         Assert.Equal(originalIdentifiers.Total, deserializedIdentifiers.Total);
         Assert.Equal(originalIdentifiers.Aids.Count, deserializedIdentifiers.Aids.Count);
-        
-        for (int i = 0; i < originalIdentifiers.Aids.Count; i++)
-        {
+
+        for (int i = 0; i < originalIdentifiers.Aids.Count; i++) {
             Assert.Equal(originalIdentifiers.Aids[i].Name, deserializedIdentifiers.Aids[i].Name);
             Assert.Equal(originalIdentifiers.Aids[i].Prefix, deserializedIdentifiers.Aids[i].Prefix);
         }
     }
 
     [Fact]
-    public void Identifiers_WithPagination_ShouldHandleCorrectly()
-    {
+    public void Identifiers_WithPagination_ShouldHandleCorrectly() {
         // Arrange - Testing pagination scenario
         const string json = """
             {
@@ -204,8 +195,7 @@ public class IdentifiersModelTests
     }
 
     [Fact]
-    public void Identifiers_JsonConstructor_ShouldWorkWithJsonDeserialization()
-    {
+    public void Identifiers_JsonConstructor_ShouldWorkWithJsonDeserialization() {
         // Arrange
         const string json = """
             {
@@ -237,8 +227,7 @@ public class IdentifiersModelTests
     [InlineData(0, 0, 0)]
     [InlineData(1, 5, 10)]
     [InlineData(100, 200, 500)]
-    public void Identifiers_WithDifferentPaginationValues_ShouldDeserializeCorrectly(int start, int end, int total)
-    {
+    public void Identifiers_WithDifferentPaginationValues_ShouldDeserializeCorrectly(int start, int end, int total) {
         // Arrange
         var json = $$"""
             {

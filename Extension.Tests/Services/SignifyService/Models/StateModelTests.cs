@@ -1,4 +1,4 @@
-using Extension.Services.SignifyService.Models;
+﻿using Extension.Services.SignifyService.Models;
 using System.Text.Json;
 using Xunit;
 
@@ -8,16 +8,13 @@ namespace Extension.Tests.Services.SignifyService.Models;
 /// Tests for State model serialization/deserialization.
 /// These tests ensure compatibility with signify-ts TypeScript interfaces.
 /// </summary>
-public class StateModelTests
-{
-    private readonly JsonSerializerOptions _jsonOptions = new()
-    {
+public class StateModelTests {
+    private readonly JsonSerializerOptions _jsonOptions = new() {
         PropertyNameCaseInsensitive = true
     };
 
     [Fact]
-    public void State_Deserialization_WithValidJson_ShouldSucceed()
-    {
+    public void State_Deserialization_WithValidJson_ShouldSucceed() {
         // Arrange - JSON similar to what signify-ts returns
         const string json = """
             {
@@ -50,23 +47,20 @@ public class StateModelTests
     }
 
     [Fact]
-    public void State_Serialization_ShouldProduceValidJson()
-    {
+    public void State_Serialization_ShouldProduceValidJson() {
         // Arrange
         var agent = new Agent { I = "EALkveIFUPvt38xhtgYYJRCCpAGO7WjjHVR37Pawv67E" };
-        var controllerState = new ControllerState 
-        { 
+        var controllerState = new ControllerState {
             I = "EKYOFIz1dv1P2rW2yDlYgHIyS0fV-f0b1b2y3z4x5v6u",
             S = "0",
             K = ["DKYOFIz1dv1P2rW2yDlYgHIyS0fV-f0b1b2y3z4x5v6u"]
         };
         var controller = new Controller { State = controllerState };
-        var state = new State 
-        { 
-            Agent = agent, 
-            Controller = controller, 
-            Ridx = 0, 
-            Pidx = 0 
+        var state = new State {
+            Agent = agent,
+            Controller = controller,
+            Ridx = 0,
+            Pidx = 0
         };
 
         // Act
@@ -81,8 +75,7 @@ public class StateModelTests
     }
 
     [Fact]
-    public void State_WithNullAgent_ShouldDeserializeCorrectly()
-    {
+    public void State_WithNullAgent_ShouldDeserializeCorrectly() {
         // Arrange
         const string json = """
             {
@@ -107,8 +100,7 @@ public class StateModelTests
     }
 
     [Fact]
-    public void State_WithNullController_ShouldDeserializeCorrectly()
-    {
+    public void State_WithNullController_ShouldDeserializeCorrectly() {
         // Arrange
         const string json = """
             {
@@ -131,8 +123,7 @@ public class StateModelTests
     }
 
     [Fact]
-    public void ControllerState_WithComplexData_ShouldDeserializeCorrectly()
-    {
+    public void ControllerState_WithComplexData_ShouldDeserializeCorrectly() {
         // Arrange - JSON with all ControllerState fields
         const string json = """
             {
@@ -176,8 +167,7 @@ public class StateModelTests
     }
 
     [Fact]
-    public void StateEe_ShouldHandleEmptyArrays()
-    {
+    public void StateEe_ShouldHandleEmptyArrays() {
         // Arrange
         const string json = """
             {
@@ -199,19 +189,15 @@ public class StateModelTests
     }
 
     [Fact]
-    public void State_RoundTripSerialization_ShouldPreserveData()
-    {
+    public void State_RoundTripSerialization_ShouldPreserveData() {
         // Arrange
-        var originalState = new State
-        {
+        var originalState = new State {
             Agent = new Agent { I = "agent-prefix" },
-            Controller = new Controller 
-            { 
-                State = new ControllerState 
-                { 
+            Controller = new Controller {
+                State = new ControllerState {
                     I = "controller-prefix",
                     K = ["key1", "key2"]
-                } 
+                }
             },
             Ridx = 5,
             Pidx = 10
@@ -231,11 +217,9 @@ public class StateModelTests
     }
 
     [Fact]
-    public void ControllerEe_WithAllFields_ShouldSerializeCorrectly()
-    {
+    public void ControllerEe_WithAllFields_ShouldSerializeCorrectly() {
         // Arrange
-        var controllerEe = new ControllerEe
-        {
+        var controllerEe = new ControllerEe {
             V = "KERI10JSON000001_",
             T = "icp",
             D = "prefix",

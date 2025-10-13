@@ -57,10 +57,20 @@
         );
 
         // Subscribe to and handle messages from background worker via messaging service
-        appBwMessagingService.Subscribe<string>((message) =>
-        {
-            _logger.LogInformation("App from BW/MessagingService: {m}", message);
-        });
+        appBwMessagingService.Subscribe(
+            onNext: (message) => {
+                _logger.LogInformation("App from BW/MessagingService: type={type}, requestId={requestId}",
+                    message.Type, message.RequestId);
+                // Handle specific message types if needed
+                // For now, just log
+            },
+            onError: (error) => {
+                _logger.LogError(error, "Error from BW messaging service");
+            },
+            onCompleted: () => {
+                _logger.LogInformation("BW messaging service completed");
+            }
+        );
 
         // Initialize messaging with background worker
         // Extract tabId from query string if present, otherwise use null
