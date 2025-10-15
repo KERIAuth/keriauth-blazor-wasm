@@ -191,6 +191,8 @@ async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise
         // console.log('KeriAuthCs→BW: sendMessage:', msg);
         // Response handling can be added here if needed
     } catch (error) {
+        // TODO P2: this may occur during development when an existing page with injected script trys to interact with newly loaded extension.
+        // would be better here to prompt user to reload (or close tab, even) page.
         console.error('KeriAuthCs→BW: Failed to send message:', error);
         throw error;
     }
@@ -275,7 +277,7 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
                         if (signRequestMessage.payload?.headers) {
                             console.log('KeriAuthCs payload headers: ');
                             const headers = signRequestMessage.payload.headers;
-                            for (const [key, value] of Object.entries(headers)) {
+                            for (const [key, value] of Object.keys(headers)) {
                                 console.log(` ${key}: ${value}`);
                             }
                         }

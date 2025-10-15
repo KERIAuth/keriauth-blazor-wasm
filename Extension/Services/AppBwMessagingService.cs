@@ -12,13 +12,13 @@ namespace Extension.Services {
     /// Concrete implementation of BwAppMessage for deserialization purposes.
     /// Used internally by AppBwMessagingService to deserialize messages from BackgroundWorker.
     /// </summary>
-    internal sealed record ConcreteBwAppMessage : BwAppMessage {
+    internal sealed record ConcreteBwAppMessage : BwAppMessage<object> {
         public ConcreteBwAppMessage(string type, string? requestId = null, object? payload = null, string? error = null)
             : base(type, requestId, payload, error) { }
     }
 
     public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IAppBwMessagingService {
-        private readonly List<IObserver<BwAppMessage>> observers = [];
+        private readonly List<IObserver<BwAppMessage<object>>> observers = [];
         private DotNetObjectReference<AppBwMessagingService> _objectReference = default!;
         private int? _currentTabId;
         private WebExtensionsApi _webExtensionsApi = default!;
@@ -119,13 +119,13 @@ namespace Extension.Services {
 
         /// <summary>
         /// Sends a strongly-typed message from App to BackgroundWorker.
-        /// T must be a subtype of AppBwMessage.
+        /// TPayload is the payload type for the message.
         /// Uses MessageJsonOptions with increased MaxDepth and RecursiveDictionaryConverter
         /// to handle deeply nested credential structures while preserving CESR/SAID ordering.
         /// </summary>
-        public async Task SendToBackgroundWorkerAsync<T>(T message) where T : AppBwMessage {
+        public async Task SendToBackgroundWorkerAsync<TPayload>(AppBwMessage<TPayload> message) {
             logger.LogInformation("SendToBackgroundWorkerAsync type {typeName}, message type: {messageType}",
-                typeof(T).Name, message.Type);
+                typeof(AppBwMessage<TPayload>).Name, message.Type);
 
             try {
                 // Serialize the strongly-typed AppBwMessage with increased depth and RecursiveDictionary support
@@ -150,21 +150,21 @@ namespace Extension.Services {
         }
 
         [JSInvokable]
-        public void ReceiveMessage(BwAppMessage message) {
+        public void ReceiveMessage(BwAppMessage<object> message) {
             // Handle the message received from the background worker
             logger.LogInformation("AppBwMessagingService from BW: type={type}, requestId={requestId}",
                 message.Type, message.RequestId);
             OnNext(message);
         }
 
-        public IDisposable Subscribe(IObserver<BwAppMessage> observer) {
+        public IDisposable Subscribe(IObserver<BwAppMessage<object>> observer) {
             if (!observers.Contains(observer)) {
                 observers.Add(observer);
             }
             return new Unsubscriber(observers, observer);
         }
 
-        private void OnNext(BwAppMessage value) {
+        private void OnNext(BwAppMessage<object> value) {
             logger.LogDebug("Notifying {count} observers of message type: {type}", observers.Count, value.Type);
             foreach (var observer in observers) {
                 observer.OnNext(value);
@@ -194,7 +194,7 @@ namespace Extension.Services {
         //}
 
         // Inner class to handle unsubscribing
-        private sealed class Unsubscriber(List<IObserver<BwAppMessage>> observers, IObserver<BwAppMessage> observer) : IDisposable {
+        private sealed class Unsubscriber(List<IObserver<BwAppMessage<object>>> observers, IObserver<BwAppMessage<object>> observer) : IDisposable {
             public void Dispose() {
                 if (observer != null && observers.Contains(observer)) {
                     observers.Remove(observer);

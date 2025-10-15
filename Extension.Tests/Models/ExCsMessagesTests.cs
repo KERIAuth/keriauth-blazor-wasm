@@ -69,9 +69,10 @@ namespace Extension.Tests.Models {
         [Fact]
         public void AppMessage_ShouldSerializeCorrectly() {
             // Arrange
-            var msg = new AppBwMessage(
+            var msg = new AppBwMessage<object>(
                 type: AppBwMessageTypes.REPLY_CREDENTIAL,
                 tabId: 42,
+                tabUrl: "https://localhost:1234",
                 requestId: "req-456",
                 payload: new { credential = "data" }
             );
@@ -82,6 +83,7 @@ namespace Extension.Tests.Models {
             // Assert
             Assert.Contains("\"type\":\"/KeriAuth/signify/replyCredential\"", json);
             Assert.Contains("\"tabId\":42", json);
+            Assert.Contains("\"tabUrl\":\"https://localhost:1234\"", json);
             Assert.Contains("\"requestId\":\"req-456\"", json);
             Assert.Contains("\"payload\":{\"credential\":\"data\"}", json);
         }
@@ -92,7 +94,7 @@ namespace Extension.Tests.Models {
             var json = "{\"type\":\"/KeriAuth/signify/replyCredential\",\"tabId\":42,\"requestId\":\"req-456\",\"payload\":{\"credential\":\"data\"}}";
 
             // Act
-            var msg = JsonSerializer.Deserialize<AppBwMessage>(json, _jsonOptions);
+            var msg = JsonSerializer.Deserialize<AppBwMessage<object>>(json, _jsonOptions);
 
             // Assert
             Assert.NotNull(msg);

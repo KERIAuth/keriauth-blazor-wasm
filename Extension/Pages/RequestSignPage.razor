@@ -266,7 +266,7 @@
     // 
     async Task Cancel()
     {
-        var message = new AppBwReplyCanceledMessage(TabId, RequestId, "User cancelled sign request");
+        var message = new AppBwReplyCanceledMessage(TabId, OriginStr, RequestId, "User cancelled sign request");
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
         if (Layout is not null)
         {
@@ -317,7 +317,8 @@
     //
     private async Task ApproveRequestHandler()
     {
-        var message = new AppBwReplySignMessage(TabId, RequestId, HeadersDict, "prefixToDo", true);
+        // TODO P0 hardcoded prefix
+        var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, HeadersDict, "EDkH0LAH4yB9nGOmWbjU8UX_WQDbbivzjmYy8Vcs6ufs", true);
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
         if (Layout is not null)
         {

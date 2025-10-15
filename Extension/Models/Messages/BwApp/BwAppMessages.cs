@@ -4,8 +4,9 @@ namespace Extension.Models.Messages.BwApp {
     /// <summary>
     /// Base record for all messages sent from BackgroundWorker to App (popup/tab/sidepanel).
     /// Direction: BackgroundWorker → App
+    /// Not abstract, because it is helpful as first step of instantiating more specific type
     /// </summary>
-    public abstract record BwAppMessage {
+    public record BwAppMessage<T> {
         [JsonPropertyName("type")]
         public string Type { get; init; }
 
@@ -13,12 +14,13 @@ namespace Extension.Models.Messages.BwApp {
         public string? RequestId { get; init; }
 
         [JsonPropertyName("payload")]
-        public object? Payload { get; init; }
+        public T? Payload { get; init; }
 
         [JsonPropertyName("error")]
         public string? Error { get; init; }
 
-        protected BwAppMessage(string type, string? requestId = null, object? payload = null, string? error = null) {
+        [JsonConstructor]
+        public BwAppMessage(string type, string? requestId = null, T? payload = default, string? error = null) {
             Type = type;
             RequestId = requestId;
             Payload = payload;
@@ -39,7 +41,7 @@ namespace Extension.Models.Messages.BwApp {
     /// <summary>
     /// Message instructing the App to lock (e.g., due to inactivity timeout).
     /// </summary>
-    public record BwAppLockMessage : BwAppMessage {
+    public record BwAppLockMessage : BwAppMessage<object> {
         public BwAppLockMessage()
             : base(BwAppMessageTypes.LOCK_APP) { }
     }
@@ -48,7 +50,7 @@ namespace Extension.Models.Messages.BwApp {
     /// Message indicating system lock/suspend/hibernate was detected.
     /// App should immediately lock to protect sensitive data.
     /// </summary>
-    public record BwAppSystemLockDetectedMessage : BwAppMessage {
+    public record BwAppSystemLockDetectedMessage : BwAppMessage<object> {
         public BwAppSystemLockDetectedMessage()
             : base(BwAppMessageTypes.SYSTEM_LOCK_DETECTED) { }
     }
@@ -57,7 +59,7 @@ namespace Extension.Models.Messages.BwApp {
     /// Generic message forwarded from ContentScript to App.
     /// Used for messages that originate from web pages and need to be displayed/handled in the App UI.
     /// </summary>
-    public record BwAppForwardedMessage : BwAppMessage {
+    public record BwAppForwardedMessage : BwAppMessage<object> {
         public BwAppForwardedMessage(string? requestId, object? payload, string? error = null)
             : base(BwAppMessageTypes.FORWARDED_MESSAGE, requestId, payload, error) { }
     }

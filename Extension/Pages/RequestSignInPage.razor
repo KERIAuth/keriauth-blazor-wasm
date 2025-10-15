@@ -180,8 +180,6 @@
             return Result.Fail(error);
         }
 
-        AppBwMessage message;
-
         switch (RequestedSignInMode)
         {
             case SignInMode.Identifier:
@@ -197,7 +195,8 @@
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: null
                 );
-                message = new AppBwReplyAidMessage(tabId, requestId, identifierResult);
+                var identifierMessage = new AppBwReplyAidMessage(tabId, OriginStr, requestId, identifierResult);
+                await appBwMessagingService.SendToBackgroundWorkerAsync(identifierMessage);
                 break;
 
             case SignInMode.Credential:
@@ -229,7 +228,8 @@
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: authorizeResultCredential
                 );
-                message = new AppBwReplyAidMessage(tabId, requestId, authorizeResult);
+                var credentialMessage = new AppBwReplyAidMessage(tabId, OriginStr, requestId, authorizeResult);
+                await appBwMessagingService.SendToBackgroundWorkerAsync(credentialMessage);
                 break;
 
             default:
@@ -238,7 +238,6 @@
 
         try
         {
-            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
             if (Layout is not null) {
                 await Layout.ClosePopupAsync();
@@ -261,7 +260,7 @@
             return;
         }
 
-        var message = new AppBwReplyCanceledMessage(tabId, requestId, "User cancelled sign-in");
+        var message = new AppBwReplyCanceledMessage(tabId, OriginStr, requestId, "User canceled sign-in");
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
         if (Layout is not null) {

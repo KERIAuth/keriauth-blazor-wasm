@@ -3,17 +3,17 @@ using Extension.Models.Messages.BwApp;
 using Microsoft.JSInterop;
 
 namespace Extension.Services {
-    public interface IAppBwMessagingService : IObservable<BwAppMessage> {
+    public interface IAppBwMessagingService : IObservable<BwAppMessage<object>> {
         Task Initialize(string tabId);
 
         /// <summary>
         /// Sends a strongly-typed message from App to BackgroundWorker.
-        /// T must be a subtype of AppBwMessage.
+        /// TPayload is the payload type for the message.
         /// </summary>
-        Task SendToBackgroundWorkerAsync<T>(T message) where T : AppBwMessage;
+        Task SendToBackgroundWorkerAsync<TPayload>(AppBwMessage<TPayload> message);
 
         [JSInvokable]
-        void ReceiveMessage(BwAppMessage message);
+        void ReceiveMessage(BwAppMessage<object> message);
 
         void Dispose();
     }

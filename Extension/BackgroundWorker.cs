@@ -23,18 +23,6 @@ using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
 
 namespace Extension;
 
-/*
-/// <summary>
-/// Concrete implementation of AppBwMessage for deserialization purposes.
-/// Used internally by BackgroundWorker to deserialize messages from App.
-/// </summary>
-///
-internal sealed record ConcreteAppBwMessage : AppBwMessage {
-    public ConcreteAppBwMessage(string type, int? tabId = null, string? requestId = null, object? payload = null, string? error = null)
-        : base(type, tabId, requestId, payload, error) { }
-}
-*/
-
 /// <summary>
 /// Background worker for the browser extension, handling message routing between
 /// content scripts, the Blazor app, and KERIA services.
@@ -68,6 +56,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private const string LockAppAction = "LockApp";
     private const string SystemLockDetectedAction = "systemLockDetected";
 
+    // services
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
@@ -191,7 +180,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Only messages from the extension itself or explicitly permitted origins are allowed
             var isValidSender = await ValidateMessageSenderAsync(sender, messageObj);
             if (!isValidSender) {
-                _logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender URL: {Url}, ID: {Id}", sender?.Url, sender?.Id);
+                _logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender URL: {Url}, ID: {Id}", sender.Url, sender.Id);
                 return;
             }
 
@@ -201,42 +190,52 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var inboundMsg = JsonSerializer.Deserialize<ToBwMessage>(messageJson, PortMessageJsonOptions);
 
             if (inboundMsg?.Type != null) {
-                _logger.LogInformation("Message received: {Type} from {Url}", inboundMsg.Type, sender?.Url);
+                _logger.LogInformation("Message received: {Type} from {Url}", inboundMsg.Type, sender.Url);
 
                 // Check if message is from extension (App) or from content script
-                var isFromExtension = sender?.Url?.StartsWith($"chrome-extension://{WebExtensions.Runtime.Id}", StringComparison.OrdinalIgnoreCase) ?? false;
+                var isFromExtension = sender.Url?.StartsWith($"chrome-extension://{WebExtensions.Runtime.Id}", StringComparison.OrdinalIgnoreCase) ?? false;
 
-                // Messages from App that need forwarding to ContentScript
+                // Messages from App
                 if (isFromExtension) {
+                    _logger.LogInformation("App->BW msgJson: {j}", messageJson);
                     // Deserialize directly to base AppBwMessage type
-                    // The base type contains all necessary properties (Type, TabId, RequestId, Payload, Error)
+                    // The base type contains all necessary properties (Type, TabId, TabUrl, RequestId, Payload, Error)
                     // No need to deserialize to specific subtypes since they only wrap the base constructor
-                    var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
-                    if (messageDict != null) {
+                    // Note payload may be null
+                    var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement?>>(messageJson);
+                    if (messageDict is not null) {
                         // Extract properties from dictionary
-                        var type = messageDict.TryGetValue("type", out var typeElem) ? typeElem.GetString() : null;
-                        var tabId = messageDict.TryGetValue("tabId", out var tabIdElem) && tabIdElem.ValueKind == JsonValueKind.Number ? tabIdElem.GetInt32() : (int?)null;
-                        var requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem.GetString() : null;
-                        var error = messageDict.TryGetValue("error", out var errorElem) ? errorElem.GetString() : null;
+                        string? type = messageDict.TryGetValue("type", out var typeElem) ? typeElem?.GetString() : null;
+                        if (type is null) {
+                            _logger.LogWarning("Failed to extract message type from AppBwMessage");
+                            await HandleUnknownMessageActionAsync("unknown");
+                            return;
+                        }
+
+                        string? tabUrl = messageDict.TryGetValue("tabUrl", out var tabUrlElem) ? tabUrlElem?.GetString() : null;
+                        int tabId = (messageDict.TryGetValue("tabId", out JsonElement? tabIdElem) && tabIdElem?.ValueKind == JsonValueKind.Number) ? tabIdElem.Value.GetInt32() : 0;
+                        string? requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem?.GetString() : null;
+                        string? error = messageDict.TryGetValue("error", out var errorElem) ? errorElem?.GetString() : null;
 
                         // Extract payload (could be complex object like RecursiveDictionary)
                         object? payload = null;
-                        if (messageDict.TryGetValue("payload", out var payloadElem) && payloadElem.ValueKind != JsonValueKind.Null) {
+                        if (messageDict.TryGetValue("payload", out var payloadElem) && payloadElem?.ValueKind != JsonValueKind.Null) {
                             // Deserialize payload with RecursiveDictionary support and increased depth
-                            var payloadJson = payloadElem.GetRawText();
-                            payload = JsonSerializer.Deserialize<object>(payloadJson, RecursiveDictionaryJsonOptions);
-                        }
+                            var payloadJson = payloadElem?.GetRawText();
+                            if (payloadJson is not null) {
+                                payload = JsonSerializer.Deserialize<object>(payloadJson, RecursiveDictionaryJsonOptions);
+                            }
+                            if (payload is null) {
+                                _logger.LogWarning("Failed to extract message type from AppBwMessage");
+                                // await HandleUnknownMessageActionAsync("unknown");
+                                return;
+                            }
 
-                        if (!string.IsNullOrEmpty(type)) {
-                            var appMsg = new Models.Messages.AppBw.AppBwMessage(type, tabId, requestId, payload);
+                            var appMsg = new AppBwMessage<object>(type, tabId, tabUrl, requestId, payload);
 
-                            _logger.LogDebug("AppMessage deserialized - Type: {Type}, TabId: {TabId}", appMsg.Type, appMsg.TabId);
+                            _logger.LogInformation("AppMessage deserialized - Type: {Type}, TabId: {TabId}, TabUrl: {tt}", appMsg.Type, appMsg.TabId, appMsg.TabUrl);
                             await HandleAppMessageAsync(appMsg);
-                            return;
-                        }
-                        else {
-                            _logger.LogWarning("Failed to extract message type from AppBwMessage");
-                            await HandleUnknownMessageActionAsync("unknown");
+
                             return;
                         }
                     }
@@ -548,35 +547,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // TODO P1: is this now done in app.js?
-    private async Task<bool> RequestOriginPermissionAsync(string origin) {
-        try {
-            _logger.LogInformation("Requesting permission for origin: {Origin}", origin);
-
-            var isGranted = false;
-            var ptt = new PermissionsType {
-                Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
-            };
-            if (!isGranted) {
-                // prompt via browser UI for permission
-                isGranted = await WebExtensions.Permissions.Request(ptt);
-            }
-            _logger.LogInformation("Permission request result for {Origin}: {IsGranted}", origin, isGranted);
-            return isGranted;
-        }
-        catch (Microsoft.JSInterop.JSException e) {
-            _logger.LogError("BW: ... . {e}{s}", e.Message, e.StackTrace);
-            throw;
-        }
-        catch (System.Runtime.InteropServices.JavaScript.JSException e) {
-            _logger.LogError("BW: ... 2 . {e}{s}", e.Message, e.StackTrace);
-            throw;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error requesting origin permission for {Origin}", origin);
-            return false;
-        }
-    }
 
     private async Task UseActionPopupAsync(int tabId) {
         try {
@@ -961,16 +931,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// App→BW message types (e.g., /KeriAuth/signify/replyCredential) are transformed to
     /// BW→CS message types (e.g., /signify/reply) to maintain separate contracts.
     /// </summary>
-    /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
+        /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
     /// <returns>Status response</returns>
-    private async Task HandleAppMessageAsync(AppBwMessage msg) {
+    private async Task HandleAppMessageAsync(AppBwMessage<object> msg) {
         try {
             _logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId} msg: {msg}", msg.Type, msg.TabId, msg);
-
-            if (msg.TabId is not int || msg.TabId <= 0) {
-                _logger.LogWarning("BW←App: Cannot forward message - no valid tab ID in message");
-                return;
-            }
 
             // Transform App message type to ContentScript message type
             // App uses /KeriAuth/signify/replyCredential
@@ -980,20 +945,42 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             switch (msg.Type) {
                 case AppBwMessageTypes.REPLY_AID:
                 case AppBwMessageTypes.REPLY_CREDENTIAL:
-                // case AppBwMessageTypes.REPLY_SIGN:
+                    // case AppBwMessageTypes.REPLY_SIGN:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     break;
-                
+
                 case AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS:
-                    if (msg.Payload is (Dictionary<string, string> headersDict, string prefix, Boolean isApproved)) {
-                        // Non-null tuple form
-                        _logger.LogInformation("Prefix = {prefix}, Approved = {isApproved}, headersDict = {headersDict}", prefix, isApproved, headersDict);
-                        await SignAndSendRequestHeaders((int)msg.TabId, new AppBwReplySignMessage(msg.TabId ?? 0, msg.RequestId ?? "none", headersDict, prefix, isApproved));
+                    if (msg.Payload is null) {
+                        _logger.LogWarning("Payload is null for REPLY_APPROVED_SIGN_HEADERS: {msg}", msg);
+                        return;
                     }
-                    else if (msg.Payload is null) {
-                        _logger.LogWarning("Payload is null or could not be parsed: {msg}", msg);
-                    } else {
-                        _logger.LogWarning("Payload set but didn't parse: {payload}", msg.Payload);
+                    if (msg.RequestId is null) {
+                        _logger.LogWarning("RequestId is null for REPLY_APPROVED_SIGN_HEADERS: {msg}", msg);
+                        return;
+                    }
+                    if (msg.TabUrl is null) {
+                        _logger.LogWarning("TabUrl is null for REPLY_APPROVED_SIGN_HEADERS: {msg}", msg);
+                        return;
+                    }
+
+                    try {
+                        // Deserialize payload to AppBwReplySignPayload1
+                        var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
+                        var signPayload = JsonSerializer.Deserialize<AppBwReplySignPayload1>(payloadJson, RecursiveDictionaryJsonOptions);
+
+                        if (signPayload is null) {
+                            _logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload1: {payload}", msg.Payload);
+                            return;
+                        }
+
+                        _logger.LogInformation("Prefix = {prefix}, Approved = {isApproved}, headersDict = {headersDict}",
+                            signPayload.Prefix, signPayload.IsApproved, signPayload.HeadersDict);
+
+                        await SignAndSendRequestHeaders(msg.TabUrl, msg.TabId,
+                            new AppBwReplySignMessage(msg.TabId, msg.TabUrl, msg.RequestId, signPayload.HeadersDict, signPayload.Prefix, signPayload.IsApproved));
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Error deserializing AppBwReplySignPayload1 from payload: {payload}", msg.Payload);
                     }
                     return; // TODO P2 send error message back to Cs?
                 case AppBwMessageTypes.REPLY_ERROR:
@@ -1028,7 +1015,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("BW→CS: Forwarding message type {Type} (transformed from {OriginalType}) to tab {TabId}",
                 contentScriptMessageType, msg.Type, msg.TabId);
 
-            await SendMessageToTabAsync(msg.TabId.Value, forwardMsg);
+            await SendMessageToTabAsync(msg.TabId, forwardMsg);
 
             _logger.LogInformation("BW→CS: Successfully sent message to tab {TabId}", msg.TabId);
 
@@ -1148,8 +1135,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
 
-    private async Task SignAndSendRequestHeaders(int tabId, AppBwReplySignMessage msg ) {
-        var origin = "";
+    private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg) {
         try {
             // Check if connected to KERIA
             var stateResult = await TryGetSignifyStateAsync();
@@ -1162,57 +1148,45 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
 
-
-            var payload = ((Dictionary<string, string> headersDict, string? prefix, bool isApproved)?)msg.Payload;
+            var payload = msg.Payload;
             if (payload is null) {
                 _logger.LogError("SignAndSendRequestHeaders: could not parse payload");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}"));
                 return;
             }
 
-            // var xx = new AppBwReplySignMessage(msg.TabId ?? 0, msg.RequestId, prefix, true);
+            var headersDict = payload.HeadersDict;
+            var prefix = payload.Prefix;
+            var isApproved = payload.IsApproved;
 
-
-            // var payload = new Models.Messages.AppBw.SignAndSendRequestHeaders((int)msg.TabId, new AppBwMessage(AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS, (int)msg.TabId, msg.RequestId, msg.Payload)); (origin, "url???", )
-
-            // var payload = msg.Payload as Models.Messages.AppBw.ApprovedSignRequest ?? throw new InvalidCastException();
-            // var rurl = msg. payload.Url;
-            // var method = payload.Method;
-
-            // Extract origin domain from URL
-            string originDomain = origin;
-            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+            // create hostAndPort
+            string originDomain = tabUrl;
+            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
                 originDomain = $"{originUri.Scheme}://{originUri.Host}";
                 if (!originUri.IsDefaultPort) {
                     originDomain += $":{originUri.Port}";
                 }
             }
+            _logger.LogInformation("origin: {origin}, originDomain: {od}", tabUrl, originDomain);
 
             // Get AID name for this origin
-            string? aidName = null;
+            // string? aidName = null;
+            string? rememberedPrefix = null;
             if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
                 var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
 
                 if (websiteConfigResult.IsSuccess &&
                     websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-
-                    var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyClientService.GetIdentifiers();
-                    if (identifiers.IsSuccess && identifiers.Value is not null) {
-                        var aids = identifiers.Value.Aids;
-                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
-                    }
+                    rememberedPrefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
                 }
             }
 
-            if (string.IsNullOrEmpty(aidName)) {
+            if (string.IsNullOrEmpty(rememberedPrefix)) {
                 _logger.LogWarning("BW HandleSignRequestAsync: no identifier configured for origin {Origin}", originDomain);
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
                 return;
             }
 
-            // Get headers from payload
-            var headersDict = payload.Value.headersDict;
             var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO 2 should return error?
             var method = headersDict.GetValueOrDefault("method") ?? ""; // TODO P2 should return error?
 
@@ -1232,7 +1206,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 rurl,
                 method,
                 headersDictJson,
-                aidName
+                aidName: rememberedPrefix ?? "none_error"
             );
 
             var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
@@ -1257,7 +1231,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
     }
-
 
     private async Task HandleSignDataAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
@@ -1370,10 +1343,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             ;
         }
     }
-        
-
-
-
 
     /// <summary>
     /// Handles data attestation credential creation request from ContentScript.
