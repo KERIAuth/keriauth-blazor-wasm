@@ -1,6 +1,7 @@
-﻿using System.Text.Json.Serialization;
+﻿using Extension.Models.Messages.AppBw;
+using System.Text.Json.Serialization;
 
-namespace Extension.Models {
+namespace Extension.Models.Messages.Polaris {
     public record AuthorizeResult {
         [JsonPropertyName("credential")]
         public required AuthorizeResultCredential? ARCredential { get; init; }

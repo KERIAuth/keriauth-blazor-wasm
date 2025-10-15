@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models.ObsoleteExMessages {
+namespace Extension.Models.Messages.CsBw {
     /// <summary>
     /// Base message received by BackgroundWorker (inbound direction).
     /// Can come from ContentScript or App.
@@ -32,6 +32,7 @@ namespace Extension.Models.ObsoleteExMessages {
             : base(type, requestId, payload) { }
     }
 
+    /*
     /// <summary>
     /// Message from App (popup/tab/sidepanel) to BackgroundWorker.
     /// Used for replies that need to be forwarded to ContentScript.
@@ -49,6 +50,7 @@ namespace Extension.Models.ObsoleteExMessages {
             TabId = tabId;
         }
     }
+    */
 
     /// <summary>
     /// Payload for CREATE_DATA_ATTESTATION message.
@@ -93,6 +95,7 @@ namespace Extension.Models.ObsoleteExMessages {
         public const string GET_CREDENTIAL = "/signify/credential/get";
     }
 
+    /*
     /// <summary>
     /// Message types originating from App (popup/tab/sidepanel).
     /// These are received by BackgroundWorker and typically forwarded to ContentScript.
@@ -105,5 +108,7 @@ namespace Extension.Models.ObsoleteExMessages {
         public const string REPLY_IDENTIFIER = "/KeriAuth/signify/replyIdentifier";
         public const string REPLY_AID = "/KeriAuth/signify/replyAID";
         public const string APP_CLOSED = "/KeriAuth/signify/app_closed";
+        public const string REPLY_APPROVED_SIGN_HEADERS = "/KeriAuth/signify/reply_approved_sign_headers";
     }
+    */
 }

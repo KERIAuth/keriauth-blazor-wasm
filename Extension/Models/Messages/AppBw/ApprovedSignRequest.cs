@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
+// TODO P2 Consider moving to ExCsMessages if used only in messaging?  See also AppBwMessages/ApprovedSignRequest.cs
 namespace Extension.Models {
     public record ApprovedSignRequest {
         [JsonPropertyName("origin")]
@@ -14,8 +15,8 @@ namespace Extension.Models {
         [JsonPropertyName("headers")]
         public Dictionary<string, string>? InitHeaders { get; init; }
 
-        [JsonPropertyName("selectedName")]
-        public string SelectedName { get; init; }
+        [JsonPropertyName("selectedPrefix")]
+        public string SelectedPrefix { get; init; }
 
         [JsonPropertyName("adminUrl")]
         public string AdminUrl { get; init; }
@@ -24,14 +25,14 @@ namespace Extension.Models {
         [JsonPropertyName("passcode")]
         public string Passcode { get; init; }
 
-        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string url, string method, Dictionary<string, string>? initHeaders, string selectedName) {
+        public ApprovedSignRequest(string passcode, string adminUrl, string origin, string url, string method, Dictionary<string, string>? initHeaders, string selectedPrefix) {
             Passcode = passcode;
             AdminUrl = adminUrl;
             Origin = origin;
             Url = url;
             Method = method;
             InitHeaders = initHeaders;
-            SelectedName = selectedName;
+            SelectedPrefix = selectedPrefix;
         }
     }
 }

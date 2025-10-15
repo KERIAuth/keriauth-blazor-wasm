@@ -1,12 +1,11 @@
 ﻿using Extension.Helper;
-using Extension.Models.AppBwMessages;
-using Extension.Models.BwAppMessages;
+using Extension.Models.Messages.AppBw;
+using Extension.Models.Messages.BwApp;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Runtime;
-// using WebExtensions.Net.Scripting;
 
 namespace Extension.Services {
     /// <summary>
@@ -47,10 +46,17 @@ namespace Extension.Services {
                 // Get current runtime context to determine the appropriate context type
                 var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
                 var contexts = await _webExtensionsApi.Runtime.GetContexts(contextFilter);
+                
+
 
                 // Find the current context (should be this instance)
                 var currentContext = contexts.FirstOrDefault();
                 string contextType = currentContext?.ContextType.ToString() ?? "UNKNOWN";
+
+
+                
+
+
 
                 logger.LogInformation("Initializing messaging for context type: {contextType}", contextType);
 
@@ -151,10 +157,6 @@ namespace Extension.Services {
             OnNext(message);
         }
 
-        public void Dispose() {
-            _objectReference?.Dispose();
-        }
-
         public IDisposable Subscribe(IObserver<BwAppMessage> observer) {
             if (!observers.Contains(observer)) {
                 observers.Add(observer);
@@ -167,6 +169,10 @@ namespace Extension.Services {
             foreach (var observer in observers) {
                 observer.OnNext(value);
             }
+        }
+
+        public void Dispose() {
+            ; // TODO P3?
         }
 
         // Helper method to notify observers of an Error

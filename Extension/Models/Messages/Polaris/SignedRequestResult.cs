@@ -1,5 +1,5 @@
 ﻿using System.Text.Json.Serialization;
-namespace Extension.Models {
+namespace Extension.Models.Messages.Polaris {
     public record SignedRequestResult {
         [JsonConstructor]
         public SignedRequestResult(

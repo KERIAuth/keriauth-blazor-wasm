@@ -1,7 +1,10 @@
 ﻿using Blazor.BrowserExtension;
 using Extension.Helper;
 using Extension.Models;
-using Extension.Models.ObsoleteExMessages;
+using Extension.Models.Messages.AppBw;
+using Extension.Models.Messages.CsBw;
+using Extension.Models.Messages.ExCs;
+using Extension.Models.Messages.Polaris;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
@@ -20,14 +23,17 @@ using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
 
 namespace Extension;
 
+/*
 /// <summary>
 /// Concrete implementation of AppBwMessage for deserialization purposes.
 /// Used internally by BackgroundWorker to deserialize messages from App.
 /// </summary>
-internal sealed record ConcreteAppBwMessage : Extension.Models.AppBwMessages.AppBwMessage {
+///
+internal sealed record ConcreteAppBwMessage : AppBwMessage {
     public ConcreteAppBwMessage(string type, int? tabId = null, string? requestId = null, object? payload = null, string? error = null)
         : base(type, tabId, requestId, payload, error) { }
 }
+*/
 
 /// <summary>
 /// Background worker for the browser extension, handling message routing between
@@ -222,9 +228,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         }
 
                         if (!string.IsNullOrEmpty(type)) {
-                            // Create a concrete AppBwMessage-like object
-                            // Since we can't instantiate abstract class, we'll create a wrapper
-                            var appMsg = new ConcreteAppBwMessage(type, tabId, requestId, payload, error);
+                            var appMsg = new Models.Messages.AppBw.AppBwMessage(type, tabId, requestId, payload);
 
                             _logger.LogDebug("AppMessage deserialized - Type: {Type}, TabId: {TabId}", appMsg.Type, appMsg.TabId);
                             await HandleAppMessageAsync(appMsg);
@@ -682,8 +686,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Validates that a query parameter key contains only safe characters
     /// </summary>
     private static bool IsValidKey(string key) {
-        // Allow alphanumeric characters, hyphens, and underscores
-        return System.Text.RegularExpressions.Regex.IsMatch(key, @"^[a-zA-Z0-9\-_]+$");
+        // Only allow alphanumeric characters, hyphens, and underscores
+        return MyRegex().IsMatch(key);
     }
 
     private string GetAuthorityFromUrl(string url) {
@@ -959,11 +963,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
     /// <returns>Status response</returns>
-    private async Task HandleAppMessageAsync(Extension.Models.AppBwMessages.AppBwMessage msg) {
+    private async Task HandleAppMessageAsync(AppBwMessage msg) {
         try {
-            _logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId}", msg.Type, msg.TabId);
+            _logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId} msg: {msg}", msg.Type, msg.TabId, msg);
 
-            if (msg.TabId == null || msg.TabId <= 0) {
+            if (msg.TabId is not int || msg.TabId <= 0) {
                 _logger.LogWarning("BW←App: Cannot forward message - no valid tab ID in message");
                 return;
             }
@@ -972,18 +976,37 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // App uses /KeriAuth/signify/replyCredential
             // ContentScript expects /signify/reply
             string contentScriptMessageType;
+            string? errorStr = null;
             switch (msg.Type) {
-                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_SIGN:
-                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_ERROR:
-                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_AID:
-                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_CREDENTIAL:
+                case AppBwMessageTypes.REPLY_AID:
+                case AppBwMessageTypes.REPLY_CREDENTIAL:
+                // case AppBwMessageTypes.REPLY_SIGN:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     break;
-                case Extension.Models.AppBwMessages.AppBwMessageTypes.REPLY_CANCELED:
-                    contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
+                
+                case AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS:
+                    if (msg.Payload is (Dictionary<string, string> headersDict, string prefix, Boolean isApproved)) {
+                        // Non-null tuple form
+                        _logger.LogInformation("Prefix = {prefix}, Approved = {isApproved}, headersDict = {headersDict}", prefix, isApproved, headersDict);
+                        await SignAndSendRequestHeaders((int)msg.TabId, new AppBwReplySignMessage(msg.TabId ?? 0, msg.RequestId ?? "none", headersDict, prefix, isApproved));
+                    }
+                    else if (msg.Payload is null) {
+                        _logger.LogWarning("Payload is null or could not be parsed: {msg}", msg);
+                    } else {
+                        _logger.LogWarning("Payload set but didn't parse: {payload}", msg.Payload);
+                    }
+                    return; // TODO P2 send error message back to Cs?
+                case AppBwMessageTypes.REPLY_ERROR:
+                    contentScriptMessageType = BwCsMessageTypes.REPLY;
+                    errorStr = "An error ocurred in the KERI Auth app";
                     break;
-                case Extension.Models.AppBwMessages.AppBwMessageTypes.APP_CLOSED:
+                case AppBwMessageTypes.REPLY_CANCELED:
+                    contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
+                    errorStr = "User canceled or rejected request";
+                    break;
+                case AppBwMessageTypes.APP_CLOSED:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
+                    errorStr = "The KERI Auth app was closed";
                     break;
                 default:
                     _logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
@@ -991,12 +1014,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     break;
             }
 
+            // Unless there was a return above, continue...
+
             // Create OutboundMessage for forwarding to ContentScript
             var forwardMsg = new BwCsMessage(
                 type: contentScriptMessageType,
                 requestId: msg.RequestId,
                 payload: msg.Payload,
-                error: null
+                error: errorStr
             );
 
             // Forward the message to the ContentScript on the specified tab
@@ -1048,7 +1073,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Handles sign request via runtime.sendMessage instead of port
+    /// Handles sign request via runtime.sendMessage
     /// </summary>
     private async Task HandleSignRequestAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
@@ -1056,7 +1081,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (sender?.Tab?.Id == null) {
                 _logger.LogError("BW HandleSignRequestAsync: no tabId found");
-                return; // don't have tabId to send error back
+                return; // don't have tabId to send errorStr back
             }
 
             var tabId = sender.Tab.Id.Value;
@@ -1093,6 +1118,39 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+
+
+
+
+
+            _logger.LogInformation("BW HandleSignRequestAsync: method: {Method}, url: {Url}", method, rurl);
+            var jsonOrigin = JsonSerializer.Serialize(origin);
+
+            _logger.LogInformation("BW HandleSignRequestAsync: tabId: {TabId}, origin: {Origin}",
+                tabId, jsonOrigin);
+
+            var encodedMsg = SerializeAndEncode(msg);
+            await UseActionPopupAsync(tabId, [
+                new QueryParam("message", encodedMsg),
+                new QueryParam("origin", jsonOrigin),
+                new QueryParam("popupType", "SignRequest"),  // TODO should be an enum literal
+                new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            ]);
+
+            // await HandleSignDataAsync(msg, sender);
+            return;
+
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSignDataAsync");
+            return; // don't have the tabId here to send errorStr back
+        }
+    }
+
+
+    private async Task SignAndSendRequestHeaders(int tabId, AppBwReplySignMessage msg ) {
+        var origin = "";
+        try {
             // Check if connected to KERIA
             var stateResult = await TryGetSignifyStateAsync();
             if (stateResult.IsFailed) {
@@ -1101,6 +1159,32 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     _logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
                     await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
                     return;
+                }
+            }
+
+
+            var payload = ((Dictionary<string, string> headersDict, string? prefix, bool isApproved)?)msg.Payload;
+            if (payload is null) {
+                _logger.LogError("SignAndSendRequestHeaders: could not parse payload");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}"));
+                return;
+            }
+
+            // var xx = new AppBwReplySignMessage(msg.TabId ?? 0, msg.RequestId, prefix, true);
+
+
+            // var payload = new Models.Messages.AppBw.SignAndSendRequestHeaders((int)msg.TabId, new AppBwMessage(AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS, (int)msg.TabId, msg.RequestId, msg.Payload)); (origin, "url???", )
+
+            // var payload = msg.Payload as Models.Messages.AppBw.ApprovedSignRequest ?? throw new InvalidCastException();
+            // var rurl = msg. payload.Url;
+            // var method = payload.Method;
+
+            // Extract origin domain from URL
+            string originDomain = origin;
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+                originDomain = $"{originUri.Scheme}://{originUri.Host}";
+                if (!originUri.IsDefaultPort) {
+                    originDomain += $":{originUri.Port}";
                 }
             }
 
@@ -1128,7 +1212,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Get headers from payload
-            var headersDict = payload.Headers ?? [];
+            var headersDict = payload.Value.headersDict;
+            var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO 2 should return error?
+            var method = headersDict.GetValueOrDefault("method") ?? ""; // TODO P2 should return error?
 
             // Validate URL is well-formed
             if (!Uri.IsWellFormedUriString(rurl, UriKind.Absolute)) {
@@ -1137,8 +1223,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // TODO P1: Check origin permission previously provided by user in website config, and depending on METHOD (get/post ), and ask user if not granted
-
+            // TODO P2: Check origin permission previously provided by user in website config, and depending on METHOD (get/post ), and ask user if not granted
 
             // Get generated signed headers from signify-ts
             var headersDictJson = JsonSerializer.Serialize(headersDict);
@@ -1168,7 +1253,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleSignRequestAsync");
-            return; // don't have the tabId here to send error back
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: other exception."));
+            return;
         }
     }
 
@@ -1179,7 +1265,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (sender?.Tab?.Id == null) {
                 _logger.LogError("BW HandleSignData: no tabId found");
-                return; // don't have tabId to send error back
+                return; // don't have tabId to send errorStr back
             }
 
             var tabId = sender.Tab.Id.Value;
@@ -1263,7 +1349,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogWarning("BW HandleSignData: signing data not yet completely implemented");
             /*
             var signatureJson = await _signifyClientService.Sign....
-            
+
             var signature = JsonSerializer.Deserialize<SignDataResult>(signatureJson);
             if (signature == null) {
                 _logger.LogWarning("BW HandleSignData: failed to sign data");
@@ -1275,18 +1361,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 type: BwCsMessageTypes.REPLY,
                 requestId: msg.RequestId,
                 payload: new { signature = signature.Signature, verfer = signature.Verfer },
-                error: null
+                errorStr: null
             ));
             */
             return;
-
-
         }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleSignDataAsync");
-            return; // don't have the tabId here to send error back
+        catch {
+            ;
         }
     }
+        
+
+
+
 
     /// <summary>
     /// Handles data attestation credential creation request from ContentScript.
@@ -1398,7 +1485,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
                 // TODO P1: Consider automatic registry creation if none exists
                 // The TypeScript implementation may create a registry automatically
-                // For now, return an error requiring user to create registry first
+                // For now, return an errorStr requiring user to create registry first
                 _logger.LogWarning("BW HandleCreateDataAttestation: no registry found for AID {AidName}", aidName);
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No credential registry found for this identifier. Please create a registry first."));
                 return;
@@ -1556,4 +1643,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // No resources to dispose - BackgroundWorker uses only injected services
         GC.SuppressFinalize(this);
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^[a-zA-Z0-9\-_]+$")]
+    private static partial System.Text.RegularExpressions.Regex MyRegex();
 }

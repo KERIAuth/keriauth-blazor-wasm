@@ -1,27 +1,27 @@
 ﻿@page "/RequestSignIn.html/{encodedOrigin}"
 @layout Layouts.DialogLayout
 
+@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics
 @using System.Linq
-@using Extension.Layouts
 @using System.Text.Json
-@using Extension.Helper
-@using Extension.Models
-@using Extension.Models.AppBwMessages
+@using System.Text.Json.Serialization
+@using System.Web
 @using Extension.Components
+@using Extension.Helper
+@using Extension.Layouts
+@using Extension.Models
+@using Extension.Models.Messages.AppBw
 @using Extension.Pages
 @using Extension.Services
 @using Extension.Services.JsBindings
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
-@using static Extension.AppConfig
-@using System.Diagnostics
+@using FluentResults
 @using Microsoft.AspNetCore.WebUtilities
 @using MudBlazor
-@using FluentResults
-@using System.Web
-@using System.Text.Json.Serialization
-@using System;
-@using System.Collections.Generic;
+@using static Extension.AppConfig
 
 @implements IDisposable
 
@@ -193,7 +193,7 @@
                     return Result.Fail(error);
                 }
 
-                var identifierResult = new Extension.Models.AppBwMessages.AuthorizeResult(
+                var identifierResult = new Extension.Models.Messages.AppBw.AuthorizeResult(
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: null
                 );
@@ -221,11 +221,11 @@
 
                 // Pass RecursiveDictionary directly - NEVER serialize/deserialize credentials
                 // RecursiveDictionary preserves CESR/SAID ordering required for verification
-                var authorizeResultCredential = new Extension.Models.AppBwMessages.AuthorizeResultCredential(
+                var authorizeResultCredential = new Extension.Models.Messages.AppBw.AuthorizeResultCredential(
                     Raw: SelectedCredentialOrNothing,
                     Cesr: cesr
                 );
-                var authorizeResult = new Extension.Models.AppBwMessages.AuthorizeResult(
+                var authorizeResult = new Extension.Models.Messages.AppBw.AuthorizeResult(
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: authorizeResultCredential
                 );

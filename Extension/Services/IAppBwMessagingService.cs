@@ -1,5 +1,5 @@
-﻿using Extension.Models.AppBwMessages;
-using Extension.Models.BwAppMessages;
+﻿using Extension.Models.Messages.AppBw;
+using Extension.Models.Messages.BwApp;
 using Microsoft.JSInterop;
 
 namespace Extension.Services {

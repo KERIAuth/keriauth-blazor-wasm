@@ -4,8 +4,9 @@
 @using System.Linq
 @using System.Text.Json
 @using Extension.Helper
+@using Extension.Layouts
 @using Extension.Models
-@using Extension.Models.AppBwMessages
+@using Extension.Models.Messages.AppBw
 @using Extension.Components
 @using Extension.Pages
 @using Extension.Services
@@ -44,8 +45,9 @@
 @inject ISnackbar snackbar
 
 @code {
-    [Parameter]
-    public string encodedOrigin { get; set; } = "";
+    // TODO P1 why not expand this encodedOrigin to be a base64 encoded typed object with everything needed?
+    [Parameter] public string encodedOrigin { get; set; } = "";
+    [CascadingParameter] public DialogLayout? Layout { get; set; }
 
     // fields
     private MudButton? signRequestButton;
@@ -61,7 +63,6 @@
     int TabId { get; set; } = -1;
     string PayloadJson { get; set; } = "";
     Dictionary<string, string> HeadersDict { get; set; } = new();
-    RecursiveDictionary? SelectedCredential;
     bool IsDetailShown { get; set; }
     bool IsInitialized { get; set; }
     bool IsExpanded { get; set; }
@@ -86,7 +87,6 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitialized");
-        await getCredentials();
         await RefreshFromWebsiteConfig();
         Prefs = await preferencesService.GetPreferences();
         IsDetailShown = Prefs.ShowSignRequestDetail;
@@ -129,7 +129,8 @@
             {
                 logger.LogError("Chrome URI query Invalid JSON message: {msg}", decodedMsg2);
                 return;
-            };
+            }
+            ;
 
             string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
 
@@ -145,8 +146,13 @@
 
             if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
             {
-                // TODO P1: Get identifier name from SelectedPrefix instead of fetching all identifiers
-                await SignRequest(RequestedSignInMode, RequestId, null, PayloadJson);
+                // TODO P2: Move this logic into BackgroundWorker.cs, to avoid calling this page altogether.  Get identifier name from SelectedPrefix instead of fetching all identifiers
+                // await SignRequest(RequestedSignInMode, RequestId, null, PayloadJson);
+
+                // var message = new AppBwReplySignMessage(TabId, RequestId, Prefix);
+                // await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+
+
                 // TODO P2 notify the user signing is happening, and close?
             }
             return;
@@ -210,25 +216,6 @@
     //
     //
     //
-    async Task getCredentials()
-    {
-        var res = await signifyClientService.GetCredentials();
-        if (res.IsFailed || res.Value is null)
-        {
-            logger.LogError($"Error: {res.Errors}");
-            return;
-        }
-        else
-        {
-            credentials = res.Value;
-            Debug.Assert(credentials is not null);
-            logger.LogInformation("Credentials: count {res}", credentials.Count);
-        }
-    }
-
-    //
-    //
-    //
     async Task updateIsAutoSignSafeHeaders(bool isChecked)
     {
         // logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
@@ -270,122 +257,23 @@
         {
             SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
         }
-
         StateHasChanged();
     }
 
     //
-    // SignRequest()
-    //
-    async Task SignRequest(SignInMode RequestedSignInMode, string requestId2, string? SelectedName, string payloadJson)
-    {
-        logger.LogInformation("SignRequest: payloadJson: {d}", payloadJson);
-
-        ApiRequest? request = JsonSerializer.Deserialize<ApiRequest>(payloadJson);
-        if (request is null)
-        {
-            logger.LogError("SignRequest: Error: {0}", "Invalid payloadJson");
-            return;
-        }
-        logger.LogInformation("SignRequest: request: {d}", request.ToString());
-
-        // TODO P1: SelectedName parameter is currently unused by BackgroundWorker and signify-ts.
-        // Either use it for signing (if signify-ts requires the name/alias instead of prefix),
-        // or remove it entirely if SelectedPrefix is sufficient for signing operations.
-        // For now, accepting null since the field is not actually used downstream.
-
-        // prepare to create and send approved sign request to ServiceWorker, which will get signed headers from signify-ts and then to content script
-        if (SelectedName is null)
-        {
-            var msg = "SelectedName must not be null here";
-            snackbar.Add(msg, Severity.Error);
-            logger.LogError(msg);
-            StateHasChanged(); // needed?
-            // await Task.Delay(8000);
-            return;
-        }
-
-        // adminUrl
-        var connectConfigRes = await storageService.GetItem<KeriaConnectConfig>();
-        if (connectConfigRes.IsFailed || connectConfigRes.Value is null)
-        {
-            var msg = "Config must not be null here";
-            logger.LogError(msg);
-            snackbar.Add(msg, Severity.Error);
-            // await Task.Delay(8000); 
-            return;
-        }
-        var adminUrl = connectConfigRes.Value.AdminUrl;
-
-        // Retrieve cached passcode
-        var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
-        if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
-        {
-            var passcode = passcodeElement2.GetString();
-
-            if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
-            {
-                if (TabId <= 0)
-                {
-                    var msg = "Invalid tab ID";
-                    snackbar.Add(msg, Severity.Error);
-                    logger.LogError(msg);
-                    return;
-                }
-
-                if (string.IsNullOrEmpty(adminUrl))
-                {
-                    var msg = "Admin URL must not be null";
-                    snackbar.Add(msg, Severity.Error);
-                    logger.LogError(msg);
-                    return;
-                }
-
-                if (request.HeadersDict == null)
-                {
-                    var msg = "Headers dictionary must not be null";
-                    snackbar.Add(msg, Severity.Error);
-                    logger.LogError(msg);
-                    return;
-                }
-
-                var approvedSignRequest = new Extension.Models.AppBwMessages.ApprovedSignRequest(
-                    Passcode: passcode,
-                    AdminUrl: adminUrl,
-                    Origin: OriginStr,
-                    Url: request.Url,
-                    Method: request.Method,
-                    Headers: request.HeadersDict,
-                    IdentifierName: SelectedName!
-                );
-                var message = new AppBwReplySignMessage(TabId, requestId2, approvedSignRequest);
-                await appBwMessagingService.SendToBackgroundWorkerAsync(message);
-            }
-            else
-            {
-                var msg = "Passcode must not be null here";
-                snackbar.Add(msg, Severity.Error);
-                logger.LogError(msg);
-                // await Task.Delay(8000);
-                return;
-            }
-        }
-    }
-
     //
     //
-    //
+    // 
     async Task Cancel()
     {
-        if (TabId <= 0)
-        {
-            logger.LogWarning("Cannot cancel - invalid tab ID");
-            return;
-        }
-
         var message = new AppBwReplyCanceledMessage(TabId, RequestId, "User cancelled sign request");
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        if (Layout is not null)
+        {
+            await Layout.ClosePopupAsync();
+        }
+        // unreachable
+        return;
     }
 
     //
@@ -394,7 +282,6 @@
     public void Dispose()
     {
         // TODO P4 unsubscribe from services, observables
-        ;
     }
 
     //
@@ -428,36 +315,18 @@
     //
     //
     //
-    void SelectCredential(RecursiveDictionary item)
+    private async Task ApproveRequestHandler()
     {
-        if (SelectedCredential == item)
+        var message = new AppBwReplySignMessage(TabId, RequestId, HeadersDict, "prefixToDo", true);
+        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        if (Layout is not null)
         {
-            IsExpanded = false;
+            await Layout.ClosePopupAsync();
         }
-        else
-        {
-            SelectedCredential = item;
-            IsExpanded = false;
-        }
+        // unreachable
+       return;
     }
-
-    //
-    //
-    //
-    string GetCredentialItemClass(RecursiveDictionary item)
-    {
-        return item == SelectedCredential ? "selected-item" : String.Empty;
-    }
-
-    //
-    //
-    //
-    private async Task SignRequestHandler()
-    {
-        // TODO P1: Get identifier name from SelectedPrefix instead of fetching all identifiers
-        await SignRequest(RequestedSignInMode, RequestId, null, PayloadJson);
-    }
-
+    
     //
     //
     //
@@ -465,7 +334,7 @@
     {
         if (e.Key == "Enter" || e.Code == "NumpadEnter")
         {
-            await SignRequestHandler();
+            await ApproveRequestHandler();
         }
     }
 }
@@ -474,9 +343,10 @@
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign</MudText>
-            <MudText Typo="Typo.body1"><em>@AuthorityStr</em></MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                This website authority is requesting KERI Auth, with your approval, to cryptographically sign an HTTP Request Header, which will then allow it to validate the credential you used earlier to sign in, then authorize actions.<br />
+                The website <b>@AuthorityStr</b> is requesting KERI Auth, with your approval,
+                to cryptographically sign an HTTP Request Header with your selected identifier.
+                The signed header will then allow the website providing the requested resource to validate your signature then authorize (or deny) the request.<br />
             </MudText>
             @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevent distracting progressive loading
             {
@@ -510,14 +380,14 @@
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Cancel</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Reject</MudButton>
         <MudButton @ref="signRequestButton"
                    StartIcon="@Icons.Material.Filled.Login"
                    Variant="Variant.Filled"
                    Color="Color.Primary"
-                   OnClick="SignRequestHandler"
+                   OnClick="ApproveRequestHandler"
                    @onkeydown="HandleKeyDown">
-            Sign Request
+            Approve & Sign
         </MudButton>
     </MudStack>
 </div>

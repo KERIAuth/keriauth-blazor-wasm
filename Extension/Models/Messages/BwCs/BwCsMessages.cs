@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models.ObsoleteExMessages {
+namespace Extension.Models.Messages.ExCs {
     /// <summary>
     /// Message sent from BackgroundWorker to ContentScript (outbound direction).
     /// </summary>

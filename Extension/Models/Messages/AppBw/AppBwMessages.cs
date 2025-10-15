@@ -2,12 +2,13 @@
 using Extension.Helper;
 using Extension.Services.SignifyService.Models;
 
-namespace Extension.Models.AppBwMessages {
+namespace Extension.Models.Messages.AppBw {
     /// <summary>
     /// Base record for all messages sent from App (popup/tab/sidepanel) to BackgroundWorker.
     /// Direction: App → BackgroundWorker
+    /// Not abstract, because it is helpful as first step of instantiating more specific type
     /// </summary>
-    public abstract record AppBwMessage {
+    public record AppBwMessage {
         [JsonPropertyName("type")]
         public string Type { get; init; }
 
@@ -23,7 +24,7 @@ namespace Extension.Models.AppBwMessages {
         [JsonPropertyName("error")]
         public string? Error { get; init; }
 
-        protected AppBwMessage(string type, int? tabId = null, string? requestId = null, object? payload = null, string? error = null) {
+        public AppBwMessage(string type, int? tabId = null, string? requestId = null, object? payload = null, string? error = null) {
             Type = type;
             TabId = tabId;
             RequestId = requestId;
@@ -38,10 +39,10 @@ namespace Extension.Models.AppBwMessages {
     public static class AppBwMessageTypes {
         public const string REPLY_CREDENTIAL = "/KeriAuth/signify/replyCredential";
         public const string REPLY_CANCELED = "/KeriAuth/signify/reply_canceled";
-        public const string REPLY_SIGN = "/KeriAuth/signify/replySign";
         public const string REPLY_ERROR = "/KeriAuth/signify/replyError";
         public const string REPLY_IDENTIFIER = "/KeriAuth/signify/replyIdentifier";
         public const string REPLY_AID = "/KeriAuth/signify/replyAID";
+        public const string REPLY_APPROVED_SIGN_HEADERS = "/KeriAuth/signify/approvedSignHeaders";
         public const string APP_CLOSED = "/KeriAuth/signify/app_closed";
     }
 
@@ -64,12 +65,11 @@ namespace Extension.Models.AppBwMessages {
     }
 
     /// <summary>
-    /// Reply message containing a sign result.
-    /// Used when user approves signing a request with their identifier.
+    /// Reply message from App containing user's sign approval or reject.
     /// </summary>
     public record AppBwReplySignMessage : AppBwMessage {
-        public AppBwReplySignMessage(int tabId, string requestId, ApprovedSignRequest approvedSignRequest)
-            : base(AppBwMessageTypes.REPLY_SIGN, tabId, requestId, approvedSignRequest) { }
+        public AppBwReplySignMessage(int tabId, string requestId, Dictionary<string, string> headersDict, string prefix, bool isApproved)
+            : base(AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS, tabId, requestId, payload: new { headersDict, prefix, isApproved }) { }
     }
 
     /// <summary>
@@ -101,13 +101,11 @@ namespace Extension.Models.AppBwMessages {
     /// Contains all information needed to sign an HTTP request.
     /// </summary>
     public record ApprovedSignRequest(
-        [property: JsonPropertyName("passcode")] string Passcode,
-        [property: JsonPropertyName("adminUrl")] string AdminUrl,
         [property: JsonPropertyName("origin")] string Origin,
         [property: JsonPropertyName("url")] string Url,
         [property: JsonPropertyName("method")] string Method,
         [property: JsonPropertyName("headers")] Dictionary<string, string> Headers,
-        [property: JsonPropertyName("identifierName")] string IdentifierName
+        [property: JsonPropertyName("prefix")] string Prefix
     );
 
     /// <summary>

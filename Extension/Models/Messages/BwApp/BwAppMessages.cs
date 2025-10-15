@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models.BwAppMessages {
+namespace Extension.Models.Messages.BwApp {
     /// <summary>
     /// Base record for all messages sent from BackgroundWorker to App (popup/tab/sidepanel).
     /// Direction: BackgroundWorker → App

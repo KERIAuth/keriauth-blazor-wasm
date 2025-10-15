@@ -251,10 +251,10 @@
                                 switch (popupType.ToString())
                                 {
                                     // TODO P3 popupTypes should be an enum
-                                    case "SignRequest":
+                                    case "SignRequest": // TODO P3 should be "SignRequestHeaders" or "RequestSignedHeaders"
                                         navManager.NavigateTo(RouteToRequestSign + encodedOrigin2);
                                         return true;
-                                    case "SelectAuthorize":
+                                    case "SelectAuthorize": // TODO "RequestAuthorize" ?
                                         navManager.NavigateTo(RouteToRequestSignIn + encodedOrigin2);
                                         return true;
                                     default:

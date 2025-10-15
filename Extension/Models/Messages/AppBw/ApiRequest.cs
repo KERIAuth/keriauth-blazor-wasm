@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models {
+namespace Extension.Models.Messages.AppBw {
     public record ApiRequest {
         [JsonPropertyName("url")]
         public string Url { get; init; } = string.Empty;

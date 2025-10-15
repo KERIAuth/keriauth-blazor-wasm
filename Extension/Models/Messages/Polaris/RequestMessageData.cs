@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace Extension.Models {
+namespace Extension.Models.Messages.Polaris {
     /// <summary>
     /// Represents a request message conforming to the polaris-web MessageData interface.
     /// Used for incoming messages from web pages via the content script.
