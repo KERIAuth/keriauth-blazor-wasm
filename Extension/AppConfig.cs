@@ -43,7 +43,7 @@ namespace Extension {
         public const string RouteToIdentifier = "/Identifier.html/";
         public const string RouteToWebsite = "/Website.html/";
         public const string RouteToRequestSignIn = "/RequestSignIn.html/";
-        public const string RouteToRequestSign = "/RequestSign.html/";
+        public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html/";
 
         // routes to static content
         public const string RouteToTermsHtml = "content/terms.html";

@@ -1,4 +1,4 @@
-﻿@page "/RequestSign.html/{encodedOrigin}"
+﻿@page "/RequestSignHeaders.html/{encodedOrigin}"
 @layout Layouts.DialogLayout
 
 @using System.Linq
@@ -30,7 +30,7 @@
 @inject IStateService stateService
 @inject NavigationManager navManager
 @using static Extension.Helper.PreviousPage
-@inject ILogger<RequestSignPage> logger
+@inject ILogger<RequestSignHeadersPage> logger
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
