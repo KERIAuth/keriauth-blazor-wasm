@@ -14,10 +14,10 @@
   "description": "Authenticate with decentralized identifiers and credentials, rooted in KERI and GLEIF vLEIs.",
   "host_permissions": [],
   "icons": {
-    "16": "images/16_keri_logo.png",
-    "48": "images/48_keri_logo.png",
-    "128": "images/128_keri_logo.png",
-    "512": "images/512_keri_logo.png"
+    "16": "images/logo016.png",
+    "48": "images/logo048.png",
+    "128": "images/logo128.png",
+    "512": "images/logo512.png"
   },
   "manifest_version": 3,
   "minimum_chrome_version": "127",

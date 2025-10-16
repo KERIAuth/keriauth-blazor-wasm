@@ -9,17 +9,17 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "images/48_keri_logo.png",
+      "src": "images/logo048.png",
       "sizes": "48x48",
       "type": "image/png"
     },
     {
-      "src": "images/192_keri_logo.png",
+      "src": "images/logo192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "images/512_keri_logo.png", // image used when installed as a page
+      "src": "images/logo512.png", // image used when installed as a page
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
