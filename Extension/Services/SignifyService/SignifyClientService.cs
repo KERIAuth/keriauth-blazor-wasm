@@ -130,6 +130,36 @@ namespace Extension.Services.SignifyService {
             }
         }
 
+        public async Task<Result<RecursiveDictionary>> RenameAid(string currentName, string newName, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(ct => _binding.RenameAIDAsync(currentName, newName, ct), timeout2);
+                if (res.IsFailed) {
+                    logger.LogWarning("RenameAid: Failed - {errors}", res.Errors);
+                    return Result.Fail<RecursiveDictionary>(res.Errors[0].Message);
+                }
+                var jsonString = res.Value;
+                if (jsonString is null) {
+                    return Result.Fail<RecursiveDictionary>("RenameAID returned null");
+                }
+                var resultDict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize rename result");
+                }
+                var recursiveDict = RecursiveDictionary.FromObjectDictionary(resultDict);
+                logger.LogInformation("RenameAid: Renamed '{currentName}' to '{newName}'", currentName, newName);
+                return Result.Ok(recursiveDict);
+            }
+            catch (JSException e) {
+                logger.LogWarning("RenameAid: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SignifyClientService: RenameAid: Exception: " + e);
+            }
+            catch (Exception e) {
+                logger.LogWarning("RenameAid: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SignifyClientService: RenameAid: Exception: " + e);
+            }
+        }
+
         public Task<Result<HttpResponseMessage>> DeletePasscode() {
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }

@@ -263,6 +263,24 @@ export const getIdentifierByPrefix = async (prefix: string): Promise<string> => 
     }
 };
 
+/**
+ * Rename an identifier (update its alias/name)
+ * @param currentName - Current name/alias of the identifier
+ * @param newName - New name/alias for the identifier
+ * @returns JSON string of update result
+ */
+export const renameAID = async (currentName: string, newName: string): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.identifiers().update(currentName, { name: newName });
+        console.debug('signifyClient: renameAID - Old name:', currentName, 'New name:', newName);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: renameAID error - Old name:', currentName, 'New name:', newName, error);
+        throw error;
+    }
+};
+
 // ===================== Credential (ACDC) Operations =====================
 
 /**

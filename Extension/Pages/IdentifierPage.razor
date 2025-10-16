@@ -66,6 +66,9 @@
     };
 
     // fields
+    Aid? currentAid;
+    bool isEditingAlias = false;
+    string? editedAliasValue;
 
     // properties
     bool IsWaiting { get; set; }
@@ -75,7 +78,7 @@
 
     // reactive properties
     string? Identicon => Helper.Identicon.MakeIdenticon(Prefix);
-    string? AliasOrNothing => null; // TODO P2: Fetch identifier details by Prefix when needed
+    string? AliasOrNothing => currentAid?.Name;
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,14 +88,90 @@
     {
         logger.LogInformation($"OnParametersSetAsync");
 
-        // TODO P3 move this comment to a better place...
-        // Use Alias (versus Prefix) to get the full Identifier.
-        // Its awkward that the underlying signify-ts get() method does not seem to accept a Prefix value, even though the code implies that
-        // Root issue might be how the underlying KERIA hab is storing it. signify-ts tests all seem to have Alias names
-        // https://github.com/WebOfTrust/signify-ts/blob/f368351f976ceeefc19082fc8351adbb359c4e77/src/keri/app/aiding.ts#L116
+        // Fetch the AID details by prefix to get the alias
+        await LoadIdentifierDetails();
+    }
 
-        // TODO P2 get full Identifier record by Prefix if needed
-        await Task.CompletedTask;
+    async Task LoadIdentifierDetails()
+    {
+        try
+        {
+            IsWaiting = true;
+            StateHasChanged();
+
+            var result = await signifyClientService.GetIdentifier(Prefix);
+            if (result.IsSuccess)
+            {
+                currentAid = result.Value;
+                IsTransferrable = currentAid.Transferable;
+                logger.LogInformation("Loaded identifier: {name} ({prefix})", currentAid.Name, currentAid.Prefix);
+            }
+            else
+            {
+                logger.LogWarning("Failed to load identifier by prefix: {errors}", result.Errors);
+                snackbar.Add($"Failed to load identifier: {result.Errors.FirstOrDefault()?.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading identifier details");
+            snackbar.Add($"Error loading identifier: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            IsWaiting = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task StartEditAlias()
+    {
+        if (currentAid == null) return;
+        editedAliasValue = currentAid.Name;
+        isEditingAlias = true;
+        StateHasChanged();
+    }
+
+    async Task SaveAlias()
+    {
+        if (currentAid == null || string.IsNullOrWhiteSpace(editedAliasValue)) return;
+
+        try
+        {
+            IsWaiting = true;
+            StateHasChanged();
+
+            var result = await signifyClientService.RenameAid(currentAid.Name, editedAliasValue);
+            if (result.IsSuccess)
+            {
+                snackbar.Add($"Renamed identifier from '{currentAid.Name}' to '{editedAliasValue}'", Severity.Success);
+                // Reload to get updated data
+                await LoadIdentifierDetails();
+                isEditingAlias = false;
+            }
+            else
+            {
+                logger.LogWarning("Failed to rename identifier: {errors}", result.Errors);
+                snackbar.Add($"Failed to rename: {result.Errors.FirstOrDefault()?.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error renaming identifier");
+            snackbar.Add($"Error renaming: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            IsWaiting = false;
+            StateHasChanged();
+        }
+    }
+
+    void CancelEditAlias()
+    {
+        isEditingAlias = false;
+        editedAliasValue = null;
+        StateHasChanged();
     }
 
     async Task UpdateKeyState()
@@ -123,15 +202,38 @@
                         </MudButton>
                     </MudTooltip>
                     <MudStack Style="width:100%; word-break: break-all">
-                        <MudStack Row>
-                            <MudTooltip Text="Alias" Delay="1000">
-                                <MudText Style="font-weight:bold">@AliasOrNothing</MudText>
-                            </MudTooltip>
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            @if (isEditingAlias)
+                            {
+                                <MudTextField @bind-Value="editedAliasValue"
+                                              Label="Alias"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Immediate="true"
+                                              Style="max-width: 300px;" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                               Color="Color.Success"
+                                               Size="Size.Small"
+                                               OnClick="SaveAlias"
+                                               Disabled="@IsWaiting" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               OnClick="CancelEditAlias"
+                                               Disabled="@IsWaiting" />
+                            }
+                            else
+                            {
+                                <MudTooltip Text="Alias" Delay="1000">
+                                    <MudText Style="font-weight:bold">@AliasOrNothing</MudText>
+                                </MudTooltip>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Size="Size.Small"
+                                               Disabled="@IsWaiting"
+                                               OnClick="StartEditAlias"
+                                               Color="Color.Primary" />
+                            }
                             <MudSpacer />
-                            <!-- TODO P3 Intentionally not displaying the Edit icon until "rename Alias" feature is supported -->
-                            <div style="display: none !important;">
-                                <MudButton StartIcon="@Icons.Material.Filled.Edit" Disabled="@IsWaiting" OnClick="async () => await Task.Delay(0)" Variant="Variant.Text" Color="Color.Primary" Class="pa-0"></MudButton>
-                            </div>
                         </MudStack>
                         <MudTooltip Text="Autonomous Identifier (AID) Prefix" Delay="1000">
                             <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>

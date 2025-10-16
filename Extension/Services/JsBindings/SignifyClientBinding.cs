@@ -19,6 +19,7 @@ public interface ISignifyClientBinding {
     ValueTask<string> GetAIDsAsync(CancellationToken cancellationToken = default);
     ValueTask<string> GetAIDAsync(string name, CancellationToken cancellationToken = default);
     ValueTask<string> GetIdentifierByPrefixAsync(string prefix, CancellationToken cancellationToken = default);
+    ValueTask<string> RenameAIDAsync(string currentName, string newName, CancellationToken cancellationToken = default);
 
     // ===================== Credential (ACDC) Operations =====================
     ValueTask<string> GetCredentialsListAsync(CancellationToken cancellationToken = default);
@@ -139,6 +140,9 @@ public class SignifyClientBinding : ISignifyClientBinding {
 
     public ValueTask<string> GetIdentifierByPrefixAsync(string prefix, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("getIdentifierByPrefix", cancellationToken, prefix);
+
+    public ValueTask<string> RenameAIDAsync(string currentName, string newName, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("renameAID", cancellationToken, currentName, newName);
 
     // ===================== Credential (ACDC) Operations =====================
 
