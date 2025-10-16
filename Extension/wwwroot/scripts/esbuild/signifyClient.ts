@@ -825,3 +825,322 @@ export const notificationsDelete = async (said: string): Promise<string> => {
         throw error;
     }
 };
+
+// ===================== Escrows Operations =====================
+
+/**
+ * List replay messages from escrow
+ * @param route - Optional route to filter replay messages
+ * @returns JSON string of replay messages
+ */
+export const escrowsListReply = async (route?: string): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.escrows().listReply(route);
+        console.debug('signifyClient: escrowsListReply - Route:', route);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: escrowsListReply error:', error);
+        throw error;
+    }
+};
+
+// ===================== Groups Operations =====================
+
+/**
+ * Get group request message by SAID
+ * @param said - SAID of the exn message
+ * @returns JSON string of the group request
+ */
+export const groupsGetRequest = async (said: string): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.groups().getRequest(said);
+        console.debug('signifyClient: groupsGetRequest - SAID:', said);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: groupsGetRequest error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Send multisig exn request to other group members
+ * @param name - Human readable name of group AID
+ * @param exnJson - JSON string of exn message
+ * @param sigsJson - JSON string of signatures array
+ * @param atc - Additional attachments from embedded events
+ * @returns JSON string of send result
+ */
+export const groupsSendRequest = async (
+    name: string,
+    exnJson: string,
+    sigsJson: string,
+    atc: string
+): Promise<string> => {
+    try {
+        validateClient();
+        const exn = JSON.parse(exnJson);
+        const sigs = JSON.parse(sigsJson) as string[];
+        const result = await _client!.groups().sendRequest(name, exn, sigs, atc);
+        console.debug('signifyClient: groupsSendRequest - Name:', name);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: groupsSendRequest error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Join multisig group using rotation event
+ * @param name - Human readable name of group AID
+ * @param rotJson - JSON string of rotation event
+ * @param sigsJson - JSON string of signatures
+ * @param gid - Group identifier prefix
+ * @param smidsJson - JSON string array of signing member identifiers
+ * @param rmidsJson - JSON string array of rotating member identifiers
+ * @returns JSON string of join result
+ */
+export const groupsJoin = async (
+    name: string,
+    rotJson: string,
+    sigsJson: string,
+    gid: string,
+    smidsJson: string,
+    rmidsJson: string
+): Promise<string> => {
+    try {
+        validateClient();
+        const rot = JSON.parse(rotJson);
+        const sigs = JSON.parse(sigsJson);
+        const smids = JSON.parse(smidsJson) as string[];
+        const rmids = JSON.parse(rmidsJson) as string[];
+        const result = await _client!.groups().join(name, rot, sigs, gid, smids, rmids);
+        console.debug('signifyClient: groupsJoin - Name:', name, 'GID:', gid);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: groupsJoin error:', error);
+        throw error;
+    }
+};
+
+// ===================== Exchanges Operations =====================
+
+/**
+ * Get exchange message by SAID
+ * @param said - SAID of the exchange message
+ * @returns JSON string of the exchange message
+ */
+export const exchangesGet = async (said: string): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.exchanges().get(said);
+        console.debug('signifyClient: exchangesGet - SAID:', said);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: exchangesGet error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Send exchange message to recipients
+ * @param name - Identifier name
+ * @param topic - Message topic
+ * @param senderJson - JSON string of sender HabState
+ * @param route - Exchange route
+ * @param payloadJson - JSON string of payload
+ * @param embedsJson - JSON string of embedded data
+ * @param recipientsJson - JSON string array of recipient identifiers
+ * @returns JSON string of send result
+ */
+export const exchangesSend = async (
+    name: string,
+    topic: string,
+    senderJson: string,
+    route: string,
+    payloadJson: string,
+    embedsJson: string,
+    recipientsJson: string
+): Promise<string> => {
+    try {
+        validateClient();
+        const sender = JSON.parse(senderJson);
+        const payload = JSON.parse(payloadJson);
+        const embeds = JSON.parse(embedsJson);
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await _client!.exchanges().send(name, topic, sender, route, payload, embeds, recipients);
+        console.debug('signifyClient: exchangesSend - Name:', name, 'Topic:', topic);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: exchangesSend error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Send exchange message from pre-created events
+ * @param name - Identifier name
+ * @param topic - Message topic
+ * @param exnJson - JSON string of Serder exchange message
+ * @param sigsJson - JSON string of signatures array
+ * @param atc - Additional attachments
+ * @param recipientsJson - JSON string array of recipient identifiers
+ * @returns JSON string of send result
+ */
+export const exchangesSendFromEvents = async (
+    name: string,
+    topic: string,
+    exnJson: string,
+    sigsJson: string,
+    atc: string,
+    recipientsJson: string
+): Promise<string> => {
+    try {
+        validateClient();
+        const exn = JSON.parse(exnJson) as Serder;
+        const sigs = JSON.parse(sigsJson) as string[];
+        const recipients = JSON.parse(recipientsJson) as string[];
+        const result = await _client!.exchanges().sendFromEvents(name, topic, exn, sigs, atc, recipients);
+        console.debug('signifyClient: exchangesSendFromEvents - Name:', name, 'Topic:', topic);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: exchangesSendFromEvents error:', error);
+        throw error;
+    }
+};
+
+// ===================== Delegations Operations =====================
+
+/**
+ * Approve delegation via interaction event
+ * @param name - Name or alias of the identifier
+ * @param dataJson - Optional JSON string of anchoring interaction event data
+ * @returns JSON string of approval result with operation
+ */
+export const delegationsApprove = async (name: string, dataJson?: string): Promise<string> => {
+    try {
+        validateClient();
+        const data = dataJson ? JSON.parse(dataJson) : undefined;
+        const result = await _client!.delegations().approve(name, data);
+        console.debug('signifyClient: delegationsApprove - Name:', name);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: delegationsApprove error:', error);
+        throw error;
+    }
+};
+
+// ===================== KeyEvents Operations =====================
+
+/**
+ * Get key events for an identifier
+ * @param prefix - Identifier prefix
+ * @returns JSON string of key events
+ */
+export const keyEventsGet = async (prefix: string): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.keyEvents().get(prefix);
+        console.debug('signifyClient: keyEventsGet - Prefix:', prefix);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: keyEventsGet error:', error);
+        throw error;
+    }
+};
+
+// ===================== KeyStates Operations =====================
+
+/**
+ * Get key state for an identifier
+ * @param prefix - Identifier prefix
+ * @returns JSON string of key state
+ */
+export const keyStatesGet = async (prefix: string): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.keyStates().get(prefix);
+        console.debug('signifyClient: keyStatesGet - Prefix:', prefix);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: keyStatesGet error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get key states for multiple identifiers
+ * @param prefixesJson - JSON string array of identifier prefixes
+ * @returns JSON string of key states
+ */
+export const keyStatesList = async (prefixesJson: string): Promise<string> => {
+    try {
+        validateClient();
+        const prefixes = JSON.parse(prefixesJson) as string[];
+        const result = await _client!.keyStates().list(prefixes);
+        console.debug('signifyClient: keyStatesList - Count:', prefixes.length);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: keyStatesList error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Query key state at specific sequence number or anchor
+ * @param prefix - Identifier prefix
+ * @param sn - Optional sequence number
+ * @param anchorJson - Optional JSON string of anchor data
+ * @returns JSON string of query operation
+ */
+export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: string): Promise<string> => {
+    try {
+        validateClient();
+        const anchor = anchorJson ? JSON.parse(anchorJson) : undefined;
+        const result = await _client!.keyStates().query(prefix, sn, anchor);
+        console.debug('signifyClient: keyStatesQuery - Prefix:', prefix, 'SN:', sn);
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: keyStatesQuery error:', error);
+        throw error;
+    }
+};
+
+// ===================== Config Operations =====================
+
+/**
+ * Get agent configuration
+ * @returns JSON string of agent config
+ */
+export const configGet = async (): Promise<string> => {
+    try {
+        validateClient();
+        const result = await _client!.config().get();
+        console.debug('signifyClient: configGet - Success');
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: configGet error:', error);
+        throw error;
+    }
+};
+
+// ===================== Challenges Operations =====================
+
+/**
+ * Get challenges resource
+ * Note: Full API not documented in signify-ts 0.3.0-rc2 type definitions
+ * TODO: Implement specific challenge methods when API is clarified
+ */
+export const challengesPlaceholder = async (): Promise<string> => {
+    try {
+        validateClient();
+        // Challenges API methods need to be determined from signify-ts source
+        const result = { message: 'Challenges API - methods not yet defined in signify-ts types' };
+        console.debug('signifyClient: challengesPlaceholder - Not yet implemented');
+        return objectToJson(result);
+    } catch (error) {
+        console.error('signifyClient: challengesPlaceholder error:', error);
+        throw error;
+    }
+};

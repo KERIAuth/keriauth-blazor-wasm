@@ -73,6 +73,33 @@ public interface ISignifyClientBinding {
     ValueTask<string> NotificationsListAsync(int? start, int? endIndex, CancellationToken cancellationToken = default);
     ValueTask<string> NotificationsMarkAsync(string said, CancellationToken cancellationToken = default);
     ValueTask<string> NotificationsDeleteAsync(string said, CancellationToken cancellationToken = default);
+
+    // ===================== Escrows Operations =====================
+    ValueTask<string> EscrowsListReplyAsync(string? route, CancellationToken cancellationToken = default);
+
+    // ===================== Groups Operations =====================
+    ValueTask<string> GroupsGetRequestAsync(string said, CancellationToken cancellationToken = default);
+    ValueTask<string> GroupsSendRequestAsync(string name, string exnJson, string sigsJson, string atc, CancellationToken cancellationToken = default);
+    ValueTask<string> GroupsJoinAsync(string name, string rotJson, string sigsJson, string gid, string smidsJson, string rmidsJson, CancellationToken cancellationToken = default);
+
+    // ===================== Exchanges Operations =====================
+    ValueTask<string> ExchangesGetAsync(string said, CancellationToken cancellationToken = default);
+    ValueTask<string> ExchangesSendAsync(string name, string topic, string senderJson, string route, string payloadJson, string embedsJson, string recipientsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> ExchangesSendFromEventsAsync(string name, string topic, string exnJson, string sigsJson, string atc, string recipientsJson, CancellationToken cancellationToken = default);
+
+    // ===================== Delegations Operations =====================
+    ValueTask<string> DelegationsApproveAsync(string name, string? dataJson, CancellationToken cancellationToken = default);
+
+    // ===================== KeyEvents Operations =====================
+    ValueTask<string> KeyEventsGetAsync(string prefix, CancellationToken cancellationToken = default);
+
+    // ===================== KeyStates Operations =====================
+    ValueTask<string> KeyStatesGetAsync(string prefix, CancellationToken cancellationToken = default);
+    ValueTask<string> KeyStatesListAsync(string prefixesJson, CancellationToken cancellationToken = default);
+    ValueTask<string> KeyStatesQueryAsync(string prefix, string? sn, string? anchorJson, CancellationToken cancellationToken = default);
+
+    // ===================== Config Operations =====================
+    ValueTask<string> ConfigGetAsync(CancellationToken cancellationToken = default);
 }
 
 [SupportedOSPlatform("browser")]
@@ -241,4 +268,57 @@ public class SignifyClientBinding : ISignifyClientBinding {
 
     public ValueTask<string> NotificationsDeleteAsync(string said, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("notificationsDelete", cancellationToken, said);
+
+    // ===================== Escrows Operations =====================
+
+    public ValueTask<string> EscrowsListReplyAsync(string? route, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("escrowsListReply", cancellationToken, route);
+
+    // ===================== Groups Operations =====================
+
+    public ValueTask<string> GroupsGetRequestAsync(string said, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("groupsGetRequest", cancellationToken, said);
+
+    public ValueTask<string> GroupsSendRequestAsync(string name, string exnJson, string sigsJson, string atc, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("groupsSendRequest", cancellationToken, name, exnJson, sigsJson, atc);
+
+    public ValueTask<string> GroupsJoinAsync(string name, string rotJson, string sigsJson, string gid, string smidsJson, string rmidsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("groupsJoin", cancellationToken, name, rotJson, sigsJson, gid, smidsJson, rmidsJson);
+
+    // ===================== Exchanges Operations =====================
+
+    public ValueTask<string> ExchangesGetAsync(string said, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("exchangesGet", cancellationToken, said);
+
+    public ValueTask<string> ExchangesSendAsync(string name, string topic, string senderJson, string route, string payloadJson, string embedsJson, string recipientsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("exchangesSend", cancellationToken, name, topic, senderJson, route, payloadJson, embedsJson, recipientsJson);
+
+    public ValueTask<string> ExchangesSendFromEventsAsync(string name, string topic, string exnJson, string sigsJson, string atc, string recipientsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("exchangesSendFromEvents", cancellationToken, name, topic, exnJson, sigsJson, atc, recipientsJson);
+
+    // ===================== Delegations Operations =====================
+
+    public ValueTask<string> DelegationsApproveAsync(string name, string? dataJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("delegationsApprove", cancellationToken, name, dataJson);
+
+    // ===================== KeyEvents Operations =====================
+
+    public ValueTask<string> KeyEventsGetAsync(string prefix, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("keyEventsGet", cancellationToken, prefix);
+
+    // ===================== KeyStates Operations =====================
+
+    public ValueTask<string> KeyStatesGetAsync(string prefix, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("keyStatesGet", cancellationToken, prefix);
+
+    public ValueTask<string> KeyStatesListAsync(string prefixesJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("keyStatesList", cancellationToken, prefixesJson);
+
+    public ValueTask<string> KeyStatesQueryAsync(string prefix, string? sn, string? anchorJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("keyStatesQuery", cancellationToken, prefix, sn, anchorJson);
+
+    // ===================== Config Operations =====================
+
+    public ValueTask<string> ConfigGetAsync(CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("configGet", cancellationToken);
 }

@@ -80,5 +80,32 @@ namespace Extension.Services.SignifyService {
         Task<Result<List<RecursiveDictionary>>> ListNotifications(int? start = null, int? endIndex = null);
         Task<Result<string>> MarkNotification(string said);
         Task<Result> DeleteNotification(string said);
+
+        // ===================== Escrows Operations =====================
+        Task<Result<List<RecursiveDictionary>>> ListEscrowReply(string? route = null);
+
+        // ===================== Groups Operations =====================
+        Task<Result<RecursiveDictionary>> GetGroupRequest(string said);
+        Task<Result<RecursiveDictionary>> SendGroupRequest(string name, RecursiveDictionary exn, List<string> sigs, string atc);
+        Task<Result<RecursiveDictionary>> JoinGroup(string name, RecursiveDictionary rot, object sigs, string gid, List<string> smids, List<string> rmids);
+
+        // ===================== Exchanges Operations =====================
+        Task<Result<RecursiveDictionary>> GetExchange(string said);
+        Task<Result<RecursiveDictionary>> SendExchange(string name, string topic, RecursiveDictionary sender, string route, RecursiveDictionary payload, RecursiveDictionary embeds, List<string> recipients);
+        Task<Result<RecursiveDictionary>> SendExchangeFromEvents(string name, string topic, RecursiveDictionary exn, List<string> sigs, string atc, List<string> recipients);
+
+        // ===================== Delegations Operations =====================
+        Task<Result<RecursiveDictionary>> ApproveDelegation(string name, RecursiveDictionary? data = null);
+
+        // ===================== KeyEvents Operations =====================
+        Task<Result<RecursiveDictionary>> GetKeyEvents(string prefix);
+
+        // ===================== KeyStates Operations =====================
+        Task<Result<RecursiveDictionary>> GetKeyState(string prefix);
+        Task<Result<List<RecursiveDictionary>>> ListKeyStates(List<string> prefixes);
+        Task<Result<RecursiveDictionary>> QueryKeyState(string prefix, string? sn = null, RecursiveDictionary? anchor = null);
+
+        // ===================== Config Operations =====================
+        Task<Result<RecursiveDictionary>> GetAgentConfig();
     }
 }

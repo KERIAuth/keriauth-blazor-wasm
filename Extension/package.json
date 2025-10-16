@@ -45,7 +45,7 @@
     "esbuild-plugin-alias": "^0.2.1",
     "eslint": "^9.18.0",
     "path": "^0.12.7",
-    "signify-ts": "0.3.0-rc1",
+    "signify-ts": "0.3.0-rc2",
     "typescript": "^5.4.2",
     "undici-types": "^6.18.2",
     "urlsafe-base64": "^1.0.0"

@@ -832,5 +832,321 @@ namespace Extension.Services.SignifyService {
                 return Result.Fail("DeleteNotification: Exception: " + e);
             }
         }
+
+        // ===================== Escrows Operations =====================
+
+        public async Task<Result<List<RecursiveDictionary>>> ListEscrowReply(string? route = null) {
+            try {
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.EscrowsListReplyAsync(route, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<List<RecursiveDictionary>>("ListEscrowReply returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<List<RecursiveDictionary>>("Failed to deserialize Escrow reply list");
+                }
+                var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("ListEscrowReply: Exception: {e}", e);
+                return Result.Fail<List<RecursiveDictionary>>("ListEscrowReply: Exception: " + e);
+            }
+        }
+
+        // ===================== Groups Operations =====================
+
+        public async Task<Result<RecursiveDictionary>> GetGroupRequest(string said) {
+            try {
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.GroupsGetRequestAsync(said, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("GetGroupRequest returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Group request");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetGroupRequest: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetGroupRequest: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> SendGroupRequest(string name, RecursiveDictionary exn, List<string> sigs, string atc) {
+            try {
+                var exnJson = System.Text.Json.JsonSerializer.Serialize(exn.ToDictionary(), jsonSerializerOptions);
+                var sigsJson = System.Text.Json.JsonSerializer.Serialize(sigs, jsonSerializerOptions);
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.GroupsSendRequestAsync(name, exnJson, sigsJson, atc, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("SendGroupRequest returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Group send request result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("SendGroupRequest: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SendGroupRequest: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> JoinGroup(string name, RecursiveDictionary rot, object sigs, string gid, List<string> smids, List<string> rmids) {
+            try {
+                var rotJson = System.Text.Json.JsonSerializer.Serialize(rot.ToDictionary(), jsonSerializerOptions);
+                var sigsJson = System.Text.Json.JsonSerializer.Serialize(sigs, jsonSerializerOptions);
+                var smidsJson = System.Text.Json.JsonSerializer.Serialize(smids, jsonSerializerOptions);
+                var rmidsJson = System.Text.Json.JsonSerializer.Serialize(rmids, jsonSerializerOptions);
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.GroupsJoinAsync(name, rotJson, sigsJson, gid, smidsJson, rmidsJson, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("JoinGroup returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Group join result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("JoinGroup: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("JoinGroup: Exception: " + e);
+            }
+        }
+
+        // ===================== Exchanges Operations =====================
+
+        public async Task<Result<RecursiveDictionary>> GetExchange(string said) {
+            try {
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.ExchangesGetAsync(said, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("GetExchange returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Exchange");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetExchange: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetExchange: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> SendExchange(string name, string topic, RecursiveDictionary sender, string route, RecursiveDictionary payload, RecursiveDictionary embeds, List<string> recipients) {
+            try {
+                var senderJson = System.Text.Json.JsonSerializer.Serialize(sender.ToDictionary(), jsonSerializerOptions);
+                var payloadJson = System.Text.Json.JsonSerializer.Serialize(payload.ToDictionary(), jsonSerializerOptions);
+                var embedsJson = System.Text.Json.JsonSerializer.Serialize(embeds.ToDictionary(), jsonSerializerOptions);
+                var recipientsJson = System.Text.Json.JsonSerializer.Serialize(recipients, jsonSerializerOptions);
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.ExchangesSendAsync(name, topic, senderJson, route, payloadJson, embedsJson, recipientsJson, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("SendExchange returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Exchange send result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("SendExchange: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SendExchange: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> SendExchangeFromEvents(string name, string topic, RecursiveDictionary exn, List<string> sigs, string atc, List<string> recipients) {
+            try {
+                var exnJson = System.Text.Json.JsonSerializer.Serialize(exn.ToDictionary(), jsonSerializerOptions);
+                var sigsJson = System.Text.Json.JsonSerializer.Serialize(sigs, jsonSerializerOptions);
+                var recipientsJson = System.Text.Json.JsonSerializer.Serialize(recipients, jsonSerializerOptions);
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.ExchangesSendFromEventsAsync(name, topic, exnJson, sigsJson, atc, recipientsJson, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("SendExchangeFromEvents returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Exchange send from events result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("SendExchangeFromEvents: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SendExchangeFromEvents: Exception: " + e);
+            }
+        }
+
+        // ===================== Delegations Operations =====================
+
+        public async Task<Result<RecursiveDictionary>> ApproveDelegation(string name, RecursiveDictionary? data = null) {
+            try {
+                var dataJson = data != null ? System.Text.Json.JsonSerializer.Serialize(data.ToDictionary(), jsonSerializerOptions) : null;
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.DelegationsApproveAsync(name, dataJson, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("ApproveDelegation returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Delegation approval result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("ApproveDelegation: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("ApproveDelegation: Exception: " + e);
+            }
+        }
+
+        // ===================== KeyEvents Operations =====================
+
+        public async Task<Result<RecursiveDictionary>> GetKeyEvents(string prefix) {
+            try {
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.KeyEventsGetAsync(prefix, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("GetKeyEvents returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyEvents");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetKeyEvents: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetKeyEvents: Exception: " + e);
+            }
+        }
+
+        // ===================== KeyStates Operations =====================
+
+        public async Task<Result<RecursiveDictionary>> GetKeyState(string prefix) {
+            try {
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.KeyStatesGetAsync(prefix, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("GetKeyState returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetKeyState: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetKeyState: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<List<RecursiveDictionary>>> ListKeyStates(List<string> prefixes) {
+            try {
+                var prefixesJson = System.Text.Json.JsonSerializer.Serialize(prefixes, jsonSerializerOptions);
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.KeyStatesListAsync(prefixesJson, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<List<RecursiveDictionary>>("ListKeyStates returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<List<RecursiveDictionary>>("Failed to deserialize KeyStates list");
+                }
+                var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("ListKeyStates: Exception: {e}", e);
+                return Result.Fail<List<RecursiveDictionary>>("ListKeyStates: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> QueryKeyState(string prefix, string? sn = null, RecursiveDictionary? anchor = null) {
+            try {
+                var anchorJson = anchor != null ? System.Text.Json.JsonSerializer.Serialize(anchor.ToDictionary(), jsonSerializerOptions) : null;
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.KeyStatesQueryAsync(prefix, sn, anchorJson, ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("QueryKeyState returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState query result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("QueryKeyState: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("QueryKeyState: Exception: " + e);
+            }
+        }
+
+        // ===================== Config Operations =====================
+
+        public async Task<Result<RecursiveDictionary>> GetAgentConfig() {
+            try {
+                var jsonString = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.ConfigGetAsync(ct),
+                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                );
+                if (jsonString is null || jsonString.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("GetAgentConfig returned null or failed");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Agent config");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetAgentConfig: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetAgentConfig: Exception: " + e);
+            }
+        }
     }
 }
