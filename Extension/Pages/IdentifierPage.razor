@@ -44,6 +44,13 @@
         public string? Identicon { get; init; }
     }
 
+    record DelegateeInfo
+    {
+        public string Prefix { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string? Identicon { get; init; }
+    }
+
     // Key state data from KERI
     RecursiveDictionary? keyStateData;
     RecursiveDictionary? keyEventsData;
@@ -52,10 +59,12 @@
     IEnumerable<Element> nextKeys = new List<Element>();
     IEnumerable<WitnessInfo> witnesses = new List<WitnessInfo>();
     IEnumerable<KeyEvent> keyEventsList = new List<KeyEvent>();
+    IEnumerable<DelegateeInfo> delegatees = new List<DelegateeInfo>();
 
     string signingThreshold = "0";
     string nextThreshold = "0";
     int witnessThreshold = 0;
+    string? delegator = null;
 
     // fields
     Aid? currentAid;
@@ -101,6 +110,7 @@
                 // Load key state and key events
                 await LoadKeyStateData();
                 await LoadKeyEventsData();
+                await LoadDelegateesData();
             }
             else
             {
@@ -239,6 +249,14 @@
             var btValue = keyStateData.GetByPath("bt");
             witnessThreshold = (int)(btValue?.IntegerValue ?? 0);
 
+            // Parse delegator (di)
+            var diValue = keyStateData.GetByPath("di");
+            delegator = diValue?.StringValue;
+            if (!string.IsNullOrEmpty(delegator))
+            {
+                logger.LogInformation("This identifier is delegated by: {delegator}", delegator);
+            }
+
             logger.LogInformation("Parsed key state: {signingKeys} signing keys, {nextKeys} next keys, {witnesses} witnesses",
                 signingKeys.Count(), nextKeys.Count(), witnesses.Count());
         }
@@ -313,6 +331,47 @@
         catch (Exception ex)
         {
             logger.LogError(ex, "Error parsing key events data");
+        }
+    }
+
+    async Task LoadDelegateesData()
+    {
+        try
+        {
+            // Get all identifiers and filter for those delegated by this identifier
+            var identifiersResult = await signifyClientService.GetIdentifiers();
+            if (identifiersResult.IsSuccess)
+            {
+                var allAids = identifiersResult.Value.Aids;
+                var delegateesList = new List<DelegateeInfo>();
+
+                foreach (var aid in allAids)
+                {
+                    // Check if this AID is delegated by the current identifier
+                    // The Di property is in the Controller.State, not the top-level State
+                    var delegatorPrefix = aid.State?.Controller?.State?.Di;
+                    if (!string.IsNullOrEmpty(delegatorPrefix) && delegatorPrefix == Prefix)
+                    {
+                        delegateesList.Add(new DelegateeInfo
+                        {
+                            Prefix = aid.Prefix,
+                            Name = aid.Name,
+                            Identicon = Helper.Identicon.MakeIdenticon(aid.Prefix)
+                        });
+                    }
+                }
+
+                delegatees = delegateesList;
+                logger.LogInformation("Found {count} delegatees for {prefix}", delegatees.Count(), Prefix);
+            }
+            else
+            {
+                logger.LogWarning("Failed to load identifiers for delegatee check: {errors}", identifiersResult.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading delegatees data");
         }
     }
 
@@ -439,37 +498,22 @@
                         <MudExpansionPanel Class="my-3">
                             <TitleContent>
                                 <MudText>
-                                    Delegatee for Identifiers (2)
+                                    Delegator @(string.IsNullOrEmpty(delegator) ? "(None)" : "")
                                 </MudText>
                             </TitleContent>
                             <ChildContent>
-                                <MudStack>
-                                    <MudText>2 identities delegated signing authority to you.</MudText>
-                                    @{
-                                        /*
-                                        <MudTable>
-                                        <HeaderContent>
-                                        <MudTh>Alias</MudTh>
-                                        <MudTh>Identicon</MudTh>
-                                        <MudTh>Prefix</MudTh>
-                                        </HeaderContent>
-                                        <RowTemplate>
-                                        <MudTd>Delegator</MudTd>
-                                        <MudTd>Delegator Alias</MudTd>
-                                        <MudTd>
-                                        <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                        </MudTd>
-                                        <MudTd>
-                                        <Ellipsis StringContent="@Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                                        </MudTd>
-                                        <MudTd>
-                                        <Ellipsis StringContent="0x1234123411" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
-                                        </MudTd>
-                                        </RowTemplate>
-                                        </MudTable>
-                                        */
-                                    }
-                                </MudStack>
+                                @if (!string.IsNullOrEmpty(delegator))
+                                {
+                                    <MudText>This identifier's signing authority is delegated from:</MudText>
+                                    <MudStack Row AlignItems="AlignItems.Center" Class="mt-2">
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(delegator)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                        <Ellipsis StringContent="@delegator" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudText>This identifier is not delegated. It has full signing authority.</MudText>
+                                }
                             </ChildContent>
                         </MudExpansionPanel>
                         <MudExpansionPanel Class="my-3">
@@ -519,16 +563,36 @@
 
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>Delegatees (1)</MudText>
+                                        <MudText>Delegatees (@delegatees.Count())</MudText>
                                     </TitleContent>
                                     <ChildContent>
-                                        <MudText>You delegated signing authority to 1 delegatee(s).</MudText>
-                                        @foreach (var item in new List<string>() { "1111", "2222" })
+                                        @if (delegatees.Any())
                                         {
-                                            <MudText>@item</MudText>
+                                            <MudText>You delegated signing authority to @delegatees.Count() delegatee(s).</MudText>
+                                            <MudTable Items="@delegatees" Hover="true" Dense="true" Class="mt-2">
+                                                <HeaderContent>
+                                                    <MudTh Class="py-0 my-0">Identicon</MudTh>
+                                                    <MudTh Class="py-0 my-0">Name</MudTh>
+                                                    <MudTh Class="py-0 my-0">Prefix</MudTh>
+                                                </HeaderContent>
+                                                <RowTemplate>
+                                                    <MudTd Class="py-0 my-0">
+                                                        <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                                    </MudTd>
+                                                    <MudTd Class="py-0 my-0">@context.Name</MudTd>
+                                                    <MudTd Class="py-0 my-0">
+                                                        <Ellipsis StringContent="@context.Prefix" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                                    </MudTd>
+                                                </RowTemplate>
+                                            </MudTable>
+                                            <MudButton StartIcon="@Icons.Material.Filled.PersonRemove" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Revoke Delegatee</MudButton>
+                                            <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add Delegatee</MudButton>
                                         }
-                                        <MudButton StartIcon="@Icons.Material.Filled.PersonRemove" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Revoke Delegatee</MudButton>
-                                        <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Add Delegatee</MudButton>
+                                        else
+                                        {
+                                            <MudText>No delegatees. You have not delegated signing authority to any other identifiers.</MudText>
+                                            <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add Delegatee</MudButton>
+                                        }
                                     </ChildContent>
                                 </MudExpansionPanel>
 
