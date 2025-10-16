@@ -857,7 +857,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             switch (msg.Type) {
                 case CsBwMessageTypes.INIT:
                     // ContentScript is initializing - send READY response
-                    // TODO P1 send new ReadyMessage();
+                    // TODO P2 send new ReadyMessage(); ?
                     break;
 
                 case CsBwMessageTypes.AUTHORIZE:
@@ -882,7 +882,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case CsBwMessageTypes.SIGN_REQUEST:
-                    await HandleSignRequestAsync(msg, sender);
+                    await HandleRequestSignHeadersAsync(msg, sender);
                     return;
 
                 case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
@@ -1062,12 +1062,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <summary>
     /// Handles sign request via runtime.sendMessage
     /// </summary>
-    private async Task HandleSignRequestAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
+    private async Task HandleRequestSignHeadersAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
-            _logger.LogInformation("BW HandleSignRequestAsync: {Message}", JsonSerializer.Serialize(msg));
+            _logger.LogInformation("BW HandleRequestSignHeadersAsync: {Message}", JsonSerializer.Serialize(msg));
 
             if (sender?.Tab?.Id == null) {
-                _logger.LogError("BW HandleSignRequestAsync: no tabId found");
+                _logger.LogError("BW HandleRequestSignHeadersAsync: no tabId found");
                 return; // don't have tabId to send errorStr back
             }
 
@@ -1083,14 +1083,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
 
-            _logger.LogInformation("BW HandleSignRequestAsync: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+            _logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
 
             // Deserialize payload to SignRequestArgs
             var payloadJson = JsonSerializer.Serialize(msg.Payload);
             var payload = JsonSerializer.Deserialize<SignRequestArgs>(payloadJson, PortMessageJsonOptions);
 
             if (payload == null) {
-                _logger.LogWarning("BW HandleSignRequestAsync: invalid payload");
+                _logger.LogWarning("BW HandleRequestSignHeadersAsync: invalid payload");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
                 return;
             }
@@ -1100,20 +1100,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var rurl = payload.Url;
 
             if (string.IsNullOrEmpty(rurl)) {
-                _logger.LogWarning("BW HandleSignRequestAsync: URL is empty");
+                _logger.LogWarning("BW HandleRequestSignHeadersAsync: URL is empty");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is empty"));
                 return;
             }
 
+            _logger.LogInformation("BW HandleRequestSignHeadersAsync: method: {Method}, url: {Url}", method, rurl);
 
-
-
-
-
-            _logger.LogInformation("BW HandleSignRequestAsync: method: {Method}, url: {Url}", method, rurl);
             var jsonOrigin = JsonSerializer.Serialize(origin);
-
-            _logger.LogInformation("BW HandleSignRequestAsync: tabId: {TabId}, origin: {Origin}",
+            _logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}",
                 tabId, jsonOrigin);
 
             var encodedMsg = SerializeAndEncode(msg);
@@ -1123,13 +1118,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 new QueryParam("popupType", "SignRequest"),  // TODO should be an enum literal
                 new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture))
             ]);
-
-            // await HandleSignDataAsync(msg, sender);
             return;
-
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleSignDataAsync");
+            _logger.LogError(ex, "Error in HandleRequestSignHeadersAsync");
             return; // don't have the tabId here to send errorStr back
         }
     }
@@ -1318,7 +1310,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // For now, skipping this validation - multisig signing may fail at KERIA level
             // Sign the data using signify-ts
 
-            // TODO P1 finish implementation
+            // TODO P1 finish HandleSignDataAsync implementation
             _logger.LogWarning("BW HandleSignData: signing data not yet completely implemented");
             /*
             var signatureJson = await _signifyClientService.Sign....

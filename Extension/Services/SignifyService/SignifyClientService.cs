@@ -21,7 +21,6 @@ namespace Extension.Services.SignifyService {
             return postResult.IsSuccess ? Result.Ok() : Result.Fail(postResult.Reasons.First().Message);
         }
 
-        // Note: bootUrl can be null, but only if isBootForced is false (meaning we are just connecting, not booting and connecting)
         public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = false, TimeSpan? timeout = null) {
             if (passcode.Length != 21) {
                 return Result.Fail<State>("Passcode must be 21 characters");

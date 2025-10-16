@@ -104,7 +104,6 @@
             case (_, IStateService.States.AuthenticatedConnected):
             case (_, _):
                 _logger.LogInformation($"From state {CurrentState} to {updatedState}");
-                // TODO P1 StateHasChanged();  We do not want cascading updates?
                 break;
         }
     }

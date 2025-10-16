@@ -228,7 +228,7 @@ export const getAID = async (name: string): Promise<string> => {
 export const getNameByPrefix = async (prefix: string): Promise<string> => {
     try {
         validateClient();
-        // TODO P1: Consider using getIdentifierByPrefix and extracting name from JSON in C#
+        // TODO P2: Consider using getIdentifierByPrefix and extracting name from JSON in C#
         // to avoid duplicate calls to _client.identifiers().get()
         const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
         if (!aid) {

@@ -160,7 +160,7 @@
             ops1CheckLiveness.SetIsRunning();
             StateHasChanged();
 
-            // TODO P1 avoid if BootUrl is not a URL
+            // TODO P2 avoid if BootUrl is not a URL
             var baseUri = new Uri(urlModel.BootUrl!);
             // TODO P2 would be better to check the KERI port (or a non-Boot URL), which means this needs to be configured.
             var healthUri = new Uri(baseUri, "health");
@@ -294,7 +294,7 @@
             var connectionInfo = connectionResult.Value;
             KeriaConnectConfig = connectionInfo.Config;
 
-            // TODO P1 should KeriaConnectConfig should be stored in chrome.storage.sync? Multiple changes required.
+            // TODO P2 should KeriaConnectConfig should be stored in chrome.storage.sync? Multiple changes required.
             var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
             if (storeConfigResult.IsFailed)
             {
