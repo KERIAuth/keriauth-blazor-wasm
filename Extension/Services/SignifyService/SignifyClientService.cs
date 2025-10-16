@@ -22,9 +22,7 @@ namespace Extension.Services.SignifyService {
         }
 
         // Note: bootUrl can be null, but only if isBootForced is false (meaning we are just connecting, not booting and connecting)
-        // TODO P1: consider default isBootForced to be false, since most of the time we will just be connecting
-        public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = true, TimeSpan? timeout = null) {
-            Debug.Assert(bootUrl is not null);
+        public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = false, TimeSpan? timeout = null) {
             if (passcode.Length != 21) {
                 return Result.Fail<State>("Passcode must be 21 characters");
             }
@@ -44,6 +42,9 @@ namespace Extension.Services.SignifyService {
                 if (OperatingSystem.IsBrowser()) {
                     if (isBootForced) {
                         logger.LogInformation("Connect: BootAndConnect to {url} and {bootUrl}...", url, bootUrl);
+                        if (bootUrl is null) {
+                            return Result.Fail("Connect failed. bootUrl must be set when setting up a new KERIA connection.");
+                        }
                         var res = await TimeoutHelper.WithTimeout<string>(ct => _binding.BootAndConnectAsync(url, bootUrl, passcode, ct), timeout2);
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
