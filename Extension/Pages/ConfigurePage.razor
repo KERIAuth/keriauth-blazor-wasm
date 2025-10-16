@@ -259,11 +259,14 @@
                 return Result.Fail<KeriaConnectionInfo>(aidRes.Errors);
             }
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
-            // set TODO P0 the selected aid in preferences, e.g. so it shows up in the AppBar as identicon
-            // logger.LogWarning("ConnectToKeria 2.1");
-            await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = aidRes.Value });
-            // logger.LogWarning("ConnectToKeria 2.2");
 
+            // set the selected aid in preferences, so it shows up in the AppBar identicon
+            using JsonDocument doc = JsonDocument.Parse(aidRes.Value);
+            string? prefix = doc.RootElement.GetProperty("prefix").GetString();
+            if (prefix is not null)
+            {
+                await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = prefix });    
+            }
         }
         else
         {
