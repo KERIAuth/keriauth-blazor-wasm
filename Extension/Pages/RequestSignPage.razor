@@ -72,7 +72,8 @@
     WebsiteConfig? ThisWebsiteConfig { get; set; }
     List<RecursiveDictionary> credentials = new();
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
-    string SelectedPrefix { get; set; } = "unknown";
+    string WebsiteConfiguredPrefix { get; set; } = "unknown";
+    List<Aid>? Identifiers { get; set; }
 
     // reactive properties
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
@@ -83,6 +84,7 @@
     bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
     bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
+    string WebsiteConfiguredAlias => Identifiers?.Find(x => x.Prefix == WebsiteConfiguredPrefix)?.Name ?? "not configured";
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,6 +102,8 @@
         InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
+
+        await getInitialIdentifiers();
 
         // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
@@ -162,6 +166,22 @@
             logger.LogError("Could not find UriQuery content containing outter \"message\".");
             return;
         }
+    }
+
+        private async Task getInitialIdentifiers()
+    {
+        // logger.LogWarning("GetInitialIdentifiers() ...");
+        var res = await signifyClientService.GetIdentifiers();
+        if (res?.IsSuccess == true && res.Value?.Aids is not null)
+        {
+            Identifiers = res.Value.Aids.OrderBy(a => a.Name).ToList();
+        }
+        else
+        {
+            throw new Exception("unexpected null identifiers");
+        }
+        // StateHasChanged(); // TODO needed?
+        // logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
     }
 
     //
@@ -249,13 +269,13 @@
 
         if (isConfigNew)
         {
-            SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
-            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+            WebsiteConfiguredPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
+            ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = WebsiteConfiguredPrefix };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }
         else
         {
-            SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
+            WebsiteConfiguredPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
         }
         StateHasChanged();
     }
@@ -343,15 +363,24 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Request to Sign</MudText>
+            <MudText Typo="Typo.h6">Request to Sign HTTP Request Headers</MudText>
             <MudText class="mt-6" Typo="Typo.body1">
                 The website <b>@AuthorityStr</b> is requesting KERI Auth, with your approval,
-                to cryptographically sign an HTTP Request Header with your selected identifier.
-                The signed header will then allow the website providing the requested resource to validate your signature then authorize (or deny) the request.<br />
+                to cryptographically sign HTTP Request Headers with the key material of the identifier you selected for this site when you signed in to it.
+                The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
             </MudText>
+
+            <MudText><b>Signing Identifier</b></MudText>
+            <MudStack Row Class="pl-1" Style="align-items:center;">
+                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                <MudText>@WebsiteConfiguredAlias</MudText>
+            </MudStack>
+
             @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevent distracting progressive loading
             {
-                <MudCheckBox Label="Show Details" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)"></MudCheckBox>
+                <MudStack Row>
+                <MudCheckBox Label="Show Input Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
+                </MudStack>
                 @if (IsDetailShown)
                 {
                     <MudPaper>
@@ -374,8 +403,8 @@
                         </table>
                     </MudPaper>
                 }
-                <!-- The following is display:none; -->
-                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" style="display:none; height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" />
+                <!-- The following mayb be display:none; -->
+                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 28px;" />
             }
         </div>
     </MudStack>

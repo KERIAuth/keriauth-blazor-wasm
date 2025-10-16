@@ -13,6 +13,7 @@
 @using Extension.Layouts
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.CsBw
 @using Extension.Pages
 @using Extension.Services
 @using Extension.Services.JsBindings
@@ -116,21 +117,20 @@
                 }
 
                 // logger.LogInformation("Processing message of type: {t}", type);
+
                 switch (type)
                 {
-                    // TODO P3 how should these string values be aligned with the definitions in ExCsInterface.ts?
-                    case "/signify/authorize":
+                    case Extension.Models.Messages.CsBw.CsBwMessageTypes.AUTHORIZE:
                         RequestedSignInMode = SignInMode.Prompt;
                         break;
-                    case "/signify/authorize/identifier":
-                    case "/signify/authorize/aid":
+                    case Extension.Models.Messages.CsBw.CsBwMessageTypes.SELECT_AUTHORIZE_AID:
                         RequestedSignInMode = SignInMode.Identifier;
                         break;
-                    case "/signify/authorize/credential":
+                    case Extension.Models.Messages.CsBw.CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL:
                         RequestedSignInMode = SignInMode.Credential;
                         break;
                     default:
-                        logger.LogInformation("Unknown message type: {0}", type);
+                        logger.LogInformation("Unexpected message type: {0}", type);
                         break;
                 }
                 await SetSignInFocus();
