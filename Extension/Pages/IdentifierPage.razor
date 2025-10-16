@@ -38,32 +38,24 @@
         public string? PubKey { get; init; }
     }
 
-    IEnumerable<Element> Elements = new List<Element>()
+    record WitnessInfo
     {
-        new Element() { Group = 1, GroupThreshold = 3, Weight = 2, Identicon = MakeIdenticon("asdf"), PubKey = "0x1234123411" },
-        new Element() { Group = 1, GroupThreshold = 3, Weight = 1, Identicon = MakeIdenticon("asdf3"), PubKey = "0x1234123411" },
-        new Element() { Group = 1, GroupThreshold = 3, Weight = 1, Identicon = MakeIdenticon("asdf0x123412345"), PubKey = "0x1234123422" },
-        new Element() { Group = 2, GroupThreshold = 1, Weight = 1, Identicon = MakeIdenticon("asdx1234653x3"), PubKey = "0x1234123433" },
-        new Element() { Group = 2, GroupThreshold = 1, Weight = 1, Identicon = MakeIdenticon("asdx1234653sx3"), PubKey = "0x1234123444" }
-    };
+        public string PublicKey { get; init; } = "";
+        public string? Identicon { get; init; }
+    }
 
-    IEnumerable<Element> Elements2 = new List<Element>()
-    {
-        new Element() { Group = 1, GroupThreshold = 4, Weight = 2, Identicon = MakeIdenticon("erty"), PubKey = "0x1234123411777" },
-        new Element() { Group = 1, GroupThreshold = 4, Weight = 2, Identicon = MakeIdenticon("rtyurtyu"), PubKey = "0x1234123411888" },
-        new Element() { Group = 1, GroupThreshold = 4, Weight = 2, Identicon = MakeIdenticon("tyuityuityui"), PubKey = "0x1234123422999" },
-        new Element() { Group = 1, GroupThreshold = 4, Weight = 1, Identicon = MakeIdenticon("dfght6u456"), PubKey = "0x1234123433000" },
-        new Element() { Group = 1, GroupThreshold = 4, Weight = 1, Identicon = MakeIdenticon("asdx1234653sx3"), PubKey = "0x123412344411" }
-    };
+    // Key state data from KERI
+    RecursiveDictionary? keyStateData;
+    RecursiveDictionary? keyEventsData;
 
-    IEnumerable<KeyEvent> KeyEvents = new List<KeyEvent>()
-        {
-        new KeyEvent() { Seq = 1, EventType = "inception", DateTime = DateTime.Now - new TimeSpan(20,0,0,0), Details = "details" },
-        new KeyEvent() { Seq = 2, EventType = "rotate", DateTime = DateTime.Now - new TimeSpan(10,0,0,0), Details = "details" },
-        new KeyEvent() { Seq = 3, EventType = "delegate", DateTime = DateTime.Now - new TimeSpan(5,0,0,0), Details = "details" },
-        new KeyEvent() { Seq = 4, EventType = "prod", DateTime = DateTime.Now - new TimeSpan(2,0,0,0), Details = "details" },
-        new KeyEvent() { Seq = 5, EventType = "rotate", DateTime = DateTime.Now - new TimeSpan(0,1,0,0), Details = "details" }
-    };
+    IEnumerable<Element> signingKeys = new List<Element>();
+    IEnumerable<Element> nextKeys = new List<Element>();
+    IEnumerable<WitnessInfo> witnesses = new List<WitnessInfo>();
+    IEnumerable<KeyEvent> keyEventsList = new List<KeyEvent>();
+
+    string signingThreshold = "0";
+    string nextThreshold = "0";
+    int witnessThreshold = 0;
 
     // fields
     Aid? currentAid;
@@ -105,6 +97,10 @@
                 currentAid = result.Value;
                 IsTransferrable = currentAid.Transferable;
                 logger.LogInformation("Loaded identifier: {name} ({prefix})", currentAid.Name, currentAid.Prefix);
+
+                // Load key state and key events
+                await LoadKeyStateData();
+                await LoadKeyEventsData();
             }
             else
             {
@@ -121,6 +117,202 @@
         {
             IsWaiting = false;
             StateHasChanged();
+        }
+    }
+
+    async Task LoadKeyStateData()
+    {
+        try
+        {
+            var result = await signifyClientService.GetKeyState(Prefix);
+            if (result.IsSuccess)
+            {
+                keyStateData = result.Value;
+                ParseKeyStateData();
+                logger.LogInformation("Loaded key state for {prefix}", Prefix);
+            }
+            else
+            {
+                logger.LogWarning("Failed to load key state: {errors}", result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading key state");
+        }
+    }
+
+    async Task LoadKeyEventsData()
+    {
+        try
+        {
+            var result = await signifyClientService.GetKeyEvents(Prefix);
+            if (result.IsSuccess)
+            {
+                keyEventsData = result.Value;
+                ParseKeyEventsData();
+                logger.LogInformation("Loaded key events for {prefix}", Prefix);
+            }
+            else
+            {
+                logger.LogWarning("Failed to load key events: {errors}", result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading key events");
+        }
+    }
+
+    void ParseKeyStateData()
+    {
+        if (keyStateData == null) return;
+
+        try
+        {
+            // Parse signing keys (current keys)
+            var keysValue = keyStateData.GetByPath("k");
+            if (keysValue?.List != null)
+            {
+                var keysList = new List<Element>();
+                for (int i = 0; i < keysValue.List.Count; i++)
+                {
+                    var key = keysValue.List[i].StringValue ?? "";
+                    keysList.Add(new Element
+                    {
+                        Group = 1,
+                        GroupThreshold = keysValue.List.Count,
+                        Weight = 1,
+                        Identicon = Helper.Identicon.MakeIdenticon(key),
+                        PubKey = key
+                    });
+                }
+                signingKeys = keysList;
+            }
+
+            // Parse signing threshold (kt)
+            var ktValue = keyStateData.GetByPath("kt");
+            signingThreshold = ktValue?.StringValue ?? ktValue?.IntegerValue?.ToString() ?? "0";
+
+            // Parse next keys (n)
+            var nextKeysValue = keyStateData.GetByPath("n");
+            if (nextKeysValue?.List != null)
+            {
+                var nextKeysList = new List<Element>();
+                for (int i = 0; i < nextKeysValue.List.Count; i++)
+                {
+                    var key = nextKeysValue.List[i].StringValue ?? "";
+                    nextKeysList.Add(new Element
+                    {
+                        Group = 1,
+                        GroupThreshold = nextKeysValue.List.Count,
+                        Weight = 1,
+                        Identicon = Helper.Identicon.MakeIdenticon(key),
+                        PubKey = key
+                    });
+                }
+                nextKeys = nextKeysList;
+            }
+
+            // Parse next threshold (nt)
+            var ntValue = keyStateData.GetByPath("nt");
+            nextThreshold = ntValue?.StringValue ?? ntValue?.IntegerValue?.ToString() ?? "0";
+
+            // Parse witnesses (b)
+            var witnessesValue = keyStateData.GetByPath("b");
+            if (witnessesValue?.List != null)
+            {
+                var witnessList = new List<WitnessInfo>();
+                foreach (var witness in witnessesValue.List)
+                {
+                    var witnessKey = witness.StringValue ?? "";
+                    witnessList.Add(new WitnessInfo
+                    {
+                        PublicKey = witnessKey,
+                        Identicon = Helper.Identicon.MakeIdenticon(witnessKey)
+                    });
+                }
+                witnesses = witnessList;
+            }
+
+            // Parse witness threshold (bt)
+            var btValue = keyStateData.GetByPath("bt");
+            witnessThreshold = (int)(btValue?.IntegerValue ?? 0);
+
+            logger.LogInformation("Parsed key state: {signingKeys} signing keys, {nextKeys} next keys, {witnesses} witnesses",
+                signingKeys.Count(), nextKeys.Count(), witnesses.Count());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error parsing key state data");
+        }
+    }
+
+    void ParseKeyEventsData()
+    {
+        if (keyEventsData == null) return;
+
+        try
+        {
+            var eventsList = new List<KeyEvent>();
+
+            // KeyEvents data is an array of event objects, each with 'ked' (key event data) field
+            foreach (var kvp in keyEventsData)
+            {
+                var eventWrapper = kvp.Value.Dictionary;
+                if (eventWrapper == null) continue;
+
+                // Extract the 'ked' field which contains the actual key event data
+                var kedValue = eventWrapper.GetByPath("ked");
+                var eventData = kedValue?.Dictionary;
+                if (eventData == null) continue;
+
+                // Extract event fields from ked
+                var seqValue = eventData.GetByPath("s");
+                var typeValue = eventData.GetByPath("t");
+                var dtValue = eventData.GetByPath("dt");
+                var saidValue = eventData.GetByPath("d");
+
+                // Sequence number can be either a string or integer in KERI
+                int seq = 0;
+                if (seqValue?.StringValue != null && int.TryParse(seqValue.StringValue, out var seqParsed))
+                {
+                    seq = seqParsed;
+                }
+                else if (seqValue?.IntegerValue != null)
+                {
+                    seq = (int)seqValue.IntegerValue.Value;
+                }
+
+                string eventType = typeValue?.StringValue ?? "unknown";
+                string dtString = dtValue?.StringValue ?? "";
+                string said = saidValue?.StringValue ?? "";
+
+                // Parse datetime and ensure it's in UTC
+                DateTime dateTime = DateTime.UtcNow;
+                if (!string.IsNullOrEmpty(dtString))
+                {
+                    if (DateTime.TryParse(dtString, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsedDt))
+                    {
+                        dateTime = parsedDt.ToUniversalTime();
+                    }
+                }
+
+                eventsList.Add(new KeyEvent
+                {
+                    Seq = seq,
+                    EventType = eventType,
+                    DateTime = dateTime,
+                    Details = said
+                });
+            }
+
+            keyEventsList = eventsList.OrderBy(e => e.Seq);
+            logger.LogInformation("Parsed {count} key events", keyEventsList.Count());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error parsing key events data");
         }
     }
 
@@ -242,7 +434,7 @@
                 </MudStack>
 
                 <!-- TODO P3 intentionally not displayed until features are implemented -->
-                <div style="display:none !important;">
+                <div>
                     <MudExpansionPanels MultiExpansion>
                         <MudExpansionPanel Class="my-3">
                             <TitleContent>
@@ -295,11 +487,11 @@
                                 }
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>Signing Keys (@Elements.Count())</MudText>
+                                        <MudText>Signing Keys (@signingKeys.Count())</MudText>
                                     </TitleContent>
                                     <ChildContent>
-                                        <MudText>Threshold = 4</MudText>
-                                        <MudTable Items="@Elements">
+                                        <MudText>Threshold = @signingThreshold</MudText>
+                                        <MudTable Items="@signingKeys">
                                             <HeaderContent>
                                                 <MudTh Class="py-0 my-0">Group</MudTh>
                                                 <MudTh Class="py-0 my-0">Group Threshold</MudTh>
@@ -342,11 +534,11 @@
 
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>Key Update Authorities (@Elements2.Count())</MudText>
+                                        <MudText>Key Update Authorities (@nextKeys.Count())</MudText>
                                     </TitleContent>
                                     <ChildContent>
-                                        <MudText>Total Threshold = 4</MudText>
-                                        <MudTable Items="@Elements2">
+                                        <MudText>Total Threshold = @nextThreshold</MudText>
+                                        <MudTable Items="@nextKeys">
                                             <HeaderContent>
                                                 <MudTh Class="py-0 my-0">Group</MudTh>
                                                 <MudTh Class="py-0 my-0">Group Threshold</MudTh>
@@ -366,10 +558,10 @@
                                                     <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
                                                 </MudTd>
                                                 <MudTd Class="py-0 my-0">
-                                                    @if (@context.PubKey == @Elements2.First().PubKey)
+                                                    @if (nextKeys.Any() && @context.PubKey == nextKeys.First().PubKey)
                                                     {
                                                         // TODO P2 remove hack that shows action only on first row as an example
-                                                        <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary">Initiate Update</MudButton>
+                                                        <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="@(async () => await UpdateKeyState())" Variant="Variant.Filled" Color="Color.Primary">Initiate Update</MudButton>
                                                     }
                                                 </MudTd>
                                             </RowTemplate>
@@ -378,8 +570,32 @@
                                 </MudExpansionPanel>
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>Witnesses (3)</MudText>
+                                        <MudText>Witnesses (@witnesses.Count())</MudText>
                                     </TitleContent>
+                                    <ChildContent>
+                                        <MudText>Witness Threshold = @witnessThreshold</MudText>
+                                        @if (witnesses.Any())
+                                        {
+                                            <MudTable Items="@witnesses">
+                                                <HeaderContent>
+                                                    <MudTh Class="py-0 my-0">Identicon</MudTh>
+                                                    <MudTh Class="py-0 my-0">Public Key</MudTh>
+                                                </HeaderContent>
+                                                <RowTemplate>
+                                                    <MudTd Class="py-0 my-0">
+                                                        <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                                    </MudTd>
+                                                    <MudTd Class="py-0 my-0">
+                                                        <Ellipsis StringContent="@context.PublicKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
+                                                    </MudTd>
+                                                </RowTemplate>
+                                            </MudTable>
+                                        }
+                                        else
+                                        {
+                                            <MudText>No witnesses configured</MudText>
+                                        }
+                                    </ChildContent>
                                 </MudExpansionPanel>
                                 <MudExpansionPanel>
                                     <TitleContent>
@@ -394,10 +610,10 @@
 
                         <MudExpansionPanel Class="my-3">
                             <TitleContent>
-                                <MudText>Key Events (@KeyEvents.Count())</MudText>
+                                <MudText>Key Events (@keyEventsList.Count())</MudText>
                             </TitleContent>
                             <ChildContent>
-                                <MudTable Items="@KeyEvents.Reverse()">
+                                <MudTable Items="@keyEventsList.Reverse()">
                                     <HeaderContent>
                                         <MudTh Class="py-0 my-0">Sequence</MudTh>
                                         <MudTh Class="py-0 my-0">Event Type</MudTh>
@@ -407,7 +623,7 @@
                                     <RowTemplate>
                                         <MudTd Class="py-0 my-0">@context.Seq</MudTd>
                                         <MudTd Class="py-0 my-0">@context.EventType</MudTd>
-                                        <MudTd Class="py-0 my-0">@context.DateTime</MudTd>
+                                        <MudTd Class="py-0 my-0">@context.DateTime.ToString("yyyy-MM-dd HH:mm:ss.ffffff") UTC</MudTd>
                                         <MudTd Class="py-0 my-0"><MudLink Href="">&hellip;</MudLink></MudTd>
                                     </RowTemplate>
                                 </MudTable>

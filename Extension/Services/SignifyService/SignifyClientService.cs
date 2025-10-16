@@ -874,6 +874,9 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<List<RecursiveDictionary>>("ListEscrowReply returned null or failed");
                 }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<List<RecursiveDictionary>>("ListEscrowReply returned empty value");
+                }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
                     return Result.Fail<List<RecursiveDictionary>>("Failed to deserialize Escrow reply list");
@@ -898,6 +901,9 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("GetGroupRequest returned null or failed");
                 }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("GetGroupRequest returned empty value");
+                }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize Group request");
@@ -921,6 +927,9 @@ namespace Extension.Services.SignifyService {
                 );
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("SendGroupRequest returned null or failed");
+                }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("SendGroupRequest returned empty value");
                 }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
@@ -948,6 +957,9 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("JoinGroup returned null or failed");
                 }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("JoinGroup returned empty value");
+                }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize Group join result");
@@ -971,6 +983,9 @@ namespace Extension.Services.SignifyService {
                 );
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("GetExchange returned null or failed");
+                }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("GetExchange returned empty value");
                 }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
@@ -998,6 +1013,9 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("SendExchange returned null or failed");
                 }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("SendExchange returned empty value");
+                }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize Exchange send result");
@@ -1022,6 +1040,9 @@ namespace Extension.Services.SignifyService {
                 );
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("SendExchangeFromEvents returned null or failed");
+                }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("SendExchangeFromEvents returned empty value");
                 }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
@@ -1048,6 +1069,9 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("ApproveDelegation returned null or failed");
                 }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("ApproveDelegation returned empty value");
+                }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize Delegation approval result");
@@ -1072,11 +1096,26 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("GetKeyEvents returned null or failed");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyEvents");
+
+                // Log raw response for debugging
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("GetKeyEvents returned empty value");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+
+                logger.LogInformation("GetKeyEvents raw response (first 500 chars): {response}",
+                    jsonString.Value.Substring(0, Math.Min(500, jsonString.Value.Length)));
+
+                // GetKeyEvents returns an array of event objects, each with 'ked' (key event data) and 'atc' (attachment) fields
+                var resultArray = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
+                if (resultArray is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyEvents array");
+                }
+
+                // Convert array to dictionary with index keys for compatibility with existing parsing logic
+                var result = new RecursiveDictionary();
+                for (int i = 0; i < resultArray.Count; i++) {
+                    result[i.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new RecursiveValue { Dictionary = RecursiveDictionary.FromObjectDictionary(resultArray[i]) };
+                }
                 return Result.Ok(result);
             }
             catch (Exception e) {
@@ -1096,11 +1135,23 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("GetKeyState returned null or failed");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState");
+
+                // Log raw response for debugging
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("GetKeyState returned empty value");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+
+                logger.LogInformation("GetKeyState raw response (first 500 chars): {response}",
+                    jsonString.Value.Substring(0, Math.Min(500, jsonString.Value.Length)));
+
+                // GetKeyState returns an array with a single key state object
+                var resultArray = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
+                if (resultArray is null || resultArray.Count == 0) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState or array is empty");
+                }
+
+                // Extract the first (and typically only) key state from the array
+                var result = RecursiveDictionary.FromObjectDictionary(resultArray[0]);
                 return Result.Ok(result);
             }
             catch (Exception e) {
@@ -1118,6 +1169,9 @@ namespace Extension.Services.SignifyService {
                 );
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<List<RecursiveDictionary>>("ListKeyStates returned null or failed");
+                }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<List<RecursiveDictionary>>("ListKeyStates returned empty value");
                 }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
@@ -1142,6 +1196,9 @@ namespace Extension.Services.SignifyService {
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("QueryKeyState returned null or failed");
                 }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("QueryKeyState returned empty value");
+                }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState query result");
@@ -1165,6 +1222,9 @@ namespace Extension.Services.SignifyService {
                 );
                 if (jsonString is null || jsonString.IsFailed) {
                     return Result.Fail<RecursiveDictionary>("GetAgentConfig returned null or failed");
+                }
+                if (string.IsNullOrEmpty(jsonString.Value)) {
+                    return Result.Fail<RecursiveDictionary>("GetAgentConfig returned empty value");
                 }
                 var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
                 if (resultDict is null) {
