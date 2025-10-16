@@ -91,6 +91,99 @@ export const disconnect = (): void => {
     _client = null;
 };
 
+/**
+ * Unified wrapper for client operations with validation, error handling, and logging
+ * @param operationName - Name of the operation for logging (e.g., "createAID")
+ * @param operation - Async function that performs the operation
+ * @param logParams - Optional parameters to log
+ * @returns JSON string of operation result
+ */
+const withClientOperation = async (
+    operationName: string,
+    operation: () => Promise<unknown>,
+    logParams?: Record<string, unknown>
+): Promise<string> => {
+    try {
+        validateClient();
+        const result = await operation();
+
+        // Build log message
+        const paramString = logParams
+            ? ' - ' + Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')
+            : '';
+        console.debug(`signifyClient: ${operationName}${paramString}`);
+
+        return objectToJson(result as object);
+    } catch (error) {
+        const paramString = logParams
+            ? ' - ' + Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')
+            : '';
+        console.error(`signifyClient: ${operationName} error${paramString}`, error);
+        throw error;
+    }
+};
+
+/**
+ * Factory for creating IPEX protocol methods (apply, offer, agree, grant, admit)
+ * @param methodName - Name of the IPEX method
+ * @param ipexFunction - The signify-ts ipex function to call
+ * @returns Wrapped async function
+ */
+const createIpexMethod = <TArgs>(
+    methodName: string,
+    ipexFunction: (args: TArgs) => Promise<[any, any, any]>
+) => {
+    return async (argsJson: string): Promise<string> => {
+        return withClientOperation(
+            `ipex${methodName}`,
+            async () => {
+                const args = JSON.parse(argsJson) as TArgs;
+                const [exn, sigs, end] = await ipexFunction(args);
+                return { exn, sigs, end };
+            }
+        );
+    };
+};
+
+/**
+ * Factory for creating IPEX submit methods (submitApply, submitOffer, etc.)
+ * @param methodName - Name of the submit method
+ * @param submitFunction - The signify-ts ipex submit function to call
+ * @param hasAtc - Whether the method includes an 'atc' parameter
+ * @returns Wrapped async function
+ */
+const createIpexSubmitMethod = (
+    methodName: string,
+    submitFunction: (name: string, exn: Serder, sigs: string[], ...args: any[]) => Promise<any>,
+    hasAtc: boolean = false
+) => {
+    return async (
+        name: string,
+        exnJson: string,
+        sigsJson: string,
+        atcOrRecipientsJson: string,
+        recipientsJson?: string
+    ): Promise<string> => {
+        return withClientOperation(
+            `ipex${methodName}`,
+            async () => {
+                const exn = JSON.parse(exnJson) as Serder;
+                const sigs = JSON.parse(sigsJson) as string[];
+
+                if (hasAtc && recipientsJson) {
+                    const atc = atcOrRecipientsJson;
+                    const recipients = JSON.parse(recipientsJson) as string[];
+                    return await submitFunction(name, exn, sigs, atc, recipients);
+                } else {
+                    const recipients = JSON.parse(atcOrRecipientsJson) as string[];
+                    return await submitFunction(name, exn, sigs, recipients);
+                }
+            },
+            { Name: name }
+        );
+    };
+};
+
 // ===================== Connection & Initialization =====================
 
 /**
@@ -179,17 +272,16 @@ export const getState = async (): Promise<string> => {
  * @returns JSON string containing the identifier prefix
  */
 export const createAID = async (name: string): Promise<string> => {
-    try {
-        validateClient();
-        const res: EventResult = await _client!.identifiers().create(name);
-        const op = await res.op();
-        const id: string = op.response.i;
-        console.debug('signifyClient: createAID - Created AID:', id);
-        return objectToJson({ prefix: id, name });
-    } catch (error) {
-        console.error('signifyClient: createAID error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'createAID',
+        async () => {
+            const res: EventResult = await _client!.identifiers().create(name);
+            const op = await res.op();
+            const id: string = op.response.i;
+            return { prefix: id, name };
+        },
+        { Name: name }
+    );
 };
 
 /**
@@ -197,10 +289,13 @@ export const createAID = async (name: string): Promise<string> => {
  * @returns JSON array of identifiers
  */
 export const getAIDs = async (): Promise<string> => {
-    validateClient();
-    const managedIdentifiers = await _client!.identifiers().list();
-    console.debug('signifyClient: getAIDs - Count:', managedIdentifiers.aids?.length || 0);
-    return objectToJson(managedIdentifiers);
+    return withClientOperation(
+        'getAIDs',
+        async () => {
+            const managedIdentifiers = await _client!.identifiers().list();
+            return managedIdentifiers;
+        }
+    );
 };
 
 /**
@@ -209,15 +304,11 @@ export const getAIDs = async (): Promise<string> => {
  * @returns JSON string of the identifier
  */
 export const getAID = async (name: string): Promise<string> => {
-    try {
-        validateClient();
-        const managedIdentifier = await _client!.identifiers().get(name);
-        console.debug('signifyClient: getAID - Name:', name, 'Prefix:', managedIdentifier.prefix);
-        return objectToJson(managedIdentifier);
-    } catch (error) {
-        console.error('signifyClient: getAID error - Name:', name, error);
-        throw error;
-    }
+    return withClientOperation(
+        'getAID',
+        () => _client!.identifiers().get(name),
+        { Name: name }
+    );
 };
 
 /**
@@ -249,18 +340,17 @@ export const getNameByPrefix = async (prefix: string): Promise<string> => {
  * @returns JSON string of IIdentifier object
  */
 export const getIdentifierByPrefix = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
-        if (!aid) {
-            throw new Error(`Identifier with prefix ${prefix} not found`);
-        }
-        console.debug('signifyClient: getIdentifierByPrefix - Prefix:', prefix);
-        return objectToJson(aid);
-    } catch (error) {
-        console.error('signifyClient: getIdentifierByPrefix error - Prefix:', prefix, error);
-        throw error;
-    }
+    return withClientOperation(
+        'getIdentifierByPrefix',
+        async () => {
+            const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
+            if (!aid) {
+                throw new Error(`Identifier with prefix ${prefix} not found`);
+            }
+            return aid;
+        },
+        { Prefix: prefix }
+    );
 };
 
 /**
@@ -270,15 +360,11 @@ export const getIdentifierByPrefix = async (prefix: string): Promise<string> => 
  * @returns JSON string of update result
  */
 export const renameAID = async (currentName: string, newName: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.identifiers().update(currentName, { name: newName });
-        console.debug('signifyClient: renameAID - Old name:', currentName, 'New name:', newName);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: renameAID error - Old name:', currentName, 'New name:', newName, error);
-        throw error;
-    }
+    return withClientOperation(
+        'renameAID',
+        () => _client!.identifiers().update(currentName, { name: newName }),
+        { 'Old name': currentName, 'New name': newName }
+    );
 };
 
 // ===================== Credential (ACDC) Operations =====================
@@ -288,15 +374,14 @@ export const renameAID = async (currentName: string, newName: string): Promise<s
  * @returns JSON array of credentials
  */
 export const getCredentialsList = async (): Promise<string> => {
-    try {
-        validateClient();
-        const credentials: any = await _client!.credentials().list();
-        console.debug('signifyClient: getCredentialsList - Count:', credentials?.length || 0);
-        return objectToJson(credentials);
-    } catch (error) {
-        console.error('signifyClient: getCredentialsList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'getCredentialsList',
+        async () => {
+            const credentials: any = await _client!.credentials().list();
+            return credentials;
+        },
+        { Count: 'retrieved' }
+    );
 };
 
 /**
@@ -309,15 +394,11 @@ export const getCredential = async (
     id: string,
     includeCESR: boolean = false
 ): Promise<string> => {
-    try {
-        validateClient();
-        const credential = await _client!.credentials().get(id, includeCESR);
-        console.debug('signifyClient: getCredential - SAID:', id, 'IncludeCESR:', includeCESR);
-        return objectToJson(credential);
-    } catch (error) {
-        console.error('signifyClient: getCredential error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'getCredential',
+        () => _client!.credentials().get(id, includeCESR as any),
+        { SAID: id, IncludeCESR: includeCESR }
+    );
 };
 
 /**
@@ -327,16 +408,14 @@ export const getCredential = async (
  * @returns JSON string of issuance result
  */
 export const credentialsIssue = async (name: string, argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as CredentialData;
-        const result = await _client!.credentials().issue(name, args);
-        console.debug('signifyClient: credentialsIssue - Name:', name);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: credentialsIssue error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'credentialsIssue',
+        async () => {
+            const args = JSON.parse(argsJson) as CredentialData;
+            return await _client!.credentials().issue(name, args);
+        },
+        { Name: name }
+    );
 };
 
 /**
@@ -347,15 +426,11 @@ export const credentialsIssue = async (name: string, argsJson: string): Promise<
  * @returns JSON string of revocation result
  */
 export const credentialsRevoke = async (name: string, said: string, datetime?: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.credentials().revoke(name, said, datetime);
-        console.debug('signifyClient: credentialsRevoke - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: credentialsRevoke error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'credentialsRevoke',
+        () => _client!.credentials().revoke(name, said, datetime),
+        { SAID: said }
+    );
 };
 
 /**
@@ -365,15 +440,11 @@ export const credentialsRevoke = async (name: string, said: string, datetime?: s
  * @returns JSON string of credential state
  */
 export const credentialsState = async (ri: string, said: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.credentials().state(ri, said);
-        console.debug('signifyClient: credentialsState - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: credentialsState error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'credentialsState',
+        () => _client!.credentials().state(ri, said),
+        { SAID: said }
+    );
 };
 
 /**
@@ -382,16 +453,14 @@ export const credentialsState = async (ri: string, said: string): Promise<string
  * @returns JSON string confirming deletion
  */
 export const credentialsDelete = async (said: string): Promise<string> => {
-    try {
-        validateClient();
-        await _client!.credentials().delete(said);
-        const result = { success: true, message: `Credential ${said} deleted successfully` };
-        console.debug('signifyClient: credentialsDelete - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: credentialsDelete error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'credentialsDelete',
+        async () => {
+            await _client!.credentials().delete(said);
+            return { success: true, message: `Credential ${said} deleted successfully` };
+        },
+        { SAID: said }
+    );
 };
 
 // ===================== Signed Headers =====================
@@ -448,375 +517,224 @@ export const getSignedHeaders = async (
 
 // ===================== IPEX Protocol Methods =====================
 
-export const ipexApply = async (argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as IpexApplyArgs;
-        const [exn, sigs, end] = await _client!.ipex().apply(args);
-        const result = { exn, sigs, end };
-        console.debug('signifyClient: ipexApply - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexApply error:', error);
-        throw error;
-    }
-};
+export const ipexApply = createIpexMethod<IpexApplyArgs>(
+    'Apply',
+    (args) => _client!.ipex().apply(args)
+);
 
-export const ipexOffer = async (argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as IpexOfferArgs;
-        const [exn, sigs, end] = await _client!.ipex().offer(args);
-        const result = { exn, sigs, end };
-        console.debug('signifyClient: ipexOffer - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexOffer error:', error);
-        throw error;
-    }
-};
+export const ipexOffer = createIpexMethod<IpexOfferArgs>(
+    'Offer',
+    (args) => _client!.ipex().offer(args)
+);
 
-export const ipexAgree = async (argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as IpexAgreeArgs;
-        const [exn, sigs, end] = await _client!.ipex().agree(args);
-        const result = { exn, sigs, end };
-        console.debug('signifyClient: ipexAgree - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexAgree error:', error);
-        throw error;
-    }
-};
+export const ipexAgree = createIpexMethod<IpexAgreeArgs>(
+    'Agree',
+    (args) => _client!.ipex().agree(args)
+);
 
-export const ipexGrant = async (argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as IpexGrantArgs;
-        const [exn, sigs, end] = await _client!.ipex().grant(args);
-        const result = { exn, sigs, end };
-        console.debug('signifyClient: ipexGrant - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexGrant error:', error);
-        throw error;
-    }
-};
+export const ipexGrant = createIpexMethod<IpexGrantArgs>(
+    'Grant',
+    (args) => _client!.ipex().grant(args)
+);
 
-export const ipexAdmit = async (argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as IpexAdmitArgs;
-        const [exn, sigs, end] = await _client!.ipex().admit(args);
-        const result = { exn, sigs, end };
-        console.debug('signifyClient: ipexAdmit - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexAdmit error:', error);
-        throw error;
-    }
-};
+export const ipexAdmit = createIpexMethod<IpexAdmitArgs>(
+    'Admit',
+    (args) => _client!.ipex().admit(args)
+);
 
-export const ipexSubmitApply = async (name: string, exnJson: string, sigsJson: string, recipientsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson) as Serder;
-        const sigs = JSON.parse(sigsJson) as string[];
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.ipex().submitApply(name, exn, sigs, recipients);
-        console.debug('signifyClient: ipexSubmitApply - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexSubmitApply error:', error);
-        throw error;
-    }
-};
+export const ipexSubmitApply = createIpexSubmitMethod(
+    'SubmitApply',
+    (name, exn, sigs, recipients) => _client!.ipex().submitApply(name, exn, sigs, recipients),
+    false
+);
 
-export const ipexSubmitOffer = async (name: string, exnJson: string, sigsJson: string, atc: string, recipientsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson) as Serder;
-        const sigs = JSON.parse(sigsJson) as string[];
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.ipex().submitOffer(name, exn, sigs, atc, recipients);
-        console.debug('signifyClient: ipexSubmitOffer - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexSubmitOffer error:', error);
-        throw error;
-    }
-};
+export const ipexSubmitOffer = createIpexSubmitMethod(
+    'SubmitOffer',
+    (name, exn, sigs, atc, recipients) => _client!.ipex().submitOffer(name, exn, sigs, atc, recipients),
+    true
+);
 
-export const ipexSubmitAgree = async (name: string, exnJson: string, sigsJson: string, recipientsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson) as Serder;
-        const sigs = JSON.parse(sigsJson) as string[];
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.ipex().submitAgree(name, exn, sigs, recipients);
-        console.debug('signifyClient: ipexSubmitAgree - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexSubmitAgree error:', error);
-        throw error;
-    }
-};
+export const ipexSubmitAgree = createIpexSubmitMethod(
+    'SubmitAgree',
+    (name, exn, sigs, recipients) => _client!.ipex().submitAgree(name, exn, sigs, recipients),
+    false
+);
 
-export const ipexSubmitGrant = async (name: string, exnJson: string, sigsJson: string, atc: string, recipientsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson) as Serder;
-        const sigs = JSON.parse(sigsJson) as string[];
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.ipex().submitGrant(name, exn, sigs, atc, recipients);
-        console.debug('signifyClient: ipexSubmitGrant - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexSubmitGrant error:', error);
-        throw error;
-    }
-};
+export const ipexSubmitGrant = createIpexSubmitMethod(
+    'SubmitGrant',
+    (name, exn, sigs, atc, recipients) => _client!.ipex().submitGrant(name, exn, sigs, atc, recipients),
+    true
+);
 
-export const ipexSubmitAdmit = async (name: string, exnJson: string, sigsJson: string, atc: string, recipientsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson) as Serder;
-        const sigs = JSON.parse(sigsJson) as string[];
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.ipex().submitAdmit(name, exn, sigs, atc, recipients);
-        console.debug('signifyClient: ipexSubmitAdmit - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: ipexSubmitAdmit error:', error);
-        throw error;
-    }
-};
+export const ipexSubmitAdmit = createIpexSubmitMethod(
+    'SubmitAdmit',
+    (name, exn, sigs, atc, recipients) => _client!.ipex().submitAdmit(name, exn, sigs, atc, recipients),
+    true
+);
 
 // ===================== OOBI Operations =====================
 
 export const oobiGet = async (name: string, role?: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.oobis().get(name, role);
-        console.debug('signifyClient: oobiGet - Name:', name, 'Role:', role);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: oobiGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'oobiGet',
+        () => _client!.oobis().get(name, role),
+        { Name: name, Role: role }
+    );
 };
 
 export const oobiResolve = async (oobi: string, alias?: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.oobis().resolve(oobi, alias);
-        console.debug('signifyClient: oobiResolve - Alias:', alias);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: oobiResolve error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'oobiResolve',
+        () => _client!.oobis().resolve(oobi, alias),
+        { Alias: alias }
+    );
 };
 
 // ===================== Operations Management =====================
 
 export const operationsGet = async <T = unknown>(name: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.operations().get<T>(name);
-        console.debug('signifyClient: operationsGet - Name:', name);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: operationsGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'operationsGet',
+        () => _client!.operations().get<T>(name),
+        { Name: name }
+    );
 };
 
 export const operationsList = async (type?: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.operations().list(type);
-        console.debug('signifyClient: operationsList - Type:', type);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: operationsList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'operationsList',
+        () => _client!.operations().list(type),
+        { Type: type }
+    );
 };
 
 export const operationsDelete = async (name: string): Promise<string> => {
-    try {
-        validateClient();
-        await _client!.operations().delete(name);
-        const result = { success: true, message: `Operation ${name} deleted successfully` };
-        console.debug('signifyClient: operationsDelete - Name:', name);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: operationsDelete error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'operationsDelete',
+        async () => {
+            await _client!.operations().delete(name);
+            return { success: true, message: `Operation ${name} deleted successfully` };
+        },
+        { Name: name }
+    );
 };
 
 export const operationsWait = async <T = unknown>(
     operationJson: string,
     optionsJson?: string
 ): Promise<string> => {
-    try {
-        validateClient();
-        const operation = JSON.parse(operationJson) as Operation<T>;
-        const options = optionsJson ? JSON.parse(optionsJson) : undefined;
-        const result = await _client!.operations().wait<T>(operation, options);
-        console.debug('signifyClient: operationsWait - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: operationsWait error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'operationsWait',
+        async () => {
+            const operation = JSON.parse(operationJson) as Operation<T>;
+            const options = optionsJson ? JSON.parse(optionsJson) : undefined;
+            return await _client!.operations().wait<T>(operation, options);
+        }
+    );
 };
 
 // ===================== Registry Management =====================
 
 export const registriesList = async (name: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.registries().list(name);
-        console.debug('signifyClient: registriesList - Name:', name);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: registriesList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'registriesList',
+        () => _client!.registries().list(name),
+        { Name: name }
+    );
 };
 
 export const registriesCreate = async (argsJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const args = JSON.parse(argsJson) as CreateRegistryArgs;
-        const result = await _client!.registries().create(args);
-        console.debug('signifyClient: registriesCreate - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: registriesCreate error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'registriesCreate',
+        async () => {
+            const args = JSON.parse(argsJson) as CreateRegistryArgs;
+            return await _client!.registries().create(args);
+        }
+    );
 };
 
 export const registriesRename = async (name: string, registryName: string, newName: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.registries().rename(name, registryName, newName);
-        console.debug('signifyClient: registriesRename - New name:', newName);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: registriesRename error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'registriesRename',
+        () => _client!.registries().rename(name, registryName, newName),
+        { 'New name': newName }
+    );
 };
 
 // ===================== Contact Management =====================
 
 export const contactsList = async (group?: string, filterField?: string, filterValue?: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.contacts().list(group, filterField, filterValue);
-        console.debug('signifyClient: contactsList - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: contactsList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'contactsList',
+        () => _client!.contacts().list(group, filterField, filterValue)
+    );
 };
 
 export const contactsGet = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.contacts().get(prefix);
-        console.debug('signifyClient: contactsGet - Prefix:', prefix);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: contactsGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'contactsGet',
+        () => _client!.contacts().get(prefix),
+        { Prefix: prefix }
+    );
 };
 
 export const contactsAdd = async (prefix: string, infoJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const info = JSON.parse(infoJson) as ContactInfo;
-        const result = await _client!.contacts().add(prefix, info);
-        console.debug('signifyClient: contactsAdd - Prefix:', prefix);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: contactsAdd error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'contactsAdd',
+        async () => {
+            const info = JSON.parse(infoJson) as ContactInfo;
+            return await _client!.contacts().add(prefix, info);
+        },
+        { Prefix: prefix }
+    );
 };
 
 export const contactsUpdate = async (prefix: string, infoJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const info = JSON.parse(infoJson) as ContactInfo;
-        const result = await _client!.contacts().update(prefix, info);
-        console.debug('signifyClient: contactsUpdate - Prefix:', prefix);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: contactsUpdate error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'contactsUpdate',
+        async () => {
+            const info = JSON.parse(infoJson) as ContactInfo;
+            return await _client!.contacts().update(prefix, info);
+        },
+        { Prefix: prefix }
+    );
 };
 
 export const contactsDelete = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        await _client!.contacts().delete(prefix);
-        const result = { success: true, message: `Contact ${prefix} deleted successfully` };
-        console.debug('signifyClient: contactsDelete - Prefix:', prefix);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: contactsDelete error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'contactsDelete',
+        async () => {
+            await _client!.contacts().delete(prefix);
+            return { success: true, message: `Contact ${prefix} deleted successfully` };
+        },
+        { Prefix: prefix }
+    );
 };
 
 // ===================== Schema Operations =====================
 
 export const schemasGet = async (said: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.schemas().get(said);
-        console.debug('signifyClient: schemasGet - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: schemasGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'schemasGet',
+        () => _client!.schemas().get(said),
+        { SAID: said }
+    );
 };
 
 export const schemasList = async (): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.schemas().list();
-        console.debug('signifyClient: schemasList - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: schemasList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'schemasList',
+        () => _client!.schemas().list()
+    );
 };
 
 // ===================== Notifications Operations =====================
 
 export const notificationsList = async (start?: number, end?: number): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.notifications().list(start, end);
-        console.debug('signifyClient: notificationsList - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: notificationsList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'notificationsList',
+        () => _client!.notifications().list(start, end)
+    );
 };
 
 export const notificationsMark = async (said: string): Promise<string> => {
@@ -832,16 +750,14 @@ export const notificationsMark = async (said: string): Promise<string> => {
 };
 
 export const notificationsDelete = async (said: string): Promise<string> => {
-    try {
-        validateClient();
-        await _client!.notifications().delete(said);
-        const result = { success: true, message: `Notification ${said} deleted successfully` };
-        console.debug('signifyClient: notificationsDelete - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: notificationsDelete error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'notificationsDelete',
+        async () => {
+            await _client!.notifications().delete(said);
+            return { success: true, message: `Notification ${said} deleted successfully` };
+        },
+        { SAID: said }
+    );
 };
 
 // ===================== Escrows Operations =====================
@@ -852,15 +768,11 @@ export const notificationsDelete = async (said: string): Promise<string> => {
  * @returns JSON string of replay messages
  */
 export const escrowsListReply = async (route?: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.escrows().listReply(route);
-        console.debug('signifyClient: escrowsListReply - Route:', route);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: escrowsListReply error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'escrowsListReply',
+        () => _client!.escrows().listReply(route),
+        { Route: route }
+    );
 };
 
 // ===================== Groups Operations =====================
@@ -871,15 +783,11 @@ export const escrowsListReply = async (route?: string): Promise<string> => {
  * @returns JSON string of the group request
  */
 export const groupsGetRequest = async (said: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.groups().getRequest(said);
-        console.debug('signifyClient: groupsGetRequest - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: groupsGetRequest error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'groupsGetRequest',
+        () => _client!.groups().getRequest(said),
+        { SAID: said }
+    );
 };
 
 /**
@@ -896,17 +804,15 @@ export const groupsSendRequest = async (
     sigsJson: string,
     atc: string
 ): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson);
-        const sigs = JSON.parse(sigsJson) as string[];
-        const result = await _client!.groups().sendRequest(name, exn, sigs, atc);
-        console.debug('signifyClient: groupsSendRequest - Name:', name);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: groupsSendRequest error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'groupsSendRequest',
+        async () => {
+            const exn = JSON.parse(exnJson);
+            const sigs = JSON.parse(sigsJson) as string[];
+            return await _client!.groups().sendRequest(name, exn, sigs, atc);
+        },
+        { Name: name }
+    );
 };
 
 /**
@@ -927,19 +833,17 @@ export const groupsJoin = async (
     smidsJson: string,
     rmidsJson: string
 ): Promise<string> => {
-    try {
-        validateClient();
-        const rot = JSON.parse(rotJson);
-        const sigs = JSON.parse(sigsJson);
-        const smids = JSON.parse(smidsJson) as string[];
-        const rmids = JSON.parse(rmidsJson) as string[];
-        const result = await _client!.groups().join(name, rot, sigs, gid, smids, rmids);
-        console.debug('signifyClient: groupsJoin - Name:', name, 'GID:', gid);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: groupsJoin error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'groupsJoin',
+        async () => {
+            const rot = JSON.parse(rotJson);
+            const sigs = JSON.parse(sigsJson);
+            const smids = JSON.parse(smidsJson) as string[];
+            const rmids = JSON.parse(rmidsJson) as string[];
+            return await _client!.groups().join(name, rot, sigs, gid, smids, rmids);
+        },
+        { Name: name, GID: gid }
+    );
 };
 
 // ===================== Exchanges Operations =====================
@@ -950,15 +854,11 @@ export const groupsJoin = async (
  * @returns JSON string of the exchange message
  */
 export const exchangesGet = async (said: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.exchanges().get(said);
-        console.debug('signifyClient: exchangesGet - SAID:', said);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: exchangesGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'exchangesGet',
+        () => _client!.exchanges().get(said),
+        { SAID: said }
+    );
 };
 
 /**
@@ -981,19 +881,17 @@ export const exchangesSend = async (
     embedsJson: string,
     recipientsJson: string
 ): Promise<string> => {
-    try {
-        validateClient();
-        const sender = JSON.parse(senderJson);
-        const payload = JSON.parse(payloadJson);
-        const embeds = JSON.parse(embedsJson);
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.exchanges().send(name, topic, sender, route, payload, embeds, recipients);
-        console.debug('signifyClient: exchangesSend - Name:', name, 'Topic:', topic);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: exchangesSend error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'exchangesSend',
+        async () => {
+            const sender = JSON.parse(senderJson);
+            const payload = JSON.parse(payloadJson);
+            const embeds = JSON.parse(embedsJson);
+            const recipients = JSON.parse(recipientsJson) as string[];
+            return await _client!.exchanges().send(name, topic, sender, route, payload, embeds, recipients);
+        },
+        { Name: name, Topic: topic }
+    );
 };
 
 /**
@@ -1014,18 +912,16 @@ export const exchangesSendFromEvents = async (
     atc: string,
     recipientsJson: string
 ): Promise<string> => {
-    try {
-        validateClient();
-        const exn = JSON.parse(exnJson) as Serder;
-        const sigs = JSON.parse(sigsJson) as string[];
-        const recipients = JSON.parse(recipientsJson) as string[];
-        const result = await _client!.exchanges().sendFromEvents(name, topic, exn, sigs, atc, recipients);
-        console.debug('signifyClient: exchangesSendFromEvents - Name:', name, 'Topic:', topic);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: exchangesSendFromEvents error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'exchangesSendFromEvents',
+        async () => {
+            const exn = JSON.parse(exnJson) as Serder;
+            const sigs = JSON.parse(sigsJson) as string[];
+            const recipients = JSON.parse(recipientsJson) as string[];
+            return await _client!.exchanges().sendFromEvents(name, topic, exn, sigs, atc, recipients);
+        },
+        { Name: name, Topic: topic }
+    );
 };
 
 // ===================== Delegations Operations =====================
@@ -1037,16 +933,14 @@ export const exchangesSendFromEvents = async (
  * @returns JSON string of approval result with operation
  */
 export const delegationsApprove = async (name: string, dataJson?: string): Promise<string> => {
-    try {
-        validateClient();
-        const data = dataJson ? JSON.parse(dataJson) : undefined;
-        const result = await _client!.delegations().approve(name, data);
-        console.debug('signifyClient: delegationsApprove - Name:', name);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: delegationsApprove error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'delegationsApprove',
+        async () => {
+            const data = dataJson ? JSON.parse(dataJson) : undefined;
+            return await _client!.delegations().approve(name, data);
+        },
+        { Name: name }
+    );
 };
 
 // ===================== KeyEvents Operations =====================
@@ -1057,15 +951,11 @@ export const delegationsApprove = async (name: string, dataJson?: string): Promi
  * @returns JSON string of key events
  */
 export const keyEventsGet = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.keyEvents().get(prefix);
-        console.debug('signifyClient: keyEventsGet - Prefix:', prefix);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: keyEventsGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'keyEventsGet',
+        () => _client!.keyEvents().get(prefix),
+        { Prefix: prefix }
+    );
 };
 
 // ===================== KeyStates Operations =====================
@@ -1076,15 +966,11 @@ export const keyEventsGet = async (prefix: string): Promise<string> => {
  * @returns JSON string of key state
  */
 export const keyStatesGet = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.keyStates().get(prefix);
-        console.debug('signifyClient: keyStatesGet - Prefix:', prefix);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: keyStatesGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'keyStatesGet',
+        () => _client!.keyStates().get(prefix),
+        { Prefix: prefix }
+    );
 };
 
 /**
@@ -1093,16 +979,13 @@ export const keyStatesGet = async (prefix: string): Promise<string> => {
  * @returns JSON string of key states
  */
 export const keyStatesList = async (prefixesJson: string): Promise<string> => {
-    try {
-        validateClient();
-        const prefixes = JSON.parse(prefixesJson) as string[];
-        const result = await _client!.keyStates().list(prefixes);
-        console.debug('signifyClient: keyStatesList - Count:', prefixes.length);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: keyStatesList error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'keyStatesList',
+        async () => {
+            const prefixes = JSON.parse(prefixesJson) as string[];
+            return await _client!.keyStates().list(prefixes);
+        }
+    );
 };
 
 /**
@@ -1113,16 +996,14 @@ export const keyStatesList = async (prefixesJson: string): Promise<string> => {
  * @returns JSON string of query operation
  */
 export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: string): Promise<string> => {
-    try {
-        validateClient();
-        const anchor = anchorJson ? JSON.parse(anchorJson) : undefined;
-        const result = await _client!.keyStates().query(prefix, sn, anchor);
-        console.debug('signifyClient: keyStatesQuery - Prefix:', prefix, 'SN:', sn);
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: keyStatesQuery error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'keyStatesQuery',
+        async () => {
+            const anchor = anchorJson ? JSON.parse(anchorJson) : undefined;
+            return await _client!.keyStates().query(prefix, sn, anchor);
+        },
+        { Prefix: prefix, SN: sn }
+    );
 };
 
 // ===================== Config Operations =====================
@@ -1132,15 +1013,10 @@ export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: s
  * @returns JSON string of agent config
  */
 export const configGet = async (): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.config().get();
-        console.debug('signifyClient: configGet - Success');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: configGet error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'configGet',
+        () => _client!.config().get()
+    );
 };
 
 // ===================== Challenges Operations =====================
@@ -1151,14 +1027,11 @@ export const configGet = async (): Promise<string> => {
  * TODO: Implement specific challenge methods when API is clarified
  */
 export const challengesPlaceholder = async (): Promise<string> => {
-    try {
-        validateClient();
-        // Challenges API methods need to be determined from signify-ts source
-        const result = { message: 'Challenges API - methods not yet defined in signify-ts types' };
-        console.debug('signifyClient: challengesPlaceholder - Not yet implemented');
-        return objectToJson(result);
-    } catch (error) {
-        console.error('signifyClient: challengesPlaceholder error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'challengesPlaceholder',
+        async () => {
+            // Challenges API methods need to be determined from signify-ts source
+            return { message: 'Challenges API - methods not yet defined in signify-ts types' };
+        }
+    );
 };
