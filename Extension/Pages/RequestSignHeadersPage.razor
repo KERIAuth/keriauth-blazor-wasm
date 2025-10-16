@@ -337,8 +337,7 @@
     //
     private async Task ApproveRequestHandler()
     {
-        // TODO P0 hardcoded prefix
-        var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, HeadersDict, "EDkH0LAH4yB9nGOmWbjU8UX_WQDbbivzjmYy8Vcs6ufs", true);
+        var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, HeadersDict, WebsiteConfiguredPrefix, true);
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
         if (Layout is not null)
         {
