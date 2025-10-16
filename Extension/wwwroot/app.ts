@@ -200,6 +200,56 @@ export async function beforeStart(
             }
         };
 
+        /**
+         * Updates the extension toolbar icon for a specific tab based on content script state.
+         * @param tabId The tab to update the icon for
+         * @param isActive true if content script is active, false to reset to default inactive icon
+         */
+        const updateIconForTab = async (tabId: number, isActive: boolean): Promise<void> => {
+            const iconPrefix = isActive ? "logo" : "logoB";
+
+            try {
+                await chrome.action.setIcon({
+                    path: {
+                        16: chrome.runtime.getURL(`images/${iconPrefix}016.png`),
+                        32: chrome.runtime.getURL(`images/${iconPrefix}032.png`),
+                        48: chrome.runtime.getURL(`images/${iconPrefix}048.png`),
+                        128: chrome.runtime.getURL(`images/${iconPrefix}128.png`)
+                    },
+                    tabId
+                });
+                console.log(`app.ts: Set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}`);
+            } catch (error) {
+                console.warn(`app.ts: Failed to set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}:`, error);
+            }
+        };
+
+        // ==================================================================================
+        // TAB EVENT LISTENERS FOR ICON UPDATES
+        // ==================================================================================
+
+        chrome.tabs.onActivated.addListener(async (activeInfo) => {
+            try {
+                const pingResponse = await chrome.tabs.sendMessage(activeInfo.tabId, { type: 'ping' });
+                await updateIconForTab(activeInfo.tabId, pingResponse?.ok === true);
+            } catch {
+                // No content script active
+                await updateIconForTab(activeInfo.tabId, false);
+            }
+        });
+
+        chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+            // Only check when page finishes loading
+            if (changeInfo.status === 'complete' && tab.url) {
+                try {
+                    const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+                    await updateIconForTab(tabId, pingResponse?.ok === true);
+                } catch {
+                    await updateIconForTab(tabId, false);
+                }
+            }
+        });
+
         // ==================================================================================
         // ACTION BUTTON CLICK HANDLER
         // ==================================================================================
@@ -300,11 +350,13 @@ export async function beforeStart(
                         if (pingResponse?.ok) {
                             // Scenario #4: Content script is active and responding - no action needed
                             console.log("app.ts: Content script is active and responding");
+                            await updateIconForTab(tab.id, true);
                             return;
                         }
                     } catch (error) {
                         // Scenario #5: Content script registered but not responding (stale)
                         console.warn("app.ts: Content script registered but not responding - may need reload");
+                        await updateIconForTab(tab.id, false);
                         await promptAndReloadTab(
                             tab.id,
                             'KERI Auth needs to refresh the connection with this page.\n\nReload to ensure proper functionality?',
@@ -352,6 +404,8 @@ export async function beforeStart(
                             throw error;
                         }
 
+                        await updateIconForTab(tab.id, true);
+
                         // Strongly recommend reload to clear any stale state
                         await promptAndReloadTab(
                             tab.id,
@@ -381,6 +435,8 @@ export async function beforeStart(
                         console.error("app.ts: One-shot injection failed.", oneShotResult);
                         return;
                     }
+
+                    await updateIconForTab(tab.id, true);
 
                     // 6) Register a persistent content script for this origin
                     // Note: May encounter race condition with onAdded listener (see comment below)
@@ -510,11 +566,13 @@ export async function beforeStart(
                             if (pingResponse?.ok) {
                                 // Scenario #9: Content script already active - no reload needed
                                 console.log(`app.ts: Content script already active in tab ${tab.id}`);
+                                await updateIconForTab(tab.id, true);
                                 continue;
                             }
                         } catch (error) {
                             // Scenario #7 or #8: No content script active - prompt user to reload
                             console.log(`app.ts: No content script in tab ${tab.id}, prompting for reload...`);
+                            await updateIconForTab(tab.id, false);
 
                             try {
                                 await promptAndReloadTab(
@@ -552,6 +610,8 @@ export async function beforeStart(
 
                     for (const tab of tabs) {
                         if (tab.id) {
+                            await updateIconForTab(tab.id, false);
+
                             // Inject a prompt to reload the page (content script needs to be removed)
                             try {
                                 await promptAndReloadTab(

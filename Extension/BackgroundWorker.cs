@@ -857,7 +857,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             switch (msg.Type) {
                 case CsBwMessageTypes.INIT:
                     // ContentScript is initializing - send READY response
-                    // TODO P2 send new ReadyMessage(); ?
                     break;
 
                 case CsBwMessageTypes.AUTHORIZE:
@@ -931,7 +930,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// App→BW message types (e.g., /KeriAuth/signify/replyCredential) are transformed to
     /// BW→CS message types (e.g., /signify/reply) to maintain separate contracts.
     /// </summary>
-        /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
+    /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
     /// <returns>Status response</returns>
     private async Task HandleAppMessageAsync(AppBwMessage<object> msg) {
         try {
