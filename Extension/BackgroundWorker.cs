@@ -1227,6 +1227,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("BW HandleSignData: {Message}", JsonSerializer.Serialize(msg));
 
+            // TODO P2 opportunity for DRY with various handlers for sanity checks for existance of sender.Tab.Id, sender.Url, computing originDomain, payloadJson non-null/empty, etc.
             if (sender?.Tab?.Id == null) {
                 _logger.LogError("BW HandleSignData: no tabId found");
                 return; // don't have tabId to send errorStr back
@@ -1310,6 +1311,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Sign the data using signify-ts
 
             // TODO P1 finish HandleSignDataAsync implementation
+            // TODO P2: user should be prompted to include payload.message from the requesting page
             _logger.LogWarning("BW HandleSignData: signing data not yet completely implemented");
             /*
             var signatureJson = await _signifyClientService.Sign....
