@@ -159,6 +159,42 @@
         }
     }
 
+// TODO P3 for stronger typing, consider using Fido2NetLib; and using Fido2NetLib.Objects;
+private void SetMostPermissive()
+    {
+        Persist(Prefs with { 
+            SelectedHints = new List<string> { },
+            ResidentKey = "preferred",
+            AuthenticatorAttachment = "all-supported",
+            UserVerification = "preferred",
+            AttestationConveyancePref = "none",
+            SelectedTransportOptions = new List<string> { "hybrid", "internal", "ble", "nfc", "usb" }
+            }).Wait(1000);        
+    }
+    private void SetForSecurityKey()
+    {
+        Persist(Prefs with { 
+            SelectedHints = new List<string> { "security-key" },
+            ResidentKey = "required",
+            AuthenticatorAttachment = "cross-platform",
+            UserVerification = "required",
+            AttestationConveyancePref = "direct",
+            SelectedTransportOptions = new List<string> { "usb" }
+            }).Wait(1000);
+    }
+    private void SetDefaultWebauthn()
+    {
+        Persist(Prefs with { 
+            SelectedHints = new List<string> { },
+            ResidentKey = AppConfig.DefaultResidentKey,
+            AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
+            UserVerification = AppConfig.DefaultUserVerification,
+            AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref,
+            // TODO P2 need to show checkboxes for transport options to make this useful
+            SelectedTransportOptions = AppConfig.DefaultAuthenticatorTransports
+            }).Wait(1000);
+    }
+
     private bool IsFirst(string hint) => SelectedHints.IndexOf(hint) == 0;
     private bool IsLast(string hint) => SelectedHints.IndexOf(hint) == SelectedHints.Count - 1;
 
@@ -250,7 +286,7 @@
             </MudStack>
 
             <!--
-                TODO P2 Add the following tooltips (?) to the appropriate settings:
+                TODO P3 Add the following tooltips (?) to the appropriate settings:
 
                 Resident Key (rk): Determines whether credentials should be discoverable without user-provided identifiers (true/false).
                 Attachment: Specifies how the authenticator should be attached to the device (e.g., cross-platform vs. platform).
@@ -267,6 +303,19 @@
                 <MudText Class="bt-pref-group-label0">
                     Webauthn Authenticator Requirements
                 </MudText>
+                <MudStack Row="false" Class="bt-pref-stack1">
+                <MudText>
+                    Presets
+
+                </MudText>
+
+<MudStack Row>
+<MudButton OnClick="SetDefaultWebauthn" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Default</MudButton>
+                <MudButton OnClick="SetMostPermissive" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Permissive</MudButton>
+                <MudButton OnClick="SetForSecurityKey" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">USB Security Key</MudButton>
+                
+</MudStack>
+</MudStack>
                 <MudStack Row="false" Class="bt-pref-stack1">
                     <MudText Class="bt-pref-group-label1">
                         Registration Settings
