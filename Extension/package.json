@@ -7,7 +7,7 @@
     "build:es6": "node ./node_modules/typescript/bin/tsc --project tsconfig.json",
     "build:app": "node ./node_modules/typescript/bin/tsc --project tsconfig.app.json",
     "bundle:esbuild": "node esbuild.config.js",
-    "build": "npm run build:es6 && npm run build:app && npm run bundle:esbuild",
+    "build": "npm run build:es6 && npm run bundle:esbuild && npm run build:app",
     "build:dev": "NODE_ENV=development npm run build",
     "build:prod": "NODE_ENV=production npm run build",
     "watch": "npm run watch:tsc & npm run watch:app & npm run watch:esbuild",

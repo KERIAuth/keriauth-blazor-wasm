@@ -190,10 +190,12 @@
     <ItemGroup>
       <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js" />
       <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js.map" />
+      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\**\*.js" />
+      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\**\*.js.map" />
     </ItemGroup>
 
-    <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild" SkipUnchangedFiles="false" />
+    <!-- Copy compiled scripts to the appropriate directory, preserving subdirectory structure -->
+    <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild\%(RecursiveDir)" SkipUnchangedFiles="false" />
   </Target>
 
   <Target Name="CopyTypesJavascript" AfterTargets="Build">

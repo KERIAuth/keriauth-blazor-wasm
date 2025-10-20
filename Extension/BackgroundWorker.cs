@@ -20,6 +20,8 @@ using WebExtensions.Net.Runtime;
 using BrowserAlarm = WebExtensions.Net.Alarms.Alarm;
 using BrowserTab = WebExtensions.Net.Tabs.Tab;
 using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
+using MenusContextType = WebExtensions.Net.Menus.ContextType;
+using MenusOnClickData = WebExtensions.Net.Menus.OnClickData;
 
 namespace Extension;
 
@@ -63,6 +65,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IStorageService _storageService;
     private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
+    private readonly IDemo1Binding _demo1Binding;
     private readonly WebExtensionsApi _webExtensionsApi;
 
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
@@ -84,6 +87,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
+        WebExtensions.ContextMenus.OnClicked.AddListener(OnContextMenuClickedAsync);
         // TODO P2 WebExtensions.WebNavigation.OnCompleted.AddListener(OnWebNavCompletedAsync);
         //   Parameters: details - Object with tabId, frameId, url, processId, timeStamp
         // TODO P2 WebExtensions.WebRequest.OnCompleted.AddListener(OnWebReqCompletedAsync);
@@ -103,10 +107,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IStorageService storageService,
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
-        IWebsiteConfigService websiteConfigService) {
+        IWebsiteConfigService websiteConfigService,
+        IDemo1Binding demo1Binding) {
         _logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
+        _demo1Binding = demo1Binding;
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageService = storageService;
         _signifyClientService = signifyService;
@@ -126,6 +132,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // TODO P3 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
             // await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
             _ = UninstallUrl;
+
+            await CreateContextMenuItemsAsync();
 
             _logger.LogInformation("Extension installed/updated: {Reason}", details.Reason);
 
@@ -147,6 +155,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             throw;
         }
     }
+
+
 
     // onStartup fires when Chrome launches with a profile (not incognito) that has the extension installed
     // Typical use: Re-initialize or restore state, reconnect services, refresh caches.
@@ -459,10 +469,88 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+
+
+    public async Task OnContextMenuClickedAsync(MenusOnClickData info, BrowserTab tab) {
+        try {
+            _logger.LogInformation("Context menu clicked: {MenuItemId}", info.MenuItemId);
+
+            switch (info.MenuItemId.Value) {
+                case "demo1":
+                    // Run demo1 via binding (module is statically imported in BackgroundWorker.js)
+                    _logger.LogInformation("Running demo1...");
+                    _logger.LogInformation("Invoking fullname: {asdf}", nameof(_demo1Binding.RunDemo1Async));
+                    await _demo1Binding.RunDemo1Async();
+                    _logger.LogInformation("demo1 completed successfully");
+                    break;
+                case "demo2":
+                    // Run demo2 via binding (module is statically imported in BackgroundWorker.js)
+                    _logger.LogInformation("Running demo2...");
+                    _logger.LogInformation("Invoking fullname: {asdf}", nameof(_demo1Binding.RunDemo2Async));
+                    await _demo1Binding.RunDemo2Async();
+                    _logger.LogInformation("demo2 completed successfully");
+                    break;
+                case "demo3":
+                    var dashboardUrl = _webExtensionsApi.Runtime.GetURL("DashboardPage.html");
+                    await WebExtensions.Tabs.Create(new WebExtensions.Net.Tabs.CreateProperties {
+                        Url = dashboardUrl
+                    });
+                    break;
+                default:
+                    _logger.LogWarning("Unknown menu item clicked: {MenuItemId}", info.MenuItemId);
+                    break;
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error handling context menu click");
+        }
+    }
+
+    private async Task CreateContextMenuItemsAsync() {
+        try {
+            _logger.LogInformation("Creating context menu items");
+
+            await WebExtensions.ContextMenus.RemoveAll();
+
+            WebExtensions.ContextMenus.Create(new() {
+                Id = "rootMenu",
+                Title = "KERIAuth Tools",
+                Contexts = [MenusContextType.Action]
+            });
+
+            WebExtensions.ContextMenus.Create(new() {
+                Id = "demo1",
+                ParentId = "rootMenu",
+                Title = "Demo1",
+                Contexts = [MenusContextType.Action]
+            });
+
+            WebExtensions.ContextMenus.Create(new() {
+                Id = "demo2",
+                ParentId = "rootMenu",
+                Title = "Demo2",
+                Contexts = [MenusContextType.Action]
+            });
+
+            WebExtensions.ContextMenus.Create(new() {
+                Id = "demo3",
+                ParentId = "rootMenu",
+                Title = "Demo3",
+                Contexts = [MenusContextType.Action]
+            });
+
+            _logger.LogInformation("Context menu items created");
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error creating context menu items");
+        }
+    }
+
+    //
+
     // onUpdated fires when the extension is already installed, but updated, which may occur automatically from Chrome and ChromeWebStore, without user intervention
     // This will be triggered by a Chrome Web Store push,
     // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
-
     private async Task HandleUpdateAsync(string previousVersion) {
         try {
             var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;

@@ -35,8 +35,9 @@ if (typeof self !== 'undefined' && self.crypto && !(self.crypto as any).randomBy
 
 // Static imports - work in both ServiceWorker and standard contexts
 // Import modules with names so they're registered in the module system
-// NOTE: signifyClient is NOT statically imported because it contains libsodium
-// which needs crypto APIs to be ready first
+// NOTE: signifyClient and demo1 are NOT statically imported here because:
+// - signifyClient: contains libsodium which needs crypto APIs ready first
+// - demo1: has TypeScript errors that would fail compilation (loaded via JsModuleLoader instead)
 import * as storageHelper from './scripts/es6/storageHelper.js';
 import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWithPRF.js';
 

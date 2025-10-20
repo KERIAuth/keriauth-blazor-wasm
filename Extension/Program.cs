@@ -44,6 +44,7 @@ builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
 // JavaScript module bindings
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
 builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
+builder.Services.AddSingleton<IDemo1Binding, Demo1Binding>();
 
 // Application services
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
@@ -57,14 +58,14 @@ var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("WASM host built");
 
-// JavaScript ES modules are loaded by app.ts beforeStart() hook before Blazor starts
-// The beforeStart hook runs separately in each runtime context (BackgroundWorker and App)
-// and loads the appropriate modules into the browser's module cache
-// Now we just need to "register" them with JsModuleLoader (instant from cache)
-logger.LogInformation("Registering JavaScript modules (pre-loaded by app.ts beforeStart)...");
+// Load JavaScript ES modules via JsModuleLoader
+// Some modules (storageHelper, webauthnCredentialWithPRF) are statically imported in app.ts
+// and cached by the browser before Blazor starts
+// Other modules (signifyClient) are lazy-loaded here to avoid libsodium initialization issues
+logger.LogInformation("Loading JavaScript modules via JsModuleLoader...");
 var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
 await moduleLoader.LoadAllModulesAsync();
-logger.LogInformation("All modules registered successfully");
+logger.LogInformation("All modules loaded successfully");
 
 logger.LogInformation("Running WASM Host...");
 
