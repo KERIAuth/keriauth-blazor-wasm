@@ -317,21 +317,21 @@ export const getAID = async (name: string): Promise<string> => {
  * @returns Name/alias of the identifier
  */
 export const getNameByPrefix = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        // TODO P2: Consider using getIdentifierByPrefix and extracting name from JSON in C#
-        // to avoid duplicate calls to _client.identifiers().get()
-        const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
-        if (!aid) {
-            throw new Error(`Identifier with prefix ${prefix} not found`);
-        }
-        const name = aid.name ? aid.name : '';
-        console.debug('signifyClient: getNameByPrefix - Prefix:', prefix, 'Name:', name);
-        return name;
-    } catch (error) {
-        console.error('signifyClient: getNameByPrefix error - Prefix:', prefix, error);
-        throw error;
-    }
+    // TODO P2: Consider using getIdentifierByPrefix and extracting name from JSON in C#
+    // to avoid duplicate calls to _client.identifiers().get()
+    const result = await withClientOperation(
+        'getNameByPrefix',
+        async () => {
+            const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
+            if (!aid) {
+                throw new Error(`Identifier with prefix ${prefix} not found`);
+            }
+            return aid.name ? aid.name : '';
+        },
+        { Prefix: prefix }
+    );
+    // Return the raw string, not JSON-encoded
+    return JSON.parse(result) as string;
 };
 
 /**
@@ -481,9 +481,9 @@ export const getSignedHeaders = async (
     headersDict: { [key: string]: string },
     aidName: string
 ): Promise<{ [key: string]: string }> => {
-    console.debug('signifyClient: getSignedHeaders - Origin:', origin, 'URL:', url, 'Method:', method, 'AID:', aidName);
-
     validateClient();
+
+    console.debug('signifyClient: getSignedHeaders - Origin:', origin, 'URL:', url, 'Method:', method, 'AID:', aidName);
 
     try {
         const requestInit: RequestInit = {
@@ -738,15 +738,10 @@ export const notificationsList = async (start?: number, end?: number): Promise<s
 };
 
 export const notificationsMark = async (said: string): Promise<string> => {
-    try {
-        validateClient();
-        const result = await _client!.notifications().mark(said);
-        console.debug('signifyClient: notificationsMark - SAID:', said);
-        return result; // Already a string
-    } catch (error) {
-        console.error('signifyClient: notificationsMark error:', error);
-        throw error;
-    }
+    validateClient();
+    const result = await _client!.notifications().mark(said);
+    console.debug('signifyClient: notificationsMark - SAID:', said);
+    return result; // Already a string
 };
 
 export const notificationsDelete = async (said: string): Promise<string> => {
