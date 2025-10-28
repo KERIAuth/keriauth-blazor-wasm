@@ -42,6 +42,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         PropertyNameCaseInsensitive = true
     };
 
+    private static bool isInitialized;
+
     // Cached JsonSerializerOptions for credential deserialization with increased depth
     // vLEI credentials can have deeply nested structures (edges, rules, chains, etc.)
     private static readonly JsonSerializerOptions CredentialJsonOptions = new() {
@@ -127,10 +129,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("OnInstalledAsync event handler called");
             _logger.LogInformation("Extension installed/updated event received");
-
-
-            // TODO P3 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
-            // await WebExtensions.Runtime.SetUninstallURL(UninstallUrl);
+            InitializeIfNeeded();
             _ = UninstallUrl;
 
             await CreateContextMenuItemsAsync();
@@ -139,10 +138,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             switch (details.Reason) {
                 case OnInstalledReason.Install:
-                    await HandleInstallAsync();
+                    await OnInstalledInstallAsync();
                     break;
                 case OnInstalledReason.Update:
-                    await HandleUpdateAsync(details.PreviousVersion ?? DefaultVersion);
+                    await OnInstalledUpdateAsync(details.PreviousVersion ?? DefaultVersion);
                     break;
                 case OnInstalledReason.BrowserUpdate:
                 default:
@@ -158,6 +157,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
 
+    [JSInvokable]
+    public void InitializeIfNeeded() {
+        if (isInitialized) {
+            _logger.LogInformation("BackgroundWorker already initialized, skipping");
+            return;
+        }
+        _logger.LogInformation("BackgroundWorker initializing...");
+        // TODO P0 Perform any necessary initialization tasks here
+        // e.g., load settings, initialize services, etc.
+
+        // reload javascript modules, such as signifyClient
+        // _jsModuleLoader.LoadAllModulesAsync().AsTask().Wait();
+
+        isInitialized = true;
+        _logger.LogInformation("BackgroundWorker initialization complete.");
+        return;
+    }
+
     // onStartup fires when Chrome launches with a profile (not incognito) that has the extension installed
     // Typical use: Re-initialize or restore state, reconnect services, refresh caches.
     // Parameters: none
@@ -166,6 +183,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             _logger.LogInformation("OnStartupAsync event handler called");
             _logger.LogInformation("Browser startup detected - reinitializing background worker");
+
+            InitializeIfNeeded();
 
             // TODO P2 Reinitialize inactivity timer?
             // TODO P2 add a lock icon to the extension icon
@@ -185,6 +204,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public async Task OnMessageAsync(object messageObj, WebExtensions.Net.Runtime.MessageSender sender) {
         try {
             _logger.LogInformation("OnMessageAsync event handler called");
+
+            InitializeIfNeeded();
 
             // SECURITY: Validate message origin to prevent subdomain attacks
             // Only messages from the extension itself or explicitly permitted origins are allowed
@@ -301,6 +322,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("OnAlarmAsync event handler called");
             _logger.LogInformation("LIFECYCLE: Background worker reactivated by alarm event at {Timestamp}", DateTime.UtcNow);
 
+            InitializeIfNeeded();
+
             if (alarm != null) {
                 _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarm.Name);
 
@@ -327,6 +350,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public async Task OnActionClickedAsync(BrowserTab tab) {
         try {
             _logger.LogInformation("OnActionClickedAsync event handler called");
+
+            InitializeIfNeeded();
 
             // Validate tab information
             if (tab is null || string.IsNullOrEmpty(tab.Url)) {
@@ -398,11 +423,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         return [];
     }
 
-    // onRemoved fires when a tab is closed
+    // Tabs.onRemoved fires when a tab is closed
     [JSInvokable]
     public async Task OnTabRemovedAsync(int tabId, RemoveInfo removeInfo) {
         try {
             _logger.LogInformation("OnTabRemovedAsync event handler called");
+
+            InitializeIfNeeded();
 
             _logger.LogInformation("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}",
                 tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
@@ -427,12 +454,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         await Task.Delay(0);
     }
 
-    // onSuspend event fires just before the background worker is unloaded (idle ~30s).
+    // Runtime.onSuspend event fires just before the background worker is unloaded (idle ~30s).
     // Typical use: Save in-memory state, cleanup, flush logs. ... quickly (though you get very little time).
     // Parameters: none
     [JSInvokable]
     public async Task OnSuspendAsync() {
         try {
+            InitializeIfNeeded();
             // TODO P2 needs implementation
             ;
         }
@@ -441,11 +469,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // OnSuspendCanceled event fires if a previously pending unload is canceled (e.g., because a new event kept the worker alive).
+    // Runtime.OnSuspendCanceled event fires if a previously pending unload is canceled (e.g., because a new event kept the worker alive).
     // Parameters: none
     [JSInvokable]
     public async Task OnSuspendCanceledAsync() {
         try {
+            InitializeIfNeeded();
             // TODO P2 needs implementation
             ;
         }
@@ -455,8 +484,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     // onInstall fires when the extension is installed
-    private async Task HandleInstallAsync() {
+    private async Task OnInstalledInstallAsync() {
         try {
+            InitializeIfNeeded();
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=install";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
@@ -474,6 +504,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public async Task OnContextMenuClickedAsync(MenusOnClickData info, BrowserTab tab) {
         try {
             _logger.LogInformation("Context menu clicked: {MenuItemId}", info.MenuItemId);
+            InitializeIfNeeded();
 
             switch (info.MenuItemId.Value) {
                 case "demo1":
@@ -551,10 +582,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onUpdated fires when the extension is already installed, but updated, which may occur automatically from Chrome and ChromeWebStore, without user intervention
     // This will be triggered by a Chrome Web Store push,
     // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
-    private async Task HandleUpdateAsync(string previousVersion) {
+    private async Task OnInstalledUpdateAsync(string previousVersion) {
         try {
             var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;
             _logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
+
+            InitializeIfNeeded();
 
             var updateDetails = new UpdateDetails {
                 Reason = OnInstalledReason.Update.ToString(),
@@ -1198,6 +1231,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}",
                 tabId, jsonOrigin);
 
+            // TODO P0: tmp bypass  UI prompt
+            /*
+            var requestDict = new Dictionary<string, string>
+            {
+                { "method", method },
+                { "url", rurl }
+            };
+            var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
+
+            await SignAndSendRequestHeaders(origin, tabId, new AppBwReplySignMessage(tabId, origin, msg.RequestId!, requestDict, getOrCreateWebsiteRes.Value.websiteConfig1.RememberedPrefixOrNothing!, true));
+
+            await Task.Delay(10000);
+            */
+            // continue with UI
             var encodedMsg = SerializeAndEncode(msg);
             await UseActionPopupAsync(tabId, [
                 new QueryParam("message", encodedMsg),
@@ -1216,8 +1263,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg) {
         try {
+            InitializeIfNeeded();
             // Check if connected to KERIA
-            var stateResult = await TryGetSignifyStateAsync();
+            /*
+            var stateResult = await TryGetSignifyClientAsync();
             if (stateResult.IsFailed) {
                 var connectResult = await TryConnectSignifyClientAsync();
                 if (connectResult.IsFailed) {
@@ -1226,6 +1275,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
                 }
             }
+            */
 
             var payload = msg.Payload;
             if (payload is null) {
@@ -1353,7 +1403,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             );
 
             // Check if connected to KERIA
-            var stateResult = await TryGetSignifyStateAsync();
+            InitializeIfNeeded();
+            /*
+            var stateResult = await TryGetSignifyClientAsync();
             if (stateResult.IsFailed) {
                 var connectResult = await TryConnectSignifyClientAsync();
                 if (connectResult.IsFailed) {
@@ -1362,6 +1414,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
                 }
             }
+            */
 
             // Get AID name for this origin (using website configuration)
             string? aidName = null;
@@ -1420,8 +1473,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             */
             return;
         }
-        catch {
-            ;
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error in HandleSignData");
+            var msg2 = "BW HandleSignData: exception occurred";
+            _logger.LogWarning("{m}", msg2);
+            if (sender?.Tab?.Id is not null) {
+                var tabId = sender.Tab.Id.Value;
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
+            }
+            return;
         }
     }
 
@@ -1482,7 +1542,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Check if connected to KERIA
-            var stateResult = await TryGetSignifyStateAsync();
+            InitializeIfNeeded();
+
+            /*
+            var stateResult = await TryGetSignifyClientAsync();
             if (stateResult.IsFailed) {
                 var connectResult = await TryConnectSignifyClientAsync();
                 if (connectResult.IsFailed) {
@@ -1491,6 +1554,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
                 }
             }
+            */
 
             // Get AID name for this origin (using website configuration)
             string? aidName = null;
@@ -1604,21 +1668,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleCreateDataAttestation");
-            return;
-        }
-    }
+            var msg2 = "BW HandleCreateDataAttestation: exception occurred";
+            _logger.LogWarning("{m}", msg2);
+            if (sender?.Tab?.Id is not null) {
+                var tabId = sender.Tab.Id.Value;
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
+            }
 
-    /// <summary>
-    /// Try to get the current SignifyClient state to check if it's connected
-    /// </summary>
-    private async Task<Result<State>> TryGetSignifyStateAsync() {
-        try {
-            var state = await _signifyClientService.GetState();
-            return state;
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "BW TryGetSignifyStateAsync: not connected");
-            return Result.Fail<State>("SignifyClient not connected");
+            return;
         }
     }
 

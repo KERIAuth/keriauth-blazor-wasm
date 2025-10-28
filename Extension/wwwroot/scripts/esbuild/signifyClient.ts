@@ -79,6 +79,18 @@ const objectToJson = (obj: object): string => JSON.stringify(obj);
 const validateClient = (): void => {
     if (!_client) {
         throw new Error('signifyClient: SignifyClient not connected');
+        /*
+        // if _client is expected to be connected but not (usually because backgroundWorker hybernated and restarted), then reconnect to KERIA)
+
+        // ready();
+        // TODO P0: temp
+        const agentUrl = "http://localhost:3901"; // TODO P1: Store and retrieve actual agentUrl and passcode securely"
+        const passcode = "D1zFlTuOGpECDQzOMO8vz";
+
+        connect(agentUrl, passcode).then((status) => {
+            console.log('signifyClient: validateClient - Reconnected to SignifyClient');
+        });
+        */
     }
 };
 
@@ -235,7 +247,8 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
     _client = null;
     await ready();
     console.debug('signifyClient: connect: creating client...');
-    _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
+    // TODO P2: Consider raising Tier for production use
+    _client = new SignifyClient(agentUrl, passcode, Tier.low, ''); 
 
     try {
         await _client.connect();

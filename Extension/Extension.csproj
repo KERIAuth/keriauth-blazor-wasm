@@ -81,6 +81,16 @@
     <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Static imports of 3rd party library files needed for BackgroundWorker. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker 
+  <ItemGroup>
+	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />
+	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/decode.js" />
+	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
+	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
+	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/demo1.js" />
+  </ItemGroup>
+  -->
+
   <!-- TypeScript and Non-Included Scripts -->
   <ItemGroup>
     <Compile Remove="bin\**" />
@@ -93,6 +103,9 @@
     <None Remove="dist\**" />
     <None Remove="wwwroot\scripts\**\*.d.ts" />
     <None Remove="wwwroot\scripts\**\*.ts" />
+    <!-- Exclude TypeScript source files from browser extension output -->
+    <Content Remove="wwwroot\scripts\**\*.ts" />
+    <Content Remove="wwwroot\app.ts" />
     <TypeScriptCompile Remove="bin\**" />
     <TypeScriptCompile Remove="dist\**" />
     <TypeScriptCompile Remove="node_modules\**" />
@@ -207,6 +220,15 @@
 
     <!-- Copy compiled scripts to the appropriate directory -->
     <Copy SourceFiles="@(CompiledTypesScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\types" SkipUnchangedFiles="false" ContinueOnError="true" />
+  </Target>
+
+  <Target Name="RemoveTypeScriptSourceFiles" AfterTargets="Build">
+    <!-- Remove TypeScript source files from browser extension output to prevent bare module import errors -->
+    <ItemGroup>
+      <TypeScriptFilesToRemove Include="$(OutputPath)\browserextension\**\*.ts" Exclude="$(OutputPath)\browserextension\**\*.d.ts" />
+    </ItemGroup>
+    <Delete Files="@(TypeScriptFilesToRemove)" />
+    <Message Importance="high" Text="Removed $(TypeScriptFilesToRemove->Count()) TypeScript source files from browser extension output" />
   </Target>
 
   <!-- Update manifest.json with build configuration and UTC timestamp for local builds -->

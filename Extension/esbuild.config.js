@@ -138,6 +138,26 @@ const builds = [
             })
         ]
     },
+    {
+        name: 'utils',
+        entryPoints: ['wwwroot/scripts/esbuild/utils.ts'],
+        outfile: 'dist/wwwroot/scripts/esbuild/utils.js',
+        platform: "browser",
+        format: 'esm',  // Keep ESM for module exports
+        bundle: true,   // Bundle all dependencies including signify-ts
+        define: {
+            'global': 'globalThis',
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+        },
+        banner: {
+            js: libsodiumPolyfillBanner
+        },
+        plugins: [
+            alias({
+                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
+            })
+        ]
+    },
 ];
 
 async function buildAll() {
