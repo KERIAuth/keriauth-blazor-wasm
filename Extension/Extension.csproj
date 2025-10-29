@@ -173,6 +173,31 @@
     <Exec Command="npm run build" ContinueOnError="true" />
   </Target>
 
+  <!-- Clean Tasks for TypeScript/JavaScript Extension Components -->
+  <Target Name="CleanTypeScriptOutputs" BeforeTargets="CoreClean">
+    <Message Importance="high" Text="Cleaning TypeScript build outputs..." />
+
+    <!-- Clean dist directory -->
+    <ItemGroup>
+      <DistFiles Include="dist\**\*" />
+    </ItemGroup>
+    <Delete Files="@(DistFiles)" ContinueOnError="true" />
+    <RemoveDir Directories="dist" ContinueOnError="true" />
+
+    <!-- Clean stale JavaScript files from wwwroot (except libsodium-polyfill.js which is hand-written) -->
+    <ItemGroup>
+      <StaleWwwrootJs Include="wwwroot\scripts\es6\*.js" Exclude="wwwroot\scripts\es6\libsodium-polyfill.js" />
+      <StaleWwwrootJs Include="wwwroot\scripts\es6\*.js.map" />
+      <StaleWwwrootJs Include="wwwroot\scripts\esbuild\*.js" />
+      <StaleWwwrootJs Include="wwwroot\scripts\esbuild\*.js.map" />
+      <StaleWwwrootJs Include="wwwroot\app.js" />
+      <StaleWwwrootJs Include="wwwroot\app.js.map" />
+    </ItemGroup>
+    <Delete Files="@(StaleWwwrootJs)" ContinueOnError="true" />
+
+    <Message Importance="high" Text="Cleaned TypeScript outputs: dist\ and stale wwwroot\ files" />
+  </Target>
+
   <!-- Target to detect environment and provide user guidance -->
   <Target Name="CheckEnvironment" BeforeTargets="InstallDependencies" Condition="'$(CI)' != 'true'">
     <PropertyGroup>

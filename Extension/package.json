@@ -17,7 +17,9 @@
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "lint": "node ./node_modules/eslint/bin/eslint.js wwwroot/scripts/**/*.ts wwwroot/app.ts",
     "lint:fix": "node ./node_modules/eslint/bin/eslint.js wwwroot/scripts/**/*.ts wwwroot/app.ts --fix",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "check": "node check-build-ready.js",
+    "prebuild": "npm run check"
   },
   "license": "Apache-2.0",
   "dependencies": {

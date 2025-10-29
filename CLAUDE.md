@@ -133,9 +133,17 @@ Primary development environment is Windows running WSL2. Commands work in both W
 ## Prerequisites
 
 - Node.js >= 22.13.0
-- npm >= 11.0.0  
+- npm >= 11.0.0
 - .NET 9.0 SDK
 - Chromium-based browser version 127+ (Chrome, Edge, or Brave)
+
+## Build System Documentation
+
+**For detailed build instructions and troubleshooting, see:**
+- **[QUICK_START.md](./QUICK_START.md)** - Fast onboarding for new developers
+- **[BUILD_GUIDE.md](./BUILD_GUIDE.md)** - Comprehensive build documentation for all environments
+
+The sections below provide quick reference for common commands.
 
 ## Build & Test Commands
 
