@@ -1231,8 +1231,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}",
                 tabId, jsonOrigin);
 
-            // TODO P0: tmp bypass  UI prompt
-            /*
+            
             var requestDict = new Dictionary<string, string>
             {
                 { "method", method },
@@ -1240,10 +1239,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             };
             var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
 
+            // TODO P0: temporarily auto-approve all sign requests for testing
             await SignAndSendRequestHeaders(origin, tabId, new AppBwReplySignMessage(tabId, origin, msg.RequestId!, requestDict, getOrCreateWebsiteRes.Value.websiteConfig1.RememberedPrefixOrNothing!, true));
 
+            // TODO P0: below is for popup UI flow
+            /*
             await Task.Delay(10000);
-            */
+            
             // continue with UI
             var encodedMsg = SerializeAndEncode(msg);
             await UseActionPopupAsync(tabId, [
@@ -1253,6 +1255,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture))
             ]);
             return;
+            */
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleRequestSignHeadersAsync");

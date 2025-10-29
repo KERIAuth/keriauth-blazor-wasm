@@ -154,7 +154,7 @@ export async function initializeAndConnectClient(
         await client.boot();
         console.log('Client boot process initiated with KERIA agent.');
 
-        await client.connect();
+        await client.connect(); // TODO P2 is connect needed after a boot?
         const clientState = await client.state();
 
         console.log('  Client AID Prefix: ', clientState?.controller?.state?.i);

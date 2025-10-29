@@ -76,21 +76,27 @@ let _client: SignifyClient | null = null;
 
 const objectToJson = (obj: object): string => JSON.stringify(obj);
 
-const validateClient = (): void => {
-    if (!_client) {
-        throw new Error('signifyClient: SignifyClient not connected');
-        /*
+const validateClient = async (): Promise<boolean> => {
+    if (!_client || !_client.agent) {
+        console.log(`signifyClient: validateClient - SignifyClient not connected`);
         // if _client is expected to be connected but not (usually because backgroundWorker hybernated and restarted), then reconnect to KERIA)
 
-        // ready();
+
         // TODO P0: temp
         const agentUrl = "http://localhost:3901"; // TODO P1: Store and retrieve actual agentUrl and passcode securely"
         const passcode = "D1zFlTuOGpECDQzOMO8vz";
 
-        connect(agentUrl, passcode).then((status) => {
-            console.log('signifyClient: validateClient - Reconnected to SignifyClient');
-        });
-        */
+        // TODO P1: wrap in try/catch
+        // TODO P0: don't log state
+        const status = await connect(agentUrl, passcode);
+        console.log(`signifyClient: validateClient - Reconnected to SignifyClient - status: ${status}`);
+        if (status === null) {
+            return false;
+        }
+        return true;
+    } else {
+        console.log(`signifyClient: validateClient: already connected`);
+        return true;
     }
 };
 
@@ -116,7 +122,7 @@ const withClientOperation = async (
     logParams?: Record<string, unknown>
 ): Promise<string> => {
     try {
-        validateClient();
+        let isValidated = await validateClient();
         const result = await operation();
 
         // Build log message
@@ -224,6 +230,7 @@ export const bootAndConnect = async (
             throw new Error('Boot operation failed');
         }
         console.debug('signifyClient: connecting...');
+        // TODO P1: if _bootedSignifyClient contains updated client info, use it and no need to connect again.
         await _client.connect();
     } catch (error) {
         console.error('signifyClient: client could not boot then connect', error);
@@ -244,12 +251,18 @@ export const bootAndConnect = async (
  * @returns JSON string representation of connection result
  */
 export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
+    console.debug('signifyClient: connect: recreating client...');
+    _client = null;
+    
+    console.debug('signifyClient: connect: recreating client...');
+    
+    // TODO P2: Consider raising Tier for production use
     _client = null;
     await ready();
-    console.debug('signifyClient: connect: creating client...');
-    // TODO P2: Consider raising Tier for production use
     _client = new SignifyClient(agentUrl, passcode, Tier.low, ''); 
-
+    console.debug('signifyClient: connect: created client...');
+    
+    console.debug('signifyClient: connect: ready to connect');
     try {
         await _client.connect();
         console.debug('signifyClient: client connected');
@@ -270,7 +283,7 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
  * @returns JSON string of ClientState
  */
 export const getState = async (): Promise<string> => {
-    validateClient();
+    let isValidated = await validateClient();
     const state = await _client!.state();
     console.debug('signifyClient: getState - Client AID:', state.controller.state.i);
     console.debug('signifyClient: getState - Agent AID:', state.agent.i);
@@ -494,8 +507,10 @@ export const getSignedHeaders = async (
     headersDict: { [key: string]: string },
     aidName: string
 ): Promise<{ [key: string]: string }> => {
-    validateClient();
-
+    let isValidated = await validateClient();
+    if (!isValidated) {
+        throw new Error('signifyClient: getSignedHeaders - SignifyClient not connected');
+    }
     console.debug('signifyClient: getSignedHeaders - Origin:', origin, 'URL:', url, 'Method:', method, 'AID:', aidName);
 
     try {
@@ -751,7 +766,7 @@ export const notificationsList = async (start?: number, end?: number): Promise<s
 };
 
 export const notificationsMark = async (said: string): Promise<string> => {
-    validateClient();
+    let isValidated = await validateClient();
     const result = await _client!.notifications().mark(said);
     console.debug('signifyClient: notificationsMark - SAID:', said);
     return result; // Already a string
@@ -761,6 +776,7 @@ export const notificationsDelete = async (said: string): Promise<string> => {
     return withClientOperation(
         'notificationsDelete',
         async () => {
+            let isValidated = await validateClient();
             await _client!.notifications().delete(said);
             return { success: true, message: `Notification ${said} deleted successfully` };
         },

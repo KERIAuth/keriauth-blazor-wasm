@@ -1,4 +1,4 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 using System.Runtime.Versioning;
 
 namespace Extension.Services.JsBindings;
@@ -104,12 +104,9 @@ public interface ISignifyClientBinding {
 }
 
 [SupportedOSPlatform("browser")]
-public class SignifyClientBinding : ISignifyClientBinding {
-    private readonly IJsModuleLoader _moduleLoader;
-
-    public SignifyClientBinding(IJsModuleLoader moduleLoader) {
-        _moduleLoader = moduleLoader;
-    }
+public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyClientBinding> logger) : ISignifyClientBinding {
+    private readonly IJsModuleLoader _moduleLoader = moduleLoader;
+    private readonly ILogger<SignifyClientBinding> _logger = logger;
 
     private IJSObjectReference Module => _moduleLoader.GetModule("signifyClient");
 
@@ -168,7 +165,9 @@ public class SignifyClientBinding : ISignifyClientBinding {
 
     public async ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidName, CancellationToken cancellationToken = default) {
         var headersDictObj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(headersDict);
+        _logger.LogDebug("GetSignedHeadersAsync: origin={Origin}, url={Url}, method={Method}, aidName={AidName}, headers={Headers}", origin, url, method, aidName, headersDict);
         var result = await Module.InvokeAsync<Dictionary<string, string>>("getSignedHeaders", cancellationToken, origin, url, method, headersDictObj, aidName);
+        _logger.LogDebug("GetSignedHeadersAsync result: {Result}", System.Text.Json.JsonSerializer.Serialize(result));
         return System.Text.Json.JsonSerializer.Serialize(result);
     }
 
