@@ -35,6 +35,9 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+        // TODO P0 tmp
+        var x = await signifyClientService.TestAsync();
+        logger.LogInformation($"TestAsync result: {x.Value}");
         var res = await signifyClientService.GetIdentifiers();
         if (res is not null && res.IsSuccess)
         {
