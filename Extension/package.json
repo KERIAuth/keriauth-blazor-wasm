@@ -17,7 +17,7 @@
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "lint": "node ./node_modules/eslint/bin/eslint.js wwwroot/scripts/**/*.ts wwwroot/app.ts",
     "lint:fix": "node ./node_modules/eslint/bin/eslint.js wwwroot/scripts/**/*.ts wwwroot/app.ts --fix",
-    "clean": "rm -rf dist/*",
+    "clean": "rm -rf dist/* wwwroot/scripts/es6/*.js wwwroot/scripts/es6/*.js.map wwwroot/scripts/esbuild/*.js wwwroot/scripts/esbuild/*.js.map wwwroot/app.js wwwroot/app.js.map",
     "check": "node check-build-ready.js"
   },
   "license": "Apache-2.0",
