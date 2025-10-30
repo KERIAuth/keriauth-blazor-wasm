@@ -16,12 +16,6 @@
           "WebExtensions.Net.Extensions.DependencyInjection": "4.4.0"
         }
       },
-      "Blazor.BrowserExtension.Build": {
-        "type": "Direct",
-        "requested": "[3.2.0, )",
-        "resolved": "3.2.0",
-        "contentHash": "oqKbXs+n/q62R4PYyU/nPQKwIe2mI1WlnJIFYX09oFoiEAr+iE1OfcEr3VyMUAOufsBCfPjfKdSpW7q6dnJy4Q=="
-      },
       "Castle.Core": {
         "type": "Direct",
         "requested": "[5.2.1, )",
@@ -268,9 +262,9 @@
       },
       "Microsoft.NET.Sdk.WebAssembly.Pack": {
         "type": "Direct",
-        "requested": "[9.0.10, )",
-        "resolved": "9.0.10",
-        "contentHash": "Ye7Zr/1d5cMeXyqv2uaEYrZjgRAcZKTXE/dJByxhicD7jLQSQcwmuBZzIXi+SY5sZbvKeH7nSTcVa7fOrJArfw=="
+        "requested": "[9.0.8, )",
+        "resolved": "9.0.8",
+        "contentHash": "+JJYRyS8YoLMzLquskLfdF8RFp2PhN5v+lGCGDLHsywj3JHfSV/Zqo8+T0Fl0Xvoc9Js8YkrAWTnm7M2/3CniA=="
       },
       "Moq": {
         "type": "Direct",
@@ -351,6 +345,11 @@
         "dependencies": {
           "JsBind.Net": "2.2.1"
         }
+      },
+      "Blazor.BrowserExtension.Build": {
+        "type": "Transitive",
+        "resolved": "3.2.0",
+        "contentHash": "oqKbXs+n/q62R4PYyU/nPQKwIe2mI1WlnJIFYX09oFoiEAr+iE1OfcEr3VyMUAOufsBCfPjfKdSpW7q6dnJy4Q=="
       },
       "Microsoft.AspNetCore.Components": {
         "type": "Transitive",

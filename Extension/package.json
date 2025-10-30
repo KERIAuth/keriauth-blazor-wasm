@@ -17,9 +17,8 @@
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "lint": "node ./node_modules/eslint/bin/eslint.js wwwroot/scripts/**/*.ts wwwroot/app.ts",
     "lint:fix": "node ./node_modules/eslint/bin/eslint.js wwwroot/scripts/**/*.ts wwwroot/app.ts --fix",
-    "clean": "rm -rf dist",
-    "check": "node check-build-ready.js",
-    "prebuild": "npm run check"
+    "clean": "rm -rf dist/*",
+    "check": "node check-build-ready.js"
   },
   "license": "Apache-2.0",
   "dependencies": {
@@ -28,14 +27,14 @@
     "buffer": "^6.0.3",
     "cbor2": "^1.7.1",
     "esbuild-plugin-alias": "^0.2.1",
-    "libsodium-wrappers-sumo": "^0.7.9",
+    "libsodium-wrappers-sumo": "^0.7.15",
+    "libsodium-sumo": "^0.7.15",
     "mathjs": "^12.4.0",
     "signify-polaris-web": "github:weboftrust/polaris-web#7d7dd13",
     "structured-headers": "^0.5.0",
     "urlsafe-base64": "^1.0.0"
   },
   "devDependencies": {
-    "@types/libsodium-wrappers-sumo": "^0.7.8",
     "@types/urlsafe-base64": "^1.0.28",
     "@typescript-eslint/eslint-plugin": "^8.21.0",
     "@typescript-eslint/parser": "^8.21.0",

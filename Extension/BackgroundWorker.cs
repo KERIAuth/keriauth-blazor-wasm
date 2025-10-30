@@ -128,6 +128,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public async Task OnInstalledAsync(OnInstalledEventCallbackDetails details) {
         try {
             _logger.LogInformation("OnInstalledAsync event handler called");
+
+            // TODO P0 temp test
+            var readyRes = await _signifyClientService.TestAsync();
+            if (readyRes.IsSuccess) {
+                _logger.LogWarning("SignifyClientService is ready during onInstalled {v}", readyRes.Value);
+            }
+            else {
+                _logger.LogWarning("SignifyClientService is NOT ready during onInstalled: {Errors}", string.Join("; ", readyRes.Errors.Select(e => e.Message)));
+            }
+
             _logger.LogInformation("Extension installed/updated event received");
             InitializeIfNeeded();
             _ = UninstallUrl;
@@ -156,7 +166,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
 
-
+    // Ensure initialization is performed only once
     [JSInvokable]
     public void InitializeIfNeeded() {
         if (isInitialized) {
@@ -1230,8 +1240,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var jsonOrigin = JsonSerializer.Serialize(origin);
             _logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}",
                 tabId, jsonOrigin);
-
-            
             var requestDict = new Dictionary<string, string>
             {
                 { "method", method },
@@ -1333,6 +1341,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Get generated signed headers from signify-ts
             var headersDictJson = JsonSerializer.Serialize(headersDict);
+
+            var readyRes = await _signifyClientService.Ready();
+            if (readyRes.IsFailed) {
+                _logger.LogWarning("BW HandleSignRequestAsync: Signify client not ready: {Error}", readyRes.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Signify client not ready: {readyRes.Errors[0].Message}"));
+                return;
+            }
+
             var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
                 originDomain,
                 rurl,

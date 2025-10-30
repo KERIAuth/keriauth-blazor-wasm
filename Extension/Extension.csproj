@@ -81,15 +81,14 @@
     <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- Static imports of 3rd party library files needed for BackgroundWorker. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker 
+  <!-- Static imports of 3rd party library files needed for BackgroundWorker. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker -->
   <ItemGroup>
-	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />
 	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/decode.js" />
-	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
-	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
+		  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
 	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/demo1.js" />
   </ItemGroup>
-  -->
+
 
   <!-- TypeScript and Non-Included Scripts -->
   <ItemGroup>
@@ -115,7 +114,6 @@
     <TypeScriptCompile Remove="wwwroot\scripts\types\types.ts" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Blazor.BrowserExtension.Build" Version="3.2.0" />
     <PackageReference Include="Castle.Core" Version="5.2.1" />
     <PackageReference Include="FluentResults" Version="4.0.0" />
     <PackageReference Include="JsBind.Net" Version="2.2.1" />
@@ -165,6 +163,12 @@
   <!-- Build Tasks for TypeScript/JavaScript Extension Components -->
   <!-- Skip during design-time builds and restore to prevent loops -->
   <!-- Also skip if Visual Studio or other processes might have files locked -->
+
+  <!-- Ensure dist directory exists before building -->
+  <Target Name="EnsureDistDirectory" BeforeTargets="InstallDependencies" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+    <MakeDir Directories="dist" Condition="!Exists('dist')" />
+  </Target>
+
   <Target Name="InstallDependencies" BeforeTargets="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
     <Exec Command="npm install" ContinueOnError="true" />
   </Target>
@@ -177,16 +181,16 @@
   <Target Name="CleanTypeScriptOutputs" BeforeTargets="CoreClean">
     <Message Importance="high" Text="Cleaning TypeScript build outputs..." />
 
-    <!-- Clean dist directory -->
+    <!-- Clean dist directory contents but keep the directory -->
     <ItemGroup>
       <DistFiles Include="dist\**\*" />
     </ItemGroup>
     <Delete Files="@(DistFiles)" ContinueOnError="true" />
-    <RemoveDir Directories="dist" ContinueOnError="true" />
+    <!-- Note: We keep the dist\ directory itself, only deleting contents -->
 
-    <!-- Clean stale JavaScript files from wwwroot (except libsodium-polyfill.js which is hand-written) -->
+    <!-- Clean stale JavaScript files from wwwroot (TypeScript source files are preserved) -->
     <ItemGroup>
-      <StaleWwwrootJs Include="wwwroot\scripts\es6\*.js" Exclude="wwwroot\scripts\es6\libsodium-polyfill.js" />
+      <StaleWwwrootJs Include="wwwroot\scripts\es6\*.js" />
       <StaleWwwrootJs Include="wwwroot\scripts\es6\*.js.map" />
       <StaleWwwrootJs Include="wwwroot\scripts\esbuild\*.js" />
       <StaleWwwrootJs Include="wwwroot\scripts\esbuild\*.js.map" />
@@ -253,7 +257,7 @@
       <TypeScriptFilesToRemove Include="$(OutputPath)\browserextension\**\*.ts" Exclude="$(OutputPath)\browserextension\**\*.d.ts" />
     </ItemGroup>
     <Delete Files="@(TypeScriptFilesToRemove)" />
-    <Message Importance="high" Text="Removed $(TypeScriptFilesToRemove->Count()) TypeScript source files from browser extension output" />
+    <Message Importance="high" Text="Removed $(TypeScriptFilesToRemove-&gt;Count()) TypeScript source files from browser extension output" />
   </Target>
 
   <!-- Update manifest.json with build configuration and UTC timestamp for local builds -->

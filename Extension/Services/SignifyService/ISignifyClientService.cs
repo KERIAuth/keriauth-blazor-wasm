@@ -7,6 +7,9 @@ using Notification = Extension.Services.SignifyService.Models.Notification;
 namespace Extension.Services.SignifyService {
     public interface ISignifyClientService {
         Task<Result> HealthCheck(Uri fullUrl);
+
+        Task<Result<string>> TestAsync();
+        Task<Result> Ready();
         Task<Result<State>> Connect(string url, string passcode, string? bootUrl = null, bool isBootForced = false, TimeSpan? timeout = null);
         Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null);
         Task<Result<RecursiveDictionary>> RenameAid(string currentName, string newName, TimeSpan? timeout = null);

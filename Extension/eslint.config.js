@@ -14,7 +14,7 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
-        project: './tsconfig.json',
+        project: ['./tsconfig.json', './tsconfig.esbuild.json'],
         tsconfigRootDir: import.meta.dirname,
       },
       globals: {
@@ -82,7 +82,7 @@ export default [
       'prefer-const': 'error',
       'prefer-template': 'warn',
       'prefer-arrow-callback': 'warn',
-      'arrow-body-style': ['warn', 'as-needed'],
+      'arrow-body-style': 'off',
       'object-shorthand': 'warn',
       'no-var': 'error',
       'eqeqeq': ['error', 'always'],

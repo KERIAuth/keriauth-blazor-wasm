@@ -63,8 +63,15 @@ logger.LogInformation("WASM host built");
 // and cached by the browser before Blazor starts
 // Other modules (signifyClient) are lazy-loaded here to avoid libsodium initialization issues
 logger.LogInformation("Loading JavaScript modules via JsModuleLoader...");
-var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
-await moduleLoader.LoadAllModulesAsync();
+try {
+    var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
+    await moduleLoader.LoadAllModulesAsync();
+}
+catch (Exception ex) {
+    logger.LogError(ex, "Failed to load JavaScript modules via JsModuleLoader");
+    throw;
+}
+
 logger.LogInformation("All modules loaded successfully");
 
 logger.LogInformation("Running WASM Host...");

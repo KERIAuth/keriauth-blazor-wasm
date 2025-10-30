@@ -15,6 +15,41 @@ namespace Extension.Services.SignifyService {
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
 
+        public async Task<Result<string>> TestAsync() {
+            logger.LogInformation("SignifyClientService: TestAsync called");
+            try {
+                var res = await _binding.TestAsync();
+                logger.LogInformation("SignifyClientService: TestAsync completed with result: {res}", res);
+                return Result.Ok(res);
+            }
+            catch (JSException e) {
+                logger.LogWarning("TestAsync: JSException: {e}", e);
+                return Result.Fail("SignifyClientService: TestAsync: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning("TestAsync: Exception: {e}", e);
+                return Result.Fail("SignifyClientService: TestAsync: Exception: " + e.Message);
+            }
+        }
+
+        public async Task<Result> Ready() {
+            logger.LogInformation("SignifyClientService: Ready called");
+            logger.LogInformation("SignifyClientService: _binding type: {bindingType}", _binding.GetType().ToString());
+            try {
+                await _binding.Ready();
+                logger.LogInformation("SignifyClientService: Ready completed");
+                return Result.Ok();
+            }
+            catch (JSException e) {
+                logger.LogWarning("Ready: JSException: {e}", e);
+                return Result.Fail("SignifyClientService: Ready: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning("Ready: Exception: {e}", e);
+                return Result.Fail("SignifyClientService: Ready: Exception: " + e.Message);
+            }
+        }
+
         public async Task<Result> HealthCheck(Uri fullUrl) {
             var httpClientService = new HttpClientService(new HttpClient());
             var postResult = await httpClientService.GetJsonAsync<string>(fullUrl.ToString());

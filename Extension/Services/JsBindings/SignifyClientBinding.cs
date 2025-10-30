@@ -9,6 +9,8 @@ namespace Extension.Services.JsBindings;
 /// </summary>
 public interface ISignifyClientBinding {
     // ===================== Connection & Initialization =====================
+    ValueTask<string> TestAsync();
+    ValueTask Ready();
     ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, CancellationToken cancellationToken = default);
     ValueTask<string> ConnectAsync(string agentUrl, string passcode, CancellationToken cancellationToken = default);
     ValueTask<string> GetStateAsync(CancellationToken cancellationToken = default);
@@ -112,6 +114,14 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     // ===================== Connection & Initialization =====================
 
+    public ValueTask<string> TestAsync() =>
+        Module.InvokeAsync<string>("test");
+
+    public ValueTask Ready() {
+        _logger.LogWarning("SignifyClientBinding: Ready called. Module type FullName={Module}", Module.GetType().FullName);
+        // TODO : consider awaiting this call?
+        return Module.InvokeVoidAsync("ready");
+    }
     public ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("bootAndConnect", cancellationToken, agentUrl, bootUrl, passcode);
 
