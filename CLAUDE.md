@@ -243,15 +243,23 @@ dotnet --version
 
 ### First Time Setup
 
+**Environment**: These commands work in WSL, Linux, macOS, or Git Bash on Windows.
+
 ```bash
 # 1. Clone and enter directory
 cd kbw
 
-# 2. Install dependencies
-cd Extension && npm install && cd ..
+# 2. Install dependencies and build TypeScript
+cd Extension
+npm install
+npm run build
+cd ..
 
-# 3. Build everything
-dotnet build -p:FullBuild=true
+# 3. Build and test
+dotnet build
+dotnet test
+
+# Extension package is now in: Extension/bin/Debug/net9.0/browserextension/
 ```
 
 ### Load Extension in Browser
@@ -266,37 +274,23 @@ After building from source code:
    - For development: `Extension/bin/Debug/net9.0/browserextension/`
    - For production: `Extension/bin/Release/net9.0/browserextension/`
 
-### Daily Development Workflow
+### Development Workflow Patterns
 
-#### Making TypeScript Changes
+**TypeScript-only changes**:
+- Use watch mode (`npm run watch` in Extension/) for automatic rebuilds
+- Alternative: Manual rebuild when needed
+- Always reload browser extension after changes
 
-```bash
-# Option 1: Watch mode (auto-rebuild)
-cd Extension && npm run watch
+**C#-only changes**:
+- Build with TypeScript skipped (faster for C# iteration)
+- Use dotnet watch for automatic rebuilds
+- Always reload browser extension after changes
 
-# Option 2: Manual rebuild
-cd Extension && npm run build
+**Mixed TypeScript + C# changes**:
+- Full rebuild required (both build systems)
+- Consider using watch mode for TypeScript in one terminal, manual C# builds in another
 
-# Then reload extension in browser (chrome://extensions)
-```
-
-#### Making C# Changes
-
-```bash
-# Quick build (C# only)
-dotnet build -p:Quick=true
-
-# Then reload extension in browser
-```
-
-#### Making Both TypeScript + C# Changes
-
-```bash
-# Full rebuild
-dotnet build -p:FullBuild=true
-
-# Then reload extension in browser
-```
+**Why reload required**: Browser caches extension files; must click reload button in chrome://extensions to see changes.
 
 ## Build System Architecture
 
@@ -332,20 +326,6 @@ The build system uses MSBuild properties to control behavior:
 - **`DesignTimeBuild=true`**: Auto-set by IDEs to skip npm during IntelliSense
 
 **Command discovery**: See `Extension/package.json` for npm scripts and `Extension/Extension.csproj` for MSBuild targets.
-
-### Development Workflow Patterns
-
-**TypeScript-focused work**:
-- Use `npm run watch` to auto-rebuild TypeScript
-- Rebuild C# only when testing integration
-- Browser must reload extension after each C# build
-
-**C#-focused work**:
-- Use `dotnet watch build` with SkipJavaScriptBuild=true
-- Only rebuild TypeScript when changing .ts files
-- Browser must reload extension after each build
-
-**Why browser reload required**: Browser caches extension files; clicking reload button forces refresh.
 
 ### Troubleshooting Commands
 
