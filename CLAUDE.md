@@ -727,15 +727,6 @@ public class PayloadData
 }
 ```
 
-### Testing Recommendations
-
-- Test with actual signify-ts output to ensure compatibility
-- Validate edge cases with empty/null nested objects
-- Use integration tests to verify end-to-end serialization
-- Create unit tests that detect breaking changes in signify-ts types
-- Mock JavaScript interop calls in unit tests using test doubles
-- Test timeout and cancellation scenarios for async operations
-
 ## Common Gotchas and Solutions
 
 ### Issue: Temptation to use eval() for complex JavaScript interop
@@ -819,31 +810,61 @@ When making changes, prioritize in this order:
 
 ## Testing Strategy
 
-### Test Frameworks and Tools
-- **Unit Tests**: xUnit with Moq for mocking dependencies
-- **Integration Tests**: Test signify-ts interop with actual output from KERIA
-- **Browser Testing**: Manual testing required for extension UI/UX flows
-- **Test Data**: Use local schema files in `Extension/Schemas/` for credential validation
+### Test Approach
 
-### Testing Commands (Strategy)
-- Run all tests: `dotnet test`
-- Run with coverage: `dotnet test --collect:"XPlat Code Coverage"`
-- Run specific test class: `dotnet test --filter "ClassName=TestClassName"`
-- Run specific test method: `dotnet test --filter "FullyQualifiedName=Extension.Tests.ClassName.MethodName"`
-- Run tests in watch mode: `dotnet watch test`
+**Unit Tests** (xUnit with Moq):
+- **Why**: Fast feedback, isolate component behavior
+- **Pattern**: Arrange-Act-Assert with descriptive test names
+- **Mocking**: Use Moq for JavaScript interop (`IJSRuntime`) to avoid browser dependencies
 
-### Key Test Areas
-- **SignifyService**: Mock JavaScript interop, test timeout/cancellation
-- **Message Handlers**: Validate message routing and security boundaries
-- **Storage Service**: Test chrome.storage API interactions
-- **Credential Schemas**: Validate against local vLEI schemas
-- **CESR/SAID Ordering**: Test preservation of field order in serialization
+**Integration Tests**:
+- **Why**: Verify signify-ts interop with actual KERIA output
+- **Critical**: Test with real signify-ts responses to catch type mismatches early
+- **Focus**: End-to-end flows that cross C#-JavaScript boundary
+
+**Manual Browser Testing**:
+- **Why required**: Extension UI/UX, service worker behavior, and chrome.* APIs cannot be fully automated
+- **When**: After significant changes to BackgroundWorker, ContentScript, or UI flows
+
+### What to Test (Priority Order)
+
+1. **CESR/SAID Ordering** (Critical):
+   - **Why**: Field order determines cryptographic hashes; reordering breaks signatures
+   - **How**: Verify `RecursiveDictionary` preserves insertion order through C# → JS boundary
+   - **Test data**: Use local vLEI schemas in `Extension/Schemas/`
+
+2. **JavaScript Interop** (High):
+   - **Why**: Type mismatches between C# and signify-ts cause runtime failures
+   - **What**: Mock `IJSRuntime` calls, test timeout/cancellation, verify RecursiveDictionary → JSObject conversion
+   - **Edge cases**: null/undefined, empty objects, deeply nested structures
+
+3. **Message Routing & Security Boundaries** (High):
+   - **Why**: Security constraints prevent sensitive data from reaching content script
+   - **What**: Validate message handlers respect 4-layer boundary system
+   - **Focus**: Ensure passcode never leaves BackgroundWorker context
+
+4. **Storage Service** (Medium):
+   - **Why**: chrome.storage (.local and .sync) is primary persistence mechanism
+   - **What**: Test serialization/deserialization, storage limits, concurrent access
+
+5. **Credential Schema Validation** (Medium):
+   - **Why**: Catch schema drift from vLEI spec updates
+   - **Test data**: Use local schema files, update when GLEIF releases new versions
+
+### Testing Anti-Patterns
+
+**Don't**:
+- Serialize credentials with System.Text.Json or Newtonsoft.Json (breaks CESR/SAID)
+- Mock BackgroundWorker service worker events (test actual chrome.* APIs or use integration tests)
+- Test browser caching behavior (document it instead)
+
+**Command reference**: See xUnit documentation for test filtering syntax.
 
 ## Browser Extension Configuration
 
 ### Manifest Configuration (manifest.json)
 - **Manifest Version**: V3 (required for Chrome Web Store)
-- **Compatibility**: Chrome, Edge, Brave (Chromium-based browsers 127+)
+- **Compatibility**: Chrome, Edge, Brave (Chromium-based browsers minimum version as in manifest.json)
 - **Permissions**:
   - Minimum required permissions declared
   - Host permissions requested at runtime when needed
@@ -926,88 +947,15 @@ Extension/
 └── node_modules/                  # npm dependencies
 ```
 
-### Testing After Build
+### Manual Testing Approach
 
-#### Manual Testing Checklist
+**After building**, test the extension in the browser:
+1. Load unpacked extension from build output directory
+2. Verify manifest loads (check for console errors)
+3. Test core functionality (create/unlock identifier, sign requests)
+4. Check service worker logs for runtime errors
 
-1. **Load Extension:**
-   ```
-   chrome://extensions
-   → Enable Developer Mode
-   → Load Unpacked
-   → Select: Extension/bin/Debug/net9.0/browserextension/
-   ```
-
-2. **Verify Build:**
-   - Check manifest.json has timestamp
-   - Open extension popup (should load UI)
-   - Check browser console for errors
-   - Open service worker DevTools
-
-3. **Test Functionality:**
-   - Create/unlock identifier
-   - Sign request from web page
-   - Check service worker logs
-
-#### Automated Testing
-
-```bash
-# Run all tests
-dotnet test
-
-# Run with coverage
-dotnet test --collect:"XPlat Code Coverage"
-
-# Run specific test class
-dotnet test --filter "ClassName=SignifyServiceTests"
-
-# Watch mode (auto-run on changes)
-dotnet watch test
-```
-
-### Build Verification Commands
-
-**Check Build Logs:**
-
-```bash
-# npm build
-cd Extension
-npm run build
-# Look for TypeScript errors or esbuild failures
-
-# dotnet build with verbose output
-dotnet build -p:FullBuild=true -v:detailed
-# Verbose output shows all targets
-```
-
-**Check File Timestamps:**
-
-```bash
-# Verify TypeScript output is fresh
-ls -lrt Extension/wwwroot/scripts/esbuild/
-
-# Verify final output is fresh
-ls -lrt Extension/bin/Debug/net9.0/browserextension/scripts/esbuild/
-
-# Verify BackgroundWorker.js includes your modules
-grep -c "signifyClient" Extension/bin/Debug/net9.0/browserextension/content/BackgroundWorker.js
-```
-
-**Common Verification Commands:**
-
-```bash
-# Is npm installed?
-npm --version  # Should be >= 11.0.0
-
-# Is .NET SDK installed?
-dotnet --version  # Should be 9.0.x
-
-# Are dependencies installed?
-cd Extension && npm list --depth=0
-
-# Are NuGet packages restored?
-dotnet list package
-```
+**Why manual testing matters**: Browser extension behavior (service worker lifecycle, chrome.* API interactions, UI rendering) cannot be fully replicated in automated tests.
 
 ## Dependency Management
 
