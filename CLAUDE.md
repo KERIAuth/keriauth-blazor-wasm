@@ -298,243 +298,54 @@ dotnet build -p:FullBuild=true
 # Then reload extension in browser
 ```
 
-## Build System Documentation
+## Build System Architecture
 
-This guide ensures reliable builds across different development environments: Claude Code, VS Code, and Visual Studio Community.
+### Why Two Separate Build Systems
 
-### Build Architecture
+The extension requires **two independent build systems** that must coordinate:
 
-The extension has **two separate build systems** that must work together:
+1. **TypeScript/JavaScript Build** (npm/esbuild)
+   - **Why separate**: signify-ts and dependencies must be bundled before C# build
+   - **Why esbuild**: Blazor.BrowserExtension BackgroundWorker.js generator scans for static assets at MSBuild time
+   - **Output**: `Extension/wwwroot/scripts/` (becomes StaticWebAssets)
 
-1. **TypeScript/JavaScript Build** (via npm/esbuild)
-   - Compiles TypeScript to JavaScript
-   - Bundles modules with dependencies
-   - Output: `Extension/wwwroot/scripts/`
+2. **C# Build** (dotnet/MSBuild)
+   - **Why after JavaScript**: Requires JavaScript files to already exist in wwwroot/
+   - **What it does**: Compiles Blazor WASM, packages JavaScript as StaticWebAssets, generates extension manifest
+   - **Output**: Final browser extension package
 
-2. **C# Build** (via dotnet)
-   - Compiles Blazor WebAssembly
-   - Includes JavaScript from `wwwroot/` as StaticWebAssets
-   - Output: `Extension/bin/Debug/net9.0/browserextension/`
-
-### Build Flow
+### Build Flow Sequencing
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ TypeScript Source Files                                 │
-│ wwwroot/scripts/esbuild/*.ts                           │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ npm run build                                           │
-│ ├── TypeScript compilation (tsc)                       │
-│ ├── esbuild bundling (with signify-ts)                 │
-│ └── Output: Extension/wwwroot/scripts/                 │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ dotnet build                                            │
-│ ├── Compile C# Blazor WASM                             │
-│ ├── Include JS from wwwroot/ as StaticWebAssets        │
-│ ├── Package as browser extension                       │
-│ └── Output: bin/Debug/net9.0/browserextension/        │
-└─────────────────────────────────────────────────────────┘
+TypeScript sources → npm build → JS in wwwroot/ → dotnet build → Extension package
 ```
 
-## Build & Test Commands
+**Critical timing issue**: The BackgroundWorker.js generator runs during `StaticWebAssetsPrepareForRun`, which happens BEFORE the MSBuild `BuildExtensionScripts` target. This is why JavaScript must exist before C# build starts.
 
-### Quick Reference
+### Build Properties and Flags
 
-| Task | Command |
-|------|---------|
-| **Full build** | `dotnet build -p:FullBuild=true` |
-| **Quick build (C# only)** | `dotnet build -p:Quick=true` |
-| **Clean build** | `dotnet clean && dotnet build -p:FullBuild=true` |
-| **Watch TypeScript** | `cd Extension && npm run watch` |
-| **Run tests** | `dotnet test` |
-| **Format code** | `dotnet format` |
-| **Lint TypeScript** | `cd Extension && npm run lint` |
+The build system uses MSBuild properties to control behavior:
 
-### Standard Build Commands
+- **`BuildingProject=true`**: Triggers TypeScript build before C# compilation
+- **`SkipJavaScriptBuild=true`**: Skips TypeScript (faster for C#-only changes)
+- **`Configuration=Release`**: Production optimizations
+- **`DesignTimeBuild=true`**: Auto-set by IDEs to skip npm during IntelliSense
 
-**Canonical Build Commands (all environments):**
-- **Full build (recommended)**: `dotnet build /p:BuildingProject=true`
-- **Release build**: `dotnet build --configuration Release /p:BuildingProject=true`
-- **Debug build**: `dotnet build --configuration Debug /p:BuildingProject=true`
-- **Skip npm build**: `dotnet build /p:SkipJavaScriptBuild=true`
-- **Clean and build**: `dotnet clean && dotnet build /p:BuildingProject=true`
+**Command discovery**: See `Extension/package.json` for npm scripts and `Extension/Extension.csproj` for MSBuild targets.
 
-**Build Shortcuts (easier to type):**
-- **Full build**: `dotnet build -p:FullBuild=true`
-- **Quick build (skip npm)**: `dotnet build -p:Quick=true`
-- **Production build**: `dotnet build -p:Production=true` (Release + Full)
-- **Standard build**: `dotnet build` (C# only, no TypeScript)
+### Development Workflow Patterns
 
-**Legacy/Alternative Commands:**
-- **Build solution**: `dotnet build Extension.sln`
-- **Build C# only**: `dotnet build`
-- **Manual frontend build**: `cd Extension && npm install && npm run build`
+**TypeScript-focused work**:
+- Use `npm run watch` to auto-rebuild TypeScript
+- Rebuild C# only when testing integration
+- Browser must reload extension after each C# build
 
-### Frontend Build Commands (TypeScript/JavaScript)
-Must be run from the `Extension/` directory:
-- **Install dependencies**: `npm install`
-- **Full frontend build**: `npm run build` (runs both ES6 and esbuild)
-- **ES6 TypeScript only**: `npm run build:es6`
-- **Bundle with esbuild only**: `npm run bundle:esbuild`
-- **Development build**: `npm run build:dev`
-- **Production build**: `npm run build:prod`
-- **Watch mode (concurrent)**: `npm run watch`
-- **Watch TypeScript only**: `npm run watch:tsc`
-- **Watch esbuild only**: `npm run watch:esbuild`
-- **Type checking (no emit)**: `npm run typecheck`
-- **Clean build artifacts**: `npm run clean`
+**C#-focused work**:
+- Use `dotnet watch build` with SkipJavaScriptBuild=true
+- Only rebuild TypeScript when changing .ts files
+- Browser must reload extension after each build
 
-### Linting & Code Quality Commands
-
-#### TypeScript Linting
-From `Extension/` directory:
-- **Run ESLint**: `npm run lint`
-- **Fix ESLint issues**: `npm run lint:fix`
-- **Type check only**: `npm run typecheck`
-
-#### C# Code Quality
-- **Format code**: `dotnet format`
-- **Analyze code**: `dotnet build /p:RunAnalyzers=true`
-- **Check format**: `dotnet format --verify-no-changes`
-- **Style violations**: `dotnet build /p:EnforceCodeStyleInBuild=true`
-
-### Testing Commands
-
-#### xUnit Tests (.NET)
-- **Run all tests**: `dotnet test`
-- **Run with detailed output**: `dotnet test --logger "console;verbosity=detailed"`
-- **Run single test**: `dotnet test --filter "FullyQualifiedName=Extension.Tests.<TestClassName>.<TestMethodName>"`
-- **Run test class**: `dotnet test --filter "ClassName=<TestClassName>"`
-- **Run with coverage**: `dotnet test --collect:"XPlat Code Coverage"`
-- **Coverage with report**: `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults`
-- **Watch mode**: `dotnet watch test`
-- **Run in parallel**: `dotnet test --parallel`
-- **No build**: `dotnet test --no-build`
-
-#### Test Examples
-```bash
-# Run a specific test method
-dotnet test --filter "FullyQualifiedName=Extension.Tests.Services.StorageServiceTests.TestMethod"
-
-# Run all tests in a namespace
-dotnet test --filter "FullyQualifiedName~Extension.Tests.Services"
-
-# Run tests matching a pattern
-dotnet test --filter "DisplayName~Should"
-```
-
-### Order of Operations
-For full build from clean state:
-1. `cd Extension` (if not already in Extension directory)
-2. `npm install` (first time or when package.json changes)
-3. `npm run build` (builds TypeScript to JavaScript)
-4. `cd ..` (back to solution root)
-5. `dotnet build` (builds C# and packages extension)
-
-### Development Workflow Recommendations
-
-#### For TypeScript-Heavy Work
-
-```bash
-# Terminal 1: Auto-rebuild TypeScript
-cd Extension && npm run watch
-
-# Terminal 2: Manual C# builds as needed
-dotnet build -p:Quick=true
-
-# After changes: Reload extension in browser
-```
-
-#### For C#-Heavy Work
-
-```bash
-# Terminal 1: Watch C# changes
-dotnet watch build -p:Quick=true
-
-# Occasionally rebuild TypeScript if needed
-cd Extension && npm run build && cd ..
-```
-
-#### For Full-Stack Work
-
-```bash
-# Build both on every change
-dotnet build -p:FullBuild=true
-
-# Or use watch mode for TypeScript only
-cd Extension && npm run watch
-# And rebuild C# manually
-```
-
-#### For Extension Development with Live Reloading
-
-```bash
-# Terminal 1: Watch TypeScript changes
-cd Extension && npm run watch
-
-# Terminal 2: Watch C# changes
-dotnet watch build -p:Quick=true
-```
-
-### Development Commands
-- **Install extension in browser**: Build, then load unpacked from `Extension/bin/Release/net9.0/browserextension` or `Extension/bin/Debug/net9.0/browserextension`
-- **Watch all**: `cd Extension && npm run watch` (in one terminal) + `dotnet watch build` (in another)
-- **View browser extension logs**: Open browser DevTools (F12) → Console → Filter by extension
-- **View service worker logs**: Go to `chrome://extensions` → Find "KERI Auth" extension → Click "service worker" link
-- **Debug Blazor WASM**: Set `builder.Logging.SetMinimumLevel(LogLevel.Debug)` in Program.cs
-- **Clear extension storage**: `chrome.storage.local.clear()` in browser console
-- **Reload extension**: chrome://extensions → Click reload button on extension card (circular arrow) - NOT just refreshing the extension popup!
-- **Check manifest**: Validate at `Extension/bin/Release/net9.0/browserextension/manifest.json`
-
-### CI/CD and Production Builds
-
-#### CI/CD Build (GitHub Actions)
-
-```bash
-cd Extension
-npm ci  # Clean install (faster, reproducible)
-npm run build:prod
-cd ..
-dotnet restore
-dotnet build --configuration Release -p:FullBuild=true
-dotnet test --no-build
-
-# Run all checks
-cd Extension && npm run typecheck && npm run lint && cd ..
-dotnet format --verify-no-changes
-
-# Package for distribution
-dotnet publish -c Release
-```
-
-#### Cross-Platform Considerations
-
-**Windows (PowerShell/CMD):**
-
-```powershell
-# Use PowerShell or CMD
-dotnet build -p:FullBuild=true
-```
-
-**WSL/Linux:**
-
-```bash
-# Standard Unix commands work
-dotnet build -p:FullBuild=true
-```
-
-**macOS:**
-
-```bash
-# Same as Linux
-dotnet build -p:FullBuild=true
-```
+**Why browser reload required**: Browser caches extension files; clicking reload button forces refresh.
 
 ### Troubleshooting Commands
 
