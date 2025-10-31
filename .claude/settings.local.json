@@ -1,8 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rm:*)",
-      "Bash(mv:*)",
       "Bash(find:*)",
       "Bash(sed:*)",
       "WebFetch(domain:github.com)",
@@ -33,7 +31,6 @@
       "Bash(if [ -f wwwroot/scripts/es6/signifyClient.ts ])",
       "Bash(then mv wwwroot/scripts/es6/signifyClient.ts wwwroot/scripts/esbuild/signifyClient.ts)",
       "Bash(else echo \"File already moved or doesn''t exist\")",
-      "Bash(fi)",
       "Bash(awk:*)",
       "Bash(git checkout:*)"
     ],
