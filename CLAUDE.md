@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 This is a KERI Auth browser extension built with:
-- Blazor WebAssembly (.NET 9.0) for the extension UI
-- TypeScript for content scripts and service worker
+- Blazor WebAssembly (.NET 9.0) for the extension UI and BackgroundWorker (aka service worker)
+- TypeScript for content scripts and some service worker dependencies
 - MudBlazor for UI components
 - signify-ts for KERI/ACDC operations
 - polaris-web for web page communication protocol
@@ -22,7 +22,7 @@ Key project layout:
 - `Extension/Schemas/` - vLEI credential schema definitions (local copies)
 
 The extension follows a multi-component architecture:
-1. **Service Worker** - Background script handling extension lifecycle and message routing
+1. **Service Worker** - BackgroundWorker for handling extension lifecycle and message routing
 2. **Content Script** - Injected into web pages, bridges page and extension communication
 3. **Blazor WASM App** - UI layer for extension popup and tabs
 4. **SignifyService** - Manages KERI/ACDC operations via signify-ts JavaScript interop
@@ -361,7 +361,7 @@ The build system uses MSBuild properties to control behavior:
 - 2-space indentation (common TypeScript convention)
 - Use `const` for immutable values, `let` for mutable ones, avoid `var`
 - Prefer arrow functions for callbacks and short functions
-- Use async/await over promise chains
+- Use async/await over promise chains. However, note there may be some intentional promise chains in the code to avoid known race conditions or where the user-context must be maintained, such as responding to Action OnClick.
 - Export types/interfaces alongside implementations
 - File naming: camelCase for .ts files (e.g., contentScript.ts)
 - Use ES6+ features (template literals, destructuring, spread operator)
@@ -456,14 +456,16 @@ interface ExtensionMessage {
 
 ## Use of KERI, ACDC, and CESR via signify-ts
 
-- For understanding of the terms KERI, ACDC, OOBI, and IPEX, see the following resource: <https://github.com/GLEIF-IT/vlei-trainings/blob/main/markdown/llm_context.md>
+- For understanding of the terms KERI, ACDC, OOBI, and IPEX, see the following resources:
+  - <https://github.com/GLEIF-IT/vlei-trainings/blob/main/markdown/llm_context.md>
+  - 
 - CESR (Compact Event Streaming Representation): Self-describing binary encoding format used throughout KERI/ACDC for cryptographic primitives and data structures. Key point: preserves field ordering for deterministic serialization
 - Interaction patterns for those protocols, including key management, ACDC (i.e., a credential or attestation) interactions between the roles of Issuer, Holder, and Verifier:
   - Issuer creates credential
   - Issuer issues credential to Holder
   - Holder receives credential from Issuer
   - Holder presents credential to Verifier
-  - Verifier verifies credential from Holder
+  - Verifier verifies credential from Holder (cryptographically based on holder's KEL and presentation signature; and validates a credential based on issuer's then-current keys, provenance of crednetials and their potential revocation)
 
 ### CRITICAL: Credential Handling and CESR/SAID Ordering
 
@@ -710,7 +712,7 @@ public class PayloadData
 **Solution**: Always use nullable types in C# DTOs and implement null-conditional operators (`?.`) in service layer
 
 ### Issue: Browser extension manifest version conflicts
-**Solution**: Target Manifest V3 for Chrome/Edge, check Firefox compatibility separately
+**Solution**: Target Manifest V3 for Chrome/Edge
 
 ### Issue: Background worker state persistence across service worker lifecycle
 **Problem**: Manifest V3 service workers can become inactive and restart, losing in-memory state stored in instance fields.
@@ -735,7 +737,7 @@ var hasActiveConnection = _pageCsConnections.Values.Any(conn => conn.TabId == ta
 The extension enforces strict security boundaries by design:
 
 - **Passcode Caching**: Maximum 5 minutes of inactivity before automatic clearing
-- **Content Script Messages**: Only accepted from active tab during/after authentication or after a signing association exists
+- **Content Script-initiated Messages**: Only accepted from active tab during/after authentication or after a signing association exists
 - **HTTP Header Signing**:
   - Safe methods (GET) auto-approved
   - Unsafe methods (POST, PUT, DELETE) require explicit user consent
@@ -753,7 +755,7 @@ The extension enforces strict security boundaries by design:
 - **Data Isolation**: Sensitive data (passcode, private keys) must never reach content script or web page
 - **Storage**: Use chrome.storage.local for non-sensitive data only
 - **Permissions**: Declare minimum required and optional permissions in the extension's manifest
-- **KERIA Communication**: All agent communications via authenticated signify-ts
+- **KERIA Communication**: All KERIA agent communications via authenticated signify-ts
 
 ### Design Security Principles
 
@@ -840,10 +842,13 @@ When making changes, prioritize in this order:
   - Trusted sources explicitly listed
 
 ### Extension Components
-- **Background Worker**: `scripts/esbuild/BackgroundWorker.js` (persistent background script)
+- **Background Worker**: BackgroundWorker.cs and supporting JS interop
 - **Content Script**: Injected on-demand, not automatically
-- **Action Popup**: Blazor WASM UI in popup window
-- **Options Page**: Full tab for extended configuration
+- **Blazor WASM UI**:
+  - **Action Popup**: Primarily for tab-specific interactions, but may include general features such as Unlock
+  - **Options Page**: Full tab for general features only
+  - **Extension Tab**: Full tab for general features only
+  - **SidePanel**: (future) Tab-specific interactions or general features
 
 ### Build Output Structure
 
@@ -942,16 +947,6 @@ This project supports both Windows and WSL environments, but file locks and path
 - Windows Explorer is browsing the project directory during WSL builds
 - WSL processes are accessing files during Windows builds
 - NuGet package paths become mixed between Windows (`C:\Users\...`) and WSL (`/home/...`) formats
-
-### File Lock Detection
-
-The build system includes automatic detection and user guidance:
-
-```xml
-<Target Name="CheckFileLocks" BeforeTargets="InstallDependencies">
-  <!-- Detects WSL vs Windows environment and provides guidance -->
-</Target>
-```
 
 ### Troubleshooting Build Issues
 
