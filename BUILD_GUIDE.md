@@ -37,11 +37,11 @@ The extension has **two separate build systems** that must work together:
 1. **TypeScript/JavaScript Build** (via npm/esbuild)
    - Compiles TypeScript to JavaScript
    - Bundles modules with dependencies
-   - Output: `Extension/dist/wwwroot/scripts/`
+   - Output: `Extension/wwwroot/scripts/`
 
 2. **C# Build** (via dotnet)
    - Compiles Blazor WebAssembly
-   - Copies JavaScript from `dist/` to final output
+   - Includes JavaScript from `wwwroot/` as StaticWebAssets
    - Output: `Extension/bin/Debug/net9.0/browserextension/`
 
 ### Build Flow Diagram
@@ -57,14 +57,14 @@ The extension has **two separate build systems** that must work together:
 │ npm run build                                           │
 │ ├── TypeScript compilation (tsc)                       │
 │ ├── esbuild bundling (with signify-ts)                 │
-│ └── Output: Extension/dist/wwwroot/scripts/            │
+│ └── Output: Extension/wwwroot/scripts/                 │
 └─────────────────┬───────────────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────┐
 │ dotnet build                                            │
 │ ├── Compile C# Blazor WASM                             │
-│ ├── Copy JS from dist/ to bin/                         │
+│ ├── Include JS from wwwroot/ as StaticWebAssets        │
 │ ├── Package as browser extension                       │
 │ └── Output: bin/Debug/net9.0/browserextension/        │
 └─────────────────────────────────────────────────────────┘
@@ -465,17 +465,22 @@ cd Extension && npm run watch
 
 ```
 Extension/
-├── dist/                          # Intermediate TypeScript output
-│   └── wwwroot/scripts/
-│       ├── es6/                   # TypeScript → ES6 modules
-│       └── esbuild/               # Bundled with dependencies
+├── wwwroot/                       # Source assets & compiled scripts
+│   └── scripts/
+│       ├── es6/                   # TypeScript → ES6 modules (from tsc)
+│       ├── esbuild/               # Bundled with dependencies (from esbuild)
+│       │   ├── signifyClient.js   # Must exist for BackgroundWorker.js
+│       │   └── demo1.js           # Must exist for BackgroundWorker.js
+│       └── types/                 # TypeScript type definitions
 ├── bin/
 │   └── Debug/net9.0/
 │       ├── wwwroot/               # Blazor WASM output
 │       └── browserextension/      # Final extension package ✓
 │           ├── manifest.json
 │           ├── _framework/        # Blazor runtime
-│           └── scripts/           # Copied from dist/
+│           ├── content/
+│           │   └── BackgroundWorker.js  # Generated, includes signifyClient
+│           └── scripts/           # Copied from wwwroot/
 └── node_modules/                  # npm dependencies
 ```
 
@@ -539,10 +544,13 @@ dotnet build -p:FullBuild=true -v:detailed
 
 ```bash
 # Verify TypeScript output is fresh
-ls -lrt Extension/dist/wwwroot/scripts/esbuild/
+ls -lrt Extension/wwwroot/scripts/esbuild/
 
 # Verify final output is fresh
 ls -lrt Extension/bin/Debug/net9.0/browserextension/scripts/esbuild/
+
+# Verify BackgroundWorker.js includes your modules
+grep -c "signifyClient" Extension/bin/Debug/net9.0/browserextension/content/BackgroundWorker.js
 ```
 
 ### Common Verification Commands

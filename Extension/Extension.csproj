@@ -157,40 +157,19 @@
   <!-- Skip during design-time builds and restore to prevent loops -->
   <!-- Also skip if Visual Studio or other processes might have files locked -->
 
-  <!-- Ensure dist directory exists before building -->
-  <Target Name="EnsureDistDirectory" BeforeTargets="InstallDependencies" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
-    <MakeDir Directories="dist" Condition="!Exists('dist')" />
-  </Target>
-
   <!-- Install npm dependencies before building TypeScript -->
   <Target Name="InstallDependencies" BeforeTargets="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
     <Exec Command="npm install" ContinueOnError="true" />
   </Target>
 
-  <!-- Build TypeScript/JavaScript BEFORE BackgroundWorker generation -->
-  <!-- TypeScript and esbuild output directly to wwwroot so files are available when -->
-  <!-- Blazor.BrowserExtension analyzer scans for StaticWebAssets -->
-  <!-- CRITICAL: Must run before StaticWebAssetsPrepareForRun (which triggers BackgroundWorker generation) -->
-  <PropertyGroup>
-    <StaticWebAssetsPrepareForRunDependsOn>
-      BuildExtensionScripts;
-      $(StaticWebAssetsPrepareForRunDependsOn)
-    </StaticWebAssetsPrepareForRunDependsOn>
-  </PropertyGroup>
-
-  <Target Name="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+  <!-- Build TypeScript/JavaScript when BuildingProject=true -->
+  <!-- TypeScript and esbuild output directly to wwwroot so files are available for -->
+  <!-- subsequent builds. The BackgroundWorker.js generator runs early in the build -->
+  <!-- pipeline and requires JS files to pre-exist from previous builds. -->
+  <!-- See BUILD_GUIDE.md "BackgroundWorker.js Missing TypeScript Modules" for details. -->
+  <Target Name="BuildExtensionScripts" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
     <Exec Command="npm run build" ContinueOnError="true" />
     <Message Importance="normal" Text="TypeScript/esbuild compilation completed, JavaScript files are in wwwroot" />
-
-    <!-- Add generated JS files as Content items so they become StaticWebAssets -->
-    <ItemGroup>
-      <Content Include="wwwroot\scripts\esbuild\*.js" />
-      <Content Include="wwwroot\scripts\esbuild\*.js.map" />
-      <Content Include="wwwroot\scripts\es6\*.js" />
-      <Content Include="wwwroot\scripts\es6\*.js.map" />
-      <Content Include="wwwroot\app.js" Condition="Exists('wwwroot\app.js')" />
-      <Content Include="wwwroot\app.js.map" Condition="Exists('wwwroot\app.js.map')" />
-    </ItemGroup>
   </Target>
 
   <!-- Clean Tasks for TypeScript/JavaScript Extension Components -->
@@ -212,46 +191,11 @@
       <IsWindows Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">true</IsWindows>
       <IsCI Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(CI)' == 'true'">true</IsCI>
     </PropertyGroup>
-    
+
     <!-- Only show guidance for local builds, not CI -->
     <Message Importance="high" Text="🔧 Building KERI Auth Browser Extension in WSL. If build fails with NuGet package errors, ensure Visual Studio and Windows Explorer are closed." Condition="'$(IsWSL)' == 'true' AND '$(IsCI)' != 'true'" />
     <Message Importance="high" Text="🔧 Building KERI Auth Browser Extension on Windows. If npm commands fail, ensure no WSL processes are accessing the project directory." Condition="'$(IsWindows)' == 'true' AND '$(IsCI)' != 'true'" />
     <Message Importance="normal" Text="🚀 Building KERI Auth Browser Extension in CI environment." Condition="'$(IsCI)' == 'true'" />
-  </Target>
-
-  <Target Name="CopyEs6Javascript" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs">
-    <!-- Ensure the 'dist' directory exists -->
-    <ItemGroup>
-      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js" />
-      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js.map" />
-    </ItemGroup>
-
-    <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledEs6Scripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\es6" SkipUnchangedFiles="false" />
-  </Target>
-
-  <Target Name="CopyEsBuildJavascript" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs">
-    <!-- Ensure the 'dist' directory exists -->
-    <ItemGroup>
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js" />
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js.map" />
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\**\*.js" />
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\**\*.js.map" />
-    </ItemGroup>
-
-    <!-- Copy compiled scripts to the appropriate directory, preserving subdirectory structure -->
-    <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild\%(RecursiveDir)" SkipUnchangedFiles="false" />
-  </Target>
-
-  <Target Name="CopyTypesJavascript" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs">
-    <!-- Copy types directory JavaScript files if they exist -->
-    <ItemGroup>
-      <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js" />
-      <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js.map" />
-    </ItemGroup>
-
-    <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledTypesScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\types" SkipUnchangedFiles="false" ContinueOnError="true" />
   </Target>
 
   <Target Name="RemoveTypeScriptSourceFiles" AfterTargets="Build">
