@@ -235,6 +235,51 @@ cd Extension && npm run watch
 
 ## Common Issues and Solutions
 
+### Issue: BackgroundWorker.js Missing TypeScript Modules (Two-Build Problem)
+
+**Symptom:** After running `npm run clean`, the first `dotnet build` succeeds but BackgroundWorker.js doesn't include signifyClient.js or demo1.js imports. The second build includes them correctly.
+
+**Root Cause:** The Blazor.BrowserExtension BackgroundWorker.js generator runs during `StaticWebAssetsPrepareForRun`, which executes BEFORE the `BuildExtensionScripts` MSBuild target. On a clean build, the generator scans for static assets before TypeScript compilation completes, so it doesn't find the JS files.
+
+**Why Second Build Works:** The JS files from the first build persist (not cleaned by `dotnet clean`), so the second build's BackgroundWorker generator finds them.
+
+**Solution Option 1: Recommended Workflow**
+```bash
+# Clean TypeScript outputs (only when needed for full rebuild)
+cd Extension && npm run clean
+
+# Build TypeScript FIRST
+npm run build
+
+# Then build C# (Quick mode since TypeScript already built)
+cd .. && dotnet build -p:Quick=true
+```
+
+**Solution Option 2: Accept Two-Build After Deep Clean**
+```bash
+# After npm run clean, run build twice
+dotnet build -p:FullBuild=true  # First build: creates JS files
+dotnet build -p:FullBuild=true  # Second build: includes them in BackgroundWorker.js
+```
+
+**Solution Option 3: Don't Clean TypeScript Between Builds**
+```bash
+# Normal workflow (JS files persist across builds)
+dotnet build -p:FullBuild=true  # Works correctly
+
+# Deep clean only when absolutely necessary
+cd Extension && npm run clean  # Then use Solution 1 or 2
+```
+
+**Note:** The csproj is configured to preserve `wwwroot/scripts/**/*.js` files during `dotnet clean` specifically to avoid this issue. Only use `npm run clean` when you need to regenerate TypeScript outputs from scratch.
+
+**Verification:**
+```bash
+# Check if BackgroundWorker.js includes your modules
+grep -c "signifyClient" Extension/bin/Debug/net9.0/browserextension/content/BackgroundWorker.js
+# Should return 2 (one import, one in allImports array)
+```
+
 ### Issue: "Package Blazor.BrowserExtension.Build not found"
 
 **Cause:** NuGet cache corruption or WSL/Windows path mismatch

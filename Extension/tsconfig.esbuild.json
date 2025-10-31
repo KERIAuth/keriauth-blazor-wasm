@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist/wwwroot/scripts/esbuild",
+    "outDir": "./wwwroot/scripts/esbuild",
     "rootDir": "./wwwroot/scripts/esbuild"
   },
   "include": [

@@ -96,7 +96,7 @@ const builds = [
     {
         name: 'signifyClient',
         entryPoints: ['wwwroot/scripts/esbuild/signifyClient.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/signifyClient.js',
+        outfile: 'wwwroot/scripts/esbuild/signifyClient.js',
         platform: "browser",
         format: 'esm',  // Keep ESM for C# interop via import()
         define: {
@@ -115,13 +115,13 @@ const builds = [
     {
         name: 'ContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js'
+        outfile: 'wwwroot/scripts/esbuild/ContentScript.js'
         // Will use IIFE format from sharedOptions
     },
     {
         name: 'demo1',
         entryPoints: ['wwwroot/scripts/esbuild/demo1.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/demo1.js',
+        outfile: 'wwwroot/scripts/esbuild/demo1.js',
         platform: "browser",
         format: 'esm',  // Use ESM to export runDemo1 function (not IIFE which runs immediately)
         bundle: true,   // Explicitly enable bundling to inline utils.ts and signify-ts dependencies
@@ -141,7 +141,7 @@ const builds = [
     {
         name: 'utils',
         entryPoints: ['wwwroot/scripts/esbuild/utils.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/utils.js',
+        outfile: 'wwwroot/scripts/esbuild/utils.js',
         platform: "browser",
         format: 'esm',  // Keep ESM for module exports
         bundle: true,   // Bundle all dependencies including signify-ts

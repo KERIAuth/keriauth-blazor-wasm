@@ -56,14 +56,7 @@
     <Configuration Condition="'$(Production)' == 'true'">Release</Configuration>
     <BuildingProject Condition="'$(Production)' == 'true'">true</BuildingProject>
   </PropertyGroup>
-
-  <!-- ServiceWorker now handled by Blazor.BrowserExtension -->
-  <!--
-  <ItemGroup>
-    <ServiceWorker Include="dist\wwwroot\scripts\esbuild\BackgroundWorker.js" PublishedContent="wwwroot\scripts\esbuild\BackgroundWorker.js" />
-  </ItemGroup>
-  -->
-
+  
   <!-- Package References -->
 
   <!-- Trimmable Assemblies -->
@@ -84,9 +77,9 @@
   <!-- Static imports of 3rd party library files needed for BackgroundWorker. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker -->
   <ItemGroup>
     <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />
-	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/decode.js" />
-		  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
-	  <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/demo1.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/decode.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/demo1.js" />
   </ItemGroup>
 
 
@@ -174,61 +167,42 @@
     <Exec Command="npm install" ContinueOnError="true" />
   </Target>
 
-  <!-- Build TypeScript/JavaScript BEFORE any Blazor targets run -->
-  <!-- This ensures compiled JS files exist when Blazor.BrowserExtension analyzer runs -->
-  <Target Name="BuildExtensionScripts" BeforeTargets="BeforeBuild;ResolveStaticWebAssetsInputs" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+  <!-- Build TypeScript/JavaScript BEFORE BackgroundWorker generation -->
+  <!-- TypeScript and esbuild output directly to wwwroot so files are available when -->
+  <!-- Blazor.BrowserExtension analyzer scans for StaticWebAssets -->
+  <!-- CRITICAL: Must run before StaticWebAssetsPrepareForRun (which triggers BackgroundWorker generation) -->
+  <PropertyGroup>
+    <StaticWebAssetsPrepareForRunDependsOn>
+      BuildExtensionScripts;
+      $(StaticWebAssetsPrepareForRunDependsOn)
+    </StaticWebAssetsPrepareForRunDependsOn>
+  </PropertyGroup>
+
+  <Target Name="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
     <Exec Command="npm run build" ContinueOnError="true" />
-  </Target>
+    <Message Importance="normal" Text="TypeScript/esbuild compilation completed, JavaScript files are in wwwroot" />
 
-  <!-- Copy compiled JavaScript files to wwwroot so Blazor.BrowserExtension analyzer can find them -->
-  <!-- This target must run AFTER TypeScript/esbuild compilation but BEFORE Blazor.BrowserExtension analyzer -->
-  <!-- The analyzer runs during ResolveStaticWebAssetsInputs which is early in the Build process -->
-  <Target Name="CopyCompiledJsToWwwroot" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
-    <!-- Copy ES6 compiled scripts -->
+    <!-- Add generated JS files as Content items so they become StaticWebAssets -->
     <ItemGroup>
-      <CompiledEs6ToWwwroot Include="dist\wwwroot\scripts\es6\*.js" />
-      <CompiledEs6ToWwwroot Include="dist\wwwroot\scripts\es6\*.js.map" />
+      <Content Include="wwwroot\scripts\esbuild\*.js" />
+      <Content Include="wwwroot\scripts\esbuild\*.js.map" />
+      <Content Include="wwwroot\scripts\es6\*.js" />
+      <Content Include="wwwroot\scripts\es6\*.js.map" />
+      <Content Include="wwwroot\app.js" Condition="Exists('wwwroot\app.js')" />
+      <Content Include="wwwroot\app.js.map" Condition="Exists('wwwroot\app.js.map')" />
     </ItemGroup>
-    <Copy SourceFiles="@(CompiledEs6ToWwwroot)" DestinationFolder="wwwroot\scripts\es6" SkipUnchangedFiles="true" ContinueOnError="true" />
-
-    <!-- Copy esbuild compiled scripts -->
-    <ItemGroup>
-      <CompiledEsBuildToWwwroot Include="dist\wwwroot\scripts\esbuild\*.js" />
-      <CompiledEsBuildToWwwroot Include="dist\wwwroot\scripts\esbuild\*.js.map" />
-    </ItemGroup>
-    <Copy SourceFiles="@(CompiledEsBuildToWwwroot)" DestinationFolder="wwwroot\scripts\esbuild" SkipUnchangedFiles="true" ContinueOnError="true" />
-
-    <!-- Copy app.js -->
-    <ItemGroup>
-      <CompiledAppToWwwroot Include="dist\wwwroot\app.js" Condition="Exists('dist\wwwroot\app.js')" />
-      <CompiledAppToWwwroot Include="dist\wwwroot\app.js.map" Condition="Exists('dist\wwwroot\app.js.map')" />
-    </ItemGroup>
-    <Copy SourceFiles="@(CompiledAppToWwwroot)" DestinationFolder="wwwroot" SkipUnchangedFiles="true" ContinueOnError="true" />
-
-    <Message Importance="normal" Text="Copied compiled JavaScript files to wwwroot for Blazor.BrowserExtension analyzer" />
   </Target>
 
   <!-- Clean Tasks for TypeScript/JavaScript Extension Components -->
   <Target Name="CleanTypeScriptOutputs" BeforeTargets="CoreClean">
     <Message Importance="high" Text="Cleaning TypeScript build outputs..." />
 
-    <!-- Clean dist directory contents but keep the directory -->
-    <ItemGroup>
-      <DistFiles Include="dist\**\*" />
-    </ItemGroup>
-    <Delete Files="@(DistFiles)" ContinueOnError="true" />
-    <!-- Note: We keep the dist\ directory itself, only deleting contents -->
-
     <!-- IMPORTANT: wwwroot JavaScript files are NOT cleaned by 'dotnet clean' -->
-    <!-- These are intermediate build artifacts needed by Blazor.BrowserExtension analyzer. -->
-    <!-- The analyzer scans wwwroot for StaticWebAssets BEFORE our build targets run, so these -->
-    <!-- files must already exist when 'dotnet build' starts. They get regenerated by TypeScript -->
-    <!-- when source files change, so they don't need explicit cleaning. -->
-    <!-- -->
-    <!-- To deep-clean everything including wwwroot JS files, use: npm run clean -->
-    <!-- OR manually delete: wwwroot/scripts/**/*.js and wwwroot/app.js -->
+    <!-- Reason: These files are gitignored build artifacts, but they're needed for -->
+    <!-- incremental builds. The BuildExtensionScripts target will regenerate them when -->
+    <!-- source .ts files change. For deep cleaning, use: npm run clean -->
 
-    <Message Importance="high" Text="Cleaned dist\ directory (wwwroot\ JS files preserved for Blazor.BrowserExtension)" />
+    <Message Importance="high" Text="Cleaned C# build outputs (wwwroot\ JavaScript files preserved for incremental builds)" />
   </Target>
 
   <!-- Target to detect environment and provide user guidance -->
@@ -245,7 +219,7 @@
     <Message Importance="normal" Text="🚀 Building KERI Auth Browser Extension in CI environment." Condition="'$(IsCI)' == 'true'" />
   </Target>
 
-  <Target Name="CopyEs6Javascript" AfterTargets="Build">
+  <Target Name="CopyEs6Javascript" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs">
     <!-- Ensure the 'dist' directory exists -->
     <ItemGroup>
       <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js" />
@@ -256,7 +230,7 @@
     <Copy SourceFiles="@(CompiledEs6Scripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\es6" SkipUnchangedFiles="false" />
   </Target>
 
-  <Target Name="CopyEsBuildJavascript" AfterTargets="Build">
+  <Target Name="CopyEsBuildJavascript" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs">
     <!-- Ensure the 'dist' directory exists -->
     <ItemGroup>
       <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js" />
@@ -269,7 +243,7 @@
     <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild\%(RecursiveDir)" SkipUnchangedFiles="false" />
   </Target>
 
-  <Target Name="CopyTypesJavascript" AfterTargets="Build">
+  <Target Name="CopyTypesJavascript" AfterTargets="BuildExtensionScripts" BeforeTargets="ResolveStaticWebAssetsInputs">
     <!-- Copy types directory JavaScript files if they exist -->
     <ItemGroup>
       <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js" />
