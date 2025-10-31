@@ -327,59 +327,25 @@ The build system uses MSBuild properties to control behavior:
 
 **Command discovery**: See `Extension/package.json` for npm scripts and `Extension/Extension.csproj` for MSBuild targets.
 
-### Troubleshooting Commands
+### Build Troubleshooting Principles
 
-#### Nuclear Option (Clean Everything)
-```bash
-# Close Visual Studio first!
-dotnet clean
-cd Extension
-rm -rf node_modules dist
-npm install
-npm run build
-cd ..
-dotnet build -p:FullBuild=true
-```
+**When extension won't load**:
+- Verify build output directory exists with manifest.json
+- Check for JavaScript bundle files in scripts/esbuild/
+- Enable verbose build logging to see which step fails
 
-#### Extension Not Loading?
+**When changes don't appear**:
+- Rebuild with full TypeScript compilation if .ts files changed
+- **Critical**: Hard reload extension in chrome://extensions (circular reload button)
+- Browser caches extension files - refreshing popup is not sufficient
 
-1. Check manifest.json exists in output:
+**When build fails mysteriously**:
+- Close Visual Studio (can lock files on Windows)
+- Clean build artifacts (dotnet clean, npm clean)
+- Reinstall dependencies if package.json changed
+- Check for WSL/Windows file permission conflicts
 
-   ```bash
-   cat Extension/bin/Debug/net9.0/browserextension/manifest.json
-   ```
-
-2. Check JavaScript files exist:
-
-   ```bash
-   ls Extension/bin/Debug/net9.0/browserextension/scripts/esbuild/
-   ```
-
-3. Rebuild with verbose logging:
-
-   ```bash
-   dotnet build -p:FullBuild=true -v:detailed
-   ```
-
-#### Changes Not Appearing?
-
-1. Rebuild:
-
-   ```bash
-   dotnet build -p:FullBuild=true
-   ```
-
-2. **Hard reload extension** in browser:
-   - Go to `chrome://extensions`
-   - Click reload button (circular arrow)
-   - NOT just refreshing the extension popup!
-
-#### Other Troubleshooting
-- **Reinstall dependencies**: `cd Extension && rm -rf node_modules package-lock.json && npm install`
-- **Check TypeScript config**: `cd Extension && npx tsc --showConfig`
-- **List outdated packages**: `cd Extension && npm outdated`
-- **Audit dependencies**: `cd Extension && npm audit`
-- **Fix npm vulnerabilities**: `cd Extension && npm audit fix`
+**Command reference**: See `Extension/package.json` scripts and `.csproj` MSBuild targets for available commands.
 
 ## TypeScript Coding Guidelines
 
@@ -881,15 +847,9 @@ When making changes, prioritize in this order:
 
 ### Build Output Structure
 
-```text
-Extension/bin/Release/net9.0/browserextension/
-├── manifest.json
-├── _framework/          # Blazor WASM files
-├── scripts/
-│   ├── esbuild/        # Bundled JS for extension
-│   └── es6/            # Compiled TypeScript modules
-└── icons/              # Extension icons
-```
+Final extension package: `Extension/bin/{Debug|Release}/net9.0/browserextension/`
+- Contains manifest.json, Blazor WASM runtime (_framework/), and JavaScript bundles (scripts/)
+- Load this directory as unpacked extension in browser
 
 ## Build System Architecture (For Maintainers)
 
@@ -926,26 +886,18 @@ Extension/bin/Release/net9.0/browserextension/
 
 ### Output Directories
 
-```
-Extension/
-├── wwwroot/                       # Source assets & compiled scripts
-│   └── scripts/
-│       ├── es6/                   # TypeScript → ES6 modules (from tsc)
-│       ├── esbuild/               # Bundled with dependencies (from esbuild)
-│       │   ├── signifyClient.js   # Must exist for BackgroundWorker.js
-│       │   └── demo1.js           # Must exist for BackgroundWorker.js
-│       └── types/                 # TypeScript type definitions
-├── bin/
-│   └── Debug/net9.0/
-│       ├── wwwroot/               # Blazor WASM output
-│       └── browserextension/      # Final extension package ✓
-│           ├── manifest.json
-│           ├── _framework/        # Blazor runtime
-│           ├── content/
-│           │   └── BackgroundWorker.js  # Generated, includes signifyClient
-│           └── scripts/           # Copied from wwwroot/
-└── node_modules/                  # npm dependencies
-```
+**Why directory structure matters**:
+
+1. **`Extension/wwwroot/scripts/`** - TypeScript compilation output
+   - `es6/` - ES6 modules from tsc
+   - `esbuild/` - Bundled scripts (signifyClient.js, demo1.js must exist before C# build)
+   - These become StaticWebAssets consumed by Blazor build
+
+2. **`Extension/bin/Debug/net9.0/browserextension/`** - Final extension package
+   - Contains BackgroundWorker.js (generated, imports scripts from wwwroot/)
+   - Ready to load as unpacked extension
+
+**Critical**: BackgroundWorker.js generator requires JavaScript files in wwwroot/scripts/esbuild/ to exist before MSBuild runs. This is why TypeScript must build first.
 
 ### Manual Testing Approach
 
@@ -1092,128 +1044,24 @@ dotnet build /p:BuildingProject=true
 **Advanced Debugging Setup:**
 For more details on running and debugging Blazor browser extensions, see the [Blazor.BrowserExtension documentation](https://mingyaulee.github.io/Blazor.BrowserExtension/running-and-debugging).
 
-### VS Code Users
+### IDE-Specific Considerations
 
-#### Setup (One-Time)
+**VS Code**:
+- Build tasks available via `Ctrl+Shift+B` (defined in `.vscode/tasks.json`)
+- Debugging: Press F5 to launch extension in new browser window
+- Terminal uses WSL on Windows (configured in `.vscode/settings.json`)
 
-1. **Install Recommended Extensions** (will prompt automatically):
-   - C# DevKit
-   - ESLint
-   - Path IntelliSense
-   - Code Spell Checker
+**Visual Studio**:
+- **Critical**: Does NOT auto-rebuild TypeScript - must manually run npm build after .ts changes
+- **File locking**: Can prevent WSL builds - use VS **OR** WSL, not both simultaneously
+- **Debugging**: Browser DevTools works better than VS debugger for Blazor WASM extension code
+- Close VS Code and WSL terminals before building in Visual Studio
 
-2. **Configure Terminal** (already done in `.vscode/settings.json`):
-   - Default terminal: Ubuntu (WSL) on Windows
-   - Or bash on Linux
+**Claude Code (WSL/Linux)**:
+- Handles builds automatically, no special configuration needed
+- If build fails: Close Visual Studio (Windows) and Windows Explorer to release file locks
 
-#### Build in VS Code
-
-**Using Tasks (Keyboard Shortcuts):**
-
-Press `Ctrl+Shift+B` to see build tasks:
-- **Build Extension (Full)** - TypeScript + C# (default)
-- **Build Extension (Quick)** - C# only
-- **Watch TypeScript** - Auto-rebuild on changes
-- **Test** - Run all tests
-
-**Using Integrated Terminal:**
-
-```bash
-# Full build
-dotnet build -p:FullBuild=true
-
-# Watch mode (recommended for development)
-cd Extension && npm run watch
-```
-
-**Build Tasks Available:**
-- `dotnet build` - C# only build
-- `npm build` - TypeScript only build
-- `web dev` - Development server (not needed for extension)
-
-#### Debugging in VS Code
-
-1. Set breakpoints in C# or TypeScript
-2. Press F5 or use Debug panel
-3. Select "Launch Extension" configuration
-4. Extension launches in new browser window
-
-### Visual Studio Users
-
-#### Setup (One-Time)
-
-1. **Install Workloads**:
-   - ASP.NET and web development
-   - .NET desktop development
-
-2. **Configure Build**:
-   - Visual Studio can lock files, preventing WSL builds
-   - Use Visual Studio **OR** WSL/Claude Code, not both simultaneously
-
-#### Build in Visual Studio
-
-**Before Building:**
-1. Close VS Code if running
-2. Ensure no WSL terminals are running `npm watch`
-
-**Build Methods:**
-
-1. **Solution Build** (Recommended):
-   - Right-click solution → Build Solution
-   - Uses MSBuild with proper targets
-
-2. **Project Build**:
-   - Right-click Extension project → Build
-   - Faster but may skip TypeScript
-
-3. **Rebuild Solution**:
-   - Clean + Build
-   - Use when switching between Release/Debug
-
-**TypeScript Changes:**
-- Visual Studio does NOT auto-rebuild TypeScript
-- After changing .ts files:
-
-  ```powershell
-  # In Package Manager Console or Terminal
-  cd Extension
-  npm run build
-  # Then rebuild solution
-  ```
-
-#### Debugging in Visual Studio
-
-1. Set Configuration to "Debug"
-2. Set Extension project as Startup Project
-3. Press F5
-4. Visual Studio will:
-   - Build the project
-   - Launch browser with extension
-   - Attach debugger
-
-**Note:** Blazor WASM debugging in browser DevTools works better than VS debugger for extension code.
-
-### Claude Code (WSL/Linux)
-
-Claude Code operates in WSL and handles builds automatically. No special configuration needed.
-
-**If you see build failures:**
-1. Close Visual Studio (Windows)
-2. Close Windows Explorer if browsing project
-3. Run: `dotnet clean && dotnet build -p:FullBuild=true`
-
-### Build Troubleshooting
-
-#### NuGet Package Resolution Issues
-If you encounter "Package not found" errors or path-related build issues:
-1. **Force restore packages**: `cd Extension && dotnet restore --force && cd ..`
-2. **Clean and rebuild**: `rm -rf Extension/obj Extension.Tests/obj && dotnet build -p:Quick=true`
-3. **If Visual Studio was open**: Close it completely, then clean and rebuild from WSL
-
-#### Common Build Error Solutions
-- **"TargetPath not specified" errors**: Usually indicates WSL/Windows path conflicts. Clean obj directories and rebuild
-- **"Package Blazor.BrowserExtension.Build not found"**: Run `dotnet restore --force` from the Extension directory
-- **Build succeeds after restore**: This is normal - the first restore may need to download packages
+**Key difference**: Visual Studio requires manual TypeScript compilation; VS Code and Claude Code can automate it.
 
 ## Common Build Issues and Solutions
 
