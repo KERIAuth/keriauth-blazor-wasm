@@ -127,24 +127,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnInstalledAsync(OnInstalledEventCallbackDetails details) {
         try {
-            _logger.LogInformation("OnInstalledAsync event handler called");
+            _logger.LogInformation("OnInstalledAsync: installed/updated: {Reason}", details.Reason);
 
-            // TODO P0 temp test
             var readyRes = await _signifyClientService.TestAsync();
             if (readyRes.IsSuccess) {
-                _logger.LogWarning("SignifyClientService is ready during onInstalled {v}", readyRes.Value);
+                _logger.LogInformation("SignifyClientService is ready onInstalled");
             }
             else {
-                _logger.LogWarning("SignifyClientService is NOT ready during onInstalled: {Errors}", string.Join("; ", readyRes.Errors.Select(e => e.Message)));
+                _logger.LogError("OnInstalledAsync: SignifyClientService is NOT ready: {Errors}", string.Join("; ", readyRes.Errors.Select(e => e.Message)));
             }
 
-            _logger.LogInformation("Extension installed/updated event received");
             InitializeIfNeeded();
             _ = UninstallUrl;
 
             await CreateContextMenuItemsAsync();
-
-            _logger.LogInformation("Extension installed/updated: {Reason}", details.Reason);
 
             switch (details.Reason) {
                 case OnInstalledReason.Install:
@@ -155,12 +151,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     break;
                 case OnInstalledReason.BrowserUpdate:
                 default:
-                    _logger.LogInformation("Unhandled install reason: {Reason}", details.Reason);
+                    _logger.LogInformation("OnInstalledAsyncUnhandled install reason: {Reason}", details.Reason);
                     break;
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error handling onInstalled event");
+            _logger.LogError(ex, "OnInstalledAsync: Error handling onInstalled event");
             throw;
         }
     }
@@ -1246,25 +1242,37 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 { "url", rurl }
             };
             var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
-
-            // TODO P0: temporarily auto-approve all sign requests for testing
-            await SignAndSendRequestHeaders(origin, tabId, new AppBwReplySignMessage(tabId, origin, msg.RequestId!, requestDict, getOrCreateWebsiteRes.Value.websiteConfig1.RememberedPrefixOrNothing!, true));
-
-            // TODO P0: below is for popup UI flow
-            /*
-            await Task.Delay(10000);
-            
-            // continue with UI
+            if (getOrCreateWebsiteRes.IsFailed) {
+                _logger.LogWarning("BW HandleRequestSignHeadersAsync: failed to get or create website config for origin {Origin}: {Error}",
+                    origin, string.Join("; ", getOrCreateWebsiteRes.Errors.Select(e => e.Message)));
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to get or create website config"));
+                return;
+            }
+            if (getOrCreateWebsiteRes.Value.websiteConfig1?.RememberedPrefixOrNothing == null) {
+                _logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier configured for origin {Origin}", origin);
+                return;
+            }
+            else {
+                _logger.LogInformation("BW HandleRequestSignHeadersAsync: remembered config for origin {Origin} is {o}",
+                    origin, getOrCreateWebsiteRes.Value.websiteConfig1);
+                if (getOrCreateWebsiteRes.Value.websiteConfig1.RememberedPrefixOrNothing is null) {
+                    _logger.LogInformation("BW HandleRequestSignHeadersAsync: no remembered prefix");
+                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+                }
+                _logger.LogInformation("BW HandleRequestSignHeadersAsync: remembered prefix is {Prefix}",
+                    getOrCreateWebsiteRes.Value.websiteConfig1.RememberedPrefixOrNothing);
+            }
+        }
+            // TODO P0 pass configured AID prefix to popup for user info
             var encodedMsg = SerializeAndEncode(msg);
-            await UseActionPopupAsync(tabId, [
-                new QueryParam("message", encodedMsg),
+        await UseActionPopupAsync(tabId, [
+            new QueryParam("message", encodedMsg),
                 new QueryParam("origin", jsonOrigin),
                 new QueryParam("popupType", "SignRequest"),  // TODO should be an enum literal
                 new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            ]);
-            return;
-            */
-        }
+        ]);
+        return;
+    }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in HandleRequestSignHeadersAsync");
             return; // don't have the tabId here to send errorStr back
@@ -1273,503 +1281,503 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
     private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg) {
-        try {
-            InitializeIfNeeded();
-            // Check if connected to KERIA
-            /*
-            var stateResult = await TryGetSignifyClientAsync();
-            if (stateResult.IsFailed) {
-                var connectResult = await TryConnectSignifyClientAsync();
-                if (connectResult.IsFailed) {
-                    _logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
-                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
-                    return;
-                }
-            }
-            */
-
-            var payload = msg.Payload;
-            if (payload is null) {
-                _logger.LogError("SignAndSendRequestHeaders: could not parse payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}"));
-                return;
-            }
-
-            var headersDict = payload.HeadersDict;
-            var prefix = payload.Prefix;
-            var isApproved = payload.IsApproved;
-
-            // create hostAndPort
-            string originDomain = tabUrl;
-            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
-                originDomain = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort) {
-                    originDomain += $":{originUri.Port}";
-                }
-            }
-            _logger.LogInformation("origin: {origin}, originDomain: {od}", tabUrl, originDomain);
-
-            // Get AID name for this origin
-            // string? aidName = null;
-            string? rememberedPrefix = null;
-            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
-                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
-
-                if (websiteConfigResult.IsSuccess &&
-                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-                    rememberedPrefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                }
-            }
-
-            if (string.IsNullOrEmpty(rememberedPrefix)) {
-                _logger.LogWarning("BW HandleSignRequestAsync: no identifier configured for origin {Origin}", originDomain);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
-                return;
-            }
-
-            var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO 2 should return error?
-            var method = headersDict.GetValueOrDefault("method") ?? ""; // TODO P2 should return error?
-
-            // Validate URL is well-formed
-            if (!Uri.IsWellFormedUriString(rurl, UriKind.Absolute)) {
-                _logger.LogWarning("BW HandleSignRequestAsync: URL is not well-formed: {Url}", rurl);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is not well-formed"));
-                return;
-            }
-
-            // TODO P2: Check origin permission previously provided by user in website config, and depending on METHOD (get/post ), and ask user if not granted
-
-            // Get generated signed headers from signify-ts
-            var headersDictJson = JsonSerializer.Serialize(headersDict);
-
-            var readyRes = await _signifyClientService.Ready();
-            if (readyRes.IsFailed) {
-                _logger.LogWarning("BW HandleSignRequestAsync: Signify client not ready: {Error}", readyRes.Errors[0].Message);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Signify client not ready: {readyRes.Errors[0].Message}"));
-                return;
-            }
-
-            var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
-                originDomain,
-                rurl,
-                method,
-                headersDictJson,
-                aidName: rememberedPrefix ?? "none_error"
-            );
-
-            var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
-            if (signedHeaders == null) {
-                _logger.LogWarning("BW HandleSignRequestAsync: failed to generate signed headers");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers"));
-                return;
-            }
-
-            _logger.LogInformation("BW HandleSignRequestAsync: successfully generated signed headers");
-            await SendMessageToTabAsync(tabId, new BwCsMessage(
-                type: BwCsMessageTypes.REPLY,
-                requestId: msg.RequestId,
-                payload: new { headers = signedHeaders },
-                error: null
-            ));
-            return;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleSignRequestAsync");
-            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: other exception."));
-            return;
-        }
-    }
-
-    private async Task HandleSignDataAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
-        try {
-            _logger.LogInformation("BW HandleSignData: {Message}", JsonSerializer.Serialize(msg));
-
-            // TODO P2 opportunity for DRY with various handlers for sanity checks for existance of sender.Tab.Id, sender.Url, computing originDomain, payloadJson non-null/empty, etc.
-            if (sender?.Tab?.Id == null) {
-                _logger.LogError("BW HandleSignData: no tabId found");
-                return; // don't have tabId to send errorStr back
-            }
-
-            var tabId = sender.Tab.Id.Value;
-            var origin = sender.Url ?? "unknown";
-
-            // Extract origin domain from URL
-            string originDomain = origin;
-            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
-                originDomain = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort) {
-                    originDomain += $":{originUri.Port}";
-                }
-            }
-
-            _logger.LogInformation("BW HandleSignData: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
-
-            // Deserialize payload to SignDataArgs
-            var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var payload = JsonSerializer.Deserialize<SignDataArgs>(payloadJson, PortMessageJsonOptions);
-
-            if (payload == null) {
-                _logger.LogWarning("BW HandleSignData: invalid payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
-                return;
-            }
-
-            // TODO P2 Validate required fields
-
-            var signDataMessage = new RequestMessageData<SignDataArgs>(
-                requestId: msg.RequestId ?? "", // DODO P2 ensure requestId is always set
-                payload: payload
-            );
-
-            // Check if connected to KERIA
-            InitializeIfNeeded();
-            /*
-            var stateResult = await TryGetSignifyClientAsync();
-            if (stateResult.IsFailed) {
-                var connectResult = await TryConnectSignifyClientAsync();
-                if (connectResult.IsFailed) {
-                    _logger.LogWarning("BW HandleSignData: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
-                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
-                    return;
-                }
-            }
-            */
-
-            // Get AID name for this origin (using website configuration)
-            string? aidName = null;
-            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
-                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
-
-                if (websiteConfigResult.IsSuccess &&
-                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-
-                    var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyClientService.GetIdentifiers();
-                    if (identifiers.IsSuccess && identifiers.Value is not null) {
-                        var aids = identifiers.Value.Aids;
-                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
-                    }
-                }
-            }
-            if (string.IsNullOrEmpty(aidName)) {
-                _logger.LogWarning("BW HandleSignData: no identifier configured for origin {Origin}", originDomain);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
-                return;
-            }
-            // Get identifier details
-            var aidResult = await _signifyClientService.GetIdentifier(aidName);
-            if (aidResult.IsFailed) {
-                _logger.LogWarning("BW HandleSignData: failed to get identifier: {Error}", aidResult.Errors[0].Message);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
-                return;
-            }
-            var aid = aidResult.Value;
-            // TODO P1: Check if this is a group AID (multisig not currently supported)
-            // The TypeScript implementation checks for aid.group property
-            // Need to add Group property to Aid model to support this check
-            // For now, skipping this validation - multisig signing may fail at KERIA level
-            // Sign the data using signify-ts
-
-            // TODO P1 finish HandleSignDataAsync implementation
-            // TODO P2: user should be prompted to include payload.message from the requesting page
-            _logger.LogWarning("BW HandleSignData: signing data not yet completely implemented");
-            /*
-            var signatureJson = await _signifyClientService.Sign....
-
-            var signature = JsonSerializer.Deserialize<SignDataResult>(signatureJson);
-            if (signature == null) {
-                _logger.LogWarning("BW HandleSignData: failed to sign data");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to sign data"));
-                return;
-            }
-            _logger.LogInformation("BW HandleSignData: successfully signed data");
-            await SendMessageToTabAsync(tabId, new BwCsMessage(
-                type: BwCsMessageTypes.REPLY,
-                requestId: msg.RequestId,
-                payload: new { signature = signature.Signature, verfer = signature.Verfer },
-                errorStr: null
-            ));
-            */
-            return;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleSignData");
-            var msg2 = "BW HandleSignData: exception occurred";
-            _logger.LogWarning("{m}", msg2);
-            if (sender?.Tab?.Id is not null) {
-                var tabId = sender.Tab.Id.Value;
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
-            }
-            return;
-        }
-    }
-
-    /// <summary>
-    /// Handles data attestation credential creation request from ContentScript.
-    /// Creates a credential based on provided credData and schemaSaid.
-    /// </summary>
-    private async Task HandleCreateDataAttestationAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
-        try {
-            _logger.LogInformation("BW HandleCreateDataAttestation: {Message}", JsonSerializer.Serialize(msg));
-
-            if (sender?.Tab?.Id == null) {
-                _logger.LogError("BW HandleCreateDataAttestation: no tabId found");
-                return;
-            }
-
-            var tabId = sender.Tab.Id.Value;
-            var origin = sender.Url ?? "unknown";
-
-            // Extract origin domain from URL
-            string originDomain = origin;
-            if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
-                originDomain = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort) {
-                    originDomain += $":{originUri.Port}";
-                }
-            }
-
-            _logger.LogInformation("BW HandleCreateDataAttestation: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
-
-            // Deserialize payload using specific type
-            var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var payload = JsonSerializer.Deserialize<CreateDataAttestationPayload>(payloadJson, PortMessageJsonOptions);
-
-            if (payload == null) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: invalid payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
-                return;
-            }
-
-            // Validate required fields
-            if (payload.CredData == null || payload.CredData.Count == 0) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: credData is empty or missing");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Credential data not specified"));
-                return;
-            }
-
-            if (string.IsNullOrEmpty(payload.SchemaSaid)) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: schemaSaid is empty or missing");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Schema SAID not specified"));
-                return;
-            }
-
-            // Convert credData to OrderedDictionary to preserve field order (critical for CESR/SAID)
-            var credDataOrdered = new System.Collections.Specialized.OrderedDictionary();
-            foreach (var kvp in payload.CredData) {
-                credDataOrdered.Add(kvp.Key, kvp.Value);
-            }
-
-            // Check if connected to KERIA
-            InitializeIfNeeded();
-
-            /*
-            var stateResult = await TryGetSignifyClientAsync();
-            if (stateResult.IsFailed) {
-                var connectResult = await TryConnectSignifyClientAsync();
-                if (connectResult.IsFailed) {
-                    _logger.LogWarning("BW HandleCreateDataAttestation: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
-                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
-                    return;
-                }
-            }
-            */
-
-            // Get AID name for this origin (using website configuration)
-            string? aidName = null;
-            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
-                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
-
-                if (websiteConfigResult.IsSuccess &&
-                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-
-                    var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyClientService.GetIdentifiers();
-                    if (identifiers.IsSuccess && identifiers.Value is not null) {
-                        var aids = identifiers.Value.Aids;
-                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(aidName)) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: no identifier configured for origin {Origin}", originDomain);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
-                return;
-            }
-
-            // Get identifier details
-            var aidResult = await _signifyClientService.GetIdentifier(aidName);
-            if (aidResult.IsFailed) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: failed to get identifier: {Error}", aidResult.Errors[0].Message);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
-                return;
-            }
-
-            var aid = aidResult.Value;
-
-            // TODO P1: Check if this is a group AID (multisig not currently supported)
-            // The TypeScript implementation checks for aid.group property
-            // Need to add Group property to Aid model to support this check
-            // For now, skipping this validation - multisig credential issuance may fail at KERIA level
-
-            // Get registry for this AID
-            var registriesResult = await _signifyClientService.ListRegistries(aidName);
-            if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
-                // TODO P1: Consider automatic registry creation if none exists
-                // The TypeScript implementation may create a registry automatically
-                // For now, return an errorStr requiring user to create registry first
-                _logger.LogWarning("BW HandleCreateDataAttestation: no registry found for AID {AidName}", aidName);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No credential registry found for this identifier. Please create a registry first."));
-                return;
-            }
-
-            var registry = registriesResult.Value[0]; // Use first registry
-            var registryId = registry.GetValueOrDefault("regk")?.ToString() ?? "";
-
-            if (string.IsNullOrEmpty(registryId)) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: registry ID is empty for AID {AidName}", aidName);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid registry configuration"));
-                return;
-            }
-
-            // Verify schema exists
-            var schemaResult = await _signifyClientService.GetSchema(payload.SchemaSaid);
-            if (schemaResult.IsFailed) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: failed to get schema {SchemaSaid}: {Error}", payload.SchemaSaid, schemaResult.Errors[0].Message);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Schema not found: {schemaResult.Errors[0].Message}"));
-                return;
-            }
-
-            // TODO P1: Consider adding user approval flow before credential creation
-            // Depending on security requirements, may want to prompt user similar to HandleSelectAuthorizeAsync
-            // This would open a popup for user to review and approve credential creation
-            // For now, proceeding with automatic creation for data attestations
-
-            // Build credential data structure
-            var credentialData = new CredentialData(
-                I: aid.Prefix,              // Issuer prefix
-                Ri: registryId,             // Registry ID
-                S: payload.SchemaSaid,      // Schema SAID
-                A: credDataOrdered          // Credential attributes (order-preserved)
-            );
-
-            _logger.LogInformation("BW HandleCreateDataAttestation: issuing credential for AID {AidName} with schema {SchemaSaid}", aidName, payload.SchemaSaid);
-
-            // Issue the credential
-            var issueResult = await _signifyClientService.IssueCredential(aidName, credentialData);
-            if (issueResult.IsFailed) {
-                _logger.LogWarning("BW HandleCreateDataAttestation: failed to issue credential: {Error}", issueResult.Errors[0].Message);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to issue credential: {issueResult.Errors[0].Message}"));
-                return;
-            }
-
-            var credential = issueResult.Value;
-
-            // TODO P1: Add operation waiting if credential issuance returns an operation
-            // The TypeScript implementation calls waitOperation() to ensure the credential
-            // issuance operation completes before returning to the caller
-            // This may require extracting an operation object from the result and waiting for it
-
-            _logger.LogInformation("BW HandleCreateDataAttestation: successfully created credential");
-
-            // Send credential back to ContentScript
-            // CRITICAL: Pass RecursiveDictionary directly as payload to preserve CESR/SAID ordering
-            // RecursiveDictionary maintains insertion order required for SAID verification
-            // The messaging infrastructure will handle serialization properly
-            await SendMessageToTabAsync(tabId, new BwCsMessage(
-                type: BwCsMessageTypes.REPLY,
-                requestId: msg.RequestId,
-                payload: credential,
-                error: null
-            ));
-            return;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in HandleCreateDataAttestation");
-            var msg2 = "BW HandleCreateDataAttestation: exception occurred";
-            _logger.LogWarning("{m}", msg2);
-            if (sender?.Tab?.Id is not null) {
-                var tabId = sender.Tab.Id.Value;
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
-            }
-
-            return;
-        }
-    }
-
-    /// <summary>
-    /// Try to connect the BackgroundWorker's SignifyClient instance using stored credentials
-    /// This is needed because BackgroundWorker has a separate Blazor runtime from the App (popup/tab)
-    /// </summary>
-    private async Task<Result> TryConnectSignifyClientAsync() {
-        try {
-            // Get connection config from storage
-            var configResult = await _storageService.GetItem<KeriaConnectConfig>();
-            if (configResult.IsFailed || configResult.Value == null) {
-                return Result.Fail("No KERIA connection configuration found");
-            }
-
-            var config = configResult.Value;
-
-            if (string.IsNullOrEmpty(config.AdminUrl)) {
-                return Result.Fail("Admin URL not configured");
-            }
-
-            if (string.IsNullOrEmpty(config.BootUrl)) {
-                return Result.Fail("Boot URL not configured");
-            }
-
-            // Get passcode from session storage
-            var passcodeResult = await _webExtensionsApi.Storage.Session.Get("passcode");
-
-            // Extract passcode string from the result
-            string? passcode = null;
-            if (passcodeResult is JsonElement jsonElement) {
-                if (jsonElement.ValueKind == JsonValueKind.Undefined || jsonElement.ValueKind == JsonValueKind.Null) {
-                    return Result.Fail("Passcode not found in session storage");
-                }
-
-                if (jsonElement.TryGetProperty("passcode", out var passcodeProperty)) {
-                    passcode = passcodeProperty.GetString();
-                }
-            }
-
-            if (string.IsNullOrEmpty(passcode)) {
-                return Result.Fail("Passcode not available");
-            }
-
-            if (passcode.Length != 21) {
-                return Result.Fail("Invalid passcode length");
-            }
-
-            // Connect to KERIA
-            _logger.LogInformation("BW TryConnectSignifyClient: connecting to {AdminUrl}", config.AdminUrl);
-            var connectResult = await _signifyClientService.Connect(
-                config.AdminUrl,
-                passcode,
-                config.BootUrl,
-                isBootForced: false  // Don't force boot - just connect
-            );
-
+    try {
+        InitializeIfNeeded();
+        // Check if connected to KERIA
+        /*
+        var stateResult = await TryGetSignifyClientAsync();
+        if (stateResult.IsFailed) {
+            var connectResult = await TryConnectSignifyClientAsync();
             if (connectResult.IsFailed) {
-                return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
+                _logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
+                return;
+            }
+        }
+        */
+
+        var payload = msg.Payload;
+        if (payload is null) {
+            _logger.LogError("SignAndSendRequestHeaders: could not parse payload");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}"));
+            return;
+        }
+
+        var headersDict = payload.HeadersDict;
+        var prefix = payload.Prefix;
+        var isApproved = payload.IsApproved;
+
+        // create hostAndPort
+        string originDomain = tabUrl;
+        if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
+            originDomain = $"{originUri.Scheme}://{originUri.Host}";
+            if (!originUri.IsDefaultPort) {
+                originDomain += $":{originUri.Port}";
+            }
+        }
+        _logger.LogInformation("origin: {origin}, originDomain: {od}", tabUrl, originDomain);
+
+        // Get AID name for this origin
+        // string? aidName = null;
+        string? rememberedPrefix = null;
+        if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+            var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+            if (websiteConfigResult.IsSuccess &&
+                websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+                rememberedPrefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+            }
+        }
+
+        if (string.IsNullOrEmpty(rememberedPrefix)) {
+            _logger.LogWarning("BW HandleSignRequestAsync: no identifier configured for origin {Origin}", originDomain);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+            return;
+        }
+
+        var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO 2 should return error?
+        var method = headersDict.GetValueOrDefault("method") ?? ""; // TODO P2 should return error?
+
+        // Validate URL is well-formed
+        if (!Uri.IsWellFormedUriString(rurl, UriKind.Absolute)) {
+            _logger.LogWarning("BW HandleSignRequestAsync: URL is not well-formed: {Url}", rurl);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is not well-formed"));
+            return;
+        }
+
+        // TODO P2: Check origin permission previously provided by user in website config, and depending on METHOD (get/post ), and ask user if not granted
+
+        // Get generated signed headers from signify-ts
+        var headersDictJson = JsonSerializer.Serialize(headersDict);
+
+        var readyRes = await _signifyClientService.Ready();
+        if (readyRes.IsFailed) {
+            _logger.LogWarning("BW HandleSignRequestAsync: Signify client not ready: {Error}", readyRes.Errors[0].Message);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Signify client not ready: {readyRes.Errors[0].Message}"));
+            return;
+        }
+
+        var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
+            originDomain,
+            rurl,
+            method,
+            headersDictJson,
+            aidName: rememberedPrefix ?? "none_error"
+        );
+
+        var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
+        if (signedHeaders == null) {
+            _logger.LogWarning("BW HandleSignRequestAsync: failed to generate signed headers");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers"));
+            return;
+        }
+
+        _logger.LogInformation("BW HandleSignRequestAsync: successfully generated signed headers");
+        await SendMessageToTabAsync(tabId, new BwCsMessage(
+            type: BwCsMessageTypes.REPLY,
+            requestId: msg.RequestId,
+            payload: new { headers = signedHeaders },
+            error: null
+        ));
+        return;
+    }
+    catch (Exception ex) {
+        _logger.LogError(ex, "Error in HandleSignRequestAsync");
+        await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: other exception."));
+        return;
+    }
+}
+
+private async Task HandleSignDataAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
+    try {
+        _logger.LogInformation("BW HandleSignData: {Message}", JsonSerializer.Serialize(msg));
+
+        // TODO P2 opportunity for DRY with various handlers for sanity checks for existance of sender.Tab.Id, sender.Url, computing originDomain, payloadJson non-null/empty, etc.
+        if (sender?.Tab?.Id == null) {
+            _logger.LogError("BW HandleSignData: no tabId found");
+            return; // don't have tabId to send errorStr back
+        }
+
+        var tabId = sender.Tab.Id.Value;
+        var origin = sender.Url ?? "unknown";
+
+        // Extract origin domain from URL
+        string originDomain = origin;
+        if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+            originDomain = $"{originUri.Scheme}://{originUri.Host}";
+            if (!originUri.IsDefaultPort) {
+                originDomain += $":{originUri.Port}";
+            }
+        }
+
+        _logger.LogInformation("BW HandleSignData: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+
+        // Deserialize payload to SignDataArgs
+        var payloadJson = JsonSerializer.Serialize(msg.Payload);
+        var payload = JsonSerializer.Deserialize<SignDataArgs>(payloadJson, PortMessageJsonOptions);
+
+        if (payload == null) {
+            _logger.LogWarning("BW HandleSignData: invalid payload");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
+            return;
+        }
+
+        // TODO P2 Validate required fields
+
+        var signDataMessage = new RequestMessageData<SignDataArgs>(
+            requestId: msg.RequestId ?? "", // DODO P2 ensure requestId is always set
+            payload: payload
+        );
+
+        // Check if connected to KERIA
+        InitializeIfNeeded();
+        /*
+        var stateResult = await TryGetSignifyClientAsync();
+        if (stateResult.IsFailed) {
+            var connectResult = await TryConnectSignifyClientAsync();
+            if (connectResult.IsFailed) {
+                _logger.LogWarning("BW HandleSignData: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
+                return;
+            }
+        }
+        */
+
+        // Get AID name for this origin (using website configuration)
+        string? aidName = null;
+        if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+            var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+            if (websiteConfigResult.IsSuccess &&
+                websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+
+                var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+                var identifiers = await _signifyClientService.GetIdentifiers();
+                if (identifiers.IsSuccess && identifiers.Value is not null) {
+                    var aids = identifiers.Value.Aids;
+                    aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                }
+            }
+        }
+        if (string.IsNullOrEmpty(aidName)) {
+            _logger.LogWarning("BW HandleSignData: no identifier configured for origin {Origin}", originDomain);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+            return;
+        }
+        // Get identifier details
+        var aidResult = await _signifyClientService.GetIdentifier(aidName);
+        if (aidResult.IsFailed) {
+            _logger.LogWarning("BW HandleSignData: failed to get identifier: {Error}", aidResult.Errors[0].Message);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
+            return;
+        }
+        var aid = aidResult.Value;
+        // TODO P1: Check if this is a group AID (multisig not currently supported)
+        // The TypeScript implementation checks for aid.group property
+        // Need to add Group property to Aid model to support this check
+        // For now, skipping this validation - multisig signing may fail at KERIA level
+        // Sign the data using signify-ts
+
+        // TODO P1 finish HandleSignDataAsync implementation
+        // TODO P2: user should be prompted to include payload.message from the requesting page
+        _logger.LogWarning("BW HandleSignData: signing data not yet completely implemented");
+        /*
+        var signatureJson = await _signifyClientService.Sign....
+
+        var signature = JsonSerializer.Deserialize<SignDataResult>(signatureJson);
+        if (signature == null) {
+            _logger.LogWarning("BW HandleSignData: failed to sign data");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to sign data"));
+            return;
+        }
+        _logger.LogInformation("BW HandleSignData: successfully signed data");
+        await SendMessageToTabAsync(tabId, new BwCsMessage(
+            type: BwCsMessageTypes.REPLY,
+            requestId: msg.RequestId,
+            payload: new { signature = signature.Signature, verfer = signature.Verfer },
+            errorStr: null
+        ));
+        */
+        return;
+    }
+    catch (Exception ex) {
+        _logger.LogError(ex, "Error in HandleSignData");
+        var msg2 = "BW HandleSignData: exception occurred";
+        _logger.LogWarning("{m}", msg2);
+        if (sender?.Tab?.Id is not null) {
+            var tabId = sender.Tab.Id.Value;
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
+        }
+        return;
+    }
+}
+
+/// <summary>
+/// Handles data attestation credential creation request from ContentScript.
+/// Creates a credential based on provided credData and schemaSaid.
+/// </summary>
+private async Task HandleCreateDataAttestationAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
+    try {
+        _logger.LogInformation("BW HandleCreateDataAttestation: {Message}", JsonSerializer.Serialize(msg));
+
+        if (sender?.Tab?.Id == null) {
+            _logger.LogError("BW HandleCreateDataAttestation: no tabId found");
+            return;
+        }
+
+        var tabId = sender.Tab.Id.Value;
+        var origin = sender.Url ?? "unknown";
+
+        // Extract origin domain from URL
+        string originDomain = origin;
+        if (Uri.TryCreate(origin, UriKind.Absolute, out var originUri)) {
+            originDomain = $"{originUri.Scheme}://{originUri.Host}";
+            if (!originUri.IsDefaultPort) {
+                originDomain += $":{originUri.Port}";
+            }
+        }
+
+        _logger.LogInformation("BW HandleCreateDataAttestation: tabId: {TabId}, origin: {Origin}", tabId, originDomain);
+
+        // Deserialize payload using specific type
+        var payloadJson = JsonSerializer.Serialize(msg.Payload);
+        var payload = JsonSerializer.Deserialize<CreateDataAttestationPayload>(payloadJson, PortMessageJsonOptions);
+
+        if (payload == null) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: invalid payload");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
+            return;
+        }
+
+        // Validate required fields
+        if (payload.CredData == null || payload.CredData.Count == 0) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: credData is empty or missing");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Credential data not specified"));
+            return;
+        }
+
+        if (string.IsNullOrEmpty(payload.SchemaSaid)) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: schemaSaid is empty or missing");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Schema SAID not specified"));
+            return;
+        }
+
+        // Convert credData to OrderedDictionary to preserve field order (critical for CESR/SAID)
+        var credDataOrdered = new System.Collections.Specialized.OrderedDictionary();
+        foreach (var kvp in payload.CredData) {
+            credDataOrdered.Add(kvp.Key, kvp.Value);
+        }
+
+        // Check if connected to KERIA
+        InitializeIfNeeded();
+
+        /*
+        var stateResult = await TryGetSignifyClientAsync();
+        if (stateResult.IsFailed) {
+            var connectResult = await TryConnectSignifyClientAsync();
+            if (connectResult.IsFailed) {
+                _logger.LogWarning("BW HandleCreateDataAttestation: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
+                return;
+            }
+        }
+        */
+
+        // Get AID name for this origin (using website configuration)
+        string? aidName = null;
+        if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
+            var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
+
+            if (websiteConfigResult.IsSuccess &&
+                websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
+
+                var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
+                var identifiers = await _signifyClientService.GetIdentifiers();
+                if (identifiers.IsSuccess && identifiers.Value is not null) {
+                    var aids = identifiers.Value.Aids;
+                    aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(aidName)) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: no identifier configured for origin {Origin}", originDomain);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
+            return;
+        }
+
+        // Get identifier details
+        var aidResult = await _signifyClientService.GetIdentifier(aidName);
+        if (aidResult.IsFailed) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: failed to get identifier: {Error}", aidResult.Errors[0].Message);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to get identifier: {aidResult.Errors[0].Message}"));
+            return;
+        }
+
+        var aid = aidResult.Value;
+
+        // TODO P1: Check if this is a group AID (multisig not currently supported)
+        // The TypeScript implementation checks for aid.group property
+        // Need to add Group property to Aid model to support this check
+        // For now, skipping this validation - multisig credential issuance may fail at KERIA level
+
+        // Get registry for this AID
+        var registriesResult = await _signifyClientService.ListRegistries(aidName);
+        if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
+            // TODO P1: Consider automatic registry creation if none exists
+            // The TypeScript implementation may create a registry automatically
+            // For now, return an errorStr requiring user to create registry first
+            _logger.LogWarning("BW HandleCreateDataAttestation: no registry found for AID {AidName}", aidName);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No credential registry found for this identifier. Please create a registry first."));
+            return;
+        }
+
+        var registry = registriesResult.Value[0]; // Use first registry
+        var registryId = registry.GetValueOrDefault("regk")?.ToString() ?? "";
+
+        if (string.IsNullOrEmpty(registryId)) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: registry ID is empty for AID {AidName}", aidName);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid registry configuration"));
+            return;
+        }
+
+        // Verify schema exists
+        var schemaResult = await _signifyClientService.GetSchema(payload.SchemaSaid);
+        if (schemaResult.IsFailed) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: failed to get schema {SchemaSaid}: {Error}", payload.SchemaSaid, schemaResult.Errors[0].Message);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Schema not found: {schemaResult.Errors[0].Message}"));
+            return;
+        }
+
+        // TODO P1: Consider adding user approval flow before credential creation
+        // Depending on security requirements, may want to prompt user similar to HandleSelectAuthorizeAsync
+        // This would open a popup for user to review and approve credential creation
+        // For now, proceeding with automatic creation for data attestations
+
+        // Build credential data structure
+        var credentialData = new CredentialData(
+            I: aid.Prefix,              // Issuer prefix
+            Ri: registryId,             // Registry ID
+            S: payload.SchemaSaid,      // Schema SAID
+            A: credDataOrdered          // Credential attributes (order-preserved)
+        );
+
+        _logger.LogInformation("BW HandleCreateDataAttestation: issuing credential for AID {AidName} with schema {SchemaSaid}", aidName, payload.SchemaSaid);
+
+        // Issue the credential
+        var issueResult = await _signifyClientService.IssueCredential(aidName, credentialData);
+        if (issueResult.IsFailed) {
+            _logger.LogWarning("BW HandleCreateDataAttestation: failed to issue credential: {Error}", issueResult.Errors[0].Message);
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+            return;
+        }
+
+        var credential = issueResult.Value;
+
+        // TODO P1: Add operation waiting if credential issuance returns an operation
+        // The TypeScript implementation calls waitOperation() to ensure the credential
+        // issuance operation completes before returning to the caller
+        // This may require extracting an operation object from the result and waiting for it
+
+        _logger.LogInformation("BW HandleCreateDataAttestation: successfully created credential");
+
+        // Send credential back to ContentScript
+        // CRITICAL: Pass RecursiveDictionary directly as payload to preserve CESR/SAID ordering
+        // RecursiveDictionary maintains insertion order required for SAID verification
+        // The messaging infrastructure will handle serialization properly
+        await SendMessageToTabAsync(tabId, new BwCsMessage(
+            type: BwCsMessageTypes.REPLY,
+            requestId: msg.RequestId,
+            payload: credential,
+            error: null
+        ));
+        return;
+    }
+    catch (Exception ex) {
+        _logger.LogError(ex, "Error in HandleCreateDataAttestation");
+        var msg2 = "BW HandleCreateDataAttestation: exception occurred";
+        _logger.LogWarning("{m}", msg2);
+        if (sender?.Tab?.Id is not null) {
+            var tabId = sender.Tab.Id.Value;
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
+        }
+
+        return;
+    }
+}
+
+/// <summary>
+/// Try to connect the BackgroundWorker's SignifyClient instance using stored credentials
+/// This is needed because BackgroundWorker has a separate Blazor runtime from the App (popup/tab)
+/// </summary>
+private async Task<Result> TryConnectSignifyClientAsync() {
+    try {
+        // Get connection config from storage
+        var configResult = await _storageService.GetItem<KeriaConnectConfig>();
+        if (configResult.IsFailed || configResult.Value == null) {
+            return Result.Fail("No KERIA connection configuration found");
+        }
+
+        var config = configResult.Value;
+
+        if (string.IsNullOrEmpty(config.AdminUrl)) {
+            return Result.Fail("Admin URL not configured");
+        }
+
+        if (string.IsNullOrEmpty(config.BootUrl)) {
+            return Result.Fail("Boot URL not configured");
+        }
+
+        // Get passcode from session storage
+        var passcodeResult = await _webExtensionsApi.Storage.Session.Get("passcode");
+
+        // Extract passcode string from the result
+        string? passcode = null;
+        if (passcodeResult is JsonElement jsonElement) {
+            if (jsonElement.ValueKind == JsonValueKind.Undefined || jsonElement.ValueKind == JsonValueKind.Null) {
+                return Result.Fail("Passcode not found in session storage");
             }
 
-            _logger.LogInformation("BW TryConnectSignifyClient: connected successfully");
-            return Result.Ok();
+            if (jsonElement.TryGetProperty("passcode", out var passcodeProperty)) {
+                passcode = passcodeProperty.GetString();
+            }
         }
-        catch (Exception ex) {
-            _logger.LogError(ex, "BW TryConnectSignifyClient: exception");
-            return Result.Fail($"Exception connecting to KERIA: {ex.Message}");
+
+        if (string.IsNullOrEmpty(passcode)) {
+            return Result.Fail("Passcode not available");
         }
-    }
 
-    public void Dispose() {
-        // No resources to dispose - BackgroundWorker uses only injected services
-        GC.SuppressFinalize(this);
-    }
+        if (passcode.Length != 21) {
+            return Result.Fail("Invalid passcode length");
+        }
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"^[a-zA-Z0-9\-_]+$")]
-    private static partial System.Text.RegularExpressions.Regex MyRegex();
+        // Connect to KERIA
+        _logger.LogInformation("BW TryConnectSignifyClient: connecting to {AdminUrl}", config.AdminUrl);
+        var connectResult = await _signifyClientService.Connect(
+            config.AdminUrl,
+            passcode,
+            config.BootUrl,
+            isBootForced: false  // Don't force boot - just connect
+        );
+
+        if (connectResult.IsFailed) {
+            return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
+        }
+
+        _logger.LogInformation("BW TryConnectSignifyClient: connected successfully");
+        return Result.Ok();
+    }
+    catch (Exception ex) {
+        _logger.LogError(ex, "BW TryConnectSignifyClient: exception");
+        return Result.Fail($"Exception connecting to KERIA: {ex.Message}");
+    }
+}
+
+public void Dispose() {
+    // No resources to dispose - BackgroundWorker uses only injected services
+    GC.SuppressFinalize(this);
+}
+
+[System.Text.RegularExpressions.GeneratedRegex(@"^[a-zA-Z0-9\-_]+$")]
+private static partial System.Text.RegularExpressions.Regex MyRegex();
 }

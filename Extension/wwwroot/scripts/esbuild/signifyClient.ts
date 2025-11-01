@@ -90,7 +90,7 @@ const validateClient = async (): Promise<SignifyClient> => {
         const passcode = 'D1zFlTuOGpECDQzOMO8vz';
 
         // TODO P1: wrap in try/catch
-        // TODO P0: don't log state
+        // TODO P1: don't log state
         await connect(agentUrl, passcode);
         console.log('signifyClient: validateClient - Reconnected to SignifyClient');
 

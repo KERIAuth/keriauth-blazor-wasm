@@ -642,6 +642,7 @@ export async function beforeStart(
             console.log(`app.ts: Unknown mode: ${mode}`);
             break;
     }
+    console.log('app.ts: beforeStart completed');
     return;
 }
 
