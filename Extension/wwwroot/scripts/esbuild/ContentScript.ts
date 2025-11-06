@@ -191,9 +191,12 @@ async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise
         // console.log('KeriAuthCs→BW: sendMessage:', msg);
         // Response handling can be added here if needed
     } catch (error) {
-        // TODO P2: this may occur during development when an existing page with injected script trys to interact with newly loaded extension.
-        // would be better here to prompt user to reload (or close tab, even) page.
-        console.error('KeriAuthCs→BW: Failed to send message:', error);
+        // In that case, a more user-friendly message would be better here to prompt user to reload (or close tab, even) page.
+        if (error as String === "Extension context invalidated.") {
+            console.warn("KeriAuthCs→BW: Target context (e.g., service worker or tab) no longer active, perhaps due to an version update. Please reload the page.");
+        } else {
+            console.error('KeriAuthCs→BW: Failed to send message:', error);
+        }
         throw error;
     }
 }
