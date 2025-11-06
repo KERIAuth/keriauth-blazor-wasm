@@ -368,9 +368,9 @@
                 case SignInMode.Prompt:
                     <MudStack Class="gap-0">
                         <MudText Class="mt-6"><b>Sign-in method</b></MudText>
-                        <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode>
-                            <MudRadio Class="d-block" Value=@(SignInMode.Identifier)>Identifier</MudRadio>
-                            <MudRadio Class="d-block" Value=@(SignInMode.Credential)>Credential</MudRadio>
+                        <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode InputStyle="flex-direction:column; align-items:start;">
+                            <MudRadio Value=@(SignInMode.Identifier)>Identifier</MudRadio>
+                            <MudRadio Value=@(SignInMode.Credential)>Credential</MudRadio>
                         </MudRadioGroup>
                     </MudStack>
                     break;
