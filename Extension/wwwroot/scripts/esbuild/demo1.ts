@@ -19,9 +19,7 @@ let tmp: string | null = "test";
  * Demo1: KERI vLEI workflow demonstration
  * Creates GLEIF, QVI, LE, and role identifiers and demonstrates credential issuance
  */
-export const rundemo1 = async (
-
-): Promise<void> => {
+export const runDemo1 = async (): Promise<void> => {
 
 
 initializeSignify()
