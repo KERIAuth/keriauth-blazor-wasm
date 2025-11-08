@@ -15,7 +15,7 @@
                 Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
                 <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
                 <MudText
-                    Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">
+                    Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps; ">
                     KeriAuth</MudText>
             </MudButton>
 
@@ -25,14 +25,19 @@
                     Style="align-self:center; padding:0;" />
                 <MudButton 
                     Style="padding: 10px; height:47px; align-self:center; border:none; border-radius:16px; background:#00000020;">
-                    <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0px; width:200px; overflow:hidden;">
-                        <MudStack Row Style="nowrap;" Spacing="0">
-                            <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px; align-self:center; padding-right:4px;" />
-                            <MudText Color="Color.Primary" Style="height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; font-weight: bold;">
+                    <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0px; max-width:500px; width:fit-content; overflow:hidden;">
+                        <MudStack Row Style="nowrap; width:inherit" Spacing="0">
+                            @if (activeTab.FavIconUrl is not null) {
+                                <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px; align-self:center; margin-right:4px;" />
+                            }
+                            else {
+                                <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Primary" Style="width: 16px; height: 16px; align-self:center; margin-right:4px;" />
+                            }
+                            <MudText Style="height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; font-weight: bold; overflow:hidden; color:white !important;">
                                 @activeTab.Title
                             </MudText>
                         </MudStack>
-                        <MudText Color="Color.Primary" Style="margin-left:20px; height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap;">
+                        <MudText Style="margin-left:20px; height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; color:white !important;">
                             @domain
                         </MudText>
                     </MudStack>
@@ -50,14 +55,9 @@
 
 
     <MudStack>
-        <p>This is a demo of the extension side panel.</p>
         @if (activeTab?.Url is not null)
         {
-            <MudCard background="Background.Default" class="pa-4 ma-2">
-                <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px;" />
-                <MudText><b>Title:</b> @activeTab.Title</MudText>
-                <MudText><b>URL:</b> @activeTab.Url</MudText>
-            </MudCard>
+         
         }
         else
         {
@@ -72,6 +72,7 @@
 
     // reactive properties
     string domain => activeTab?.Url is not null ? new Uri(activeTab.Url).Host : "";
+    string port => activeTab?.Url is not null ? ":" + new Uri(activeTab.Url).Port.ToString() : "";
 
     protected override async Task OnInitializedAsync()
     {

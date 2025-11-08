@@ -553,30 +553,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             await WebExtensions.ContextMenus.RemoveAll();
 
-            WebExtensions.ContextMenus.Create(new() {
-                Id = "rootMenu",
-                Title = "KERIAuth Tools",
-                Contexts = [MenusContextType.Action]
-            });
-
+            // TODO P2: remove this demo item
             WebExtensions.ContextMenus.Create(new() {
                 Id = "demo1",
-                ParentId = "rootMenu",
-                Title = "Demo1",
-                Contexts = [MenusContextType.Action]
-            });
 
-            WebExtensions.ContextMenus.Create(new() {
-                Id = "demo2",
-                ParentId = "rootMenu",
-                Title = "Demo2",
-                Contexts = [MenusContextType.Action]
-            });
-
-            WebExtensions.ContextMenus.Create(new() {
-                Id = "demo3",
-                ParentId = "rootMenu",
-                Title = "Demo3",
+                Title = "Create test data",
                 Contexts = [MenusContextType.Action]
             });
 
