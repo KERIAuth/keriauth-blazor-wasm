@@ -85,15 +85,23 @@ const validateClient = async (): Promise<SignifyClient> => {
         console.log('signifyClient: validateClient - SignifyClient not connected');
         // if _client is expected to be connected but not (usually because backgroundWorker hybernated and restarted), then reconnect to KERIA)
 
-        // TODO P0: temp
-        const agentUrl = 'http://localhost:3901'; // TODO P1: Store and retrieve actual agentUrl and passcode securely'
-        const passcode = 'D1zFlTuOGpECDQzOMO8vz';
+        const agentUrl = (await chrome.storage.local.get('KeriaConnectConfig'))?.KeriaConnectConfig?.AdminUrl as unknown as string;
+        const passcode = (await chrome.storage.session.get('passcode'))?.passcode as unknown as string;
 
-        // TODO P1: wrap in try/catch
-        // TODO P1: don't log state
+        if (agentUrl === '' || passcode === '') {
+            console.warn('signifyClient: validateClient - Missing agentUrl or passcode');
+            return Promise.reject(new Error('signifyClient: validateClient - Missing agentUrl or passcode'));
+        }
+
+        // console.warn('signifyClient: validateClient - Reconnecting to SignifyClient with agentUrl and passcode:', agentUrl, passcode);
+
+        const ts = Date.now();
+        // TODO P1 wrap in try-catch
+        // Note: don't log state
         await connect(agentUrl, passcode);
-        console.log('signifyClient: validateClient - Reconnected to SignifyClient');
-
+        const duration = Date.now() - ts;
+        // TODO P2 fix this performance hit on connect, taking about 1400ms as of 2025-11-07
+        console.warn('signifyClient: validateClient - Reconnected to SignifyClient in ', duration, 'ms');
         if (!_client) {
             throw new Error('signifyClient: validateClient - Failed to reconnect SignifyClient');
         }

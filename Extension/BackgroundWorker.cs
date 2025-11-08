@@ -174,7 +174,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
         _logger.LogInformation("BackgroundWorker initializing...");
-        // TODO P0 Perform any necessary initialization tasks here
+        // TODO P1 Perform any necessary initialization tasks here
         // e.g., load settings, initialize services, etc.
 
         // reload javascript modules, such as signifyClient

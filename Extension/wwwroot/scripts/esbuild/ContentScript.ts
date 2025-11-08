@@ -193,6 +193,7 @@ async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise
     } catch (error) {
         // In that case, a more user-friendly message would be better here to prompt user to reload (or close tab, even) page.
         if (error as String === "Extension context invalidated.") {
+            // TODO P2 invoke something like app.ts promptAndReloadTab here
             console.warn("KeriAuthCs→BW: Target context (e.g., service worker or tab) no longer active, perhaps due to an version update. Please reload the page.");
         } else {
             console.error('KeriAuthCs→BW: Failed to send message:', error);

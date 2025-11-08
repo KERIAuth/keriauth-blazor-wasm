@@ -35,7 +35,7 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        // TODO P0 tmp
+        // TODO P2 tmp. Evolve this into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
         var x = await signifyClientService.TestAsync();
         logger.LogInformation($"TestAsync result: {x.Value}");
         var res = await signifyClientService.GetIdentifiers();
