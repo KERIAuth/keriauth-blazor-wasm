@@ -81,7 +81,14 @@
                             : auth)
                         .ToList()
             };
-        await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
+        // Use StorageService via type-safe model
+        var saveResult = await storageService.SetItem(updatedAuthenticators, StorageArea.Sync);
+        if (saveResult.IsFailed)
+        {
+            snackbar.Add("Failed to save authenticator changes", Severity.Error);
+            logger.LogError("Failed to rename authenticator: {Errors}", string.Join(", ", saveResult.Errors));
+            return;
+        }
         snackbar.Add("Successfully renamed authenticator", Severity.Success);
         // update page's collection
         MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
@@ -96,7 +103,14 @@
                                 .Where(auths => auths.CredentialBase64.GetHashCode() != credentialBase64.GetHashCode())
                                 .ToList()
             };
-        await webExtensionsApi.Storage.Sync.Set(updatedAuthenticators);
+        // Use StorageService via type-safe model
+        var saveResult = await storageService.SetItem(updatedAuthenticators, StorageArea.Sync);
+        if (saveResult.IsFailed)
+        {
+            snackbar.Add("Failed to delete authenticator", Severity.Error);
+            logger.LogError("Failed to delete authenticator: {Errors}", string.Join(", ", saveResult.Errors));
+            return;
+        }
         snackbar.Add("Successfully removed authenticator registration", Severity.Success);
         // update page's collection
         MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();

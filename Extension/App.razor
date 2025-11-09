@@ -1,4 +1,5 @@
 ﻿@using Extension.Layouts
+@using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Pages
 @using System.Runtime.InteropServices.JavaScript
@@ -19,7 +20,6 @@
     private static NavigationManager? staticNavManager;
     private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;
-    private WebExtensionsApi? webExtensionsApi;
 
     // properties
     public static Preferences Prefs { get; set; } = new Preferences();
@@ -84,9 +84,16 @@
 
         // TODO P4 await jsRuntime.InvokeVoidAsync("setUpUnloadListener");
 
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", Prefs.InactivityTimeoutMinutes } };
-        await webExtensionsApi.Storage.Session.Set( data );
+        // Cache the initial session expiration time in session storage
+        var sessionExpirationUtc = DateTime.UtcNow.AddMinutes(Prefs.InactivityTimeoutMinutes);
+        var cacheResult = await storageService.SetItem(
+            new InactivityTimeoutCacheModel { SessionExpirationUtc = sessionExpirationUtc },
+            StorageArea.Session
+        );
+        if (cacheResult.IsFailed) {
+            _logger.LogWarning("Failed to cache initial session expiration time: {Errors}",
+                string.Join(", ", cacheResult.Errors));
+        }
 
         return;
     }

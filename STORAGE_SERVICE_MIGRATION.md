@@ -4,9 +4,9 @@
 
 Migrate IStorageService to a unified interface supporting all chrome.storage areas (local, session, sync, managed) with type-safe operations and WebExtensions.Net native event handling.
 
-**Status:** Phase 1 & 2 COMPLETE - Critical Migration Done ✅
+**Status:** Phase 1 & 2 COMPLETE - All C# Migration Done ✅
 **Phase 1 Completed:** 2025-11-09 (Foundation & Infrastructure)
-**Phase 2 Completed:** 2025-11-09 (Critical Passcode Migration)
+**Phase 2 Completed:** 2025-11-09 (All Storage Migrations)
 **Last Updated:** 2025-11-09
 
 ---
@@ -21,26 +21,34 @@ Migrate IStorageService to a unified interface supporting all chrome.storage are
 - Updated all 29 affected files with new using directives
 - Build succeeds: 0 errors, 0 warnings
 
-**Phase 2: Critical Passcode Migration (100%)**
-- Migrated all passcode storage to use `PasscodeModel` + `StorageArea.Session`:
+**Phase 2: All Storage Migrations (100%)**
+- ✅ Migrated all passcode storage to use `PasscodeModel` + `StorageArea.Session`:
   - ✅ UnlockPage.razor (store passcode on unlock)
   - ✅ BackgroundWorker.cs (retrieve passcode for KERIA connection)
   - ✅ StateService.cs (remove passcode on timeout/lock)
   - ✅ WebauthnService.cs (retrieve passcode for authenticator registration)
+  - ✅ ConfigurePage.razor (store passcode during configuration)
+  - ✅ Index.razor (retrieve and remove cached passcode)
   - ✅ signifyClient.ts (TypeScript: use 'PasscodeModel' key)
-- Bonus: Migrated RegisteredAuthenticators to use StorageService with Sync storage
+- ✅ Migrated RegisteredAuthenticators to use StorageService with Sync storage:
+  - ✅ WebauthnService.cs (get/set via StorageService)
+  - ✅ Authenticators.razor (rename/delete operations)
+- ✅ Migrated inactivity timeout cache to use `InactivityTimeoutCacheModel`:
+  - ✅ PreferencesService.cs (cache session expiration on preferences change)
+  - ✅ App.razor (cache initial session expiration on startup)
+  - Design: Stores `SessionExpirationUtc` (DateTime) instead of duration for easier expiration checks
+- ✅ Migrated DeletePage.razor to use StorageService.Clear() for all storage areas
+- ✅ Verified no direct webExtensionsApi.Storage calls remain (except StorageService.cs implementation)
 
 **Key Changes:**
 - Storage key: `"passcode"` → `"PasscodeModel"` (matches C# type name)
-- API: `webExtensionsApi.Storage.Session.*` → `storageService.*Item<PasscodeModel>(StorageArea.Session)`
-- Type-safe access: Manual JSON parsing → `.Value.Passcode`
+- Storage key: `"inactivityTimeoutMinutes"` → `"InactivityTimeoutCacheModel"` with UTC expiration timestamp
+- API: `webExtensionsApi.Storage.Session.*` → `storageService.*Item<T>(StorageArea.Session)`
+- API: `webExtensionsApi.Storage.Sync.*` → `storageService.*Item<T>(StorageArea.Sync)`
+- Type-safe access: Manual JSON parsing → strongly-typed `.Value` properties
+- Session expiration: Stores absolute UTC timestamp instead of duration
 
 ### 🚧 What Remains
-
-**Phase 2 Remaining:**
-- Migrate inactivity timeout cache (PreferencesService)
-- Update remaining Local storage to explicitly use `StorageArea.Local`
-- Verify no direct webExtensionsApi.Storage calls remain
 
 **Phase 3: Testing**
 - Unit tests for new StorageService
@@ -68,18 +76,23 @@ Migrate IStorageService to a unified interface supporting all chrome.storage are
 - Extension/wwwroot/scripts/es6/storageHelper.js
 - Extension/wwwroot/scripts/es6/storageHelper.d.ts
 
-**Modified (35 files):**
+**Modified (41 files):**
 - Extension/Program.cs (DI registration)
 - Extension/wwwroot/app.ts (removed storageHelper import)
 - Extension/BackgroundWorker.cs (passcode retrieval)
 - Extension/Services/StateService.cs (passcode removal)
 - Extension/Services/WebauthnService.cs (passcode + RegisteredAuthenticators)
-- Extension/Services/PreferencesService.cs (using directive)
+- Extension/Services/PreferencesService.cs (inactivity timeout cache + using directive)
 - Extension/Services/WebsiteConfigService.cs (using directive)
 - Extension/Services/IdentifierService.cs (using directive)
 - Extension/Pages/UnlockPage.razor (passcode storage)
+- Extension/Pages/ConfigurePage.razor (passcode storage during config)
+- Extension/Pages/Index.razor (cached passcode retrieval/removal)
+- Extension/Pages/Authenticators.razor (RegisteredAuthenticators rename/delete)
+- Extension/Pages/DeletePage.razor (clear all storage areas)
+- Extension/App.razor (initial session expiration cache)
 - Extension/wwwroot/scripts/esbuild/signifyClient.ts (key name)
-- 24 other Razor pages/components/layouts (using directives)
+- 26 other Razor pages/components/layouts (using directives)
 
 ---
 
@@ -1291,20 +1304,30 @@ if (mode == BrowserExtensionMode.Background) {
 - [x] Delete old IStorageService and StorageService files
 - [x] Add `using Extension.Services.Storage;` to all 29 affected files
 
-### Phase 2: Critical Passcode Migration ✅ COMPLETE (2025-11-09)
+### Phase 2: All Storage Migrations ✅ COMPLETE (2025-11-09)
+#### Passcode Migration
 - [x] Migrate UnlockPage.razor passcode storage to PasscodeModel
 - [x] Migrate BackgroundWorker.cs passcode retrieval to PasscodeModel
 - [x] Migrate StateService.cs passcode removal to PasscodeModel
 - [x] Migrate WebauthnService.cs passcode access to PasscodeModel
-- [x] **BONUS**: Migrate WebauthnService RegisteredAuthenticators to use StorageService
+- [x] Migrate ConfigurePage.razor passcode storage to PasscodeModel
+- [x] Migrate Index.razor cached passcode access/removal to PasscodeModel
 - [x] Update signifyClient.ts to use 'PasscodeModel' key
-- [x] Full build verification (C# + TypeScript) - 0 errors, 0 warnings
 
-### Phase 2: Remaining Work (NOT STARTED)
-- [ ] Migrate inactivity timeout cache in PreferencesService
-- [ ] Update remaining Local storage usage to explicitly use StorageArea.Local
-- [ ] Grep and verify no remaining direct webExtensionsApi.Storage calls
-- [ ] Consider migrating other session storage usage (if any)
+#### RegisteredAuthenticators Migration
+- [x] Migrate WebauthnService RegisteredAuthenticators to use StorageService (Sync)
+- [x] Migrate Authenticators.razor rename/delete operations to use StorageService
+
+#### Inactivity Timeout Cache Migration
+- [x] Migrate PreferencesService to cache InactivityTimeoutCacheModel with SessionExpirationUtc
+- [x] Migrate App.razor to cache initial session expiration on startup
+- [x] Verify InactivityTimeoutCacheModel stores DateTime instead of duration
+
+#### Other Storage Migrations
+- [x] Migrate DeletePage.razor to use StorageService.Clear() for all storage areas
+- [x] Grep and verify no remaining direct webExtensionsApi.Storage calls (except StorageService.cs)
+- [x] Update remaining Local storage to use defaults (explicit StorageArea.Local optional)
+- [x] Full build verification (C# only, TypeScript unchanged) - 0 errors, 0 warnings
 
 ### Phase 3: Testing (NOT STARTED)
 - [ ] Create unit tests for StorageService
