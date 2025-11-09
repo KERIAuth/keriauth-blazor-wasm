@@ -97,15 +97,32 @@ public class StorageService : IStorageService, IDisposable {
         }
 
         try {
-            // changes is a dictionary of storage changes
-            var changesDict = changes as IDictionary<string, object>
-                ?? throw new InvalidCastException($"Changes not a dictionary: {changes?.GetType().FullName}");
+            // changes can be JsonElement or dictionary depending on WebExtensions.Net serialization
+            Dictionary<string, JsonElement>? changesDict = null;
+
+            if (changes is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object) {
+                changesDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                    jsonElement.GetRawText(), JsonOptions);
+            } else if (changes is IDictionary<string, object> dict) {
+                // Convert to JsonElement dictionary for uniform processing
+                changesDict = dict.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value is JsonElement je ? je : JsonSerializer.SerializeToElement(kvp.Value, JsonOptions)
+                );
+            } else {
+                throw new InvalidCastException($"Changes not a recognized type: {changes?.GetType().FullName}");
+            }
+
+            if (changesDict == null) {
+                _logger.LogWarning("Failed to deserialize storage changes for {Area}", area);
+                return;
+            }
 
             _logger.Log(ServiceLogLevel, "Storage changed in {Area}: {Keys}",
                 area, string.Join(", ", changesDict.Keys));
 
-            foreach (var (key, changeObj) in changesDict) {
-                ProcessStorageChange(area, key, changeObj);
+            foreach (var (key, changeElement) in changesDict) {
+                ProcessStorageChange(area, key, changeElement);
             }
         }
         catch (Exception ex) {
@@ -113,11 +130,11 @@ public class StorageService : IStorageService, IDisposable {
         }
     }
 
-    private void ProcessStorageChange(StorageArea area, string key, object changeObj) {
+    private void ProcessStorageChange(StorageArea area, string key, JsonElement changeElement) {
         try {
             // Extract newValue from StorageChange object
-            var changeDict = changeObj as IDictionary<string, object>;
-            if (changeDict == null || !changeDict.TryGetValue("newValue", out var newValue)) {
+            // Chrome storage.onChanged provides: { key: { oldValue: ..., newValue: ... } }
+            if (!changeElement.TryGetProperty("newValue", out var newValue)) {
                 _logger.LogDebug("No newValue in change for {Key} in {Area}", key, area);
                 return;
             }
