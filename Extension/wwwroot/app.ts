@@ -25,7 +25,6 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 // NOTE: signifyClient and demo1 are NOT statically imported here because:
 // - signifyClient: contains libsodium which needs crypto APIs ready first
 // - demo1: has TypeScript errors that would fail compilation (loaded via JsModuleLoader instead)
-import * as storageHelper from './scripts/es6/storageHelper.js';
 import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWithPRF.js';
 // import * as signifyClient from './scripts/esbuild/signifyClient.js';
 // import * as utils from './scripts/esbuild/utils.js';
@@ -33,7 +32,6 @@ import * as webauthnCredentialWithPRF from './scripts/es6/webauthnCredentialWith
 
 // Make modules available globally for debugging
 (globalThis as any).appModules = {
-    storageHelper,
     webauthnCredentialWithPRF
 };
 

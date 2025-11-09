@@ -87,7 +87,7 @@ Console.WriteLine("Program.cs: Registering services...");
 
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-builder.Services.AddSingleton<IStorageService, StorageService>();
+builder.Services.AddSingleton<Extension.Services.Storage.IStorageService, Extension.Services.Storage.StorageService>();
 builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironmentService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddSingleton<IStateService, StateService>();

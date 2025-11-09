@@ -1206,15 +1206,15 @@ if (mode == BrowserExtensionMode.Background) {
 
 ## Migration Checklist Summary
 
-### Phase 1: Foundation ✅
-- [ ] Create `StorageArea` enum
-- [ ] Create `IStorageService` interface
-- [ ] Create `StorageServiceValidation` helper
-- [ ] Create storage models (PasscodeModel, InactivityTimeoutCacheModel, EnterprisePolicyConfig)
-- [ ] Implement `StorageService` with WebExtensions.Net events
-- [ ] Update DI registration
-- [ ] Delete JavaScript helpers (storageHelper.ts/js)
-- [ ] Update app.ts to remove storageHelper import
+### Phase 1: Foundation ✅ COMPLETE
+- [x] Create `StorageArea` enum
+- [x] Create `IStorageService` interface (removed IObservable<Preferences> inheritance)
+- [x] Create `StorageServiceValidation` helper
+- [x] Create storage models (PasscodeModel, InactivityTimeoutCacheModel, EnterprisePolicyConfig)
+- [x] Implement `StorageService` with WebExtensions.Net events (single global listener)
+- [x] Update DI registration (fully qualified namespace)
+- [x] Delete JavaScript helpers (storageHelper.ts/js)
+- [x] Update app.ts to remove storageHelper import
 
 ### Phase 2: Migration ✅
 - [ ] Migrate passcode storage in 11+ files
