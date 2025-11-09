@@ -5,7 +5,6 @@ using Extension.Models;
 using JsBind.Net;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
-using System.Collections;
 using System.Text;
 using System.Text.Json;
 using WebExtensions.Net;
@@ -25,8 +24,12 @@ public class StorageService : IStorageService, IDisposable {
     // Observer lists per area and type name
     // Outer key: StorageArea (e.g., Local, Session)
     // Inner key: Type name (e.g., "Preferences", "PasscodeModel")
-    // Inner value: IList of IObserver<T> where T is the type (stored as non-generic IList for type variance)
-    private readonly Dictionary<StorageArea, Dictionary<string, System.Collections.IList>> _observersByArea = new();
+    // Inner value: List of observer entries containing the observer and a typed notification callback
+    // The callback avoids reflection by capturing the generic type at subscription time
+    private readonly Dictionary<StorageArea, Dictionary<string, List<ObserverEntry>>> _observersByArea = new();
+
+    // Helper record to store observer with its typed notification callback
+    private sealed record ObserverEntry(object Observer, Type ElementType, Action<object> NotifyCallback);
 
     // Single global callback for ALL storage areas (chrome.storage.onChanged fires once for all areas)
     private Action<object, string>? _globalCallback;
@@ -141,8 +144,8 @@ public class StorageService : IStorageService, IDisposable {
 
             // Notify type-specific observers
             if (_observersByArea.TryGetValue(area, out var observersByKey)
-                && observersByKey.TryGetValue(key, out var observerList)) {
-                NotifyObservers(key, area, observerList, newValue);
+                && observersByKey.TryGetValue(key, out var entryList)) {
+                NotifyObservers(key, area, entryList, newValue);
             } else {
                 _logger.LogTrace("No observers for {Key} in {Area}", key, area);
             }
@@ -152,21 +155,13 @@ public class StorageService : IStorageService, IDisposable {
         }
     }
 
-    private void NotifyObservers(string key, StorageArea area, System.Collections.IList observerList, object newValue) {
-        // Get element type from observer list
-        var listType = observerList.GetType();
-        if (!listType.IsGenericType) {
-            _logger.LogWarning("Observer list for {Key} is not generic: {Type}", key, listType);
+    private void NotifyObservers(string key, StorageArea area, List<ObserverEntry> entryList, object newValue) {
+        if (entryList.Count == 0) {
             return;
         }
 
-        var observerType = listType.GetGenericArguments()[0]; // IObserver<T>
-        if (!observerType.IsGenericType) {
-            _logger.LogWarning("Observer type is not generic: {Type}", observerType);
-            return;
-        }
-
-        var elementType = observerType.GetGenericArguments()[0]; // T
+        // Get element type from first entry (all entries for same key have same type)
+        var elementType = entryList[0].ElementType;
 
         try {
             // Deserialize newValue to appropriate type
@@ -178,14 +173,11 @@ public class StorageService : IStorageService, IDisposable {
             }
 
             if (typedValue != null) {
-                // Notify each observer
-                foreach (var observer in observerList) {
+                // Notify each observer using its typed callback
+                foreach (var entry in entryList) {
                     try {
-                        var onNextMethod = observer.GetType().GetMethod("OnNext");
-                        if (onNextMethod != null) {
-                            onNextMethod.Invoke(observer, new[] { typedValue });
-                            _logger.LogDebug("Notified observer of {Key} change in {Area}", key, area);
-                        }
+                        entry.NotifyCallback(typedValue);
+                        _logger.LogDebug("Notified observer of {Key} change in {Area}", key, area);
                     }
                     catch (Exception ex) {
                         _logger.LogError(ex, "Observer error for {Key} in {Area}", key, area);
@@ -417,23 +409,36 @@ public class StorageService : IStorageService, IDisposable {
 
         // Get or create observer dictionary for this area
         if (!_observersByArea.TryGetValue(area, out var observersByKey)) {
-            observersByKey = new Dictionary<string, IList>();
+            observersByKey = new Dictionary<string, List<ObserverEntry>>();
             _observersByArea[area] = observersByKey;
         }
 
-        // Get or create typed observer list for this key
-        if (!observersByKey.TryGetValue(key, out var listObj)) {
-            listObj = new List<IObserver<T>>();
-            observersByKey[key] = listObj;
+        // Get or create observer entry list for this key
+        if (!observersByKey.TryGetValue(key, out var entryList)) {
+            entryList = new List<ObserverEntry>();
+            observersByKey[key] = entryList;
         }
 
-        var list = (List<IObserver<T>>)listObj;
-        if (!list.Contains(observer)) {
-            list.Add(observer);
+        // Create a typed callback that captures the generic type
+        // This avoids reflection when notifying observers
+        Action<object> notifyCallback = (obj) => {
+            if (obj is T typedValue) {
+                observer.OnNext(typedValue);
+            } else {
+                var error = new InvalidCastException(
+                    $"Type mismatch when notifying observer for {key}: expected {typeof(T).Name}, got {obj?.GetType().Name ?? "null"}");
+                _logger.LogError(error, "Failed to notify observer for {Key}", key);
+                throw error;
+            }
+        };
+
+        var entry = new ObserverEntry(observer, typeof(T), notifyCallback);
+        if (!entryList.Any(e => ReferenceEquals(e.Observer, observer))) {
+            entryList.Add(entry);
             _logger.LogDebug("Subscribed to {Key} in {Area} storage", key, area);
         }
 
-        return new Unsubscriber<T>(list, observer, () => {
+        return new UnsubscriberEntry(entryList, observer, () => {
             _logger.LogDebug("Unsubscribed from {Key} in {Area} storage", key, area);
         });
     }
@@ -568,13 +573,16 @@ public class StorageService : IStorageService, IDisposable {
         GC.SuppressFinalize(this);
     }
 
-    private sealed class Unsubscriber<T>(
-        List<IObserver<T>> observers,
-        IObserver<T> observer,
+    private sealed class UnsubscriberEntry(
+        List<ObserverEntry> entries,
+        object observer,
         Action? onDispose = null
     ) : IDisposable {
         public void Dispose() {
-            observers.Remove(observer);
+            var entry = entries.FirstOrDefault(e => ReferenceEquals(e.Observer, observer));
+            if (entry != null) {
+                entries.Remove(entry);
+            }
             onDispose?.Invoke();
         }
     }
