@@ -1,5 +1,7 @@
 ﻿namespace Extension.Services;
 using Extension.Models;
+using Extension.Models.Storage;
+using Extension.Services.Storage;
 using FluentResults;
 using Stateless;
 using WebExtensions.Net;
@@ -124,7 +126,12 @@ public class StateService : IStateService {
     async Task<Result> IStateService.TimeOut() {
         try {
             logger.LogInformation("User selected Locked, or the inactivity timer elapsed, so removing CachedPasscode");
-            await webExtensionsApi.Storage.Session.Remove("passcode");
+            var removeResult = await storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
+            if (removeResult.IsFailed) {
+                logger.LogWarning("Failed to remove passcode from session storage: {Errors}",
+                    string.Join(", ", removeResult.Errors));
+                // Continue anyway - not critical
+            }
             await stateMachine.FireAsync(Triggers.ToUnauthenticated);
             return Result.Ok();
         }

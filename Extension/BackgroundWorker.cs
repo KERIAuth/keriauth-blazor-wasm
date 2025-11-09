@@ -8,7 +8,9 @@ using Extension.Models.Messages.Polaris;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
+using Extension.Services.Storage;
 using Extension.Services.SignifyService.Models;
+using Extension.Models.Storage;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
@@ -1687,20 +1689,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return Result.Fail("Boot URL not configured");
             }
 
-            // Get passcode from session storage
-            var passcodeResult = await _webExtensionsApi.Storage.Session.Get("passcode");
+            // Get passcode from session storage using new type-safe model
+            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
 
-            // Extract passcode string from the result
-            string? passcode = null;
-            if (passcodeResult is JsonElement jsonElement) {
-                if (jsonElement.ValueKind == JsonValueKind.Undefined || jsonElement.ValueKind == JsonValueKind.Null) {
-                    return Result.Fail("Passcode not found in session storage");
-                }
-
-                if (jsonElement.TryGetProperty("passcode", out var passcodeProperty)) {
-                    passcode = passcodeProperty.GetString();
-                }
+            if (passcodeResult.IsFailed) {
+                return Result.Fail($"Failed to retrieve passcode: {passcodeResult.Errors[0].Message}");
             }
+
+            if (passcodeResult.Value == null) {
+                return Result.Fail("Passcode not found in session storage");
+            }
+
+            var passcode = passcodeResult.Value.Passcode;
 
             if (string.IsNullOrEmpty(passcode)) {
                 return Result.Fail("Passcode not available");

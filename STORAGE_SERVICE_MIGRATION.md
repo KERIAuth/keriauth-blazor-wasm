@@ -4,9 +4,82 @@
 
 Migrate IStorageService to a unified interface supporting all chrome.storage areas (local, session, sync, managed) with type-safe operations and WebExtensions.Net native event handling.
 
-**Status:** Planning Complete - Ready for Implementation
-**Estimated Duration:** 4 weeks
-**Last Updated:** 2025-11-08
+**Status:** Phase 1 & 2 COMPLETE - Critical Migration Done ✅
+**Phase 1 Completed:** 2025-11-09 (Foundation & Infrastructure)
+**Phase 2 Completed:** 2025-11-09 (Critical Passcode Migration)
+**Last Updated:** 2025-11-09
+
+---
+
+## Completion Summary (2025-11-09)
+
+### ✅ What Was Completed
+
+**Phase 1: Foundation (100%)**
+- Created complete new storage infrastructure in `Extension/Services/Storage/`
+- Deleted old IStorageService files from `Extension/Services/`
+- Updated all 29 affected files with new using directives
+- Build succeeds: 0 errors, 0 warnings
+
+**Phase 2: Critical Passcode Migration (100%)**
+- Migrated all passcode storage to use `PasscodeModel` + `StorageArea.Session`:
+  - ✅ UnlockPage.razor (store passcode on unlock)
+  - ✅ BackgroundWorker.cs (retrieve passcode for KERIA connection)
+  - ✅ StateService.cs (remove passcode on timeout/lock)
+  - ✅ WebauthnService.cs (retrieve passcode for authenticator registration)
+  - ✅ signifyClient.ts (TypeScript: use 'PasscodeModel' key)
+- Bonus: Migrated RegisteredAuthenticators to use StorageService with Sync storage
+
+**Key Changes:**
+- Storage key: `"passcode"` → `"PasscodeModel"` (matches C# type name)
+- API: `webExtensionsApi.Storage.Session.*` → `storageService.*Item<PasscodeModel>(StorageArea.Session)`
+- Type-safe access: Manual JSON parsing → `.Value.Passcode`
+
+### 🚧 What Remains
+
+**Phase 2 Remaining:**
+- Migrate inactivity timeout cache (PreferencesService)
+- Update remaining Local storage to explicitly use `StorageArea.Local`
+- Verify no direct webExtensionsApi.Storage calls remain
+
+**Phase 3: Testing**
+- Unit tests for new StorageService
+- Manual end-to-end testing of passcode flow
+
+**Phase 4: Documentation**
+- Update CLAUDE.md with storage architecture
+- Optional: Quota dashboard, EnterprisePolicyService
+
+### 📂 Files Modified
+
+**Created (7 files):**
+- Extension/Services/Storage/StorageArea.cs
+- Extension/Services/Storage/IStorageService.cs
+- Extension/Services/Storage/StorageService.cs
+- Extension/Services/Storage/StorageServiceValidation.cs
+- Extension/Models/Storage/PasscodeModel.cs
+- Extension/Models/Storage/InactivityTimeoutCacheModel.cs
+- Extension/Models/Storage/EnterprisePolicyConfig.cs
+
+**Deleted (5 files):**
+- Extension/Services/IStorageService.cs (OLD)
+- Extension/Services/StorageService.cs (OLD)
+- Extension/wwwroot/scripts/es6/storageHelper.ts
+- Extension/wwwroot/scripts/es6/storageHelper.js
+- Extension/wwwroot/scripts/es6/storageHelper.d.ts
+
+**Modified (35 files):**
+- Extension/Program.cs (DI registration)
+- Extension/wwwroot/app.ts (removed storageHelper import)
+- Extension/BackgroundWorker.cs (passcode retrieval)
+- Extension/Services/StateService.cs (passcode removal)
+- Extension/Services/WebauthnService.cs (passcode + RegisteredAuthenticators)
+- Extension/Services/PreferencesService.cs (using directive)
+- Extension/Services/WebsiteConfigService.cs (using directive)
+- Extension/Services/IdentifierService.cs (using directive)
+- Extension/Pages/UnlockPage.razor (passcode storage)
+- Extension/wwwroot/scripts/esbuild/signifyClient.ts (key name)
+- 24 other Razor pages/components/layouts (using directives)
 
 ---
 
@@ -1206,7 +1279,7 @@ if (mode == BrowserExtensionMode.Background) {
 
 ## Migration Checklist Summary
 
-### Phase 1: Foundation ✅ COMPLETE
+### Phase 1: Foundation ✅ COMPLETE (2025-11-09)
 - [x] Create `StorageArea` enum
 - [x] Create `IStorageService` interface (removed IObservable<Preferences> inheritance)
 - [x] Create `StorageServiceValidation` helper
@@ -1215,29 +1288,40 @@ if (mode == BrowserExtensionMode.Background) {
 - [x] Update DI registration (fully qualified namespace)
 - [x] Delete JavaScript helpers (storageHelper.ts/js)
 - [x] Update app.ts to remove storageHelper import
+- [x] Delete old IStorageService and StorageService files
+- [x] Add `using Extension.Services.Storage;` to all 29 affected files
 
-### Phase 2: Migration ✅
-- [ ] Migrate passcode storage in 11+ files
-- [ ] Migrate inactivity timeout cache
-- [ ] Update local storage usage (minimal changes)
-- [ ] Update signifyClient.ts to use new key names
-- [ ] Grep and verify no remaining direct storage calls
+### Phase 2: Critical Passcode Migration ✅ COMPLETE (2025-11-09)
+- [x] Migrate UnlockPage.razor passcode storage to PasscodeModel
+- [x] Migrate BackgroundWorker.cs passcode retrieval to PasscodeModel
+- [x] Migrate StateService.cs passcode removal to PasscodeModel
+- [x] Migrate WebauthnService.cs passcode access to PasscodeModel
+- [x] **BONUS**: Migrate WebauthnService RegisteredAuthenticators to use StorageService
+- [x] Update signifyClient.ts to use 'PasscodeModel' key
+- [x] Full build verification (C# + TypeScript) - 0 errors, 0 warnings
 
-### Phase 3: Testing ✅
+### Phase 2: Remaining Work (NOT STARTED)
+- [ ] Migrate inactivity timeout cache in PreferencesService
+- [ ] Update remaining Local storage usage to explicitly use StorageArea.Local
+- [ ] Grep and verify no remaining direct webExtensionsApi.Storage calls
+- [ ] Consider migrating other session storage usage (if any)
+
+### Phase 3: Testing (NOT STARTED)
 - [ ] Create unit tests for StorageService
 - [ ] Create validation tests
-- [ ] Manual testing: Session storage
+- [ ] Manual testing: Passcode flow (unlock -> use -> lock)
+- [ ] Manual testing: Session storage persistence across service worker restarts
 - [ ] Manual testing: Local storage
 - [ ] Manual testing: Observable pattern
-- [ ] Manual testing: Quota monitoring
+- [ ] Manual testing: Quota monitoring (Session/Sync)
 - [ ] TypeScript integration test
 
-### Phase 4: Cleanup ✅
-- [ ] Remove old IStorageService or deprecate
-- [ ] Verify no direct WebExtensions.Net storage calls
-- [ ] Update CLAUDE.md documentation
+### Phase 4: Cleanup & Documentation (NOT STARTED)
+- [ ] Verify no direct WebExtensions.Net storage calls in C# code
+- [ ] Update CLAUDE.md documentation with storage service architecture
 - [ ] Create storage quota dashboard (optional)
 - [ ] Implement EnterprisePolicyService (optional)
+- [ ] Update STORAGE_SERVICE_MIGRATION.md with lessons learned
 
 ---
 

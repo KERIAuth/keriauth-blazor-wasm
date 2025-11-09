@@ -1,6 +1,9 @@
-﻿namespace Extension.Services {
-    public class IdentifierService {
-        public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifierService> logger, IStorageService storageService) {
+﻿namespace Extension.Services;
+
+using Extension.Services.Storage;
+
+public class IdentifierService {
+    public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifierService> logger, IStorageService storageService) {
             Prefix = prefix;
             Alias = alias;
             KeriaConnectionGuid = keriaConnectionGuid;
@@ -11,5 +14,4 @@
         public string Prefix { get; }
         public string Alias { get; }
         public Guid KeriaConnectionGuid { get; }
-    }
 }

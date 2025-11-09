@@ -86,9 +86,10 @@ const validateClient = async (): Promise<SignifyClient> => {
         // if _client is expected to be connected but not (usually because backgroundWorker hybernated and restarted), then reconnect to KERIA)
 
         const agentUrl = (await chrome.storage.local.get('KeriaConnectConfig'))?.KeriaConnectConfig?.AdminUrl as unknown as string;
-        const passcode = (await chrome.storage.session.get('passcode'))?.passcode as unknown as string;
+        // Note: Storage key changed from 'passcode' to 'PasscodeModel' to match C# type name
+        const passcode = (await chrome.storage.session.get('PasscodeModel'))?.PasscodeModel?.Passcode as unknown as string;
 
-        if (agentUrl === '' || passcode === '') {
+        if (agentUrl === '' || passcode === '' || passcode === undefined) {
             console.warn('signifyClient: validateClient - Missing agentUrl or passcode');
             return Promise.reject(new Error('signifyClient: validateClient - Missing agentUrl or passcode'));
         }

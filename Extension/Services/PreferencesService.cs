@@ -3,6 +3,7 @@ namespace Extension.Services;
 
 using JsBind.Net;
 using Extension.Models;
+using Extension.Services.Storage;
 using WebExtensions.Net;
 
 public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>, IDisposable {
