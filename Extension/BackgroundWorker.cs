@@ -588,7 +588,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 CurrentVersion = currentVersion,
                 Timestamp = DateTime.UtcNow.ToString("O")
             };
-            await WebExtensions.Storage.Local.Set(new { UpdateDetails = updateDetails });
+            await _storageService.SetItem(updateDetails, StorageArea.Local);
 
             var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=update";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
@@ -774,12 +774,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // NOTE: CsConnection and BlazorAppConnection classes removed
     // No longer needed with stateless runtime.sendMessage approach
 
-    private sealed class UpdateDetails {
-        public string Reason { get; set; } = "";
-        public string PreviousVersion { get; set; } = "";
-        public string CurrentVersion { get; set; } = "";
-        public string Timestamp { get; set; } = "";
-    }
 
     /// <summary>
     /// Sends a message to a ContentScript in a specific tab using runtime.sendMessage.
