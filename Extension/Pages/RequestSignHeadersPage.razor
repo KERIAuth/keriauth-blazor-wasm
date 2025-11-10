@@ -1,5 +1,7 @@
 ﻿@page "/RequestSignHeaders.html/{encodedOrigin}"
 @layout Layouts.DialogLayout
+@using Extension.Services.Storage
+
 
 @using System.Linq
 @using System.Text.Json
@@ -120,6 +122,7 @@
             }
         }
 
+        // TODO P1 should be a well-defined typed object instead of a double-encoded JSON string. Could base64 encode it.
         // TODO P2 add try-catch
         // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))

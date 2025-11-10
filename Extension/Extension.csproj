@@ -56,14 +56,7 @@
     <Configuration Condition="'$(Production)' == 'true'">Release</Configuration>
     <BuildingProject Condition="'$(Production)' == 'true'">true</BuildingProject>
   </PropertyGroup>
-
-  <!-- ServiceWorker now handled by Blazor.BrowserExtension -->
-  <!--
-  <ItemGroup>
-    <ServiceWorker Include="dist\wwwroot\scripts\esbuild\BackgroundWorker.js" PublishedContent="wwwroot\scripts\esbuild\BackgroundWorker.js" />
-  </ItemGroup>
-  -->
-
+  
   <!-- Package References -->
 
   <!-- Trimmable Assemblies -->
@@ -81,6 +74,15 @@
     <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Static imports of 3rd party library files needed for BackgroundWorker. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker -->
+  <ItemGroup>
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/decode.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
+    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/demo1.js" />
+  </ItemGroup>
+
+
   <!-- TypeScript and Non-Included Scripts -->
   <ItemGroup>
     <Compile Remove="bin\**" />
@@ -93,6 +95,9 @@
     <None Remove="dist\**" />
     <None Remove="wwwroot\scripts\**\*.d.ts" />
     <None Remove="wwwroot\scripts\**\*.ts" />
+    <!-- Exclude TypeScript source files from browser extension output -->
+    <Content Remove="wwwroot\scripts\**\*.ts" />
+    <Content Remove="wwwroot\app.ts" />
     <TypeScriptCompile Remove="bin\**" />
     <TypeScriptCompile Remove="dist\**" />
     <TypeScriptCompile Remove="node_modules\**" />
@@ -102,7 +107,6 @@
     <TypeScriptCompile Remove="wwwroot\scripts\types\types.ts" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Blazor.BrowserExtension.Build" Version="3.2.0" />
     <PackageReference Include="Castle.Core" Version="5.2.1" />
     <PackageReference Include="FluentResults" Version="4.0.0" />
     <PackageReference Include="JsBind.Net" Version="2.2.1" />
@@ -152,12 +156,32 @@
   <!-- Build Tasks for TypeScript/JavaScript Extension Components -->
   <!-- Skip during design-time builds and restore to prevent loops -->
   <!-- Also skip if Visual Studio or other processes might have files locked -->
+
+  <!-- Install npm dependencies before building TypeScript -->
   <Target Name="InstallDependencies" BeforeTargets="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
     <Exec Command="npm install" ContinueOnError="true" />
   </Target>
 
-  <Target Name="BuildExtensionScripts" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+  <!-- Build TypeScript/JavaScript when BuildingProject=true -->
+  <!-- TypeScript and esbuild output directly to wwwroot so files are available for -->
+  <!-- subsequent builds. The BackgroundWorker.js generator runs early in the build -->
+  <!-- pipeline and requires JS files to pre-exist from previous builds. -->
+  <!-- See BUILD_GUIDE.md "BackgroundWorker.js Missing TypeScript Modules" for details. -->
+  <Target Name="BuildExtensionScripts" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
     <Exec Command="npm run build" ContinueOnError="true" />
+    <Message Importance="normal" Text="TypeScript/esbuild compilation completed, JavaScript files are in wwwroot" />
+  </Target>
+
+  <!-- Clean Tasks for TypeScript/JavaScript Extension Components -->
+  <Target Name="CleanTypeScriptOutputs" BeforeTargets="CoreClean">
+    <Message Importance="high" Text="Cleaning TypeScript build outputs..." />
+
+    <!-- IMPORTANT: wwwroot JavaScript files are NOT cleaned by 'dotnet clean' -->
+    <!-- Reason: These files are gitignored build artifacts, but they're needed for -->
+    <!-- incremental builds. The BuildExtensionScripts target will regenerate them when -->
+    <!-- source .ts files change. For deep cleaning, use: npm run clean -->
+
+    <Message Importance="high" Text="Cleaned C# build outputs (wwwroot\ JavaScript files preserved for incremental builds)" />
   </Target>
 
   <!-- Target to detect environment and provide user guidance -->
@@ -167,44 +191,20 @@
       <IsWindows Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">true</IsWindows>
       <IsCI Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(CI)' == 'true'">true</IsCI>
     </PropertyGroup>
-    
+
     <!-- Only show guidance for local builds, not CI -->
     <Message Importance="high" Text="🔧 Building KERI Auth Browser Extension in WSL. If build fails with NuGet package errors, ensure Visual Studio and Windows Explorer are closed." Condition="'$(IsWSL)' == 'true' AND '$(IsCI)' != 'true'" />
     <Message Importance="high" Text="🔧 Building KERI Auth Browser Extension on Windows. If npm commands fail, ensure no WSL processes are accessing the project directory." Condition="'$(IsWindows)' == 'true' AND '$(IsCI)' != 'true'" />
     <Message Importance="normal" Text="🚀 Building KERI Auth Browser Extension in CI environment." Condition="'$(IsCI)' == 'true'" />
   </Target>
 
-  <Target Name="CopyEs6Javascript" AfterTargets="Build">
-    <!-- Ensure the 'dist' directory exists -->
+  <Target Name="RemoveTypeScriptSourceFiles" AfterTargets="Build">
+    <!-- Remove TypeScript source files from browser extension output to prevent bare module import errors -->
     <ItemGroup>
-      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js" />
-      <CompiledEs6Scripts Include="dist\wwwroot\scripts\es6\*.js.map" />
+      <TypeScriptFilesToRemove Include="$(OutputPath)\browserextension\**\*.ts" Exclude="$(OutputPath)\browserextension\**\*.d.ts" />
     </ItemGroup>
-
-    <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledEs6Scripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\es6" SkipUnchangedFiles="false" />
-  </Target>
-
-  <Target Name="CopyEsBuildJavascript" AfterTargets="Build">
-    <!-- Ensure the 'dist' directory exists -->
-    <ItemGroup>
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js" />
-      <CompiledEsBuildScripts Include="dist\wwwroot\scripts\esbuild\*.js.map" />
-    </ItemGroup>
-
-    <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledEsBuildScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\esbuild" SkipUnchangedFiles="false" />
-  </Target>
-
-  <Target Name="CopyTypesJavascript" AfterTargets="Build">
-    <!-- Copy types directory JavaScript files if they exist -->
-    <ItemGroup>
-      <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js" />
-      <CompiledTypesScripts Include="dist\wwwroot\scripts\types\*.js.map" />
-    </ItemGroup>
-
-    <!-- Copy compiled scripts to the appropriate directory -->
-    <Copy SourceFiles="@(CompiledTypesScripts)" DestinationFolder="$(OutputPath)\browserextension\scripts\types" SkipUnchangedFiles="false" ContinueOnError="true" />
+    <Delete Files="@(TypeScriptFilesToRemove)" />
+    <Message Importance="high" Text="Removed $(TypeScriptFilesToRemove-&gt;Count()) TypeScript source files from browser extension output" />
   </Target>
 
   <!-- Update manifest.json with build configuration and UTC timestamp for local builds -->

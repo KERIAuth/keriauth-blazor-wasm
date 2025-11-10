@@ -1,4 +1,4 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 
 namespace Extension.Services.JsBindings;
 
@@ -24,25 +24,20 @@ public interface IJsModuleLoader {
     bool IsInitialized { get; }
 }
 
-public class JsModuleLoader : IJsModuleLoader, IAsyncDisposable {
-    private readonly IJSRuntime _jsRuntime;
-    private readonly ILogger<JsModuleLoader> _logger;
-    private readonly Dictionary<string, IJSObjectReference> _modules = new();
+public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger) : IJsModuleLoader, IAsyncDisposable {
+    private readonly IJSRuntime _jsRuntime = jsRuntime;
+    private readonly ILogger<JsModuleLoader> _logger = logger;
+    private readonly Dictionary<string, IJSObjectReference> _modules = [];
     private bool _isInitialized;
 
     // Module definitions: name -> path
     private readonly Dictionary<string, string> _moduleDefinitions = new() {
         { "signifyClient", "./scripts/esbuild/signifyClient.js" },
-        { "storageHelper", "./scripts/es6/storageHelper.js" },
-        { "webauthnCredentialWithPRF", "./scripts/es6/webauthnCredentialWithPRF.js" }
+        { "webauthnCredentialWithPRF", "./scripts/es6/webauthnCredentialWithPRF.js" },
+        { "demo1", "./scripts/esbuild/demo1.js" }
     };
 
     public bool IsInitialized => _isInitialized;
-
-    public JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger) {
-        _jsRuntime = jsRuntime;
-        _logger = logger;
-    }
 
     public async ValueTask LoadAllModulesAsync() {
         if (_isInitialized) {

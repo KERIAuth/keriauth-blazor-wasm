@@ -16,12 +16,6 @@
           "WebExtensions.Net.Extensions.DependencyInjection": "4.4.0"
         }
       },
-      "Blazor.BrowserExtension.Build": {
-        "type": "Direct",
-        "requested": "[3.2.0, )",
-        "resolved": "3.2.0",
-        "contentHash": "oqKbXs+n/q62R4PYyU/nPQKwIe2mI1WlnJIFYX09oFoiEAr+iE1OfcEr3VyMUAOufsBCfPjfKdSpW7q6dnJy4Q=="
-      },
       "Castle.Core": {
         "type": "Direct",
         "requested": "[5.2.1, )",
@@ -351,6 +345,11 @@
         "dependencies": {
           "JsBind.Net": "2.2.1"
         }
+      },
+      "Blazor.BrowserExtension.Build": {
+        "type": "Transitive",
+        "resolved": "3.2.0",
+        "contentHash": "oqKbXs+n/q62R4PYyU/nPQKwIe2mI1WlnJIFYX09oFoiEAr+iE1OfcEr3VyMUAOufsBCfPjfKdSpW7q6dnJy4Q=="
       },
       "Microsoft.AspNetCore.Components": {
         "type": "Transitive",

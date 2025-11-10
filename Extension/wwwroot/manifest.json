@@ -39,6 +39,7 @@
   "permissions": [
     "activeTab",
     "alarms",
+    "contextMenus",
     "scripting",
     "storage",
     "sidePanel"

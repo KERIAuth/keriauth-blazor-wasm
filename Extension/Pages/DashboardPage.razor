@@ -1,4 +1,5 @@
 ﻿@page "/DashboardPage.html"
+@using Extension.Services.Storage
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IExtensionEnvironmentService extensionEnvironmentService
@@ -35,6 +36,9 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+        // TODO P2 tmp. Evolve this into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
+        var x = await signifyClientService.TestAsync();
+        logger.LogInformation($"TestAsync result: {x.Value}");
         var res = await signifyClientService.GetIdentifiers();
         if (res is not null && res.IsSuccess)
         {

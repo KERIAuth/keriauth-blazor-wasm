@@ -3,6 +3,8 @@ namespace Extension.Services;
 
 using JsBind.Net;
 using Extension.Models;
+using Extension.Models.Storage;
+using Extension.Services.Storage;
 using WebExtensions.Net;
 
 public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>, IDisposable {
@@ -58,11 +60,19 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         logger.LogInformation("SetPreferences...");
         await storageService.SetItem<Preferences>(preferences);
 
-        // since we also use InactivityTimeoutMinutes very frequently, we also want this in fast session storage
-        
-        var data = new Dictionary<string, object?> { { "inactivityTimeoutMinutes", preferences.InactivityTimeoutMinutes } };
-        await webExtensionsApi!.Storage.Session.Set(data);
-        // and reset the current inactivityTimeout to immediately pick up the new value, which might be shorter than the currently active one
+        // Cache the session expiration time in session storage for fast access
+        // Calculate when session should expire based on inactivity timeout
+        var sessionExpirationUtc = DateTime.UtcNow.AddMinutes(preferences.InactivityTimeoutMinutes);
+        var cacheResult = await storageService.SetItem(
+            new InactivityTimeoutCacheModel { SessionExpirationUtc = sessionExpirationUtc },
+            StorageArea.Session
+        );
+        if (cacheResult.IsFailed) {
+            logger.LogWarning("Failed to cache session expiration time: {Errors}",
+                string.Join(", ", cacheResult.Errors));
+        }
+
+        // Reset the current inactivityTimeout to immediately pick up the new value, which might be shorter than the currently active one
         // TODO P1 await webExtensionsApi!.Runtime.SendMessage(new { action = "resetInactivityTimer" });
         logger.LogInformation("SetPreferences done");
         return;

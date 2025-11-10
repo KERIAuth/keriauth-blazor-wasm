@@ -35,29 +35,29 @@ export { ready };
 
 // ===================== Type Definitions =====================
 
-// Controller state interface (based on signify-ts ClientState)
-interface ControllerState {
+// Controller state type (based on signify-ts ClientState)
+interface IControllerState {
     i: string;      // Client AID Prefix
     k?: string[];   // Client AID Keys
     n?: string;     // Client AID Next Keys Digest
 }
 
 // Controller wrapper interface
-interface Controller {
-    state: ControllerState;
+interface IController {
+    state: IControllerState;
 }
 
 // Agent interface
-interface Agent {
+interface IAgent {
     i: string;      // Agent AID Prefix
     et?: string;    // Agent AID Type (e.g., 'dip' for delegated inception)
     di?: string;    // Agent AID Delegator
 }
 
 // Full client state returned by SignifyClient.state()
-interface ClientState {
-    agent: Agent | null;
-    controller: Controller | null;
+interface IClientState {
+    agent: IAgent | null;
+    controller: IController | null;
     ridx: number;
     pidx: number;
 }
@@ -76,9 +76,40 @@ let _client: SignifyClient | null = null;
 
 const objectToJson = (obj: object): string => JSON.stringify(obj);
 
-const validateClient = (): void => {
-    if (!_client) {
-        throw new Error('signifyClient: SignifyClient not connected');
+export const test = async (): Promise<string> => {
+    return 'signifyClient: test - module is working';
+};
+
+const validateClient = async (): Promise<SignifyClient> => {
+    if (!_client || !_client.agent) {
+        console.log('signifyClient: validateClient - SignifyClient not connected');
+        // if _client is expected to be connected but not (usually because backgroundWorker hybernated and restarted), then reconnect to KERIA)
+
+        const agentUrl = (await chrome.storage.local.get('KeriaConnectConfig'))?.KeriaConnectConfig?.AdminUrl as unknown as string;
+        // Note: Storage key changed from 'passcode' to 'PasscodeModel' to match C# type name
+        const passcode = (await chrome.storage.session.get('PasscodeModel'))?.PasscodeModel?.Passcode as unknown as string;
+
+        if (agentUrl === '' || passcode === '' || passcode === undefined) {
+            console.warn('signifyClient: validateClient - Missing agentUrl or passcode');
+            return Promise.reject(new Error('signifyClient: validateClient - Missing agentUrl or passcode'));
+        }
+
+        // console.warn('signifyClient: validateClient - Reconnecting to SignifyClient with agentUrl and passcode:', agentUrl, passcode);
+
+        const ts = Date.now();
+        // TODO P1 wrap in try-catch
+        // Note: don't log state
+        await connect(agentUrl, passcode);
+        const duration = Date.now() - ts;
+        // TODO P2 fix this performance hit on connect, taking about 1400ms as of 2025-11-07
+        console.warn('signifyClient: validateClient - Reconnected to SignifyClient in ', duration, 'ms');
+        if (!_client) {
+            throw new Error('signifyClient: validateClient - Failed to reconnect SignifyClient');
+        }
+        return _client;
+    } else {
+        console.log('signifyClient: validateClient: already connected');
+        return _client;
     }
 };
 
@@ -100,23 +131,23 @@ export const disconnect = (): void => {
  */
 const withClientOperation = async (
     operationName: string,
-    operation: () => Promise<unknown>,
+    operation: (client: SignifyClient) => Promise<unknown>,
     logParams?: Record<string, unknown>
 ): Promise<string> => {
     try {
-        validateClient();
-        const result = await operation();
+        const client = await validateClient();
+        const result = await operation(client);
 
         // Build log message
         const paramString = logParams
-            ? ' - ' + Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')
+            ? ` - ${Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')}`
             : '';
         console.debug(`signifyClient: ${operationName}${paramString}`);
 
         return objectToJson(result as object);
     } catch (error) {
         const paramString = logParams
-            ? ' - ' + Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')
+            ? ` - ${Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')}`
             : '';
         console.error(`signifyClient: ${operationName} error${paramString}`, error);
         throw error;
@@ -131,14 +162,14 @@ const withClientOperation = async (
  */
 const createIpexMethod = <TArgs>(
     methodName: string,
-    ipexFunction: (args: TArgs) => Promise<[any, any, any]>
+    ipexFunction: (client: SignifyClient) => (args: TArgs) => Promise<[any, any, any]>
 ) => {
     return async (argsJson: string): Promise<string> => {
         return withClientOperation(
             `ipex${methodName}`,
-            async () => {
+            async (client) => {
                 const args = JSON.parse(argsJson) as TArgs;
-                const [exn, sigs, end] = await ipexFunction(args);
+                const [exn, sigs, end] = await ipexFunction(client)(args);
                 return { exn, sigs, end };
             }
         );
@@ -154,7 +185,7 @@ const createIpexMethod = <TArgs>(
  */
 const createIpexSubmitMethod = (
     methodName: string,
-    submitFunction: (name: string, exn: Serder, sigs: string[], ...args: any[]) => Promise<any>,
+    submitFunction: (client: SignifyClient) => (name: string, exn: Serder, sigs: string[], ...args: any[]) => Promise<any>,
     hasAtc: boolean = false
 ) => {
     return async (
@@ -166,17 +197,17 @@ const createIpexSubmitMethod = (
     ): Promise<string> => {
         return withClientOperation(
             `ipex${methodName}`,
-            async () => {
+            async (client) => {
                 const exn = JSON.parse(exnJson) as Serder;
                 const sigs = JSON.parse(sigsJson) as string[];
 
                 if (hasAtc && recipientsJson) {
                     const atc = atcOrRecipientsJson;
                     const recipients = JSON.parse(recipientsJson) as string[];
-                    return await submitFunction(name, exn, sigs, atc, recipients);
+                    return await submitFunction(client)(name, exn, sigs, atc, recipients);
                 } else {
                     const recipients = JSON.parse(atcOrRecipientsJson) as string[];
-                    return await submitFunction(name, exn, sigs, recipients);
+                    return await submitFunction(client)(name, exn, sigs, recipients);
                 }
             },
             { Name: name }
@@ -199,7 +230,7 @@ export const bootAndConnect = async (
     passcode: string
 ): Promise<string> => {
     _client = null;
-    await ready();
+    ready();
     console.debug('signifyClient: bootAndConnect: creating client...');
 
     // TODO P2: Consider raising Tier for production use
@@ -212,6 +243,7 @@ export const bootAndConnect = async (
             throw new Error('Boot operation failed');
         }
         console.debug('signifyClient: connecting...');
+        // TODO P1: if _bootedSignifyClient contains updated client info, use it and no need to connect again?
         await _client.connect();
     } catch (error) {
         console.error('signifyClient: client could not boot then connect', error);
@@ -232,11 +264,18 @@ export const bootAndConnect = async (
  * @returns JSON string representation of connection result
  */
 export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
+    console.debug('signifyClient: connect: recreating client...');
     _client = null;
-    await ready();
-    console.debug('signifyClient: connect: creating client...');
-    _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
 
+    console.debug('signifyClient: connect: recreating client...');
+
+    // TODO P2: Consider raising Tier for production use
+    _client = null;
+    ready();
+    _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
+    console.debug('signifyClient: connect: created client...');
+
+    console.debug('signifyClient: connect: ready to connect');
     try {
         await _client.connect();
         console.debug('signifyClient: client connected');
@@ -257,11 +296,16 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
  * @returns JSON string of ClientState
  */
 export const getState = async (): Promise<string> => {
-    validateClient();
-    const state = await _client!.state();
-    console.debug('signifyClient: getState - Client AID:', state.controller.state.i);
-    console.debug('signifyClient: getState - Agent AID:', state.agent.i);
-    return objectToJson(state);
+    try {
+        const client = await validateClient();
+        const state = await client.state();
+        console.debug('signifyClient: getState - Client AID:', state.controller.state.i);
+        console.debug('signifyClient: getState - Agent AID:', state.agent.i);
+        return objectToJson(state);
+    } catch (error) {
+        console.error('signifyClient: getState error:', error);
+        throw error;
+    }
 };
 
 // ===================== Identifier (AID) Operations =====================
@@ -274,8 +318,8 @@ export const getState = async (): Promise<string> => {
 export const createAID = async (name: string): Promise<string> => {
     return withClientOperation(
         'createAID',
-        async () => {
-            const res: EventResult = await _client!.identifiers().create(name);
+        async (client) => {
+            const res: EventResult = await client.identifiers().create(name);
             const op = await res.op();
             const id: string = op.response.i;
             return { prefix: id, name };
@@ -291,8 +335,8 @@ export const createAID = async (name: string): Promise<string> => {
 export const getAIDs = async (): Promise<string> => {
     return withClientOperation(
         'getAIDs',
-        async () => {
-            const managedIdentifiers = await _client!.identifiers().list();
+        async (client) => {
+            const managedIdentifiers = await client.identifiers().list();
             return managedIdentifiers;
         }
     );
@@ -306,7 +350,7 @@ export const getAIDs = async (): Promise<string> => {
 export const getAID = async (name: string): Promise<string> => {
     return withClientOperation(
         'getAID',
-        () => _client!.identifiers().get(name),
+        (client) => client.identifiers().get(name),
         { Name: name }
     );
 };
@@ -317,21 +361,21 @@ export const getAID = async (name: string): Promise<string> => {
  * @returns Name/alias of the identifier
  */
 export const getNameByPrefix = async (prefix: string): Promise<string> => {
-    try {
-        validateClient();
-        // TODO P2: Consider using getIdentifierByPrefix and extracting name from JSON in C#
-        // to avoid duplicate calls to _client.identifiers().get()
-        const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
-        if (!aid) {
-            throw new Error(`Identifier with prefix ${prefix} not found`);
-        }
-        const name = aid.name ? aid.name : '';
-        console.debug('signifyClient: getNameByPrefix - Prefix:', prefix, 'Name:', name);
-        return name;
-    } catch (error) {
-        console.error('signifyClient: getNameByPrefix error - Prefix:', prefix, error);
-        throw error;
-    }
+    // TODO P2: Consider using getIdentifierByPrefix and extracting name from JSON in C#
+    // to avoid duplicate calls to _client.identifiers().get()
+    const result = await withClientOperation(
+        'getNameByPrefix',
+        async (client) => {
+            const aid = await client.identifiers().get(prefix) as IIdentifier | undefined;
+            if (!aid) {
+                throw new Error(`Identifier with prefix ${prefix} not found`);
+            }
+            return aid.name ? aid.name : '';
+        },
+        { Prefix: prefix }
+    );
+    // Return the raw string, not JSON-encoded
+    return JSON.parse(result) as string;
 };
 
 /**
@@ -342,8 +386,8 @@ export const getNameByPrefix = async (prefix: string): Promise<string> => {
 export const getIdentifierByPrefix = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'getIdentifierByPrefix',
-        async () => {
-            const aid = await _client!.identifiers().get(prefix) as IIdentifier | undefined;
+        async (client) => {
+            const aid = await client.identifiers().get(prefix) as IIdentifier | undefined;
             if (!aid) {
                 throw new Error(`Identifier with prefix ${prefix} not found`);
             }
@@ -362,7 +406,7 @@ export const getIdentifierByPrefix = async (prefix: string): Promise<string> => 
 export const renameAID = async (currentName: string, newName: string): Promise<string> => {
     return withClientOperation(
         'renameAID',
-        () => _client!.identifiers().update(currentName, { name: newName }),
+        (client) => client.identifiers().update(currentName, { name: newName }),
         { 'Old name': currentName, 'New name': newName }
     );
 };
@@ -376,8 +420,8 @@ export const renameAID = async (currentName: string, newName: string): Promise<s
 export const getCredentialsList = async (): Promise<string> => {
     return withClientOperation(
         'getCredentialsList',
-        async () => {
-            const credentials: any = await _client!.credentials().list();
+        async (client) => {
+            const credentials: any = await client.credentials().list();
             return credentials;
         },
         { Count: 'retrieved' }
@@ -396,7 +440,7 @@ export const getCredential = async (
 ): Promise<string> => {
     return withClientOperation(
         'getCredential',
-        () => _client!.credentials().get(id, includeCESR as any),
+        (client) => client.credentials().get(id, includeCESR as any),
         { SAID: id, IncludeCESR: includeCESR }
     );
 };
@@ -410,9 +454,9 @@ export const getCredential = async (
 export const credentialsIssue = async (name: string, argsJson: string): Promise<string> => {
     return withClientOperation(
         'credentialsIssue',
-        async () => {
+        async (client) => {
             const args = JSON.parse(argsJson) as CredentialData;
-            return await _client!.credentials().issue(name, args);
+            return await client.credentials().issue(name, args);
         },
         { Name: name }
     );
@@ -428,7 +472,7 @@ export const credentialsIssue = async (name: string, argsJson: string): Promise<
 export const credentialsRevoke = async (name: string, said: string, datetime?: string): Promise<string> => {
     return withClientOperation(
         'credentialsRevoke',
-        () => _client!.credentials().revoke(name, said, datetime),
+        (client) => client.credentials().revoke(name, said, datetime),
         { SAID: said }
     );
 };
@@ -442,7 +486,7 @@ export const credentialsRevoke = async (name: string, said: string, datetime?: s
 export const credentialsState = async (ri: string, said: string): Promise<string> => {
     return withClientOperation(
         'credentialsState',
-        () => _client!.credentials().state(ri, said),
+        (client) => client.credentials().state(ri, said),
         { SAID: said }
     );
 };
@@ -455,8 +499,8 @@ export const credentialsState = async (ri: string, said: string): Promise<string
 export const credentialsDelete = async (said: string): Promise<string> => {
     return withClientOperation(
         'credentialsDelete',
-        async () => {
-            await _client!.credentials().delete(said);
+        async (client) => {
+            await client.credentials().delete(said);
             return { success: true, message: `Credential ${said} deleted successfully` };
         },
         { SAID: said }
@@ -481,16 +525,15 @@ export const getSignedHeaders = async (
     headersDict: { [key: string]: string },
     aidName: string
 ): Promise<{ [key: string]: string }> => {
-    console.debug('signifyClient: getSignedHeaders - Origin:', origin, 'URL:', url, 'Method:', method, 'AID:', aidName);
-
-    validateClient();
-
     try {
+        const client = await validateClient();
+        console.debug('signifyClient: getSignedHeaders - Origin:', origin, 'URL:', url, 'Method:', method, 'AID:', aidName);
+
         const requestInit: RequestInit = {
             method,
             headers: headersDict
         };
-        const signedRequest: Request = await _client!.createSignedRequest(aidName, url, requestInit);
+        const signedRequest: Request = await client.createSignedRequest(aidName, url, requestInit);
 
         console.debug('signifyClient: getSignedHeaders - Request signed successfully');
 
@@ -519,56 +562,56 @@ export const getSignedHeaders = async (
 
 export const ipexApply = createIpexMethod<IpexApplyArgs>(
     'Apply',
-    (args) => _client!.ipex().apply(args)
+    (client) => (args) => client.ipex().apply(args)
 );
 
 export const ipexOffer = createIpexMethod<IpexOfferArgs>(
     'Offer',
-    (args) => _client!.ipex().offer(args)
+    (client) => (args) => client.ipex().offer(args)
 );
 
 export const ipexAgree = createIpexMethod<IpexAgreeArgs>(
     'Agree',
-    (args) => _client!.ipex().agree(args)
+    (client) => (args) => client.ipex().agree(args)
 );
 
 export const ipexGrant = createIpexMethod<IpexGrantArgs>(
     'Grant',
-    (args) => _client!.ipex().grant(args)
+    (client) => (args) => client.ipex().grant(args)
 );
 
 export const ipexAdmit = createIpexMethod<IpexAdmitArgs>(
     'Admit',
-    (args) => _client!.ipex().admit(args)
+    (client) => (args) => client.ipex().admit(args)
 );
 
 export const ipexSubmitApply = createIpexSubmitMethod(
     'SubmitApply',
-    (name, exn, sigs, recipients) => _client!.ipex().submitApply(name, exn, sigs, recipients),
+    (client) => (name, exn, sigs, recipients) => client.ipex().submitApply(name, exn, sigs, recipients),
     false
 );
 
 export const ipexSubmitOffer = createIpexSubmitMethod(
     'SubmitOffer',
-    (name, exn, sigs, atc, recipients) => _client!.ipex().submitOffer(name, exn, sigs, atc, recipients),
+    (client) => (name, exn, sigs, atc, recipients) => client.ipex().submitOffer(name, exn, sigs, atc, recipients),
     true
 );
 
 export const ipexSubmitAgree = createIpexSubmitMethod(
     'SubmitAgree',
-    (name, exn, sigs, recipients) => _client!.ipex().submitAgree(name, exn, sigs, recipients),
+    (client) => (name, exn, sigs, recipients) => client.ipex().submitAgree(name, exn, sigs, recipients),
     false
 );
 
 export const ipexSubmitGrant = createIpexSubmitMethod(
     'SubmitGrant',
-    (name, exn, sigs, atc, recipients) => _client!.ipex().submitGrant(name, exn, sigs, atc, recipients),
+    (client) => (name, exn, sigs, atc, recipients) => client.ipex().submitGrant(name, exn, sigs, atc, recipients),
     true
 );
 
 export const ipexSubmitAdmit = createIpexSubmitMethod(
     'SubmitAdmit',
-    (name, exn, sigs, atc, recipients) => _client!.ipex().submitAdmit(name, exn, sigs, atc, recipients),
+    (client) => (name, exn, sigs, atc, recipients) => client.ipex().submitAdmit(name, exn, sigs, atc, recipients),
     true
 );
 
@@ -577,7 +620,7 @@ export const ipexSubmitAdmit = createIpexSubmitMethod(
 export const oobiGet = async (name: string, role?: string): Promise<string> => {
     return withClientOperation(
         'oobiGet',
-        () => _client!.oobis().get(name, role),
+        (client) => client.oobis().get(name, role),
         { Name: name, Role: role }
     );
 };
@@ -585,7 +628,7 @@ export const oobiGet = async (name: string, role?: string): Promise<string> => {
 export const oobiResolve = async (oobi: string, alias?: string): Promise<string> => {
     return withClientOperation(
         'oobiResolve',
-        () => _client!.oobis().resolve(oobi, alias),
+        (client) => client.oobis().resolve(oobi, alias),
         { Alias: alias }
     );
 };
@@ -595,7 +638,7 @@ export const oobiResolve = async (oobi: string, alias?: string): Promise<string>
 export const operationsGet = async <T = unknown>(name: string): Promise<string> => {
     return withClientOperation(
         'operationsGet',
-        () => _client!.operations().get<T>(name),
+        (client) => client.operations().get<T>(name),
         { Name: name }
     );
 };
@@ -603,7 +646,7 @@ export const operationsGet = async <T = unknown>(name: string): Promise<string> 
 export const operationsList = async (type?: string): Promise<string> => {
     return withClientOperation(
         'operationsList',
-        () => _client!.operations().list(type),
+        (client) => client.operations().list(type),
         { Type: type }
     );
 };
@@ -611,8 +654,8 @@ export const operationsList = async (type?: string): Promise<string> => {
 export const operationsDelete = async (name: string): Promise<string> => {
     return withClientOperation(
         'operationsDelete',
-        async () => {
-            await _client!.operations().delete(name);
+        async (client) => {
+            await client.operations().delete(name);
             return { success: true, message: `Operation ${name} deleted successfully` };
         },
         { Name: name }
@@ -625,10 +668,10 @@ export const operationsWait = async <T = unknown>(
 ): Promise<string> => {
     return withClientOperation(
         'operationsWait',
-        async () => {
+        async (client) => {
             const operation = JSON.parse(operationJson) as Operation<T>;
             const options = optionsJson ? JSON.parse(optionsJson) : undefined;
-            return await _client!.operations().wait<T>(operation, options);
+            return await client.operations().wait<T>(operation, options);
         }
     );
 };
@@ -638,7 +681,7 @@ export const operationsWait = async <T = unknown>(
 export const registriesList = async (name: string): Promise<string> => {
     return withClientOperation(
         'registriesList',
-        () => _client!.registries().list(name),
+        (client) => client.registries().list(name),
         { Name: name }
     );
 };
@@ -646,9 +689,9 @@ export const registriesList = async (name: string): Promise<string> => {
 export const registriesCreate = async (argsJson: string): Promise<string> => {
     return withClientOperation(
         'registriesCreate',
-        async () => {
+        async (client) => {
             const args = JSON.parse(argsJson) as CreateRegistryArgs;
-            return await _client!.registries().create(args);
+            return await client.registries().create(args);
         }
     );
 };
@@ -656,7 +699,7 @@ export const registriesCreate = async (argsJson: string): Promise<string> => {
 export const registriesRename = async (name: string, registryName: string, newName: string): Promise<string> => {
     return withClientOperation(
         'registriesRename',
-        () => _client!.registries().rename(name, registryName, newName),
+        (client) => client.registries().rename(name, registryName, newName),
         { 'New name': newName }
     );
 };
@@ -666,14 +709,14 @@ export const registriesRename = async (name: string, registryName: string, newNa
 export const contactsList = async (group?: string, filterField?: string, filterValue?: string): Promise<string> => {
     return withClientOperation(
         'contactsList',
-        () => _client!.contacts().list(group, filterField, filterValue)
+        (client) => client.contacts().list(group, filterField, filterValue)
     );
 };
 
 export const contactsGet = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'contactsGet',
-        () => _client!.contacts().get(prefix),
+        (client) => client.contacts().get(prefix),
         { Prefix: prefix }
     );
 };
@@ -681,9 +724,9 @@ export const contactsGet = async (prefix: string): Promise<string> => {
 export const contactsAdd = async (prefix: string, infoJson: string): Promise<string> => {
     return withClientOperation(
         'contactsAdd',
-        async () => {
+        async (client) => {
             const info = JSON.parse(infoJson) as ContactInfo;
-            return await _client!.contacts().add(prefix, info);
+            return await client.contacts().add(prefix, info);
         },
         { Prefix: prefix }
     );
@@ -692,9 +735,9 @@ export const contactsAdd = async (prefix: string, infoJson: string): Promise<str
 export const contactsUpdate = async (prefix: string, infoJson: string): Promise<string> => {
     return withClientOperation(
         'contactsUpdate',
-        async () => {
+        async (client) => {
             const info = JSON.parse(infoJson) as ContactInfo;
-            return await _client!.contacts().update(prefix, info);
+            return await client.contacts().update(prefix, info);
         },
         { Prefix: prefix }
     );
@@ -703,8 +746,8 @@ export const contactsUpdate = async (prefix: string, infoJson: string): Promise<
 export const contactsDelete = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'contactsDelete',
-        async () => {
-            await _client!.contacts().delete(prefix);
+        async (client) => {
+            await client.contacts().delete(prefix);
             return { success: true, message: `Contact ${prefix} deleted successfully` };
         },
         { Prefix: prefix }
@@ -716,7 +759,7 @@ export const contactsDelete = async (prefix: string): Promise<string> => {
 export const schemasGet = async (said: string): Promise<string> => {
     return withClientOperation(
         'schemasGet',
-        () => _client!.schemas().get(said),
+        (client) => client.schemas().get(said),
         { SAID: said }
     );
 };
@@ -724,7 +767,7 @@ export const schemasGet = async (said: string): Promise<string> => {
 export const schemasList = async (): Promise<string> => {
     return withClientOperation(
         'schemasList',
-        () => _client!.schemas().list()
+        (client) => client.schemas().list()
     );
 };
 
@@ -733,14 +776,14 @@ export const schemasList = async (): Promise<string> => {
 export const notificationsList = async (start?: number, end?: number): Promise<string> => {
     return withClientOperation(
         'notificationsList',
-        () => _client!.notifications().list(start, end)
+        (client) => client.notifications().list(start, end)
     );
 };
 
 export const notificationsMark = async (said: string): Promise<string> => {
     try {
-        validateClient();
-        const result = await _client!.notifications().mark(said);
+        const client = await validateClient();
+        const result = await client.notifications().mark(said);
         console.debug('signifyClient: notificationsMark - SAID:', said);
         return result; // Already a string
     } catch (error) {
@@ -752,8 +795,9 @@ export const notificationsMark = async (said: string): Promise<string> => {
 export const notificationsDelete = async (said: string): Promise<string> => {
     return withClientOperation(
         'notificationsDelete',
-        async () => {
-            await _client!.notifications().delete(said);
+        async (client) => {
+            // Validation already done by withClientOperation wrapper
+            await client.notifications().delete(said);
             return { success: true, message: `Notification ${said} deleted successfully` };
         },
         { SAID: said }
@@ -770,7 +814,7 @@ export const notificationsDelete = async (said: string): Promise<string> => {
 export const escrowsListReply = async (route?: string): Promise<string> => {
     return withClientOperation(
         'escrowsListReply',
-        () => _client!.escrows().listReply(route),
+        (client) => client.escrows().listReply(route),
         { Route: route }
     );
 };
@@ -785,7 +829,7 @@ export const escrowsListReply = async (route?: string): Promise<string> => {
 export const groupsGetRequest = async (said: string): Promise<string> => {
     return withClientOperation(
         'groupsGetRequest',
-        () => _client!.groups().getRequest(said),
+        (client) => client.groups().getRequest(said),
         { SAID: said }
     );
 };
@@ -806,10 +850,10 @@ export const groupsSendRequest = async (
 ): Promise<string> => {
     return withClientOperation(
         'groupsSendRequest',
-        async () => {
+        async (client) => {
             const exn = JSON.parse(exnJson);
             const sigs = JSON.parse(sigsJson) as string[];
-            return await _client!.groups().sendRequest(name, exn, sigs, atc);
+            return await client.groups().sendRequest(name, exn, sigs, atc);
         },
         { Name: name }
     );
@@ -835,12 +879,12 @@ export const groupsJoin = async (
 ): Promise<string> => {
     return withClientOperation(
         'groupsJoin',
-        async () => {
+        async (client) => {
             const rot = JSON.parse(rotJson);
             const sigs = JSON.parse(sigsJson);
             const smids = JSON.parse(smidsJson) as string[];
             const rmids = JSON.parse(rmidsJson) as string[];
-            return await _client!.groups().join(name, rot, sigs, gid, smids, rmids);
+            return await client.groups().join(name, rot, sigs, gid, smids, rmids);
         },
         { Name: name, GID: gid }
     );
@@ -856,7 +900,7 @@ export const groupsJoin = async (
 export const exchangesGet = async (said: string): Promise<string> => {
     return withClientOperation(
         'exchangesGet',
-        () => _client!.exchanges().get(said),
+        (client) => client.exchanges().get(said),
         { SAID: said }
     );
 };
@@ -883,12 +927,12 @@ export const exchangesSend = async (
 ): Promise<string> => {
     return withClientOperation(
         'exchangesSend',
-        async () => {
+        async (client) => {
             const sender = JSON.parse(senderJson);
             const payload = JSON.parse(payloadJson);
             const embeds = JSON.parse(embedsJson);
             const recipients = JSON.parse(recipientsJson) as string[];
-            return await _client!.exchanges().send(name, topic, sender, route, payload, embeds, recipients);
+            return await client.exchanges().send(name, topic, sender, route, payload, embeds, recipients);
         },
         { Name: name, Topic: topic }
     );
@@ -914,11 +958,11 @@ export const exchangesSendFromEvents = async (
 ): Promise<string> => {
     return withClientOperation(
         'exchangesSendFromEvents',
-        async () => {
+        async (client) => {
             const exn = JSON.parse(exnJson) as Serder;
             const sigs = JSON.parse(sigsJson) as string[];
             const recipients = JSON.parse(recipientsJson) as string[];
-            return await _client!.exchanges().sendFromEvents(name, topic, exn, sigs, atc, recipients);
+            return await client.exchanges().sendFromEvents(name, topic, exn, sigs, atc, recipients);
         },
         { Name: name, Topic: topic }
     );
@@ -935,9 +979,9 @@ export const exchangesSendFromEvents = async (
 export const delegationsApprove = async (name: string, dataJson?: string): Promise<string> => {
     return withClientOperation(
         'delegationsApprove',
-        async () => {
+        async (client) => {
             const data = dataJson ? JSON.parse(dataJson) : undefined;
-            return await _client!.delegations().approve(name, data);
+            return await client.delegations().approve(name, data);
         },
         { Name: name }
     );
@@ -953,7 +997,7 @@ export const delegationsApprove = async (name: string, dataJson?: string): Promi
 export const keyEventsGet = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'keyEventsGet',
-        () => _client!.keyEvents().get(prefix),
+        (client) => client.keyEvents().get(prefix),
         { Prefix: prefix }
     );
 };
@@ -968,7 +1012,7 @@ export const keyEventsGet = async (prefix: string): Promise<string> => {
 export const keyStatesGet = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'keyStatesGet',
-        () => _client!.keyStates().get(prefix),
+        (client) => client.keyStates().get(prefix),
         { Prefix: prefix }
     );
 };
@@ -981,9 +1025,9 @@ export const keyStatesGet = async (prefix: string): Promise<string> => {
 export const keyStatesList = async (prefixesJson: string): Promise<string> => {
     return withClientOperation(
         'keyStatesList',
-        async () => {
+        async (client) => {
             const prefixes = JSON.parse(prefixesJson) as string[];
-            return await _client!.keyStates().list(prefixes);
+            return await client.keyStates().list(prefixes);
         }
     );
 };
@@ -998,9 +1042,9 @@ export const keyStatesList = async (prefixesJson: string): Promise<string> => {
 export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: string): Promise<string> => {
     return withClientOperation(
         'keyStatesQuery',
-        async () => {
+        async (client) => {
             const anchor = anchorJson ? JSON.parse(anchorJson) : undefined;
-            return await _client!.keyStates().query(prefix, sn, anchor);
+            return await client.keyStates().query(prefix, sn, anchor);
         },
         { Prefix: prefix, SN: sn }
     );
@@ -1015,7 +1059,7 @@ export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: s
 export const configGet = async (): Promise<string> => {
     return withClientOperation(
         'configGet',
-        () => _client!.config().get()
+        (client) => client.config().get()
     );
 };
 

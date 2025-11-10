@@ -1,5 +1,8 @@
 ﻿@page "/"
 @page "/index.html"
+@using Extension.Models.Storage
+@using Extension.Services.Storage
+
 
 @inherits IndexPage
 @layout MainLayout
@@ -170,12 +173,11 @@
                 return true;
 
             case IStateService.States.Unauthenticated:
-                // Check if there is a recently CachedPasscode, and if so, use it
-                var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
-                if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String)
+                // Check if there is a recently cached passcode, and if so, use it
+                var passcodeResult = await storageService.GetItem<PasscodeModel>(StorageArea.Session);
+                if (passcodeResult.IsSuccess && passcodeResult.Value != null)
                 {
-                    var passcode = passcodeElement2.GetString();
-                    // logger.LogWarning("passcode is {1}", passcode);
+                    var passcode = passcodeResult.Value.Passcode;
 
                     if (!string.IsNullOrEmpty(passcode) && passcode.Length == 21)
                     {
@@ -193,8 +195,8 @@
                         if (isConnectedRes is null || isConnectedRes.IsFailed)
                         {
                             // could not connect to KERI Agent Service
-                            logger.LogWarning("connection failed? so removing CachedPasscode");
-                            await webExtensionsApi.Storage.Session.Remove("passcode");
+                            logger.LogWarning("connection failed? so removing cached passcode");
+                            await storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
                             var openWalletError = "Could not connect to KERI Agent";
                             snackbar.Add(openWalletError, Severity.Error);
                             logger.LogError("Error connecting to KERI Agent Service: {w}", openWalletError);

@@ -22,35 +22,8 @@ function runTypeCheck() {
     }
 }
 
-// Shared build options
-const sharedOptions = {
-    bundle: true,
-    minify: process.env.NODE_ENV === 'production',
-    sourcemap: true,
-    platform: 'browser',
-    mainFields: ['browser','module','main'],
-    format: 'iife',  // Changed from 'esm' to 'iife' for content scripts
-    loader: { '.ts': 'ts' },
-    define: {
-        'global': 'globalThis',
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-    }
-};
-
-// Build configurations
-const builds = [
-    {
-        name: 'signifyClient',
-        entryPoints: ['wwwroot/scripts/esbuild/signifyClient.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/signifyClient.js',
-        platform: "browser",
-        format: 'esm',  // Keep ESM for C# interop via import()
-        define: {
-            'global': 'globalThis',
-            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-        },
-        banner: {
-            js: `// Polyfills for libsodium WASM in service worker context
+// Shared banner for libsodium WASM polyfills (used by signifyClient and demo modules)
+const libsodiumPolyfillBanner = `// Polyfills for libsodium WASM in service worker context
 // These must run before libsodium WASM initializes
 
 // 1. Ensure crypto.getRandomValues is available (primary RNG for libsodium)
@@ -68,7 +41,7 @@ if (typeof self !== 'undefined' && self.crypto && self.crypto.getRandomValues) {
                 configurable: true
             });
         } catch (e) {
-            console.error('[signifyClient.js] Failed to polyfill crypto.randomBytes:', e);
+            console.error('Failed to polyfill crypto.randomBytes:', e);
         }
     }
 
@@ -101,7 +74,37 @@ if (typeof self !== 'undefined' && !globalThis.Module) {
         instantiateWasm: undefined  // Let libsodium use its default base64 embedded WASM
     };
 }
-`
+`;
+
+// Shared build options
+const sharedOptions = {
+    bundle: true,
+    minify: process.env.NODE_ENV === 'production',
+    sourcemap: true,
+    platform: 'browser',
+    mainFields: ['browser','module','main'],
+    format: 'iife',  // Changed from 'esm' to 'iife' for content scripts
+    loader: { '.ts': 'ts' },
+    define: {
+        'global': 'globalThis',
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+    }
+};
+
+// Build configurations
+const builds = [
+    {
+        name: 'signifyClient',
+        entryPoints: ['wwwroot/scripts/esbuild/signifyClient.ts'],
+        outfile: 'wwwroot/scripts/esbuild/signifyClient.js',
+        platform: "browser",
+        format: 'esm',  // Keep ESM for C# interop via import()
+        define: {
+            'global': 'globalThis',
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+        },
+        banner: {
+            js: libsodiumPolyfillBanner
         },
         plugins: [
             alias({
@@ -112,9 +115,49 @@ if (typeof self !== 'undefined' && !globalThis.Module) {
     {
         name: 'ContentScript',
         entryPoints: ['wwwroot/scripts/esbuild/ContentScript.ts'],
-        outfile: 'dist/wwwroot/scripts/esbuild/ContentScript.js'
+        outfile: 'wwwroot/scripts/esbuild/ContentScript.js'
         // Will use IIFE format from sharedOptions
-    }
+    },
+    {
+        name: 'demo1',
+        entryPoints: ['wwwroot/scripts/esbuild/demo1.ts'],
+        outfile: 'wwwroot/scripts/esbuild/demo1.js',
+        platform: "browser",
+        format: 'esm',  // Use ESM to export runDemo1 function (not IIFE which runs immediately)
+        bundle: true,   // Explicitly enable bundling to inline utils.ts and signify-ts dependencies
+        define: {
+            'global': 'globalThis',
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+        },
+        banner: {
+            js: libsodiumPolyfillBanner
+        },
+        plugins: [
+            alias({
+                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
+            })
+        ]
+    },
+    {
+        name: 'utils',
+        entryPoints: ['wwwroot/scripts/esbuild/utils.ts'],
+        outfile: 'wwwroot/scripts/esbuild/utils.js',
+        platform: "browser",
+        format: 'esm',  // Keep ESM for module exports
+        bundle: true,   // Bundle all dependencies including signify-ts
+        define: {
+            'global': 'globalThis',
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+        },
+        banner: {
+            js: libsodiumPolyfillBanner
+        },
+        plugins: [
+            alias({
+                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
+            })
+        ]
+    },
 ];
 
 async function buildAll() {

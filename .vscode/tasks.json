@@ -1,10 +1,132 @@
 {
   "version": "2.0.0",
   "tasks": [
-    { "label": "dotnet restore", "type": "process", "command": "dotnet", "args": ["restore"] },
-    { "label": "dotnet build", "type": "process", "command": "dotnet", "args": ["build", "--no-restore"], "dependsOn": ["dotnet restore"], "group": "build" },
-    { "label": "npm ci", "type": "npm", "script": "ci" },
-    { "label": "npm build", "type": "npm", "script": "build", "dependsOn": ["npm ci"] },
-    { "label": "web dev", "type": "npm", "script": "dev", "isBackground": true, "problemMatcher": "$tsc-watch" }
+    {
+      "label": "Build Extension (Full)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "-p:FullBuild=true"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$msCompile", "$tsc"]
+    },
+    {
+      "label": "Build Extension (Quick - C# only)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "-p:Quick=true"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build TypeScript Only",
+      "type": "npm",
+      "script": "build",
+      "path": "Extension/",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "Watch TypeScript",
+      "type": "npm",
+      "script": "watch",
+      "path": "Extension/",
+      "isBackground": true,
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": {
+        "owner": "typescript",
+        "fileLocation": "relative",
+        "pattern": {
+          "regexp": "^([^\\s].*)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\):\\s+(error|warning|info)\\s+(TS\\d+)\\s*:\\s*(.*)$",
+          "file": 1,
+          "location": 2,
+          "severity": 3,
+          "code": 4,
+          "message": 5
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^\\[\\d+:\\d+:\\d+[AP]M\\] File change detected\\. Starting incremental compilation\\.\\.\\.",
+          "endsPattern": "^\\[\\d+:\\d+:\\d+ [AP]M\\] (Compilation complete\\.|Found \\d+ errors?\\. Watching for file changes\\.)"
+        }
+      }
+    },
+    {
+      "label": "Clean",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["clean"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Clean & Rebuild",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["clean"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "dependsOn": ["Clean"],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Test",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["test"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Lint TypeScript",
+      "type": "npm",
+      "script": "lint",
+      "path": "Extension/",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$eslint-stylish"
+    },
+    {
+      "label": "Format C# Code",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["format"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
   ]
 }

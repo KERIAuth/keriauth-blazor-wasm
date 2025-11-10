@@ -1,4 +1,5 @@
 ﻿@page "/Delete.html"
+@using Extension.Services.Storage
 @using Extension.Services
 @inject IJSRuntime js
 @inject NavigationManager navManager
@@ -8,8 +9,6 @@
 @inject IDialogService dialogService
 @inject ILogger<DeletePage> logger
 @using static Extension.Helper.PreviousPage
-@inject IWebExtensionsApi webExtensionsApi
-@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -31,11 +30,6 @@
 </div>
 
 @code {
-    protected override async Task OnInitializedAsync()
-    {
-        webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
-    }
-
     private async Task DeleteWallet()
     {
         bool isRemoveConfirmed;
@@ -54,9 +48,10 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            await webExtensionsApi.Storage.Local.Clear();
-            await webExtensionsApi.Storage.Sync.Clear();
-            await webExtensionsApi.Storage.Session.Clear();
+            // Clear all storage areas using StorageService
+            await storageService.Clear(StorageArea.Local);
+            await storageService.Clear(StorageArea.Sync);
+            await storageService.Clear(StorageArea.Session);
 
             // restart the app
             navManager.NavigateTo(RouteToIndexHtml, forceLoad: true, replace: true);

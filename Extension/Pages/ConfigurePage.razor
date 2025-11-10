@@ -1,4 +1,6 @@
 ﻿@page "/Configure.html"
+@using Extension.Models.Storage
+@using Extension.Services.Storage
 
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
@@ -211,19 +213,21 @@
             return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, clientRes.Reasons.First().Message));
         }
         ops3Connect.SetCompletedWithoutErrors();
-        try
+
+        // Store passcode in session storage using new type-safe model
+        var storeResult = await storageService.SetItem(
+            new PasscodeModel { Passcode = configuredPasscodeModel.Passcode },
+            StorageArea.Session
+        );
+        if (storeResult.IsFailed)
         {
-            // TODO should this be in Storage.Sync?
-            await webExtensionsApi!.Storage.Session.Set(new { passcode = configuredPasscodeModel.Passcode });
-            int passcodeHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
-            KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
-            // KeriaConnectConfig will be stored by caller of ConnectToKeria()
+            logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
+            return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage"));
         }
-        catch (Exception ex)
-        {
-            logger.LogError("Failed to store passcode in session storage: {Message}", ex.Message);
-            return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage", ex));
-        }
+
+        int passcodeHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);
+        KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
+        // KeriaConnectConfig will be stored by caller of ConnectToKeria()
         StateHasChanged();
         await Task.Delay(100);
 

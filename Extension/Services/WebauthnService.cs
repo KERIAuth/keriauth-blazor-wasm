@@ -1,15 +1,17 @@
 ﻿using FluentResults;
 using JsBind.Net;
 using Extension.Models;
+using Extension.Models.Storage;
+using Extension.Services.Storage;
 using Microsoft.JSInterop;
 using System.Text;
 using System.Text.Json;
 using WebExtensions.Net;
 // using static System.Runtime.InteropServices.JavaScript.JSType;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Extension.Services {
-    public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, ILogger<WebauthnService> logger) : IWebauthnService {
+    public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, IStorageService storageService, ILogger<WebauthnService> logger) : IWebauthnService {
+        private readonly IStorageService _storageService = storageService;
         private IJSObjectReference? interopModule;
         private WebExtensionsApi? webExtensionsApi;
 
@@ -144,11 +146,11 @@ namespace Extension.Services {
                 return Result.Fail("Failed to verify with authenticator 444");
             }
 
-            // Get the cleartext passcode from session storage
-            var passcodeElement = await webExtensionsApi!.Storage.Session.Get("passcode");
-            if (passcodeElement.TryGetProperty("passcode", out JsonElement passcodeElement2) && passcodeElement2.ValueKind == JsonValueKind.String) {
+            // Get the cleartext passcode from session storage using new type-safe model
+            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            if (passcodeResult.IsSuccess && passcodeResult.Value != null) {
                 try {
-                    var passcode = passcodeElement2.GetString();
+                    var passcode = passcodeResult.Value.Passcode;
                     if (passcode is null) {
                         return Result.Fail("no passcode is cached");
                     }
@@ -201,8 +203,13 @@ namespace Extension.Services {
                     };
                     registeredAuthenticators.Authenticators.Add(newRA);
 
-                    // store updated registeredAuthenticators
-                    await webExtensionsApi.Storage.Sync.Set(registeredAuthenticators);
+                    // store updated registeredAuthenticators using storage service
+                    var storeResult = await _storageService.SetItem(registeredAuthenticators, StorageArea.Sync);
+                    if (storeResult.IsFailed) {
+                        logger.LogError("Failed to store RegisteredAuthenticators: {Errors}",
+                            string.Join(", ", storeResult.Errors));
+                        return Result.Fail("Failed to store authenticator registration");
+                    }
 
                     // return the name of the newly added authenticatorRegistration
                     return Result.Ok(newRA.Name);
@@ -222,18 +229,16 @@ namespace Extension.Services {
 
         public async Task<RegisteredAuthenticators> GetRegisteredAuthenticators() {
             await Initialize();
-            var webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-            var jsonElement = await webExtensionsApi.Storage.Sync.Get("authenticators"); // key matches name of property in RegisteredAuthenticators
-            RegisteredAuthenticators ras;
-            // if there are stored registered authenticators, start with that list
-            RegisteredAuthenticators? t = JsonSerializer.Deserialize<RegisteredAuthenticators>(jsonElement, jsonSerializerOptions);
-            if (t is not null) {
-                ras = t;
+
+            // Get registered authenticators from sync storage using storage service
+            var result = await _storageService.GetItem<RegisteredAuthenticators>(StorageArea.Sync);
+
+            if (result.IsSuccess && result.Value != null) {
+                return result.Value;
             }
-            else {
-                ras = new RegisteredAuthenticators();
-            }
-            return ras;
+
+            // Return empty list if not found
+            return new RegisteredAuthenticators();
         }
 
         public async Task<Result<string>> AuthenticateAKnownCredential() {

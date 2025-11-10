@@ -607,7 +607,6 @@
         "type": "Project",
         "dependencies": {
           "Blazor.BrowserExtension": "[3.2.0, )",
-          "Blazor.BrowserExtension.Build": "[3.2.0, )",
           "Castle.Core": "[5.2.1, )",
           "Ensure.That": "[10.1.0, )",
           "FluentResults": "[4.0.0, )",
