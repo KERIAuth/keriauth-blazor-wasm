@@ -1,8 +1,10 @@
 namespace Extension.Tests.Services.Storage;
 
+using Extension.Helper;
 using Extension.Services.Storage;
 using Extension.Models;
 using Extension.Models.Storage;
+using Extension.Tests.Models;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.Extensions.Logging;
@@ -144,12 +146,12 @@ public class StorageServiceTests {
     }
 
     [Fact]
-    public void TypeName_UsedAsStorageKey_InactivityTimeoutCacheModel() {
+    public void TypeName_UsedAsStorageKey_TestModel() {
         // Arrange
-        var typeName = typeof(InactivityTimeoutCacheModel).Name;
+        var typeName = typeof(TestModel).Name;
 
-        // Assert - Storage key should be "InactivityTimeoutCacheModel"
-        Assert.Equal("InactivityTimeoutCacheModel", typeName);
+        // Assert - Storage key should be "TestModel"
+        Assert.Equal("TestModel", typeName);
     }
 
     [Fact]
@@ -269,17 +271,27 @@ public class StorageServiceTests {
     }
 
     [Fact]
-    public void InactivityTimeoutCacheModel_RequiresSessionExpiration() {
+    public void TestModel_RequiredProperties() {
         // Arrange
-        var expiration = DateTime.UtcNow.AddMinutes(5);
+        var testDict = new RecursiveDictionary();
+        testDict["test"] = "value";
 
         // Act
-        var model = new InactivityTimeoutCacheModel {
-            SessionExpirationUtc = expiration
+        var model = new TestModel {
+            BoolProperty = true,
+            IntProperty = 42,
+            FloatProperty = 3.14f,
+            StringProperty = "required-string",
+            RecursiveDictionaryProperty = testDict
         };
 
         // Assert
-        Assert.Equal(expiration, model.SessionExpirationUtc);
+        Assert.True(model.BoolProperty);
+        Assert.Equal(42, model.IntProperty);
+        Assert.Equal(3.14f, model.FloatProperty);
+        Assert.Equal("required-string", model.StringProperty);
+        Assert.Null(model.NullableStringProperty);
+        Assert.NotNull(model.RecursiveDictionaryProperty);
     }
 
     [Fact]

@@ -1,8 +1,10 @@
 namespace Extension.Tests.Services.Storage;
 
+using Extension.Helper;
 using Extension.Services.Storage;
 using Extension.Models;
 using Extension.Models.Storage;
+using Extension.Tests.Models;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.Extensions.Logging;
@@ -135,10 +137,10 @@ public class StorageServiceNotificationTests {
         await _sut.Initialize(StorageArea.Session);
 
         var passcodeObserver = new Mock<IObserver<PasscodeModel>>();
-        var timeoutObserver = new Mock<IObserver<InactivityTimeoutCacheModel>>();
+        var testModelObserver = new Mock<IObserver<TestModel>>();
 
         var subscription1 = _sut.Subscribe(passcodeObserver.Object, StorageArea.Session);
-        var subscription2 = _sut.Subscribe(timeoutObserver.Object, StorageArea.Session);
+        var subscription2 = _sut.Subscribe(testModelObserver.Object, StorageArea.Session);
 
         // Act - Trigger change for PasscodeModel only
         var updatedPasscode = new PasscodeModel { Passcode = "type-specific-test" };
@@ -146,7 +148,7 @@ public class StorageServiceNotificationTests {
 
         // Assert - Only PasscodeModel observer should be notified
         passcodeObserver.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
-        timeoutObserver.Verify(x => x.OnNext(It.IsAny<InactivityTimeoutCacheModel>()), Times.Never);
+        testModelObserver.Verify(x => x.OnNext(It.IsAny<TestModel>()), Times.Never);
 
         subscription1.Dispose();
         subscription2.Dispose();
@@ -177,28 +179,41 @@ public class StorageServiceNotificationTests {
     }
 
     [Fact]
-    public async Task Subscribe_WithInactivityTimeoutModel_ReceivesCorrectType() {
+    public async Task Subscribe_WithTestModel_ReceivesCorrectType() {
         // Arrange
         await _sut.Initialize(StorageArea.Session);
 
-        var observer = new Mock<IObserver<InactivityTimeoutCacheModel>>();
-        InactivityTimeoutCacheModel? receivedValue = null;
-        observer.Setup(x => x.OnNext(It.IsAny<InactivityTimeoutCacheModel>()))
-            .Callback<InactivityTimeoutCacheModel>(value => receivedValue = value);
+        var observer = new Mock<IObserver<TestModel>>();
+        TestModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<TestModel>()))
+            .Callback<TestModel>(value => receivedValue = value);
 
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Session);
 
-        // Act - Simulate storage change with InactivityTimeoutCacheModel
-        var expiration = DateTime.UtcNow.AddMinutes(5);
-        var updatedTimeout = new InactivityTimeoutCacheModel {
-            SessionExpirationUtc = expiration
+        // Act - Simulate storage change with TestModel
+        var testDict = new RecursiveDictionary();
+        testDict["key1"] = "value1";
+        testDict["key2"] = 42;
+
+        var updatedTestModel = new TestModel {
+            BoolProperty = true,
+            IntProperty = 123,
+            FloatProperty = 45.67f,
+            StringProperty = "test-value",
+            NullableStringProperty = "optional-value",
+            RecursiveDictionaryProperty = testDict
         };
-        TriggerStorageChange("session", "InactivityTimeoutCacheModel", updatedTimeout);
+        TriggerStorageChange("session", "TestModel", updatedTestModel);
 
         // Assert
         Assert.NotNull(receivedValue);
-        Assert.Equal(expiration, receivedValue!.SessionExpirationUtc);
-        observer.Verify(x => x.OnNext(It.IsAny<InactivityTimeoutCacheModel>()), Times.Once);
+        Assert.True(receivedValue!.BoolProperty);
+        Assert.Equal(123, receivedValue.IntProperty);
+        Assert.Equal(45.67f, receivedValue.FloatProperty);
+        Assert.Equal("test-value", receivedValue.StringProperty);
+        Assert.Equal("optional-value", receivedValue.NullableStringProperty);
+        Assert.NotNull(receivedValue.RecursiveDictionaryProperty);
+        observer.Verify(x => x.OnNext(It.IsAny<TestModel>()), Times.Once);
 
         subscription.Dispose();
     }
@@ -399,24 +414,32 @@ public class StorageServiceNotificationTests {
         // Arrange
         await _sut.Initialize(StorageArea.Session);
 
-        var observer = new Mock<IObserver<InactivityTimeoutCacheModel>>();
+        var observer = new Mock<IObserver<TestModel>>();
         var receivedCount = 0;
-        observer.Setup(x => x.OnNext(It.IsAny<InactivityTimeoutCacheModel>()))
-            .Callback<InactivityTimeoutCacheModel>(_ => receivedCount++);
+        observer.Setup(x => x.OnNext(It.IsAny<TestModel>()))
+            .Callback<TestModel>(_ => receivedCount++);
 
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Session);
 
-        // Act - Simulate rapid sequential updates (e.g., inactivity timer extending)
+        // Act - Simulate rapid sequential updates
         for (int i = 1; i <= 10; i++) {
-            var timeout = new InactivityTimeoutCacheModel {
-                SessionExpirationUtc = DateTime.UtcNow.AddMinutes(i)
+            var testDict = new RecursiveDictionary();
+            testDict["counter"] = i;
+
+            var testModel = new TestModel {
+                BoolProperty = i % 2 == 0,
+                IntProperty = i,
+                FloatProperty = i * 1.5f,
+                StringProperty = $"update-{i}",
+                NullableStringProperty = null,
+                RecursiveDictionaryProperty = testDict
             };
-            TriggerStorageChange("session", "InactivityTimeoutCacheModel", timeout);
+            TriggerStorageChange("session", "TestModel", testModel);
         }
 
         // Assert - All 10 notifications received
         Assert.Equal(10, receivedCount);
-        observer.Verify(x => x.OnNext(It.IsAny<InactivityTimeoutCacheModel>()), Times.Exactly(10));
+        observer.Verify(x => x.OnNext(It.IsAny<TestModel>()), Times.Exactly(10));
 
         subscription.Dispose();
     }
