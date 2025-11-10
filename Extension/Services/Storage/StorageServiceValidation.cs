@@ -7,7 +7,7 @@ using Extension.Models;
 /// Validation helper for storage operations across different storage areas.
 /// Enforces rules like read-only Managed storage and quota-only Local/Sync storage.
 /// </summary>
-internal static class StorageServiceValidation {
+public static class StorageServiceValidation {
     /// <summary>
     /// Operations not allowed on Managed storage (read-only for extensions).
     /// IT administrators configure Managed storage via enterprise policies.
