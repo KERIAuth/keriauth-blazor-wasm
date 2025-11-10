@@ -27,7 +27,17 @@ The extension follows a multi-component architecture:
 3. **Blazor WASM App** - UI layer for extension popup and tabs
 4. **SignifyService** - Manages KERI/ACDC operations via signify-ts JavaScript interop
 
-Services use dependency injection with primarily singleton lifetime for state management across the extension. The StorageService provides persistent storage using chrome.storage API.
+Services use dependency injection with primarily singleton lifetime for state management across the extension.
+
+### Storage Architecture
+
+The extension uses a unified `IStorageService` abstraction over Chrome's storage APIs (local, session, sync, managed). All storage operations use strongly-typed record models with `required` properties to ensure data completeness at compile-time. Storage keys are derived from type names (`typeof(T).Name`), eliminating string-based key management. The service implements `IObservable<T>` for reactive storage change notifications across extension components.
+
+**Key principles**:
+- Type-safe models with `required` properties prevent null reference errors
+- Managed storage is read-only (enterprise policies)
+- Quota APIs only available for Session and Sync storage areas
+- Never serialize credentials with standard JSON libraries - use `RecursiveDictionary` to preserve CESR/SAID field ordering
 
 ## JavaScript Module Loading Architecture
 
