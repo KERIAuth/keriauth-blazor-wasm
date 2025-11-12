@@ -21,11 +21,10 @@ public class StorageService : IStorageService, IDisposable {
     // Track which areas have been initialized for change notifications
     private readonly HashSet<StorageArea> _initializedAreas = new();
 
-    // Observer lists per area and type name
+    // Observer storage
     // Outer key: StorageArea (e.g., Local, Session)
     // Inner key: Type name (e.g., "Preferences", "PasscodeModel")
-    // Inner value: List of observer entries containing the observer and a typed notification callback
-    // The callback avoids reflection by capturing the generic type at subscription time
+    // Inner value: List of observer entries
     private readonly Dictionary<StorageArea, Dictionary<string, List<ObserverEntry>>> _observersByArea = new();
 
     // Helper record to store observer with its typed notification callback
@@ -142,7 +141,7 @@ public class StorageService : IStorageService, IDisposable {
                 return;
             }
 
-            // Notify type-specific observers
+            // Get observers for this key
             if (_observersByArea.TryGetValue(area, out var observersByKey)
                 && observersByKey.TryGetValue(key, out var entryList)) {
                 NotifyObservers(key, area, entryList, newValue);
@@ -407,20 +406,7 @@ public class StorageService : IStorageService, IDisposable {
             );
         }
 
-        // Get or create observer dictionary for this area
-        if (!_observersByArea.TryGetValue(area, out var observersByKey)) {
-            observersByKey = new Dictionary<string, List<ObserverEntry>>();
-            _observersByArea[area] = observersByKey;
-        }
-
-        // Get or create observer entry list for this key
-        if (!observersByKey.TryGetValue(key, out var entryList)) {
-            entryList = new List<ObserverEntry>();
-            observersByKey[key] = entryList;
-        }
-
         // Create a typed callback that captures the generic type
-        // This avoids reflection when notifying observers
         Action<object> notifyCallback = (obj) => {
             if (obj is T typedValue) {
                 observer.OnNext(typedValue);
@@ -433,14 +419,42 @@ public class StorageService : IStorageService, IDisposable {
         };
 
         var entry = new ObserverEntry(observer, typeof(T), notifyCallback);
-        if (!entryList.Any(e => ReferenceEquals(e.Observer, observer))) {
-            entryList.Add(entry);
-            _logger.LogDebug("Subscribed to {Key} in {Area} storage", key, area);
+
+        // Get or create the inner dictionary for this area
+        if (!_observersByArea.TryGetValue(area, out var observersByKey)) {
+            observersByKey = [];
+            _observersByArea[area] = observersByKey;
         }
 
-        return new UnsubscriberEntry(entryList, observer, () => {
+        // Add the observer to the list
+        if (!observersByKey.TryGetValue(key, out var list)) {
+            list = [];
+            observersByKey[key] = list;
+        }
+
+        if (!list.Any(e => ReferenceEquals(e.Observer, observer))) {
+            list.Add(entry);
+        }
+
+        _logger.LogDebug("Subscribed to {Key} in {Area} storage", key, area);
+
+        // Return unsubscriber that removes this observer
+        return new UnsubscriberEntry(area, key, observer, RemoveObserver, () => {
             _logger.LogDebug("Unsubscribed from {Key} in {Area} storage", key, area);
         });
+    }
+
+    /// <summary>
+    /// Removes an observer from the observer collections.
+    /// </summary>
+    private void RemoveObserver(StorageArea area, string key, object observer) {
+        if (!_observersByArea.TryGetValue(area, out var observersByKey)) {
+            return; // Area not found, nothing to remove
+        }
+
+        if (observersByKey.TryGetValue(key, out var list)) {
+            list.RemoveAll(e => ReferenceEquals(e.Observer, observer));
+        }
     }
 
     // Helper methods to get the appropriate storage area API
@@ -573,16 +587,20 @@ public class StorageService : IStorageService, IDisposable {
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Unsubscriber for observer removal.
+    /// Calls the removal callback to remove the observer from collections.
+    /// </summary>
     private sealed class UnsubscriberEntry(
-        List<ObserverEntry> entries,
+        StorageArea area,
+        string key,
         object observer,
+        Action<StorageArea, string, object> removeCallback,
         Action? onDispose = null
     ) : IDisposable {
         public void Dispose() {
-            var entry = entries.FirstOrDefault(e => ReferenceEquals(e.Observer, observer));
-            if (entry != null) {
-                entries.Remove(entry);
-            }
+            // Use the removal callback
+            removeCallback(area, key, observer);
             onDispose?.Invoke();
         }
     }

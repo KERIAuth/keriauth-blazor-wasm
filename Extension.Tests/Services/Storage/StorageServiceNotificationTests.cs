@@ -23,7 +23,12 @@ using Xunit;
 ///
 /// These tests use reflection to access the private _globalCallback field and simulate
 /// storage.onChanged events from the browser, following the WebExtensions.Net pattern.
+///
+/// NOTE: Tests in this class must run sequentially (not in parallel) to avoid race conditions
+/// with the shared WebExtensions.Net mock infrastructure. The Collection attribute ensures
+/// xUnit runs these tests one at a time.
 /// </summary>
+[Collection("StorageService Sequential Tests")]
 public class StorageServiceNotificationTests {
     private readonly Mock<IJSRuntime> _mockJsRuntime;
     private readonly Mock<ILogger<StorageService>> _mockLogger;
@@ -525,4 +530,13 @@ public class StorageServiceNotificationTests {
     }
 
     #endregion
+}
+
+/// <summary>
+/// Collection definition to force sequential execution of StorageServiceNotificationTests.
+/// This prevents race conditions when multiple tests try to initialize the same StorageArea
+/// or interact with shared WebExtensions.Net mock infrastructure.
+/// </summary>
+[CollectionDefinition("StorageService Sequential Tests", DisableParallelization = true)]
+public class StorageServiceSequentialTests {
 }
