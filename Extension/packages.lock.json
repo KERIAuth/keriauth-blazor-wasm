@@ -262,9 +262,9 @@
       },
       "Microsoft.NET.Sdk.WebAssembly.Pack": {
         "type": "Direct",
-        "requested": "[9.0.10, )",
-        "resolved": "9.0.10",
-        "contentHash": "Ye7Zr/1d5cMeXyqv2uaEYrZjgRAcZKTXE/dJByxhicD7jLQSQcwmuBZzIXi+SY5sZbvKeH7nSTcVa7fOrJArfw=="
+        "requested": "[9.0.11, )",
+        "resolved": "9.0.11",
+        "contentHash": "ny1kL8vhtikzuGQGNf2R1ElHPOHv+TekNMT0Emp78mYGUWQDzpjQ4CL57n5qly4SANGPPM33K7BvszowaMzMpw=="
       },
       "Moq": {
         "type": "Direct",
