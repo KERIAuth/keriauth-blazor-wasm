@@ -36,23 +36,6 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         }
     }
 
-    public async Task<Preferences> GetPreferences() {
-        try {
-            var preferencesResult = await storageService.GetItem<Preferences>();
-            if (preferencesResult is null || preferencesResult.IsFailed || preferencesResult.Value is null) {
-                // If preferences don't yet exist in storage, return the defaults
-                return new Preferences();
-            }
-            else {
-                return preferencesResult.Value;
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Failed to get preferences");
-            return new Preferences();
-        }
-    }
-
     public async Task SetPreferences(Preferences preferences) {
         logger.LogInformation("SetPreferences...");
         await storageService.SetItem<Preferences>(preferences);

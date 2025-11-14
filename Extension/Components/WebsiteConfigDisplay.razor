@@ -1,6 +1,8 @@
 ﻿@using Newtonsoft.Json
 @using Extension.Services.Storage
 
+@implements IDisposable
+
 @inject ILogger<WebsiteConfigDisplay> logger
 @inject IWebsiteConfigService websiteConfigService
 @inject IStateService stateService
@@ -30,6 +32,7 @@
     string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
     List<RecursiveDictionary>? CredentialsDict { get; set; }
+    StorageObserver<Preferences>? preferencesStorageObserver;
 
     // reactive properties
     // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
@@ -43,6 +46,14 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync...");
+        preferencesStorageObserver = new StorageObserver<Preferences>(
+            storageService,
+            StorageArea.Local,
+            // onNext: prefs => logger.LogDebug("Preferences changed in WebsiteConfigDisplay"),
+            // onError: ex => logger.LogError(ex, "Error observing preferences in WebsiteConfigDisplay"),
+            // onCompleted: null,
+            logger: logger
+        );
         await getInitialIdentifiers();
         await getCredentials();
         // inform parent so it can enable or disable Sign In button, for example
@@ -120,7 +131,10 @@
 
                 if (isConfigNew)
                 {
-                    SelectedPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
+                    var prefsResult = await preferencesStorageObserver!.Get();
+                    SelectedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
+                        ? prefsResult.Value.SelectedPrefix
+                        : new Preferences().SelectedPrefix;
                     ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, IsAutoSignSafeHeaders = true };
                     await updateWebsiteConfigAndParent(ThisWebsiteConfig);
                     // Note above includes StateHasChanged.
@@ -311,6 +325,11 @@
         var res = await websiteConfigService.Update(wc);
         logger.LogInformation("UpdateWebsiteConfigAndParent success: {r}", res.IsSuccess);
         await sendValueToParent();
+    }
+
+    public void Dispose()
+    {
+        preferencesStorageObserver?.Dispose();
     }
 }
 

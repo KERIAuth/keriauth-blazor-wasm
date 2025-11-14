@@ -1,6 +1,7 @@
 ﻿@page "/Identifiers.html"
 @using Extension.Services.Storage
 
+@implements IDisposable
 
 @inject IPreferencesService preferencesService
 @inject IStorageService storageService
@@ -20,6 +21,7 @@
 
     // fields
     string DialogResult { get; set; } = "unknown";
+    StorageObserver<Preferences>? preferencesStorageObserver;
 
     // properties
     bool IsAddingAid { get; set; }
@@ -33,6 +35,14 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+        preferencesStorageObserver = new StorageObserver<Preferences>(
+            storageService,
+            StorageArea.Local,
+            // onNext: prefs => logger.LogDebug("Preferences changed in IdentifiersPage"),
+            // onError: ex => logger.LogError(ex, "Error observing preferences in IdentifiersPage"),
+            // onCompleted: null,
+            logger: logger
+        );
     }
 
     protected override async Task OnParametersSetAsync()
@@ -86,7 +96,8 @@
             {
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetIdentifiers();
-                var prefs = await preferencesService.GetPreferences();
+                var prefsResult = await preferencesStorageObserver!.Get();
+                var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
                 await preferencesService.SetPreferences(prefs with { SelectedPrefix = res.Value });
             }
         }
@@ -98,6 +109,11 @@
     {
         var newPrefs = Prefs with { SelectedPrefix = identifier };
         await preferencesService.SetPreferences(newPrefs);
+    }
+
+    public void Dispose()
+    {
+        preferencesStorageObserver?.Dispose();
     }
 }
 

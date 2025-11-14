@@ -73,6 +73,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IDemo1Binding _demo1Binding;
     private readonly WebExtensionsApi _webExtensionsApi;
     private readonly IPreferencesService _preferencesService;
+    private readonly StorageObserver<Preferences> _preferencesStorageObserver;
 
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
@@ -126,6 +127,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _websiteConfigService = websiteConfigService;
         _preferencesService = preferencesService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
+        _preferencesStorageObserver = new StorageObserver<Preferences>(
+            _storageService,
+            StorageArea.Local,
+            // onNext: prefs => _logger.LogDebug("Preferences changed in BackgroundWorker"),
+            // onError: ex => _logger.LogError(ex, "Error observing preferences in BackgroundWorker"),
+            // onCompleted: null,
+            logger: _logger
+        );
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -714,7 +723,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Clear the Popup setting so future OpenPopup() invokations, perhaps when handling action button clicked events, will be handled without a tab context
-            await WebExtensions.Action.SetPopup(new() { Popup =
+            await WebExtensions.Action.SetPopup(new() {
+                Popup =
                 new WebExtensions.Net.ActionNs.Popup("")
             });
         }
@@ -1174,7 +1184,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
                 return;
             }
-            
+
             // Extract method and url from typed payload
             var method = payload.Method ?? "GET";
             var rurl = payload.Url;
@@ -1207,7 +1217,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (rememberedPrefix is null) {
                 _logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier was configured for origin {Origin}, so using user's currently selected prefix", hostAndPort);
 
-                rememberedPrefix = _preferencesService.GetPreferences().Result.SelectedPrefix;
+                var prefsResult = await _preferencesStorageObserver.Get();
+                rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
+                    ? prefsResult.Value.SelectedPrefix
+                    : new Preferences().SelectedPrefix;
                 // TODO P1 check whether this is for only this origin or all origins?
                 var res = await _websiteConfigService.Update(websiteConfig with { RememberedPrefixOrNothing = rememberedPrefix });
                 if (res.IsFailed) {
@@ -1727,7 +1740,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     public void Dispose() {
-        // No resources to dispose - BackgroundWorker uses only injected services
+        _preferencesStorageObserver?.Dispose();
         GC.SuppressFinalize(this);
     }
 

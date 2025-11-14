@@ -53,6 +53,7 @@
 
     // fields
     private MudButton? signRequestButton;
+    private StorageObserver<Preferences>? preferencesStorageObserver;
     static readonly HashSet<string> SafeMethods = new(StringComparer.OrdinalIgnoreCase)
     {
         "GET",
@@ -91,8 +92,17 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitialized");
+        preferencesStorageObserver = new StorageObserver<Preferences>(
+            storageService,
+            StorageArea.Local,
+            // onNext: prefs => logger.LogDebug("Preferences changed in RequestSignHeadersPage"),
+            // onError: ex => logger.LogError(ex, "Error observing preferences in RequestSignHeadersPage"),
+            // onCompleted: null,
+            logger: logger
+        );
         await RefreshFromWebsiteConfig();
-        Prefs = await preferencesService.GetPreferences();
+        var prefsResult = await preferencesStorageObserver.Get();
+        Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         IsDetailShown = Prefs.ShowSignRequestDetail;
         IsInitialized = true;
         return;
@@ -101,7 +111,9 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        InitializeOrOnNextPrefs(await preferencesService.GetPreferences());
+        var prefsResult = await preferencesStorageObserver!.Get();
+        var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
+        InitializeOrOnNextPrefs(prefs);
 
         logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
 
@@ -221,7 +233,8 @@
     async Task SetIsDetailShown(bool isDetailShown)
     {
         IsDetailShown = isDetailShown;
-        Preferences prefs = await preferencesService.GetPreferences();
+        var prefsResult = await preferencesStorageObserver!.Get();
+        var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         Prefs = prefs with { ShowSignRequestDetail = isDetailShown };
         await preferencesService.SetPreferences(Prefs);
         return;
@@ -272,7 +285,10 @@
 
         if (isConfigNew)
         {
-            WebsiteConfiguredPrefix = (await preferencesService.GetPreferences()).SelectedPrefix;
+            var prefsResult = await preferencesStorageObserver!.Get();
+            WebsiteConfiguredPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
+                ? prefsResult.Value.SelectedPrefix
+                : new Preferences().SelectedPrefix;
             ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = WebsiteConfiguredPrefix };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }
@@ -304,6 +320,7 @@
     //
     public void Dispose()
     {
+        preferencesStorageObserver?.Dispose();
         // TODO P4 unsubscribe from services, observables
     }
 

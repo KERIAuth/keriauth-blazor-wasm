@@ -20,6 +20,7 @@
     private static NavigationManager? staticNavManager;
     private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;
+    private StorageObserver<Preferences>? preferencesStorageObserver;
 
     // properties
     public static Preferences Prefs { get; set; } = new Preferences();
@@ -45,7 +46,18 @@
         await stateService.Initialize();
         await preferencesService.Initialize();
 
-        Prefs = await preferencesService.GetPreferences();
+        // Create storage observer for preferences
+        preferencesStorageObserver = new StorageObserver<Preferences>(
+            storageService,
+            StorageArea.Local,
+            // async (Preferences value) => await HandleNextFromPreferencesService(value),
+            // async (Exception error) => await HandleErrorFromPreferencesService(error),
+            // async () => await HandleCompletedFromPreferencesService(),
+            logger: _logger
+        );
+
+        var prefsResult = await preferencesStorageObserver.Get();
+        Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         await HandleNextFromPreferencesService(Prefs);
         preferencesSubscription = preferencesService.Subscribe(
             onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
@@ -135,6 +147,7 @@
     public void Dispose()
     {
         preferencesSubscription?.Dispose();
+        preferencesStorageObserver?.Dispose();
     }
 
     async Task HandleNextFromPreferencesService(Preferences value)

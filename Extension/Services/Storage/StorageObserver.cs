@@ -1,6 +1,7 @@
 namespace Extension.Services.Storage;
 
 using Extension.Models.Storage;
+using FluentResults;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -33,21 +34,21 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
     /// </summary>
     /// <param name="storageService">Storage service instance</param>
     /// <param name="storageArea">Storage area to monitor</param>
-    /// <param name="onNext">Callback when value changes</param>
+    /// <param name="onNext">Callback when value changes (optional, defaults to no-op)</param>
     /// <param name="onError">Optional error handler</param>
     /// <param name="onCompleted">Optional completion handler</param>
     /// <param name="logger">Optional logger for diagnostics</param>
     public StorageObserver(
         IStorageService storageService,
         StorageArea storageArea,
-        Action<T> onNext,
+        Action<T>? onNext = null,
         Action<Exception>? onError = null,
         Action? onCompleted = null,
         ILogger? logger = null
     ) {
         _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
         _storageArea = storageArea;
-        _onNext = onNext ?? throw new ArgumentNullException(nameof(onNext));
+        _onNext = onNext ?? (_ => { }); // Default to no-op
         _onError = onError;
         _onCompleted = onCompleted;
         _logger = logger;
@@ -75,6 +76,14 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
     public void OnCompleted() {
         _logger?.LogDebug("StorageObserver<{Type}> completed", typeof(T).Name);
         _onCompleted?.Invoke();
+    }
+
+    /// <summary>
+    /// Gets the current value of the observed model from storage.
+    /// </summary>
+    /// <returns>Result containing the current value, or null if not found</returns>
+    public async Task<Result<T?>> Get() {
+        return await _storageService.GetItem<T>(_storageArea);
     }
 
     public void Dispose() {
