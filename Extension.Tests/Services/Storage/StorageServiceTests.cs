@@ -345,9 +345,9 @@ public class StorageServiceTests {
     }
 
     [Fact]
-    public async Task Subscribe_ReturnsDisposable() {
+    public Task Subscribe_ReturnsDisposable() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
         var observer = new Mock<IObserver<PasscodeModel>>();
 
         // Act
@@ -358,12 +358,13 @@ public class StorageServiceTests {
         Assert.IsAssignableFrom<IDisposable>(subscription);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_SameObserverTwice_OnlyAddsOnce() {
+    public Task Subscribe_SameObserverTwice_OnlyAddsOnce() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
         var observer = new Mock<IObserver<PasscodeModel>>();
 
         // Act
@@ -377,6 +378,7 @@ public class StorageServiceTests {
         // Cleanup
         subscription1.Dispose();
         subscription2.Dispose();
+        return Task.CompletedTask;
     }
 
     #endregion
@@ -391,13 +393,14 @@ public class StorageServiceTests {
     }
 
     [Fact]
-    public async Task Dispose_AfterInitialize_DoesNotThrow() {
+    public Task Dispose_AfterInitialize_DoesNotThrow() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         // Act & Assert
         var exception = Record.Exception(() => _sut.Dispose());
         Assert.Null(exception);
+        return Task.CompletedTask;
     }
 
     #endregion

@@ -35,7 +35,7 @@ public class StorageService : IStorageService, IDisposable {
     private bool _listenerRegistered;
 
     private static readonly JsonSerializerOptions JsonOptions = new() {
-        PropertyNameCaseInsensitive = false,
+        PropertyNameCaseInsensitive = true,
         IncludeFields = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
     };
@@ -51,12 +51,16 @@ public class StorageService : IStorageService, IDisposable {
         _logger = logger;
         _webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         _logger.Log(ServiceLogLevel, "StorageService: constructor");
+        Initialize(StorageArea.Local);
+        Initialize(StorageArea.Session);
+        Initialize(StorageArea.Sync);
+        Initialize(StorageArea.Managed);
     }
 
-    public async Task<Result> Initialize(StorageArea area = StorageArea.Local) {
+    private void Initialize(StorageArea area = StorageArea.Local) {
         if (_initializedAreas.Contains(area)) {
             _logger.LogDebug("Storage area {Area} already initialized", area);
-            return Result.Ok();
+            return; // Result.Ok();
         }
 
         try {
@@ -78,11 +82,11 @@ public class StorageService : IStorageService, IDisposable {
             _initializedAreas.Add(area);
             _logger.LogInformation("Enabled change notifications for {Area} storage", area);
 
-            return Result.Ok();
+            return; // Result.Ok();
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to initialize {Area} storage", area);
-            return Result.Fail(new StorageError($"Initialize {area} failed", ex));
+            throw; //return Result.Fail(new StorageError($"Initialize {area} failed", ex));
         }
     }
 

@@ -13,6 +13,10 @@ public class StateService : IStateService {
     private readonly List<IObserver<States>> stateObservers = [];
     private readonly ILogger<StateService> logger;
     private readonly IWebExtensionsApi webExtensionsApi;
+    private readonly IObserver<AppState>? appStateStorageObserver;
+    private readonly IDisposable? appStateStorageSubscription;
+    private readonly IObserver<PasscodeModel>? passcodeStorageObserver;
+    private readonly IDisposable? passcodeStorageSubscription;
 
     public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger) {
         this.storageService = storageService;
@@ -20,6 +24,35 @@ public class StateService : IStateService {
         ConfigureStateMachine();
         this.logger = logger;
         this.webExtensionsApi = webExtensionsApi;
+
+        // Subscribe to AppState changes (legacy - currently unused)
+        appStateStorageObserver = new StorageObserver<AppState>();
+        appStateStorageSubscription = storageService.Subscribe(appStateStorageObserver);
+
+        // Subscribe to PasscodeModel changes in Session storage
+        // Note: Subscription is established here, but notifications only occur
+        // after StorageArea.Session is initialized (typically in App.razor)
+        passcodeStorageObserver = new StorageObserver<PasscodeModel>(
+            onNext: (PasscodeModel value) => {
+                // Check if passcode is null or empty
+                if (string.IsNullOrEmpty(value?.Passcode)) {
+                    // Passcode cleared - transition to Initializing state
+                    _ = Task.Run(async () => {
+                        try {
+                            await stateMachine.FireAsync(Triggers.ToInitializing);
+                            logger.LogInformation("PasscodeModel cleared - transitioned to Initializing state");
+                        }
+                        catch (InvalidOperationException ex) {
+                            logger.LogWarning("Could not transition to Initializing when passcode cleared: {Message}", ex.Message);
+                        }
+                    });
+                }
+            }
+        );
+        passcodeStorageSubscription = storageService.Subscribe(
+            passcodeStorageObserver,
+            StorageArea.Session
+        );
     }
 
     private enum Triggers {
@@ -45,7 +78,7 @@ public class StateService : IStateService {
         }
         catch (InvalidOperationException e) {
             logger.LogError("Invalid state transition during Initialize: {e}", e.Message);
-            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Initializing", e.Message));
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), States.Initializing.ToString(), e.Message));
         }
     }
 
@@ -68,9 +101,9 @@ public class StateService : IStateService {
             return Result.Ok();
         }
         catch (InvalidOperationException e) {
-            var targetState = isConnected ? "AuthenticatedConnected" : "AuthenticatedDisconnected";
+            var targetState = isConnected ? States.AuthenticatedConnected : States.AuthenticatedDisconnected;
             logger.LogError("Invalid state transition during Authenticate: {e}", e.Message);
-            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), targetState, e.Message));
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), targetState.ToString(), e.Message));
         }
     }
 
@@ -82,7 +115,7 @@ public class StateService : IStateService {
         }
         catch (InvalidOperationException e) {
             logger.LogError("Invalid state transition during Unauthenticate: {e}", e.Message);
-            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Unauthenticated", e.Message));
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), States.Unauthenticated.ToString(), e.Message));
         }
     }
 
@@ -93,7 +126,7 @@ public class StateService : IStateService {
         }
         catch (InvalidOperationException e) {
             logger.LogError("Invalid state transition during ConfirmConnected: {e}", e.Message);
-            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "AuthenticatedConnected", e.Message));
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), States.AuthenticatedConnected.ToString(), e.Message));
         }
     }
 
@@ -119,7 +152,7 @@ public class StateService : IStateService {
         }
         catch (InvalidOperationException e) {
             logger.LogError("Invalid state transition during Configure: {e}", e.Message);
-            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Unauthenticated", e.Message));
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), States.Unauthenticated.ToString(), e.Message));
         }
     }
 
@@ -137,7 +170,7 @@ public class StateService : IStateService {
         }
         catch (Exception e) {
             logger.LogError("Error during TimeOut: {e}", e.Message);
-            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), "Unauthenticated", e.Message));
+            return Result.Fail(new StateTransitionError(stateMachine.State.ToString(), States.Unauthenticated.ToString(), e.Message));
         }
     }
 

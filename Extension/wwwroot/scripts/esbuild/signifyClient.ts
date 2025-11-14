@@ -322,7 +322,7 @@ export const createAID = async (name: string): Promise<string> => {
             const res: EventResult = await client.identifiers().create(name);
             const op = await res.op();
             const id: string = op.response.i;
-            return { prefix: id, name };
+            return { Prefix: id, Name: name };
         },
         { Name: name }
     );

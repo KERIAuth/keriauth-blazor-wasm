@@ -1,9 +1,7 @@
-namespace Extension.Models.Storage;
+﻿namespace Extension.Models.Storage;
 
 /// <summary>
 /// Passcode stored in session storage (cleared when browser closes).
-/// Replaces legacy string key "passcode".
-///
 /// Storage key: "PasscodeModel"
 /// Storage area: Session
 /// Lifetime: Cleared on browser close, persists across service worker restarts

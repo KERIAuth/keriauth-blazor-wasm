@@ -40,7 +40,8 @@
         // Initialize services as needed
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
         await extensionEnvironmentService.Initialize(InitialUri, "unknown");
-        await storageService.Initialize();
+        // await storageService.Initialize(StorageArea.Local);
+        // await storageService.Initialize(StorageArea.Session);
         await stateService.Initialize();
         await preferencesService.Initialize();
 

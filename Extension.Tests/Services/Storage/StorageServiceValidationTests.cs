@@ -28,7 +28,7 @@ public class StorageServiceValidationTests {
     [Theory]
     [InlineData(nameof(IStorageService.GetItem))]
     [InlineData(nameof(IStorageService.GetBackupItems))]
-    [InlineData(nameof(IStorageService.Initialize))]
+    // [InlineData(nameof(IStorageService.Initialize))]
     public void ValidateOperation_ManagedStorage_ReadOperations_ReturnsSuccess(string operation) {
         // Act
         var result = StorageServiceValidation.ValidateOperation(operation, StorageArea.Managed);
@@ -84,10 +84,10 @@ public class StorageServiceValidationTests {
     /// </summary>
     [Theory]
     // Initialize - Valid for all areas
-    [InlineData(nameof(IStorageService.Initialize), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.Initialize), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.Initialize), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.Initialize), StorageArea.Managed, true)]
+    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Local, true)]
+    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Session, true)]
+    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Sync, true)]
+    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Managed, true)]
 
     // Clear - Not valid for Managed
     [InlineData(nameof(IStorageService.Clear), StorageArea.Local, true)]

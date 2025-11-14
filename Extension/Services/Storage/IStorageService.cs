@@ -8,12 +8,7 @@ using FluentResults;
 /// Storage keys are derived from typeof(T).Name.
 /// </summary>
 public interface IStorageService {
-    /// <summary>
-    /// Initialize storage change listeners for specified area.
-    /// Must be called before SubscribeToType() will work for that area.
-    /// </summary>
-    /// <param name="area">Storage area to initialize (default: Local)</param>
-    Task<Result> Initialize(StorageArea area = StorageArea.Local);
+
 
     /// <summary>
     /// Clear all items in specified storage area.

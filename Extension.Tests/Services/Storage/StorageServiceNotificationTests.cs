@@ -70,9 +70,9 @@ public class StorageServiceNotificationTests {
     #region Notification Tests
 
     [Fact]
-    public async Task Subscribe_WhenStorageChanges_ObserverReceivesNotification() {
+    public Task Subscribe_WhenStorageChanges_ObserverReceivesNotification() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         PasscodeModel? receivedValue = null;
@@ -91,12 +91,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_MultipleObservers_AllReceiveNotifications() {
+    public Task Subscribe_MultipleObservers_AllReceiveNotifications() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var observer1 = new Mock<IObserver<PasscodeModel>>();
         var observer2 = new Mock<IObserver<PasscodeModel>>();
@@ -116,12 +117,13 @@ public class StorageServiceNotificationTests {
 
         subscription1.Dispose();
         subscription2.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_AfterUnsubscribe_NoLongerReceivesNotifications() {
+    public Task Subscribe_AfterUnsubscribe_NoLongerReceivesNotifications() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
@@ -134,12 +136,13 @@ public class StorageServiceNotificationTests {
 
         // Assert - Should NOT receive notification
         observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_DifferentTypes_OnlyMatchingTypeNotified() {
+    public Task Subscribe_DifferentTypes_OnlyMatchingTypeNotified() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
 
         var passcodeObserver = new Mock<IObserver<PasscodeModel>>();
         var testModelObserver = new Mock<IObserver<TestModel>>();
@@ -157,13 +160,14 @@ public class StorageServiceNotificationTests {
 
         subscription1.Dispose();
         subscription2.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_DifferentStorageAreas_OnlyMatchingAreaNotified() {
+    public Task Subscribe_DifferentStorageAreas_OnlyMatchingAreaNotified() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Session);
 
         var localObserver = new Mock<IObserver<PasscodeModel>>();
         var sessionObserver = new Mock<IObserver<PasscodeModel>>();
@@ -181,12 +185,13 @@ public class StorageServiceNotificationTests {
 
         subscription1.Dispose();
         subscription2.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_WithTestModel_ReceivesCorrectType() {
+    public Task Subscribe_WithTestModel_ReceivesCorrectType() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
 
         var observer = new Mock<IObserver<TestModel>>();
         TestModel? receivedValue = null;
@@ -221,12 +226,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<TestModel>()), Times.Once);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_WithEnterprisePolicyConfig_ReceivesCorrectType() {
+    public Task Subscribe_WithEnterprisePolicyConfig_ReceivesCorrectType() {
         // Arrange
-        await _sut.Initialize(StorageArea.Managed);
+        // await _sut.Initialize(StorageArea.Managed);
 
         var observer = new Mock<IObserver<EnterprisePolicyConfig>>();
         EnterprisePolicyConfig? receivedValue = null;
@@ -250,12 +256,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<EnterprisePolicyConfig>()), Times.Once);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_ChangeWithoutNewValue_DoesNotNotify() {
+    public Task Subscribe_ChangeWithoutNewValue_DoesNotNotify() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
@@ -276,12 +283,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_UninitializedArea_DoesNotReceiveNotifications() {
+    public Task Subscribe_UninitializedArea_DoesNotReceiveNotifications() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var sessionObserver = new Mock<IObserver<PasscodeModel>>();
         var subscription = _sut.Subscribe(sessionObserver.Object, StorageArea.Session);
@@ -294,6 +302,7 @@ public class StorageServiceNotificationTests {
         sessionObserver.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     #endregion
@@ -301,9 +310,9 @@ public class StorageServiceNotificationTests {
     #region Lifecycle Tests - None → Value → Value2 → Deleted
 
     [Fact]
-    public async Task Subscribe_InitialValueCreation_ObserverReceivesNotification() {
+    public Task Subscribe_InitialValueCreation_ObserverReceivesNotification() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         PasscodeModel? receivedValue = null;
@@ -323,12 +332,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_SequentialUpdates_ReceivesAllNotifications() {
+    public Task Subscribe_SequentialUpdates_ReceivesAllNotifications() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         var receivedValues = new List<PasscodeModel>();
@@ -354,12 +364,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Exactly(3));
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_FullLifecycle_NoneToValueToDeleted() {
+    public Task Subscribe_FullLifecycle_NoneToValueToDeleted() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         var receivedValues = new List<PasscodeModel?>();
@@ -390,12 +401,13 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Exactly(2));
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_DeletionEvent_DoesNotCallOnNext() {
+    public Task Subscribe_DeletionEvent_DoesNotCallOnNext() {
         // Arrange
-        await _sut.Initialize(StorageArea.Local);
+        // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
@@ -412,12 +424,13 @@ public class StorageServiceNotificationTests {
         // for deletion/error scenarios, but StorageService currently only uses OnNext()
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Subscribe_RapidUpdates_AllNotificationsReceived() {
+    public Task Subscribe_RapidUpdates_AllNotificationsReceived() {
         // Arrange
-        await _sut.Initialize(StorageArea.Session);
+        // await _sut.Initialize(StorageArea.Session);
 
         var observer = new Mock<IObserver<TestModel>>();
         var receivedCount = 0;
@@ -447,6 +460,7 @@ public class StorageServiceNotificationTests {
         observer.Verify(x => x.OnNext(It.IsAny<TestModel>()), Times.Exactly(10));
 
         subscription.Dispose();
+        return Task.CompletedTask;
     }
 
     #endregion

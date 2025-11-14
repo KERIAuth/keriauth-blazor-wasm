@@ -4,13 +4,13 @@ namespace Extension.Services;
 
 public interface IStateService : IObservable<IStateService.States> {
     enum States {
-        Unknown,
-        Uninitialized,
-        Initializing,
-        Unconfigured,
-        Unauthenticated,
-        AuthenticatedDisconnected,
-        AuthenticatedConnected
+        Unknown = 0,
+        Uninitialized = 1,
+        Initializing = 2,
+        Unconfigured = 3,
+        Unauthenticated = 4,
+        AuthenticatedDisconnected = 5,
+        AuthenticatedConnected = 6
     }
 
     States GetState();
