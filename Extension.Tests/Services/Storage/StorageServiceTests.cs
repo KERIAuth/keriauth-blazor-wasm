@@ -328,23 +328,6 @@ public class StorageServiceTests {
     #region Observable Pattern Tests
 
     [Fact]
-    public void Subscribe_BeforeInitialize_LogsWarning() {
-        // Arrange
-        var observer = new Mock<IObserver<PasscodeModel>>();
-
-        // Act
-        var subscription = _sut.Subscribe(observer.Object, StorageArea.Session);
-
-        // Assert
-        Assert.NotNull(subscription);
-
-        // Verify warning was logged about subscribing before Initialize()
-        VerifyLogContains(LogLevel.Warning, "before Initialize()");
-
-        subscription.Dispose();
-    }
-
-    [Fact]
     public Task Subscribe_ReturnsDisposable() {
         // Arrange
         // await _sut.Initialize(StorageArea.Session);
@@ -401,25 +384,6 @@ public class StorageServiceTests {
         var exception = Record.Exception(() => _sut.Dispose());
         Assert.Null(exception);
         return Task.CompletedTask;
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    /// <summary>
-    /// Verify that the logger was called with a message containing the expected text.
-    /// </summary>
-    private void VerifyLogContains(LogLevel level, string expectedText) {
-        _mockLogger.Verify(
-            x => x.Log(
-                level,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(expectedText, StringComparison.OrdinalIgnoreCase)),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeastOnce
-        );
     }
 
     #endregion

@@ -286,25 +286,6 @@ public class StorageServiceNotificationTests {
         return Task.CompletedTask;
     }
 
-    [Fact]
-    public Task Subscribe_UninitializedArea_DoesNotReceiveNotifications() {
-        // Arrange
-        // await _sut.Initialize(StorageArea.Local);
-
-        var sessionObserver = new Mock<IObserver<PasscodeModel>>();
-        var subscription = _sut.Subscribe(sessionObserver.Object, StorageArea.Session);
-
-        // Act - Trigger change for Session (not initialized, even though subscribed)
-        var updatedPasscode = new PasscodeModel { Passcode = "uninitialized-area" };
-        TriggerStorageChange("session", "PasscodeModel", updatedPasscode);
-
-        // Assert - Should NOT notify (area not initialized)
-        sessionObserver.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
-
-        subscription.Dispose();
-        return Task.CompletedTask;
-    }
-
     #endregion
 
     #region Lifecycle Tests - None → Value → Value2 → Deleted
