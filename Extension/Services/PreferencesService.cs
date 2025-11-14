@@ -7,18 +7,33 @@ using Extension.Models.Storage;
 using Extension.Services.Storage;
 using WebExtensions.Net;
 
-public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IObserver<Preferences>, IDisposable {
+public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IDisposable {
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
     private readonly IStorageService storageService = storageService;
     // private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
-    private IDisposable? stateSubscription;
+    private StorageObserver<Preferences>? storageObserver;
     private WebExtensionsApi? webExtensionsApi;
     private bool _disposed;
 
     public async Task Initialize() {
-        stateSubscription = storageService.Subscribe(this);
+        // Use new StorageObserver to monitor Preferences changes in Local storage
+        storageObserver = new StorageObserver<Preferences>(
+            storageService,
+            StorageArea.Local,
+            HandlePreferencesChanged,
+            ex => logger.LogError(ex, "Error observing preferences storage"),
+            null,
+            logger
+        );
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         await Task.Delay(0);
+    }
+
+    private void HandlePreferencesChanged(Preferences value) {
+        logger.LogInformation("Preferences updated: {value}", value.ToString());
+        foreach (var observer in preferencesObservers) {
+            observer.OnNext(value);
+        }
     }
 
     public async Task<Preferences> GetPreferences() {
@@ -35,24 +50,6 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         catch (Exception ex) {
             logger.LogError(ex, "Failed to get preferences");
             return new Preferences();
-        }
-    }
-
-    void IObserver<Preferences>.OnCompleted() // invoked as an observer<Preferences> of StorageService
-    {
-        throw new NotImplementedException();
-    }
-
-    void IObserver<Preferences>.OnError(Exception error) // invoked as an observer<Preferences> of StorageService
-    {
-        throw new NotImplementedException();
-    }
-
-    void IObserver<Preferences>.OnNext(Preferences value) // invoked as an observer<Preferences> of StorageService
-    {
-        logger.LogInformation("Preferences updated: {value}", value.ToString());
-        foreach (var observer in preferencesObservers) {
-            observer.OnNext(value);
         }
     }
 
@@ -110,8 +107,8 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
 
         if (disposing) {
             // Dispose managed resources.
-            stateSubscription?.Dispose();
-            stateSubscription = null;
+            storageObserver?.Dispose();
+            storageObserver = null;
             preferencesObservers.Clear();
 
             // If webExtensionsApi implements IDisposable, dispose it as well.

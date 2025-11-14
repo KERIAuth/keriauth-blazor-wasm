@@ -1,7 +1,8 @@
 ﻿namespace Extension.Models {
+    using Extension.Models.Storage;
     using System.Text.Json.Serialization;
 
-    public record Preferences {
+    public record Preferences : IStorageModel {
         public Preferences() {
         }
 

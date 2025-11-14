@@ -8,6 +8,8 @@
 // Note: This is a KERI-focused wrapper with no browser session management or alarm features.
 // All functions return JSON strings for C# interop compatibility.
 
+import type { KeriaConnectConfig, PasscodeModel } from '../types/storage-models';
+import { StorageKeys } from '../types/storage-models';
 import type {
     EventResult,
     Operation,
@@ -85,11 +87,18 @@ const validateClient = async (): Promise<SignifyClient> => {
         console.log('signifyClient: validateClient - SignifyClient not connected');
         // if _client is expected to be connected but not (usually because backgroundWorker hybernated and restarted), then reconnect to KERIA)
 
-        const agentUrl = (await chrome.storage.local.get('KeriaConnectConfig'))?.KeriaConnectConfig?.AdminUrl as unknown as string;
-        // Note: Storage key changed from 'passcode' to 'PasscodeModel' to match C# type name
-        const passcode = (await chrome.storage.session.get('PasscodeModel'))?.PasscodeModel?.Passcode as unknown as string;
+        // Read connection config from local storage with proper typing
+        const configResult = await chrome.storage.local.get(StorageKeys.KeriaConnectConfig);
+        const config = configResult?.[StorageKeys.KeriaConnectConfig] as KeriaConnectConfig | undefined;
+        const agentUrl = config?.AdminUrl;
 
-        if (agentUrl === '' || passcode === '' || passcode === undefined) {
+        // Read passcode from session storage with proper typing
+        // Note: Storage key changed from 'passcode' to 'PasscodeModel' to match C# type name
+        const passcodeResult = await chrome.storage.session.get(StorageKeys.PasscodeModel);
+        const passcodeModel = passcodeResult?.[StorageKeys.PasscodeModel] as PasscodeModel | undefined;
+        const passcode = passcodeModel?.Passcode;
+
+        if (!agentUrl || agentUrl === '' || !passcode || passcode === '') {
             console.warn('signifyClient: validateClient - Missing agentUrl or passcode');
             return Promise.reject(new Error('signifyClient: validateClient - Missing agentUrl or passcode'));
         }

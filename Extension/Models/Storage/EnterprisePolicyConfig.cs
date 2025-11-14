@@ -23,7 +23,7 @@ namespace Extension.Models.Storage;
 ///   }
 /// }
 /// </summary>
-public record EnterprisePolicyConfig {
+public record EnterprisePolicyConfig : IStorageModel {
     /// <summary>
     /// Required KERIA Admin URL configured by IT.
     /// If set, extension will only connect to this KERIA admin endpoint.

@@ -1,9 +1,10 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
+using Extension.Models.Storage;
 using FluentResults;
 
 namespace Extension.Models {
-    public record KeriaConnectConfig {
+    public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
         public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null) {
             ProviderName = providerName;

@@ -9,7 +9,7 @@ namespace Extension.Models.Storage;
 /// Storage area: Session
 /// Lifetime: Cleared on browser close
 /// </summary>
-public record InactivityTimeoutCacheModel {
+public record InactivityTimeoutCacheModel : IStorageModel {
     /// <summary>
     /// UTC timestamp when the current session should expire.
     /// Session expires when current time exceeds this value.

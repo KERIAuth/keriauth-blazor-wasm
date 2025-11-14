@@ -13,10 +13,8 @@ public class StateService : IStateService {
     private readonly List<IObserver<States>> stateObservers = [];
     private readonly ILogger<StateService> logger;
     private readonly IWebExtensionsApi webExtensionsApi;
-    private readonly IObserver<AppState>? appStateStorageObserver;
-    private readonly IDisposable? appStateStorageSubscription;
-    private readonly IObserver<PasscodeModel>? passcodeStorageObserver;
-    private readonly IDisposable? passcodeStorageSubscription;
+    private readonly StorageObserver<AppState>? appStateStorageObserver;
+    private readonly StorageObserver<PasscodeModel>? passcodeStorageObserver;
 
     public StateService(IStorageService storageService, IWebExtensionsApi webExtensionsApi, ILogger<StateService> logger) {
         this.storageService = storageService;
@@ -26,14 +24,22 @@ public class StateService : IStateService {
         this.webExtensionsApi = webExtensionsApi;
 
         // Subscribe to AppState changes (legacy - currently unused)
-        appStateStorageObserver = new StorageObserver<AppState>();
-        appStateStorageSubscription = storageService.Subscribe(appStateStorageObserver);
+        appStateStorageObserver = new StorageObserver<AppState>(
+            storageService,
+            StorageArea.Local,
+            _ => { }, // No-op callback since this is unused
+            null,
+            null,
+            logger
+        );
 
         // Subscribe to PasscodeModel changes in Session storage
         // Note: Subscription is established here, but notifications only occur
         // after StorageArea.Session is initialized (typically in App.razor)
         passcodeStorageObserver = new StorageObserver<PasscodeModel>(
-            onNext: (PasscodeModel value) => {
+            storageService,
+            StorageArea.Session,
+            (PasscodeModel value) => {
                 // Check if passcode is null or empty
                 if (string.IsNullOrEmpty(value?.Passcode)) {
                     // Passcode cleared - transition to Initializing state
@@ -47,11 +53,10 @@ public class StateService : IStateService {
                         }
                     });
                 }
-            }
-        );
-        passcodeStorageSubscription = storageService.Subscribe(
-            passcodeStorageObserver,
-            StorageArea.Session
+            },
+            null,
+            null,
+            logger
         );
     }
 

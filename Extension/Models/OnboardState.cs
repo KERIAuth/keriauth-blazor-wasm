@@ -1,8 +1,9 @@
 ﻿using System.Text.Json.Serialization;
+using Extension.Models.Storage;
 using FluentResults;
 
 namespace Extension.Models {
-    public record OnboardState {
+    public record OnboardState : IStorageModel {
         [JsonPropertyName("HasAcknowledgedInstall")]
         public bool HasAcknowledgedInstall { get; init; }
 

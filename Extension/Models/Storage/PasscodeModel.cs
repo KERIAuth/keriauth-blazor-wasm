@@ -6,7 +6,7 @@
 /// Storage area: Session
 /// Lifetime: Cleared on browser close, persists across service worker restarts
 /// </summary>
-public record PasscodeModel {
+public record PasscodeModel : IStorageModel {
     /// <summary>
     /// The user's passcode in plaintext.
     /// WARNING: Stored unencrypted in session storage. Should be cleared after timeout.
