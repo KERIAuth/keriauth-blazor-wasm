@@ -48,15 +48,14 @@
         preferencesStorageObserver = new StorageObserver<Preferences>(
             storageService,
             StorageArea.Local,
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
-            onCompleted: async () => await HandleCompletedFromPreferencesService(),
+            onNext: async (Preferences value) => await HandleNextPreferences(value),
+            onError: async (Exception error) => await HandleErrorPreferences(error),
             logger: _logger
         );
 
         var prefsResult = await preferencesStorageObserver.Get();
         Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
-        await HandleNextFromPreferencesService(Prefs);
+        await HandleNextPreferences(Prefs);
         
         stateSubscription = stateService.Subscribe(
             onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
@@ -143,20 +142,15 @@
         preferencesStorageObserver?.Dispose();
     }
 
-    async Task HandleNextFromPreferencesService(Preferences value)
+    async Task HandleNextPreferences(Preferences value)
     {
         Prefs = value;
         StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
     }
 
-    async Task HandleErrorFromPreferencesService(Exception error)
+    async Task HandleErrorPreferences(Exception error)
     {
-        _logger.LogError("Error from PreferencesService: " + error.Message);
-    }
-
-    async Task HandleCompletedFromPreferencesService()
-    {
-        _logger.LogInformation("Completed from PreferencesService");
+        _logger.LogError("HandleErrorPreferences: " + error.Message);
     }
 
     [JSInvokableAttribute("LockApp")]

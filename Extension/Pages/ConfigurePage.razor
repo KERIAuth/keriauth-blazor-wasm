@@ -247,10 +247,8 @@
         StateHasChanged();
         await Task.Delay(100);
 
-        // logger.LogWarning("ConnectToKeria 2");
 
         // If there are no Identifiers, create one
-        // var prefs = await preferencesService.GetPreferences();
         if (identifiers.Aids.Count == 0)
         {
             ops5CreatePersonalAid.SetIsRunning();
