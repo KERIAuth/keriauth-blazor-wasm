@@ -37,7 +37,7 @@ public class StorageService : IStorageService, IDisposable {
     private static readonly JsonSerializerOptions JsonOptions = new() {
         PropertyNameCaseInsensitive = true,
         IncludeFields = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
+        PropertyNamingPolicy = null, // Preserve PascalCase from C# properties
     };
 
     public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;

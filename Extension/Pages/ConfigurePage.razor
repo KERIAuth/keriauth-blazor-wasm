@@ -43,7 +43,7 @@
     }
 
     // TODO P3 DRY with UnlockView
-    class PasscodeModel
+    class PasscodeFormModel
     {
         [Required]
         [StringLength(21, ErrorMessage = "Passcode must be 21 characters long", MinimumLength = 21)]
@@ -71,7 +71,7 @@
         AdminUrl = presetAgents[0].AgentUrl,
         BootUrl = presetAgents[0].BootUrl,
     };
-    PasscodeModel configuredPasscodeModel = new PasscodeModel();
+    PasscodeFormModel configuredPasscodeModel = new PasscodeFormModel();
     private MudButton? nextButton;
 
     // properties

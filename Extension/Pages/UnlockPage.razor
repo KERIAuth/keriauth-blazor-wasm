@@ -23,7 +23,7 @@
     // fields
     MudForm? form;
     string[] errors = { };
-    PasscodeModel unlockPasscodeModel = new PasscodeModel();
+    PasscodeFormModel unlockPasscodeModel = new PasscodeFormModel();
     MudTextField<string>? passcodeField;
     MudButton? unlockWithAuthenticatorButton;
     string openWalletError = string.Empty;
@@ -209,7 +209,7 @@
             await UnlockWithPasscode(unlockPasscodeModel.Passcode);
     }
 
-    class PasscodeModel
+    class PasscodeFormModel
     {
         [Required]
         [StringLength(21, ErrorMessage = "Passcode must be 21 characters", MinimumLength = 21)]

@@ -1,5 +1,7 @@
 namespace Extension.Models.Storage;
 
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// Session expiration time cached in session storage.
 /// Stores when the current session should expire due to inactivity.
@@ -14,5 +16,6 @@ public record InactivityTimeoutCacheModel : IStorageModel {
     /// UTC timestamp when the current session should expire.
     /// Session expires when current time exceeds this value.
     /// </summary>
+    [JsonPropertyName("SessionExpirationUtc")]
     public required DateTime SessionExpirationUtc { get; init; }
 }

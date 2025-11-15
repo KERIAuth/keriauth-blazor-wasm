@@ -2,9 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var options = new JsonSerializerOptions {
-    PropertyNameCaseInsensitive = false,
+    PropertyNameCaseInsensitive = true,
     IncludeFields = true,
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
+    PropertyNamingPolicy = null, // Preserve PascalCase from C# properties
 };
 
 record StorageChange<T>(

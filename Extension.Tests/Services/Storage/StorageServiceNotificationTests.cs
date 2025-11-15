@@ -50,9 +50,9 @@ public class StorageServiceNotificationTests {
     /// Must match the options in StorageService.cs for proper deserialization.
     /// </summary>
     private static readonly JsonSerializerOptions JsonOptions = new() {
-        PropertyNameCaseInsensitive = false,
+        PropertyNameCaseInsensitive = true,
         IncludeFields = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
+        PropertyNamingPolicy = null, // Preserve PascalCase from C# properties
     };
 
     public StorageServiceNotificationTests() {
