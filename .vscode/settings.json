@@ -55,6 +55,13 @@
         "editor.defaultFormatter": "ms-dotnettools.csharp",
         "editor.formatOnSave": true
     },
+
+    // OmniSharp settings for better assembly reference resolution
+    "omnisharp.enableEditorConfigSupport": true,
+    "omnisharp.enableRoslynAnalyzers": true,
+    "omnisharp.useModernNet": true,
+    "omnisharp.sdkIncludePrereleases": true,
+    "dotnet.server.useOmnisharp": true,
     
     // ESLint configuration
     "eslint.useFlatConfig": true,
@@ -128,5 +135,7 @@
         "streetsidesoftware.code-spell-checker",
         "christian-kohler.path-intellisense",
         "formulahendry.auto-rename-tag"
-    ]
+    ],
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+    "dotnet.formatting.organizeImportsOnFormat": true
 }
