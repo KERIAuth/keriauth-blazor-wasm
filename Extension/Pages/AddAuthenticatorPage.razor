@@ -45,19 +45,11 @@
 @inject IPreferencesService preferencesService
 
 @code {
-    StorageObserver<Preferences>? preferencesStorageObserver;
+    
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
-        preferencesStorageObserver = new StorageObserver<Preferences>(
-            storageService,
-            StorageArea.Local,
-            // onNext: prefs => logger.LogDebug("Preferences changed in AddAuthenticatorPage"),
-            // onError: ex => logger.LogError(ex, "Error observing preferences in AddAuthenticatorPage"),
-            // onCompleted: null,
-            logger: logger
-        );
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -67,7 +59,7 @@
     async Task RegisterAuthenticatorAndAttest()
     {
         // TODO P2 update this flow to inform user there are two expected interactions with the authenticator: setup and verification
-        var prefsResult = await preferencesStorageObserver!.Get();
+        var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
         var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         var res = await webauthnService.RegisterAttestStoreAuthenticator(prefs.ResidentKey, prefs.AuthenticatorAttachment, prefs.UserVerification, prefs.AttestationConveyancePref, prefs.SelectedHints);
         if (res.IsFailed)
@@ -84,7 +76,6 @@
 
     public void Dispose()
     {
-        preferencesStorageObserver?.Dispose();
     }
 }
 

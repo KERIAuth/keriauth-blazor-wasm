@@ -53,7 +53,7 @@
             logger: _logger
         );
 
-        var prefsResult = await preferencesStorageObserver.Get();
+        var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
         Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         await HandleNextPreferences(Prefs);
         

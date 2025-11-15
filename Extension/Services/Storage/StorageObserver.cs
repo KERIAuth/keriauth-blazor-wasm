@@ -41,14 +41,14 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
     public StorageObserver(
         IStorageService storageService,
         StorageArea storageArea,
-        Action<T>? onNext = null,
+        Action<T> onNext,
         Action<Exception>? onError = null,
         Action? onCompleted = null,
         ILogger? logger = null
     ) {
         _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
         _storageArea = storageArea;
-        _onNext = onNext ?? (_ => { }); // Default to no-op
+        _onNext = onNext;
         _onError = onError;
         _onCompleted = onCompleted;
         _logger = logger;
@@ -83,6 +83,7 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
     /// </summary>
     /// <returns>Result containing the current value, or null if not found</returns>
     public async Task<Result<T?>> Get() {
+        // TODO P2 this is now an anti-pattern, as consumers should directly use IStorageService, or rely on OnNext(). Consider deleting.
         return await _storageService.GetItem<T>(_storageArea);
     }
 

@@ -1,12 +1,12 @@
 namespace Extension.Services.Storage;
 
-using FluentResults;
+using System.Text;
+using System.Text.Json;
 using Extension.Models;
+using FluentResults;
 using JsBind.Net;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
-using System.Text;
-using System.Text.Json;
 using WebExtensions.Net;
 
 /// <summary>
@@ -109,13 +109,15 @@ public class StorageService : IStorageService, IDisposable {
             if (changes is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object) {
                 changesDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                     jsonElement.GetRawText(), JsonOptions);
-            } else if (changes is IDictionary<string, object> dict) {
+            }
+            else if (changes is IDictionary<string, object> dict) {
                 // Convert to JsonElement dictionary for uniform processing
                 changesDict = dict.ToDictionary(
                     kvp => kvp.Key,
                     kvp => kvp.Value is JsonElement je ? je : JsonSerializer.SerializeToElement(kvp.Value, JsonOptions)
                 );
-            } else {
+            }
+            else {
                 throw new InvalidCastException($"Changes not a recognized type: {changes?.GetType().FullName}");
             }
 
@@ -149,7 +151,8 @@ public class StorageService : IStorageService, IDisposable {
             if (_observersByArea.TryGetValue(area, out var observersByKey)
                 && observersByKey.TryGetValue(key, out var entryList)) {
                 NotifyObservers(key, area, entryList, newValue);
-            } else {
+            }
+            else {
                 _logger.LogTrace("No observers for {Key} in {Area}", key, area);
             }
         }
@@ -171,7 +174,8 @@ public class StorageService : IStorageService, IDisposable {
             object? typedValue = null;
             if (newValue is JsonElement jsonElement) {
                 typedValue = JsonSerializer.Deserialize(jsonElement.GetRawText(), elementType, JsonOptions);
-            } else {
+            }
+            else {
                 typedValue = newValue;
             }
 
@@ -414,7 +418,8 @@ public class StorageService : IStorageService, IDisposable {
         Action<object> notifyCallback = (obj) => {
             if (obj is T typedValue) {
                 observer.OnNext(typedValue);
-            } else {
+            }
+            else {
                 var error = new InvalidCastException(
                     $"Type mismatch when notifying observer for {key}: expected {typeof(T).Name}, got {obj?.GetType().Name ?? "null"}");
                 _logger.LogError(error, "Failed to notify observer for {Key}", key);
@@ -441,6 +446,20 @@ public class StorageService : IStorageService, IDisposable {
         }
 
         _logger.LogDebug("Subscribed to {Key} in {Area} storage", key, area);
+
+        // Fetch initial value and notify observer if non-null
+        Task.Run(async () => {
+            try {
+                var result = await GetItem<T>(area);
+                if (result.IsSuccess && result.Value is not null) {
+                    observer.OnNext(result.Value);
+                    _logger.LogDebug("Sent initial value for {Key} in {Area} storage to new subscriber", key, area);
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Failed to fetch initial value for {Key} in {Area} storage", key, area);
+            }
+        });
 
         // Return unsubscriber that removes this observer
         return new UnsubscriberEntry(area, key, observer, RemoveObserver, () => {

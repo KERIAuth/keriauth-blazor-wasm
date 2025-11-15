@@ -1,29 +1,29 @@
-﻿using Blazor.BrowserExtension;
+﻿using System.Text.Json;
+using Blazor.BrowserExtension;
 using Extension.Helper;
 using Extension.Models;
 using Extension.Models.Messages.AppBw;
 using Extension.Models.Messages.CsBw;
 using Extension.Models.Messages.ExCs;
 using Extension.Models.Messages.Polaris;
+using Extension.Models.Storage;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
-using Extension.Services.Storage;
 using Extension.Services.SignifyService.Models;
-using Extension.Models.Storage;
+using Extension.Services.Storage;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
-using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
 using WebExtensions.Net.Runtime;
 using BrowserAlarm = WebExtensions.Net.Alarms.Alarm;
 using BrowserTab = WebExtensions.Net.Tabs.Tab;
-using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
 using MenusContextType = WebExtensions.Net.Menus.ContextType;
 using MenusOnClickData = WebExtensions.Net.Menus.OnClickData;
+using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
 // using System.Xml;
 
 namespace Extension;
@@ -73,7 +73,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IDemo1Binding _demo1Binding;
     private readonly WebExtensionsApi _webExtensionsApi;
     private readonly IPreferencesService _preferencesService;
-    private readonly StorageObserver<Preferences> _preferencesStorageObserver;
 
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
@@ -127,14 +126,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _websiteConfigService = websiteConfigService;
         _preferencesService = preferencesService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
-        _preferencesStorageObserver = new StorageObserver<Preferences>(
-            _storageService,
-            StorageArea.Local,
-            // onNext: prefs => _logger.LogDebug("Preferences changed in BackgroundWorker"),
-            // onError: ex => _logger.LogError(ex, "Error observing preferences in BackgroundWorker"),
-            // onCompleted: null,
-            logger: _logger
-        );
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -1217,7 +1208,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (rememberedPrefix is null) {
                 _logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier was configured for origin {Origin}, so using user's currently selected prefix", hostAndPort);
 
-                var prefsResult = await _preferencesStorageObserver.Get();
+                var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
+
                 rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
                     ? prefsResult.Value.SelectedPrefix
                     : new Preferences().SelectedPrefix;
@@ -1740,7 +1732,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     public void Dispose() {
-        _preferencesStorageObserver?.Dispose();
         GC.SuppressFinalize(this);
     }
 

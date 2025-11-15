@@ -21,7 +21,6 @@
 
     // fields
     string DialogResult { get; set; } = "unknown";
-    StorageObserver<Preferences>? preferencesStorageObserver;
 
     // properties
     bool IsAddingAid { get; set; }
@@ -35,14 +34,6 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        preferencesStorageObserver = new StorageObserver<Preferences>(
-            storageService,
-            StorageArea.Local,
-            // onNext: prefs => logger.LogDebug("Preferences changed in IdentifiersPage"),
-            // onError: ex => logger.LogError(ex, "Error observing preferences in IdentifiersPage"),
-            // onCompleted: null,
-            logger: logger
-        );
     }
 
     protected override async Task OnParametersSetAsync()
@@ -96,7 +87,7 @@
             {
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetIdentifiers();
-                var prefsResult = await preferencesStorageObserver!.Get();
+                var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
                 logger.LogWarning("AddIdentifier: got prefsResult {pr}", prefsResult);
                 var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
 
@@ -117,7 +108,6 @@
 
     public void Dispose()
     {
-        preferencesStorageObserver?.Dispose();
     }
 }
 
