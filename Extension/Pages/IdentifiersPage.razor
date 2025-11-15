@@ -1,5 +1,6 @@
 ﻿@page "/Identifiers.html"
 @using Extension.Services.Storage
+@using System.Text.Json
 
 @implements IDisposable
 
@@ -97,8 +98,12 @@
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetIdentifiers();
                 var prefsResult = await preferencesStorageObserver!.Get();
+                logger.LogWarning("AddIdentifier: got prefsResult {pr}", prefsResult);
                 var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
-                await preferencesService.SetPreferences(prefs with { SelectedPrefix = res.Value });
+
+                // Deserialize the JSON-encoded string from signifyClient (which uses objectToJson)
+                var prefix = JsonSerializer.Deserialize<string>(res.Value) ?? res.Value;
+                await preferencesService.SetPreferences(prefs with { SelectedPrefix = prefix });
             }
         }
         IsAddingAid = false;

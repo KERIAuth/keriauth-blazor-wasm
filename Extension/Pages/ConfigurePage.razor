@@ -265,8 +265,8 @@
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
 
             // set the selected aid in preferences, so it shows up in the AppBar identicon
-            using JsonDocument doc = JsonDocument.Parse(aidRes.Value);
-            string? prefix = doc.RootElement.GetProperty("prefix").GetString();
+            // using JsonDocument doc = JsonDocument.Parse(aidRes.Value);
+            string? prefix = aidRes.Value; // doc.RootElement.GetProperty("prefix").GetString();
             if (prefix is not null)
             {
                 await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = prefix });    

@@ -18,7 +18,6 @@
     private static IStateService? staticStateService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
-    private IDisposable? preferencesSubscription;
     private IDisposable? stateSubscription;
     private StorageObserver<Preferences>? preferencesStorageObserver;
 
@@ -44,26 +43,21 @@
         // await storageService.Initialize(StorageArea.Local);
         // await storageService.Initialize(StorageArea.Session);
         await stateService.Initialize();
-        await preferencesService.Initialize();
 
         // Create storage observer for preferences
         preferencesStorageObserver = new StorageObserver<Preferences>(
             storageService,
             StorageArea.Local,
-            // async (Preferences value) => await HandleNextFromPreferencesService(value),
-            // async (Exception error) => await HandleErrorFromPreferencesService(error),
-            // async () => await HandleCompletedFromPreferencesService(),
+            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
+            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
+            onCompleted: async () => await HandleCompletedFromPreferencesService(),
             logger: _logger
         );
 
         var prefsResult = await preferencesStorageObserver.Get();
         Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         await HandleNextFromPreferencesService(Prefs);
-        preferencesSubscription = preferencesService.Subscribe(
-            onNext: async (Preferences value) => await HandleNextFromPreferencesService(value),
-            onError: async (Exception error) => await HandleErrorFromPreferencesService(error),
-            onCompleted: async () => await HandleCompletedFromPreferencesService());
-
+        
         stateSubscription = stateService.Subscribe(
             onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
             onError: async (Exception error) => await HandleErrorFromStateService(error),
@@ -146,7 +140,6 @@
 
     public void Dispose()
     {
-        preferencesSubscription?.Dispose();
         preferencesStorageObserver?.Dispose();
     }
 

@@ -1,13 +1,12 @@
 ﻿
 namespace Extension.Services;
 
-using JsBind.Net;
 using Extension.Models;
 using Extension.Models.Storage;
 using Extension.Services.Storage;
 using WebExtensions.Net;
 
-public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IPreferencesService, IObservable<Preferences>, IDisposable {
+public class PreferencesService(IStorageService storageService, ILogger<PreferencesService> logger) : IPreferencesService, IDisposable {
     private readonly List<IObserver<Preferences>> preferencesObservers = [];
     private readonly IStorageService storageService = storageService;
     // private readonly ILogger<PreferencesService> _logger = new Logger<PreferencesService>(new LoggerFactory());
@@ -15,6 +14,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     private WebExtensionsApi? webExtensionsApi;
     private bool _disposed;
 
+    /*
     public async Task Initialize() {
         // Use new StorageObserver to monitor Preferences changes in Local storage
         storageObserver = new StorageObserver<Preferences>(
@@ -28,6 +28,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         await Task.Delay(0);
     }
+    
 
     private void HandlePreferencesChanged(Preferences value) {
         logger.LogInformation("Preferences updated: {value}", value.ToString());
@@ -35,6 +36,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
             observer.OnNext(value);
         }
     }
+    */
 
     public async Task SetPreferences(Preferences preferences) {
         logger.LogInformation("SetPreferences...");
@@ -58,6 +60,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         return;
     }
 
+    /*
     IDisposable IObservable<Preferences>.Subscribe(IObserver<Preferences> preferencesObserver) // invoked as an observable<Preferences> of ManagePreference or other // TODO consider using parameters for onNext, etc.
     {
         if (!preferencesObservers.Contains(preferencesObserver)) {
@@ -77,6 +80,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
             }
         }
     }
+    */
 
     public void Dispose() {
         Dispose(true);

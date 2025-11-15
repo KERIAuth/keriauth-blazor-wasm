@@ -2,9 +2,9 @@
 
 using Extension.Models;
 
-public interface IPreferencesService : IObservable<Preferences> {
+public interface IPreferencesService {
     Task SetPreferences(Preferences preferences);
 
-    Task Initialize();
+    
 
 }

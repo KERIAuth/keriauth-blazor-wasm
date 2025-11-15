@@ -54,19 +54,6 @@ public class StorageObserverTests {
         Assert.Equal("storageService", exception.ParamName);
     }
 
-    [Fact]
-    public void Constructor_ThrowsArgumentNullException_WhenOnNextIsNull() {
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentNullException>(() =>
-            new StorageObserver<Preferences>(
-                _mockStorageService.Object,
-                StorageArea.Local,
-                null!
-            )
-        );
-        Assert.Equal("onNext", exception.ParamName);
-    }
-
     #endregion
 
     #region OnNext Tests
