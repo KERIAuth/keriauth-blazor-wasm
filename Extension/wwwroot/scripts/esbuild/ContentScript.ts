@@ -181,6 +181,28 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
 }
 
 /**
+ * Prompts user to reload the page
+ * @param message The confirmation message to display
+ * @returns true if user accepted and reload was triggered, false otherwise
+ */
+function promptAndReloadPage(message: string): boolean {
+    try {
+        const userAccepted = confirm(message);
+        if (userAccepted) {
+            console.log('KeriAuthCs: User accepted reload prompt - reloading page');
+            window.location.reload();
+            return true;
+        } else {
+            console.log('KeriAuthCs: User declined reload prompt');
+            return false;
+        }
+    } catch (error) {
+        console.error('KeriAuthCs: ERROR in promptAndReloadPage:', error);
+        return false;
+    }
+}
+
+/**
  * Send message to BackgroundWorker using runtime.sendMessage
  * @param msg Message to send, either polaris-web protocol or internal CS-BW message
  */
@@ -191,10 +213,19 @@ async function sendMessageToBW(msg: PW.MessageData<unknown> | ICsBwMsg): Promise
         // console.log('KeriAuthCs→BW: sendMessage:', msg);
         // Response handling can be added here if needed
     } catch (error) {
-        // In that case, a more user-friendly message would be better here to prompt user to reload (or close tab, even) page.
-        if (error as String === "Extension context invalidated.") {
-            // TODO P2 invoke something like app.ts promptAndReloadTab here
-            console.warn("KeriAuthCs→BW: Target context (e.g., service worker or tab) no longer active, perhaps due to an version update. Please reload the page.");
+        // Check if extension context was invalidated (typically after extension reload/update)
+        const errorMessage = String(error);
+        if (errorMessage.includes("Extension context invalidated")) {
+            console.warn("KeriAuthCs→BW: Extension context invalidated (likely due to extension reload/update)");
+
+            // Prompt user to reload the page to get the updated ContentScript
+            promptAndReloadPage(
+                "The KERI Auth extension has been updated or reloaded.\n" +
+                "Actions needed:\n" +
+                "1) Click OK to reload this page. In some cases, you may need to close the tab.\n\n" +
+                "2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the KERI Auth extension for easier access.\n" +
+                "3) Click the KERI Auth extension action button to re-authorize this site."
+            );
         } else {
             console.error('KeriAuthCs→BW: Failed to send message:', error);
         }
