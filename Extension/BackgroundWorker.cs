@@ -1130,7 +1130,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         // PeriodInMinutes = 0.15, // 9 seconds
                         When = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 15 * 1000 // First trigger in 15 seconds
                     });
-                    _logger.LogInformation("Session expiration updated to {SessionExpirationUtc} on user activity. Reset Alarm.", newSessionExpiration.SessionExpirationUtc);
+                    _logger.LogInformation("Session expiration updated based on user activity to {SessionExpirationUtc} (in {min} min). Reset Alarm.", newSessionExpiration.SessionExpirationUtc, Math.Round(prefs.Value.InactivityTimeoutMinutes, 1));
                     return; //successful
                 }
                 else {
@@ -1138,7 +1138,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
             else {
-                _logger.LogError("Inactivity timeout not set in preferences!");
+                _logger.LogError("InactivityTimeoutMinutes not found in Prefs");
             }
         }
         else {
