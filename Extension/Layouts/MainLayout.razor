@@ -1,5 +1,7 @@
 ﻿@inherits BaseLayout
+@using Extension.Models.Storage
 @using Extension.Services.Storage
+@using System
 
 @using Extension.Pages
 @using System.Reactive.Linq
@@ -10,7 +12,6 @@
 @inject IStorageService storageService
 @inject IPreferencesService preferencesService
 @inject ISnackbar snackbar
-@inject IAlarmService alarmService
 @inject ILogger<MainLayout> logger
 @inject IStateService stateService
 @inject ISignifyClientService signifyClientService
@@ -18,11 +19,15 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @using Extension.Services.SignifyService.Models
+@implements IDisposable
 
 @code {
     // CascadingParameters will also update from App's StateHasChanged(), triggering OnParametersAsync()
     [CascadingParameter]
-    public Preferences Prefs { get; set; } = new Preferences();
+    public Preferences Prefs { get; set; } = new();
+    [CascadingParameter]
+    public SessionExpiration? InactivityTimeoutCache { get; set; }
+    // TODO P2 AddMinutes is bogus here
 
     // fields...
     static public IJSObjectReference? utilModule;
@@ -30,6 +35,7 @@
     const string openWidth = "var(--mud-drawer-width-left)";
     string version = "";
     string version_name = "";
+    Timer? sessionTimerUpdate;
 
     // properties...
     bool IsProfilePanelOpen { get; set; }
@@ -37,6 +43,7 @@
     // TODO P2 refactor DRY usages of getIdentifiers in multiple pages and dependent properties into App.
     List<Aid> Identifiers { get; set; } = [];
     bool IsMenuDrawerOpen { get; set; }
+
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
@@ -55,6 +62,7 @@
         (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
+    TimeSpan? SessionDurationRemaining => InactivityTimeoutCache is not null ? InactivityTimeoutCache.SessionExpirationUtc - DateTime.UtcNow : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -125,6 +133,17 @@
             if (PagesNotRequiringAuth.Contains(ap)) return;
             navManager.NavigateTo(RouteToIndex);
         }
+
+        // Since InactivityTimeoutCache may have changed via [CascadingParameter] from App, recognize that updated record and reset the session timer update
+        logger.LogInformation("OnParametersSetAsync InactivityTimeoutCache.SessionExpirationUtc: {u}", InactivityTimeoutCache?.SessionExpirationUtc.ToString("u"));
+        StateHasChanged();
+
+        // Reset and start the session timer to update the UI every second
+        sessionTimerUpdate?.Dispose();
+        sessionTimerUpdate = new Timer(async _ =>
+        {
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     async Task SetActiveAid(string prefix)
@@ -155,6 +174,11 @@
         // TODO P3 not yet implemented
         snackbar.Add("Refreshing connection...", Severity.Info);
     }
+
+    public void Dispose()
+    {
+        sessionTimerUpdate?.Dispose();
+    }
 }
 
 
@@ -172,7 +196,20 @@
                 <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
                 <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
             </MudButton>
-
+            <!-- Timeout Indicator -->
+            <MudStack Row="true" Style="margin-left:16px; height:35px; display:flex; align-items:center;">
+                @if (IsAuthenticated && SessionDurationRemaining is not null && SessionDurationRemaining.Value.TotalSeconds > 0)
+                {
+                    // TODO P2 set this as a reactive property
+                    <MudText Typo="Typo.caption" Style="color:white;">
+                        Session expires in @($"{(int)SessionDurationRemaining!.Value.TotalMinutes}m {SessionDurationRemaining!.Value.Seconds}s")
+                    </MudText>
+                } else {
+                    <MudText Typo="Typo.caption" Style="color:white;">
+                        Session expired
+                    </MudText>
+                }
+            </MudStack>
             <MudSpacer />
             <!-- KERIA Connected Indicator -->
             <div style="align-self:center; height: 35px; margin-right: -8px;">

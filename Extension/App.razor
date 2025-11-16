@@ -1,4 +1,5 @@
 ﻿@using Extension.Layouts
+@using Extension.Models.Messages.AppBw
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Pages
@@ -20,10 +21,13 @@
     private static NavigationManager? staticNavManager;
     private IDisposable? stateSubscription;
     private StorageObserver<Preferences>? preferencesStorageObserver;
+    private StorageObserver<SessionExpiration>? inactivityTimeoutCacheModelObserver;
 
     // properties
-    public static Preferences Prefs { get; set; } = new Preferences();
     public static Uri? InitialUri { get; set; }
+    // properties intended to cascade down to child components (layouts, pages) via [CascadingParameter] attribution
+    public static Preferences Prefs { get; set; } = new Preferences();
+    public SessionExpiration? InactivityTimeoutCache { get; set; }
 
     // reactive properties
     public static bool IsDarkTheme => Prefs.IsDarkTheme;
@@ -44,7 +48,7 @@
         // await storageService.Initialize(StorageArea.Session);
         await stateService.Initialize();
 
-        // Create storage observer for preferences
+        // observer for changes to Preferences
         preferencesStorageObserver = new StorageObserver<Preferences>(
             storageService,
             StorageArea.Local,
@@ -53,14 +57,35 @@
             logger: _logger
         );
 
+        // TODO P1 instead, use onNext() of storage observer
         var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
         Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         await HandleNextPreferences(Prefs);
-        
+
+        // observer for changes to AppState
         stateSubscription = stateService.Subscribe(
             onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
             onError: async (Exception error) => await HandleErrorFromStateService(error),
             onCompleted: async () => await HandleCompletedFromStateService()
+        );
+
+
+        // observer for changes to SessionExpirationUtc in storage (to update timeout indicator)
+        inactivityTimeoutCacheModelObserver = new StorageObserver<SessionExpiration>(
+            storageService,
+            StorageArea.Session,
+            onNext: async (SessionExpiration updatedValue) =>
+            {
+                InactivityTimeoutCache = updatedValue;
+                _logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc}",
+                    InactivityTimeoutCache.SessionExpirationUtc);
+                StateHasChanged();
+            },
+            onError: async (Exception error) =>
+            {
+                _logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);
+            },
+            logger: _logger
         );
 
         // Subscribe to and handle messages from background worker via messaging service
@@ -85,22 +110,11 @@
         var tabIdParam = query["tabId"];
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
-        // TODO P1 (for inactivity timer)  await jsRuntime.InvokeVoidAsync("subscribeToUserInteractions");
-        // TODO P1 await jsRuntime.InvokeVoidAsync("registerLockListener");
-
-        // TODO P4 await jsRuntime.InvokeVoidAsync("setUpUnloadListener");
-
-        // Cache the initial session expiration time in session storage
-        var sessionExpirationUtc = DateTime.UtcNow.AddMinutes(Prefs.InactivityTimeoutMinutes);
-        var cacheResult = await storageService.SetItem(
-            new InactivityTimeoutCacheModel { SessionExpirationUtc = sessionExpirationUtc },
-            StorageArea.Session
-        );
-        if (cacheResult.IsFailed) {
-            _logger.LogWarning("Failed to cache initial session expiration time: {Errors}",
-                string.Join(", ", cacheResult.Errors));
-        }
-
+        // reset sessionExpiration by showing activity
+        // TODO P1 is this the right place for this?  Do we need to set up javascript window event listeners too? If so, see:
+        // https://chatgpt.com/c/691a021b-c780-8333-9f4d-f848f23f50dd
+        var message = new AppBwUserActivityMessage(); // AppBwMessage<AppBwUserActivityMessage>(AppBwMessageTypes.USER_ACTIVITY, 0, null);
+        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
         return;
     }
 
@@ -169,16 +183,18 @@
 
 <PageTitle>KERI Auth</PageTitle>
 <CascadingValue Value="Prefs">
-    <Router AppAssembly="@typeof(Program).Assembly">
-        <Found Context="routeData">
-            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        </Found>
-        <NotFound>
-            <PageTitle>Loading application assembly...</PageTitle>
-            <LayoutView>
-                <h1>Page not found</h1>
-                <p role="alert">Sorry, there's nothing at this address.</p>
-            </LayoutView>
-        </NotFound>
-    </Router>
+    <CascadingValue Value="InactivityTimeoutCache">
+        <Router AppAssembly="@typeof(Program).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            </Found>
+            <NotFound>
+                <PageTitle>Loading application assembly...</PageTitle>
+                <LayoutView>
+                    <h1>Page not found</h1>
+                    <p role="alert">Sorry, there's nothing at this address.</p>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </CascadingValue>
 </CascadingValue>

@@ -42,13 +42,14 @@ namespace Extension.Models.Messages.AppBw {
     /// Message types sent from App to BackgroundWorker.
     /// </summary>
     public static class AppBwMessageTypes {
-        public const string REPLY_CREDENTIAL = "/KeriAuth/signify/replyCredential";
-        public const string REPLY_CANCELED = "/KeriAuth/signify/replyCanceled";
-        public const string REPLY_ERROR = "/KeriAuth/signify/replyError";
-        public const string REPLY_IDENTIFIER = "/KeriAuth/signify/replyIdentifier";
-        public const string REPLY_AID = "/KeriAuth/signify/replyAID";
-        public const string REPLY_APPROVED_SIGN_HEADERS = "/KeriAuth/signify/approvedSignHeaders";
-        public const string APP_CLOSED = "/KeriAuth/signify/app_closed";
+        public const string REPLY_CREDENTIAL = "/KeriAuth/AppBw/signify/replyCredential";
+        public const string REPLY_CANCELED = "/KeriAuth/AppBw/signify/replyCanceled";
+        public const string REPLY_ERROR = "/KeriAuth/AppBw/signify/replyError";
+        public const string REPLY_IDENTIFIER = "/KeriAuth/AppBw/signify/replyIdentifier";
+        public const string REPLY_AID = "/KeriAuth/AppBw/signify/replyAID";
+        public const string REPLY_APPROVED_SIGN_HEADERS = "/KeriAuth/AppBw/signify/approvedSignHeaders";
+        public const string APP_CLOSED = "/KeriAuth/AppBw/signify/app_closed";
+        public const string USER_ACTIVITY = "/KeriAuth/AppBw/user_activity";
     }
 
     /// <summary>
@@ -114,12 +115,17 @@ namespace Extension.Models.Messages.AppBw {
             : base(AppBwMessageTypes.REPLY_CANCELED, tabId, tabUrl, requestId, new object(), errorMessage ?? "User cancelled") { }
     }
 
+    public record AppBwUserActivityMessage : AppBwMessage<object> {
+        public AppBwUserActivityMessage()
+            : base(AppBwMessageTypes.USER_ACTIVITY, 0, null, string.Empty, new object()) { }
+    }
+
     /// <summary>
     /// Message indicating the App (popup/tab) was closed by the user.
     /// </summary>
     public record AppBwAppClosedMessage : AppBwMessage<object> {
         public AppBwAppClosedMessage(int tabId, string? tabUrl, string requestId)
-            : base(AppBwMessageTypes.APP_CLOSED,  tabId, tabUrl, requestId) { }
+            : base(AppBwMessageTypes.APP_CLOSED, tabId, tabUrl, requestId) { }
     }
 
     /// <summary>

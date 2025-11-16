@@ -46,7 +46,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         // Calculate when session should expire based on inactivity timeout
         var sessionExpirationUtc = DateTime.UtcNow.AddMinutes(preferences.InactivityTimeoutMinutes);
         var cacheResult = await storageService.SetItem(
-            new InactivityTimeoutCacheModel { SessionExpirationUtc = sessionExpirationUtc },
+            new SessionExpiration { SessionExpirationUtc = sessionExpirationUtc },
             StorageArea.Session
         );
         if (cacheResult.IsFailed) {

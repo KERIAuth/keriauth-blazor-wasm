@@ -39,6 +39,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // TODO P2 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
+    private const string SESSION_INACTIVITY_ALARM_NAME = "SessionInactivityAlarm";
 
     // Cached JsonSerializerOptions for message deserialization
     private static readonly JsonSerializerOptions PortMessageJsonOptions = new() {
@@ -198,8 +199,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             InitializeIfNeeded();
 
-            // TODO P2 Reinitialize inactivity timer?
-            // TODO P2 add a lock icon to the extension icon
+            await ResetSessionExpirationTimer();
+
+            // TODO P2 add a lock icon to the extension icon if no passcode is set; otherwise remove lock icon
 
             _logger.LogInformation("Background worker reinitialized on browser startup");
         }
@@ -255,6 +257,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             return;
                         }
 
+                        // TODO P1: we could here reset SessionExpirationTimer if desired
+
                         string? tabUrl = messageDict.TryGetValue("tabUrl", out var tabUrlElem) ? tabUrlElem?.GetString() : null;
                         int tabId = (messageDict.TryGetValue("tabId", out JsonElement? tabIdElem) && tabIdElem?.ValueKind == JsonValueKind.Number) ? tabIdElem.Value.GetInt32() : 0;
                         string? requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem?.GetString() : null;
@@ -269,7 +273,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                                 payload = JsonSerializer.Deserialize<object>(payloadJson, RecursiveDictionaryJsonOptions);
                             }
                             if (payload is null) {
-                                _logger.LogWarning("Failed to extract message type from AppBwMessage");
+                                _logger.LogWarning("Failed to extract message payload of type {t} from AppBwMessage", type);
                                 // await HandleUnknownMessageActionAsync("unknown");
                                 return;
                             }
@@ -287,6 +291,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // Handle ContentScript messages (from web pages)
                     var contentScriptMsg = JsonSerializer.Deserialize<CsBwMessage>(messageJson, PortMessageJsonOptions);
                     if (contentScriptMsg != null) {
+                        // TODO P1: we could here reset SessionExpirationTimer if desired
                         await HandleContentScriptMessageAsync(contentScriptMsg, sender);
                         return;
                     }
@@ -327,25 +332,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     // onAlarm fires at a scheduled interval/time.
-    // Typical use: Periodic tasks, background sync
     [JSInvokable]
     public async Task OnAlarmAsync(BrowserAlarm alarm) {
         try {
-            _logger.LogInformation("OnAlarmAsync event handler called");
-            _logger.LogInformation("LIFECYCLE: Background worker reactivated by alarm event at {Timestamp}", DateTime.UtcNow);
-
+            _logger.LogInformation("OnAlarmAsync: '{AlarmName}' fired", alarm.Name);
             InitializeIfNeeded();
-
-            if (alarm != null) {
-                _logger.LogInformation("SECURITY: Alarm '{AlarmName}' fired - processing security action", alarm.Name);
-
-                // Convert scheduledTime from milliseconds to DateTime if needed
-                var scheduledDateTime = DateTimeOffset.FromUnixTimeMilliseconds((long)alarm.ScheduledTime).UtcDateTime;
-                _logger.LogInformation("Alarm scheduled for {ScheduledTime}, period: {Period} minutes",
-                    scheduledDateTime, alarm.PeriodInMinutes ?? 0);
-
-                // The InactivityTimerService handles the actual alarm logic through its own listener
-                _logger.LogInformation("Alarm event will be processed by InactivityTimerService");
+            switch (alarm.Name) {
+                case SESSION_INACTIVITY_ALARM_NAME:
+                    var res = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
+                    var sessionExpirationUtc = (res.IsSuccess && res.Value is not null) ? res.Value.SessionExpirationUtc : DateTime.UtcNow;
+                    if (DateTime.UtcNow < sessionExpirationUtc) {
+                        _logger.LogInformation("Session inactivity alarm fired but session expiration extended; no action taken");
+                    }
+                    else {
+                        _logger.LogInformation("Session inactivity alarm triggered - locking app due to inactivity");
+                        // TODO P0 really want to clear all of session, or just passcode and state?
+                        await _storageService.Clear(StorageArea.Session);
+                        // Note: clients needing notification can subscribe to above changes
+                    }
+                    return;
+                default:
+                    _logger.LogWarning("Unknown alarm name: {AlarmName}", alarm.Name);
+                    return;
             }
         }
         catch (Exception ex) {
@@ -418,7 +426,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// - chrome.scripting.registerContentScripts({ matches: [...] })
     ///
     /// Notes:
-    /// - Match patterns don't include ports; they'll match any port on that host.
+    /// - Match patterns don'passcodeModelRes include ports; they'll match any port on that host.
     /// - Only http/https are supported for injection.
     /// </summary>
     private List<string> BuildMatchPatternsFromTabUrl(string tabUrl) {
@@ -696,7 +704,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Build URL with encoded query strings
             var url = CreateUrlWithEncodedQueryStrings("./index.html", queryParams);
 
-            // TODO P2: could update this flow to use sidePanel depending on user prefs
+            // TODO P2: could update this flow to use sidePanel depending on user prefsRes
             // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3) ??
 
             await WebExtensions.Action.SetPopup(new() {
@@ -1065,22 +1073,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppBwMessageTypes.REPLY_ERROR:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     errorStr = "An error ocurred in the KERI Auth app";
-                    break;
+                    break; // will forward
                 case AppBwMessageTypes.REPLY_CANCELED:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
                     errorStr = "User canceled or rejected request";
-                    break;
+                    break; // will forward
                 case AppBwMessageTypes.APP_CLOSED:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
                     errorStr = "The KERI Auth app was closed";
-                    break;
+                    break; // will forward
+                case AppBwMessageTypes.USER_ACTIVITY:
+                    _logger.LogInformation("BW←App: USER_ACTIVITY message received, updating session expiration if applicable");
+                    await ResetSessionExpirationTimer();
+                    return;
                 default:
                     _logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
                     contentScriptMessageType = msg.Type;
-                    break;
+                    break; // will forward
             }
-
-            // Unless there was a return above, continue...
 
             // Create OutboundMessage for forwarding to ContentScript
             var forwardMsg = new BwCsMessage(
@@ -1105,6 +1115,39 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
     }
+
+
+    // TODO P1: invoke the following reactively to a change in any of 0) SessionExpiration alarm, 1) PasscodeModel change, 2) SessionExpiration change, 3) Prefs change
+    private async Task ResetSessionExpirationTimer() {
+        var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
+        if (passcodeModelRes is not null && passcodeModelRes.Value is not null && passcodeModelRes.Value.Passcode is not null) {
+            var prefs = await _storageService.GetItem<Preferences>(StorageArea.Local);
+            if (prefs?.Value is not null && prefs.Value.InactivityTimeoutMinutes > 0) {
+                var newSessionExpiration = new SessionExpiration() { SessionExpirationUtc = DateTime.UtcNow.AddMinutes(prefs.Value.InactivityTimeoutMinutes) };
+                var setItemRes = await _storageService.SetItem<SessionExpiration>(newSessionExpiration, StorageArea.Local);
+                if (setItemRes.IsSuccess) {
+                    await WebExtensions.Alarms.Create(SESSION_INACTIVITY_ALARM_NAME, new WebExtensions.Net.Alarms.AlarmInfo {
+                        // PeriodInMinutes = 0.15, // 9 seconds
+                        When = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 15 * 1000 // First trigger in 15 seconds
+                    });
+                    _logger.LogInformation("Session expiration updated to {SessionExpirationUtc} on user activity. Reset Alarm.", newSessionExpiration.SessionExpirationUtc);
+                    return; //successful
+                }
+                else {
+                    _logger.LogWarning("Failed to update session expiration on user activity: {Error}", setItemRes.Reasons);
+                }
+            }
+            else {
+                _logger.LogError("Inactivity timeout not set in preferences!");
+            }
+        }
+        else {
+            _logger.LogInformation("No passcode set - not updating session expiration on user activity");
+        }
+        // TODO P1 clear passcode here also. Add log?
+        await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
+    }
+
 
     /// <summary>
     /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port

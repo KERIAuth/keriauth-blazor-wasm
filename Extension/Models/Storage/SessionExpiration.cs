@@ -11,7 +11,7 @@ using System.Text.Json.Serialization;
 /// Storage area: Session
 /// Lifetime: Cleared on browser close
 /// </summary>
-public record InactivityTimeoutCacheModel : IStorageModel {
+public record SessionExpiration : IStorageModel {
     /// <summary>
     /// UTC timestamp when the current session should expire.
     /// Session expires when current time exceeds this value.

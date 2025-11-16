@@ -66,6 +66,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         console.log('KeriAuthCs←BW (via onMessage):', msg);
         handleMsgFromBW(msg as PW.MessageData<unknown>);
     } else {
+        // TODO P2: do a better job of knowing which are truely from BW versus other sources like App.  Then quietly ignore non-BW messages.
+        // See AppBwMessageTypes for the list
         console.log('KeriAuthCs←BW unhandled (via onMessage):', msg, sender, sendResponse.toString());
         // Return false for other messages to allow other listeners to handle them
         return false;
@@ -175,7 +177,7 @@ function handleMsgFromBW(message: PW.MessageData<unknown>): void {
             break;
 
         default:
-            console.warn(`KeriAuthCs unrecognized message type ${message.type}`);
+            console.info(`KeriAuthCs unrecognized message type ${message.type}`);
             break;
     }
 }

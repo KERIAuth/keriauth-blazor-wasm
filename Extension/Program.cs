@@ -91,7 +91,6 @@ builder.Services.AddSingleton<Extension.Services.Storage.IStorageService, Extens
 builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironmentService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddSingleton<IStateService, StateService>();
-builder.Services.AddSingleton<IAlarmService, AlarmService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
 // JavaScript module bindings
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
