@@ -54,7 +54,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
-		// logger.LogInformation("OnInitializedAsync");
+		// _logger.LogInformation("OnInitializedAsync");
 		privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
 
 		var res = await storageService.GetItem<OnboardState>();

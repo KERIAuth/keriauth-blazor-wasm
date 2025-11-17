@@ -27,7 +27,7 @@ namespace Extension.Services {
                 .Handle<HttpRequestException>()
                 .Or<TaskCanceledException>() // Treat timeout as a reason for retry
                 .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-            // logger.LogInformation($"Request failed with {response.Exception?.Message ?? response.Result.StatusCode.ToString()}. Retry attempt: {retryCount}");
+            // _logger.LogInformation($"Request failed with {response.Exception?.Message ?? response.Result.StatusCode.ToString()}. Retry attempt: {retryCount}");
         }
 
         public async Task<Result<TResponse>> SendAsync<TRequest, TResponse>(HttpMethod method, string url, TRequest? content = default) {

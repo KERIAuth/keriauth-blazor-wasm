@@ -44,7 +44,7 @@
     protected override async Task OnInitializedAsync()
     {
         // IsLoading = true;
-        // logger.LogInformation($"OnInitializedAsync");
+        // _logger.LogInformation($"OnInitializedAsync");
 
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(new ContextFilter()));
@@ -143,7 +143,7 @@
         var currentAppState = stateService.GetState();
         logger.LogInformation($"currentAppState: {currentAppState}");
         initialUriQuery = App.InitialUri?.Query ?? String.Empty;
-        // logger.LogInformation($"initialUriQuery: {initialUriQuery}");
+        // _logger.LogInformation($"initialUriQuery: {initialUriQuery}");
         var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
         logger.LogInformation($"initialUriQuery2: {initialUriQuery2}");
         _ = await HandleAppStateAsync(currentAppState, initialUriQuery2);
@@ -238,11 +238,11 @@
                     {
                         if (encodedOrigin.FirstOrDefault() is null)
                         {
-                            // logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
+                            // _logger.LogError("Encoded origin not found in decodedMsg: {dm}", initialUriQuery);
                         }
                         else
                         {
-                            // logger.LogInformation("Origin page parameter escaped: {origin}", encodedOrigin);
+                            // _logger.LogInformation("Origin page parameter escaped: {origin}", encodedOrigin);
                             var encodedOrigin2 = HttpUtility.UrlEncode(encodedOrigin.FirstOrDefault());
                             logger.LogInformation("Origin page parameter encoded: {origin}", encodedOrigin2);
 

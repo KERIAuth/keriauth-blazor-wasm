@@ -172,7 +172,7 @@
             if (!postResult.IsSuccess)
             {
                 const string message = "KERIA service is not reachable";
-                // logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
+                // _logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
                 ops1CheckLiveness.SetCompletedWithError(message);
                 return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, message));
             }
@@ -262,7 +262,7 @@
             }
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
 
-            // set the selected aid in preferences, so it shows up in the AppBar identicon
+            // set the selected aid in MyPreferences, so it shows up in the AppBar identicon
             // using JsonDocument doc = JsonDocument.Parse(aidRes.Value);
             string? prefix = aidRes.Value; // doc.RootElement.GetProperty("prefix").GetString();
             if (prefix is not null)
@@ -275,10 +275,10 @@
             // Set default Prefix
             await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
         }
-        // logger.LogWarning("ConnectToKeria 3");
+        // _logger.LogWarning("ConnectToKeria 3");
         if (nextButton is not null)
             await nextButton.FocusAsync();
-        // logger.LogWarning("ConnectToKeria 4");
+        // _logger.LogWarning("ConnectToKeria 4");
         return Result.Ok(new KeriaConnectionInfo(KeriaConnectConfig!, identifiers));
     }
 
@@ -289,7 +289,7 @@
         IsProcessing = true;
         StateHasChanged();
         var connectionResult = await ConnectToKeria();
-        // logger.LogWarning("tmp finished ConnectoToKeria");
+        // _logger.LogWarning("tmp finished ConnectoToKeria");
         if (connectionResult.IsSuccess)
         {
             IsConnected = true;

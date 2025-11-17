@@ -83,7 +83,7 @@ namespace Extension.Services.SignifyService {
                         Debug.Assert(res is not null);
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapse
                         // Don't log the following, since it contains the bran, passcode.
-                        // logger.LogInformation("Connect: {connectResults}", res);
+                        // _logger.LogInformation("Connect: {connectResults}", res);
                         if (res is null) {
                             return Result.Fail("Connect failed with null");
                         }
@@ -360,7 +360,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<List<RecursiveDictionary>>> GetCredentials() {
             try {
                 var jsonString = await _binding.GetCredentialsListAsync();
-                // logger.LogInformation("GetCredentials: {jsonString}", jsonString);
+                // _logger.LogInformation("GetCredentials: {jsonString}", jsonString);
                 if (jsonString is null) {
                     return Result.Fail("GetCredentials returned null");
                 }

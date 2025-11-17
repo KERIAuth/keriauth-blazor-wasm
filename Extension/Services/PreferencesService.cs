@@ -21,9 +21,9 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
             storageService,
             StorageArea.Local,
             HandlePreferencesChanged,
-            ex => logger.LogError(ex, "Error observing preferences storage"),
+            ex => _logger.LogError(ex, "Error observing MyPreferences storage"),
             null,
-            logger
+            _logger
         );
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         await Task.Delay(0);
@@ -31,7 +31,7 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
     
 
     private void HandlePreferencesChanged(Preferences value) {
-        logger.LogInformation("Preferences updated: {value}", value.ToString());
+        _logger.LogInformation("Preferences updated: {value}", value.ToString());
         foreach (var observer in preferencesObservers) {
             observer.OnNext(value);
         }

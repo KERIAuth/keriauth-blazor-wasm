@@ -31,7 +31,7 @@
 
     // reactive properties
 
-    List<string> SelectedTransportOptions = []; // => Prefs.SelectedTransportOptions ?? [];
+    List<string> SelectedTransportOptions = []; // => MyPreferences.SelectedTransportOptions ?? [];
     float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
     string InactivityTimeoutLabel => InactivityTimeout.ToString() + " " + (InactivityTimeout <= 1.0f ? "minute" : "minutes");
     bool IsDarkTheme => Prefs.IsDarkTheme;

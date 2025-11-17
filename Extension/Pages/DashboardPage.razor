@@ -59,7 +59,7 @@
             NumWebsites = 0;
         }
 
-        // Handle effects of value of Prefs updates
+        // Handle effects of value of MyPreferences updates
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes is not null && identifiersRes.IsSuccess && SelectedPrefix != string.Empty)
         {

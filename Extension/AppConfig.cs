@@ -25,6 +25,7 @@ namespace Extension {
         public const string RouteToAuthenticators = "/Authenticators.html";
         public const string RouteToUnlock = "/Unlock.html";
         public const string RouteToSidePanel = "/SidePanel.html";
+        public const string RouteToTest = "/Test.html";
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
             RouteToDelete,
@@ -36,7 +37,8 @@ namespace Extension {
             RouteToManagePrefs,
             RouteToTermsPage,
             RouteToPrivacyPage,
-            RouteToSidePanel
+            RouteToSidePanel,
+            RouteToTest,
         ];
 
         // routes with parameters, with intentional trailing /
@@ -62,7 +64,7 @@ namespace Extension {
         public const string LocalhostKeriaAdminUrl = "http://localhost:3901";
         public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
-        // default preferences
+        // default MyPreferences
         public const float DefaultInactivityTimeoutMins = 5.0f;
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;

@@ -144,11 +144,11 @@
         }
         else
         {
-            // logger.LogInformation("OnParametersSetAsync did not find registeredAuthenticators");
+            // _logger.LogInformation("OnParametersSetAsync did not find registeredAuthenticators");
         }
-        // logger.LogInformation("OnParametersSetAsync sua: {sua}, hasa: {hasa}", ShouldUseAuthenticator, App.HasAutoStartedAuthentictor);
+        // _logger.LogInformation("OnParametersSetAsync sua: {sua}, hasa: {hasa}", ShouldUseAuthenticator, App.HasAutoStartedAuthentictor);
 
-        // StateHasChanged(); // might be needed, for example when preferences have changed via App.Prefs, and need to update UI
+        // StateHasChanged(); // might be needed, for example when MyPreferences have changed via App.MyPreferences, and need to update UI
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -258,7 +258,7 @@
             }
             // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
             await stateService.Authenticate(false);
-            // logger.LogWarning("returned from Authenticate. pausing...");
+            // _logger.LogWarning("returned from Authenticate. pausing...");
             var connectRes = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             if (connectRes is null || connectRes.IsFailed)
             {

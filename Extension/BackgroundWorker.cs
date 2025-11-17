@@ -1117,7 +1117,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
 
-    // TODO P1: invoke the following reactively to a change in any of 0) SessionExpiration alarm, 1) PasscodeModel change, 2) SessionExpiration change, 3) Prefs change
+    // TODO P1: invoke the following reactively to a change in any of 0) SessionExpiration alarm, 1) PasscodeModel change, 2) SessionExpiration change, 3) MyPreferences change
     private async Task ResetSessionExpirationTimer() {
         var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
         if (passcodeModelRes is not null && passcodeModelRes.Value is not null && passcodeModelRes.Value.Passcode is not null) {

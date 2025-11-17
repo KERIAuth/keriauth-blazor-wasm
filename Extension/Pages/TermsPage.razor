@@ -54,7 +54,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
-		// logger.LogInformation("OnInitializedAsync");
+		// _logger.LogInformation("OnInitializedAsync");
 		termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
 
 		var res = await storageService.GetItem<OnboardState>();

@@ -176,7 +176,7 @@
 
         private async Task getInitialIdentifiers()
     {
-        // logger.LogWarning("GetInitialIdentifiers() ...");
+        // _logger.LogWarning("GetInitialIdentifiers() ...");
         var res = await signifyClientService.GetIdentifiers();
         if (res?.IsSuccess == true && res.Value?.Aids is not null)
         {
@@ -187,7 +187,7 @@
             throw new Exception("unexpected null identifiers");
         }
         // StateHasChanged(); // TODO needed?
-        // logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
+        // _logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
     }
 
     //
@@ -245,7 +245,7 @@
     //
     async Task updateIsAutoSignSafeHeaders(bool isChecked)
     {
-        // logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
+        // _logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
         if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignSafeHeaders != isChecked)
         {
             ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignSafeHeaders = isChecked };

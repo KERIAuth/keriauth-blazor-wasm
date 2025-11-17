@@ -40,7 +40,7 @@ namespace Extension.Services {
                     return Result.Fail<CredentialWithPRF>(initResult.Errors);
                 }
                 var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
-                // logger.LogWarning("credential: {c}", credential);
+                // _logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
             }
             catch (JSException jsEx) {
@@ -67,7 +67,7 @@ namespace Extension.Services {
         };
 
         public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64) {
-            // logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
+            // _logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
             try {
                 // Attempt to authenticate the credential and re-compute the encryption key
                 var initResult = await Initialize();
@@ -136,7 +136,7 @@ namespace Extension.Services {
             // First, some prep
             CredentialWithPRF credential = credentialRet.Value;
             string credentialIdBase64Url = credential.CredentialId;
-            // logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
+            // _logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
             List<string> credentialIds = [];
             credentialIds.Add(credentialIdBase64Url);
 
@@ -261,7 +261,7 @@ namespace Extension.Services {
                 logger.LogWarning("Failed to get result from authenticator");
                 return Result.Fail("Failed to get result from authenticator");
             }
-            // logger.LogWarning("success value: {s}", authenticateCredResult.Value);
+            // _logger.LogWarning("success value: {s}", authenticateCredResult.Value);
 
             // Find the registered authenticator matching the credentialID, decrypt its encrypted passcode, and return that
             foreach (var registeredCred in ras.Authenticators) {
@@ -269,10 +269,10 @@ namespace Extension.Services {
                     try {
                         string encryptKeyBase64 = GetEncryptKeyBase64(authenticateCredResult.Value.EncryptKey);
                         var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, registeredCred.EncryptedPasscodeBase64);
-                        // logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
+                        // _logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
                         byte[] decryptedPasscodeBytes = Convert.FromBase64String(decryptedPasscode);
                         string decryptedPlaintextPasscode = Encoding.UTF8.GetString(decryptedPasscodeBytes);
-                        // logger.LogWarning("plainText {p}", decryptedPlaintextPasscode);
+                        // _logger.LogWarning("plainText {p}", decryptedPlaintextPasscode);
                         return Result.Ok(decryptedPlaintextPasscode);
                     }
                     catch {

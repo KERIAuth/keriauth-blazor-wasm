@@ -92,6 +92,7 @@ builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironment
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddSingleton<IStateService, StateService>();
 builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
+builder.Services.AddSingleton<AppCache>();
 // JavaScript module bindings
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
 builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
