@@ -1,0 +1,54 @@
+﻿@using System.Linq.Expressions
+@using MudBlazor
+
+<MudText Style="@($"margin-left: {Indent * 1.5}rem")">
+    @if(GetValueText() == "true")
+    {
+        <span style="color:green"> ✔</span>
+    }
+    else
+    {
+        <span style="color:red"> ✗</span>
+    }
+    <span>@LabelToShow</span>
+</MudText>
+
+@code {
+    [Parameter] public Expression<Func<bool>> Condition { get; set; } = default!;
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public int Indent { get; set; }
+
+    private Func<bool>? _compiled;
+    private string LabelToShow = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        // Compile once per parameter set
+        _compiled = Condition.Compile();
+
+        if (!string.IsNullOrWhiteSpace(Label))
+        {
+            LabelToShow = Label!;
+        }
+        else
+        {
+            // Try to infer label from the expression, e.g. Foo.IsBlack -> "IsBlack"
+            LabelToShow = Condition.Body switch
+            {
+                MemberExpression m => m.Member.Name,
+                UnaryExpression { Operand: MemberExpression m } => m.Member.Name,
+                _ => Condition.ToString()
+            };
+        }
+    }
+
+    private string GetValueText()
+    {
+        if (_compiled is null)
+            return "false";
+
+        // This will get re-evaluated on each render, so if Foo.IsBlack changed,
+        // the displayed value will change too.
+        return _compiled().ToString().ToLowerInvariant();
+    }
+}

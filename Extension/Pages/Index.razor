@@ -72,12 +72,20 @@
             CurrentVersion = versionElement.ToString();
         }
 
+        // TODO P2 Move some of this into Program or App, so it is not calculated often.
         // compute hashes of latest terms and privacy
         var termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
         var privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
-        int termsMarkupHash = GetNumberFromHash.HashInt(termsMarkup.Value);
-        int privacyMarkupHash = GetNumberFromHash.HashInt(privacyMarkup.Value);
-
+        int termsHash = GetNumberFromHash.HashInt(termsMarkup.Value);
+        int privacyHash = GetNumberFromHash.HashInt(privacyMarkup.Value);
+        if (termsHash != AppConfig.ExpectedTermsHash)
+        {
+            logger.LogError($"termsHash {termsHash} does not match expected {AppConfig.ExpectedTermsHash}");
+        }
+        if (privacyHash != AppConfig.ExpectedPrivacyHash)
+        {
+            logger.LogError($"privacyHash {privacyHash} does not match expected {AppConfig.ExpectedPrivacyHash}");
+        }
 
         // Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
         // for how the following is placed into storage
@@ -91,29 +99,29 @@
         // Handle (re-)onboarding conditions if needed
         if (!onboardState.ValidateOnboardingStatus().IsSuccess ||
             isUpdated ||
-            onboardState.AcknowledgedInstalledVersion != CurrentVersion ||
-            onboardState.TosAgreedHash != termsMarkupHash ||
-            onboardState.PrivacyAgreedHash != privacyMarkupHash)
+            onboardState.InstallVersionAcknowledged != CurrentVersion ||
+            onboardState.TosAgreedHash != termsHash ||
+            onboardState.PrivacyAgreedHash != privacyHash)
         {
-            if (!onboardState.HasAcknowledgedInstall)
+            if (!onboardState.IsWelcomed)
             {
                 navManager.NavigateTo(RouteToWelcome);
                 return;
             }
 
-            if (onboardState.AcknowledgedInstalledVersion != CurrentVersion || isUpdated)
+            if (onboardState.InstallVersionAcknowledged != CurrentVersion || isUpdated)
             {
                 navManager.NavigateTo(RouteToNewRelease);
                 return;
             }
 
-            if (onboardState.TosAgreedHash != termsMarkupHash)
+            if (onboardState.TosAgreedHash != termsHash)
             {
                 navManager.NavigateTo(RouteToTermsPage);
                 return;
             }
 
-            if (onboardState.PrivacyAgreedHash != privacyMarkupHash)
+            if (onboardState.PrivacyAgreedHash != privacyHash)
             {
                 navManager.NavigateTo(RouteToPrivacyPage);
                 return;

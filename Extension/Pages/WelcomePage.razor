@@ -46,7 +46,7 @@
             throw new Exception("OnboardState not found");
         }
         var onboardState = res.Value;
-        onboardState = onboardState with { HasAcknowledgedInstall = true };
+        onboardState = onboardState with { IsWelcomed = true };
         await storageService.SetItem(onboardState);
 
         navManager.NavigateTo(RouteToIndex);

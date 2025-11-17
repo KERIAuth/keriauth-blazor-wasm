@@ -1,4 +1,4 @@
-namespace Extension.Models.Storage;
+﻿namespace Extension.Models.Storage;
 
 using System.Text.Json.Serialization;
 
@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 /// Stores when the current session should expire due to inactivity.
 /// Replaces legacy string key "inactivityTimeoutMinutes".
 ///
-/// Storage key: "InactivityTimeoutCacheModel"
+/// Storage key: "MySessionExpiration"
 /// Storage area: Session
 /// Lifetime: Cleared on browser close
 /// </summary>
@@ -17,5 +17,5 @@ public record SessionExpiration : IStorageModel {
     /// Session expires when current time exceeds this value.
     /// </summary>
     [JsonPropertyName("SessionExpirationUtc")]
-    public required DateTime SessionExpirationUtc { get; init; }
+    public required DateTime SessionExpirationUtc { get; init; } = DateTime.MinValue; // important to have an expired default value
 }

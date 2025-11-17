@@ -1,4 +1,5 @@
 ﻿namespace Extension.Services {
+    using Extension.Helper;
     using Extension.Models;
     using Extension.Models.Storage;
     using Extension.Services.Storage;
@@ -19,20 +20,21 @@
         private readonly SemaphoreSlim _initLock = new(1, 1);
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
-        private StorageObserver<SessionExpiration>? inactivityTimeoutCacheModelObserver;
+        private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
         private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = new Preferences();
-        public SessionExpiration InactivityTimeoutCacheModel { get; private set; } = new SessionExpiration() { SessionExpirationUtc = DateTime.UtcNow };
+        public SessionExpiration MySessionExpiration { get; private set; } = new SessionExpiration() { SessionExpirationUtc = DateTime.MinValue }; // intentionally expired until set
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
         public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() { Passcode = "" };
         public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = new KeriaConnectConfig();
 
-        // TODO P3: implement processing requests tracking, when PendingRequests are zero
-        private bool IsProcessingRequests { get; set; }
+
+
+
 
         // Derived properties ("reactive selectors")
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
@@ -40,49 +42,84 @@
         // TODO P1: populate from KERI client state, non-static
         public static List<string> XIdentifiers => [];
 
-        public bool IsReady => IsConnected && !IsProcessingRequests;
+        public bool IsReadyToTransact => IsNotWaiting && IsConnectedToKeria;
 
         // TODO P1 there may be a better way to verify connection, but for now we check that there is at least one identifier
-        public bool IsConnected => XIdentifiers.Count > 0 && IsAuthenticated;
-        public bool IsAuthenticated => IsSessionReady && IsInitialized;
-        public bool IsSessionReady =>
-            MyPasscodeModel?.Passcode is not null &&
-            MyPasscodeModel.Passcode.Length > 0 &&
-            // TODO P2 verify passcode hash matches stored hash
-            // Hash(MyPasscodeModel.Passcode) == MyKeriaConnectConfig.PasscodeHash &&
-            IsNotExpired;
-        public bool IsNotExpired =>
-            InactivityTimeoutCacheModel is not null &&
-            InactivityTimeoutCacheModel.SessionExpirationUtc > DateTime.UtcNow;
+        public bool IsConnectedToKeria => IsIdentifierFetched && IsAuthenticated;
+        public bool IsIdentifierFetched => XIdentifiers.Count > 0 && IsInstalledVersionAcknowledged; // TODO P2 tmp
+        public bool IsAuthenticated => IsUnlocked && IsInitialized;
+
+        public bool IsNotWaiting =>
+            IsNotWaitingOnKeria &&
+            IsNotWaitingOnUser &&
+            IsNotWaitingOnPendingRequests &&
+            IsBwNotWaitingOnApp &&
+            IsAppNotWaitingOnBw;
+        // TODO P2: implement real user NotWaiting... tracking. Example: outstanding Request from CS.  Dialog open. OOBI in progress, etc.
+        public bool IsNotWaitingOnKeria { get; private set; }
+        public bool IsNotWaitingOnUser { get; private set; }
+        public bool IsBwNotWaitingOnApp { get; private set; }
+        public bool IsAppNotWaitingOnBw { get; private set; }
+        public bool IsNotWaitingOnPendingRequests { get; private set; }
+
+        public bool IsUnlocked =>
+            IsPasscodeHashSet &&
+            IsPasswordLocallyMatched &&
+            IsNotExpired &&
+            IsPasscodeInSession;
+        public bool IsPasscodeInSession =>
+            MyPasscodeModel.Passcode is not null &&
+            MyPasscodeModel.Passcode.Length == 21;
+        public bool IsPasswordLocallyMatched =>
+            MyKeriaConnectConfig.PasscodeHash == GetNumberFromHash.HashInt(MyPasscodeModel.Passcode);
+        public bool IsPasscodeHashSet => MyKeriaConnectConfig.PasscodeHash != 0;
+        public bool IsNotExpired => MySessionExpiration.SessionExpirationUtc > DateTime.UtcNow;
         public bool IsInitialized =>
             IsConfigured;
         public bool IsConfigured =>
             IsKeriaConfigValidated &&
-            IsOnboarded &&
+            IsProductOnboarded &&
             MyPreferences is not null;
+
+        // TODO P3 add other aspects of KeriaConfig validation as needed.  See also ValidateConfiguration() in KeriaConnectConfig.cs
         public bool IsKeriaConfigValidated =>
             MyKeriaConnectConfig.AdminUrl is not null &&
-            MyKeriaConnectConfig.ValidateConfiguration() is not null &&
-            MyKeriaConnectConfig.ValidateConfiguration().IsSuccess &&
-            MyKeriaConnectConfig.ValidateConfiguration().Value;
-        // TODO P1 implement WasConnected
-        // &&
-        // MyKeriaConnectConfig.WasConnected;
-        public bool IsOnboarded =>
-            MyOnboardState.HasAcknowledgedInstall &&
-            MyOnboardState.AcknowledgedInstalledVersion is not null &&
-            HasAgreedToS &&
-            HasAgreedPrivacy;
-        public bool HasAgreedToS =>
-            MyOnboardState.TosAgreedUtc is not null &&
-            MyOnboardState.PrivacyAgreedHash != 0;
-        public bool HasAgreedPrivacy =>
-            MyOnboardState.PrivacyAgreedUtc is not null &&
-            MyOnboardState.PrivacyAgreedHash != 0;
+            IsKeriaConfigAdminUrlValid;
 
+        public bool IsKeriaConfigAdminUrlValid => IsValidHttpUri(MyKeriaConnectConfig.AdminUrl);
+
+        private static bool IsValidHttpUri(string? uriString) {
+            return Uri.TryCreate(uriString, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        }
+
+        // TODO P1: implement real Keria connection success tracking
+        public bool IsKeriaInitialConnectSuccess { get; private set; } = true;
+        
+        public bool IsProductOnboarded =>
+            MyOnboardState.IsWelcomed &&
+            MyOnboardState.InstallVersionAcknowledged is not null &&
+            IsTosAgreed &&
+            IsPrivacyAgreed;
+        public bool IsTosAgreed =>
+            IsTosAgreedUtc &&
+            IsTosHashExpected;
+        public bool IsTosAgreedUtc => MyOnboardState.TosAgreedUtc is not null;
+        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsHash;
+        public bool IsPrivacyAgreed =>
+            IsPrivacyAgreedUtc &&
+            IsPrivacyHashExpected;
+        public bool IsPrivacyAgreedUtc => MyOnboardState.PrivacyAgreedUtc is not null;
+        public bool IsPrivacyHashExpected => MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyHash;
+        public bool IsInstallAcknowledged =>
+            MyOnboardState.IsWelcomed &&
+            IsInstalledVersionAcknowledged;
+        public bool IsInstalledVersionAcknowledged =>
+            // TODO P1 must confirm it is current version in manifest. Compute in Program or App. Remove from Index.razor
+            MyOnboardState.InstallVersionAcknowledged is not null; 
         public void Dispose() {
             preferencesStorageObserver?.Dispose();
-            inactivityTimeoutCacheModelObserver?.Dispose();
+            sessionExpirationStorageObserver?.Dispose();
             onboardStateStorageObserver?.Dispose();
             passcodeModelObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
@@ -119,12 +156,13 @@
                     null,
                     _logger
                 );
-                inactivityTimeoutCacheModelObserver = new StorageObserver<SessionExpiration>(
+                sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
                     storageService,
                     StorageArea.Session,
                     onNext: (value) => {
-                        InactivityTimeoutCacheModel = value;
+                        MySessionExpiration = value;
                         _logger.LogDebug("AppCache updated InactivityTimeoutCacheModel");
+                        _logger.LogWarning("TMP AppCache updated InactivityTimeoutCacheModel SessionExpirationUtc={n}", value.SessionExpirationUtc);
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing inactivity timeout cache model storage"),

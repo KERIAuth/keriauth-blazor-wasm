@@ -5,10 +5,10 @@ using FluentResults;
 namespace Extension.Models {
     public record OnboardState : IStorageModel {
         [JsonPropertyName("HasAcknowledgedInstall")]
-        public bool HasAcknowledgedInstall { get; init; }
+        public bool IsWelcomed { get; init; }
 
         [JsonPropertyName("AcknowledgedInstalledVersion")]
-        public string? AcknowledgedInstalledVersion { get; init; }
+        public string? InstallVersionAcknowledged { get; init; }
 
         [JsonPropertyName("TosAgreedUtc")]
         public DateTime? TosAgreedUtc { get; init; }
@@ -25,11 +25,11 @@ namespace Extension.Models {
         public Result<bool> ValidateOnboardingStatus() {
             var errors = new List<IError>();
             
-            if (!HasAcknowledgedInstall) {
+            if (!IsWelcomed) {
                 errors.Add(new ValidationError("Install", "Installation acknowledgment is required"));
             }
             
-            if (AcknowledgedInstalledVersion is null) {
+            if (InstallVersionAcknowledged is null) {
                 errors.Add(new ValidationError("Version", "Acknowledged version is missing"));
             }
             

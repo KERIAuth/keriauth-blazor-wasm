@@ -9,6 +9,7 @@
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
 @inject AppCache appCache
+@using System.Linq.Expressions
 
 @inherits AppCacheReactiveComponentBase
 
@@ -17,7 +18,56 @@
     protected override async Task OnInitializedAsync() {
         await base.OnInitializedAsync(); // Important here to call the inherited method
         // more...
+        Conditions = new()
+        {
+            new BoolItem(() => appCache.IsReadyToTransact, null, 0),
+            new BoolItem(() => appCache.IsNotWaiting, null, 1),
+            new BoolItem(() => appCache.IsNotWaitingOnKeria, null, 2),
+            new BoolItem(() => appCache.IsNotWaitingOnUser, null, 2),
+            new BoolItem(() => appCache.IsNotWaitingOnPendingRequests, null, 2),
+            new BoolItem(() => appCache.IsBwNotWaitingOnApp, null, 2),
+            new BoolItem(() => appCache.IsAppNotWaitingOnBw, null, 2),
+            new BoolItem(() => appCache.IsConnectedToKeria, null, 1),
+            new BoolItem(() => appCache.IsIdentifierFetched, null, 2),
+            new BoolItem(() => appCache.IsAuthenticated, null, 2),
+            new BoolItem(() => appCache.IsUnlocked, null, 3),
+            new BoolItem(() => appCache.IsPasscodeInSession, null, 4),
+            new BoolItem(() => appCache.IsNotExpired, null, 4),
+            new BoolItem(() => appCache.IsInitialized, null, 3),
+            new BoolItem(() => appCache.IsConfigured, null, 4),
+            new BoolItem(() => appCache.IsKeriaInitialConnectSuccess, null, 6),
+            new BoolItem(() => appCache.IsPasscodeHashSet, null, 5),
+            new BoolItem(() => appCache.IsKeriaConfigValidated, null, 5),
+            new BoolItem(() => appCache.IsProductOnboarded, null, 5),
+            new BoolItem(() => appCache.IsPrivacyAgreed, null, 6),
+            new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 7),
+            new BoolItem(() => appCache.IsPrivacyHashExpected, null, 7),
+            new BoolItem(() => appCache.IsTosAgreed, null, 6),
+            new BoolItem(() => appCache.IsTosAgreedUtc, null, 7),
+            new BoolItem(() => appCache.IsTosHashExpected, null, 7),
+            new BoolItem(() => appCache.IsInstallAcknowledged, null , 6),
+            new BoolItem(() => appCache.IsInstalledVersionAcknowledged, null, 7),
+            new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 7),
+            // TODO P1 assure Prefs are actually created first, with desired defaults on first run, e.g. isDarkMode randomness. Then remove this here?
+        };
     }
+
+    private List<BoolItem> Conditions = new();
+
+    private class BoolItem
+    {
+        public Expression<Func<bool>> Condition { get; set; } = default!;
+        public string? Label { get; set; }
+        public int Indent { get; set; }
+
+        public BoolItem(Expression<Func<bool>> condition, string? label = null, int indent = 0)
+        {
+            Condition = condition;
+            Label = label;
+            Indent = indent;
+        }
+    }
+
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -25,11 +75,10 @@
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Test</MudText>
             <MudStack>
-                <MudStack Style="margin-left:20px;">
-                    <MudText>@if (DateTime.UtcNow.Microsecond > 500) {<span>"true ✅☑️ &#x2611; "</span>} else {<span>"false ☐ &#x2610; "</span>} IsReady</MudText>
-                    <MudText>@if (appCache.IsConfigured) {<span>"true ✅☑️ &#x2611; "</span>} else {<span>"false ☐ &#x2610; "</span>} IsConfigured</MudText>
-                    <MudText>@appCache.MyPasscodeModel.Passcode "Passcode"</MudText>
-                    <MudText>@appCache.MyPreferences.IsDarkTheme "IsDarkTheme"</MudText>
+                <MudStack Spacing="1">
+                    @foreach (var item in Conditions) {
+                        <TestPageComponent Condition="@item.Condition" Label="@item.Label" Indent="@item.Indent" />
+                    }
                 </MudStack>
             </MudStack>
         </div>

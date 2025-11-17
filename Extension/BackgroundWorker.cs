@@ -1123,6 +1123,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         if (passcodeModelRes is not null && passcodeModelRes.Value is not null && passcodeModelRes.Value.Passcode is not null) {
             var prefs = await _storageService.GetItem<Preferences>(StorageArea.Local);
             if (prefs?.Value is not null && prefs.Value.InactivityTimeoutMinutes > 0) {
+                // TODO P1 confirm we want this default before verifying the password is set.  Versus { SessionExpirationUtc = DateTime.MinValue };
                 var newSessionExpiration = new SessionExpiration() { SessionExpirationUtc = DateTime.UtcNow.AddMinutes(prefs.Value.InactivityTimeoutMinutes) };
                 var setItemRes = await _storageService.SetItem<SessionExpiration>(newSessionExpiration, StorageArea.Local);
                 if (setItemRes.IsSuccess) {

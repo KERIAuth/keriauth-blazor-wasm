@@ -103,13 +103,13 @@
         if (MyOnboardState is null)
             MyOnboardState = new OnboardState
             {
-                AcknowledgedInstalledVersion = ManifestVersion
+                InstallVersionAcknowledged = ManifestVersion
             };
         else
         {
             MyOnboardState = MyOnboardState! with
             {
-                AcknowledgedInstalledVersion = ManifestVersion
+                InstallVersionAcknowledged = ManifestVersion
             };
             _ = await storageService.SetItem<OnboardState>(MyOnboardState);
         }
@@ -124,7 +124,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <MudStack Style="max-width:-webkit-fill-available">
-            @if (MyOnboardState is null || MyOnboardState.AcknowledgedInstalledVersion is null)
+            @if (MyOnboardState is null || MyOnboardState.InstallVersionAcknowledged is null)
             {
                 <MudText Typo="Typo.h6">Fresh Install</MudText>
                 <MudText>
@@ -144,7 +144,7 @@
                 else
                 {
                     <MudText>
-                        KERI Auth has been automatically updated from version @MyOnboardState.AcknowledgedInstalledVersion to
+                        KERI Auth has been automatically updated from version @MyOnboardState.InstallVersionAcknowledged to
                         @(MyUpdateDetails.CurrentVersion).
                     </MudText>
                 }

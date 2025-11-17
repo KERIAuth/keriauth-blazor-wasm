@@ -15,7 +15,6 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @using FluentResults
 
-
 @code {
     // TODO P2 restructure as a record?
     struct Preset
@@ -214,15 +213,30 @@
         }
         ops3Connect.SetCompletedWithoutErrors();
 
-        // Store passcode in session storage using new type-safe model
-        var storeResult = await storageService.SetItem(
-            new PasscodeModel { Passcode = configuredPasscodeModel.Passcode },
-            StorageArea.Session
-        );
-        if (storeResult.IsFailed)
+        // Store passcode and session expiry time in session storage
+        // TODO P3 DRY with Unlock.razor.  CreateAuthorizedNewSession()?
         {
-            logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
-            return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage"));
+            // Store passcode in session storage
+            var storeResult = await storageService.SetItem(
+                new PasscodeModel { Passcode = configuredPasscodeModel.Passcode },
+                StorageArea.Session
+            );
+            if (storeResult.IsFailed)
+            {
+                logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
+                return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage"));
+            }
+            // store the SessionExpiry time
+            var sessionExpiry = DateTime.UtcNow.AddMinutes(App.Prefs.InactivityTimeoutMinutes);
+            var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
+                new SessionExpiration { SessionExpirationUtc = sessionExpiry },
+                StorageArea.Session
+            );
+            if (storeExpiryResult.IsFailed)
+            {
+                logger.LogError("Failed to store session expiry: {Errors}", string.Join(", ", storeExpiryResult.Errors));
+                return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store session expiry in session storage"));
+            }
         }
 
         int passcodeHash = GetNumberFromHash.HashInt(configuredPasscodeModel.Passcode);

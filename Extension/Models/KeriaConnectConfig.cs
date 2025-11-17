@@ -53,6 +53,7 @@ namespace Extension.Models {
             if (string.IsNullOrEmpty(AdminUrl)) {
                 errors.Add(new ValidationError("AdminUrl", "Admin URL is required"));
             }
+            // TODO P2 need to validate this construction is correct
             else if (!Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult) 
                      || (adminUriResult.Scheme != Uri.UriSchemeHttp && adminUriResult.Scheme != Uri.UriSchemeHttps)) {
                 errors.Add(new ValidationError("AdminUrl", "Admin URL must be a valid HTTP or HTTPS URL"));
@@ -63,13 +64,6 @@ namespace Extension.Models {
             }
             
             return Result.Ok(true);
-        }
-        
-        // Keep deprecated method for backward compatibility
-        [Obsolete("Use ValidateConfiguration() instead")]
-        public bool IsAdminUrlConfigured() {
-            var result = ValidateConfiguration();
-            return result.IsSuccess;
         }
     }
 }

@@ -2,7 +2,6 @@
 namespace Extension.Services;
 
 using Extension.Models;
-using Extension.Models.Storage;
 using Extension.Services.Storage;
 using WebExtensions.Net;
 
@@ -42,6 +41,9 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
         logger.LogInformation("SetPreferences...");
         await storageService.SetItem<Preferences>(preferences);
 
+        // TODO P1 confirm the old code below can be removed
+        /*
+
         // Cache the session expiration time in session storage for fast access
         // Calculate when session should expire based on inactivity timeout
         var sessionExpirationUtc = DateTime.UtcNow.AddMinutes(preferences.InactivityTimeoutMinutes);
@@ -53,9 +55,11 @@ public class PreferencesService(IStorageService storageService, ILogger<Preferen
             logger.LogWarning("Failed to cache session expiration time: {Errors}",
                 string.Join(", ", cacheResult.Errors));
         }
+        
 
         // Reset the current inactivityTimeout to immediately pick up the new value, which might be shorter than the currently active one
         // TODO P1 await webExtensionsApi!.Runtime.SendMessage(new { action = "resetInactivityTimer" });
+        */
         logger.LogInformation("SetPreferences done");
         return;
     }

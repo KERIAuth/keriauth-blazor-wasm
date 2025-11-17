@@ -76,7 +76,8 @@ namespace Extension {
         public const string DefaultAttestationConveyancePref = "none";  // reasonably strongest is "direct", but need to implement this functionality
         public static readonly List<string> DefaultAuthenticatorTransports = ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
         public static readonly List<string> DefaultSelectedHints = []; // more secure default would be ["security-key"]
-
+        public const int ExpectedTermsHash = 65063442;
+        public const int ExpectedPrivacyHash = 1373375114;
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
 
         public static readonly MudTheme MyCustomTheme = new() {

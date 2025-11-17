@@ -217,6 +217,7 @@
         public string Passcode { get; set; } = "";
     }
 
+    // TODO P2 should be a Task<Result<bool>>
     async Task UnlockWithPasscode(string password)
     {
         logger.LogInformation("UnlockWithPasscode...");
@@ -245,17 +246,34 @@
 
         if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
         {
-            // Store passcode in session storage using new type-safe model
-            var storeResult = await storageService.SetItem(
-                new PasscodeModel { Passcode = password },
-                StorageArea.Session
-            );
-            if (storeResult.IsFailed)
+            // Store passcode and session expiry time in session storage
+            // TODO P3 DRY with ConfigurePage.razor
             {
-                logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
-                snackbar.Add("Failed to store session credentials", Severity.Error);
-                return;
+                // Store passcode in session storage using new type-safe model
+                var storeResult = await storageService.SetItem(
+                    new PasscodeModel { Passcode = password },
+                    StorageArea.Session
+                );
+                if (storeResult.IsFailed)
+                {
+                    logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
+                    snackbar.Add("Failed to store session credentials", Severity.Error);
+                    return;
+                }
+
+                // store the SessionExpiry time
+                var sessionExpiry = DateTime.UtcNow.AddMinutes(App.Prefs.InactivityTimeoutMinutes);
+                var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
+                    new SessionExpiration { SessionExpirationUtc = sessionExpiry },
+                    StorageArea.Session
+                );
+                if (storeExpiryResult.IsFailed)
+                {
+                    logger.LogError("Failed to store session expiry: {Errors}", string.Join(", ", storeExpiryResult.Errors));
+                    throw new FieldAccessException("Failed to store session expiry in session storage");
+                }
             }
+
             // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
             await stateService.Authenticate(false);
             // _logger.LogWarning("returned from Authenticate. pausing...");
