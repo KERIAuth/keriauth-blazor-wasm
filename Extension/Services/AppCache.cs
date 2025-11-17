@@ -15,6 +15,8 @@
     public class AppCache(IStorageService storageService, ILogger<AppCache> logger) : IDisposable {
         private readonly IStorageService storageService = storageService;
         private readonly ILogger<AppCache> _logger = logger;
+        private bool _isInitialized;
+        private readonly SemaphoreSlim _initLock = new(1, 1);
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
         private StorageObserver<SessionExpiration>? inactivityTimeoutCacheModelObserver;
@@ -84,52 +86,94 @@
             onboardStateStorageObserver?.Dispose();
             passcodeModelObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
+            _initLock?.Dispose();
             GC.SuppressFinalize(this);
         }
 
         public event Action? Changed;
 
         public async Task Initialize() {
-            preferencesStorageObserver = new StorageObserver<Preferences>(
-                storageService,
-                StorageArea.Local,
-                onNext: async (_) => { Changed?.Invoke(); },
-                onError: ex => _logger.LogError(ex, "Error observing preferences storage"),
-                null,
-                _logger
-            );
-            inactivityTimeoutCacheModelObserver = new StorageObserver<SessionExpiration>(
-                storageService,
-                StorageArea.Session,
-                onNext: async (_) => { Changed?.Invoke(); },
-                onError: ex => _logger.LogError(ex, "Error observing inactivity timeout cache model storage"),
-                null,
-                _logger
-            );
-            onboardStateStorageObserver = new StorageObserver<OnboardState>(
-                storageService,
-                StorageArea.Local,
-                onNext: async (_) => { Changed?.Invoke(); },
-                onError: ex => _logger.LogError(ex, "Error observing onboard state storage"),
-                null,
-                _logger
-            );
-            passcodeModelObserver = new StorageObserver<PasscodeModel>(
-                storageService,
-                StorageArea.Session,
-                onNext: async (_) => { Changed?.Invoke(); },
-                onError: ex => _logger.LogError(ex, "Error observing user session storage"),
-                null,
-                _logger
-            );
-            keriaConnectConfigObserver = new StorageObserver<KeriaConnectConfig>(
-                storageService,
-                StorageArea.Local,
-                onNext: async (_) => { Changed?.Invoke(); },
-                onError: ex => _logger.LogError(ex, "Error observing Keria connect config storage"),
-                null,
-                _logger
-            );
+            // Prevent multiple initializations (singleton service may be accessed from multiple components)
+            if (_isInitialized) {
+                _logger.LogDebug("AppCache already initialized, skipping");
+                return;
+            }
+
+            await _initLock.WaitAsync();
+            try {
+                if (_isInitialized) {
+                    return;
+                }
+
+                _logger.LogInformation("Initializing AppCache storage observers");
+
+                preferencesStorageObserver = new StorageObserver<Preferences>(
+                    storageService,
+                    StorageArea.Local,
+                    onNext: (value) => {
+                        MyPreferences = value;
+                        _logger.LogDebug("AppCache updated MyPreferences");
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing preferences storage"),
+                    null,
+                    _logger
+                );
+                inactivityTimeoutCacheModelObserver = new StorageObserver<SessionExpiration>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (value) => {
+                        InactivityTimeoutCacheModel = value;
+                        _logger.LogDebug("AppCache updated InactivityTimeoutCacheModel");
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing inactivity timeout cache model storage"),
+                    null,
+                    _logger
+                );
+                onboardStateStorageObserver = new StorageObserver<OnboardState>(
+                    storageService,
+                    StorageArea.Local,
+                    onNext: (value) => {
+                        MyOnboardState = value;
+                        _logger.LogDebug("AppCache updated MyOnboardState");
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing onboard state storage"),
+                    null,
+                    _logger
+                );
+                passcodeModelObserver = new StorageObserver<PasscodeModel>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (value) => {
+                        MyPasscodeModel = value;
+                        _logger.LogDebug("AppCache updated MyPasscodeModel: Passcode length={Length}", value.Passcode?.Length ?? 0);
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing user session storage"),
+                    null,
+                    _logger
+                );
+                keriaConnectConfigObserver = new StorageObserver<KeriaConnectConfig>(
+                    storageService,
+                    StorageArea.Local,
+                    onNext: (value) => {
+                        MyKeriaConnectConfig = value;
+                        _logger.LogDebug("AppCache updated MyKeriaConnectConfig");
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing Keria connect config storage"),
+                    null,
+                    _logger
+                );
+
+                _isInitialized = true;
+                _logger.LogInformation("AppCache initialization complete");
+            }
+            finally {
+                _initLock.Release();
+            }
         }
     }
 }
