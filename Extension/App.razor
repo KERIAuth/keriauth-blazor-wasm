@@ -17,6 +17,7 @@
 @code {
     // fields
     private static IStateService? staticStateService;
+    private static IStorageService? staticStorageService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
     private IDisposable? stateSubscription;
@@ -40,6 +41,7 @@
         staticStateService = stateService;
         staticNavManager = navManager;
         staticLogger = _logger;
+        staticStorageService = storageService;
 
         // Initialize services as needed
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
@@ -177,6 +179,13 @@
         staticLogger.LogInformation("LockApp");
         await staticStateService.TimeOut();
         // Note that other side-effects will be reactive. See IObserver<StateService>
+        // but just to be sure....
+        // TODO P2 
+        if (staticStorageService is null || staticLogger is null)
+        {
+            throw new Exception("unexpected null staticStorageService");
+        }
+        var res = await staticStorageService.Clear(StorageArea.Session);
         return;
     }
 }

@@ -286,10 +286,44 @@
             }
             else
             {
+                // fetch identifiers.  
+                // TODO P1 Might be fetching multiple times too many.  DRY
+                // ... also have similar code as in ConfigurePage.razor DRY
+                var identifiersRes = await signifyClientService.GetIdentifiers();
+                if (identifiersRes.IsFailed)
+                {
+                    throw new IndexOutOfRangeException("expected to retrieve identifiers from GetIdentifiers()");
+                }
+                var identifiers = identifiersRes.Value;
+
+                var keriaConnectionInfo = new KeriaConnectionInfo()
+                {
+                    AgentPrefix = connectRes.Value.Agent!.I,
+                    SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(App.Prefs.InactivityTimeoutMinutes),
+                    Config = new() {
+                        AdminUrl = keriaConnectConfig.AdminUrl!,
+                        // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
+                        AgentAidPrefix = connectRes.Value.Agent!.I,
+                        Alias = keriaConnectConfig.Alias,
+                        BootUrl = keriaConnectConfig.BootUrl,
+                        // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
+                        ClientAidPrefix = connectRes.Value.Controller!.State!.I,  
+                        // TODO P2 confirm correctness, and that it matches storage.local value, or leave intentionally blank here:
+                        PasscodeHash = GetNumberFromHash.HashInt(password),
+                        ProviderName = keriaConnectConfig.ProviderName
+                    },
+                    IdentifiersList = [identifiers]
+                };
+                var setResult = await storageService.SetItem<KeriaConnectionInfo>(keriaConnectionInfo, StorageArea.Session);
+                if (setResult.IsFailed)
+                {
+                    logger.LogError("Failed to store KERI connection info: {Errors}", string.Join(", ", setResult.Errors));
+                    snackbar.Add("Failed to store KERI connection info", Severity.Error);
+                    return;
+                }
                 logger.LogInformation("Connected to KERI Agent");
                 await stateService.ConfirmConnected();
             }
-            // Stop showing spinner
             navManager.NavigateTo(RouteToIndex);
             return;
         }

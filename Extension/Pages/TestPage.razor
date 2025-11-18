@@ -8,58 +8,18 @@
 @inject IJSRuntime js
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
-@inject AppCache appCache
+@inject AppCache a
 @using System.Linq.Expressions
 
 @inherits AppCacheReactiveComponentBase
 
 @code
 {
-    protected override async Task OnInitializedAsync() {
-        await base.OnInitializedAsync(); // Important here to call the inherited method
-        // more...
-        Conditions = new()
-        {
-            new BoolItem(() => appCache.IsReadyToTransact, null, 0),
-            new BoolItem(() => appCache.IsNotWaiting, null, 1),
-            new BoolItem(() => appCache.IsNotWaitingOnKeria, null, 2),
-            new BoolItem(() => appCache.IsNotWaitingOnUser, null, 2),
-            new BoolItem(() => appCache.IsNotWaitingOnPendingRequests, null, 2),
-            new BoolItem(() => appCache.IsBwNotWaitingOnApp, null, 2),
-            new BoolItem(() => appCache.IsAppNotWaitingOnBw, null, 2),
-            new BoolItem(() => appCache.IsConnectedToKeria, null, 1),
-            new BoolItem(() => appCache.IsIdentifierFetched, null, 2),
-            new BoolItem(() => appCache.IsAuthenticated, null, 2),
-            new BoolItem(() => appCache.IsUnlocked, null, 3),
-            new BoolItem(() => appCache.IsPasscodeInSession, null, 4),
-            new BoolItem(() => appCache.IsNotExpired, null, 4),
-            new BoolItem(() => appCache.IsInitialized, null, 3),
-            new BoolItem(() => appCache.IsConfigured, null, 4),
-            new BoolItem(() => appCache.IsKeriaInitialConnectSuccess, null, 6),
-            new BoolItem(() => appCache.IsPasscodeHashSet, null, 5),
-            new BoolItem(() => appCache.IsKeriaConfigValidated, null, 5),
-            new BoolItem(() => appCache.IsProductOnboarded, null, 5),
-            new BoolItem(() => appCache.IsPrivacyAgreed, null, 6),
-            new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 7),
-            new BoolItem(() => appCache.IsPrivacyHashExpected, null, 7),
-            new BoolItem(() => appCache.IsTosAgreed, null, 6),
-            new BoolItem(() => appCache.IsTosAgreedUtc, null, 7),
-            new BoolItem(() => appCache.IsTosHashExpected, null, 7),
-            new BoolItem(() => appCache.IsInstallAcknowledged, null , 6),
-            new BoolItem(() => appCache.IsInstalledVersionAcknowledged, null, 7),
-            new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 7),
-            // TODO P1 assure Prefs are actually created first, with desired defaults on first run, e.g. isDarkMode randomness. Then remove this here?
-        };
-    }
-
-    private List<BoolItem> Conditions = new();
-
     private class BoolItem
     {
         public Expression<Func<bool>> Condition { get; set; } = default!;
         public string? Label { get; set; }
         public int Indent { get; set; }
-
         public BoolItem(Expression<Func<bool>> condition, string? label = null, int indent = 0)
         {
             Condition = condition;
@@ -68,6 +28,43 @@
         }
     }
 
+    private List<BoolItem> Conditions = new();
+
+    protected override async Task OnInitializedAsync() {
+        await base.OnInitializedAsync(); // Must call inherited method
+        Conditions = new()
+        {
+            new BoolItem(() => a.IsReadyToTransact, null, 0),
+            new BoolItem(() => a.IsNotWaiting, null, 1),
+            new BoolItem(() => a.IsNotWaitingOnKeria, null, 2),
+            new BoolItem(() => a.IsNotWaitingOnUser, null, 2),
+            new BoolItem(() => a.IsNotWaitingOnPendingRequests, null, 2),
+            new BoolItem(() => a.IsBwNotWaitingOnApp, null, 2),
+            new BoolItem(() => a.IsAppNotWaitingOnBw, null, 2),
+            new BoolItem(() => a.IsConnectedToKeria, null, 1),
+            new BoolItem(() => a.IsIdentifierFetched, null, 2),
+            new BoolItem(() => a.IsAuthenticated, null, 2),
+            new BoolItem(() => a.IsUnlocked, null, 3),
+            new BoolItem(() => a.IsPasscodeInSession, null, 4),
+            new BoolItem(() => a.IsNotExpired, null, 4),
+            new BoolItem(() => a.IsPasscodeHashSet, null, 4),
+            new BoolItem(() => a.IsInitialized, null, 3),
+            new BoolItem(() => a.IsConfigured, null, 4),
+            new BoolItem(() => a.IsKeriaInitialConnectSuccess, null, 6),
+            new BoolItem(() => a.IsPasscodeHashSet, null, 5),
+            new BoolItem(() => a.IsKeriaConfigValidated, null, 5),
+            new BoolItem(() => a.IsProductOnboarded, null, 5),
+            new BoolItem(() => a.IsPrivacyAgreed, null, 6),
+            new BoolItem(() => a.IsPrivacyAgreedUtc, null, 7),
+            new BoolItem(() => a.IsPrivacyHashExpected, null, 7),
+            new BoolItem(() => a.IsTosAgreed, null, 6),
+            new BoolItem(() => a.IsTosAgreedUtc, null, 7),
+            new BoolItem(() => a.IsTosHashExpected, null, 7),
+            new BoolItem(() => a.IsInstallAcknowledged, null , 6),
+            new BoolItem(() => a.IsInstalledVersionAcknowledged, null, 7),
+            new BoolItem(() => a.MyOnboardState.IsWelcomed, null, 7),
+        };
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -88,4 +85,3 @@
         <MudSpacer />
     </MudStack>
 </div>
-

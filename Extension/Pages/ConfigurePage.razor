@@ -16,7 +16,7 @@
 @using FluentResults
 
 @code {
-    // TODO P2 restructure as a record?
+        // TODO P2 restructure as a record?
     struct Preset
     {
         public string ProviderName { get; init; }
@@ -293,8 +293,14 @@
         if (nextButton is not null)
             await nextButton.FocusAsync();
         // _logger.LogWarning("ConnectToKeria 4");
-        return Result.Ok(new KeriaConnectionInfo(KeriaConnectConfig!, identifiers));
-    }
+        return Result.Ok(new KeriaConnectionInfo() {
+                Config = KeriaConnectConfig!,
+                SessionExpirationUtc = DateTime.UtcNow.AddMinutes(App.Prefs.InactivityTimeoutMinutes), // min
+                IdentifiersList = [identifiers],
+                AgentPrefix = clientRes.Value.Agent!.I,
+            // ControllerPrefix = clientRes.Value.Controller!.State!.I,
+            });
+}
 
     async Task StoreHashAndConnect()
     {
@@ -308,9 +314,18 @@
         {
             IsConnected = true;
             var connectionInfo = connectionResult.Value;
-            KeriaConnectConfig = connectionInfo.Config;
 
-            // TODO P2 should KeriaConnectConfig should be stored in chrome.storage.sync? Multiple changes required.
+            // TODO P1 Unlock should also do this caching of connection info in session storage. DRY
+            var cacheConnectionResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
+            if (cacheConnectionResult.IsFailed)
+            {
+                logger.LogError("Failed to cache connection info in session storage");
+                logger.LogError(cacheConnectionResult.Reasons.First().Message);
+                snackbar.Add("Failed to cache connection info in session storage", Severity.Error);
+                return;
+            }
+
+            KeriaConnectConfig = connectionInfo.Config;
             var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
             if (storeConfigResult.IsFailed)
             {

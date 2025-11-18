@@ -2,6 +2,7 @@
     using Extension.Helper;
     using Extension.Models;
     using Extension.Models.Storage;
+    using Extension.Services.SignifyService.Models;
     using Extension.Services.Storage;
 
     /// <summary>
@@ -24,6 +25,7 @@
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
         private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
+        private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = new Preferences();
@@ -31,10 +33,12 @@
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
         public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() { Passcode = "" };
         public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = new KeriaConnectConfig();
-
-
-
-
+        public KeriaConnectionInfo MyKeriaLiveConnectInfo { get; private set; } = new KeriaConnectionInfo() {
+            SessionExpirationUtc = DateTime.MinValue,
+            Config = new KeriaConnectConfig(),
+            IdentifiersList = [],
+            AgentPrefix = ""
+        };  
 
         // Derived properties ("reactive selectors")
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
@@ -46,7 +50,12 @@
 
         // TODO P1 there may be a better way to verify connection, but for now we check that there is at least one identifier
         public bool IsConnectedToKeria => IsIdentifierFetched && IsAuthenticated;
-        public bool IsIdentifierFetched => XIdentifiers.Count > 0 && IsInstalledVersionAcknowledged; // TODO P2 tmp
+
+        // TODO P2 fix squirelly structure of IdentifiersList and Aids. Not intuitive here, with structured as aids, end, start, total.
+        // plus, name "IsIdentifierFetched" is more like IsConnectedToKeria, but that conflicts with the above property name that's perhaps unn
+        public bool IsIdentifierFetched =>
+            // MyKeriaConnectConfig.AgentAidPrefix is not null &&
+            MyKeriaLiveConnectInfo.IdentifiersList.FirstOrDefault<Identifiers>()?.Aids.Count > 0;
         public bool IsAuthenticated => IsUnlocked && IsInitialized;
 
         public bool IsNotWaiting =>
@@ -61,7 +70,6 @@
         public bool IsBwNotWaitingOnApp { get; private set; }
         public bool IsAppNotWaitingOnBw { get; private set; }
         public bool IsNotWaitingOnPendingRequests { get; private set; }
-
         public bool IsUnlocked =>
             IsPasscodeHashSet &&
             IsPasswordLocallyMatched &&
@@ -80,22 +88,21 @@
             IsKeriaConfigValidated &&
             IsProductOnboarded &&
             MyPreferences is not null;
-
         // TODO P3 add other aspects of KeriaConfig validation as needed.  See also ValidateConfiguration() in KeriaConnectConfig.cs
         public bool IsKeriaConfigValidated =>
             MyKeriaConnectConfig.AdminUrl is not null &&
             IsKeriaConfigAdminUrlValid;
-
         public bool IsKeriaConfigAdminUrlValid => IsValidHttpUri(MyKeriaConnectConfig.AdminUrl);
 
         private static bool IsValidHttpUri(string? uriString) {
             return Uri.TryCreate(uriString, UriKind.Absolute, out var uri)
                 && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
         }
-
-        // TODO P1: implement real Keria connection success tracking
-        public bool IsKeriaInitialConnectSuccess { get; private set; } = true;
-        
+        // TODO P2 use this
+        public bool IsKeriaAgentPrefixAsExpected =>
+            MyKeriaConnectConfig.AgentAidPrefix is not null &&
+            MyKeriaConnectConfig.AgentAidPrefix == MyKeriaLiveConnectInfo.AgentPrefix;
+        public bool IsKeriaInitialConnectSuccess => !string.IsNullOrEmpty( MyKeriaConnectConfig.ClientAidPrefix);
         public bool IsProductOnboarded =>
             MyOnboardState.IsWelcomed &&
             MyOnboardState.InstallVersionAcknowledged is not null &&
@@ -123,6 +130,7 @@
             onboardStateStorageObserver?.Dispose();
             passcodeModelObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
+            keriaConnectionInfoObserver?.Dispose();
             _initLock?.Dispose();
             GC.SuppressFinalize(this);
         }
@@ -202,6 +210,19 @@
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing Keria connect config storage"),
+                    null,
+                    _logger
+                );
+                // TODO P3 rename type to KeriaLiveConnectInfo ?
+                keriaConnectionInfoObserver = new StorageObserver<KeriaConnectionInfo>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (value) => {
+                        MyKeriaLiveConnectInfo = value;
+                        _logger.LogDebug("AppCache updated MyKeriaConnectionInfo");
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing Keria connection info storage"),
                     null,
                     _logger
                 );
