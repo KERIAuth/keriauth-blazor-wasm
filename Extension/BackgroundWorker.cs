@@ -974,7 +974,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
                     // Send the extension ID, although this may be redundantas ContentScript can get it via chrome.runtime.id
-                    // TODO P2
+                    // TODO P2 Add REPLY?
                     /*
                     return new {
                         type = BwCsMessageTypes.REPLY,
@@ -1339,7 +1339,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO 2 should return error?
+            var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO P2 should return error?
             var method = headersDict.GetValueOrDefault("method") ?? ""; // TODO P2 should return error?
 
             // Validate URL is well-formed

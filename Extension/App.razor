@@ -180,7 +180,7 @@
         await staticStateService.TimeOut();
         // Note that other side-effects will be reactive. See IObserver<StateService>
         // but just to be sure....
-        // TODO P2 
+        // TODO P2 Add TimeOut handling in StateService that clears session storage ??
         if (staticStorageService is null || staticLogger is null)
         {
             throw new Exception("unexpected null staticStorageService");

@@ -17,7 +17,7 @@ namespace Extension.Services {
             : base(type, requestId, payload, error) { }
     }
 
-    public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IAppBwMessagingService {
+    public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IAppBwMessagingService, IDisposable {
         private readonly List<IObserver<BwAppMessage<object>>> observers = [];
         private DotNetObjectReference<AppBwMessagingService> _objectReference = default!;
         private int? _currentTabId;
@@ -46,7 +46,7 @@ namespace Extension.Services {
                 // Get current runtime context to determine the appropriate context type
                 var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
                 var contexts = await _webExtensionsApi.Runtime.GetContexts(contextFilter);
-                
+
 
 
                 // Find the current context (should be this instance)
@@ -54,7 +54,7 @@ namespace Extension.Services {
                 string contextType = currentContext?.ContextType.ToString() ?? "UNKNOWN";
 
 
-                
+
 
 
 
@@ -172,26 +172,22 @@ namespace Extension.Services {
         }
 
         public void Dispose() {
-            ; // TODO P3?
+            GC.SuppressFinalize(this);
         }
 
         // Helper method to notify observers of an Error
-        //private void NotifyError(Exception Error)
-        //{
-        //    foreach (var observer in observers)
-        //    {
-        //        observer.OnError(Error);
-        //    }
-        //}
+        private void NotifyError(Exception Error) {
+            foreach (var observer in observers) {
+                observer.OnError(Error);
+            }
+        }
 
         // Helper method to notify observers of completion
-        //private void Complete()
-        //{
-        //    foreach (var observer in observers)
-        //    {
-        //        observer.OnCompleted();
-        //    }
-        //}
+        private void Complete() {
+            foreach (var observer in observers) {
+                observer.OnCompleted();
+            }
+        }
 
         // Inner class to handle unsubscribing
         private sealed class Unsubscriber(List<IObserver<BwAppMessage<object>>> observers, IObserver<BwAppMessage<object>> observer) : IDisposable {
