@@ -79,13 +79,13 @@
             onNext: async (SessionExpiration updatedValue) =>
             {
                 InactivityTimeoutCache = updatedValue;
-                _logger.LogWarning("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
+                _logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
                     InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
                 StateHasChanged();
             },
             onCompleted: async () =>
             {
-                _logger.LogWarning("InactivityTimeoutCacheModel observation completed");
+                _logger.LogInformation("InactivityTimeoutCacheModel observation completed");
             },
             onError: async (Exception error) =>
             {

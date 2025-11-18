@@ -159,7 +159,7 @@
                     StorageArea.Local,
                     onNext: (value) => {
                         MyPreferences = value;
-                        _logger.LogDebug("AppCache updated MyPreferences");
+                        _logger.LogInformation("AppCache updated MyPreferences");
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing preferences storage"),
@@ -171,13 +171,12 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MySessionExpiration = value;
-                        _logger.LogDebug("AppCache updated InactivityTimeoutCacheModel");
-                        _logger.LogWarning("TMP AppCache updated InactivityTimeoutCacheModel SessionExpirationUtc={n}", value.SessionExpirationUtc);
+                        _logger.LogInformation("AppCache updated InactivityTimeoutCacheModel");
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing inactivity timeout cache model storage"),
                     onCompleted: () => {
-                        _logger.LogWarning("InactivityTimeoutCacheModel observation completed");
+                        _logger.LogInformation("InactivityTimeoutCacheModel observation completed");
                     },
                     _logger
                 );
@@ -186,7 +185,7 @@
                     StorageArea.Local,
                     onNext: (value) => {
                         MyOnboardState = value;
-                        _logger.LogDebug("AppCache updated MyOnboardState");
+                        _logger.LogInformation("AppCache updated MyOnboardState");
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing onboard state storage"),
@@ -198,7 +197,7 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MyPasscodeModel = value;
-                        _logger.LogDebug("AppCache updated MyPasscodeModel: Passcode length={Length}", value.Passcode?.Length ?? 0);
+                        _logger.LogInformation("AppCache updated MyPasscodeModel: Passcode length={Length}", value.Passcode?.Length ?? 0);
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing user session storage"),
@@ -210,7 +209,7 @@
                     StorageArea.Local,
                     onNext: (value) => {
                         MyKeriaConnectConfig = value;
-                        _logger.LogDebug("AppCache updated MyKeriaConnectConfig");
+                        _logger.LogInformation("AppCache updated MyKeriaConnectConfig");
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing Keria connect config storage"),
@@ -222,7 +221,7 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MyKeriaConnectionInfo = value;
-                        _logger.LogDebug("AppCache updated MyKeriaConnectionInfo");
+                        _logger.LogInformation("AppCache updated MyKeriaConnectionInfo");
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing Keria connection info storage"),
