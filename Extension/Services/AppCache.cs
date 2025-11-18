@@ -33,12 +33,12 @@
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
         public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() { Passcode = "" };
         public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = new KeriaConnectConfig();
-        public KeriaConnectionInfo MyKeriaLiveConnectInfo { get; private set; } = new KeriaConnectionInfo() {
+        public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
             SessionExpirationUtc = DateTime.MinValue,
             Config = new KeriaConnectConfig(),
             IdentifiersList = [],
             AgentPrefix = ""
-        };  
+        };
 
         // Derived properties ("reactive selectors")
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
@@ -54,8 +54,8 @@
         // TODO P2 fix squirelly structure of IdentifiersList and Aids. Not intuitive here, with structured as aids, end, start, total.
         // plus, name "IsIdentifierFetched" is more like IsConnectedToKeria, but that conflicts with the above property name that's perhaps unn
         public bool IsIdentifierFetched =>
-            // MyKeriaConnectConfig.AgentAidPrefix is not null &&
-            MyKeriaLiveConnectInfo.IdentifiersList.FirstOrDefault<Identifiers>()?.Aids.Count > 0;
+            MyKeriaConnectConfig.AgentAidPrefix is not null &&
+            MyKeriaConnectionInfo.IdentifiersList?.FirstOrDefault()?.Aids.Count > 0;
         public bool IsAuthenticated => IsUnlocked && IsInitialized;
 
         public bool IsNotWaiting =>
@@ -79,6 +79,8 @@
             MyPasscodeModel.Passcode is not null &&
             MyPasscodeModel.Passcode.Length == 21;
         public bool IsPasswordLocallyMatched =>
+            MyPasscodeModel.Passcode is not null &&
+            MyPasscodeModel.Passcode.Length == 21 &&
             MyKeriaConnectConfig.PasscodeHash == GetNumberFromHash.HashInt(MyPasscodeModel.Passcode);
         public bool IsPasscodeHashSet => MyKeriaConnectConfig.PasscodeHash != 0;
         public bool IsNotExpired => MySessionExpiration.SessionExpirationUtc > DateTime.UtcNow;
@@ -101,8 +103,8 @@
         // TODO P2 use this
         public bool IsKeriaAgentPrefixAsExpected =>
             MyKeriaConnectConfig.AgentAidPrefix is not null &&
-            MyKeriaConnectConfig.AgentAidPrefix == MyKeriaLiveConnectInfo.AgentPrefix;
-        public bool IsKeriaInitialConnectSuccess => !string.IsNullOrEmpty( MyKeriaConnectConfig.ClientAidPrefix);
+            MyKeriaConnectConfig.AgentAidPrefix == MyKeriaConnectionInfo.AgentPrefix;
+        public bool IsKeriaInitialConnectSuccess => !string.IsNullOrEmpty(MyKeriaConnectConfig.ClientAidPrefix);
         public bool IsProductOnboarded =>
             MyOnboardState.IsWelcomed &&
             MyOnboardState.InstallVersionAcknowledged is not null &&
@@ -123,7 +125,7 @@
             IsInstalledVersionAcknowledged;
         public bool IsInstalledVersionAcknowledged =>
             // TODO P1 must confirm it is current version in manifest. Compute in Program or App. Remove from Index.razor
-            MyOnboardState.InstallVersionAcknowledged is not null; 
+            MyOnboardState.InstallVersionAcknowledged is not null;
         public void Dispose() {
             preferencesStorageObserver?.Dispose();
             sessionExpirationStorageObserver?.Dispose();
@@ -174,7 +176,9 @@
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing inactivity timeout cache model storage"),
-                    null,
+                    onCompleted: () => {
+                        _logger.LogWarning("InactivityTimeoutCacheModel observation completed");
+                    },
                     _logger
                 );
                 onboardStateStorageObserver = new StorageObserver<OnboardState>(
@@ -213,12 +217,11 @@
                     null,
                     _logger
                 );
-                // TODO P3 rename type to KeriaLiveConnectInfo ?
                 keriaConnectionInfoObserver = new StorageObserver<KeriaConnectionInfo>(
                     storageService,
                     StorageArea.Session,
                     onNext: (value) => {
-                        MyKeriaLiveConnectInfo = value;
+                        MyKeriaConnectionInfo = value;
                         _logger.LogDebug("AppCache updated MyKeriaConnectionInfo");
                         Changed?.Invoke();
                     },

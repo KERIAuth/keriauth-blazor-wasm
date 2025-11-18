@@ -142,15 +142,28 @@ public class StorageService : IStorageService, IDisposable {
         try {
             // Extract newValue from StorageChange object
             // Chrome storage.onChanged provides: { key: { oldValue: ..., newValue: ... } }
-            if (!changeElement.TryGetProperty("newValue", out var newValue)) {
-                _logger.LogDebug("No newValue in change for {Key} in {Area}", key, area);
+            // When a key is deleted (via clear() or remove()), only oldValue is present
+            var hasNewValue = changeElement.TryGetProperty("newValue", out var newValue);
+            var hasOldValue = changeElement.TryGetProperty("oldValue", out var oldValue);
+
+            if (!hasNewValue && !hasOldValue) {
+                _logger.LogDebug("No oldValue or newValue in change for {Key} in {Area} - ignoring", key, area);
                 return;
             }
 
             // Get observers for this key
             if (_observersByArea.TryGetValue(area, out var observersByKey)
                 && observersByKey.TryGetValue(key, out var entryList)) {
-                NotifyObservers(key, area, entryList, newValue);
+
+                if (hasNewValue) {
+                    // Key was set or updated - notify with new value
+                    NotifyObservers(key, area, entryList, newValue);
+                }
+                else {
+                    // Key was deleted - notify with default value for the type
+                    _logger.LogDebug("Key {Key} deleted from {Area} storage - notifying observers with default value", key, area);
+                    NotifyObserversOfDeletion(key, area, entryList);
+                }
             }
             else {
                 _logger.LogTrace("No observers for {Key} in {Area}", key, area);
@@ -194,6 +207,40 @@ public class StorageService : IStorageService, IDisposable {
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to deserialize {Key} for observers", key);
+        }
+    }
+
+    private void NotifyObserversOfDeletion(string key, StorageArea area, List<ObserverEntry> entryList) {
+        if (entryList.Count == 0) {
+            return;
+        }
+
+        // Get element type from first entry (all entries for same key have same type)
+        var elementType = entryList[0].ElementType;
+
+        try {
+            // Create default instance for the type
+            // This matches the behavior of GetItem<T> which returns default(T) when key not found
+            var defaultValue = Activator.CreateInstance(elementType);
+
+            if (defaultValue != null) {
+                // Notify each observer using its typed callback
+                foreach (var entry in entryList) {
+                    try {
+                        entry.NotifyCallback(defaultValue);
+                        _logger.LogDebug("Notified observer of {Key} deletion in {Area} with default value", key, area);
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Observer error for {Key} deletion in {Area}", key, area);
+                    }
+                }
+            }
+            else {
+                _logger.LogWarning("Could not create default instance of {Type} for {Key} deletion notification", elementType.Name, key);
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to create default value for {Key} deletion", key);
         }
     }
 

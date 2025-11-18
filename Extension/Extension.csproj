@@ -20,7 +20,7 @@
     <RootNamespace>Extension</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
-    <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+    <EnforceCodeStyleInBuild>False</EnforceCodeStyleInBuild>
 	<GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 

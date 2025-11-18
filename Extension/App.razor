@@ -83,6 +83,10 @@
                     InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
                 StateHasChanged();
             },
+            onCompleted: async () =>
+            {
+                _logger.LogWarning("InactivityTimeoutCacheModel observation completed");
+            },
             onError: async (Exception error) =>
             {
                 _logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);

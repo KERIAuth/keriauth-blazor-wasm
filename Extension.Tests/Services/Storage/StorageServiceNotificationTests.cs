@@ -265,6 +265,9 @@ public class StorageServiceNotificationTests {
         // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
+        PasscodeModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
+            .Callback<PasscodeModel>(value => receivedValue = value);
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Trigger change without newValue (e.g., item was removed)
@@ -279,8 +282,12 @@ public class StorageServiceNotificationTests {
 
         InvokeGlobalCallback(changesElement, "local");
 
-        // Assert - Should NOT notify (no newValue)
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
+        // Assert - Should notify with default value (deletion triggers notification)
+        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
+        // The received value should be a default PasscodeModel instance
+        // Note: Activator.CreateInstance() bypasses 'required' keyword, resulting in null for reference types
+        Assert.NotNull(receivedValue);
+        Assert.Null(receivedValue!.Passcode); // Default instance has null for required properties
 
         subscription.Dispose();
         return Task.CompletedTask;
@@ -373,13 +380,14 @@ public class StorageServiceNotificationTests {
         // Step 3: Delete (value2 → none) - only oldValue, no newValue
         TriggerStorageChangeWithOnlyOldValue("session", "PasscodeModel", oldValue: updatedValue);
 
-        // Assert - Received 2 notifications (create and update, but not delete)
-        Assert.Equal(2, receivedValues.Count);
+        // Assert - Received 3 notifications (create, update, and delete with default value)
+        Assert.Equal(3, receivedValues.Count);
         Assert.Equal("initial", receivedValues[0]!.Passcode);
         Assert.Equal("updated", receivedValues[1]!.Passcode);
+        Assert.Null(receivedValues[2]!.Passcode); // Default instance has null for required properties
 
-        // OnNext should be called twice (not for deletion)
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Exactly(2));
+        // OnNext should be called three times (including deletion with default value)
+        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Exactly(3));
 
         subscription.Dispose();
         return Task.CompletedTask;
@@ -391,6 +399,9 @@ public class StorageServiceNotificationTests {
         // await _sut.Initialize(StorageArea.Local);
 
         var observer = new Mock<IObserver<PasscodeModel>>();
+        PasscodeModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
+            .Callback<PasscodeModel>(value => receivedValue = value);
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Simulate deletion (value → none)
@@ -398,11 +409,10 @@ public class StorageServiceNotificationTests {
         var oldValue = new PasscodeModel { Passcode = "deleted" };
         TriggerStorageChangeWithOnlyOldValue("local", "PasscodeModel", oldValue);
 
-        // Assert - Should NOT call OnNext (deletion doesn't trigger notification)
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
-
-        // Note: IObserver has OnCompleted() and OnError() methods that could be used
-        // for deletion/error scenarios, but StorageService currently only uses OnNext()
+        // Assert - Should call OnNext with default value (deletion triggers notification)
+        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
+        Assert.NotNull(receivedValue);
+        Assert.Null(receivedValue!.Passcode); // Default instance has null for required properties
 
         subscription.Dispose();
         return Task.CompletedTask;
