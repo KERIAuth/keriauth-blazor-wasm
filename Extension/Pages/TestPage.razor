@@ -1,6 +1,7 @@
 ﻿@page "/Test.html"
 @using Extension.Models
 @using Extension.Services
+@using Extension.Components
 @using System.Reactive.Linq
 @inject NavigationManager navManager
 @inject IPreferencesService preferencesService
@@ -11,7 +12,7 @@
 @inject AppCache a
 @using System.Linq.Expressions
 
-@inherits AppCacheReactiveComponentBase
+@implements IDisposable
 
 @code
 {
@@ -32,7 +33,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync(); // Must call inherited method
+        // Subscribe to AppCache changes
+        await this.SubscribeToAppCache(a);
+
         logger.LogInformation("OnInitializedAsync");
         Conditions = new()
         {
@@ -66,6 +69,11 @@
             new BoolItem(() => a.IsInstalledVersionAcknowledged, null, 8),
             new BoolItem(() => a.MyOnboardState.IsWelcomed, null, 8),
         };
+    }
+
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
     }
 }
 

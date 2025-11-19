@@ -4,7 +4,7 @@
     using Extension.Models.Storage;
     using Extension.Services.SignifyService.Models;
     using Extension.Services.Storage;
-
+    
     /// <summary>
     /// AppCache provides reactive access to application state stored in browser storage, including some derived properties.
     /// Note: this is not a full state management solution, but a lightweight reactive cache over storage.
@@ -32,7 +32,11 @@
         public SessionExpiration MySessionExpiration { get; private set; } = new SessionExpiration() { SessionExpirationUtc = DateTime.MinValue }; // intentionally expired until set
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
         public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() { Passcode = "" };
-        public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = new KeriaConnectConfig();
+
+        public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
+
+        public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = DefaultKeriaConnectConfig;
+        
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
             SessionExpirationUtc = DateTime.MinValue,
             Config = new KeriaConnectConfig(),

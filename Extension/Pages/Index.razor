@@ -2,7 +2,7 @@
 @page "/"
 @using Extension.Models.Storage
 @using Extension.Services.Storage
-
+@using Extension.Components
 
 @inherits IndexPage
 @layout MainLayout
@@ -33,6 +33,8 @@
         </MudPaper>
     </MudContainer>
 
+@implements IDisposable
+
 @code {
     // private bool IsLoading { get; set; } = true;
     private WebExtensionsApi? webExtensionsApi;
@@ -44,6 +46,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
+        await this.SubscribeToAppCache(a, NavigateIfNeeded);
+
         // IsLoading = true;
         logger.LogInformation($"OnInitializedAsync");
 
@@ -251,5 +256,9 @@
         navManager.NavigateTo(RouteToDashboard);
 
     }
-    
+
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
 }
