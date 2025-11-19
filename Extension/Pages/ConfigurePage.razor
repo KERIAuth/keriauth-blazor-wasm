@@ -350,6 +350,7 @@
             }
             logger.LogInformation("StoreHashAndConnect succeeded");
             StateHasChanged();
+            navManager.NavigateTo(RouteToIndex); // expext to go to home
             return;
         }
         else

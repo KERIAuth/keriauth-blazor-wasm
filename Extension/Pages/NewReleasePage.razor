@@ -62,7 +62,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // _logger.LogInformation("OnInitializedAsync");
+        logger.LogInformation("OnInitializedAsync");
         releaseMarkup = new MarkupString(await http.GetStringAsync(releaseUrlPath));
         releaseHistoryMarkup = new MarkupString(await http.GetStringAsync(releaseHistoryUrlPath));
 

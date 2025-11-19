@@ -94,7 +94,7 @@
         public bool IsKeriaConfigValidated =>
             MyKeriaConnectConfig.AdminUrl is not null &&
             IsKeriaConfigAdminUrlValid;
-        public bool IsKeriaConfigAdminUrlValid => IsValidHttpUri(MyKeriaConnectConfig.AdminUrl);
+        public bool IsKeriaConfigAdminUrlValid => MyKeriaConnectConfig.ClientAidPrefix is not null; //  IsValidHttpUri(MyKeriaConnectConfig.AdminUrl);
 
         private static bool IsValidHttpUri(string? uriString) {
             return Uri.TryCreate(uriString, UriKind.Absolute, out var uri)

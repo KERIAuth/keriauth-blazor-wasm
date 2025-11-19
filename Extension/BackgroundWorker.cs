@@ -507,7 +507,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task OnInstalledInstallAsync() {
         try {
             InitializeIfNeeded();
-            var installUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=install";
+            var installUrl = _webExtensionsApi.Runtime.GetURL("index.html"); // TODO P2 + "?reason=install";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
             };

@@ -4,7 +4,7 @@ using FluentResults;
 
 namespace Extension.Models {
     public record OnboardState : IStorageModel {
-        [JsonPropertyName("HasAcknowledgedInstall")]
+        [JsonPropertyName("IsWelcomed")]
         public bool IsWelcomed { get; init; }
 
         [JsonPropertyName("AcknowledgedInstalledVersion")]

@@ -30,8 +30,10 @@
 
     private List<BoolItem> Conditions = new();
 
-    protected override async Task OnInitializedAsync() {
+    protected override async Task OnInitializedAsync()
+    {
         await base.OnInitializedAsync(); // Must call inherited method
+        logger.LogInformation("OnInitializedAsync");
         Conditions = new()
         {
             new BoolItem(() => a.IsReadyToTransact, null, 0),
@@ -73,15 +75,25 @@
             <MudText Typo="Typo.h6">Test</MudText>
             <MudStack>
                 <MudStack Spacing="1">
-                    @foreach (var item in Conditions) {
+                    @foreach (var item in Conditions)
+                    {
                         <TestPageComponent Condition="@item.Condition" Label="@item.Label" Indent="@item.Indent" />
                     }
                 </MudStack>
             </MudStack>
+            <MudStack>
+                <MudLink Href="@RouteToWelcome" Target="_self">Welcome</MudLink>
+                <MudLink Href="@RouteToNewRelease" Target="_self">Release</MudLink>
+                <MudLink Href="@RouteToTerms" Target="_self">Terms</MudLink>
+                <MudLink Href="@RouteToPrivacy" Target="_self">Privacy</MudLink>
+                <MudLink Href="@RouteToConfigure" Target="_self">Configure</MudLink>
+                <MudLink Href="@RouteToUnlock" Target="_self">Unlock</MudLink>
+                <MudLink Href="@RouteToConnecting" Target="_self">Connecting</MudLink>
+            </MudStack>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
     </MudStack>
 </div>

@@ -59,10 +59,13 @@ builder.Logging.AddConfiguration(
     builder.Configuration.GetSection("Logging")
 );
 
-Console.WriteLine("Program.cs: Configuring browser extension mode...");
+// Console.WriteLine("Program.cs: Configuring browser extension mode...");
+
+// TODO P2: add consistent browserExtension.Mode string to logging context for better diagnostics
 
 builder.UseBrowserExtension(browserExtension => {
-    Console.WriteLine($"Program.cs: Browser extension mode = {browserExtension.Mode}");
+    var mode = browserExtension.Mode.ToString();
+    Console.WriteLine($"Program.cs [{mode}]");
 
     switch (browserExtension.Mode) {
         case BrowserExtensionMode.ContentScript:
@@ -70,21 +73,21 @@ builder.UseBrowserExtension(browserExtension => {
             // builder.RootComponents.Add<ContentScript>("#Sample_Messaging_app");
             break;
         case BrowserExtensionMode.Background:
-            Console.WriteLine("Program.cs: Configuring Background mode - adding BackgroundWorker root component");
+            // Console.WriteLine($"Program.cs [{mode}]: Configuring Background mode - adding BackgroundWorker root component");
             builder.RootComponents.AddBackgroundWorker<BackgroundWorker>();
             break;
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:
         default:
-            Console.WriteLine($"Program.cs: Configuring {browserExtension.Mode} mode - adding App and MudBlazor");
+            // Console.WriteLine($"Program.cs [{mode}]: Configuring {browserExtension.Mode} mode - adding App and MudBlazor");
             builder.Services.AddMudServices();
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
             break;
     }
 });
-Console.WriteLine("Program.cs: Registering services...");
 
+// Console.WriteLine("Program.cs: Configuring services...");
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddSingleton<Extension.Services.Storage.IStorageService, Extension.Services.Storage.StorageService>();
@@ -105,11 +108,11 @@ builder.Services.AddSingleton<IAppBwMessagingService, AppBwMessagingService>();
 builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
 builder.Services.AddJsBind();
 
-Console.WriteLine("Program.cs: Building host...");
+// Console.WriteLine("Program.cs: Building host...");
 
 var host = builder.Build();
 
-Console.WriteLine("Program.cs: Host built successfully, initializing logger...");
+// Console.WriteLine("Program.cs: Host built successfully, initializing logger...");
 
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("WASM host built");
@@ -119,24 +122,23 @@ logger.LogInformation("WASM host built");
 // and cached by the browser before Blazor starts
 // Other modules (signifyClient) are lazy-loaded here to avoid libsodium initialization issues
 logger.LogInformation("Loading JavaScript modules via JsModuleLoader...");
-Console.WriteLine("Program.cs: Loading JavaScript modules via JsModuleLoader...");
+// Console.WriteLine("Program.cs: Loading JavaScript modules via JsModuleLoader...");
 
 try {
     var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
     await moduleLoader.LoadAllModulesAsync();
-    Console.WriteLine("Program.cs: JavaScript modules loaded successfully");
+    logger.LogInformation("Program.cs: JavaScript modules loaded successfully");
 }
 catch (Exception ex) {
     logger.LogError(ex, "Failed to load JavaScript modules via JsModuleLoader");
-    Console.WriteLine($"Program.cs: ERROR loading JavaScript modules: {ex.Message}");
     throw;
 }
 
-logger.LogInformation("All modules loaded successfully");
+// logger.LogInformation("All modules loaded successfully");
 
 logger.LogInformation("Running WASM Host...");
-Console.WriteLine("Program.cs: Starting host.RunAsync()...");
+// Console.WriteLine("Program.cs: Starting host.RunAsync()...");
 
 await host.RunAsync();
 
-Console.WriteLine("Program.cs: host.RunAsync() completed (extension shutdown)");
+// Console.WriteLine("Program.cs: host.RunAsync() completed (extension shutdown)");

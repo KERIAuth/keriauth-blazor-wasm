@@ -35,13 +35,13 @@
     const string openWidth = "var(--mud-drawer-width-left)";
     string version = "";
     string version_name = "";
-    Timer? sessionTimerUpdate;
+    // Timer? sessionTimerUpdate;
 
     // properties...
     bool IsProfilePanelOpen { get; set; }
     DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
     // TODO P2 refactor DRY usages of getIdentifiers in multiple pages and dependent properties into App.
-    List<Aid> Identifiers { get; set; } = [];
+    // List<Aid> Identifiers { get; set; } = [];
     bool IsMenuDrawerOpen { get; set; }
 
 
@@ -49,8 +49,8 @@
     Object ActiveAidObject => (object)ActivePrefix;
     bool IsAuthenticated => stateService.CheckAuthentication().IsSuccess;
     string ActivePrefix => Prefs.SelectedPrefix;
-    string ActivePrefixIdenticon => Identifiers.Find(x => x.Prefix == ActivePrefix) != null ? Helper.Identicon.MakeIdenticon(ActivePrefix) : "";
-    string ActiveAlias => Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
+    string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix); // Identifiers.Find(x => x.Prefix == ActivePrefix) != null ? Helper.Identicon.MakeIdenticon(ActivePrefix) : "";
+    string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix) || !IsAuthenticated);
     bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
@@ -94,6 +94,7 @@
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
 
+        /*
         switch (stateService.GetState())
         {
             case IStateService.States.AuthenticatedDisconnected:
@@ -110,6 +111,7 @@
                 Identifiers = [];
                 break;
         }
+        */
 
         // determine drawer varient depending and open state depending on context.
         // TODO P4 This could be moved into App or BaseLayout and be cascaded, unless specific to this layout
@@ -126,6 +128,7 @@
             _ => false
         };
 
+        /*
         // If not currently authenticated and are now on a page that requires authentication, then redirect to Start
         if (!IsAuthenticated)
         {
@@ -144,6 +147,7 @@
         {
             await InvokeAsync(StateHasChanged);
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        */
     }
 
     async Task SetActiveAid(string prefix)
@@ -177,7 +181,7 @@
 
     public void Dispose()
     {
-        sessionTimerUpdate?.Dispose();
+        // sessionTimerUpdate?.Dispose();
     }
 }
 
@@ -267,7 +271,8 @@
         <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
                 <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
-                    @foreach (var aid in Identifiers)
+
+                    @foreach (var aid in new List<Aid>() ) // TODO P1: Get Identifiers via App Session.KeriaConnectInfo that could later be in separate collection)
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">

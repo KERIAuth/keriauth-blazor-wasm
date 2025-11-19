@@ -13,6 +13,9 @@
 @inject IStorageService storageService
 @inject IStateService stateService
 @inject IAppBwMessagingService appBwMessagingService
+@inject AppCache a
+
+@inherits AppCacheReactiveComponentBase
 
 @code {
     // fields
@@ -20,9 +23,9 @@
     private static IStorageService? staticStorageService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
-    private IDisposable? stateSubscription;
+    // private IDisposable? stateSubscription;
     private StorageObserver<Preferences>? preferencesStorageObserver;
-    private StorageObserver<SessionExpiration>? inactivityTimeoutCacheModelObserver;
+    private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
 
     // properties
     public static Uri? InitialUri { get; set; }
@@ -60,52 +63,58 @@
         );
 
         // TODO P1 instead, use onNext() of storage observer
+        /*
         var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
         Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
         await HandleNextPreferences(Prefs);
+        */
 
+        /*
         // observer for changes to AppState
         stateSubscription = stateService.Subscribe(
-            onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
-            onError: async (Exception error) => await HandleErrorFromStateService(error),
-            onCompleted: async () => await HandleCompletedFromStateService()
+        onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
+        onError: async (Exception error) => await HandleErrorFromStateService(error),
+        onCompleted: async () => await HandleCompletedFromStateService()
         );
+        */
 
-
-        // observer for changes to SessionExpirationUtc in storage (to update timeout indicator)
-        inactivityTimeoutCacheModelObserver = new StorageObserver<SessionExpiration>(
-            storageService,
-            StorageArea.Session,
-            onNext: async (SessionExpiration updatedValue) =>
-            {
-                InactivityTimeoutCache = updatedValue;
-                _logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
-                    InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
-                StateHasChanged();
-            },
-            onCompleted: async () =>
-            {
-                _logger.LogInformation("InactivityTimeoutCacheModel observation completed");
-            },
-            onError: async (Exception error) =>
-            {
-                _logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);
-            },
-            logger: _logger
-        );
+                // observer for changes to SessionExpirationUtc in storage (to update timeout indicator)
+                sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: async (SessionExpiration updatedValue) =>
+                    {
+                        InactivityTimeoutCache = updatedValue;
+                        _logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
+                            InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
+                        StateHasChanged();
+                    },
+                    onCompleted: async () =>
+                    {
+                        _logger.LogInformation("InactivityTimeoutCacheModel observation completed");
+                    },
+                    onError: async (Exception error) =>
+                    {
+                        _logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);
+                    },
+                    logger: _logger
+                );
 
         // Subscribe to and handle messages from background worker via messaging service
         appBwMessagingService.Subscribe(
-            onNext: (message) => {
+            onNext: (message) =>
+            {
                 _logger.LogInformation("App from BW/MessagingService: type={type}, requestId={requestId}",
                     message.Type, message.RequestId);
                 // Handle specific message types if needed
                 // For now, just log
             },
-            onError: (error) => {
+            onError: (error) =>
+            {
                 _logger.LogError(error, "Error from BW messaging service");
             },
-            onCompleted: () => {
+            onCompleted: () =>
+            {
                 _logger.LogInformation("BW messaging service completed");
             }
         );
@@ -121,9 +130,79 @@
         // https://chatgpt.com/c/691a021b-c780-8333-9f4d-f848f23f50dd
         var message = new AppBwUserActivityMessage(); // AppBwMessage<AppBwUserActivityMessage>(AppBwMessageTypes.USER_ACTIVITY, 0, null);
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+
+        _logger.LogInformation("OnInitializedAsync NavigateIfNeeded");
+        await NavigateIfNeeded();
+        _logger.LogInformation("OnInitializedAsync complete");
         return;
     }
 
+    // NavigateIfNeeded checks AppCache state and navigates to appropriate page if needed, assuring the app is always configured, initialized, unlocked, authenticated, connected, etc. in the necessary order
+    async Task NavigateIfNeeded()
+    {
+        if (!a.MyOnboardState.IsWelcomed)
+        {
+            navManager.NavigateTo(RouteToWelcome);
+            return;
+        }
+        if (!a.IsInstallAcknowledged)
+        {
+            navManager.NavigateTo(RouteToNewRelease);
+            return;
+        }
+        if (!a.IsTosAgreed)
+        {
+            navManager.NavigateTo(RouteToTerms);
+            return;
+        }
+        if (!a.IsPrivacyAgreed)
+        {
+            navManager.NavigateTo(RouteToPrivacy);
+            return;
+        }
+        // Passing above conditions must equate to IsProductOnboarded
+        if (!a.IsProductOnboarded)
+        {
+            _logger.LogError("NavigateIfNeeded: Not ProductOnboarded");
+            return;
+        }
+        if (!a.IsConfigured)
+        {
+            navManager.NavigateTo(RouteToConfigure);
+            return;
+        }
+        // Passing the above conditions must equate to IsInitialized
+        if (!a.IsInitialized)
+        {
+            _logger.LogError("NavigateIfNeeded: Not Initialized");
+            return;
+        }
+        if (!a.IsUnlocked)
+        {
+            navManager.NavigateTo(RouteToUnlock);
+            return;
+        }
+        if (!a.IsAuthenticated)
+        {
+            _logger.LogError("NavigateIfNeeded: Not Authenticated");
+            return;
+        }
+        if (!a.IsIdentifierFetched)
+        {
+            navManager.NavigateTo(RouteToConnecting);
+            return;
+        }
+        // Passing the above conditions must equate to IsConnectedToKeria
+        if (!a.IsConnectedToKeria)
+        {
+            _logger.LogError("NavigateIfNeeded: Not ConnectedToKeria");
+            return;
+        }
+        // TODO P1 should navigate here to Dashboard or important to leave other current page as is?  Check also for popup and sidepanel context
+        _logger.LogWarning("NavigateIfNeeded: No re-route conditions detected.");
+    }
+
+    /*
     async Task HandleNextFromStateService(IStateService.States updatedState)
     {
         switch (CurrentState, updatedState)
@@ -141,6 +220,7 @@
                 break;
         }
     }
+    */
 
     async Task HandleErrorFromStateService(Exception error)
     {
@@ -157,10 +237,13 @@
         await preferencesService.SetPreferences(Prefs with { IsDarkTheme = !Prefs.IsDarkTheme });
     }
 
+    // TODO P2 implement Dispose pattern if needed
+    /*
     public void Dispose()
     {
         preferencesStorageObserver?.Dispose();
     }
+    */
 
     async Task HandleNextPreferences(Preferences value)
     {
@@ -192,17 +275,20 @@
         var res = await staticStorageService.Clear(StorageArea.Session);
         return;
     }
+    // TODO P2 update PageTitle dynamically based on current page? or just KERI Auth?
 }
+
 
 <PageTitle>KERI Auth</PageTitle>
 <CascadingValue Value="Prefs">
     <CascadingValue Value="InactivityTimeoutCache">
         <Router AppAssembly="@typeof(Program).Assembly">
             <Found Context="routeData">
+                <PageTitle>1 @routeData.RouteValues.ToList().ToString() Loading application assembly...</PageTitle>
                 <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
             </Found>
             <NotFound>
-                <PageTitle>Loading application assembly...</PageTitle>
+                <PageTitle>2 Loading application assembly...</PageTitle>
                 <LayoutView>
                     <h1>Page not found</h1>
                     <p role="alert">Sorry, there's nothing at this address.</p>

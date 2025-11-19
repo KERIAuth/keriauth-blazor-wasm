@@ -21,6 +21,11 @@
             @* TODO P3 implement a Connecting... spinner and text here *@
             <MudText>TODO - not yet implemented</MudText>
         </MudStack>
+        <MudContainer id="@this.GetType().Name" Class="bt-body-page">
+            <MudPaper Style="width:100vw; height: 90vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+            </MudPaper>
+        </MudContainer>
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <!-- <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />

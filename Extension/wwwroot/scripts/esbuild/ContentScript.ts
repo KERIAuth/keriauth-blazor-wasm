@@ -267,8 +267,7 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
     }
 
     // handle messages from current page
-    console.log(`KeriAuthCs←Page: ${event.data.type}`);
-    console.log(event.data);
+    console.log(`KeriAuthCs←Page: type: ${event.data.type} data: ${event.data}`);
     try {
         const requestId = event.data.requestId;
         switch (event.data.type) {

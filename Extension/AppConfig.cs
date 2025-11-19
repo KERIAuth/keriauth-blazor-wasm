@@ -3,19 +3,17 @@ using MudBlazor.Utilities;
 
 namespace Extension {
     public static class AppConfig {
-        // Routes
-        // These must match the fixed @page string values in .razor files. Could write unit tests to confirm consistency, but can't have a correct-by-construction consistency :-(
+        // Routes, which must match the fixed @page string values in .razor files.
         public const string RouteToIdentifiers = "/Identifiers.html";
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
-        public const string RouteToIndex = "/";
+        public const string RouteToIndex = "/";       // TODO P2 unify with RouteToIndexHtml ? or describe the distinction better. 
         public const string RouteToIndexHtml = "/index.html";
         public const string RouteToDelete = "/Delete.html";
-        public const string RouteToNewInstall = "/NewInstall.html";
         public const string RouteToHome = "/Home.html";
-        public const string RouteToDashboard = "/DashboardPage.html";
-        public const string RouteToTermsPage = "/Terms.html";
-        public const string RouteToPrivacyPage = "/Privacy.html";
+        public const string RouteToDashboard = "/Dashboard.html";
+        public const string RouteToTerms = "/Terms.html";
+        public const string RouteToPrivacy = "/Privacy.html";
         public const string RouteToManagePrefs = "/ManagePreferences.html";
         public const string RouteToManageAgents = "/KeriAgentService.html";
         public const string RouteToWelcome = "/Welcome.html";
@@ -26,17 +24,18 @@ namespace Extension {
         public const string RouteToUnlock = "/Unlock.html";
         public const string RouteToSidePanel = "/SidePanel.html";
         public const string RouteToTest = "/Test.html";
+        public const string RouteToConnecting = "/Connecting.html";
+
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
             RouteToDelete,
-            RouteToNewInstall,
             RouteToWelcome,
             RouteToNewRelease,
             RouteToConfigure,
             RouteToUnlock,
             RouteToManagePrefs,
-            RouteToTermsPage,
-            RouteToPrivacyPage,
+            RouteToTerms,
+            RouteToPrivacy,
             RouteToSidePanel,
             RouteToTest,
         ];

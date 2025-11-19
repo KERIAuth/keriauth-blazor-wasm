@@ -28,7 +28,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // _logger.LogInformation("OnInitializedAsync");
+        logger.LogInformation("OnInitializedAsync");
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -39,17 +39,24 @@
 
     async Task AcknowledgeWelcome()
     {
+        logger.LogInformation("AcknowledgeWelcome...");
         var res = await storageService.GetItem<OnboardState>();
         // _logger.LogWarning("pre-stored OnboardStateRes: {s}", res);
+        var onboardState = new OnboardState();
         if (res.IsFailed || res.Value is null)
         {
-            throw new Exception("OnboardState not found");
+            logger.LogInformation("AcknowledgeWelcome: creating new onboardState");
+        } else
+        {
+            onboardState = res.Value;
         }
-        var onboardState = res.Value;
         onboardState = onboardState with { IsWelcomed = true };
         await storageService.SetItem(onboardState);
+        logger.LogInformation("AcknowledgeWelcome set onboardState");
 
+        // TODO P2 App should reactively detect onboardState.IsWelcomed and Navigate accordingly
         navManager.NavigateTo(RouteToIndex);
+        // navManager.NavigateTo(RouteToIndexHtml);
         return;
     }
 }
