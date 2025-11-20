@@ -14,7 +14,7 @@ public static class StorageServiceExtensions {
     /// <param name="onNext">Callback when value changes</param>
     /// <param name="onError">Optional error handler</param>
     /// <param name="onCompleted">Optional completion handler</param>
-    /// <param name="logger">Optional _logger</param>
+    /// <param name="logger">Optional logger</param>
     /// <returns>Disposable observer subscription</returns>
     public static StorageObserver<T> CreateObserver<T>(
         this IStorageService storageService,

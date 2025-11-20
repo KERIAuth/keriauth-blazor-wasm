@@ -40,7 +40,7 @@ namespace Extension.Services {
                     return Result.Fail<CredentialWithPRF>(initResult.Errors);
                 }
                 var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
-                // _logger.LogWarning("credential: {c}", credential);
+                // logger.LogWarning("credential: {c}", credential);
                 return Result.Ok(credential);
             }
             catch (JSException jsEx) {
@@ -67,7 +67,7 @@ namespace Extension.Services {
         };
 
         public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64) {
-            // _logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
+            // logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
             try {
                 // Attempt to authenticate the credential and re-compute the encryption key
                 var initResult = await Initialize();
@@ -97,7 +97,7 @@ namespace Extension.Services {
         }
 
         private static string GetEncryptKeyBase64(string encryptKey) {
-            // _logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
+            // logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
 
             // Step 1: Adjust the raw key to ensure 32 credentialIdBytes (256 bits)
             byte[] rawKeyBytes = Encoding.UTF8.GetBytes(encryptKey);
@@ -108,7 +108,7 @@ namespace Extension.Services {
 
             // Step 2: Convert the adjusted raw key to Base64
             string encryptKeyBase64 = Convert.ToBase64String(adjustedKeyBytes);
-            // _logger.LogWarning("encryptKeyBase64 adjusted length (chars): {b}", encryptKeyBase64.Length);
+            // logger.LogWarning("encryptKeyBase64 adjusted length (chars): {b}", encryptKeyBase64.Length);
 
             return encryptKeyBase64;
         }
@@ -136,7 +136,7 @@ namespace Extension.Services {
             // First, some prep
             CredentialWithPRF credential = credentialRet.Value;
             string credentialIdBase64Url = credential.CredentialId;
-            // _logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
+            // logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
             List<string> credentialIds = [];
             credentialIds.Add(credentialIdBase64Url);
 
@@ -186,9 +186,9 @@ namespace Extension.Services {
                     var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedPasscodeBase64);
                     byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
                     string plainTextPasscode = Encoding.UTF8.GetString(dataBytes);
-                    // _logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainTextPasscode, passcode);
+                    // logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainTextPasscode, passcode);
                     if (plainTextPasscode != passcode) {
-                        // _logger.LogError("passcode failed to encrypt-decrypt");
+                        // logger.LogError("passcode failed to encrypt-decrypt");
                         return Result.Fail("passcode failed to encrypt-decrypt");
                     }
 
@@ -227,6 +227,7 @@ namespace Extension.Services {
             }
         }
 
+        // TODO P2 migrate to Result pattern
         public async Task<RegisteredAuthenticators> GetRegisteredAuthenticators() {
             await Initialize();
 
@@ -261,7 +262,7 @@ namespace Extension.Services {
                 logger.LogWarning("Failed to get result from authenticator");
                 return Result.Fail("Failed to get result from authenticator");
             }
-            // _logger.LogWarning("success value: {s}", authenticateCredResult.Value);
+            // logger.LogWarning("success value: {s}", authenticateCredResult.Value);
 
             // Find the registered authenticator matching the credentialID, decrypt its encrypted passcode, and return that
             foreach (var registeredCred in ras.Authenticators) {
@@ -269,10 +270,10 @@ namespace Extension.Services {
                     try {
                         string encryptKeyBase64 = GetEncryptKeyBase64(authenticateCredResult.Value.EncryptKey);
                         var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, registeredCred.EncryptedPasscodeBase64);
-                        // _logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
+                        // logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
                         byte[] decryptedPasscodeBytes = Convert.FromBase64String(decryptedPasscode);
                         string decryptedPlaintextPasscode = Encoding.UTF8.GetString(decryptedPasscodeBytes);
-                        // _logger.LogWarning("plainText {p}", decryptedPlaintextPasscode);
+                        // logger.LogWarning("plainText {p}", decryptedPlaintextPasscode);
                         return Result.Ok(decryptedPlaintextPasscode);
                     }
                     catch {

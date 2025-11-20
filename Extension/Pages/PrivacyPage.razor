@@ -52,7 +52,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
-		// _logger.LogInformation("OnInitializedAsync");
+		logger.LogInformation("OnInitializedAsync");
 		privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
 
 		var res = await storageService.GetItem<OnboardState>();
@@ -61,7 +61,6 @@
 			throw new InvalidOperationException("Failed to get OnboardState");
 		}
 		onboardState = res.Value;
-		await nextButton!.FocusAsync(); // TODO P2 temporary for testing
 	}
 
 	private async Task OnTermsAgreed()
@@ -79,6 +78,15 @@
 		StateHasChanged();
 		navManager.NavigateTo(RouteToIndex);
 	}
+
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        if (isFirstRender && nextButton is not null)
+            // TODO P2 remove after testing, if explicit accept is expected
+            await nextButton.FocusAsync();
+    }
+
+
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">

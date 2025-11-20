@@ -8,18 +8,18 @@ namespace Extension.Services;
 
 public class WebsiteConfigService(IStorageService storageService, ILogger<WebsiteConfigService> logger) : IWebsiteConfigService {
     public async Task<Result<WebsiteConfigList?>> GetList() {
-        // _logger.LogInformation("Getting websites from storage");
+        // logger.LogInformation("Getting websites from storage");
         return await storageService.GetItem<WebsiteConfigList>();
     }
 
     private async Task<Result<WebsiteConfig?>> Get(Uri originUri) {
         var res = await GetList();
         if (res.IsFailed) {
-            // _logger.LogError("Get: could not fetch websites from storage {websites}", res);
+            // logger.LogError("Get: could not fetch websites from storage {websites}", res);
             return Result.Fail("Get: could not fetch websites from storage");
         }
         if (res.Value is null) {
-            // _logger.LogError("Get: websites is null");
+            // logger.LogError("Get: websites is null");
             return Result.Fail("Get: websites is null");
         }
         var website = res.Value.WebsiteList.Find(w => w.Origin == originUri);
@@ -34,7 +34,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
 
         var websitesResult = await GetList();
         if (websitesResult.IsFailed) {
-            // _logger.LogError("Add: could not fetch websites from storage {res}", websitesResult);
+            // logger.LogError("Add: could not fetch websites from storage {res}", websitesResult);
             return Result.Fail("Add: could not fetch websites from storage");
         }
 
@@ -57,7 +57,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         var websitesResult = await GetList();
         if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null) {
             Debug.Assert(websitesResult is not null, "websitesResult != null");
-            // _logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
+            // logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
             return Result.Fail("Update: could not fetch websites from storage");
         }
 
@@ -71,7 +71,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("could not save updated websites to storage");
         }
 
-        // _logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(wcl));
+        // logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(wcl));
         return Result.Ok();
     }
 
@@ -79,7 +79,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         var websitesResult = await GetList();
         if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null) {
             Debug.Assert(websitesResult is not null, "websitesResult != null");
-            // _logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
+            // logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
             return Result.Fail("Update: could not fetch websites from storage");
         }
 
@@ -115,15 +115,15 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
     }
 
     public async Task<Result<(WebsiteConfig websiteConfig1, bool isConfigNew)>> GetOrCreateWebsiteConfig(Uri originUri) {
-        // _logger.LogInformation("GetOrCreateWebsiteConfig Uri {uri}", originUri);
+        // logger.LogInformation("GetOrCreateWebsiteConfig Uri {uri}", originUri);
         WebsiteConfigList websiteConfigList;
         var getWebsitesRes = await GetList();
         if (getWebsitesRes is null || getWebsitesRes.IsFailed) {
-            // _logger.LogError("Error in websiteService {err}", getWebsitesRes?.Errors);
+            // logger.LogError("Error in websiteService {err}", getWebsitesRes?.Errors);
             return Result.Fail(error: getWebsitesRes?.Errors[0]);
         }
         else {
-            // _logger.LogInformation("getOrCreateWebsiteConfig: from storage: {res}", JsonSerializer.Serialize(getWebsitesRes));
+            // logger.LogInformation("getOrCreateWebsiteConfig: from storage: {res}", JsonSerializer.Serialize(getWebsitesRes));
 
             if (getWebsitesRes.Value is null) {
                 // This is the first website configured. Need to first add the Websites collection
@@ -131,11 +131,11 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 websiteConfigList = new WebsiteConfigList(WebsiteList: [new WebsiteConfig(originUri, [], null, null, false, false, true)]);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed) {
-                    // _logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
+                    // logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
                     return Result.Fail(error: setItemRes.Errors[0]);
                 }
                 else {
-                    // _logger.LogInformation("Added websites to database");
+                    // logger.LogInformation("Added websites to database");
                 }
             }
             else {
@@ -144,7 +144,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
 
             // Find the website in the collection
             var websiteConfigOrNothing = websiteConfigList.WebsiteList.FirstOrDefault<WebsiteConfig>(a => a.Origin == originUri);
-            // _logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
+            // logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
             if (websiteConfigOrNothing is null) {
                 logger.LogInformation("Adding websiteConfig for {originUri}", originUri);
                 WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, true);
@@ -152,7 +152,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed) {
-                    // _logger.LogError("getOrCreateWebsite: Error adding website to database: {err}", setItemRes.Errors);
+                    // logger.LogError("getOrCreateWebsite: Error adding website to database: {err}", setItemRes.Errors);
                     return Result.Fail(error: setItemRes.Errors[0]);
                 }
                 else {

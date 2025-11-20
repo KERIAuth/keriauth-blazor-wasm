@@ -7,7 +7,7 @@ namespace Extension {
         public const string RouteToIdentifiers = "/Identifiers.html";
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
-        public const string RouteToIndex = "/";       // TODO P2 unify with RouteToIndexHtml ? or describe the distinction better. 
+        public const string RouteToIndex = "/IndexPage.html";  // Distinct from /index.html to be able to distinguish routed page versus page refreshes
         public const string RouteToIndexHtml = "/index.html";
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToHome = "/Home.html";

@@ -37,7 +37,7 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
     /// <param name="onNext">Callback when value changes (optional, defaults to no-op)</param>
     /// <param name="onError">Optional error handler</param>
     /// <param name="onCompleted">Optional completion handler</param>
-    /// <param name="logger">Optional _logger for diagnostics</param>
+    /// <param name="logger">Optional logger for diagnostics</param>
     public StorageObserver(
         IStorageService storageService,
         StorageArea storageArea,

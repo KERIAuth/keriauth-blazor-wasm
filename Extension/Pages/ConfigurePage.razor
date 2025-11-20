@@ -10,6 +10,8 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject AppCache a 
+@* TODO P2: note not subscribing to updates for AppCache? *@
 @using FluentResults
 
 @code {
@@ -168,7 +170,7 @@
             if (!postResult.IsSuccess)
             {
                 const string message = "KERIA service is not reachable";
-                // _logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
+                // logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
                 ops1CheckLiveness.SetCompletedWithError(message);
                 return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, message));
             }
@@ -224,7 +226,7 @@
                 return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage"));
             }
             // store the SessionExpiry time
-            var sessionExpiry = DateTime.UtcNow.AddMinutes(App.Prefs.InactivityTimeoutMinutes);
+            var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
             var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
                 new SessionExpiration { SessionExpirationUtc = sessionExpiry },
                 StorageArea.Session
@@ -284,13 +286,13 @@
             // Set a default Prefix
             await storageService.SetItem<Preferences>(new Preferences { SelectedPrefix = identifiers.Aids.First().Prefix });
         }
-        // _logger.LogWarning("ConnectToKeria 3");
+        // logger.LogWarning("ConnectToKeria 3");
         if (nextButton is not null)
             await nextButton.FocusAsync();
-        // _logger.LogWarning("ConnectToKeria 4");
+        // logger.LogWarning("ConnectToKeria 4");
         return Result.Ok(new KeriaConnectionInfo() {
                 Config = KeriaConnectConfig!,
-                SessionExpirationUtc = DateTime.UtcNow.AddMinutes(App.Prefs.InactivityTimeoutMinutes), // min
+                SessionExpirationUtc = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes),
                 IdentifiersList = [identifiers],
                 AgentPrefix = clientRes.Value.Agent!.I,
             // ControllerPrefix = clientRes.Value.Controller!.State!.I,
@@ -304,7 +306,7 @@
         IsProcessing = true;
         StateHasChanged();
         var connectionResult = await ConnectToKeria();
-        // _logger.LogWarning("tmp finished ConnectoToKeria");
+        // logger.LogWarning("tmp finished ConnectoToKeria");
         if (connectionResult.IsSuccess)
         {
             IsConnected = true;
@@ -349,7 +351,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <MudStack Style="min-width: 340px; width:100%; margin-right:16px;">
-            <MudText Typo="Typo.h6">Configure KERI Agent</MudText>
+            <MudText Typo="Typo.h6">Connect with KERI Agent Service (KERIA)</MudText>
             <MudStack>
                 <MudText Typo="Typo.h6">Service</MudText>
                 <MudSelect T="Preset" Label="Provider Preset" @bind-Value="@PresetChoice">

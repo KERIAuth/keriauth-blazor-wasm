@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+﻿// using System.Globalization;
 using System.Text.Json.Serialization;
 using Extension.Models.Storage;
 using FluentResults;
@@ -8,9 +8,7 @@ namespace Extension.Models {
         [JsonConstructor]
         public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null) {
             ProviderName = providerName;
-#pragma warning disable CA1305 // Specify IFormatProvider
-            Alias = "Created " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC";
-#pragma warning restore CA1305 // Specify IFormatProvider
+            Alias = ""; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC";
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
             PasscodeHash = passcodeHash;

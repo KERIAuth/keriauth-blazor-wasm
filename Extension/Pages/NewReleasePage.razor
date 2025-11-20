@@ -92,7 +92,7 @@
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        if (/* isFirstRender && */ buttonRef is not null)
+        if (isFirstRender && buttonRef is not null)
             await buttonRef.FocusAsync();
     }
 
@@ -124,14 +124,14 @@
         <MudStack Style="max-width:-webkit-fill-available">
             @if (MyOnboardState is null || MyOnboardState.InstallVersionAcknowledged is null)
             {
-                <MudText Typo="Typo.h6">Fresh Install</MudText>
+                <MudText Typo="Typo.h6">New Release - Fresh Install</MudText>
                 <MudText>
                     KERI Auth version @ManifestVersion has been installed.
                 </MudText>
             }
             else
             {
-                <MudText Typo="Typo.h6">Updated Release Installed</MudText>
+                <MudText Typo="Typo.h6">New Release - Update Installed</MudText>
                 if (MyUpdateDetails is null || MyUpdateDetails.CurrentVersion == MyUpdateDetails.PreviousVersion)
                 {
                     <!-- reloaded can occur via DevTools, loading an unpacked extension -->

@@ -83,12 +83,12 @@
                 logger.LogInformation("TabId from query string: {tabId}", tabId);
             }
         }
-        // _logger.LogInformation($"URI query: {initialUriQuery}");
+        // logger.LogInformation($"URI query: {initialUriQuery}");
         // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
         {
             var decodedMsg = HttpUtility.UrlDecode(outterMessage);
-            // _logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
+            // logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
             var decodedMsg2 = HttpUtility.UrlDecode(decodedMsg);
             logger.LogInformation("Chrome URI query message decoded2: {msg}", decodedMsg2);
 
@@ -113,10 +113,10 @@
                 {
                     string requestId3 = requestId2.GetString() ?? String.Empty;
                     requestId = requestId3;
-                    // _logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
+                    // logger.LogInformation("Chrome URI query requestId: '{0}'", requestId);
                 }
 
-                // _logger.LogInformation("Processing message of type: {t}", type);
+                // logger.LogInformation("Processing message of type: {t}", type);
 
                 switch (type)
                 {
@@ -305,15 +305,15 @@
     {
         get
         {
-            // _logger.LogWarning("isSignInDisabled: RequestedSignInMode: {m} SelectedCredentialOrNothing: {s}", RequestedSignInMode, SelectedCredentialOrNothing?.GetType().ToString() );
+            // logger.LogWarning("isSignInDisabled: RequestedSignInMode: {m} SelectedCredentialOrNothing: {s}", RequestedSignInMode, SelectedCredentialOrNothing?.GetType().ToString() );
             if (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null))
             {
-                // _logger.LogWarning("isSignInDisabled {b}", true);
+                // logger.LogWarning("isSignInDisabled {b}", true);
                 return true;
             }
             else
             {
-                // _logger.LogWarning("isSignInDisabled {b}", false);
+                // logger.LogWarning("isSignInDisabled {b}", false);
                 return false;
             }
         }

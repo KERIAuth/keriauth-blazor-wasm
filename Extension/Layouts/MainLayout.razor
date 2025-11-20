@@ -20,18 +20,13 @@
 @implements IDisposable
 
 @code {
-    // CascadingParameters will also update from App's StateHasChanged(), triggering OnParametersAsync()
-    [CascadingParameter]
-    public Preferences Prefs { get; set; } = new();
-    [CascadingParameter]
-    public SessionExpiration? InactivityTimeoutCache { get; set; }
-
     // fields...
     static public IJSObjectReference? utilModule;
     const string miniWidth = "var(--mud-drawer-mini-width-left)";
     const string openWidth = "var(--mud-drawer-width-left)";
     string version = "";
     string version_name = "";
+    bool isInPopup;
 
     // properties...
     bool IsProfilePanelOpen { get; set; }
@@ -45,12 +40,10 @@
     string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
     static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
-
-
-
-    bool isInPopup;
+    TimeSpan SessionDurationRemaining => a.MySessionExpiration.SessionExpirationUtc - DateTime.UtcNow;
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
+        // TODO P2 consider SidePanel variant if implemented
         (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
         (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
         (true, DrawerVariant.Persistent) => $" width:calc(100vw - {openWidth}); ",
@@ -58,7 +51,6 @@
         (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-    TimeSpan? SessionDurationRemaining => InactivityTimeoutCache is not null ? InactivityTimeoutCache.SessionExpirationUtc - DateTime.UtcNow : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -139,6 +131,7 @@
         }
 
         /*
+        // TODO P2  Session Timeout Indicator update logic
         // Since InactivityTimeoutCache may have changed via [CascadingParameter] from App, recognize that updated record and reset the session timer update
         logger.LogInformation("OnParametersSetAsync InactivityTimeoutCache.SessionExpirationUtc: {u}", InactivityTimeoutCache?.SessionExpirationUtc.ToString("u"));
         StateHasChanged();
@@ -155,7 +148,7 @@
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        await storageService.SetItem<Preferences>(Prefs with { SelectedPrefix = prefix });
+        await storageService.SetItem<Preferences>(a.MyPreferences with { SelectedPrefix = prefix });
     }
 
     async Task ClickToggleProfilePanel(MouseEventArgs _)
@@ -190,7 +183,7 @@
 }
 
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="App.Prefs.IsDarkTheme" />
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="a.MyPreferences.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
@@ -206,11 +199,11 @@
             </MudButton>
             <!-- Timeout Indicator -->
             <MudStack Row="true" Style="margin-left:16px; height:35px; display:flex; align-items:center;">
-                @if (a.IsAuthenticated && SessionDurationRemaining is not null && SessionDurationRemaining.Value.TotalSeconds > 0)
+                @if (a.IsAuthenticated && SessionDurationRemaining.TotalSeconds > 0)
                 {
                     // TODO P2 set this as a reactive property
                     <MudText Typo="Typo.caption" Style="color:white;">
-                        Session expires in @($"{(int)SessionDurationRemaining!.Value.TotalMinutes}m {SessionDurationRemaining!.Value.Seconds}s")
+                        Session expires in @($"{(int)SessionDurationRemaining.TotalMinutes}m {SessionDurationRemaining.Seconds}s")
                     </MudText>
                 }
                 else
@@ -229,7 +222,7 @@
                     {
                         <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
-                                <MudIcon Icon="@Icons.Material.Filled.Link" @onclick="async () => await RefreshConnect()" />
+                                <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!a.IsConfigured)" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
                         </MudTooltip>
                     }
@@ -237,7 +230,7 @@
                     {
                         <MudTooltip Text="Not Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
-                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />
+                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" Disabled="@(!a.IsConfigured)" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
                         </MudTooltip>
                     }
@@ -246,7 +239,7 @@
                 {
                     <MudTooltip Text="KERI Auth is locked" Arrow="true" Placement="Placement.Left" Delay="1000">
                         <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-primary)">
-                            <MudIcon Icon="@Icons.Material.Filled.Lock" @onclick="() => navManager.NavigateTo(AppConfig.RouteToUnlock)" />
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Disabled="@(!a.IsConfigured)" @onclick="() => navManager.NavigateTo(AppConfig.RouteToUnlock)" />
                         </MudPaper>
                     </MudTooltip>
                 }
@@ -321,7 +314,7 @@
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!a.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     @if (a.IsAuthenticated)
                     {
-                        <MudNavLink OnClick="async () => await App.LockApp()" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                        <MudNavLink OnClick="async () => await storageService.Clear(StorageArea.Session)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     }
                     else
                     {

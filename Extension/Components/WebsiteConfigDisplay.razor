@@ -50,7 +50,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        // _logger.LogInformation("OnParametersSetAsync");
+        // logger.LogInformation("OnParametersSetAsync");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -145,7 +145,7 @@
 
     private async Task getInitialIdentifiers()
     {
-        // _logger.LogWarning("GetInitialIdentifiers() ...");
+        // logger.LogWarning("GetInitialIdentifiers() ...");
         var res = await signifyClientService.GetIdentifiers();
         if (res?.IsSuccess == true && res.Value?.Aids is not null)
         {
@@ -156,7 +156,7 @@
             throw new Exception("unexpected null identifiers");
         }
         // StateHasChanged(); // TODO needed?
-        // _logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
+        // logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
     }
 
     // TODO P2 DRY move this filterCredentials to a helper
@@ -181,7 +181,7 @@
                 }
             }
         }
-        // _logger.LogWarning("filteredCredentials: count: {c} ", filteredCredentials.Count);
+        // logger.LogWarning("filteredCredentials: count: {c} ", filteredCredentials.Count);
         return filteredCredentials;
     }
 
@@ -246,7 +246,7 @@
             logger.LogError($"updateSelectedCredential: Could not find SAID of credential");
             return;
         }
-        // _logger.LogWarning("updateSelectedCredential credSaid: ", newCredSaidOrNothing);
+        // logger.LogWarning("updateSelectedCredential credSaid: ", newCredSaidOrNothing);
 
         var newWebsiteConfig = ThisWebsiteConfig with
             {

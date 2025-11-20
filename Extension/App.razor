@@ -7,7 +7,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime jsRuntime
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject ILogger<App> _logger
+@inject ILogger<App> logger
 @inject IStorageService storageService
 @inject IAppBwMessagingService appBwMessagingService
 @inject AppCache a
@@ -16,7 +16,7 @@
 
 @code {
     // fields
-    private static IStorageService? staticStorageService;
+    // private static IStorageService? staticStorageService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
     // private IDisposable? stateSubscription;
@@ -30,82 +30,64 @@
     public SessionExpiration? InactivityTimeoutCache { get; set; }
 
     // reactive properties
-    public static bool IsDarkTheme => Prefs.IsDarkTheme;
-    
+    // public static bool IsDarkTheme => Prefs.IsDarkTheme;
+
     protected override async Task OnInitializedAsync()
     {
-        _logger.LogInformation($"OnInitializedAsync");
+        logger.LogInformation($"OnInitializedAsync");
         // TODO P2 hack. Instead, create a StaticHelper static class that has injected methods
         staticNavManager = navManager;
-        staticLogger = _logger;
-        staticStorageService = storageService;
+        staticLogger = logger;
+        // staticStorageService = storageService;
 
         // Initialize services as needed
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
 
-        // observer for changes to Preferences
         preferencesStorageObserver = new StorageObserver<Preferences>(
             storageService,
             StorageArea.Local,
-            onNext: async (Preferences value) => await HandleNextPreferences(value),
+            onNext: async (Preferences value) => StateHasChanged(),
             onError: async (Exception error) => await HandleErrorPreferences(error),
-            logger: _logger
+            logger: logger
         );
 
-        // TODO P1 instead, use onNext() of storage observer
-        /*
-        var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
-        Prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
-        await HandleNextPreferences(Prefs);
-        */
-
-        /*
-        // observer for changes to AppState
-        stateSubscription = stateService.Subscribe(
-        onNext: async (IStateService.States value) => await HandleNextFromStateService(value),
-        onError: async (Exception error) => await HandleErrorFromStateService(error),
-        onCompleted: async () => await HandleCompletedFromStateService()
+        sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
+            storageService,
+            StorageArea.Session,
+            onNext: async (SessionExpiration updatedValue) =>
+            {
+                InactivityTimeoutCache = updatedValue;
+                logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
+                    InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
+                StateHasChanged();
+            },
+            onCompleted: async () =>
+            {
+                logger.LogInformation("InactivityTimeoutCacheModel observation completed");
+            },
+            onError: async (Exception error) =>
+            {
+                logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);
+            },
+            logger: logger
         );
-        */
-
-                // observer for changes to SessionExpirationUtc in storage (to update timeout indicator)
-                sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: async (SessionExpiration updatedValue) =>
-                    {
-                        InactivityTimeoutCache = updatedValue;
-                        _logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
-                            InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
-                        StateHasChanged();
-                    },
-                    onCompleted: async () =>
-                    {
-                        _logger.LogInformation("InactivityTimeoutCacheModel observation completed");
-                    },
-                    onError: async (Exception error) =>
-                    {
-                        _logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);
-                    },
-                    logger: _logger
-                );
 
         // Subscribe to and handle messages from background worker via messaging service
         appBwMessagingService.Subscribe(
             onNext: (message) =>
             {
-                _logger.LogInformation("App from BW/MessagingService: type={type}, requestId={requestId}",
+                logger.LogInformation("App from BW/MessagingService: type={type}, requestId={requestId}",
                     message.Type, message.RequestId);
                 // Handle specific message types if needed
                 // For now, just log
             },
             onError: (error) =>
             {
-                _logger.LogError(error, "Error from BW messaging service");
+                logger.LogError(error, "Error from BW messaging service");
             },
             onCompleted: () =>
             {
-                _logger.LogInformation("BW messaging service completed");
+                logger.LogInformation("BW messaging service completed");
             }
         );
 
@@ -121,95 +103,21 @@
         var message = new AppBwUserActivityMessage(); // AppBwMessage<AppBwUserActivityMessage>(AppBwMessageTypes.USER_ACTIVITY, 0, null);
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
-        _logger.LogInformation("OnInitializedAsync NavigateIfNeeded");
-        await NavigateIfNeeded();
-        _logger.LogInformation("OnInitializedAsync complete");
+        logger.LogInformation("OnInitializedAsync NavigateIfNeeded");
+        // TODO P0
+        // logger.LogWarning("Routing to index from Uri {i}", navManager.Uri);
+        // navManager.NavigateTo(RouteToIndex);
+        // await NavigateIfNeeded();
+        // logger.LogInformation("OnInitializedAsync complete");
         return;
-    }
-
-    // NavigateIfNeeded checks AppCache state and navigates to appropriate page if needed, assuring the app is always configured, initialized, unlocked, authenticated, connected, etc. in the necessary order
-    async Task NavigateIfNeeded()
-    {
-        if (!a.MyOnboardState.IsWelcomed)
-        {
-            navManager.NavigateTo(RouteToWelcome);
-            return;
-        }
-        if (!a.IsInstallAcknowledged)
-        {
-            navManager.NavigateTo(RouteToNewRelease);
-            return;
-        }
-        if (!a.IsTosAgreed)
-        {
-            navManager.NavigateTo(RouteToTerms);
-            return;
-        }
-        if (!a.IsPrivacyAgreed)
-        {
-            navManager.NavigateTo(RouteToPrivacy);
-            return;
-        }
-        // Passing above conditions must equate to IsProductOnboarded
-        if (!a.IsProductOnboarded)
-        {
-            _logger.LogError("NavigateIfNeeded: Not ProductOnboarded");
-            return;
-        }
-        if (!a.IsConfigured)
-        {
-            navManager.NavigateTo(RouteToConfigure);
-            return;
-        }
-        // Passing the above conditions must equate to IsInitialized
-        if (!a.IsInitialized)
-        {
-            _logger.LogError("NavigateIfNeeded: Not Initialized");
-            return;
-        }
-        if (!a.IsUnlocked)
-        {
-            navManager.NavigateTo(RouteToUnlock);
-            return;
-        }
-        if (!a.IsAuthenticated)
-        {
-            _logger.LogError("NavigateIfNeeded: Not Authenticated");
-            return;
-        }
-        if (!a.IsIdentifierFetched)
-        {
-            navManager.NavigateTo(RouteToConnecting);
-            return;
-        }
-        // Passing the above conditions must equate to IsConnectedToKeria
-        if (!a.IsConnectedToKeria)
-        {
-            _logger.LogError("NavigateIfNeeded: Not ConnectedToKeria");
-            return;
-        }
-        // TODO P1 should navigate here to Dashboard or important to leave other current page as is?  Check also for popup and sidepanel context
-        _logger.LogInformation("NavigateIfNeeded: No re-route conditions detected.");
-    }
-    
-    /*
-    public async Task ToggleDarkTheme()
-    {
-        await preferencesService.SetPreferences(Prefs with { IsDarkTheme = !Prefs.IsDarkTheme });
-    }
-    */
-
-    async Task HandleNextPreferences(Preferences value)
-    {
-        Prefs = value;
-        StateHasChanged(); // trigger updates to pages dependent on App's cascading properties, triggering OnParametersSetAsync and re-renders
     }
 
     async Task HandleErrorPreferences(Exception error)
     {
-        _logger.LogError("HandleErrorPreferences: " + error.Message);
+        logger.LogError("HandleErrorPreferences: " + error.Message);
     }
 
+    /*
     [JSInvokableAttribute("LockApp")]
     public static async Task LockApp()
     {
@@ -221,23 +129,21 @@
         var res = await staticStorageService.Clear(StorageArea.Session);
         return;
     }
+    */
 }
 
 <PageTitle>@AppConfig.ProductName</PageTitle>
-<CascadingValue Value="Prefs">
-    <CascadingValue Value="InactivityTimeoutCache">
-        <Router AppAssembly="@typeof(Program).Assembly">
-            <Found Context="routeData">
-                <PageTitle>@AppConfig.ProductName</PageTitle>
-                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-            </Found>
-            <NotFound>
-                <PageTitle>2 Loading application assembly...</PageTitle>
-                <LayoutView>
-                    <h1>Page not found</h1>
-                    <p role="alert">Sorry, there's nothing at this address.</p>
-                </LayoutView>
-            </NotFound>
-        </Router>
-    </CascadingValue>
-</CascadingValue>
+
+<Router AppAssembly="@typeof(Program).Assembly">
+    <Found Context="routeData">
+        <PageTitle>@AppConfig.ProductName</PageTitle>
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+    </Found>
+    <NotFound>
+        <PageTitle>2 Loading application assembly...</PageTitle>
+        <LayoutView>
+            <h1>Page not found</h1>
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

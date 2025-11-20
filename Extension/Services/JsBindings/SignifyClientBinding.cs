@@ -118,7 +118,7 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
         Module.InvokeAsync<string>("test");
 
     public ValueTask Ready() {
-        // _logger.LogWarning("SignifyClientBinding: Ready called. Module type FullName={Module}", Module.GetType().FullName);
+        // logger.LogWarning("SignifyClientBinding: Ready called. Module type FullName={Module}", Module.GetType().FullName);
         // TODO P2: consider awaiting this call?
         return Module.InvokeVoidAsync("ready");
     }

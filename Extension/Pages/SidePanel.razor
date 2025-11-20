@@ -7,7 +7,7 @@
 @using BrowserTabsActiveInfo = WebExtensions.Net.Tabs.ActiveInfo
 @using BrowserTabsHighlightInfo = WebExtensions.Net.Tabs.CallbackHighlightInfo
 @inherits Blazor.BrowserExtension.Pages.BasePage
-@inject ILogger<SidePanel> _logger;
+@inject ILogger<SidePanel> logger;
 @inject IJSRuntime JSRuntime;
 
 <div class="text-container">
@@ -94,7 +94,7 @@
 
         // Note: id and url are null here but will be null without "tabs" permission (or possibly getting here via OnAction
         // listener)
-        _logger.LogInformation("SidePanel initialized, active tab: t: {tab} id: {id} url: {url}",
+        logger.LogInformation("SidePanel initialized, active tab: t: {tab} id: {id} url: {url}",
         activeTab?.Title, activeTab?.Id, activeTab?.Url);
     }
 
@@ -107,7 +107,7 @@
     {
         activeTab = await WebExtensions.Tabs.Get(activeInfo.TabId);
 
-        _logger.LogInformation("SidePanel tab activated, active tab: t: {tab} id: {id} url: {url}",
+        logger.LogInformation("SidePanel tab activated, active tab: t: {tab} id: {id} url: {url}",
         activeTab?.Title, activeTab?.Id, activeTab?.Url);
         StateHasChanged();
     }
@@ -122,7 +122,7 @@
         if (activeTab?.Id == tabId)
         {
             activeTab = tab;
-            _logger.LogInformation("SidePanel tab updated, tab {tabId}: t: {tab} url: {url} status: {status}",
+            logger.LogInformation("SidePanel tab updated, tab {tabId}: t: {tab} url: {url} status: {status}",
             tabId, tab?.Title, tab?.Url, changeInfo?.Status);
             StateHasChanged();
         }
@@ -138,7 +138,7 @@
         if (activeTab?.Id == removedTabId)
         {
             activeTab = await WebExtensions.Tabs.Get(addedTabId);
-            _logger.LogInformation("SidePanel tab replaced, old: {oldId}, new: {newId}, title: {tab}",
+            logger.LogInformation("SidePanel tab replaced, old: {oldId}, new: {newId}, title: {tab}",
             removedTabId, addedTabId, activeTab?.Title);
             StateHasChanged();
         }
@@ -153,7 +153,7 @@
     {
         if (activeTab?.Id == tabId)
         {
-            _logger.LogInformation("SidePanel active tab removed: {tabId}, isWindowClosing: {isClosing}",
+            logger.LogInformation("SidePanel active tab removed: {tabId}, isWindowClosing: {isClosing}",
             tabId, removeInfo?.IsWindowClosing);
 
             if (!removeInfo?.IsWindowClosing ?? false)
@@ -178,7 +178,7 @@
         if (highlightInfo?.TabIds?.Any() == true)
         {
             activeTab = await WebExtensions.Tabs.Get(highlightInfo.TabIds.First());
-            _logger.LogInformation("SidePanel tab highlighted, tabs: [{tabIds}], title: {tab}",
+            logger.LogInformation("SidePanel tab highlighted, tabs: [{tabIds}], title: {tab}",
             string.Join(", ", highlightInfo.TabIds), activeTab?.Title);
             StateHasChanged();
         }

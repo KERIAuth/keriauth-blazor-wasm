@@ -1,9 +1,10 @@
 ﻿@page "/index.html"
-@page "/"
+@page "/IndexPage.html"
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Components
 
+@* IndexPage provides NavManager instance and others *@
 @inherits IndexPage
 @layout MainLayout
 
@@ -42,6 +43,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
+
         // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
         await this.SubscribeToAppCache(a, HandleAppCacheChanged);
 
@@ -90,7 +93,7 @@
             logger.LogError($"privacyHash {privacyHash} does not match expected {AppConfig.ExpectedPrivacyHash}");
         }
 
-        // Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
+        // TODO P2: Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
         // for how the following is placed into storage
         // bool isUpdated = false;
         var updateDetailsRes = await storageService.GetItem<UpdateDetails>();
@@ -99,69 +102,9 @@
             // isUpdated = true;
         }
 
-        /*
-        // Handle (re-)onboarding conditions if needed
-        if (!onboardState.ValidateOnboardingStatus().IsSuccess ||
-        isUpdated ||
-        onboardState.InstallVersionAcknowledged != CurrentVersion ||
-        onboardState.TosAgreedHash != termsHash ||
-        onboardState.PrivacyAgreedHash != privacyHash)
-        {
-            if (!onboardState.IsWelcomed)
-            {
-                navManager.NavigateTo(RouteToWelcome);
-                return;
-                }
-
-            if (onboardState.InstallVersionAcknowledged != CurrentVersion || isUpdated)
-            {
-                navManager.NavigateTo(RouteToNewRelease);
-                return;
-                }
-
-            if (onboardState.TosAgreedHash != termsHash)
-            {
-                navManager.NavigateTo(RouteToTerms);
-                return;
-                }
-
-            if (onboardState.PrivacyAgreedHash != privacyHash)
-            {
-                navManager.NavigateTo(RouteToPrivacy);
-                return;
-                }
-            }
-
-        // More onboarding if needed...
-        // Get KERIA configuration and if needed route to page for user to configure it
-        var configRes = await storageService.GetItem<KeriaConnectConfig>();
-        if (configRes.IsFailed || configRes.Value is null)
-        {
-            keriaConnectConfig = defaultKeriaConnectConfig;
-            await storageService.SetItem<KeriaConnectConfig>(keriaConnectConfig);
-            }
-        else
-        {
-            keriaConnectConfig = configRes.Value;
-            }
-        if (!keriaConnectConfig.ValidateConfiguration().IsSuccess)
-        {
-            navManager.NavigateTo(RouteToConfigure);
-            return;
-            }
-
-        // Now, route to appropriate page,
-        // depending on the application state and initial URL query (depending on interaction with a tab page)
-        var currentAppState = stateService.GetState();
-        logger.LogInformation($"currentAppState: {currentAppState}");
-        initialUriQuery = App.InitialUri?.Query ?? String.Empty;
-        // _logger.LogInformation($"initialUriQuery: {initialUriQuery}");
-        var initialUriQuery2 = HttpUtility.UrlDecode(initialUriQuery);
-        logger.LogInformation($"initialUriQuery2: {initialUriQuery2}");
-        _ = await HandleAppStateAsync(currentAppState, initialUriQuery2);
-        */
+        // TODO P0
         await HandleAppCacheChanged();
-        logger.LogInformation($"OnInitializedAsync done");
+        // logger.LogInformation($"OnInitializedAsync done");
     }
 
 
@@ -180,35 +123,48 @@
         }
     */
 
+   // NavigateIfNeeded navigates to newUrl only if not already on that page. In a browser refresh, this may be a build-generated copy of index.html versus the routed path
+   void NavigateIfNeeded(string newUrl)
+    {
+        // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
+        if (navManager.Uri.Contains(newUrl))
+        {
+            logger.LogWarning("Already on page {p}, so not navigating.");
+            return;
+        }
+        navManager.NavigateTo(newUrl);
+        return;
+    }
+
     // NavigateIfNeeded checks AppCache state and navigates to appropriate page if needed, assuring the app is always configured, initialized, unlocked, authenticated, connected, etc. in the necessary order
     async Task HandleAppCacheChanged()
     {
         logger.LogInformation("HandleAppCacheChanged");
-        logger.LogInformation("{x}", a.MyPreferences);
-        logger.LogInformation("{x}", a.MyOnboardState);
-        logger.LogInformation("{x}", a.MyKeriaConnectConfig);
-        logger.LogInformation("{x}", a.MyKeriaConnectionInfo);
-        logger.LogInformation("{x}", a.MyPasscodeModel);
-        logger.LogInformation("{x}", a.MySessionExpiration);
+        // logger.LogInformation("{x}", a.MyPreferences);
+        // logger.LogInformation("{x}", a.MyOnboardState);
+        // logger.LogInformation("{x}", a.MyKeriaConnectConfig);
+        // logger.LogInformation("{x}", a.MyKeriaConnectionInfo);
+        // logger.LogInformation("{x}", a.MyPasscodeModel);
+        // logger.LogInformation("{x}", a.MySessionExpiration);
 
         if (!a.MyOnboardState.IsWelcomed)
         {
-            navManager.NavigateTo(RouteToWelcome);
+            NavigateIfNeeded(RouteToWelcome);
             return;
         }
         if (!a.IsInstallAcknowledged)
         {
-            navManager.NavigateTo(RouteToNewRelease);
+            NavigateIfNeeded(RouteToNewRelease);
             return;
         }
         if (!a.IsTosAgreed)
         {
-            navManager.NavigateTo(RouteToTerms);
+            NavigateIfNeeded(RouteToTerms);
             return;
         }
         if (!a.IsPrivacyAgreed)
         {
-            navManager.NavigateTo(RouteToPrivacy);
+            NavigateIfNeeded(RouteToPrivacy);
             return;
         }
         // Passing above conditions must equate to IsProductOnboarded
@@ -219,7 +175,7 @@
         }
         if (!a.IsConfigured)
         {
-            navManager.NavigateTo(RouteToConfigure);
+            NavigateIfNeeded(RouteToConfigure);
             return;
         }
         // Passing the above conditions must equate to IsInitialized
@@ -230,7 +186,7 @@
         }
         if (!a.IsUnlocked)
         {
-            navManager.NavigateTo(RouteToUnlock);
+            NavigateIfNeeded(RouteToUnlock);
             return;
         }
         if (!a.IsAuthenticated)
@@ -240,7 +196,7 @@
         }
         if (!a.IsIdentifierFetched)
         {
-            navManager.NavigateTo(RouteToConnecting);
+            NavigateIfNeeded(RouteToConnecting);
             return;
         }
         // Passing the above conditions must equate to IsConnectedToKeria
@@ -251,8 +207,7 @@
         }
         // TODO P1 should navigate here to Dashboard or important to leave other current page as is?  Check also for popup and sidepanel context
         logger.LogInformation("HandleAppCacheChanged: No re-route conditions detected.");
-        navManager.NavigateTo(RouteToDashboard);
-
+        NavigateIfNeeded(RouteToDashboard);
     }
 
     public void Dispose() {

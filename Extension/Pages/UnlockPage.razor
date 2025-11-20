@@ -15,6 +15,8 @@
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
 @inject IWebauthnService webauthnService
+@inject AppCache a 
+@* TODO P2: note not subscribing to updates for AppCache? *@
 
 @code {
     // fields
@@ -24,7 +26,7 @@
     MudTextField<string>? passcodeField;
     MudButton? unlockWithAuthenticatorButton;
     string openWalletError = string.Empty;
-    KeriaConnectConfig? keriaConnectConfig;
+    KeriaConnectConfig keriaConnectConfig = new();
     private string taglineText = taglineAlternatives[0];
     private static string[] taglineAlternatives =
     {
@@ -82,24 +84,24 @@
     };
 
     // properties
-    RegisteredAuthenticators RAS { get; set; } = new RegisteredAuthenticators();
+    RegisteredAuthenticators RegisteredAuthenticators { get; set; } = new RegisteredAuthenticators();
     bool isValid { get; set; }
 
     // reactive properties
-    string NumberAuthenticatorsLabel => RAS.Authenticators.Count switch
+    string NumberAuthenticatorsLabel => RegisteredAuthenticators.Authenticators.Count switch
     {
         0 => "No authenticators registered",
         1 => "1 authenticator registered",
-        _ => $"{RAS.Authenticators.Count} authenticators registered"
+        _ => $"{RegisteredAuthenticators.Authenticators.Count} authenticators registered"
     };
-    bool CanUseAuthenticator => RAS.Authenticators.Any();
-    bool PrefersToUseAuthenticator => App.Prefs.PrefersToUseAuthenticator;
+    bool CanUseAuthenticator => RegisteredAuthenticators.Authenticators.Any();
+    bool PrefersToUseAuthenticator => a.MyPreferences.PrefersToUseAuthenticator;
     bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
-    string TimeoutDuration => App.Prefs.InactivityTimeoutMinutes switch
+    string TimeoutDuration => a.MyPreferences.InactivityTimeoutMinutes switch
     {
         0.5f => "30 seconds",
-        1 => "1 minutes",
-        _ => $"{App.Prefs.InactivityTimeoutMinutes} minutes"
+        1 => "1 minute",
+        _ => $"{a.MyPreferences.InactivityTimeoutMinutes} minutes"
     };
     string TimeoutNotice => "locked after " + TimeoutDuration + " of inactivity";
 
@@ -118,30 +120,13 @@
     {
         logger.LogInformation("OnParametersSetAsync");
 
-        // TODO P1: Although we expect to not be authenticated here, if we are (in case of a refresh or navigating back to Unlock), navigate to Home
-        // ...
+        keriaConnectConfig = a.MyKeriaConnectConfig;
 
-        // Get the KeriaConnectConfig
-        var res = await storageService.GetItem<KeriaConnectConfig>();
-        if (res.IsFailed || res.Value is null)
+        var getRasResult = await webauthnService.GetRegisteredAuthenticators();
+        if (getRasResult is not null)
         {
-            throw new Exception("Failed to get KeriaConnectConfig");
+            RegisteredAuthenticators = getRasResult;
         }
-        keriaConnectConfig = res.Value;
-
-        // check if there are already registeredAuthenticators
-        var res2 = await webauthnService.GetRegisteredAuthenticators();
-        if (res2 is not null)
-        {
-            RAS = res2;
-        }
-        else
-        {
-            // _logger.LogInformation("OnParametersSetAsync did not find registeredAuthenticators");
-        }
-        // _logger.LogInformation("OnParametersSetAsync sua: {sua}, hasa: {hasa}", ShouldUseAuthenticator, App.HasAutoStartedAuthentictor);
-
-        // StateHasChanged(); // might be needed, for example when MyPreferences have changed via App.MyPreferences, and need to update UI
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -162,7 +147,8 @@
 
     async Task SetPrefersToUseAuthenticator(bool prefersToUseAuthenticator)
     {
-        await storageService.SetItem<Preferences>(App.Prefs with { PrefersToUseAuthenticator = prefersToUseAuthenticator }, StorageArea.Local);
+        throwIfNotConfigured();
+        await storageService.SetItem<Preferences>(a.MyPreferences with { PrefersToUseAuthenticator = prefersToUseAuthenticator }, StorageArea.Local);
         if (prefersToUseAuthenticator)
         {
             await UnlockWithAuthenticator();
@@ -186,6 +172,7 @@
 
     async Task UnlockWithAuthenticator()
     {
+        throwIfNotConfigured();
         var passcodeRes = await webauthnService.AuthenticateAKnownCredential();
         if (passcodeRes is null || passcodeRes.IsFailed)
         {
@@ -198,6 +185,7 @@
 
     async Task HandleUnlock()
     {
+        throwIfNotConfigured();
         if (unlockPasscodeModel.Passcode is not null)
             await UnlockWithPasscode(unlockPasscodeModel.Passcode);
     }
@@ -210,9 +198,18 @@
         public string Passcode { get; set; } = "";
     }
 
+    void throwIfNotConfigured()
+    {
+        if (!a.IsConfigured)
+        {
+            throw new InvalidOperationException("KERI Auth is not configured");
+        }
+    }
+
     // TODO P1 should be a Task<Result<bool>> ???
     async Task UnlockWithPasscode(string password)
     {
+        throwIfNotConfigured();
         logger.LogInformation("UnlockWithPasscode...");
         // TODO P1 validate the app is still in expected "state" to unlock
 
@@ -223,12 +220,7 @@
             snackbar.Add("Invalid passcode. Should be 21 characters.", Severity.Error);
             return;
         }
-        if (keriaConnectConfig is null
-            || keriaConnectConfig.ValidateConfiguration().IsFailed
-            || keriaConnectConfig.AdminUrl is null)
-        {
-            throw new InvalidOperationException("KeriaConnectConfig not configured");
-        }
+
 
         if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
         {
@@ -248,7 +240,8 @@
                 }
 
                 // store the SessionExpiry time
-                var sessionExpiry = DateTime.UtcNow.AddMinutes(App.Prefs.InactivityTimeoutMinutes);
+                var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+                // TODO P2: consider storageService to not use Result pattern for simple set operations and just throw. Lots of code for these checks.
                 var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
                     new SessionExpiration { SessionExpirationUtc = sessionExpiry },
                     StorageArea.Session
@@ -262,7 +255,12 @@
 
             // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" }); // or just clear session?
             // TODO P1 clear any existing KeriaConnectionInfo in session storage ??
-            // _logger.LogWarning("returned from Authenticate. pausing...");
+            // logger.LogWarning("returned from Authenticate. pausing...");
+            if (keriaConnectConfig.AdminUrl is null)
+            {
+                throw new IndexOutOfRangeException("KERI Agent AdminUrl is not configured");
+            };
+
             var connectRes = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             if (connectRes is null || connectRes.IsFailed)
             {
@@ -285,7 +283,7 @@
                 var keriaConnectionInfo = new KeriaConnectionInfo()
                 {
                     AgentPrefix = connectRes.Value.Agent!.I,
-                    SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(App.Prefs.InactivityTimeoutMinutes),
+                    SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(a.MyPreferences.InactivityTimeoutMinutes),
                     Config = new() {
                         AdminUrl = keriaConnectConfig.AdminUrl!,
                         // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:

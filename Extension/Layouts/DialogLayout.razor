@@ -1,8 +1,9 @@
 ﻿@inherits BaseLayout
 
 @inject IJSRuntime jsRuntime
+@inject AppCache a
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@App.IsDarkTheme" />
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@a.MyPreferences.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />

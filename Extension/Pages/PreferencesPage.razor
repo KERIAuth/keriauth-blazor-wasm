@@ -9,14 +9,11 @@
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IJSRuntime js
+@inject AppCache a
 @inject ILogger<PreferencesPage> logger
 
 @code
 {
-    // most values on this page are reactive to changes via preferencesServices subscription in App
-    [CascadingParameter]
-    public Preferences Prefs { get; set; } = new Preferences();
-
     enum DrawerVariantSupportedInTab
     {
         Persistent = MudBlazor.DrawerVariant.Persistent,
@@ -32,6 +29,7 @@
     // properties
 
     // reactive properties
+    Preferences Prefs => a.MyPreferences;
 
     List<string> SelectedTransportOptions = []; // => MyPreferences.SelectedTransportOptions ?? [];
     float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
@@ -282,7 +280,7 @@ private void SetMostPermissive()
                 </MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
                     @*
-                        TODO P3 update so the change is on mouse-up, not on mouse-move or click
+                        // TODO P3 perf: update so the change is on mouse-up, not on mouse-move or click
                     *@
                     <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" />
                     <p>@InactivityTimeoutLabel</p>

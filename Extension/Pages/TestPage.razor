@@ -32,7 +32,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to AppCache changes
         await this.SubscribeToAppCache(a);
 
         logger.LogInformation("OnInitializedAsync");

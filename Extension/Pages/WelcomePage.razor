@@ -31,7 +31,7 @@
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        if (/* isFirstRender && */ nextButton is not null)
+        if (isFirstRender && nextButton is not null)
             await nextButton.FocusAsync();
     }
 
@@ -39,7 +39,7 @@
     {
         logger.LogInformation("AcknowledgeWelcome...");
         var res = await storageService.GetItem<OnboardState>();
-        // _logger.LogWarning("pre-stored OnboardStateRes: {s}", res);
+        // logger.LogWarning("pre-stored OnboardStateRes: {s}", res);
         var onboardState = new OnboardState();
         if (res.IsFailed || res.Value is null)
         {
@@ -78,13 +78,13 @@
                         <li>Select identifier</li>
                         <li>View credentials</li>
                         <li>
-                            Visit website that supports <em>polaris-web</em> protocol:
+                            Interact with websites that support <em>polaris-web</em> protocol:
                             <ul>
                                 <li>
-                                    Allow KERI Auth to interact with website:
+                                    Allow KERI Auth to interact:
                                     <ul>
-                                        <li>Automatically upon page load if previously allowed</li>
-                                        <li>Manually by pressing the extension's action icon (in top-right corner of your browser's window or click extension puzzle-piece icon)</li>
+                                        <li>Manually by pressing the extension's action icon (in top-right corner of browser's window, or click extension puzzle-piece icon)</li>
+                                        <li>Automatically on website load if previously allowed</li>
                                     </ul>
                                 </li>
                                 <li>Respond to requests from website:</li>
