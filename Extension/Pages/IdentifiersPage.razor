@@ -11,6 +11,8 @@
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
+@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
+@inject AppCache appCache
 
 @using Extension.Services.SignifyService.Models
 
@@ -86,8 +88,7 @@
             {
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetIdentifiers();
-                var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
-                var prefix = MyIdentifiers!.First().Prefix;
+                var prefix = appCache.MyPreferences.SelectedPrefix;
                 await SetActiveAid(prefix);
             }
         }

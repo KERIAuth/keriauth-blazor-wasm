@@ -23,6 +23,8 @@
 @inject ISignifyClientService signifyClientService;
 @inject IStorageService storageService;
 @inject ISnackbar snackbar;
+@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
+@inject AppCache appCache;
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
@@ -132,13 +134,7 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-
-        var res = await storageService.GetItem<KeriaConnectConfig>();
-        if (res.IsFailed || res.Value is null)
-        {
-            throw new Exception("Failed to get KeriaConnectConfig");
-        }
-        keriaConnectConfig = res.Value;
+        keriaConnectConfig = appCache.MyKeriaConnectConfig;
     }
 
     private void StartEditProviderName()

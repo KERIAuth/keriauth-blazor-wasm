@@ -39,6 +39,8 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ISnackbar snackbar
 @inject IStorageService storageService
+@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
+@inject AppCache appCache
 
 @code {
     // fields
@@ -76,12 +78,7 @@
             ManifestVersion = versionElement.ToString();
         }
 
-        var res = await storageService.GetItem<OnboardState>();
-        if (res.IsFailed || res.Value is null)
-        {
-            throw new Exception("Failed to get OnboardState");
-        }
-        MyOnboardState = res.Value;
+        MyOnboardState = appCache.MyOnboardState;
 
         var updateDetailsRes = await storageService.GetItem<UpdateDetails>();
         if (updateDetailsRes.IsSuccess && updateDetailsRes.Value is not null)

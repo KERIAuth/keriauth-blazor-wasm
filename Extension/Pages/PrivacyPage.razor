@@ -36,10 +36,11 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
+@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
+@inject AppCache appCache
 
 @code {
 	// fields
-	private OnboardState? onboardState;
 	const string privacyUrlPath = "content/privacy.html";
 	static MarkupString privacyMarkup = new("Placeholder for Privacy Policy");
 	private MudButton? nextButton;
@@ -54,22 +55,11 @@
 	{
 		logger.LogInformation("OnInitializedAsync");
 		privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
-
-		var res = await storageService.GetItem<OnboardState>();
-		if (res.IsFailed)
-		{
-			throw new InvalidOperationException("Failed to get OnboardState");
-		}
-		onboardState = res.Value;
 	}
 
 	private async Task OnTermsAgreed()
 	{
-		if (onboardState is null)
-		{
-			throw new InvalidOperationException("OnboardState is null");
-		}
-		var newOnboardState = onboardState with
+		var newOnboardState = appCache.MyOnboardState with
 			{
 				PrivacyAgreedHash = privacyMarkupHash,
 				PrivacyAgreedUtc = DateTime.UtcNow,

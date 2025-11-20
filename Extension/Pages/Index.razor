@@ -13,7 +13,7 @@
 @using static System.Net.WebRequestMethods
 @using WebExtensions.Net.Manifest
 
-@inject AppCache a
+@inject AppCache appCache
 @inject IStorageService storageService
 @inject ILogger<IndexPage> logger
 @inject HttpClient http
@@ -46,7 +46,7 @@
         await base.OnInitializedAsync();
 
         // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
-        await this.SubscribeToAppCache(a, HandleAppCacheChanged);
+        await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
         // IsLoading = true;
         logger.LogInformation($"OnInitializedAsync");
@@ -55,18 +55,7 @@
         // logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(new ContextFilter()));
 
         // Get and handle OnboardState
-        var res = await storageService.GetItem<OnboardState>();
-        // logger.LogInformation("OnboardStateRes: {r}", res.Value);
-        OnboardState? onboardState;
-        if (res.IsFailed || res.Value is null)
-        {
-            onboardState = new OnboardState();
-            await storageService.SetItem<OnboardState>(onboardState);
-        }
-        else
-        {
-            onboardState = res.Value;
-        }
+        var onboardState = appCache.MyOnboardState;
 
         // Get version info from Manifest file
         // TODO P2 Refactor some of this and similar in Mainlayout into App, and pass into Layouts or Pages needing this as parameters
@@ -147,60 +136,60 @@
         // logger.LogInformation("{x}", a.MyPasscodeModel);
         // logger.LogInformation("{x}", a.MySessionExpiration);
 
-        if (!a.MyOnboardState.IsWelcomed)
+        if (!appCache.MyOnboardState.IsWelcomed)
         {
             NavigateIfNeeded(RouteToWelcome);
             return;
         }
-        if (!a.IsInstallAcknowledged)
+        if (!appCache.IsInstallAcknowledged)
         {
             NavigateIfNeeded(RouteToNewRelease);
             return;
         }
-        if (!a.IsTosAgreed)
+        if (!appCache.IsTosAgreed)
         {
             NavigateIfNeeded(RouteToTerms);
             return;
         }
-        if (!a.IsPrivacyAgreed)
+        if (!appCache.IsPrivacyAgreed)
         {
             NavigateIfNeeded(RouteToPrivacy);
             return;
         }
         // Passing above conditions must equate to IsProductOnboarded
-        if (!a.IsProductOnboarded)
+        if (!appCache.IsProductOnboarded)
         {
             logger.LogError("HandleAppCacheChanged: Not ProductOnboarded");
             return;
         }
-        if (!a.IsConfigured)
+        if (!appCache.IsConfigured)
         {
             NavigateIfNeeded(RouteToConfigure);
             return;
         }
         // Passing the above conditions must equate to IsInitialized
-        if (!a.IsInitialized)
+        if (!appCache.IsInitialized)
         {
             logger.LogError("HandleAppCacheChanged: Not Initialized");
             return;
         }
-        if (!a.IsUnlocked)
+        if (!appCache.IsUnlocked)
         {
             NavigateIfNeeded(RouteToUnlock);
             return;
         }
-        if (!a.IsAuthenticated)
+        if (!appCache.IsAuthenticated)
         {
             logger.LogError("HandleAppCacheChanged: Not Authenticated");
             return;
         }
-        if (!a.IsIdentifierFetched)
+        if (!appCache.IsIdentifierFetched)
         {
             NavigateIfNeeded(RouteToConnecting);
             return;
         }
         // Passing the above conditions must equate to IsConnectedToKeria
-        if (!a.IsConnectedToKeria)
+        if (!appCache.IsConnectedToKeria)
         {
             logger.LogError("HandleAppCacheChanged: Not ConnectedToKeria");
             return;

@@ -14,6 +14,8 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
+@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
+@inject AppCache appCache
 
 @code {
     // fields
@@ -38,24 +40,10 @@
     async Task AcknowledgeWelcome()
     {
         logger.LogInformation("AcknowledgeWelcome...");
-        var res = await storageService.GetItem<OnboardState>();
-        // logger.LogWarning("pre-stored OnboardStateRes: {s}", res);
-        var onboardState = new OnboardState();
-        if (res.IsFailed || res.Value is null)
-        {
-            logger.LogInformation("AcknowledgeWelcome: creating new onboardState");
-        }
-        else
-        {
-            onboardState = res.Value;
-        }
-        onboardState = onboardState with { IsWelcomed = true };
-        await storageService.SetItem(onboardState);
+        var newOnboardState = appCache.MyOnboardState with { IsWelcomed = true };
+        await storageService.SetItem(newOnboardState);
         logger.LogInformation("AcknowledgeWelcome set onboardState");
-
-        // TODO P2 App should reactively detect onboardState.IsWelcomed and Navigate accordingly
         navManager.NavigateTo(RouteToIndex);
-        // navManager.NavigateTo(RouteToIndexHtml);
         return;
     }
 }

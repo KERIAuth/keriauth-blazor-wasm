@@ -36,10 +36,11 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
+@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
+@inject AppCache appCache
 
 @code {
 	// fields
-	private OnboardState? onboardState;
 	const string termsUrlPath = "content/terms.html";
 	static MarkupString termsMarkup = new("Placeholder for Terms of Use");
 	private MudButton? nextButton;
@@ -54,22 +55,11 @@
 	{
 		logger.LogInformation("OnInitializedAsync");
 		termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
-
-		var res = await storageService.GetItem<OnboardState>();
-		if (res.IsFailed)
-		{
-			throw new InvalidOperationException("Failed to get OnboardState");
-		}
-		onboardState = res.Value;
 	}
 
 	private async Task OnTermsAgreed()
 	{
-		if (onboardState is null)
-		{
-			throw new InvalidOperationException("OnboardState is null");
-		}
-		var newOnboardState = onboardState with
+        var newOnboardState = appCache.MyOnboardState with
 			{
 				TosAgreedHash = termsMarkupHash,
 				TosAgreedUtc = DateTime.UtcNow,
