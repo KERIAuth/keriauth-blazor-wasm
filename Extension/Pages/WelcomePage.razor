@@ -44,7 +44,8 @@
         if (res.IsFailed || res.Value is null)
         {
             logger.LogInformation("AcknowledgeWelcome: creating new onboardState");
-        } else
+        }
+        else
         {
             onboardState = res.Value;
         }
@@ -65,27 +66,35 @@
             <MudText Typo="Typo.h6">Welcome</MudText>
             <MudStack>
                 <MudText Typo="Typo.body1">
-                    Thank you for installing the KERI Auth browser extension.
-                    This beta release provides the following features:
+                    Thank you for installing the KERI Auth browser extension
                 </MudText>
-                <MudText Class="bt-terms-markup mud-typography mud-typography-body1" >
+                <MudText Class="bt-terms-markup mud-typography mud-typography-body1">
+                    Features:
                     <ol>
-                        <li>Configure a connection with a KERI Agent Service (KERIA).</li>
-                        <ul>
-                            <li>KERIA provides a Signify protocol with which KERI Auth interacts.</li>
-                            <li>Arrange access to a KERIA instance provided by a vendor, or host an instance yourself.</li>
-                            <li>Use a passcode to authenticate with the KERIA service to which you previously onboarded, or create a new passcode if permitted by the provider.</li>
-                        </ul>
+                        <li>Prerequisite: Arrange access to hosted KERI Agent Service (KERIA) provided by a vendor or yourself.</li>
+                        <li>Configure connection to KERIA</li>
+                        <li>Unlock with passcode or optionally configured webauthn authenticator</li>
                         <li>Create one or more identifiers</li>
-                        <li>Select your current identifier</li>
-                        <li>View credentials issued to your identifiers</li>
-                        <li>Visit a website supporting the polaris-web protocol:
+                        <li>Select identifier</li>
+                        <li>View credentials</li>
+                        <li>
+                            Visit website that supports <em>polaris-web</em> protocol:
                             <ul>
-                                <li>First, you'll allow KERI Auth to interact with the current web page by pressing the extension's action icon (in the top-right corner of your browser's window or click the extension/puzzle piece icon). You may need to refresh your brower tab.</li>
-                                <li>Follow instructions on the web page</li>
-                                <li>Sign In with one of your KERI identifiers or credentials</li>
-                                <li>Authorize access to website resources when prompted (e.g., to sign HTTP Request Headers)</li>
-                                <li>Create a Credential such as a Data Attestation</li>
+                                <li>
+                                    Allow KERI Auth to interact with website:
+                                    <ul>
+                                        <li>Automatically upon page load if previously allowed</li>
+                                        <li>Manually by pressing the extension's action icon (in top-right corner of your browser's window or click extension puzzle-piece icon)</li>
+                                    </ul>
+                                </li>
+                                <li>Respond to requests from website:</li>
+                                <ul>
+                                    <li>Present identifier or credential for authorization</li>
+                                    <li>Sign Http Request Header to authorize access to web resources</li>
+                                    <li>Create data attestation (e.g. for upload file)</li>
+                                    @* // TODO P1 <li>(future) Sign and issue a credential</li>
+                                    *@
+                                </ul>
                             </ul>
                         </li>
                     </ol>
