@@ -78,6 +78,7 @@ namespace Extension {
         public const int ExpectedTermsHash = 65063442;
         public const int ExpectedPrivacyHash = 1373375114;
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
+        public const string ProductName = "KERI Auth";
 
         public static readonly MudTheme MyCustomTheme = new() {
             // See also https://mudblazor.com/customization/default-theme

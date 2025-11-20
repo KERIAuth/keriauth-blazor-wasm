@@ -2,9 +2,7 @@
 @using Extension.Services.Storage
 @inject NavigationManager navManager
 @inject IStorageService storageService
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IJSRuntime js
-@inject IStateService stateService
 @inject ILogger<DashboardPage> logger
 @inject IWebsiteConfigService websiteConfigService
 @inject ISignifyClientService signifyClientService;
@@ -95,20 +93,16 @@
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManageAgents)">KERI Agent</MudLink>
                         </MudText>
                         <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
-                            @switch (stateService.GetState())
-                            {
-                                case IStateService.States.AuthenticatedConnected:
+                            
                                     <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Class="bt-home-status-icon"></MudIcon>
                                     <MudText Typo="Typo.body1">Connected</MudText>
-                                    break;
-                                case IStateService.States.AuthenticatedDisconnected:
+                            
                                     <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
                                     <MudText Typo="Typo.body1">Disconnected</MudText>
-                                    break;
-                                default:
+                            
                                     <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
                                     <MudText Typo="Typo.body1">Disconnected - Other</MudText>
-                                    break;
+                            
                             }
                         </div>
                     </MudStack>

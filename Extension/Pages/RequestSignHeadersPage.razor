@@ -37,8 +37,6 @@
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
-@inject IPreferencesService preferencesService
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 @inject IJSRuntime js
@@ -110,9 +108,10 @@
 
         await getInitialIdentifiers();
 
-        // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
+        // TODO P1 instead use webExtensionsApi.Runtime.GetContexts
         // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
-        var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
+        string initialUriQuery = "TODO_not_set";
+        // var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
         logger.LogInformation($"URI query: {initialUriQuery}");
 
         // Extract tabId from query string
@@ -226,8 +225,9 @@
         IsDetailShown = isDetailShown;
         var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
         var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
+        // TODO P3 ShowSignRequestDetail should be per website?, since not every site should be trusted the same
         Prefs = prefs with { ShowSignRequestDetail = isDetailShown };
-        await preferencesService.SetPreferences(Prefs);
+        await storageService.SetItem<Preferences>(Prefs, StorageArea.Local);
         return;
     }
 

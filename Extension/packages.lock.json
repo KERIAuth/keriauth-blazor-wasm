@@ -307,12 +307,6 @@
           "Polly.Core": "8.6.4"
         }
       },
-      "Stateless": {
-        "type": "Direct",
-        "requested": "[5.20.0, )",
-        "resolved": "5.20.0",
-        "contentHash": "f3/9Bbr+NcepybGXy/CDY5rJRdpdjoixDQRK811VZXGtkoCCzMT4lCraRuur+cS17TZ7GdUNoY2qgA6uJV45eg=="
-      },
       "System.Diagnostics.EventLog": {
         "type": "Direct",
         "requested": "[9.0.9, )",

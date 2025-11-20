@@ -2,10 +2,7 @@
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 
-@inject IPreferencesService preferencesService
 @inject IStorageService storageService
-@inject IStateService stateService
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject ILogger<ConfigurePage> logger
 @inject HttpClient httpClient
 @inject NavigationManager navManager
@@ -276,18 +273,16 @@
             }
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
 
-            // set the selected aid in MyPreferences, so it shows up in the AppBar identicon
-            // using JsonDocument doc = JsonDocument.Parse(aidRes.Value);
-            string? prefix = aidRes.Value; // doc.RootElement.GetProperty("prefix").GetString();
+            string? prefix = aidRes.Value;
             if (prefix is not null)
             {
-                await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = prefix });    
+                await storageService.SetItem<Preferences>(new Preferences { SelectedPrefix = prefix }, StorageArea.Local);
             }
         }
         else
         {
-            // Set default Prefix
-            await preferencesService.SetPreferences(App.Prefs with { SelectedPrefix = identifiers.Aids.First().Prefix });
+            // Set a default Prefix
+            await storageService.SetItem<Preferences>(new Preferences { SelectedPrefix = identifiers.Aids.First().Prefix });
         }
         // _logger.LogWarning("ConnectToKeria 3");
         if (nextButton is not null)
@@ -332,20 +327,6 @@
                 logger.LogError("Failed to store connection details");
                 logger.LogError(storeConfigResult.Reasons.First().Message);
                 snackbar.Add("Failed to store connection configuration", Severity.Error);
-                return;
-            }
-            var configureResult = await stateService.Configure();
-            if (configureResult.IsFailed)
-            {
-                logger.LogError("Failed to configure state: {error}", configureResult.Errors.FirstOrDefault()?.Message);
-                snackbar.Add("Failed to configure application state", Severity.Error);
-                return;
-            }
-            var authResult = await stateService.Authenticate(true);
-            if (authResult.IsFailed)
-            {
-                logger.LogError("Failed to authenticate: {error}", authResult.Errors.FirstOrDefault()?.Message);
-                snackbar.Add("Failed to authenticate", Severity.Error);
                 return;
             }
             logger.LogInformation("StoreHashAndConnect succeeded");

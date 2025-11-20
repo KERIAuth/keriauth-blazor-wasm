@@ -73,7 +73,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IWebsiteConfigService _websiteConfigService;
     private readonly IDemo1Binding _demo1Binding;
     private readonly WebExtensionsApi _webExtensionsApi;
-    private readonly IPreferencesService _preferencesService;
 
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
@@ -115,8 +114,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService,
-        IDemo1Binding demo1Binding,
-        IPreferencesService preferencesService) {
+        IDemo1Binding demo1Binding) {
         _logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -125,7 +123,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _storageService = storageService;
         _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
-        _preferencesService = preferencesService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
     }
 
@@ -342,13 +339,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     var res = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
                     var sessionExpirationUtc = (res.IsSuccess && res.Value is not null) ? res.Value.SessionExpirationUtc : DateTime.UtcNow;
                     if (DateTime.UtcNow < sessionExpirationUtc) {
-                        _logger.LogInformation("Session inactivity alarm fired but session expiration extended; no action taken");
+                        _logger.LogInformation("Session inactivity alarm fired before expiration. Ignored.");
                     }
                     else {
                         _logger.LogInformation("Session inactivity alarm triggered - locking app due to inactivity");
-                        // TODO P0 really want to clear all of session, or just passcode and state?
                         await _storageService.Clear(StorageArea.Session);
-                        // Note: clients needing notification can subscribe to above changes
+                        // Expect reactive changes to occur here
                     }
                     return;
                 default:

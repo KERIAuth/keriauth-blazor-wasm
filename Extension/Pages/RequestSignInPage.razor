@@ -38,8 +38,6 @@
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
-@inject IPreferencesService preferencesService
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 @inject ISignifyClientBinding signifyClientBinding
@@ -73,7 +71,8 @@
 
         // TODO P2 instead use webExtensionsApi.Runtime.GetContexts
         // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
-        var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
+        string initialUriQuery = "TODO_NOT_SET2";
+        // var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
 
         // Extract tabId from query string
         if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("tabId", out var tabIdStr))

@@ -2,11 +2,13 @@
 @using Extension.Models
 @using Extension.Services
 @using System.Reactive.Linq
-@inject NavigationManager navManager
-@inject IPreferencesService preferencesService
+@using Extension.Services.Storage
 @using static Extension.AppConfig;
-@inject IJSRuntime js
 @using static Extension.Helper.PreviousPage
+
+@inject NavigationManager navManager
+@inject IStorageService storageService
+@inject IJSRuntime js
 @inject ILogger<PreferencesPage> logger
 
 @code
@@ -51,7 +53,7 @@
 
     async Task Persist(Preferences prefs)
     {
-        await preferencesService.SetPreferences(prefs);
+        await storageService.SetItem<Preferences>(prefs);
     }
 
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
@@ -279,6 +281,9 @@ private void SetMostPermissive()
                     Inactivity Timeout
                 </MudText>
                 <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    @*
+                        TODO P3 update so the change is on mouse-up, not on mouse-move or click
+                    *@
                     <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" />
                     <p>@InactivityTimeoutLabel</p>
                 </MudStack>

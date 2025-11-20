@@ -2,6 +2,7 @@
 using Extension;
 using Extension.Services;
 using Extension.Services.JsBindings;
+using Extension.Services.Storage;
 using Extension.Services.SignifyService;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -90,11 +91,8 @@ builder.UseBrowserExtension(browserExtension => {
 // Console.WriteLine("Program.cs: Configuring services...");
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-builder.Services.AddSingleton<Extension.Services.Storage.IStorageService, Extension.Services.Storage.StorageService>();
-builder.Services.AddSingleton<IExtensionEnvironmentService, ExtensionEnvironmentService>();
+builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-builder.Services.AddSingleton<IStateService, StateService>();
-builder.Services.AddSingleton<IPreferencesService, PreferencesService>();
 builder.Services.AddSingleton<AppCache>();
 // JavaScript module bindings
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();

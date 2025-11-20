@@ -1,8 +1,7 @@
-namespace Extension.Tests.Services.Storage;
+﻿namespace Extension.Tests.Services.Storage;
 
 using Extension.Models;
 using Extension.Models.Storage;
-using Extension.Services;
 using Extension.Services.Storage;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -336,25 +335,7 @@ public class StorageObserverTests {
 
     #region Integration-style Tests
 
-    [Fact]
-    public void StorageObserver_WorksWithAppState() {
-        // Arrange
-        AppState? receivedState = null;
-        var testState = new AppState(IStateService.States.Unauthenticated);
 
-        var observer = new StorageObserver<AppState>(
-            _mockStorageService.Object,
-            StorageArea.Session,
-            state => receivedState = state
-        );
-
-        // Act
-        observer.OnNext(testState);
-
-        // Assert
-        Assert.NotNull(receivedState);
-        Assert.Equal(IStateService.States.Unauthenticated, receivedState.CurrentState);
-    }
 
     [Fact]
     public void StorageObserver_WorksWithEnterprisePolicyConfig() {

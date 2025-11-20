@@ -1,4 +1,4 @@
-namespace Extension.Services.Storage;
+﻿namespace Extension.Services.Storage;
 
 using System.Text;
 using System.Text.Json;
@@ -326,10 +326,10 @@ public class StorageService : IStorageService, IDisposable {
                 (object?)null
             );
 
-            // Apply default exclusions if not provided
-            if (excludeKeys == null && area == StorageArea.Local) {
-                excludeKeys = new List<string> { nameof(AppState) };
-            }
+            // TODO P3: Apply default (or additional) exclusions if not provided
+            // if (excludeKeys == null && area == StorageArea.Local) {
+            //    excludeKeys = new List<string> { nameof(AppState) };
+            // }
 
             // Filter out excluded keys
             if (excludeKeys != null && excludeKeys.Count > 0) {

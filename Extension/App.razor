@@ -4,14 +4,11 @@
 @using Extension.Services.Storage
 @using Extension.Pages
 @using System.Runtime.InteropServices.JavaScript
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject NavigationManager navManager
 @inject IJSRuntime jsRuntime
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ILogger<App> _logger
-@inject IPreferencesService preferencesService
 @inject IStorageService storageService
-@inject IStateService stateService
 @inject IAppBwMessagingService appBwMessagingService
 @inject AppCache a
 
@@ -19,7 +16,6 @@
 
 @code {
     // fields
-    private static IStateService? staticStateService;
     private static IStorageService? staticStorageService;
     private static ILogger<App>? staticLogger;
     private static NavigationManager? staticNavManager;
@@ -35,23 +31,17 @@
 
     // reactive properties
     public static bool IsDarkTheme => Prefs.IsDarkTheme;
-    public IStateService.States CurrentState => stateService.GetState();
-
+    
     protected override async Task OnInitializedAsync()
     {
         _logger.LogInformation($"OnInitializedAsync");
         // TODO P2 hack. Instead, create a StaticHelper static class that has injected methods
-        staticStateService = stateService;
         staticNavManager = navManager;
         staticLogger = _logger;
         staticStorageService = storageService;
 
         // Initialize services as needed
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
-        await extensionEnvironmentService.Initialize(InitialUri, "unknown");
-        // await storageService.Initialize(StorageArea.Local);
-        // await storageService.Initialize(StorageArea.Session);
-        await stateService.Initialize();
 
         // observer for changes to Preferences
         preferencesStorageObserver = new StorageObserver<Preferences>(
@@ -199,49 +189,13 @@
             return;
         }
         // TODO P1 should navigate here to Dashboard or important to leave other current page as is?  Check also for popup and sidepanel context
-        _logger.LogWarning("NavigateIfNeeded: No re-route conditions detected.");
+        _logger.LogInformation("NavigateIfNeeded: No re-route conditions detected.");
     }
-
+    
     /*
-    async Task HandleNextFromStateService(IStateService.States updatedState)
-    {
-        switch (CurrentState, updatedState)
-        {
-            case (IStateService.States.AuthenticatedDisconnected, IStateService.States.Unauthenticated):
-            case (IStateService.States.Unauthenticated, IStateService.States.Unauthenticated):
-                StateHasChanged();
-                _logger.LogInformation("Reacting to Unauthenticated or AuthenticatedDisconnected. RouteToIndex");
-                navManager.NavigateTo(RouteToIndex);
-                break;
-            case (_, IStateService.States.AuthenticatedDisconnected):
-            case (_, IStateService.States.AuthenticatedConnected):
-            case (_, _):
-                _logger.LogInformation($"From state {CurrentState} to {updatedState}");
-                break;
-        }
-    }
-    */
-
-    async Task HandleErrorFromStateService(Exception error)
-    {
-        _logger.LogError("Error from stateService: " + error.Message);
-    }
-
-    async Task HandleCompletedFromStateService()
-    {
-        _logger.LogInformation("Completed from stateService");
-    }
-
     public async Task ToggleDarkTheme()
     {
         await preferencesService.SetPreferences(Prefs with { IsDarkTheme = !Prefs.IsDarkTheme });
-    }
-
-    // TODO P2 implement Dispose pattern if needed
-    /*
-    public void Dispose()
-    {
-        preferencesStorageObserver?.Dispose();
     }
     */
 
@@ -259,15 +213,7 @@
     [JSInvokableAttribute("LockApp")]
     public static async Task LockApp()
     {
-        if (staticStateService is null || staticLogger is null)
-        {
-            throw new Exception("unexpected null staticStateService");
-        }
-        staticLogger.LogInformation("LockApp");
-        await staticStateService.TimeOut();
         // Note that other side-effects will be reactive. See IObserver<StateService>
-        // but just to be sure....
-        // TODO P2 Add TimeOut handling in StateService that clears session storage ??
         if (staticStorageService is null || staticLogger is null)
         {
             throw new Exception("unexpected null staticStorageService");
@@ -275,16 +221,14 @@
         var res = await staticStorageService.Clear(StorageArea.Session);
         return;
     }
-    // TODO P2 update PageTitle dynamically based on current page? or just KERI Auth?
 }
 
-
-<PageTitle>KERI Auth</PageTitle>
+<PageTitle>@AppConfig.ProductName</PageTitle>
 <CascadingValue Value="Prefs">
     <CascadingValue Value="InactivityTimeoutCache">
         <Router AppAssembly="@typeof(Program).Assembly">
             <Found Context="routeData">
-                <PageTitle>1 @routeData.RouteValues.ToList().ToString() Loading application assembly...</PageTitle>
+                <PageTitle>@AppConfig.ProductName</PageTitle>
                 <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
             </Found>
             <NotFound>

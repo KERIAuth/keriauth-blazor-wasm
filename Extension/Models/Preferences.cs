@@ -3,17 +3,15 @@
     using System.Text.Json.Serialization;
 
     public record Preferences : IStorageModel {
-        public Preferences() {
-        }
 
         [JsonPropertyName("IsDarkTheme")]
-        public bool IsDarkTheme { get; init; } = AppConfig.DefaultIsDarkTheme;
+        public bool IsDarkTheme { get; set; } = AppConfig.DefaultIsDarkTheme;
 
         [JsonPropertyName("SelectedPrefix")]
         public string SelectedPrefix { get; init; } = String.Empty;
 
         [JsonPropertyName("IsOptedIntoDataCollection")]
-        public bool IsOptedIntoDataCollection { get; init; }
+        public bool IsOptedIntoDataCollection { get; init; } = false;
 
         [JsonPropertyName("DrawerVariantInPopup")]
         public MudBlazor.DrawerVariant DrawerVariantInPopup { get; init; } = MudBlazor.DrawerVariant.Temporary;

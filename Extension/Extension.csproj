@@ -138,7 +138,6 @@
 	  <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.7" />
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 	  <PackageReference Include="Polly" Version="8.6.4" />
-	  <PackageReference Include="Stateless" Version="5.20.0" />
 	  <PackageReference Include="System.Reactive" Version="6.1.0" />
 	  <PackageReference Include="System.Text.Json" Version="9.0.9" />
 	  <PackageReference Include="WebExtensions.Net" Version="4.4.1" />

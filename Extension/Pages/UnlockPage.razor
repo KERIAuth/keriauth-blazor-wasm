@@ -6,10 +6,7 @@
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
 
-@inject IPreferencesService preferencesService
 @inject IStorageService storageService
-@inject IStateService stateService
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject ILogger<UnlockPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
@@ -121,12 +118,8 @@
     {
         logger.LogInformation("OnParametersSetAsync");
 
-        // Although we expect to not be authenticated here, if we are (in case of a refresh or navigating back to Unlock), navigate to Home
-        var state = stateService.GetState();
-        if (state == IStateService.States.AuthenticatedConnected || state == IStateService.States.AuthenticatedDisconnected)
-        {
-            navManager.NavigateTo(RouteToDashboard);
-        }
+        // TODO P1: Although we expect to not be authenticated here, if we are (in case of a refresh or navigating back to Unlock), navigate to Home
+        // ...
 
         // Get the KeriaConnectConfig
         var res = await storageService.GetItem<KeriaConnectConfig>();
@@ -169,7 +162,7 @@
 
     async Task SetPrefersToUseAuthenticator(bool prefersToUseAuthenticator)
     {
-        await preferencesService.SetPreferences(App.Prefs with { PrefersToUseAuthenticator = prefersToUseAuthenticator });
+        await storageService.SetItem<Preferences>(App.Prefs with { PrefersToUseAuthenticator = prefersToUseAuthenticator }, StorageArea.Local);
         if (prefersToUseAuthenticator)
         {
             await UnlockWithAuthenticator();
@@ -217,18 +210,11 @@
         public string Passcode { get; set; } = "";
     }
 
-    // TODO P2 should be a Task<Result<bool>>
+    // TODO P1 should be a Task<Result<bool>> ???
     async Task UnlockWithPasscode(string password)
     {
         logger.LogInformation("UnlockWithPasscode...");
-        var currentState = stateService.GetState();
-        if (currentState != IStateService.States.Unauthenticated)
-        {
-            // This should not happen. Could log and handle better
-            logger.LogWarning($"Unexpected AppState {currentState}");
-            await stateService.Initialize();
-            await stateService.Configure();
-        }
+        // TODO P1 validate the app is still in expected "state" to unlock
 
         openWalletError = String.Empty;
 
@@ -274,8 +260,8 @@
                 }
             }
 
-            // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" });
-            await stateService.Authenticate(false);
+            // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" }); // or just clear session?
+            // TODO P1 clear any existing KeriaConnectionInfo in session storage ??
             // _logger.LogWarning("returned from Authenticate. pausing...");
             var connectRes = await signifyClientService.Connect(keriaConnectConfig.AdminUrl, password, keriaConnectConfig.BootUrl, false);
             if (connectRes is null || connectRes.IsFailed)
@@ -322,7 +308,6 @@
                     return;
                 }
                 logger.LogInformation("Connected to KERI Agent");
-                await stateService.ConfirmConnected();
             }
             navManager.NavigateTo(RouteToIndex);
             return;
@@ -331,6 +316,7 @@
         {
             openWalletError = "KERI Auth was not configured with this passcode on this browser profile.";
             snackbar.Add(openWalletError, Severity.Error);
+            await passcodeField!.Clear();
             await passcodeField!.SelectAsync();
             return;
         }

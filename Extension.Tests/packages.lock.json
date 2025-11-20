@@ -151,12 +151,6 @@
           "Polly.Core": "8.6.4"
         }
       },
-      "Stateless": {
-        "type": "Direct",
-        "requested": "[5.20.0, )",
-        "resolved": "5.20.0",
-        "contentHash": "f3/9Bbr+NcepybGXy/CDY5rJRdpdjoixDQRK811VZXGtkoCCzMT4lCraRuur+cS17TZ7GdUNoY2qgA6uJV45eg=="
-      },
       "System.Reactive": {
         "type": "Direct",
         "requested": "[6.1.0, )",
@@ -636,7 +630,6 @@
           "Net.Codecrete.QrCodeGenerator": "[2.0.7, )",
           "Newtonsoft.Json": "[13.0.4, )",
           "Polly": "[8.6.4, )",
-          "Stateless": "[5.20.0, )",
           "System.Diagnostics.EventLog": "[9.0.9, )",
           "System.Reactive": "[6.1.0, )",
           "System.Security.Cryptography.ProtectedData": "[9.0.9, )",

@@ -13,11 +13,7 @@
 @using WebExtensions.Net.Manifest
 
 @inject AppCache a
-
-@inject IPreferencesService preferencesService
 @inject IStorageService storageService
-@inject IStateService stateService
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject ILogger<IndexPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
@@ -47,7 +43,7 @@
     protected override async Task OnInitializedAsync()
     {
         // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
-        await this.SubscribeToAppCache(a, NavigateIfNeeded);
+        await this.SubscribeToAppCache(a, HandleAppCacheChanged);
 
         // IsLoading = true;
         logger.LogInformation($"OnInitializedAsync");
@@ -164,8 +160,7 @@
         logger.LogInformation($"initialUriQuery2: {initialUriQuery2}");
         _ = await HandleAppStateAsync(currentAppState, initialUriQuery2);
         */
-                logger.LogWarning($"OnInitializedAsync NavigateIfNeeded");
-        await NavigateIfNeeded();
+        await HandleAppCacheChanged();
         logger.LogInformation($"OnInitializedAsync done");
     }
 
@@ -179,13 +174,16 @@
     /*
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            logger.LogInformation("OnAfterRenderAsync firstRender");
         }
     */
 
     // NavigateIfNeeded checks AppCache state and navigates to appropriate page if needed, assuring the app is always configured, initialized, unlocked, authenticated, connected, etc. in the necessary order
-    async Task NavigateIfNeeded()
+    async Task HandleAppCacheChanged()
     {
-        logger.LogWarning("NavigateIfNeeded: appCache:...");
+        logger.LogInformation("HandleAppCacheChanged");
         logger.LogInformation("{x}", a.MyPreferences);
         logger.LogInformation("{x}", a.MyOnboardState);
         logger.LogInformation("{x}", a.MyKeriaConnectConfig);
@@ -216,7 +214,7 @@
         // Passing above conditions must equate to IsProductOnboarded
         if (!a.IsProductOnboarded)
         {
-            logger.LogError("NavigateIfNeeded: Not ProductOnboarded");
+            logger.LogError("HandleAppCacheChanged: Not ProductOnboarded");
             return;
         }
         if (!a.IsConfigured)
@@ -227,7 +225,7 @@
         // Passing the above conditions must equate to IsInitialized
         if (!a.IsInitialized)
         {
-            logger.LogError("NavigateIfNeeded: Not Initialized");
+            logger.LogError("HandleAppCacheChanged: Not Initialized");
             return;
         }
         if (!a.IsUnlocked)
@@ -237,7 +235,7 @@
         }
         if (!a.IsAuthenticated)
         {
-            logger.LogError("NavigateIfNeeded: Not Authenticated");
+            logger.LogError("HandleAppCacheChanged: Not Authenticated");
             return;
         }
         if (!a.IsIdentifierFetched)
@@ -248,11 +246,11 @@
         // Passing the above conditions must equate to IsConnectedToKeria
         if (!a.IsConnectedToKeria)
         {
-            logger.LogError("NavigateIfNeeded: Not ConnectedToKeria");
+            logger.LogError("HandleAppCacheChanged: Not ConnectedToKeria");
             return;
         }
         // TODO P1 should navigate here to Dashboard or important to leave other current page as is?  Check also for popup and sidepanel context
-        logger.LogInformation("NavigateIfNeeded: No re-route conditions detected.");
+        logger.LogInformation("HandleAppCacheChanged: No re-route conditions detected.");
         navManager.NavigateTo(RouteToDashboard);
 
     }

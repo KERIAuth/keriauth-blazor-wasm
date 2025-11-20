@@ -4,7 +4,6 @@
 
 @implements IDisposable
 
-@inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -88,12 +87,8 @@
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
                 await GetIdentifiers();
                 var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
-                logger.LogWarning("AddIdentifier: got prefsResult {pr}", prefsResult);
-                var prefs = prefsResult.IsSuccess && prefsResult.Value is not null ? prefsResult.Value : new Preferences();
-
-                // Deserialize the JSON-encoded string from signifyClient (which uses objectToJson)
-                var prefix = JsonSerializer.Deserialize<string>(res.Value) ?? res.Value;
-                await preferencesService.SetPreferences(prefs with { SelectedPrefix = prefix });
+                var prefix = MyIdentifiers!.First().Prefix;
+                await SetActiveAid(prefix);
             }
         }
         IsAddingAid = false;
@@ -102,8 +97,7 @@
 
     async Task SetActiveAid(string identifier)
     {
-        var newPrefs = Prefs with { SelectedPrefix = identifier };
-        await preferencesService.SetPreferences(newPrefs);
+        await storageService.SetItem<Preferences>(Prefs with { SelectedPrefix = identifier }, StorageArea.Local);
     }
 
     public void Dispose()

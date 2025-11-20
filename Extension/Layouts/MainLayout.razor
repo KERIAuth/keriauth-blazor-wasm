@@ -2,23 +2,21 @@
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using System
+@using Extension.Services.SignifyService.Models
 
 @using Extension.Pages
 @using System.Reactive.Linq
 @inject HttpClient http
 @inject IJSRuntime js
 @inject NavigationManager navManager
-@inject IExtensionEnvironmentService extensionEnvironmentService
 @inject IStorageService storageService
-@inject IPreferencesService preferencesService
 @inject ISnackbar snackbar
 @inject ILogger<MainLayout> logger
-@inject IStateService stateService
 @inject ISignifyClientService signifyClientService
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject AppCache a
 
-@using Extension.Services.SignifyService.Models
 @implements IDisposable
 
 @code {
@@ -27,7 +25,6 @@
     public Preferences Prefs { get; set; } = new();
     [CascadingParameter]
     public SessionExpiration? InactivityTimeoutCache { get; set; }
-    // TODO P2 AddMinutes is bogus here
 
     // fields...
     static public IJSObjectReference? utilModule;
@@ -35,24 +32,23 @@
     const string openWidth = "var(--mud-drawer-width-left)";
     string version = "";
     string version_name = "";
-    // Timer? sessionTimerUpdate;
 
     // properties...
     bool IsProfilePanelOpen { get; set; }
     DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
-    // TODO P2 refactor DRY usages of getIdentifiers in multiple pages and dependent properties into App.
-    // List<Aid> Identifiers { get; set; } = [];
     bool IsMenuDrawerOpen { get; set; }
-
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
-    bool IsAuthenticated => stateService.CheckAuthentication().IsSuccess;
-    string ActivePrefix => Prefs.SelectedPrefix;
+    string ActivePrefix => a.MyPreferences.SelectedPrefix;
     string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix); // Identifiers.Find(x => x.Prefix == ActivePrefix) != null ? Helper.Identicon.MakeIdenticon(ActivePrefix) : "";
     string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
-    bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix) || !IsAuthenticated);
-    bool IsInPopup => (extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.ActionPopup || extensionEnvironmentService.ExtensionEnvironment == ExtensionEnvironment.BrowserPopup);
+    bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
+    static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
+
+
+
+    bool isInPopup;
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
         (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
@@ -69,14 +65,15 @@
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
+        // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
         // TODO P2 DRY with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+        // var extensionId = webExtensionsApi.Runtime.Id;
 
-        var contextFilter = new ContextFilter(){ ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
-        logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(contextFilter));
-
-        // Get version info from Manifest file
-        var extensionId = webExtensionsApi.Runtime.Id;
+        var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
+        var contexts2 = await webExtensionsApi.Runtime.GetContexts(contextFilter);
+        logger.LogInformation("OnInitializedAsync contexts: {c}", contexts2.ToList());
+        isInPopup = contexts2.Any(c => c.ContextType == ContextType.POPUP);
 
         var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
         if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
@@ -87,6 +84,25 @@
         {
             version_name = version_nameElement.ToString();
         }
+
+        // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
+        await this.SubscribeToAppCache(a, HandleAppCacheChanged);
+    }
+
+    async Task HandleAppCacheChanged()
+    {
+        logger.LogInformation("HandleAppCacheChanged");
+        StateHasChanged();
+
+        // TODO P2 this almost works, but currently competing with re-routing logic elsewhere:
+        // If we are on a page that requires being unlocked, but we are now locked, then navigate per IndexPage's logic
+        /*
+        if (!(a.IsUnlocked && AppConfig.PagesNotRequiringAuth.Contains(navManager.ToBaseRelativePath(navManager.Uri))))
+        {
+            logger.LogInformation("HandleAppCacheChanged navigating to Index for re-route, since we are now unlocked");
+            navManager.NavigateTo(AppConfig.RouteToIndex);
+        }
+        */
     }
 
     protected override async Task OnParametersSetAsync()
@@ -94,49 +110,35 @@
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
 
-        /*
-        switch (stateService.GetState())
-        {
-            case IStateService.States.AuthenticatedDisconnected:
-                Identifiers = [];
-                break;
-            case IStateService.States.AuthenticatedConnected:
-                var res = await signifyClientService.GetIdentifiers();
-                if (res.IsSuccess)
-                {
-                    Identifiers = res.Value.Aids.OrderBy(a => a.Name).ToList();
-                }
-                break;
-            default:
-                Identifiers = [];
-                break;
-        }
-        */
-
         // determine drawer varient depending and open state depending on context.
         // TODO P4 This could be moved into App or BaseLayout and be cascaded, unless specific to this layout
-        ActiveDrawerVariant = extensionEnvironmentService.ExtensionEnvironment switch
+
+        var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
+        var contexts2 = await webExtensionsApi.Runtime.GetContexts(contextFilter);
+        logger.LogInformation("OnInitializedAsync contexts: {c}", contexts2.ToList());
+        isInPopup = contexts2.Any(c => c.ContextType == ContextType.POPUP);
+        var isInSidePanel = contexts2.Any(c => c.ContextType == ContextType.SIDEPANEL);
+        var isInTab = contexts2.Any(c => c.ContextType == ContextType.TAB);
+
+
+        ActiveDrawerVariant = (isInPopup, isInSidePanel, isInTab) switch
         {
-            ExtensionEnvironment.Iframe or ExtensionEnvironment.BrowserPopup or ExtensionEnvironment.ActionPopup
-                => Prefs.DrawerVariantInPopup,
-            ExtensionEnvironment.None or ExtensionEnvironment.Extension or _
-                => Prefs.DrawerVariantInTab
-        };
-        IsMenuDrawerOpen = ActiveDrawerVariant switch
-        {
-            DrawerVariant.Persistent => Prefs.IsPersistentDrawerOpen,
-            _ => false
+            (true, _, _) => a.MyPreferences.DrawerVariantInPopup,
+            (_, true, _) => a.MyPreferences.DrawerVariantInTab, // TODO P3 consider separate SidePanel preference
+            (_, _, true) => a.MyPreferences.DrawerVariantInTab,
+            _ => a.MyPreferences.DrawerVariantInTab
         };
 
-        /*
-        // If not currently authenticated and are now on a page that requires authentication, then redirect to Start
-        if (!IsAuthenticated)
+        if (ActiveDrawerVariant == DrawerVariant.Persistent)
         {
-            var ap = new Uri(navManager.Uri).AbsolutePath;
-            if (PagesNotRequiringAuth.Contains(ap)) return;
-            navManager.NavigateTo(RouteToIndex);
+            IsMenuDrawerOpen = a.MyPreferences.IsPersistentDrawerOpen;
+        }
+        else
+        {
+            IsMenuDrawerOpen = false;
         }
 
+        /*
         // Since InactivityTimeoutCache may have changed via [CascadingParameter] from App, recognize that updated record and reset the session timer update
         logger.LogInformation("OnParametersSetAsync InactivityTimeoutCache.SessionExpirationUtc: {u}", InactivityTimeoutCache?.SessionExpirationUtc.ToString("u"));
         StateHasChanged();
@@ -146,14 +148,14 @@
         sessionTimerUpdate = new Timer(async _ =>
         {
             await InvokeAsync(StateHasChanged);
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         */
     }
 
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
-        await preferencesService.SetPreferences(Prefs with { SelectedPrefix = prefix });
+        await storageService.SetItem<Preferences>(Prefs with { SelectedPrefix = prefix });
     }
 
     async Task ClickToggleProfilePanel(MouseEventArgs _)
@@ -169,8 +171,10 @@
     async Task ToggleMenuDrawer()
     {
         IsMenuDrawerOpen = !IsMenuDrawerOpen;
-        var newPrefs = Prefs with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
-        await preferencesService.SetPreferences(newPrefs);
+        // TODO P3 Menu button: are really we toggling only the PersistentDrawer?
+        // .... and page will update via AppCache subscription, assuming we want to toggle ALL layouts using the same preference ???
+        // var newPrefs = a.MyPreferences with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
+        // await storageService.SetItem<Preferences>(newPrefs);
     }
 
     private async Task RefreshConnect()
@@ -202,13 +206,15 @@
             </MudButton>
             <!-- Timeout Indicator -->
             <MudStack Row="true" Style="margin-left:16px; height:35px; display:flex; align-items:center;">
-                @if (IsAuthenticated && SessionDurationRemaining is not null && SessionDurationRemaining.Value.TotalSeconds > 0)
+                @if (a.IsAuthenticated && SessionDurationRemaining is not null && SessionDurationRemaining.Value.TotalSeconds > 0)
                 {
                     // TODO P2 set this as a reactive property
                     <MudText Typo="Typo.caption" Style="color:white;">
                         Session expires in @($"{(int)SessionDurationRemaining!.Value.TotalMinutes}m {SessionDurationRemaining!.Value.Seconds}s")
                     </MudText>
-                } else {
+                }
+                else
+                {
                     <MudText Typo="Typo.caption" Style="color:white;">
                         Session expired
                     </MudText>
@@ -217,32 +223,38 @@
             <MudSpacer />
             <!-- KERIA Connected Indicator -->
             <div style="align-self:center; height: 35px; margin-right: -8px;">
-                @if (IsAuthenticated)
+                @if (a.IsAuthenticated)
                 {
-                    <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        @if (stateService.GetState() == IStateService.States.AuthenticatedDisconnected)
-                        {
-                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
-                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />
-                            </MudPaper>
-                        }
-                        else
-                        {
+                    @if (a.IsIdentifierFetched)
+                    {
+                        <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
                             <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
                                 <MudIcon Icon="@Icons.Material.Filled.Link" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
-                        }
+                        </MudTooltip>
+                    }
+                    else
+                    {
+                        <MudTooltip Text="Not Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
+                            <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
+                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" @onclick="async () => await RefreshConnect()" />
+                            </MudPaper>
+                        </MudTooltip>
+                    }
+                }
+                else
+                {
+                    <MudTooltip Text="KERI Auth is locked" Arrow="true" Placement="Placement.Left" Delay="1000">
+                        <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-primary)">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" @onclick="() => navManager.NavigateTo(AppConfig.RouteToUnlock)" />
+                        </MudPaper>
                     </MudTooltip>
                 }
             </div>
 
-            <!-- Current AID Alias and Prefix Identicon. work on fixing this -->
-
-            @*
-                
-                 // TODO P3 WIP
+            <!-- Current AID Alias and Prefix Identicon -->
+            @* // TODO P3 Fix Alias display when long - currently cuts off abruptly without ellipsis?
                 <MudStack Row AlignItems=AlignItems.Center>
-
                     <!-- Middle Text with ellipsis -->
                     <MudText Style="max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" Typo="Typo.body2"> @ActiveAlias </MudText>
 
@@ -251,19 +263,17 @@
                         <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon="@ActivePrefixIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
                     </MudTooltip>
                 </MudStack>
-                
             *@
 
-
-        <!-- Current Identifier Identicon -->
-        <div style="align-self:center; height: 35px; margin-right: -8px;">
-            @if (!IsIdenticonHidden)
-            {
-                <MudTooltip Text=@ActiveAlias Arrow="true" Placement="Placement.Left" Delay="500">
-                    <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon=@ActivePrefixIdenticon Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                </MudTooltip>
-            }
-        </div>
+            <!-- Current Identifier Identicon -->
+            <div style="align-self:center; height: 35px; margin-right: -8px;">
+                @if (!IsIdenticonHidden)
+                {
+                    <MudTooltip Text=@ActiveAlias Arrow="true" Placement="Placement.Left" Delay="500">
+                        <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon=@ActivePrefixIdenticon Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                    </MudTooltip>
+                }
+            </div>
 
         </MudStack>
 
@@ -272,7 +282,7 @@
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
                 <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
 
-                    @foreach (var aid in new List<Aid>() ) // TODO P1: Get Identifiers via App Session.KeriaConnectInfo that could later be in separate collection)
+                    @foreach (var aid in new List<Aid>()) // TODO P1: Get Identifiers via App Session.KeriaConnectInfo that could later be in separate collection)
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">
@@ -300,16 +310,16 @@
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
         <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">
-                <MudNavLink Href=@RouteToDashboard Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
-                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
-                <MudNavLink Href=@RouteToCredentials Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                <MudNavLink Href=@RouteToWebsites Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+                <MudNavLink Href=@RouteToDashboard Disabled="@(!a.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
+                <MudNavLink Href=@RouteToIdentifiers Disabled="@(!a.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
+                <MudNavLink Href=@RouteToCredentials Disabled="@(!a.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
+                <MudNavLink Href=@RouteToWebsites Disabled="@(!a.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
 
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
-                    <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
+                    <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!a.IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
-                    @if (IsAuthenticated)
+                    <MudNavLink Href=@RouteToManageAgents Disabled="@(!a.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
+                    @if (a.IsAuthenticated)
                     {
                         <MudNavLink OnClick="async () => await App.LockApp()" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     }

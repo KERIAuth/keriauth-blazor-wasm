@@ -224,6 +224,12 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<Identifiers>> GetIdentifiers() {
+            // TODO P2 test this path
+            var readyRes = await Ready();
+            if (readyRes.IsFailed) {
+                logger.LogError("GetIdentifiers: Not ready: {reasons}", readyRes.Reasons);
+                return Result.Fail<Identifiers>($"SignifyClientService: GetIdentifiers: Not ready.");
+            }
             try {
                 var jsonString = await _binding.GetAIDsAsync();
                 if (jsonString is null) {

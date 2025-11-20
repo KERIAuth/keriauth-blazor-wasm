@@ -2,7 +2,6 @@
 @using Extension.Services.Storage
 
 @inject HttpClient httpClient
-@inject IPreferencesService preferencesService
 @inject IStorageService storageService
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -434,9 +433,9 @@
     public static string cardClass(string activeAid2, string rowIdentifier) =>
         (string)activeAid2 == rowIdentifier ? "border-left: 4px solid var(--mud-palette-text-primary);" : "";
 
-    async Task SetActiveAid(string identifier)
+    async Task SetActiveAid(string prefix)
     {
-        await preferencesService.SetPreferences(Prefs with { SelectedPrefix = identifier });
+        await storageService.SetItem<Preferences>(Prefs with { SelectedPrefix = prefix });
     }
 }
 

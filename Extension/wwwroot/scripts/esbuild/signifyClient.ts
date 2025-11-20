@@ -110,8 +110,8 @@ const validateClient = async (): Promise<SignifyClient> => {
         // Note: don't log state
         await connect(agentUrl, passcode);
         const duration = Date.now() - ts;
-        // TODO P2 fix this performance hit on connect, taking about 1400ms as of 2025-11-07
-        console.warn('signifyClient: validateClient - Reconnected to SignifyClient in ', duration, 'ms');
+        // TODO P2 fix this performance hit on connect.  Time may include resulting updates to storage and StateHasChanged AppCache listeners that slow down the process.
+        console.log('signifyClient: validateClient - Reconnected to SignifyClient in ', duration, 'ms');
         if (!_client) {
             throw new Error('signifyClient: validateClient - Failed to reconnect SignifyClient');
         }
