@@ -95,19 +95,18 @@
             MyPreferences is not null;
         // TODO P3 add other aspects of KeriaConfig validation as needed.  See also ValidateConfiguration() in KeriaConnectConfig.cs
         public bool IsKeriaConfigValidated =>
-            MyKeriaConnectConfig.AdminUrl is not null &&
-            IsKeriaConfigAdminUrlValid;
-        public bool IsKeriaConfigAdminUrlValid => MyKeriaConnectConfig.ClientAidPrefix is not null; //  IsValidHttpUri(MyKeriaConnectConfig.AdminUrl);
+            !string.IsNullOrEmpty(MyKeriaConnectConfig.AdminUrl) &&
+            !string.IsNullOrWhiteSpace(MyKeriaConnectConfig.ClientAidPrefix) &&
+            !string.IsNullOrWhiteSpace(MyKeriaConnectConfig.AgentAidPrefix) &&
+            !(MyKeriaConnectConfig.PasscodeHash == 0) &&
+            !string.IsNullOrWhiteSpace(MyKeriaConnectConfig.AdminUrl);
 
         private static bool IsValidHttpUri(string? uriString) {
             return Uri.TryCreate(uriString, UriKind.Absolute, out var uri)
                 && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
         }
-        // TODO P2 use this
-        public bool IsKeriaAgentPrefixAsExpected =>
-            MyKeriaConnectConfig.AgentAidPrefix is not null &&
-            MyKeriaConnectConfig.AgentAidPrefix == MyKeriaConnectionInfo.AgentPrefix;
-        public bool IsKeriaInitialConnectSuccess => !string.IsNullOrEmpty(MyKeriaConnectConfig.ClientAidPrefix);
+
+        public bool IsKeriaInitialConnectSuccess => !string.IsNullOrEmpty(MyKeriaConnectConfig.ClientAidPrefix) && IsKeriaConfigValidated && IsProductOnboarded;
         public bool IsProductOnboarded =>
             MyOnboardState.IsWelcomed &&
             MyOnboardState.InstallVersionAcknowledged is not null &&

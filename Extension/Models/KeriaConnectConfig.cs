@@ -16,6 +16,9 @@ namespace Extension.Models {
             AgentAidPrefix = agentAidPrefix;
         }
 
+        // important to have a parameterless constructor for deserialization or default constructor when storage is deleted
+        public KeriaConnectConfig() : this(null, null, null, 0, null, null) { }
+
         [JsonPropertyName("AdminUrl")]
         public string? AdminUrl { get; init; }
 
