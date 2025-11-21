@@ -23,15 +23,17 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 
+@* Intentionally empty visible content (except from inherited IndexPage), to reduce flickering on changing pages. Uncomment to debug
+
     <MudContainer id="@this.GetType().Name" Class="bt-body-page" Style="background-color:red;">
         <MudText>Index.razor</MudText>
         <MudPaper Style="width:100vw; height: 90vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
             <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     </MudContainer>
+*@
 
 @implements IDisposable
-
 @code {
     // private bool IsLoading { get; set; } = true;
     private WebExtensionsApi? webExtensionsApi;
@@ -49,7 +51,7 @@
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
         // IsLoading = true;
-        logger.LogInformation($"OnInitializedAsync");
+        logger.LogInformation($"OnInitializedAsync Index.razor");
 
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
         // logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(new ContextFilter()));

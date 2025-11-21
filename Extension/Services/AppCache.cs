@@ -3,13 +3,23 @@
     using Extension.Models;
     using Extension.Models.Storage;
     using Extension.Services.Storage;
-    
+
     /// <summary>
     /// AppCache provides reactive access to application state stored in browser storage, including some derived properties.
     /// Note: this is not a full state management solution, but a lightweight reactive cache over storage.
     /// Note: remember to call Initialize() after construction to start observing storage changes.
     /// Note: The Change event is raised on any relevant storage change, so this will cause re-renders in dependent components, perhpas more than needed.
     /// The rendering triggering it can be optomized by making the comparrisons more granular if/as needed or adding more kinds of change events.
+    ///
+    /// Usage on razor pages:
+    /// @inject AppCache appCache   
+    /// 
+    /// A choice of how an observer will subscribe to changes:
+    /// 1) @inherits AppCacheReactiveComponentBase --- for a base component class that automatically subscribes to AppCache changes.
+    /// 2) Subscription in OnInitializedAsync... this.SubscribeToAppCache(...) --- for components that cannot inherit from the base class
+    ///
+    /// See TestPage for how the IsFoo... reactive properties relate
+    /// 
     /// </summary>
     /// <param name="storageService"></param>
     /// <param name="logger"></param>
@@ -31,11 +41,8 @@
         public SessionExpiration MySessionExpiration { get; private set; } = new SessionExpiration() { SessionExpirationUtc = DateTime.MinValue }; // intentionally expired until set
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
         public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() { Passcode = "" };
-
         public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
-
         public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = DefaultKeriaConnectConfig;
-        
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
             SessionExpirationUtc = DateTime.MinValue,
             Config = new KeriaConnectConfig(),

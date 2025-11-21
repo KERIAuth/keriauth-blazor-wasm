@@ -19,6 +19,9 @@
         [JsonPropertyName("DrawerVariantInTab")]
         public MudBlazor.DrawerVariant DrawerVariantInTab { get; init; } = AppConfig.DefaultDrawerVariantInTab;
 
+        [JsonPropertyName("DrawerVariantInSidePanel")]
+        public MudBlazor.DrawerVariant DrawerVariantInSidePanel { get; init; } = AppConfig.DefaultDrawerVariantInSidePanel;
+
         [JsonPropertyName("IsPersistentDrawerOpen")]
         public bool IsPersistentDrawerOpen { get; init; }
 
@@ -51,5 +54,8 @@
 
         [JsonPropertyName("W_SelectedHints")]
         public List<string> SelectedHints { get; init; } = AppConfig.DefaultSelectedHints;
+
+        [JsonPropertyName("W_Authenticator_Transports")]
+        public List<string> AuthenticatorTransports { get; init; } = AppConfig.DefaultAuthenticatorTransports;
     }
 }

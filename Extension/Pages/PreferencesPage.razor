@@ -1,5 +1,6 @@
 ﻿@page "/ManagePreferences.html"
 @using Extension.Models
+@using Extension.Models.Messages.AppBw
 @using Extension.Services
 @using System.Reactive.Linq
 @using Extension.Services.Storage
@@ -11,6 +12,9 @@
 @inject IJSRuntime js
 @inject AppCache a
 @inject ILogger<PreferencesPage> logger
+@inject IAppBwMessagingService appBwMessagingService
+
+@inherits AppCacheReactiveComponentBase
 
 @code
 {
@@ -46,6 +50,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync(); // inherited AppCacheReactiveComponentBase will set up to invoke StateHasChanged() upon relevant changes from subscribed AppCache observables
         logger.LogInformation("OnInitializedAsync");
     }
 
@@ -67,6 +72,9 @@
     async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
     {
         await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
+        // Notify BW so it can reset its inactivity timer with new value
+        var message = new AppBwUserActivityMessage();
+        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
     }
 
     async Task SetAndPersistUserVerification(string v)
@@ -161,29 +169,29 @@
 // TODO P3 for stronger typing, consider using Fido2NetLib; and using Fido2NetLib.Objects;
 private void SetMostPermissive()
     {
-        Persist(Prefs with { 
+        InvokeAsync(() => Persist(Prefs with { 
             SelectedHints = new List<string> { },
             ResidentKey = "preferred",
             AuthenticatorAttachment = "all-supported",
             UserVerification = "preferred",
             AttestationConveyancePref = "none",
             SelectedTransportOptions = new List<string> { "hybrid", "internal", "ble", "nfc", "usb" }
-            }).Wait(1000);        
+            }));        
     }
     private void SetForSecurityKey()
     {
-        Persist(Prefs with { 
+        InvokeAsync(() => Persist(Prefs with { 
             SelectedHints = new List<string> { "security-key" },
             ResidentKey = "required",
             AuthenticatorAttachment = "cross-platform",
             UserVerification = "required",
             AttestationConveyancePref = "direct",
             SelectedTransportOptions = new List<string> { "usb" }
-            }).Wait(1000);
+            }));
     }
     private void SetDefaultWebauthn()
     {
-        Persist(Prefs with { 
+        InvokeAsync (() => Persist(Prefs with { 
             SelectedHints = new List<string> { },
             ResidentKey = AppConfig.DefaultResidentKey,
             AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
@@ -191,7 +199,7 @@ private void SetMostPermissive()
             AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref,
             // TODO P2 need to show checkboxes for transport options to make this useful
             SelectedTransportOptions = AppConfig.DefaultAuthenticatorTransports
-            }).Wait(1000);
+            }));
     }
 
     private bool IsFirst(string hint) => SelectedHints.IndexOf(hint) == 0;
@@ -232,17 +240,7 @@ private void SetMostPermissive()
 
     private async Task ResetToDefault()
     {
-        await Persist(Prefs with
-            {
-                IsDarkTheme = AppConfig.DefaultIsDarkTheme,
-                DrawerVariantInTab = AppConfig.DefaultDrawerVariantInTab,
-                InactivityTimeoutMinutes = AppConfig.DefaultInactivityTimeoutMins,
-                SelectedHints = new List<string>(),
-                ResidentKey = AppConfig.DefaultResidentKey,
-                AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
-                UserVerification = AppConfig.DefaultUserVerification,
-                AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref
-            });
+        await Persist(new Preferences()); 
     }
 }
 
@@ -256,7 +254,7 @@ private void SetMostPermissive()
                 </MudText>
                 <MudStack Row="true" Style="margin-left:20px;">
                     <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
-                    <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudSwitch Value="IsDarkTheme" id="asdfasdf" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
                     <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
                 </MudStack>
             </MudStack>
@@ -301,23 +299,17 @@ private void SetMostPermissive()
                     Client-device: Indicates the intention to use a platform authenticator built into the client device (e.g., Touch ID on a Mac or Windows Hello).
             -->
 
-            <MudStack Row="false" Class="pt-3 gap-0">
-                <MudText Class="bt-pref-group-label0">
-                    Webauthn Authenticator Requirements
-                </MudText>
+            <MudExpansionPanel Text="Webauthn Authenticator ('Passkey') Settings" Class="mt-3 mb-3 bt-pref-group-label0" Expanded="false">
                 <MudStack Row="false" Class="bt-pref-stack1">
-                <MudText>
-                    Presets
-
-                </MudText>
-
-<MudStack Row>
-<MudButton OnClick="SetDefaultWebauthn" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Default</MudButton>
-                <MudButton OnClick="SetMostPermissive" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Permissive</MudButton>
-                <MudButton OnClick="SetForSecurityKey" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">USB Security Key</MudButton>
-                
-</MudStack>
-</MudStack>
+                    <MudText Class="bt-pref-group-label1">
+                        Presets
+                    </MudText>
+                <MudStack Row>
+                    <MudButton OnClick="SetDefaultWebauthn" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Default</MudButton>
+                    <MudButton OnClick="SetMostPermissive" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Permissive</MudButton>
+                    <MudButton OnClick="SetForSecurityKey" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">USB Security Key</MudButton>
+                </MudStack>
+                </MudStack>
                 <MudStack Row="false" Class="bt-pref-stack1">
                     <MudText Class="bt-pref-group-label1">
                         Registration Settings
@@ -414,28 +406,25 @@ private void SetMostPermissive()
                         <MudRadio Value=@("none") Class="bt-pref-radio">None</MudRadio>
                     </MudRadioGroup>
 
-                    <!-- TODO P2 either get this hidden div working or delete any use of TransportOptions -->
-                    <div style="display:none;">
+                    @* // TODO P2: get TransportOptions working *@
+                    <MudStack>
                         <MudText Class="bt-pref-group-label1">
-                            Authentication Setting
+                            Authentication Settings
                         </MudText>
-
                         <MudText Class="bt-pref-group-label2">
                             Transports
                         </MudText>
                         <MudStack Row="true" Class="bt-pref-radiogroup">
                             @foreach (var transport in AvailableTransportOptions)
                             {
-                                <MudCheckBox T="bool" Label="@transport" Value="@PersistedTransportOptions.Contains(transport)"
+                                var transportLabel = transport + "Checkbox";
+                                <MudCheckBox T="bool" Label="@transport" id="@transportLabel" Value="@PersistedTransportOptions.Contains(transport)"
                                              ValueChanged="async (bool isChecked) => await UpdateSelection(transport, isChecked)" />
                             }
-                            <p>Selected Transports: @SelectedTransportOptionsList</p>
                         </MudStack>
-                    </div>
+                    </MudStack>
                 </MudStack>
-
-
-            </MudStack>
+            </MudExpansionPanel>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">

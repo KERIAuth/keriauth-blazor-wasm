@@ -36,7 +36,7 @@ namespace Extension;
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Constants
-    // TODO P2 set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
+    // TODO P2 move to AppConfig.cs and set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
     private const string SESSION_INACTIVITY_ALARM_NAME = "SessionInactivityAlarm";
@@ -46,7 +46,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         PropertyNameCaseInsensitive = true
     };
 
-    private static bool isInitialized;
+    // private static bool isInitialized;
 
     // Cached JsonSerializerOptions for credential deserialization with increased depth
     // vLEI credentials can have deeply nested structures (edges, rules, chains, etc.)
@@ -168,7 +168,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Ensure initialization is performed only once
     [JSInvokable]
-    public void InitializeIfNeeded() {
+    public static void InitializeIfNeeded() {
+        /*
         if (isInitialized) {
             logger.LogInformation("BackgroundWorker already initialized, skipping");
             return;
@@ -183,6 +184,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         isInitialized = true;
         logger.LogInformation("BackgroundWorker initialization complete.");
         return;
+        */
     }
 
     // onStartup fires when Chrome launches with a profile (not incognito) that has the extension installed
@@ -339,12 +341,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     var res = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
                     var sessionExpirationUtc = (res.IsSuccess && res.Value is not null) ? res.Value.SessionExpirationUtc : DateTime.UtcNow;
                     if (DateTime.UtcNow < sessionExpirationUtc) {
-                        logger.LogInformation("Session inactivity alarm fired before expiration. Ignored.");
+                        logger.LogWarning("Session inactivity alarm fired before expiration. Ignored. sessionExpirationUtc = {u} UtcNow={n}", sessionExpirationUtc, DateTime.UtcNow);
                     }
                     else {
-                        logger.LogInformation("Session inactivity alarm triggered - locking app due to inactivity");
+                        logger.LogWarning("Session inactivity alarm triggered - locking app");
+                        await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
                         await _storageService.Clear(StorageArea.Session);
                         // Expect reactive changes to occur now
+                        
                     }
                     return;
                 default:
@@ -1118,14 +1122,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
         if (passcodeModelRes is not null && passcodeModelRes.Value is not null && passcodeModelRes.Value.Passcode is not null) {
             var prefs = await _storageService.GetItem<Preferences>(StorageArea.Local);
-            if (prefs?.Value is not null && prefs.Value.InactivityTimeoutMinutes > 0) {
+            if (prefs?.Value is not null && prefs.Value.InactivityTimeoutMinutes > 0f) {
                 // TODO P1 confirm we want this default before verifying the password is set.  Versus { SessionExpirationUtc = DateTime.MinValue };
                 var newSessionExpiration = new SessionExpiration() { SessionExpirationUtc = DateTime.UtcNow.AddMinutes(prefs.Value.InactivityTimeoutMinutes) };
                 var setItemRes = await _storageService.SetItem<SessionExpiration>(newSessionExpiration, StorageArea.Local);
                 if (setItemRes.IsSuccess) {
                     await WebExtensions.Alarms.Create(SESSION_INACTIVITY_ALARM_NAME, new WebExtensions.Net.Alarms.AlarmInfo {
-                        // PeriodInMinutes = 0.15, // 9 seconds
-                        When = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 15 * 1000 // First trigger in 15 seconds
+                        PeriodInMinutes = 5/60, // every 5 seconds
+                        When = ((DateTimeOffset)newSessionExpiration.SessionExpirationUtc).ToUnixTimeMilliseconds() // First trigger when session expires
                     });
                     logger.LogInformation("Session expiration updated based on user activity to {SessionExpirationUtc} (in {min} min). Reset Alarm.", newSessionExpiration.SessionExpirationUtc, Math.Round(prefs.Value.InactivityTimeoutMinutes, 1));
                     return; //successful
@@ -1142,7 +1146,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("No passcode set - not updating session expiration on user activity");
         }
         // TODO P1 clear passcode here also. Add log?
+        logger.LogWarning("Clearing session expiration alarm as no passcode set or inactivity timeout is 0");
         await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
+        logger.LogWarning("clearing session cache");
+        await _storageService.Clear(StorageArea.Session);
     }
 
 
