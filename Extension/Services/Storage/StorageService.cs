@@ -328,7 +328,7 @@ public class StorageService : IStorageService, IDisposable {
 
             // TODO P3: Apply default (or additional) exclusions if not provided
             // if (excludeKeys == null && area == StorageArea.Local) {
-            //    excludeKeys = new List<string> { nameof(AppState) };
+            //    excludeKeys = new List<string> { nameof(Whatever) };
             // }
 
             // Filter out excluded keys

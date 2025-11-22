@@ -7,8 +7,7 @@
  * - Extension/Models/Storage/PasscodeModel.cs
  * - Extension/Models/OnboardState.cs
  * - Extension/Models/Preferences.cs
- * - Extension/Models/AppState.cs
- * - Extension/Models/Websites.cs
+  * - Extension/Models/Websites.cs
  * - Extension/Models/Storage/EnterprisePolicyConfig.cs
  * - Extension/Models/Storage/InactivityTimeoutCacheModel.cs
  */
@@ -25,7 +24,6 @@ export const StorageKeys = {
     PasscodeModel: 'PasscodeModel' as const,
     OnboardState: 'OnboardState' as const,
     Preferences: 'Preferences' as const,
-    AppState: 'AppState' as const,
     WebsiteConfigList: 'WebsiteConfigList' as const,
     EnterprisePolicyConfig: 'EnterprisePolicyConfig' as const,
     InactivityTimeoutCacheModel: 'InactivityTimeoutCacheModel' as const,
@@ -83,15 +81,6 @@ export interface Preferences {
     IsDarkTheme: boolean;
     InactivityTimeoutMinutes: number;
     AutoLockEnabled: boolean;
-}
-
-/**
- * Application state stored in local storage.
- * Storage key: "AppState"
- * Storage area: Local
- */
-export interface AppState {
-    CurrentState: 'Unknown' | 'Uninitialized' | 'Initializing' | 'Unconfigured' | 'Unauthenticated' | 'AuthenticatedDisconnected' | 'AuthenticatedConnected';
 }
 
 /**
