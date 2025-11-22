@@ -5,7 +5,9 @@
 @inject IJSRuntime js
 @inject ILogger<DashboardPage> logger
 @inject IWebsiteConfigService websiteConfigService
-@inject ISignifyClientService signifyClientService;
+@inject ISignifyClientService signifyClientService
+@inject AppCache appCache
+@inherits AppCacheReactiveComponentBase
 
 @using Extension.Services.SignifyService.Models
 
@@ -24,7 +26,9 @@
 
     // reactive properties
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
-
+    // TODO P2 confirm what we want to show
+    string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected" : appCache.IsAuthenticated ? "Not Connected" : "Locked";
+    Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
     List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", Prefs.SelectedPrefix), ("sad.i", Prefs.SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => Prefs.SelectedPrefix;
@@ -93,17 +97,8 @@
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManageAgents)">KERI Agent</MudLink>
                         </MudText>
                         <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
-                            
-                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Class="bt-home-status-icon"></MudIcon>
-                                    <MudText Typo="Typo.body1">Connected</MudText>
-                            
-                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
-                                    <MudText Typo="Typo.body1">Disconnected</MudText>
-                            
-                                    <MudIcon Icon="@Icons.Material.Filled.Close" Color="Color.Error" Class="bt-home-status-icon"></MudIcon>
-                                    <MudText Typo="Typo.body1">Disconnected - Other</MudText>
-                            
-                            }
+                            <MudIcon Icon="@Icons.Material.Filled.Check" Color=KeriaConnectStatusColor Class="bt-home-status-icon"></MudIcon>
+                            <MudText Typo="Typo.body1">@KeriaConnectStatusText</MudText>
                         </div>
                     </MudStack>
                     <MudStack Row>

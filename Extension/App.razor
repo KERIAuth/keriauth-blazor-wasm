@@ -10,18 +10,21 @@
 @inject ILogger<App> logger
 @inject IStorageService storageService
 @inject IAppBwMessagingService appBwMessagingService
-@inject AppCache a
+@inject AppCache appCache
+@inject HttpClient http
 
 @inherits AppCacheReactiveComponentBase
 
 @code {
     // fields
-    // private static IStorageService? staticStorageService;
-    private static ILogger<App>? staticLogger;
-    private static NavigationManager? staticNavManager;
-    // private IDisposable? stateSubscription;
-    private StorageObserver<Preferences>? preferencesStorageObserver;
+    // session storage observers
+    private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoStorageObserver;
     private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
+    private StorageObserver<PasscodeModel>? passcodeModelStorageObserver;
+    // local storage observers
+    private StorageObserver<OnboardState>? onboardStateStorageObserver;
+    private StorageObserver<Preferences>? preferencesStorageObserver;
+    private StorageObserver<KeriaConnectConfig>? keriaConnectConfigStorageObserver;
 
     // properties
     public static Uri? InitialUri { get; set; }
@@ -30,54 +33,127 @@
     public SessionExpiration? InactivityTimeoutCache { get; set; }
 
     // reactive properties
-    // public static bool IsDarkTheme => Prefs.IsDarkTheme;
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        // TODO P2 hack. Instead, create a StaticHelper static class that has injected methods
-        staticNavManager = navManager;
-        staticLogger = logger;
-        // staticStorageService = storageService;
 
-        // Initialize services as needed
-        InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
+        await VerifyTermsAndPrivacyDigests(); 
 
+        // Create several storage observers with callbacks to keep local properties in sync with storage changes
+        // Note that AppCacheReactiveComponentBase will invoke StateHasChanged() on AppCache changes
+        // 1.
         preferencesStorageObserver = new StorageObserver<Preferences>(
             storageService,
             StorageArea.Local,
-            onNext: async (Preferences value) => StateHasChanged(),
-            onError: async (Exception error) => await HandleErrorPreferences(error),
+            onNext: _ => { },
+            // onNext: async (Preferences value) => StateHasChanged(),
+            onError: async (Exception error) => logger.LogError("HandleErrorPreferences: " + error.Message),
             logger: logger
         );
 
+        // 2.
         sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
             storageService,
             StorageArea.Session,
+            // TODO P1 remove?
             onNext: async (SessionExpiration updatedValue) =>
             {
                 InactivityTimeoutCache = updatedValue;
-                logger.LogInformation("Observed InactivityTimeoutCacheModel change: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
+                logger.LogInformation("SessionExpiration value updated: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
                     InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
                 StateHasChanged();
+                // TODO P1: in case this has been deleted, handle that case
+                logger.LogWarning("SessionExpiration value updated?: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}", appCache.MySessionExpiration.SessionExpirationUtc, DateTime.UtcNow);
+                await RedirectIfNeeded();
             },
             onCompleted: async () =>
             {
-                logger.LogInformation("InactivityTimeoutCacheModel observation completed");
+                logger.LogInformation("SessionExpiration observation completed");
             },
             onError: async (Exception error) =>
             {
-                logger.LogError("Error observing InactivityTimeoutCacheModel: " + error.Message);
+                logger.LogError("SessionExpiration observation error: " + error.Message);
             },
             logger: logger
         );
+
+        // 3.
+        keriaConnectionInfoStorageObserver = new StorageObserver<KeriaConnectionInfo>(
+            storageService,
+            StorageArea.Session,
+            // TODO P1 remove
+            onNext: (updatedValue) =>
+            {
+                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
+                StateHasChanged();
+            },
+            onError: async (Exception error) =>
+            {
+                logger.LogError("TBD observation error: " + error.Message);
+            },
+            logger: logger
+        );
+
+        // 4.
+        passcodeModelStorageObserver = new StorageObserver<PasscodeModel>(
+            storageService,
+            StorageArea.Session,
+            // TODO P1 remove
+            onNext: (updatedValue) =>
+            {
+                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
+                StateHasChanged();
+            },
+            onError: async (Exception error) =>
+            {
+                logger.LogError("TBD observation error: " + error.Message);
+            },
+            logger: logger
+        );
+
+        // 5.
+        onboardStateStorageObserver = new StorageObserver<OnboardState>(
+           storageService,
+           StorageArea.Local,
+           // TODO P1 remove
+           onNext: (updatedValue) =>
+           {
+               logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
+               StateHasChanged();
+           },
+           onError: async (Exception error) =>
+           {
+               logger.LogError("TBD observation error: " + error.Message);
+           },
+           logger: logger
+        );
+
+        // 6.
+        keriaConnectConfigStorageObserver = new StorageObserver<KeriaConnectConfig>(
+            storageService,
+            StorageArea.Local,
+            // TODO P1 remove
+            onNext: (updatedValue) =>
+            {
+                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
+                StateHasChanged();
+            },
+            onError: async (Exception error) =>
+            {
+                logger.LogError("TBD observation error: " + error.Message);
+            },
+            logger: logger
+        );
+        // 7. TODO P2 add WebsiteConfigList observer if needed
+        // 8. TODO P2 add AuthenticatorList observer if needed
+
 
         // Subscribe to and handle messages from background worker via messaging service
         appBwMessagingService.Subscribe(
             onNext: (message) =>
             {
-                logger.LogInformation("App from BW/MessagingService: type={type}, requestId={requestId}",
-                    message.Type, message.RequestId);
+                logger.LogWarning("App from BW/MessagingService: type={type}, requestId={requestId}", message.Type, message.RequestId);
                 // Handle specific message types if needed
                 // For now, just log
             },
@@ -93,28 +169,20 @@
 
         // Initialize messaging with background worker
         // Extract tabId from query string if present, otherwise use null
+        InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
+        logger.LogWarning("InitialUri: {u}", InitialUri.ToString());
+        logger.LogWarning("OnInitializedAsync LocalPath: {p}", InitialUri.LocalPath);
+        logger.LogWarning("OnInitializedAsync AbsolutePath: {p}", InitialUri.AbsolutePath);
         var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
         var tabIdParam = query["tabId"];
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
-        // reset sessionExpiration by showing activity
-        // TODO P1 is this the right place for this?  Do we need to set up javascript window event listeners too? If so, see:
-        // https://chatgpt.com/c/691a021b-c780-8333-9f4d-f848f23f50dd
-        var message = new AppBwUserActivityMessage(); // AppBwMessage<AppBwUserActivityMessage>(AppBwMessageTypes.USER_ACTIVITY, 0, null);
+        // Reset sessionExpiration by showing initial user activity
+        var message = new AppBwUserActivityMessage();
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
-        logger.LogInformation("OnInitializedAsync NavigateIfNeeded");
-        // TODO P0
-        // logger.LogWarning("Routing to index from Uri {i}", navManager.Uri);
-        // navManager.NavigateTo(RouteToIndex);
-        // await NavigateIfNeeded();
-        // logger.LogInformation("OnInitializedAsync complete");
+        await RedirectIfNeeded();
         return;
-    }
-
-    async Task HandleErrorPreferences(Exception error)
-    {
-        logger.LogError("HandleErrorPreferences: " + error.Message);
     }
 
     /*
@@ -125,14 +193,120 @@
         if (staticStorageService is null || staticLogger is null)
         {
             throw new Exception("unexpected null staticStorageService");
-        }
+            }
         var res = await staticStorageService.Clear(StorageArea.Session);
         return;
-    }
-    */
-}
+        }
+        */
 
-<PageTitle>@AppConfig.ProductName</PageTitle>
+    // NavigateIfNeeded navigates to newUrl only if not already on that page. In a browser refresh, this may be a build-generated copy of index.html (named FooPage.html) versus the routed path
+    void NavigateIfNeeded(string newUrl)
+    {
+        // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
+
+        navManager.NavigateTo(newUrl);
+        return;
+    }
+
+    async Task RedirectIfNeeded()
+    {
+        logger.LogInformation("RedirectIfNeeded");
+        // logger.LogInformation("{x}", a.MyPreferences);
+        // logger.LogInformation("{x}", a.MyOnboardState);
+        // logger.LogInformation("{x}", a.MyKeriaConnectConfig);
+        // logger.LogInformation("{x}", a.MyKeriaConnectionInfo);
+        // logger.LogInformation("{x}", a.MyPasscodeModel);
+        // logger.LogInformation("{x}", a.MySessionExpiration);
+
+        if (!appCache.MyOnboardState.IsWelcomed)
+        {
+            NavigateIfNeeded(RouteToWelcome);
+            return;
+        }
+        if (!appCache.IsInstallAcknowledged)
+        {
+            NavigateIfNeeded(RouteToNewRelease);
+            return;
+        }
+        if (!appCache.IsTosAgreed)
+        {
+            NavigateIfNeeded(RouteToTerms);
+            return;
+        }
+        if (!appCache.IsPrivacyAgreed)
+        {
+            NavigateIfNeeded(RouteToPrivacy);
+            return;
+        }
+        // Passing above conditions must equate to IsProductOnboarded
+        if (!appCache.IsProductOnboarded)
+        {
+            logger.LogError("RedirectIfNeeded: Not ProductOnboarded");
+            return;
+        }
+        // logger.LogWarning($"RedirectIfNeeded?: NotRequiringAuth: {string.Join(", ",AppConfig.PagesNotRequiringAuth)} this one: {navManager.ToBaseRelativePath(navManager.Uri)}");
+        // Check if on a page not requiring authentication
+        if (AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri)))
+        {
+            // Redirect not needed; okay to stay on this page
+            // logger.LogInformation($"RedirectIfNeeded: on unauthenticated page, so no re-route. {navManager.ToBaseRelativePath(navManager.Uri)}");
+            return;
+        }
+        if (!appCache.IsConfigured)
+        {
+            NavigateIfNeeded(RouteToConfigure);
+            return;
+        }
+        // Passing the above conditions must equate to IsInitialized
+        if (!appCache.IsInitialized)
+        {
+            logger.LogError("RedirectIfNeeded: Not Initialized");
+            return;
+        }
+        if (!appCache.IsUnlocked)
+        {
+            NavigateIfNeeded(RouteToUnlock);
+            return;
+        }
+        if (!appCache.IsAuthenticated)
+        {
+            logger.LogError("RedirectIfNeeded: Not Authenticated");
+            return;
+        }
+        if (!appCache.IsIdentifierFetched)
+        {
+            NavigateIfNeeded(RouteToConnecting);
+            return;
+        }
+        // Passing the above conditions must equate to IsConnectedToKeria
+        if (!appCache.IsConnectedToKeria)
+        {
+            logger.LogError("RedirectIfNeeded: Not ConnectedToKeria");
+            return;
+        }
+        // logger.LogInformation("RedirectIfNeeded: No re-route conditions detected.");
+        NavigateIfNeeded(RouteToDashboard);
+    }
+
+    // Verify that the Terms and Privacy HTML files match expected hash digests. If not, developer needs to update expected digests in AppConfig.
+    private async Task VerifyTermsAndPrivacyDigests()
+    {
+        const string termsUrlPath = "content/terms.html";
+        const string privacyUrlPath = "content/privacy.html";
+        var termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
+        var privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
+        int termsDigest = GetNumberFromHash.HashInt(termsMarkup.Value);
+        int privacyDigest = GetNumberFromHash.HashInt(privacyMarkup.Value);
+        if (termsDigest != AppConfig.ExpectedTermsDigest)
+        {
+            logger.LogError($"termsHash {termsDigest} does not match expected {AppConfig.ExpectedTermsDigest}");
+        }
+        if (privacyDigest != AppConfig.ExpectedPrivacyDigest)
+        {
+            logger.LogError($"privacyHash {privacyDigest} does not match expected {AppConfig.ExpectedPrivacyDigest}");
+        }
+    }
+}
 
 <Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">
@@ -140,7 +314,7 @@
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
     </Found>
     <NotFound>
-        <PageTitle>2 Loading application assembly...</PageTitle>
+        <PageTitle>@AppConfig.ProductName</PageTitle>
         <LayoutView>
             <h1>Page not found</h1>
             <p role="alert">Sorry, there's nothing at this address.</p>

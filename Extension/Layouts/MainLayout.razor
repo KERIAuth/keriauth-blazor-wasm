@@ -33,7 +33,7 @@
     DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
     bool IsMenuDrawerOpen { get; set; }
     Timer? sessionTimerUpdate;
-    
+
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
     string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
@@ -52,11 +52,15 @@
         (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-    string TimeoutIndicatorText => appCache.IsAuthenticated
-        ? SessionDurationRemaining.TotalSeconds > 1f // 1 for rounding
-            ? $"Session Timeout in {SessionDurationRemaining.Minutes:D2}:{SessionDurationRemaining.Seconds:D2} TotalSec {SessionDurationRemaining.TotalSeconds}"
-            : "Session Expired"
-        : "Locked_DELETE_ME";
+    // When session is about to expire, show countdown text that blinks between two colors
+    (string Text, string Style) TimeoutText => appCache.IsAuthenticated && SessionDurationRemaining.TotalSeconds < (float)AppConfig.DisplaySessionExpirationAtSecondsRemaining
+            ? (
+                (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
+                : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
+            )
+            : ("", "");
+
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -127,17 +131,26 @@
 
         StateHasChanged();
 
-        // Reset and start session timer to update the UI every second
+        // TODO P0 move into a RestartTimer method
+        // Reset and start session timer to update the UI every second. Could start it when AppConfig.DisplaySessionExpirationAtSecondsRemaining is reached to save resources.
         sessionTimerUpdate?.Dispose();
         sessionTimerUpdate = new Timer(
-            (_) => { 
+            (_) =>
+            {
                 if (appCache.IsNotExpired) //i.e., is unlocked
                 {
                     StateHasChanged();
+                } else
+                {
+                    sessionTimerUpdate?.Dispose();
+                    logger.LogWarning("Session expired, stopping session timer update.");
+                    storageService.Clear(StorageArea.Session);
+                    // StateHasChanged();
+                    // Note reactive AppCache subscription will trigger UI update via HandleAppCacheChanged. Background working will also listen to session cleared event.
                 }
             },
-            null, 
-            TimeSpan.FromSeconds(1), 
+            null,
+            TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(1));
     }
 
@@ -193,14 +206,15 @@
                 <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
                 <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
             </MudButton>
-            <!-- Timeout Indicator -->
-            <MudStack Row="true" Style="margin-left:16px; height:35px; display:flex; align-items:center;">
-                
-                    <MudText Typo="Typo.caption" Style="color:white;">
-                    @TimeoutIndicatorText
-</MudText>
 
+            <!-- Nice-to-have Indicators -->
+            <MudStack Row="true" Style="margin-left:16px; display:flex; align-items:center;">
+                <!-- Session Timeout Indicator -->
+                <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
+                    @TimeoutText.Text
+                </MudText>
             </MudStack>
+
             <MudSpacer />
             <!-- KERIA Connected Indicator -->
             <div style="align-self:center; height: 35px; margin-right: -8px;">
@@ -226,7 +240,7 @@
                 else
                 {
                     <MudTooltip Text="KERI Auth is locked" Arrow="true" Placement="Placement.Left" Delay="1000">
-                        <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-primary)">
+                        <MudPaper Style="width: 35px; height: 35px; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-warning)">
                             <MudIcon Icon="@Icons.Material.Filled.Lock" Disabled="@(!appCache.IsConfigured)" @onclick="() => navManager.NavigateTo(AppConfig.RouteToUnlock)" />
                         </MudPaper>
                     </MudTooltip>

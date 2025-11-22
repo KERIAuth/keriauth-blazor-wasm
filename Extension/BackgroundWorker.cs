@@ -1125,10 +1125,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (prefs?.Value is not null && prefs.Value.InactivityTimeoutMinutes > 0f) {
                 // TODO P1 confirm we want this default before verifying the password is set.  Versus { SessionExpirationUtc = DateTime.MinValue };
                 var newSessionExpiration = new SessionExpiration() { SessionExpirationUtc = DateTime.UtcNow.AddMinutes(prefs.Value.InactivityTimeoutMinutes) };
-                var setItemRes = await _storageService.SetItem<SessionExpiration>(newSessionExpiration, StorageArea.Local);
+                var setItemRes = await _storageService.SetItem<SessionExpiration>(newSessionExpiration, StorageArea.Session);
                 if (setItemRes.IsSuccess) {
                     await WebExtensions.Alarms.Create(SESSION_INACTIVITY_ALARM_NAME, new WebExtensions.Net.Alarms.AlarmInfo {
-                        PeriodInMinutes = 5/60, // every 5 seconds
+                        // PeriodInMinutes = 5/60, // every 5 seconds
                         When = ((DateTimeOffset)newSessionExpiration.SessionExpirationUtc).ToUnixTimeMilliseconds() // First trigger when session expires
                     });
                     logger.LogInformation("Session expiration updated based on user activity to {SessionExpirationUtc} (in {min} min). Reset Alarm.", newSessionExpiration.SessionExpirationUtc, Math.Round(prefs.Value.InactivityTimeoutMinutes, 1));

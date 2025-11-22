@@ -123,12 +123,12 @@
             IsTosAgreedUtc &&
             IsTosHashExpected;
         public bool IsTosAgreedUtc => MyOnboardState.TosAgreedUtc is not null;
-        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsHash;
+        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsDigest;
         public bool IsPrivacyAgreed =>
             IsPrivacyAgreedUtc &&
             IsPrivacyHashExpected;
         public bool IsPrivacyAgreedUtc => MyOnboardState.PrivacyAgreedUtc is not null;
-        public bool IsPrivacyHashExpected => MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyHash;
+        public bool IsPrivacyHashExpected => MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyDigest;
         public bool IsInstallAcknowledged =>
             MyOnboardState.IsWelcomed &&
             IsInstalledVersionAcknowledged;

@@ -118,7 +118,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        logger.LogInformation("OnParametersSetAsync");
+        // logger.LogInformation("OnParametersSetAsync");
 
         keriaConnectConfig = a.MyKeriaConnectConfig;
 
@@ -131,7 +131,7 @@
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        logger.LogInformation("OnAfterRenderAsync");
+        // logger.LogInformation("OnAfterRenderAsync");
         if (ShouldUseAuthenticator)
         {
             if (unlockWithAuthenticatorButton is not null)
@@ -241,7 +241,7 @@
 
                 // store the SessionExpiry time
                 var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
-                // TODO P2: consider storageService to not use Result pattern for simple set operations and just throw. Lots of code for these checks.
+                // TODO P2: consider storageService to not use Result pattern for simple set operations and just throw. Would save lots of code for these checks.
                 var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
                     new SessionExpiration { SessionExpirationUtc = sessionExpiry },
                     StorageArea.Session

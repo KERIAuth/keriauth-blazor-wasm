@@ -4,7 +4,7 @@
 @using Extension.Services.Storage
 @using Extension.Components
 
-@* IndexPage provides NavManager instance and others *@
+@* IndexPage provides NavManager instance and OnParametersSet navigation *@
 @inherits IndexPage
 @layout MainLayout
 
@@ -16,7 +16,7 @@
 @inject AppCache appCache
 @inject IStorageService storageService
 @inject ILogger<IndexPage> logger
-@inject HttpClient http
+
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject IJsRuntimeAdapter jsRuntimeAdapter
@@ -40,8 +40,7 @@
     // string? initialUriQuery;
     private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.LocalhostKeriaConnectAlias, AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl, 0);
     // private KeriaConnectConfig? keriaConnectConfig;
-    const string termsUrlPath = "content/terms.html";
-    const string privacyUrlPath = "content/privacy.html";
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -69,20 +68,7 @@
             CurrentVersion = versionElement.ToString();
         }
 
-        // TODO P2 Move some of this into Program or App, so it is not calculated often.
-        // compute hashes of latest terms and privacy
-        var termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
-        var privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
-        int termsHash = GetNumberFromHash.HashInt(termsMarkup.Value);
-        int privacyHash = GetNumberFromHash.HashInt(privacyMarkup.Value);
-        if (termsHash != AppConfig.ExpectedTermsHash)
-        {
-            logger.LogError($"termsHash {termsHash} does not match expected {AppConfig.ExpectedTermsHash}");
-        }
-        if (privacyHash != AppConfig.ExpectedPrivacyHash)
-        {
-            logger.LogError($"privacyHash {privacyHash} does not match expected {AppConfig.ExpectedPrivacyHash}");
-        }
+
 
         // TODO P2: Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
         // for how the following is placed into storage
@@ -102,7 +88,7 @@
     /*
     protected override async Task OnParametersSetAsync()
     {
-        }
+    }
     */
 
     /*

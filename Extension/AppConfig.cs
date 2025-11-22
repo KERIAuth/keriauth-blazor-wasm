@@ -3,12 +3,12 @@ using MudBlazor.Utilities;
 
 namespace Extension {
     public static class AppConfig {
-        // Routes, which must match the fixed @page string values in .razor files.
+        // Routes, which must match the fixed @page string value in its .razor file.
         public const string RouteToIdentifiers = "/Identifiers.html";
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
-        public const string RouteToIndex = "/IndexPage.html";  // Distinct from /index.html to be able to distinguish routed page versus page refreshes
-        public const string RouteToIndexHtml = "/index.html";
+        public const string RouteToIndex = "/IndexPage.html";  // Used for re-routing logic or startup
+        public const string RouteToIndexHtml = "/index.html";  // Navigation to this causes restart of Blazor app
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToHome = "/Home.html";
         public const string RouteToDashboard = "/Dashboard.html";
@@ -25,6 +25,12 @@ namespace Extension {
         public const string RouteToSidePanel = "/SidePanel.html";
         public const string RouteToTest = "/Test.html";
         public const string RouteToConnecting = "/Connecting.html";
+        // routes with parameters, with intentional trailing /
+        // TODO P2 better to have pattern with query string? because of browser refresh on one of these pages
+        public const string RouteToIdentifier = "/Identifier.html/";
+        public const string RouteToWebsite = "/Website.html/";
+        public const string RouteToRequestSignIn = "/RequestSignIn.html/";
+        public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html/";
 
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
@@ -39,12 +45,6 @@ namespace Extension {
             RouteToSidePanel,
             RouteToTest,
         ];
-
-        // routes with parameters, with intentional trailing /
-        public const string RouteToIdentifier = "/Identifier.html/";
-        public const string RouteToWebsite = "/Website.html/";
-        public const string RouteToRequestSignIn = "/RequestSignIn.html/";
-        public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html/";
 
         // routes to static content
         public const string RouteToTermsHtml = "content/terms.html";
@@ -63,21 +63,24 @@ namespace Extension {
         public const string LocalhostKeriaAdminUrl = "http://localhost:3901";
         public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
-        // default MyPreferences
+        // default Preferences
         public const float DefaultInactivityTimeoutMins = 5.0f;
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Responsive;
         public const bool DefaultPrefersToUseAuthenticator = true;
-        // TODO P2 strengthen these webauthn defaults for v0.3.0
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
         public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
         public const string DefaultAttestationConveyancePref = "none";  // reasonably strongest is "direct", but need to implement this functionality
         public static readonly List<string> DefaultAuthenticatorTransports = ["usb"]; // ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
         public static readonly List<string> DefaultSelectedHints = []; // more secure default would be ["security-key"]
-        public const int ExpectedTermsHash = 65063442;
-        public const int ExpectedPrivacyHash = 1373375114;
+
+        public const int DisplaySessionExpirationAtSecondsRemaining = 30;
+
+        public const int ExpectedTermsDigest = 65063442;
+        public const int ExpectedPrivacyDigest = 1373375114;
+
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
         public const string ProductName = "KERI Auth";
 
