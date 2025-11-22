@@ -263,7 +263,7 @@
             logger.LogError("RedirectIfNeeded: Not Initialized");
             return;
         }
-        if (!appCache.IsUnlocked)
+        if (!appCache.IsSessionUnlocked)
         {
             NavigateIfNeeded(RouteToUnlock);
             return;

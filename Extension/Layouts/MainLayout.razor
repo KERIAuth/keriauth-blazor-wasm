@@ -15,7 +15,7 @@
 @inject ISignifyClientService signifyClientService
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject AppCache appCache
+@inject AppCache appCache // Note: will receive reactive updates via SubscribeToAppCache
 
 @implements IDisposable
 
@@ -32,7 +32,8 @@
     bool IsProfilePanelOpen { get; set; }
     DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
     bool IsMenuDrawerOpen { get; set; }
-    Timer? sessionTimerUpdate;
+    // TODO P1 Having one session timer at App level or a new inherited KeriAuthBaseLayout would be better, since DialogLayout and popups may also timeout and should have warning.
+    Timer? appBarRefreshTimer;
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
@@ -52,14 +53,14 @@
         (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
         (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-    // When session is about to expire, show countdown text that blinks between two colors
-    (string Text, string Style) TimeoutText => appCache.IsAuthenticated && SessionDurationRemaining.TotalSeconds < (float)AppConfig.DisplaySessionExpirationAtSecondsRemaining
-            ? (
-                (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
-                : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
-            )
+    // When session is unlocked and about to expire, provide countdown Text that alternates between two color Styles
+    (string Text, string Style) TimeoutText => (
+            appCache.IsAuthenticated &&
+            (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
+            (int)SessionDurationRemaining.TotalSeconds >= 1)
+            ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
+              : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
             : ("", "");
-
 
     protected override async Task OnInitializedAsync()
     {
@@ -73,7 +74,7 @@
 
         var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
         var contexts2 = await webExtensionsApi.Runtime.GetContexts(contextFilter);
-        logger.LogInformation("OnInitializedAsync contexts: {c}", contexts2.ToList());
+        // logger.LogInformation("OnInitializedAsync contexts: {c}", contexts2.ToList());
         isInPopup = contexts2.Any(c => c.ContextType == ContextType.POPUP);
 
         var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
@@ -88,6 +89,8 @@
 
         // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
+
+        CreateAppBarRefreshTimer();
     }
 
     async Task HandleAppCacheChanged()
@@ -130,28 +133,26 @@
         }
 
         StateHasChanged();
+    }
 
-        // TODO P0 move into a RestartTimer method
-        // Reset and start session timer to update the UI every second. Could start it when AppConfig.DisplaySessionExpirationAtSecondsRemaining is reached to save resources.
-        sessionTimerUpdate?.Dispose();
-        sessionTimerUpdate = new Timer(
-            (_) =>
+    private void CreateAppBarRefreshTimer()
+    {
+        appBarRefreshTimer = new Timer(
+            callback: (_) =>
             {
-                if (appCache.IsNotExpired) //i.e., is unlocked
+                // Periodically trigger a UI update of layout components only when helpful and necessary,
+                // such as showing a timeout countdown when session is about to expire.
+                // Note: the actual session expiration handling is done elsewhere. Search for various places of storage.clear of session storage.
+                if (appCache.IsSessionNotExpired &&
+                    (appCache.MySessionExpiration.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
                 {
+                    // logger.LogInformation("RestartOrExtendAppBarUpdateTime");
                     StateHasChanged();
-                } else
-                {
-                    sessionTimerUpdate?.Dispose();
-                    logger.LogWarning("Session expired, stopping session timer update.");
-                    storageService.Clear(StorageArea.Session);
-                    // StateHasChanged();
-                    // Note reactive AppCache subscription will trigger UI update via HandleAppCacheChanged. Background working will also listen to session cleared event.
                 }
             },
-            null,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromSeconds(1));
+            state: null,
+            dueTime: TimeSpan.FromSeconds(1),
+            period: TimeSpan.FromSeconds(1));
     }
 
     async Task SetActiveAid(string prefix)
@@ -182,12 +183,12 @@
     private async Task RefreshConnect()
     {
         // TODO P3 not yet implemented
-        snackbar.Add("Refreshing connection...", Severity.Info);
+        // snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
     public void Dispose()
     {
-        sessionTimerUpdate?.Dispose();
+        appBarRefreshTimer?.Dispose();
     }
 }
 

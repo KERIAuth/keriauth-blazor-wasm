@@ -161,7 +161,7 @@
             logger.LogError("HandleAppCacheChanged: Not Initialized");
             return;
         }
-        if (!appCache.IsUnlocked)
+        if (!appCache.IsSessionUnlocked)
         {
             NavigateIfNeeded(RouteToUnlock);
             return;

@@ -10,7 +10,7 @@
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IJSRuntime js
-@inject AppCache a
+@inject AppCache appCache
 @inject ILogger<PreferencesPage> logger
 @inject IAppBwMessagingService appBwMessagingService
 
@@ -27,26 +27,22 @@
     }
 
     // fields and types
-    // TODO P2 move this to AppConfig
-    private List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
 
     // properties
-
+    
     // reactive properties
-    Preferences Prefs => a.MyPreferences;
-
-    List<string> SelectedTransportOptions = []; // => MyPreferences.SelectedTransportOptions ?? [];
+    Preferences Prefs => appCache.MyPreferences;
     float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
     string InactivityTimeoutLabel => InactivityTimeout.ToString() + " " + (InactivityTimeout <= 1.0f ? "minute" : "minutes");
     bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
-    List<string> PersistedTransportOptions => Prefs.SelectedTransportOptions;
-    // TODO P3 set these criteria to known types (or enums) and use those
+    List<string> SelectedTransportOptions => Prefs.SelectedTransportOptions;
+    string SelectedTransportOptionsList => string.Join(", ", SelectedTransportOptions);
     string userVerification => Prefs.UserVerification;
     string residentKey => Prefs.ResidentKey;
     string authenticatorAttachment => Prefs.AuthenticatorAttachment;
     string attestationConveyancePreference => Prefs.AttestationConveyancePref;
-    string SelectedTransportOptionsList => string.Join(", ", PersistedTransportOptions);
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,6 +53,16 @@
     async Task Persist(Preferences prefs)
     {
         await storageService.SetItem<Preferences>(prefs);
+        // Note: reactive update of AppCache will trigger this page's StateHasChanged via its inherited AppCacheReactiveComponentBase
+
+        // Note: timer updates in MainLayout.razor are reactive via AppCache subscription
+        // BackgroundWorker timer reset should also be updated because of reactive to this preferences change, or app activity in general
+
+        // TODO P1 BW can be reactive, too...
+        // Notify BW so it can reset its inactivity timer with new value?
+        // Or, does BW know to treat any Prefs change as user activity?
+        var message = new AppBwUserActivityMessage();
+        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
     }
 
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
@@ -72,9 +78,6 @@
     async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
     {
         await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
-        // Notify BW so it can reset its inactivity timer with new value
-        var message = new AppBwUserActivityMessage();
-        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
     }
 
     async Task SetAndPersistUserVerification(string v)
@@ -99,19 +102,16 @@
 
     private async Task UpdateSelection(string transport, bool isChecked)
     {
-        List<string> newSelection = PersistedTransportOptions.ToList();
-        if (isChecked && !PersistedTransportOptions.Contains(transport))
+        List<string> newSelection = SelectedTransportOptions.ToList();
+        if (isChecked && !SelectedTransportOptions.Contains(transport))
         {
             await Persist(Prefs with { SelectedTransportOptions = newSelection.Append(transport).ToList() });
         }
-        else if (!isChecked && PersistedTransportOptions.Contains(transport))
+        else if (!isChecked && SelectedTransportOptions.Contains(transport))
         {
             await Persist(Prefs with { SelectedTransportOptions = newSelection.Where(item => item != transport).ToList() });
         }
-        StateHasChanged();
     }
-
-    private readonly List<string> AllHints = new() { "hybrid", "security-key", "client-device" };
 
     private List<string> SelectedHints
     {
@@ -125,7 +125,6 @@
     private async void UpdatePrefsWithSelectedHints(List<string> selectedHints)
     {
         await Persist(Prefs with { SelectedHints = selectedHints });
-        StateHasChanged();
     }
 
     private void AddHint(string hint)
@@ -206,7 +205,7 @@ private void SetMostPermissive()
     private bool IsLast(string hint) => SelectedHints.IndexOf(hint) == SelectedHints.Count - 1;
 
     // Available hints exclude those already selected
-    private IEnumerable<string> AvailableHints => AllHints.Except(SelectedHints);
+    private IEnumerable<string> AvailableHints => AppConfig.AllHints.Except(SelectedHints);
 
     string? MisalignmentAuthenticatorAttachment1 =>
     (authenticatorAttachment == "platform" && SelectedHints.Contains("security-key"))
@@ -415,10 +414,10 @@ private void SetMostPermissive()
                             Transports
                         </MudText>
                         <MudStack Row="true" Class="bt-pref-radiogroup">
-                            @foreach (var transport in AvailableTransportOptions)
+                            @foreach (var transport in AppConfig.AvailableTransportOptions)
                             {
                                 var transportLabel = transport + "Checkbox";
-                                <MudCheckBox T="bool" Label="@transport" id="@transportLabel" Value="@PersistedTransportOptions.Contains(transport)"
+                                <MudCheckBox T="bool" Label="@transport" id="@transportLabel" Value="@SelectedTransportOptions.Contains(transport)"
                                              ValueChanged="async (bool isChecked) => await UpdateSelection(transport, isChecked)" />
                             }
                         </MudStack>

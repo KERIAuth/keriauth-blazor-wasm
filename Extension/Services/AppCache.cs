@@ -66,7 +66,7 @@
         public bool IsIdentifierFetched =>
             MyKeriaConnectConfig.AgentAidPrefix is not null &&
             MyKeriaConnectionInfo.IdentifiersList?.FirstOrDefault()?.Aids.Count > 0;
-        public bool IsAuthenticated => IsUnlocked && IsInitialized;
+        public bool IsAuthenticated => IsSessionUnlocked && IsInitialized;
 
         public bool IsNotWaiting =>
             IsNotWaitingOnKeria &&
@@ -80,20 +80,20 @@
         public bool IsBwNotWaitingOnApp { get; private set; }
         public bool IsAppNotWaitingOnBw { get; private set; }
         public bool IsNotWaitingOnPendingRequests { get; private set; }
-        public bool IsUnlocked =>
+        public bool IsSessionUnlocked =>
             IsPasscodeHashSet &&
-            IsPasswordLocallyMatched &&
-            IsNotExpired &&
-            IsPasscodeInSession;
-        public bool IsPasscodeInSession =>
+            IsSessionPasscodeLocallyValid &&
+            IsSessionNotExpired &&
+            IsSessionPasscodeSet;
+        public bool IsSessionPasscodeSet =>
             MyPasscodeModel.Passcode is not null &&
             MyPasscodeModel.Passcode.Length == 21;
-        public bool IsPasswordLocallyMatched =>
+        public bool IsSessionPasscodeLocallyValid =>
             MyPasscodeModel.Passcode is not null &&
             MyPasscodeModel.Passcode.Length == 21 &&
             MyKeriaConnectConfig.PasscodeHash == GetNumberFromHash.HashInt(MyPasscodeModel.Passcode);
         public bool IsPasscodeHashSet => MyKeriaConnectConfig.PasscodeHash != 0;
-        public bool IsNotExpired => MySessionExpiration.SessionExpirationUtc > DateTime.UtcNow;
+        public bool IsSessionNotExpired => MySessionExpiration.SessionExpirationUtc > DateTime.UtcNow;
         public bool IsInitialized =>
             IsConfigured;
         public bool IsConfigured =>

@@ -75,6 +75,8 @@ namespace Extension {
         public const string DefaultAttestationConveyancePref = "none";  // reasonably strongest is "direct", but need to implement this functionality
         public static readonly List<string> DefaultAuthenticatorTransports = ["usb"]; // ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
         public static readonly List<string> DefaultSelectedHints = []; // more secure default would be ["security-key"]
+        public static readonly List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
+        public static readonly List<string> AllHints = ["hybrid", "security-key", "client-device"];
 
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
 
