@@ -222,7 +222,7 @@
         }
 
 
-        if (GetNumberFromHash.HashInt(password) == keriaConnectConfig.PasscodeHash)
+        if (password.GetHashCode() == keriaConnectConfig.PasscodeHash)
         {
             // Store passcode and session expiry time in session storage
             // TODO P3 DRY with ConfigurePage.razor
@@ -239,9 +239,14 @@
                     return;
                 }
 
-                // store the SessionExpiry time
+                // REFACTORED: SessionManager now handles SessionExpiration creation reactively
+                // When PasscodeModel is stored in session storage (above), SessionManager detects
+                // this via its storage observer and immediately calls ExtendIfUnlockedAsync() to
+                // create SessionExpiration with the current InactivityTimeoutMinutes from Preferences.
+                // See SessionManager.HandlePasscodeChangeAsync() for implementation.
+                /*
+                // OLD CODE - No longer needed
                 var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
-                // TODO P2: consider storageService to not use Result pattern for simple set operations and just throw. Would save lots of code for these checks.
                 var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
                     new SessionExpiration { SessionExpirationUtc = sessionExpiry },
                     StorageArea.Session
@@ -251,6 +256,7 @@
                     logger.LogError("Failed to store session expiry: {Errors}", string.Join(", ", storeExpiryResult.Errors));
                     throw new FieldAccessException("Failed to store session expiry in session storage");
                 }
+                */
             }
 
             // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" }); // or just clear session?
@@ -293,7 +299,7 @@
                         // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
                         ClientAidPrefix = connectRes.Value.Controller!.State!.I,  
                         // TODO P2 confirm correctness, and that it matches storage.local value, or leave intentionally blank here:
-                        PasscodeHash = GetNumberFromHash.HashInt(password),
+                        PasscodeHash = password.GetHashCode(),
                         ProviderName = keriaConnectConfig.ProviderName
                     },
                     IdentifiersList = [identifiers]

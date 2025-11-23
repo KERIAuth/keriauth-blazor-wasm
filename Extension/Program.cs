@@ -2,8 +2,8 @@
 using Extension;
 using Extension.Services;
 using Extension.Services.JsBindings;
-using Extension.Services.Storage;
 using Extension.Services.SignifyService;
+using Extension.Services.Storage;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
@@ -70,12 +70,13 @@ builder.UseBrowserExtension(browserExtension => {
 
     switch (browserExtension.Mode) {
         case BrowserExtensionMode.ContentScript:
-            // Note: not implemented
-            // builder.RootComponents.Add<ContentScript>("#Sample_Messaging_app");
-            break;
+            throw new NotImplementedException("ContentScript mode is not implemented in Program.cs");
+        // builder.RootComponents.Add<ContentScript>("#Sample_Messaging_app");
+        // break;
         case BrowserExtensionMode.Background:
             // Console.WriteLine($"Program.cs [{mode}]: Configuring Background mode - adding BackgroundWorker root component");
             builder.RootComponents.AddBackgroundWorker<BackgroundWorker>();
+            builder.Services.AddSingleton<SessionManager>();
             break;
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:

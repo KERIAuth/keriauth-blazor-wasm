@@ -105,6 +105,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     private readonly ISignifyClientBinding _signifyClientBinding;
+    private readonly SessionManager _sessionManager;
 
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
@@ -114,7 +115,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService,
-        IDemo1Binding demo1Binding) {
+        IDemo1Binding demo1Binding,
+        SessionManager sessionManager) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -124,6 +126,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
+        _sessionManager = sessionManager;
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -338,18 +341,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             InitializeIfNeeded();
             switch (alarm.Name) {
                 case SESSION_INACTIVITY_ALARM_NAME:
-                    var res = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
-                    var sessionExpirationUtc = (res.IsSuccess && res.Value is not null) ? res.Value.SessionExpirationUtc : DateTime.UtcNow;
-                    if (DateTime.UtcNow < sessionExpirationUtc) {
-                        logger.LogWarning("Session inactivity alarm fired before expiration. Ignored. sessionExpirationUtc = {u} UtcNow={n}", sessionExpirationUtc, DateTime.UtcNow);
-                    }
-                    else {
-                        logger.LogWarning("Session inactivity alarm triggered - locking app");
-                        await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
-                        await _storageService.Clear(StorageArea.Session);
-                        // Expect reactive changes to occur now
-                        
-                    }
+                    // DEPRECATED: This alarm name is no longer used by BackgroundWorker
+                    // SessionManager now owns session expiration with its own alarm name
+                    logger.LogWarning("Received deprecated SESSION_INACTIVITY_ALARM_NAME - this should not fire");
+                    await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
+                    return;
+                case AppConfig.SessionManagerAlarmName:
+                    // Delegate to SessionManager
+                    await _sessionManager.HandleAlarmAsync(alarm);
                     return;
                 default:
                     logger.LogWarning("Unknown alarm name: {AlarmName}", alarm.Name);
@@ -1117,39 +1116,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
 
-    // TODO P1: invoke the following reactively to a change in any of 0) SessionExpiration alarm, 1) PasscodeModel change, 2) SessionExpiration change, 3) MyPreferences change
+    /// <summary>
+    /// Resets session expiration timer based on user activity.
+    /// REFACTORED: Delegates to SessionManager which handles session expiration reactively.
+    /// SessionManager creates/extends SessionExpiration when PasscodeModel is set/verified,
+    /// and updates it when Preferences.InactivityTimeoutMinutes changes.
+    /// </summary>
     private async Task ResetSessionExpirationTimer() {
-        var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-        if (passcodeModelRes is not null && passcodeModelRes.Value is not null && passcodeModelRes.Value.Passcode is not null) {
-            var prefs = await _storageService.GetItem<Preferences>(StorageArea.Local);
-            if (prefs?.Value is not null && prefs.Value.InactivityTimeoutMinutes > 0f) {
-                // TODO P1 confirm we want this default before verifying the password is set.  Versus { SessionExpirationUtc = DateTime.MinValue };
-                var newSessionExpiration = new SessionExpiration() { SessionExpirationUtc = DateTime.UtcNow.AddMinutes(prefs.Value.InactivityTimeoutMinutes) };
-                var setItemRes = await _storageService.SetItem<SessionExpiration>(newSessionExpiration, StorageArea.Session);
-                if (setItemRes.IsSuccess) {
-                    await WebExtensions.Alarms.Create(SESSION_INACTIVITY_ALARM_NAME, new WebExtensions.Net.Alarms.AlarmInfo {
-                        // PeriodInMinutes = 5/60, // every 5 seconds
-                        When = ((DateTimeOffset)newSessionExpiration.SessionExpirationUtc).ToUnixTimeMilliseconds() // First trigger when session expires
-                    });
-                    logger.LogInformation("Session expiration updated based on user activity to {SessionExpirationUtc} (in {min} min). Reset Alarm.", newSessionExpiration.SessionExpirationUtc, Math.Round(prefs.Value.InactivityTimeoutMinutes, 1));
-                    return; //successful
-                }
-                else {
-                    logger.LogWarning("Failed to update session expiration on user activity: {Error}", setItemRes.Reasons);
-                }
-            }
-            else {
-                logger.LogError("InactivityTimeoutMinutes not found in Prefs");
-            }
-        }
-        else {
-            logger.LogInformation("No passcode set - not updating session expiration on user activity");
-        }
-        // TODO P1 clear passcode here also. Add log?
-        logger.LogWarning("Clearing session expiration alarm as no passcode set or inactivity timeout is 0");
-        await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
-        logger.LogWarning("clearing session cache");
-        await _storageService.Clear(StorageArea.Session);
+        await _sessionManager.ExtendIfUnlockedAsync();
     }
 
 

@@ -55,8 +55,11 @@ namespace Extension {
         public const string RouteToReleaseHtml = "content/release.html";
         public const string RouteToReleaseHistoryHtml = "content/release_history.html";
 
-        // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup        
+        // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup
         public const int SignifyTimeoutMs = 20000; // Note, had fast retry issues when this was set to 1000, since a KERIA boot with KERIA oobi behinds the scenes take long time.
+
+        // SessionManager configuration
+        public const string SessionManagerAlarmName = "SessionManagerAlarm";
 
         // KERI agent connection settings
         public const string LocalhostKeriaConnectAlias = "localhost";
@@ -65,6 +68,7 @@ namespace Extension {
 
         // default Preferences
         public const float DefaultInactivityTimeoutMins = 5.0f;
+        public const float MaxInactivityTimeoutMins = 10.0f;
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Responsive;

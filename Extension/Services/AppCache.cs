@@ -91,7 +91,7 @@
         public bool IsSessionPasscodeLocallyValid =>
             MyPasscodeModel.Passcode is not null &&
             MyPasscodeModel.Passcode.Length == 21 &&
-            MyKeriaConnectConfig.PasscodeHash == GetNumberFromHash.HashInt(MyPasscodeModel.Passcode);
+            MyKeriaConnectConfig.PasscodeHash == MyPasscodeModel.Passcode.GetHashCode();
         public bool IsPasscodeHashSet => MyKeriaConnectConfig.PasscodeHash != 0;
         public bool IsSessionNotExpired => MySessionExpiration.SessionExpirationUtc > DateTime.UtcNow;
         public bool IsInitialized =>

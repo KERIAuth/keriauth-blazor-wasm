@@ -279,7 +279,7 @@ private void SetMostPermissive()
                     @*
                         // TODO P3 perf: update so the change is on mouse-up, not on mouse-move or click
                     *@
-                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="5" Step="0.5f" />
+                    <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="AppConfig.MaxInactivityTimeoutMins" Step="0.5f" />
                     <p>@InactivityTimeoutLabel</p>
                 </MudStack>
             </MudStack>
