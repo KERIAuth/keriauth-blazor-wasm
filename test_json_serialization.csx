@@ -14,9 +14,13 @@ record StorageChange<T>(
 
 record PasscodeModel {
     public required string Passcode { get; init; }
+    public required DateTime SessionExpirationUtc { get; init; }
 }
 
-var initialPasscode = new PasscodeModel { Passcode = "first-value" };
+var initialPasscode = new PasscodeModel {
+    Passcode = "first-value",
+    SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5)
+};
 var change = new StorageChange<PasscodeModel>(initialPasscode, null);
 
 var json = JsonSerializer.Serialize(change, options);

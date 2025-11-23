@@ -121,7 +121,7 @@ public class StorageObserverTests {
     public void OnNext_WorksWithDifferentStorageModels() {
         // Arrange - Test with PasscodeModel
         PasscodeModel? receivedModel = null;
-        var testModel = new PasscodeModel { Passcode = "test123" };
+        var testModel = new PasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
 
         var observer = new StorageObserver<PasscodeModel>(
             _mockStorageService.Object,

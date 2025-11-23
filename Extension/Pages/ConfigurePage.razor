@@ -214,12 +214,29 @@
         }
         ops3Connect.SetCompletedWithoutErrors();
 
+        int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
+        KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
+        var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(KeriaConnectConfig);
+        if (storeConfigResult.IsFailed)
+        {
+            logger.LogError("Failed to store connection config: {Errors}", string.Join(", ", storeConfigResult.Errors));
+            return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store connection configuration"));
+        }
+
         // Store passcode and session expiry time in session storage
         // TODO P3 DRY with Unlock.razor.  CreateAuthorizedNewSession()?
         {
-            // Store passcode in session storage
+            // Calculate session expiration time from Preferences
+            var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+
+            // Store passcode and expiration atomically in PasscodeModel
+            // ATOMIC STORAGE: Both Passcode and SessionExpirationUtc are stored together to ensure
+            // reactive listeners (AppCache, SessionManager) never see intermediate state.
             var storeResult = await storageService.SetItem(
-                new PasscodeModel { Passcode = configuredPasscodeModel.Passcode },
+                new PasscodeModel {
+                    Passcode = configuredPasscodeModel.Passcode,
+                    SessionExpirationUtc = sessionExpiry
+                },
                 StorageArea.Session
             );
             if (storeResult.IsFailed)
@@ -228,29 +245,11 @@
                 return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage"));
             }
 
-            // REFACTORED: SessionManager now handles SessionExpiration creation reactively
-            // When PasscodeModel is stored in session storage (above), SessionManager detects
-            // this via its storage observer and immediately calls ExtendIfUnlockedAsync() to
-            // create SessionExpiration with the current InactivityTimeoutMinutes from Preferences.
-            // See SessionManager.HandlePasscodeChangeAsync() for implementation.
-            /*
-            // OLD CODE - No longer needed
-            var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
-            var storeExpiryResult = await storageService.SetItem<SessionExpiration>(
-                new SessionExpiration { SessionExpirationUtc = sessionExpiry },
-                StorageArea.Session
-            );
-            if (storeExpiryResult.IsFailed)
-            {
-                logger.LogError("Failed to store session expiry: {Errors}", string.Join(", ", storeExpiryResult.Errors));
-                return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store session expiry in session storage"));
-            }
-            */
+            // SessionManager will detect PasscodeModel change and schedule alarm
         }
 
-        int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
-        KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
-        // KeriaConnectConfig will be stored by caller of ConnectToKeria()
+        
+        
         StateHasChanged();
         await Task.Delay(100);
 

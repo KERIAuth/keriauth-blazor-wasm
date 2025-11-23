@@ -42,7 +42,7 @@
     string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
     bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
     static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
-    TimeSpan SessionDurationRemaining => appCache.MySessionExpiration.SessionExpirationUtc - DateTime.UtcNow;
+    TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
         // TODO P2 consider SidePanel variant if implemented
@@ -144,7 +144,7 @@
                 // such as showing a timeout countdown when session is about to expire.
                 // Note: the actual session expiration handling is done elsewhere. Search for various places of storage.clear of session storage.
                 if (appCache.IsSessionNotExpired &&
-                    (appCache.MySessionExpiration.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
+                    (appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
                 {
                     // logger.LogInformation("RestartOrExtendAppBarUpdateTime");
                     StateHasChanged();

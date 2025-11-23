@@ -31,7 +31,6 @@
         private readonly SemaphoreSlim _initLock = new(1, 1);
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
-        private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
         private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
@@ -39,9 +38,11 @@
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = new Preferences();
-        public SessionExpiration MySessionExpiration { get; private set; } = new SessionExpiration() { SessionExpirationUtc = DateTime.MinValue }; // intentionally expired until set
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
-        public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() { Passcode = "" };
+        public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() {
+            Passcode = "",
+            SessionExpirationUtc = DateTime.MinValue // intentionally expired until set
+        };
         public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
         public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = DefaultKeriaConnectConfig;
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
@@ -94,7 +95,7 @@
             MyPasscodeModel.Passcode.Length == 21 &&
             MyKeriaConnectConfig.PasscodeHash == DeterministicHash.ComputeHash(MyPasscodeModel.Passcode);
         public bool IsPasscodeHashSet => MyKeriaConnectConfig.PasscodeHash != 0;
-        public bool IsSessionNotExpired => MySessionExpiration.SessionExpirationUtc > DateTime.UtcNow;
+        public bool IsSessionNotExpired => MyPasscodeModel.SessionExpirationUtc > DateTime.UtcNow;
         public bool IsInitialized =>
             IsConfigured;
         public bool IsConfigured =>
@@ -138,7 +139,6 @@
             MyOnboardState.InstallVersionAcknowledged is not null;
         public void Dispose() {
             preferencesStorageObserver?.Dispose();
-            sessionExpirationStorageObserver?.Dispose();
             onboardStateStorageObserver?.Dispose();
             passcodeModelObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
@@ -174,20 +174,6 @@
                     },
                     onError: ex => _logger.LogError(ex, "Error observing preferences storage"),
                     null,
-                    _logger
-                );
-                sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (value) => {
-                        MySessionExpiration = value;
-                        _logger.LogInformation("AppCache updated InactivityTimeoutCacheModel");
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, "Error observing inactivity timeout cache model storage"),
-                    onCompleted: () => {
-                        _logger.LogInformation("InactivityTimeoutCacheModel observation completed");
-                    },
                     _logger
                 );
                 onboardStateStorageObserver = new StorageObserver<OnboardState>(

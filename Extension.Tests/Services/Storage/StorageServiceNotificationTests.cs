@@ -82,7 +82,7 @@ public class StorageServiceNotificationTests {
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Simulate storage.onChanged event from browser
-        var updatedPasscode = new PasscodeModel { Passcode = "updated-passcode-123" };
+        var updatedPasscode = new PasscodeModel { Passcode = "updated-passcode-123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
 
         // Assert
@@ -106,7 +106,7 @@ public class StorageServiceNotificationTests {
         var subscription2 = _sut.Subscribe(observer2.Object, StorageArea.Local);
 
         // Act - Trigger storage change
-        var updatedPasscode = new PasscodeModel { Passcode = "multi-observer-test" };
+        var updatedPasscode = new PasscodeModel { Passcode = "multi-observer-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
 
         // Assert - Both observers should be notified
@@ -131,7 +131,7 @@ public class StorageServiceNotificationTests {
         // Act - Unsubscribe, then trigger change
         subscription.Dispose();
 
-        var updatedPasscode = new PasscodeModel { Passcode = "after-unsubscribe" };
+        var updatedPasscode = new PasscodeModel { Passcode = "after-unsubscribe", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
 
         // Assert - Should NOT receive notification
@@ -151,7 +151,7 @@ public class StorageServiceNotificationTests {
         var subscription2 = _sut.Subscribe(testModelObserver.Object, StorageArea.Session);
 
         // Act - Trigger change for PasscodeModel only
-        var updatedPasscode = new PasscodeModel { Passcode = "type-specific-test" };
+        var updatedPasscode = new PasscodeModel { Passcode = "type-specific-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChange("session", "PasscodeModel", updatedPasscode);
 
         // Assert - Only PasscodeModel observer should be notified
@@ -176,7 +176,7 @@ public class StorageServiceNotificationTests {
         var subscription2 = _sut.Subscribe(sessionObserver.Object, StorageArea.Session);
 
         // Act - Trigger change for Local storage only
-        var updatedPasscode = new PasscodeModel { Passcode = "local-only-test" };
+        var updatedPasscode = new PasscodeModel { Passcode = "local-only-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
 
         // Assert - Only Local observer should be notified
@@ -273,7 +273,7 @@ public class StorageServiceNotificationTests {
         // Act - Trigger change without newValue (e.g., item was removed)
         var changes = new Dictionary<string, object> {
             ["PasscodeModel"] = new {
-                oldValue = new PasscodeModel { Passcode = "old" }
+                oldValue = new PasscodeModel { Passcode = "old", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) }
                 // No newValue
             }
         };
@@ -311,7 +311,7 @@ public class StorageServiceNotificationTests {
 
         // Act - Simulate initial creation (none → value)
         // oldValue is null when creating for first time
-        var initialPasscode = new PasscodeModel { Passcode = "first-value" };
+        var initialPasscode = new PasscodeModel { Passcode = "first-value", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChangeWithOldValue("session", "PasscodeModel", initialPasscode, oldValue: null);
 
         // Assert
@@ -336,9 +336,9 @@ public class StorageServiceNotificationTests {
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Simulate value1 → value2 → value3
-        var value1 = new PasscodeModel { Passcode = "first" };
-        var value2 = new PasscodeModel { Passcode = "second" };
-        var value3 = new PasscodeModel { Passcode = "third" };
+        var value1 = new PasscodeModel { Passcode = "first", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var value2 = new PasscodeModel { Passcode = "second", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var value3 = new PasscodeModel { Passcode = "third", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
 
         TriggerStorageChange("local", "PasscodeModel", value1);
         TriggerStorageChange("local", "PasscodeModel", value2);
@@ -370,11 +370,11 @@ public class StorageServiceNotificationTests {
         // Act - Full lifecycle: none → value → value2 → deleted
 
         // Step 1: Create initial value (none → value)
-        var initialValue = new PasscodeModel { Passcode = "initial" };
+        var initialValue = new PasscodeModel { Passcode = "initial", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChangeWithOldValue("session", "PasscodeModel", initialValue, oldValue: null);
 
         // Step 2: Update to new value (value → value2)
-        var updatedValue = new PasscodeModel { Passcode = "updated" };
+        var updatedValue = new PasscodeModel { Passcode = "updated", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChangeWithOldValue("session", "PasscodeModel", updatedValue, oldValue: initialValue);
 
         // Step 3: Delete (value2 → none) - only oldValue, no newValue
@@ -406,7 +406,7 @@ public class StorageServiceNotificationTests {
 
         // Act - Simulate deletion (value → none)
         // Only oldValue present, no newValue
-        var oldValue = new PasscodeModel { Passcode = "deleted" };
+        var oldValue = new PasscodeModel { Passcode = "deleted", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         TriggerStorageChangeWithOnlyOldValue("local", "PasscodeModel", oldValue);
 
         // Assert - Should call OnNext with default value (deletion triggers notification)

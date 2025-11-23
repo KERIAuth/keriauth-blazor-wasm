@@ -15,13 +15,16 @@ namespace Extension.Services;
 /// 3. Startup check to handle browser suspend/resume and service worker restarts
 ///
 /// Responsibilities:
-/// - Creates SessionExpiration immediately when PasscodeModel is set
-/// - Updates SessionExpiration immediately when Preferences.InactivityTimeoutMinutes changes
+/// - Updates PasscodeModel.SessionExpirationUtc immediately when PasscodeModel is set
+/// - Updates PasscodeModel.SessionExpirationUtc immediately when Preferences.InactivityTimeoutMinutes changes
 /// - Schedules one-shot alarm to fire at exact expiration time (no polling)
 /// - Clears expired sessions on SessionManager startup
 /// - Clears session storage when alarm fires or session expires
 /// - Validates session is unlocked: passcode hash matches AND session not expired
 /// - Provides public API for extending or locking sessions
+///
+/// ATOMIC STORAGE: PasscodeModel contains both Passcode and SessionExpirationUtc fields,
+/// ensuring reactive listeners never see intermediate state where passcode exists without expiration.
 /// </summary>
 public class SessionManager : IDisposable {
     private readonly ILogger<SessionManager> _logger;
@@ -31,7 +34,6 @@ public class SessionManager : IDisposable {
     // Storage observers - disposed on cleanup
     private IDisposable? _passcodeObserver;
     private IDisposable? _preferencesObserver;
-    private IDisposable? _sessionExpirationObserver;
 
     /// <summary>
     /// Constructor starts SessionManager initialization asynchronously.
@@ -75,36 +77,42 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Checks if SessionExpiration exists and is expired on SessionManager startup.
+    /// Checks if PasscodeModel exists and is expired on SessionManager startup.
     /// Clears session if expired, reschedules alarm if not expired.
     /// Handles cases like: browser suspend/resume, service worker restart, chrome crash.
     /// </summary>
     private async Task CheckAndClearExpiredSessionOnStartupAsync() {
         try {
-            var sessionExpRes = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
+            var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
 
-            if (sessionExpRes.IsFailed) {
-                _logger.LogDebug("No SessionExpiration found on startup - session is locked");
+            if (passcodeModelRes.IsFailed) {
+                _logger.LogDebug("No PasscodeModel found on startup - session is locked");
                 return;
             }
 
-            var sessionExpiration = sessionExpRes.Value;
-            if (sessionExpiration is null) {
-                _logger.LogDebug("SessionExpiration is null on startup - session is locked");
+            var passcodeModel = passcodeModelRes.Value;
+            if (passcodeModel is null) {
+                _logger.LogDebug("PasscodeModel is null on startup - session is locked");
                 return;
             }
 
-            var expirationUtc = sessionExpiration.SessionExpirationUtc;
+            var expirationUtc = passcodeModel.SessionExpirationUtc;
+
+            // Check for invalid expiration (DateTime.MinValue or past)
+            if (expirationUtc == DateTime.MinValue) {
+                _logger.LogDebug("PasscodeModel has default expiration (MinValue) on startup - session is locked");
+                return;
+            }
 
             if (DateTime.UtcNow >= expirationUtc) {
                 // Session is expired - clear it
-                _logger.LogInformation("SessionExpiration expired on startup ({Expiration}), clearing session",
+                _logger.LogInformation("PasscodeModel expired on startup ({Expiration}), clearing session",
                     expirationUtc);
                 await LockSessionAsync();
             }
             else {
                 // Session is still valid - reschedule alarm
-                _logger.LogInformation("SessionExpiration still valid on startup ({Expiration}), rescheduling alarm",
+                _logger.LogInformation("PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
                     expirationUtc);
                 await ScheduleExpirationAlarmAsync(expirationUtc);
             }
@@ -153,30 +161,23 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Subscribes to storage changes for PasscodeModel, Preferences, and SessionExpiration.
+    /// Subscribes to storage changes for PasscodeModel and Preferences.
     /// Uses IObserver pattern for immediate reactivity.
     /// </summary>
     private void SubscribeToStorageChanges() {
-        // PasscodeModel changes - immediate SessionExpiration creation
+        // PasscodeModel changes - reschedule alarm when SessionExpirationUtc changes
         _passcodeObserver = _storageService.Subscribe(
             new PasscodeObserver(this),
             StorageArea.Session
         );
         _logger.LogDebug("Subscribed to PasscodeModel changes");
 
-        // Preferences changes - immediate SessionExpiration update
+        // Preferences changes - immediate SessionExpirationUtc update if unlocked
         _preferencesObserver = _storageService.Subscribe(
             new PreferencesObserver(this),
             StorageArea.Local
         );
         _logger.LogDebug("Subscribed to Preferences changes");
-
-        // SessionExpiration changes - for logging/debugging
-        _sessionExpirationObserver = _storageService.Subscribe(
-            new SessionExpirationObserver(this),
-            StorageArea.Session
-        );
-        _logger.LogDebug("Subscribed to SessionExpiration changes");
     }
 
     /// <summary>
@@ -201,6 +202,12 @@ public class SessionManager : IDisposable {
     /// </summary>
     public async Task ExtendIfUnlockedAsync() {
         if (await IsUnlockedAsync()) {
+            // Get current PasscodeModel
+            var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            if (passcodeModelRes.IsFailed || passcodeModelRes.Value is null) {
+                throw new InvalidOperationException("PasscodeModel not found when extending session");
+            }
+
             var prefsRes = await _storageService.GetItem<Preferences>(StorageArea.Local);
             if (prefsRes.IsFailed) {
                 throw new InvalidOperationException(
@@ -211,14 +218,16 @@ public class SessionManager : IDisposable {
                 ?? AppConfig.DefaultInactivityTimeoutMins;
 
             var newExpirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
-            var newExpiration = new SessionExpiration {
+
+            // Update PasscodeModel with new expiration time (atomic update)
+            var updatedPasscodeModel = passcodeModelRes.Value with {
                 SessionExpirationUtc = newExpirationUtc
             };
 
-            var setRes = await _storageService.SetItem(newExpiration, StorageArea.Session);
+            var setRes = await _storageService.SetItem(updatedPasscodeModel, StorageArea.Session);
             if (setRes.IsFailed) {
                 throw new InvalidOperationException(
-                    $"Failed to set SessionExpiration: {setRes.Errors[0].Message}");
+                    $"Failed to update PasscodeModel: {setRes.Errors[0].Message}");
             }
 
             // Schedule one-shot alarm to fire at expiration time
@@ -251,7 +260,7 @@ public class SessionManager : IDisposable {
     /// Checks if session is unlocked by verifying (similar to AppCache.IsSessionUnlocked):
     /// 1. PasscodeModel exists in session storage with non-empty passcode
     /// 2. Passcode hash matches stored hash in KeriaConnectConfig
-    /// 3. SessionExpiration exists and is not expired
+    /// 3. PasscodeModel.SessionExpirationUtc is not expired
     /// </summary>
     private async Task<bool> IsUnlockedAsync() {
         // 1. Check PasscodeModel exists and has non-empty passcode
@@ -261,7 +270,8 @@ public class SessionManager : IDisposable {
             return false;
         }
 
-        var passcode = passcodeModelRes.Value.Passcode;
+        var passcodeModel = passcodeModelRes.Value;
+        var passcode = passcodeModel.Passcode;
         if (string.IsNullOrEmpty(passcode)) {
             _logger.LogWarning("Passcode not in PasscodeModel");
             return false;
@@ -289,16 +299,15 @@ public class SessionManager : IDisposable {
             return false;
         }
 
-        // 3. Check SessionExpiration exists and is not expired
-        var sessionExpRes = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
-        if (sessionExpRes.IsFailed || sessionExpRes.Value is null) {
-            _logger.LogDebug("SessionExpiration not found - session is locked");
+        // 3. Check PasscodeModel.SessionExpirationUtc is not expired
+        var expirationUtc = passcodeModel.SessionExpirationUtc;
+        if (expirationUtc == DateTime.MinValue) {
+            _logger.LogDebug("PasscodeModel.SessionExpirationUtc not set (MinValue) - session is locked");
             return false;
         }
 
-        var expirationUtc = sessionExpRes.Value.SessionExpirationUtc;
         if (DateTime.UtcNow >= expirationUtc) {
-            _logger.LogInformation("SessionExpiration expired ({Expiration}) - session is locked", expirationUtc);
+            _logger.LogInformation("PasscodeModel.SessionExpirationUtc expired ({Expiration}) - session is locked", expirationUtc);
             return false;
         }
 
@@ -307,61 +316,35 @@ public class SessionManager : IDisposable {
 
     /// <summary>
     /// Handles PasscodeModel changes from storage observer.
+    /// Reschedules alarm when SessionExpirationUtc changes.
     /// Reacts to current state of PasscodeModel (stateless - works across service worker restarts).
     /// </summary>
     private async Task HandlePasscodeChangeAsync(PasscodeModel? passcodeModel) {
-        string? passcode = passcodeModel?.Passcode;
-
-        if (!string.IsNullOrEmpty(passcode)) {
-            // PasscodeModel exists with passcode - ensure SessionExpiration exists
-            // Do NOT call IsUnlockedAsync() here - it requires KeriaConnectConfig to exist,
-            // but in ConfigurePage flow, it hasn't been stored yet (race condition).
-            // Instead, just ensure SessionExpiration exists based on current Preferences.
-
-            // Check if SessionExpiration already exists
-            var sessionExpRes = await _storageService.GetItem<SessionExpiration>(StorageArea.Session);
-            if (sessionExpRes.IsSuccess && sessionExpRes.Value is not null) {
-                // SessionExpiration already exists, no action needed
-                _logger.LogDebug("PasscodeModel exists and SessionExpiration already exists");
-                return;
-            }
-
-            // SessionExpiration doesn't exist - create it
-            _logger.LogInformation("PasscodeModel exists but SessionExpiration missing, creating SessionExpiration");
-
-            try {
-                // Get timeout from Preferences
-                var prefsRes = await _storageService.GetItem<Preferences>(StorageArea.Local);
-                var timeoutMinutes = prefsRes.IsSuccess && prefsRes.Value is not null
-                    ? prefsRes.Value.InactivityTimeoutMinutes
-                    : AppConfig.DefaultInactivityTimeoutMins;
-
-                var newExpirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
-                var newExpiration = new SessionExpiration {
-                    SessionExpirationUtc = newExpirationUtc
-                };
-
-                var setRes = await _storageService.SetItem(newExpiration, StorageArea.Session);
-                if (setRes.IsFailed) {
-                    throw new InvalidOperationException(
-                        $"Failed to set SessionExpiration: {setRes.Errors[0].Message}");
-                }
-
-                // Schedule one-shot alarm to fire at expiration time
-                await ScheduleExpirationAlarmAsync(newExpirationUtc);
-
-                _logger.LogInformation("SessionExpiration created with expiration {Expiration} ({Minutes} min)",
-                    newExpirationUtc, Math.Round(timeoutMinutes, 1));
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Failed to create SessionExpiration");
-                // Don't throw - this is a fire-and-forget observer
-            }
-        }
-        else {
+        if (passcodeModel is null || string.IsNullOrEmpty(passcodeModel.Passcode)) {
             // PasscodeModel is null or empty - clear session
-            _logger.LogInformation("PasscodeModel is null/empty, clearing session");
-            await LockSessionAsync();
+            _logger.LogDebug("PasscodeModel is null/empty - session locked");
+            return;
+        }
+
+        var expirationUtc = passcodeModel.SessionExpirationUtc;
+
+        // Skip if expiration time is invalid (DateTime.MinValue or in the past)
+        // This can happen during initial PasscodeModel creation or storage clearing
+        if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
+            _logger.LogDebug("PasscodeModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
+                expirationUtc);
+            return;
+        }
+
+        _logger.LogDebug("PasscodeModel changed with SessionExpirationUtc {Expiration}, rescheduling alarm", expirationUtc);
+
+        // Reschedule alarm to fire at expiration time
+        try {
+            await ScheduleExpirationAlarmAsync(expirationUtc);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to reschedule alarm for PasscodeModel change");
+            // Don't throw - this is a fire-and-forget observer
         }
     }
 
@@ -380,38 +363,6 @@ public class SessionManager : IDisposable {
 
         // Extend session with new timeout value if currently unlocked
         await ExtendIfUnlockedAsync();
-    }
-
-    /// <summary>
-    /// Handles SessionExpiration changes from storage observer.
-    /// Reschedules alarm when expiration time changes.
-    /// </summary>
-    private async Task HandleSessionExpirationChangeAsync(SessionExpiration? sessionExpiration) {
-        if (sessionExpiration is null) {
-            _logger.LogDebug("SessionExpiration cleared - no alarm to schedule");
-            return;
-        }
-
-        var expirationUtc = sessionExpiration.SessionExpirationUtc;
-
-        // Skip if expiration time is invalid (DateTime.MinValue or in the past)
-        // This happens when default SessionExpiration objects are created during storage clearing
-        if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
-            _logger.LogDebug("SessionExpiration has invalid/expired time {Expiration}, skipping alarm scheduling",
-                expirationUtc);
-            return;
-        }
-
-        _logger.LogDebug("SessionExpiration changed to {Expiration}, rescheduling alarm", expirationUtc);
-
-        // Reschedule alarm to fire at new expiration time
-        try {
-            await ScheduleExpirationAlarmAsync(expirationUtc);
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Failed to reschedule alarm for SessionExpiration change");
-            // Don't throw - this is a fire-and-forget observer
-        }
     }
 
     /// <summary>
@@ -451,32 +402,12 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Observer for SessionExpiration changes.
-    /// Reschedules alarm when expiration time changes.
-    /// </summary>
-    private sealed class SessionExpirationObserver(SessionManager sessionManager) : IObserver<SessionExpiration> {
-        public void OnNext(SessionExpiration? value) {
-            // Fire and forget - errors will be logged and thrown by SessionManager
-            _ = sessionManager.HandleSessionExpirationChangeAsync(value);
-        }
-
-        public void OnError(Exception error) {
-            sessionManager._logger.LogError(error, "Error in SessionExpiration observer");
-        }
-
-        public void OnCompleted() {
-            sessionManager._logger.LogDebug("SessionExpiration observer completed");
-        }
-    }
-
-    /// <summary>
     /// Disposes storage observers.
     /// </summary>
     public void Dispose() {
         _logger.LogDebug("SessionManager disposing...");
         _passcodeObserver?.Dispose();
         _preferencesObserver?.Dispose();
-        _sessionExpirationObserver?.Dispose();
         GC.SuppressFinalize(this);
         _logger.LogDebug("SessionManager disposed");
     }

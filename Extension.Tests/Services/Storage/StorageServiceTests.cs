@@ -45,7 +45,7 @@ public class StorageServiceTests {
     [Fact]
     public async Task SetItem_OnManagedStorage_ReturnsValidationError() {
         // Arrange
-        var model = new PasscodeModel { Passcode = "test123" };
+        var model = new PasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
 
         // Act
         var result = await _sut.SetItem(model, StorageArea.Managed);
@@ -266,7 +266,7 @@ public class StorageServiceTests {
     [Fact]
     public void PasscodeModel_RequiresPasscode() {
         // Act & Assert - Should compile with required property
-        var model = new PasscodeModel { Passcode = "test123" };
+        var model = new PasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         Assert.Equal("test123", model.Passcode);
     }
 

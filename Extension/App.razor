@@ -30,7 +30,8 @@
     public static Uri? InitialUri { get; set; }
     // properties intended to cascade down to child components (layouts, pages) via [CascadingParameter] attribution
     public static Preferences Prefs { get; set; } = new Preferences();
-    public SessionExpiration? InactivityTimeoutCache { get; set; }
+    // OBSOLETE: InactivityTimeoutCache removed - use appCache.MyPasscodeModel.SessionExpirationUtc instead
+    // public SessionExpiration? InactivityTimeoutCache { get; set; }
 
     // reactive properties
 
