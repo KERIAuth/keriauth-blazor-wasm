@@ -13,18 +13,18 @@
 @inject AppCache appCache
 @inject HttpClient http
 
-@inherits AppCacheReactiveComponentBase
+@inherits AppCacheReactiveComponentBase // AppCacheReactiveComponentBase will invoke StateHasChanged() on AppCache changes
 
 @code {
     // fields
     // session storage observers
-    private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoStorageObserver;
-    private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
-    private StorageObserver<PasscodeModel>? passcodeModelStorageObserver;
+    // private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoStorageObserver;
+    // private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
+    // private StorageObserver<PasscodeModel>? passcodeModelStorageObserver;
     // local storage observers
-    private StorageObserver<OnboardState>? onboardStateStorageObserver;
-    private StorageObserver<Preferences>? preferencesStorageObserver;
-    private StorageObserver<KeriaConnectConfig>? keriaConnectConfigStorageObserver;
+    // private StorageObserver<OnboardState>? onboardStateStorageObserver;
+    // private StorageObserver<Preferences>? preferencesStorageObserver;
+    // private StorageObserver<KeriaConnectConfig>? keriaConnectConfigStorageObserver;
 
     // properties
     public static Uri? InitialUri { get; set; }
@@ -40,6 +40,7 @@
 
         await VerifyTermsAndPrivacyDigests(); 
 
+        /*
         // Create several storage observers with callbacks to keep local properties in sync with storage changes
         // Note that AppCacheReactiveComponentBase will invoke StateHasChanged() on AppCache changes
         // 1.
@@ -147,7 +148,7 @@
         );
         // 7. TODO P2 add WebsiteConfigList observer if needed
         // 8. TODO P2 add AuthenticatorList observer if needed
-
+        */
 
         // Subscribe to and handle messages from background worker via messaging service
         appBwMessagingService.Subscribe(

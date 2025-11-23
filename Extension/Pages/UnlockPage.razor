@@ -2,6 +2,7 @@
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 @using Extension.Models.Storage
+@using Extension.Utilities
 
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
@@ -222,7 +223,7 @@
         }
 
 
-        if (password.GetHashCode() == keriaConnectConfig.PasscodeHash)
+        if (DeterministicHash.ComputeHash(password) == keriaConnectConfig.PasscodeHash)
         {
             // Store passcode and session expiry time in session storage
             // TODO P3 DRY with ConfigurePage.razor
@@ -297,9 +298,9 @@
                         Alias = keriaConnectConfig.Alias,
                         BootUrl = keriaConnectConfig.BootUrl,
                         // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
-                        ClientAidPrefix = connectRes.Value.Controller!.State!.I,  
+                        ClientAidPrefix = connectRes.Value.Controller!.State!.I,
                         // TODO P2 confirm correctness, and that it matches storage.local value, or leave intentionally blank here:
-                        PasscodeHash = password.GetHashCode(),
+                        PasscodeHash = DeterministicHash.ComputeHash(password),
                         ProviderName = keriaConnectConfig.ProviderName
                     },
                     IdentifiersList = [identifiers]

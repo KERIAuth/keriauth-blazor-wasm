@@ -1,6 +1,7 @@
 ﻿@page "/Configure.html"
 @using Extension.Models.Storage
 @using Extension.Services.Storage
+@using Extension.Utilities
 
 @inject IStorageService storageService
 @inject ILogger<ConfigurePage> logger
@@ -56,6 +57,7 @@
     static readonly OperationDisplay ops3Connect = new OperationDisplay("Connecting", "Connected");
     static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
     static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
+    // TODO P2 load presets from AppConfig or external source
     static List<Preset> presetAgents = new List<Preset>
     {
         new Preset("localhost", AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl),
@@ -246,7 +248,7 @@
             */
         }
 
-        int passcodeHash = configuredPasscodeModel.Passcode.GetHashCode();
+        int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
         KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
         // KeriaConnectConfig will be stored by caller of ConnectToKeria()
         StateHasChanged();
@@ -341,6 +343,10 @@
             }
             logger.LogInformation("StoreHashAndConnect succeeded");
             StateHasChanged();
+
+            // Wait for AppCache to update before navigating (avoid race condition)
+            await WaitForAppCacheConfiguredAsync();
+
             navManager.NavigateTo(RouteToIndex); // expext to go to home
             return;
         }
@@ -352,6 +358,33 @@
             logger.LogWarning(errorMsg);
             snackbar.Add(errorMsg, Severity.Warning);
             return;
+        }
+    }
+
+    /// <summary>
+    /// Waits for AppCache to update IsConfigured to true after storing KeriaConnectConfig.
+    /// Prevents race condition where navigation happens before AppCache storage observers fire.
+    /// Timeout after 5 seconds to prevent infinite wait.
+    /// </summary>
+    private async Task WaitForAppCacheConfiguredAsync()
+    {
+        var maxWaitMs = 5000;
+        var pollIntervalMs = 50;
+        var elapsedMs = 0;
+
+        while (!a.IsConfigured && elapsedMs < maxWaitMs)
+        {
+            await Task.Delay(pollIntervalMs);
+            elapsedMs += pollIntervalMs;
+        }
+
+        if (a.IsConfigured)
+        {
+            logger.LogInformation("AppCache updated to IsConfigured=true after {ElapsedMs}ms", elapsedMs);
+        }
+        else
+        {
+            logger.LogWarning("AppCache did not update to IsConfigured=true after {ElapsedMs}ms timeout", elapsedMs);
         }
     }
 }

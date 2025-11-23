@@ -1,8 +1,8 @@
 ﻿using Extension.Models;
 using Extension.Models.Storage;
 using Extension.Services.Storage;
+using Extension.Utilities;
 using JsBind.Net;
-using Microsoft.Extensions.Logging;
 using WebExtensions.Net;
 using WebExtensions.Net.Alarms;
 
@@ -116,7 +116,7 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Schedules a one-shot Chrome Alarm to fire at the exact session expiration time.
+    /// Schedules a named one-shot Chrome Alarm to fire at the exact session expiration time.
     /// Replaces any existing alarm with the same name.
     /// Validates expiration time is in the future and within max timeout range.
     /// </summary>
@@ -257,17 +257,20 @@ public class SessionManager : IDisposable {
         // 1. Check PasscodeModel exists and has non-empty passcode
         var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
         if (passcodeModelRes.IsFailed || passcodeModelRes.Value is null) {
+            _logger.LogWarning("PasscodeModel does not exists");
             return false;
         }
 
         var passcode = passcodeModelRes.Value.Passcode;
         if (string.IsNullOrEmpty(passcode)) {
+            _logger.LogWarning("Passcode not in PasscodeModel");
             return false;
         }
 
         // 2. Verify passcode hash matches stored hash in KeriaConnectConfig
         var configRes = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
         if (configRes.IsFailed || configRes.Value is null) {
+            _logger.LogWarning("KeriaConnectConfig not stored");
             return false;
         }
 
@@ -277,9 +280,12 @@ public class SessionManager : IDisposable {
             return false;
         }
 
-        var currentHash = passcode.GetHashCode();
+        var currentHash = DeterministicHash.ComputeHash(passcode);
         if (currentHash != storedHash) {
-            _logger.LogWarning("Passcode hash mismatch - session not authenticated");
+            _logger.LogWarning(
+                "Passcode hash mismatch - session not authenticated. " +
+                "CurrentHash={CurrentHash}, StoredHash={StoredHash}, PasscodeLength={PasscodeLength}",
+                currentHash, storedHash, passcode.Length);
             return false;
         }
 
@@ -361,7 +367,7 @@ public class SessionManager : IDisposable {
 
     /// <summary>
     /// Handles Preferences changes from storage observer.
-    /// If session is unlocked, immediately updates SessionExpiration with new timeout.
+    /// When InactivityTimeoutMinutes changes, extends the session with new timeout if unlocked.
     /// </summary>
     private async Task HandlePreferencesChangeAsync(Preferences? preferences) {
         if (preferences is null) {
@@ -369,12 +375,11 @@ public class SessionManager : IDisposable {
             return;
         }
 
-        // If session is unlocked, immediately update SessionExpiration with new timeout
-        if (await IsUnlockedAsync()) {
-            _logger.LogInformation("InactivityTimeoutMinutes changed to {Minutes}, updating session immediately",
-                preferences.InactivityTimeoutMinutes);
-            await ExtendIfUnlockedAsync();
-        }
+        _logger.LogDebug("Preferences.InactivityTimeoutMinutes changed to {Minutes}, extending session if unlocked",
+            preferences.InactivityTimeoutMinutes);
+
+        // Extend session with new timeout value if currently unlocked
+        await ExtendIfUnlockedAsync();
     }
 
     /// <summary>
@@ -388,10 +393,25 @@ public class SessionManager : IDisposable {
         }
 
         var expirationUtc = sessionExpiration.SessionExpirationUtc;
+
+        // Skip if expiration time is invalid (DateTime.MinValue or in the past)
+        // This happens when default SessionExpiration objects are created during storage clearing
+        if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
+            _logger.LogDebug("SessionExpiration has invalid/expired time {Expiration}, skipping alarm scheduling",
+                expirationUtc);
+            return;
+        }
+
         _logger.LogDebug("SessionExpiration changed to {Expiration}, rescheduling alarm", expirationUtc);
 
         // Reschedule alarm to fire at new expiration time
-        await ScheduleExpirationAlarmAsync(expirationUtc);
+        try {
+            await ScheduleExpirationAlarmAsync(expirationUtc);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to reschedule alarm for SessionExpiration change");
+            // Don't throw - this is a fire-and-forget observer
+        }
     }
 
     /// <summary>
