@@ -76,7 +76,6 @@
 
     // properties
     KeriaConnectConfig? KeriaConnectConfig { get; set; }
-    static string InitialAlias { get; set; } = "";
     string RandomPasscode { get; set; } = "";
     bool IsPasscodeCopyConfirmed { get; set; }
     bool IsUsingExistingPasscode { get; set; } = true;
@@ -109,8 +108,7 @@
         && !string.IsNullOrWhiteSpace(configuredPasscodeModel.Passcode)
         && configuredPasscodeModel.Passcode.Length == 21
         && (IsUsingExistingPasscode
-            || IsValidBootURL
-                && (!string.IsNullOrEmpty(InitialAlias)
+            || (IsValidBootURL
                 && RandomPasscode == configuredPasscodeModel.Passcode
                 && IsPasscodeCopyConfirmed)
         );
@@ -145,227 +143,259 @@
         StateHasChanged();
     }
 
-    async Task<Result<KeriaConnectionInfo>> ConnectToKeria()
+    async Task UnifiedOnboardingFlow()
     {
         await ResetOps();
-        logger.LogInformation("ConnectToKeria");
+        logger.LogInformation("UnifiedOnboardingFlow starting...");
         IsProcessing = true;
+        StateHasChanged();
 
+        // Validate preconditions
         if (!(IsValidNewInfo || IsKeriaConfigured))
         {
-            throw new Exception("ConnectToKeria: preconditions not met");
+            snackbar.Add("Please complete all required fields", Severity.Error);
+            IsProcessing = false;
+            return;
         }
 
+        // Step 0: Validate BootUrl for "Create new" flow
+        if (!IsUsingExistingPasscode && !IsValidBootURL)
+        {
+            snackbar.Add("Boot URL is required for creating a new account", Severity.Error);
+            IsProcessing = false;
+            return;
+        }
+
+        // Step 1: Check KERIA liveness (if BootUrl is provided)
         if (IsValidBootURL)
         {
-            // check if BootUrl is reachable.
+            // Check if BootUrl is reachable
             ops1CheckLiveness.SetIsRunning();
             StateHasChanged();
 
-            // TODO P2 avoid if BootUrl is not a URL
             var baseUri = new Uri(urlModel.BootUrl!);
-            // TODO P2 would be better to check the KERI port (or a non-Boot URL), which means this needs to be configured.
             var healthUri = new Uri(baseUri, "health");
             var healthUriBuilder = new UriBuilder(healthUri);
 
-            var postResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
-            if (!postResult.IsSuccess)
+            var healthCheckResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
+            if (!healthCheckResult.IsSuccess)
             {
                 const string message = "KERIA service is not reachable";
-                // logger.LogWarning($"{message} at {healthUriBuilder.Uri}.");
                 ops1CheckLiveness.SetCompletedWithError(message);
-                return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, message));
+                snackbar.Add(message, Severity.Error);
+                IsProcessing = false;
+                return;
             }
             ops1CheckLiveness.SetCompletedWithoutErrors();
-            StateHasChanged();
 
-            // check if KERIA is reporting as healthy
+            // Check if KERIA is reporting as healthy
             ops2CheckHealth.SetIsRunning();
             StateHasChanged();
-            // TODO P3 move this into service or helper code
-            // TODO P2 should not run this if BootUrl is not a URL
             var httpClientService2 = new HttpClientService(new HttpClient());
-            var postResult2 = await httpClientService2.GetJsonAsync<String>(healthUriBuilder.Uri.ToString());
-            if (!postResult2.IsSuccess || postResult2.Value.StatusCode != System.Net.HttpStatusCode.OK)
+            var healthStatusResult = await httpClientService2.GetJsonAsync<String>(healthUriBuilder.Uri.ToString());
+            if (!healthStatusResult.IsSuccess || healthStatusResult.Value.StatusCode != System.Net.HttpStatusCode.OK)
             {
-                ops2CheckHealth.SetCompletedWithError(postResult2.Reasons.First().Message);
-                StateHasChanged();
-                return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, postResult2.Reasons.First().Message));
+                string errorMsg = healthStatusResult.Reasons.FirstOrDefault()?.Message ?? "KERIA health check failed";
+                ops2CheckHealth.SetCompletedWithError(errorMsg);
+                snackbar.Add(errorMsg, Severity.Error);
+                IsProcessing = false;
+                return;
             }
-            else
-            {
-                ops2CheckHealth.SetCompletedWithoutErrors();
-            }
-            StateHasChanged();
+            ops2CheckHealth.SetCompletedWithoutErrors();
             await Task.Delay(100);
         }
 
-        // Create a new KERIA client, and on success cache the passcode
+        // Step 2: Store partial KeriaConnectConfig with passcodeHash
+        int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
+        var partialConfig = new KeriaConnectConfig(
+            _presetChoice.ProviderName,
+            urlModel.AdminUrl,
+            urlModel.BootUrl,
+            passcodeHash,
+            null, // clientAidPrefix - will be set after Connect
+            null  // agentAidPrefix - will be set after Connect
+        );
+
+        var storePartialConfigResult = await storageService.SetItem<KeriaConnectConfig>(partialConfig);
+        if (storePartialConfigResult.IsFailed)
+        {
+            logger.LogError("Failed to store partial connection config: {Errors}", string.Join(", ", storePartialConfigResult.Errors));
+            snackbar.Add("Failed to store connection configuration", Severity.Error);
+            IsProcessing = false;
+            return;
+        }
+
+        // Wait for AppCache to reflect the partial config
+        await a.WaitForAppCache([() => a.MyKeriaConnectConfig.PasscodeHash != 0]);
+
+        // Step 3: Connect to KERIA
         ops3Connect.SetIsRunning();
         StateHasChanged();
         await Task.Delay(100);
+
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
-        var clientRes = await signifyClientService.Connect($"{urlModel.AdminUrl}", configuredPasscodeModel.Passcode, $"{urlModel.BootUrl}", !IsUsingExistingPasscode);
-        if (clientRes.IsFailed)
+        var connectResult = await signifyClientService.Connect(
+            urlModel.AdminUrl,
+            configuredPasscodeModel.Passcode,
+            urlModel.BootUrl,
+            !IsUsingExistingPasscode
+        );
+
+        if (connectResult.IsFailed)
         {
-            ops3Connect.SetCompletedWithError(clientRes.Reasons.First().Message);
-            StateHasChanged();
-            return Result.Fail<KeriaConnectionInfo>(new ConnectionError(urlModel.AdminUrl, clientRes.Reasons.First().Message));
+            ops3Connect.SetCompletedWithError(connectResult.Reasons.First().Message);
+            snackbar.Add($"Connection failed: {connectResult.Reasons.First().Message}", Severity.Error);
+            IsProcessing = false;
+            return;
         }
         ops3Connect.SetCompletedWithoutErrors();
 
-        int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
-        KeriaConnectConfig = new KeriaConnectConfig(_presetChoice.ProviderName, urlModel.AdminUrl, urlModel.BootUrl, passcodeHash, clientRes.Value.Agent!.I, clientRes.Value.Controller!.State!.I);
-        var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(KeriaConnectConfig);
-        if (storeConfigResult.IsFailed)
+        // Extract agent and client prefixes from Connect result
+        string clientAidPrefix = connectResult.Value.Controller!.State!.I;
+        string agentAidPrefix = connectResult.Value.Agent!.I;
+
+        // Step 4: Store PasscodeModel to Session storage
+        var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+        var passcodeModel = new PasscodeModel
         {
-            logger.LogError("Failed to store connection config: {Errors}", string.Join(", ", storeConfigResult.Errors));
-            return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store connection configuration"));
+            Passcode = configuredPasscodeModel.Passcode,
+            SessionExpirationUtc = sessionExpiry
+        };
+
+        var storePasscodeResult = await storageService.SetItem(passcodeModel, StorageArea.Session);
+        if (storePasscodeResult.IsFailed)
+        {
+            logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storePasscodeResult.Errors));
+            snackbar.Add("Failed to store session passcode", Severity.Error);
+            IsProcessing = false;
+            return;
         }
 
-        // Wait for AppCache to finish reactive updates before proceeding, since setting PasscodeModel below may trigger reactive updates depending on it
+        // Wait for PasscodeModel to be reflected in AppCache
+        await a.WaitForAppCache([() => a.IsSessionPasscodeSet, () => a.IsSessionNotExpired]);
+
+        // Step 5: Update KeriaConnectConfig with complete information
+        var completeConfig = new KeriaConnectConfig(
+            _presetChoice.ProviderName,
+            urlModel.AdminUrl,
+            urlModel.BootUrl,
+            passcodeHash,
+            clientAidPrefix,
+            agentAidPrefix
+        );
+
+        var storeCompleteConfigResult = await storageService.SetItem<KeriaConnectConfig>(completeConfig);
+        if (storeCompleteConfigResult.IsFailed)
+        {
+            logger.LogError("Failed to update connection config: {Errors}", string.Join(", ", storeCompleteConfigResult.Errors));
+            snackbar.Add("Failed to update connection configuration", Severity.Error);
+            IsProcessing = false;
+            return;
+        }
+
+        // Wait for complete config to be reflected in AppCache
         await a.WaitForAppCache([() => a.IsConfigured]);
+        KeriaConnectConfig = completeConfig;
 
-        await StorePasscode();
-
-        await a.WaitForAppCache([() => a.IsAuthenticated]);
-
-        StateHasChanged();
-
-        // GetIdentifiers
+        // Step 6: Get Identifiers
         ops4ListAids.SetIsRunning();
         StateHasChanged();
         await Task.Delay(100);
+
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {
             ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
-            StateHasChanged();
-            return Result.Fail<KeriaConnectionInfo>(identifiersRes.Errors);
+            snackbar.Add($"Failed to retrieve identifiers: {identifiersRes.Reasons.First().Message}", Severity.Error);
+            IsProcessing = false;
+            return;
         }
+
         var identifiers = identifiersRes.Value;
         ops4ListAids.SetCompletedWithoutErrors();
-        StateHasChanged();
         await Task.Delay(100);
 
-
-        // If there are no Identifiers, create one
+        // Step 7: Create identifier if none exist
         if (identifiers.Aids.Count == 0)
         {
             ops5CreatePersonalAid.SetIsRunning();
             StateHasChanged();
-            var aidRes = await signifyClientService.RunCreateAid(InitialAlias);
-            if (aidRes.IsFailed)
+
+            var createAidResult = await signifyClientService.RunCreateAid("Alias1");
+            if (createAidResult.IsFailed)
             {
-                ops5CreatePersonalAid.SetCompletedWithError(aidRes.Reasons.First().Message);
-                StateHasChanged();
-                return Result.Fail<KeriaConnectionInfo>(aidRes.Errors);
+                ops5CreatePersonalAid.SetCompletedWithError(createAidResult.Reasons.First().Message);
+                snackbar.Add($"Failed to create identifier: {createAidResult.Reasons.First().Message}", Severity.Error);
+                IsProcessing = false;
+                return;
             }
             ops5CreatePersonalAid.SetCompletedWithoutErrors();
 
-            string? prefix = aidRes.Value;
-            if (prefix is not null)
+            // Re-fetch identifiers after creating
+            var refreshedIdentifiersRes = await signifyClientService.GetIdentifiers();
+            if (refreshedIdentifiersRes.IsFailed)
             {
-                await storageService.SetItem<Preferences>(new Preferences { SelectedPrefix = prefix }, StorageArea.Local);
+                snackbar.Add("Failed to refresh identifiers after creation", Severity.Error);
+                IsProcessing = false;
+                return;
             }
+            identifiers = refreshedIdentifiersRes.Value;
         }
-        else
+
+        // Step 8: Store Preferences with SelectedPrefix
+        if (identifiers.Aids.Count == 0)
         {
-            // Set a default Prefix
-            await storageService.SetItem<Preferences>(new Preferences { SelectedPrefix = identifiers.Aids.First().Prefix });
+            snackbar.Add("No identifiers available after creation", Severity.Error);
+            IsProcessing = false;
+            return;
         }
-        // logger.LogWarning("ConnectToKeria 3");
+
+        var selectedPrefix = identifiers.Aids.First().Prefix;
+        var preferences = new Preferences { SelectedPrefix = selectedPrefix };
+
+        var storePreferencesResult = await storageService.SetItem<Preferences>(preferences, StorageArea.Local);
+        if (storePreferencesResult.IsFailed)
+        {
+            logger.LogError("Failed to store preferences: {Errors}", string.Join(", ", storePreferencesResult.Errors));
+            snackbar.Add("Failed to store preferences", Severity.Error);
+            IsProcessing = false;
+            return;
+        }
+
+        // Wait for Preferences to be reflected in AppCache
+        await a.WaitForAppCache([() => !string.IsNullOrWhiteSpace(a.MyPreferences.SelectedPrefix)]);
+
+        // Step 9: Store KeriaConnectionInfo to Session storage
+        var connectionInfo = new KeriaConnectionInfo
+        {
+            Config = completeConfig,
+            IdentifiersList = [identifiers],
+            AgentPrefix = agentAidPrefix
+        };
+
+        var storeConnectionInfoResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
+        if (storeConnectionInfoResult.IsFailed)
+        {
+            logger.LogError("Failed to cache connection info: {Errors}", string.Join(", ", storeConnectionInfoResult.Errors));
+            snackbar.Add("Failed to cache connection info", Severity.Error);
+            IsProcessing = false;
+            return;
+        }
+
+        // Wait for KeriaConnectionInfo to be reflected in AppCache
+        await a.WaitForAppCache([() => a.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
+
+        // Step 10: Final confirmation and navigation
+        await a.WaitForAppCache([() => a.IsConnectedToKeria]);
+
+        IsConnected = true;
+        IsProcessing = false;
+
         if (nextButton is not null)
             await nextButton.FocusAsync();
-        // logger.LogWarning("ConnectToKeria 4");
-        return Result.Ok(new KeriaConnectionInfo()
-        {
-            Config = KeriaConnectConfig!,
-            // SessionExpirationUtc = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes),
-            IdentifiersList = [identifiers],
-            AgentPrefix = clientRes.Value.Agent!.I,
-            // ControllerPrefix = clientRes.Value.Controller!.State!.I,
-        });
-    }
 
-    async Task StorePasscode()
-    {
-        // Store passcode and session expiry time in session storage
-        // TODO P3 DRY with Unlock.razor.  CreateAuthorizedNewSession()?
-
-        // Calculate session expiration time from Preferences
-        var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
-
-        var storeResult = await storageService.SetItem(
-            new PasscodeModel
-            {
-                Passcode = configuredPasscodeModel.Passcode,
-                SessionExpirationUtc = sessionExpiry
-            },
-            StorageArea.Session
-        );
-        if (storeResult.IsFailed)
-        {
-            logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
-            throw new Exception("Failed to store passcode in session storage");
-        }
-        await a.WaitForAppCache([() => a.IsSessionPasscodeSet, () => a.IsSessionNotExpired]);
-        // Note: SessionManager will detect PasscodeModel change and schedule alarm
-    }
-
-    async Task StoreHashAndConnect()
-    {
-        logger.LogInformation("StoreHashAndConnect...");
-        // Since user has confirmed the passcode, we can now hash it and store it once the connection is successful
-        IsProcessing = true;
-        StateHasChanged();
-        var connectionResult = await ConnectToKeria();
-        if (connectionResult.IsSuccess)
-        {
-            IsConnected = true;
-            var connectionInfo = connectionResult.Value;
-
-            KeriaConnectConfig = connectionInfo.Config;
-            var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
-            if (storeConfigResult.IsFailed)
-            {
-                logger.LogError("Failed to store connection details");
-                logger.LogError(storeConfigResult.Reasons.First().Message);
-                snackbar.Add("Failed to store connection configuration", Severity.Error);
-                return;
-            }
-            await a.WaitForAppCache([() => a.IsKeriaInitialConnectSuccess]);
-            logger.LogInformation("StoreHashAndConnect stored KeriConnectConfig");
-
-            // TODO P1 Unlock should also do this caching of connection info in session storage. DRY
-            var cacheConnectionResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
-            if (cacheConnectionResult.IsFailed)
-            {
-                logger.LogError("Failed to cache connection info in session storage");
-                logger.LogError(cacheConnectionResult.Reasons.First().Message);
-                snackbar.Add("Failed to cache connection info in session storage", Severity.Error);
-                return;
-            }
-            await a.WaitForAppCache([() => a.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
-            logger.LogInformation("StoreHashAndConnect stored KeriaConnectionInfo");
-
-            await StorePasscode();
-
-            await a.WaitForAppCache([() => a.IsAuthenticated]);
-            // StateHasChanged();
-
-            navManager.NavigateTo(RouteToIndex); // expext to go to home
-            return;
-        }
-        else
-        {
-            IsConnected = false;
-            var error = connectionResult.Errors[0];
-            var errorMsg = $"Failed to connect: {error?.Message ?? "Unknown error"}";
-            logger.LogWarning(errorMsg);
-            snackbar.Add(errorMsg, Severity.Warning);
-            return;
-        }
+        logger.LogInformation("UnifiedOnboardingFlow completed successfully");
+        navManager.NavigateTo(RouteToIndex);
     }
 
 }
@@ -407,7 +437,7 @@
                                   @bind-Value="@configuredPasscodeModel.Passcode"
                                   For="@(() => configuredPasscodeModel.Passcode)"
                                   Immediate="true" />
-                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="StoreHashAndConnect" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
+                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
                 {
@@ -436,13 +466,7 @@
                         else
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                            <MudTextField Label="Alias for your initial identifier"
-                                          InputType="InputType.Text"
-                                          @bind-Value="@InitialAlias"
-                                          spellcheck="false"
-                                          Immediate="true"
-                                          HelperText="@AppConfig.ExampleAlias" />
-                            <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="StoreHashAndConnect" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary"><MudText>Connect and Create Initial Identifier</MudText></MudButton>
+                            <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
                         }
                     }
                 }
@@ -450,17 +474,14 @@
                 {
                     <MudText Typo="Typo.h6">Connecting...</MudText>
                     <MudStack Class="mt-5">
-                        @if (!IsUsingExistingPasscode)
+                        @if (IsValidBootURL)
                         {
                             <OperationDisplayComponent ops="@ops1CheckLiveness"></OperationDisplayComponent>
                             <OperationDisplayComponent ops="@ops2CheckHealth"></OperationDisplayComponent>
                         }
                         <OperationDisplayComponent ops="@ops3Connect"></OperationDisplayComponent>
                         <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                        @if (!IsUsingExistingPasscode)
-                        {
-                            <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
-                        }
+                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
                     </MudStack>
                 }
             </MudStack>
