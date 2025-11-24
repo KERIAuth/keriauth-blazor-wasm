@@ -20,47 +20,47 @@
 @implements IDisposable
 
 @code {
-    // fields...
-    static public IJSObjectReference? utilModule;
-    const string miniWidth = "var(--mud-drawer-mini-width-left)";
-    const string openWidth = "var(--mud-drawer-width-left)";
-    string version = "";
-    string version_name = "";
-    bool isInPopup;
+        // fields...
+        static public IJSObjectReference? utilModule;
+        const string miniWidth = "var(--mud-drawer-mini-width-left)";
+        const string openWidth = "var(--mud-drawer-width-left)";
+        string version = "";
+        string version_name = "";
+        bool isInPopup;
 
-    // properties...
-    bool IsProfilePanelOpen { get; set; }
-    DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
-    bool IsMenuDrawerOpen { get; set; }
-    // TODO P1 Having one session timer at App level or a new inherited KeriAuthBaseLayout would be better, since DialogLayout and popups may also timeout and should have warning.
-    Timer? appBarRefreshTimer;
+        // properties...
+        bool IsProfilePanelOpen { get; set; }
+        DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
+        bool IsMenuDrawerOpen { get; set; }
+        // TODO P1 Having one session timer at App level or a new inherited KeriAuthBaseLayout would be better, since DialogLayout and popups may also timeout and should have warning.
+        Timer? appBarRefreshTimer;
 
-    // reactive properties ...
-    Object ActiveAidObject => (object)ActivePrefix;
-    string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
-    string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix); // Identifiers.Find(x => x.Prefix == ActivePrefix) != null ? Helper.Identicon.MakeIdenticon(ActivePrefix) : "";
-    string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
-    bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
-    static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
-    TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
-    string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
-    {
-        // TODO P2 consider SidePanel variant if implemented
-        (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
-        (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
-        (true, DrawerVariant.Persistent) => $" width:calc(100vw - {openWidth}); ",
-        (true, _) => $"left: 0; width:calc(100vw);",
-        (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
-        (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
-    };
-    // When session is unlocked and about to expire, provide countdown Text that alternates between two color Styles
-    (string Text, string Style) TimeoutText => (
-            appCache.IsAuthenticated &&
-            (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
-            (int)SessionDurationRemaining.TotalSeconds >= 1)
-            ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
-              : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
-            : ("", "");
+        // reactive properties ...
+        Object ActiveAidObject => (object)ActivePrefix;
+        string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
+        string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix); // Identifiers.Find(x => x.Prefix == ActivePrefix) != null ? Helper.Identicon.MakeIdenticon(ActivePrefix) : "";
+        string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
+        bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
+        static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
+        TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
+        string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
+        {
+            // TODO P2 consider SidePanel variant if implemented
+            (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
+            (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
+            (true, DrawerVariant.Persistent) => $" width:calc(100vw - {openWidth}); ",
+            (true, _) => $"left: 0; width:calc(100vw);",
+            (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
+            (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
+        };
+        // When session is unlocked and about to expire, provide countdown Text that alternates between two color Styles
+        (string Text, string Style) TimeoutText => (
+                appCache.IsAuthenticated &&
+                (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
+                (int)SessionDurationRemaining.TotalSeconds >= 1)
+                ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
+                  : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
+                : ("", "");
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,9 +93,27 @@
         CreateAppBarRefreshTimer();
     }
 
+    async Task Lock() 
+    {
+        logger.LogInformation("Locking application - clearing session storage");
+        await storageService.Clear(StorageArea.Session);
+        // assure time is allowed for AppCache to update via subscription
+        await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
+    }
+
     async Task HandleAppCacheChanged()
     {
         logger.LogInformation("HandleAppCacheChanged");
+        
+        // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
+        if (!appCache.IsAuthenticated) {
+            if (!(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
+            {
+                logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
+                navManager.NavigateTo(AppConfig.RouteToIndex);
+                return;
+            } 
+        }
         StateHasChanged();
     }
 
@@ -317,7 +335,7 @@
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     @if (appCache.IsAuthenticated)
                     {
-                        <MudNavLink OnClick="async () => await storageService.Clear(StorageArea.Session)" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                        <MudNavLink OnClick="async () => await Lock()" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     }
                     else
                     {

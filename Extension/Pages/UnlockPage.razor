@@ -207,7 +207,6 @@
         }
     }
 
-    // TODO P1 should be a Task<Result<bool>> ???
     async Task UnlockWithPasscode(string password)
     {
         throwIfNotConfigured();
@@ -281,7 +280,7 @@
                 var keriaConnectionInfo = new KeriaConnectionInfo()
                 {
                     AgentPrefix = connectRes.Value.Agent!.I,
-                    SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(a.MyPreferences.InactivityTimeoutMinutes),
+                    // SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(a.MyPreferences.InactivityTimeoutMinutes),
                     Config = new() {
                         AdminUrl = keriaConnectConfig.AdminUrl!,
                         // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
@@ -303,6 +302,7 @@
                     snackbar.Add("Failed to store KERI connection info", Severity.Error);
                     return;
                 }
+                await a.WaitForAppCache([() => !string.IsNullOrEmpty(a.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
                 logger.LogInformation("Connected to KERI Agent");
             }
             navManager.NavigateTo(RouteToIndex);
@@ -358,9 +358,17 @@
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
+        <MudButton @ref="unlockWithAuthenticatorButton" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
+            Unlock with Passkey
+        </MudButton>
+        <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length != 21)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
+            Unlock with Passcode
+        </MudButton>
+
+        @* // TODO P1 fix some rendering issue with conditional buttons
         @if (ShouldUseAuthenticator)
         {
-            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="() => SetPrefersToUseAuthenticator(false)">
+            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="async () => await SetPrefersToUseAuthenticator(false)">
                 Use passcode
             </MudButton>
             <MudButton @ref="unlockWithAuthenticatorButton" Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
@@ -372,9 +380,10 @@
             <MudButton Disabled="!CanUseAuthenticator" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary" OnClick="() => SetPrefersToUseAuthenticator(true)">
                 Use authenticator
             </MudButton>
-            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length < 2)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
+            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length != 21)" Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
                 Unlock
             </MudButton>
         }
+        *@
     </MudStack>
 </div>

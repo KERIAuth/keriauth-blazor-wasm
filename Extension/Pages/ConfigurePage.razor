@@ -11,12 +11,12 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject AppCache a 
+@inject AppCache a
 @* TODO P2: note not subscribing to updates for AppCache? *@
 @using FluentResults
 
 @code {
-        // TODO P2 restructure as a record?
+    // TODO P2 restructure as a record?
     struct Preset
     {
         public string ProviderName { get; init; }
@@ -223,35 +223,14 @@
             return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store connection configuration"));
         }
 
-        // Store passcode and session expiry time in session storage
-        // TODO P3 DRY with Unlock.razor.  CreateAuthorizedNewSession()?
-        {
-            // Calculate session expiration time from Preferences
-            var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+        // Wait for AppCache to finish reactive updates before proceeding, since setting PasscodeModel below may trigger reactive updates depending on it
+        await a.WaitForAppCache([() => a.IsConfigured]);
 
-            // Store passcode and expiration atomically in PasscodeModel
-            // ATOMIC STORAGE: Both Passcode and SessionExpirationUtc are stored together to ensure
-            // reactive listeners (AppCache, SessionManager) never see intermediate state.
-            var storeResult = await storageService.SetItem(
-                new PasscodeModel {
-                    Passcode = configuredPasscodeModel.Passcode,
-                    SessionExpirationUtc = sessionExpiry
-                },
-                StorageArea.Session
-            );
-            if (storeResult.IsFailed)
-            {
-                logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
-                return Result.Fail<KeriaConnectionInfo>(new StorageError("Failed to store passcode in session storage"));
-            }
+        await StorePasscode();
 
-            // SessionManager will detect PasscodeModel change and schedule alarm
-        }
+        await a.WaitForAppCache([() => a.IsAuthenticated]);
 
-        
-        
         StateHasChanged();
-        await Task.Delay(100);
 
         // GetIdentifiers
         ops4ListAids.SetIsRunning();
@@ -299,14 +278,40 @@
         if (nextButton is not null)
             await nextButton.FocusAsync();
         // logger.LogWarning("ConnectToKeria 4");
-        return Result.Ok(new KeriaConnectionInfo() {
-                Config = KeriaConnectConfig!,
-                SessionExpirationUtc = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes),
-                IdentifiersList = [identifiers],
-                AgentPrefix = clientRes.Value.Agent!.I,
+        return Result.Ok(new KeriaConnectionInfo()
+        {
+            Config = KeriaConnectConfig!,
+            // SessionExpirationUtc = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes),
+            IdentifiersList = [identifiers],
+            AgentPrefix = clientRes.Value.Agent!.I,
             // ControllerPrefix = clientRes.Value.Controller!.State!.I,
-            });
-}
+        });
+    }
+
+    async Task StorePasscode()
+    {
+        // Store passcode and session expiry time in session storage
+        // TODO P3 DRY with Unlock.razor.  CreateAuthorizedNewSession()?
+
+        // Calculate session expiration time from Preferences
+        var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+
+        var storeResult = await storageService.SetItem(
+            new PasscodeModel
+            {
+                Passcode = configuredPasscodeModel.Passcode,
+                SessionExpirationUtc = sessionExpiry
+            },
+            StorageArea.Session
+        );
+        if (storeResult.IsFailed)
+        {
+            logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
+            throw new Exception("Failed to store passcode in session storage");
+        }
+        await a.WaitForAppCache([() => a.IsSessionPasscodeSet, () => a.IsSessionNotExpired]);
+        // Note: SessionManager will detect PasscodeModel change and schedule alarm
+    }
 
     async Task StoreHashAndConnect()
     {
@@ -315,21 +320,10 @@
         IsProcessing = true;
         StateHasChanged();
         var connectionResult = await ConnectToKeria();
-        // logger.LogWarning("tmp finished ConnectoToKeria");
         if (connectionResult.IsSuccess)
         {
             IsConnected = true;
             var connectionInfo = connectionResult.Value;
-
-            // TODO P1 Unlock should also do this caching of connection info in session storage. DRY
-            var cacheConnectionResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
-            if (cacheConnectionResult.IsFailed)
-            {
-                logger.LogError("Failed to cache connection info in session storage");
-                logger.LogError(cacheConnectionResult.Reasons.First().Message);
-                snackbar.Add("Failed to cache connection info in session storage", Severity.Error);
-                return;
-            }
 
             KeriaConnectConfig = connectionInfo.Config;
             var storeConfigResult = await storageService.SetItem<KeriaConnectConfig>(connectionInfo.Config);
@@ -340,11 +334,25 @@
                 snackbar.Add("Failed to store connection configuration", Severity.Error);
                 return;
             }
-            logger.LogInformation("StoreHashAndConnect succeeded");
-            StateHasChanged();
+            await a.WaitForAppCache([() => a.IsKeriaInitialConnectSuccess]);
+            logger.LogInformation("StoreHashAndConnect stored KeriConnectConfig");
 
-            // Wait for AppCache to update before navigating (avoid race condition)
-            await WaitForAppCacheConfiguredAsync();
+            // TODO P1 Unlock should also do this caching of connection info in session storage. DRY
+            var cacheConnectionResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
+            if (cacheConnectionResult.IsFailed)
+            {
+                logger.LogError("Failed to cache connection info in session storage");
+                logger.LogError(cacheConnectionResult.Reasons.First().Message);
+                snackbar.Add("Failed to cache connection info in session storage", Severity.Error);
+                return;
+            }
+            await a.WaitForAppCache([() => a.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
+            logger.LogInformation("StoreHashAndConnect stored KeriaConnectionInfo");
+
+            await StorePasscode();
+
+            await a.WaitForAppCache([() => a.IsAuthenticated]);
+            // StateHasChanged();
 
             navManager.NavigateTo(RouteToIndex); // expext to go to home
             return;
@@ -360,32 +368,6 @@
         }
     }
 
-    /// <summary>
-    /// Waits for AppCache to update IsConfigured to true after storing KeriaConnectConfig.
-    /// Prevents race condition where navigation happens before AppCache storage observers fire.
-    /// Timeout after 5 seconds to prevent infinite wait.
-    /// </summary>
-    private async Task WaitForAppCacheConfiguredAsync()
-    {
-        var maxWaitMs = 5000;
-        var pollIntervalMs = 50;
-        var elapsedMs = 0;
-
-        while (!a.IsConfigured && elapsedMs < maxWaitMs)
-        {
-            await Task.Delay(pollIntervalMs);
-            elapsedMs += pollIntervalMs;
-        }
-
-        if (a.IsConfigured)
-        {
-            logger.LogInformation("AppCache updated to IsConfigured=true after {ElapsedMs}ms", elapsedMs);
-        }
-        else
-        {
-            logger.LogWarning("AppCache did not update to IsConfigured=true after {ElapsedMs}ms timeout", elapsedMs);
-        }
-    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">

@@ -46,7 +46,7 @@
         public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
         public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = DefaultKeriaConnectConfig;
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
-            SessionExpirationUtc = DateTime.MinValue,
+            // SessionExpirationUtc = DateTime.MinValue,
             Config = new KeriaConnectConfig(),
             IdentifiersList = [],
             AgentPrefix = ""
@@ -137,6 +137,47 @@
         public bool IsInstalledVersionAcknowledged =>
             // TODO P1 must confirm it is current version in manifest. Compute in Program or App. Remove from Index.razor
             MyOnboardState.InstallVersionAcknowledged is not null;
+
+        /// <summary>
+        /// Waits for AppCache to satisfy all provided assertion functions.
+        /// Polls at regular intervals until all assertions return true or timeout occurs.
+        /// Used to prevent race conditions where navigation or logic happens before AppCache storage observers fire.
+        /// </summary>
+        /// <param name="assertions">List of boolean functions to evaluate. All must return true for success.</param>
+        /// <param name="maxWaitMs">Maximum time to wait in milliseconds. Default: 5000ms (5 seconds).</param>
+        /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
+        /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
+        public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 50) {
+            if (assertions is null || assertions.Count == 0) {
+                _logger.LogWarning("WaitForAppCache called with no assertions");
+                return true; // No assertions means nothing to wait for
+            }
+
+            var elapsedMs = 0;
+
+            while (elapsedMs < maxWaitMs) {
+                // Check if all assertions pass
+                var allPassed = true;
+                foreach (var assertion in assertions) {
+                    if (!assertion()) {
+                        allPassed = false;
+                        break;
+                    }
+                }
+
+                if (allPassed) {
+                    _logger.LogInformation("AppCache assertions all passed after {ElapsedMs}ms", elapsedMs);
+                    return true;
+                }
+
+                await Task.Delay(pollIntervalMs);
+                elapsedMs += pollIntervalMs;
+            }
+
+            _logger.LogWarning("AppCache assertions did not all pass after {ElapsedMs}ms timeout", elapsedMs);
+            return false;
+        }
+
         public void Dispose() {
             preferencesStorageObserver?.Dispose();
             onboardStateStorageObserver?.Dispose();

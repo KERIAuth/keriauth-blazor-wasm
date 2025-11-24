@@ -180,8 +180,8 @@
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
         // Reset sessionExpiration by showing initial user activity
-        var message = new AppBwUserActivityMessage();
-        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        // var message = new AppBwUserActivityMessage();
+        // await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
         await RedirectIfNeeded();
         return;

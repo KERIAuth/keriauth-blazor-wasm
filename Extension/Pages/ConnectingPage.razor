@@ -11,6 +11,7 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
+@inject AppCache appCache // TODO P1 will not subscribe to changes?
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -38,5 +39,47 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
+    }
+
+    private async Task<Result> ConnectAndFetchIdentifiers()
+    {
+        if (!appCache.MyKeriaConnectionInfo.Config.ValidateConfiguration().Value)
+        {
+            logger.LogError("KERI Agent connection was expected to be in place here (after unlock)");
+            throw new IndexOutOfRangeException("KERI Agent connection was expected to be in place here");
+        }
+
+        // If not already connected, connect to the KERI Agent Service
+        if (string.IsNullOrWhiteSpace(appCache.MyKeriaConnectionInfo.AgentPrefix))
+        {
+            // TODO P1 connect to KERI Agent Service
+            var connectRes = await signifyClientService.Connect(appCache.MyKeriaConnectionInfo.Config.AdminUrl!, appCache.MyPasscodeModel.Passcode, appCache.MyKeriaConnectionInfo.Config.BootUrl, false);
+            if (connectRes is null || connectRes.IsFailed)
+            {
+                var openWalletError = "Could not connect to KERI Agent";
+                snackbar.Add(openWalletError, Severity.Error);
+                logger.LogWarning(openWalletError);
+                logger.LogError("KERI Agent connection was to be established here");
+                return Result.Fail("KERI Agent connection was to be established here");
+            }
+            // TODO P1 store the AgentPrefix and other connection info?
+        }
+
+        // fetch the list of identifiers from the KERI Agent Service
+        // TODO P1 is the identifiers list already returned in connectRes.Value, above?
+
+        var identifiersRes = await signifyClientService.GetIdentifiers();
+        if (identifiersRes.IsFailed)
+        {
+            throw new IndexOutOfRangeException("expected to retrieve identifiers from GetIdentifiers()");
+        }
+        var identifiers = identifiersRes.Value;
+        var updatedKeriConnectionInfo = appCache.MyKeriaConnectionInfo with
+        {
+            // AgentPrefix = connectRes.Value.AgentPrefix,
+            IdentifiersList = [identifiers]
+        };
+        _ = await storageService.SetItem<KeriaConnectionInfo>(updatedKeriConnectionInfo);
+        return Result.Ok();
     }
 }

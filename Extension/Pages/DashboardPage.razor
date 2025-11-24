@@ -14,6 +14,7 @@
 @code {
     // fields
     int identifiersCount = 0;
+    int identifiersCount2 = 0;
 
     // properties
     Aid? SelectedAid { get; set; }
@@ -38,13 +39,15 @@
         // TODO P2 Evolve this temporary test into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
         var x = await signifyClientService.TestAsync();
         logger.LogInformation($"TestAsync result: {x.Value}");
-        
+
         // TODO P2 this identifiers count should be in AppCache
         var res = await signifyClientService.GetIdentifiers();
         if (res is not null && res.IsSuccess)
         {
             identifiersCount = res.Value.Aids.Count();
         }
+
+        identifiersCount2 = appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -105,7 +108,7 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right bt-home-status-number">@identifiersCount</MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@identifiersCount   @identifiersCount2</MudText>
                     </MudStack>
 
                     <MudStack Row>
