@@ -212,11 +212,11 @@ export async function beforeStart(
                         },
                         tabId
                     });
-                    await chrome.action.setBadgeBackgroundColor({ color: isActive ? '#0F9D58' : '#808080', tabId });
+                    // await chrome.action.setBadgeBackgroundColor({ color: isActive ? '#0F9D58' : '#808080', tabId });
                     if (isActive) {
-                        await chrome.action.setBadgeText({ text: 'ON', tabId });
+                        // await chrome.action.setBadgeText({ text: 'ON', tabId });
                     } else {
-                        await chrome.action.setBadgeText({ text: 'off', tabId });
+                        // await chrome.action.setBadgeText({ text: 'off', tabId });
                     }
                     console.log(`app.ts: Set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}`);
                 } catch (error) {

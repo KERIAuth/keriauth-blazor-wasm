@@ -57,7 +57,8 @@
         "content/*",
         "scripts/app.js",
         "scripts/es6/*",
-        "scripts/esbuild/*"
+        "scripts/esbuild/*",
+        "images/*"
       ],
       "matches": [
         "chrome-extension://*/*"

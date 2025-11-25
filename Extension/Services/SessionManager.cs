@@ -4,6 +4,7 @@ using Extension.Services.Storage;
 using Extension.Utilities;
 using JsBind.Net;
 using WebExtensions.Net;
+using WebExtensions.Net.ActionNs;
 using WebExtensions.Net.Alarms;
 
 namespace Extension.Services;
@@ -30,6 +31,7 @@ public class SessionManager : IDisposable {
     private readonly ILogger<SessionManager> _logger;
     private readonly IStorageService _storageService;
     private readonly WebExtensionsApi _webExtensionsApi;
+    private const string unicodeLockIcon = "\U0001F512"; // Unicode lock icon 🔒
 
     // Storage observers - disposed on cleanup
     private IDisposable? _passcodeObserver;
@@ -87,12 +89,14 @@ public class SessionManager : IDisposable {
 
             if (passcodeModelRes.IsFailed) {
                 _logger.LogDebug("No PasscodeModel found on startup - session is locked");
+                await SetLockIconAsync();
                 return;
             }
 
             var passcodeModel = passcodeModelRes.Value;
             if (passcodeModel is null) {
                 _logger.LogDebug("PasscodeModel is null on startup - session is locked");
+                await SetLockIconAsync();
                 return;
             }
 
@@ -101,6 +105,7 @@ public class SessionManager : IDisposable {
             // Check for invalid expiration (DateTime.MinValue or past)
             if (expirationUtc == DateTime.MinValue) {
                 _logger.LogDebug("PasscodeModel has default expiration (MinValue) on startup - session is locked");
+                await SetLockIconAsync();
                 return;
             }
 
@@ -109,12 +114,16 @@ public class SessionManager : IDisposable {
                 _logger.LogInformation("PasscodeModel expired on startup ({Expiration}), clearing session",
                     expirationUtc);
                 await LockSessionAsync();
+                return;
             }
             else {
                 // Session is still valid - reschedule alarm
                 _logger.LogInformation("PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
                     expirationUtc);
+                // TODO P0 tmp await ClearLockIconAsync();
+                await SetLockIconAsync();
                 await ScheduleExpirationAlarmAsync(expirationUtc);
+                return;
             }
         }
         catch (Exception ex) {
@@ -254,6 +263,7 @@ public class SessionManager : IDisposable {
             throw new InvalidOperationException(
                 $"Failed to clear session storage: {clearRes.Errors[0].Message}");
         }
+        await SetLockIconAsync();
     }
 
     /// <summary>
@@ -315,14 +325,86 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
+    /// Sets the extension action icon to locked variant using pre-created locked icon files.
+    /// Icon files to be created: logoB016-locked.png, logoB032-locked.png, logoB048-locked.png, logoB128-locked.png
+    /// </summary>
+    private async Task SetLockIconAsync() {
+        try {
+            // Use locked icon variants (to be created as separate files)
+            var lockedIconPaths = new Dictionary<string, object> {
+                ["16"] = "/images/logoB016-locked.png",
+                ["32"] = "/images/logoB032-locked.png",
+                ["48"] = "/images/logoB048-locked.png",
+                ["128"] = "/images/logoB128-locked.png"
+            };
+
+            /*
+            await _webExtensionsApi.Action.SetIcon(new SetIconDetails() {
+                // Path = new WebExtensions.Net.ActionNs.Path(lockedIconPaths)
+                Path = new WebExtensions.Net.ActionNs.Path("/images/logoB128-locked.png")
+            });
+            */
+
+            // await _webExtensionsApi.Action.SetBadgeBackgroundColor(new SetBadgeBackgroundColorDetails() { Color = new ColorValue("#00FFFF") }); 
+            await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = unicodeLockIcon });
+
+            /*
+            await chrome.action.setBadgeBackgroundColor({ color: isActive ? '#0F9D58' : '#808080', tabId });
+            if (isActive) {
+                await chrome.action.setBadgeText({ text: 'ON', tabId });
+            }
+            else {
+                await chrome.action.setBadgeText({ text: 'off', tabId });
+            }
+            */
+
+            _logger.LogInformation("Lock icon set");
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to set lock icon");
+            // Don't throw - icon update is not critical
+        }
+    }
+
+    /// <summary>
+    /// Restores the extension action icon to the default (unlocked) state.
+    /// Uses the original logoB icon files specified in manifest.json.
+    /// </summary>
+    private async Task ClearLockIconAsync() {
+        try {
+            // Restore default icons by specifying paths
+            var defaultIconPaths = new Dictionary<string, object> {
+                ["16"] = "/images/logoB016.png",
+                ["32"] = "/images/logoB032.png",
+                ["48"] = "/images/logoB048.png",
+                ["128"] = "/images/logoB128.png"
+            };
+
+            /*
+            await _webExtensionsApi.Action.SetIcon(new SetIconDetails() {
+                Path = new WebExtensions.Net.ActionNs.Path(defaultIconPaths)
+            });
+            */
+            await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = "" });
+
+            _logger.LogInformation("Lock icon cleared");
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to clear lock icon");
+            // Don't throw - icon update is not critical
+        }
+    }
+
+    /// <summary>
     /// Handles PasscodeModel changes from storage observer.
     /// Reschedules alarm when SessionExpirationUtc changes.
     /// Reacts to current state of PasscodeModel (stateless - works across service worker restarts).
     /// </summary>
     private async Task HandlePasscodeChangeAsync(PasscodeModel? passcodeModel) {
         if (passcodeModel is null || string.IsNullOrEmpty(passcodeModel.Passcode)) {
-            // PasscodeModel is null or empty - clear session
+            // PasscodeModel is null or empty - session locked
             _logger.LogDebug("PasscodeModel is null/empty - session locked");
+            await SetLockIconAsync();
             return;
         }
 
@@ -333,10 +415,14 @@ public class SessionManager : IDisposable {
         if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
             _logger.LogDebug("PasscodeModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
                 expirationUtc);
+            await SetLockIconAsync();
             return;
         }
 
         _logger.LogDebug("PasscodeModel changed with SessionExpirationUtc {Expiration}, rescheduling alarm", expirationUtc);
+
+        // Session is being unlocked - clear lock icon
+        await ClearLockIconAsync();
 
         // Reschedule alarm to fire at expiration time
         try {

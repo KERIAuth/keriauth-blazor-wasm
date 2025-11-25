@@ -16,6 +16,7 @@ using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using WebExtensions.Net;
+using WebExtensions.Net.ActionNs;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
 using WebExtensions.Net.Runtime;
@@ -198,13 +199,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation("OnStartupAsync event handler called");
             logger.LogInformation("Browser startup detected - reinitializing background worker");
-
             InitializeIfNeeded();
-
             await ResetSessionExpirationTimer();
-
-            // TODO P2 add a lock icon to the extension icon if no passcode is set; otherwise remove lock icon
-
             logger.LogInformation("Background worker reinitialized on browser startup");
         }
         catch (Exception ex) {
