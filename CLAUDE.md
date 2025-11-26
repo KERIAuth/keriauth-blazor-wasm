@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 This is a KERI Auth browser extension built with:
-- Blazor WebAssembly (.NET 9.0) for the extension UI and BackgroundWorker (aka service worker)
+- C# and Blazor WebAssembly (.NET 9.0) for the extension UI and BackgroundWorker (aka service worker)
 - TypeScript for content scripts and some service worker dependencies
 - MudBlazor for UI components
 - signify-ts for KERI/ACDC operations
@@ -21,10 +21,10 @@ Key project layout:
   - `esbuild/` - Bundled scripts for service worker and content script
 - `Extension/Schemas/` - vLEI credential schema definitions (local copies)
 
-The extension follows a multi-component architecture:
+The extension follows a multi-component architecture, including:
 1. **Service Worker** - BackgroundWorker for handling extension lifecycle and message routing
 2. **Content Script** - Injected into web pages, bridges page and extension communication
-3. **Blazor WASM App** - UI layer for extension popup and tabs
+3. **Blazor WASM App** - UI layer for extension popup and tabs. Each runtime context has its own Blazor instance.
 4. **SignifyService** - Manages KERI/ACDC operations via signify-ts JavaScript interop
 
 Services use dependency injection with primarily singleton lifetime for state management across the extension.
@@ -135,7 +135,7 @@ The KERI Auth browser extension uses **Blazor.BrowserExtension** to run Blazor W
 
 - The receipt of registered events, such as OnClick, OnMessage, and others will also restart the BackgroundWorker if it becomes inactive.
 
-**Startup Sequence:**
+**Startup Sequence for BackgroundWorker Context:**
 
 ```
 manifest.json
@@ -172,9 +172,9 @@ BackgroundWorker is now running (with modules ready)
 #### Flow 2: App Context (Popup/Tab/Sidepanel)
 
 **Trigger:**
-User clicks extension icon, extension opens a tab or sidepanel, or user navigates to the extension URL.
+User clicks extension icon, extension opens a ***popup***, ***tab*** or ***sidepanel***, or user navigates to the extension URL in a tab.
 
-**Startup Sequence:**
+**Startup Sequence for SPA:**
 
 ```
 index.html
@@ -201,6 +201,7 @@ App.razor OnInitializedAsync() is invoked
   ↓ UI components initialize
   ↓
 App UI is rendered and interactive
+Typically, this start with the MainLayout.razor and IndexPage.razor component.
 ```
 
 ## Message Flow Architecture

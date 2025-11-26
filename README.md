@@ -35,7 +35,7 @@ The most recent stable version is available from the [Chrome Web Store](https://
 
 ## Runtime Dependencies
 To successfully install and use the KERI Auth browser extension, you need the following:
-* **Chromium-based Browser** as specified in the manifest.json file, or later. Chromium browsers are support, e.g. Chrome, Edge, or Brave.
+* **Chromium-based Browser** minimum version as specified in the manifest.json file. Browsers supported include Chrome, Edge, and Brave.
 * **Web page supporting Polaris-web**, a JavaScript API protocol
 * **Connection to KERI Agent Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth browser extension.
 Over time, we expect many KERIA service providers to be available, including a turn-key self-hosted option.
@@ -53,7 +53,7 @@ The agent instance does hold ACDCs (which may contain PII) as it needs to verify
 Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.com/drawings/d/1xICKkvaJkS4IrOGcj_3GidkKHu1VcIrzGCN_vJSvAv4))
 
 ### Manifest.json
-* Describes the extension and its minimum permissions. Additional permissions, such as to interact with a specific website, are requested of the user during usage.
+* Describes the extension and its minimum permissions. Additional permissions, such as to interact with a specific website, are requested of the user during use.
 
 ### Browser Extension Action Icon/Button
 * The Action button and its context menu appear after install in the upper-right corner of the browser after the user pins the extension from Chrome's Extensions menu.

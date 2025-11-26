@@ -4,6 +4,7 @@
 @using Extension.Services.Storage
 @using Extension.Pages
 @using System.Runtime.InteropServices.JavaScript
+@using Extension.Utilities
 @inject NavigationManager navManager
 @inject IJSRuntime jsRuntime
 @inject IJsRuntimeAdapter jsRuntimeAdapter
@@ -297,8 +298,8 @@
         const string privacyUrlPath = "content/privacy.html";
         var termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
         var privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
-        int termsDigest = GetNumberFromHash.HashInt(termsMarkup.Value);
-        int privacyDigest = GetNumberFromHash.HashInt(privacyMarkup.Value);
+        int termsDigest = DeterministicHash.ComputeHash(termsMarkup.Value);
+        int privacyDigest = DeterministicHash.ComputeHash(privacyMarkup.Value);
         if (termsDigest != AppConfig.ExpectedTermsDigest)
         {
             logger.LogError($"termsHash {termsDigest} does not match expected {AppConfig.ExpectedTermsDigest}");
