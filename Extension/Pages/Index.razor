@@ -106,7 +106,7 @@
         // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
         if (navManager.Uri.Contains(newUrl))
         {
-            logger.LogWarning("Already on page {p}, so not navigating.");
+            logger.LogInformation("Already on page {p}, so not navigating.");
             return;
         }
         navManager.NavigateTo(newUrl);
