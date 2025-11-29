@@ -454,3 +454,4 @@ obj/
 
 Extension/wwwroot/scripts/esbuild/demo1.js
 Extension/wwwroot/scripts/esbuild/utils.js
+/Extension/packages.lock.json
