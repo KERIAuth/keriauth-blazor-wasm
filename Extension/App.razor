@@ -173,9 +173,9 @@
         // Initialize messaging with background worker
         // Extract tabId from query string if present, otherwise use null
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
-        logger.LogWarning("InitialUri: {u}", InitialUri.ToString());
-        logger.LogWarning("OnInitializedAsync LocalPath: {p}", InitialUri.LocalPath);
-        logger.LogWarning("OnInitializedAsync AbsolutePath: {p}", InitialUri.AbsolutePath);
+        // logger.LogWarning("InitialUri: {u}", InitialUri.ToString());
+        // logger.LogWarning("OnInitializedAsync LocalPath: {p}", InitialUri.LocalPath);
+        // logger.LogWarning("OnInitializedAsync AbsolutePath: {p}", InitialUri.AbsolutePath);
         var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
         var tabIdParam = query["tabId"];
         await appBwMessagingService.Initialize(tabIdParam ?? "");
