@@ -4,7 +4,6 @@ using Extension.Services.Storage;
 using Extension.Utilities;
 using JsBind.Net;
 using WebExtensions.Net;
-using WebExtensions.Net.ActionNs;
 using WebExtensions.Net.Alarms;
 
 namespace Extension.Services;
@@ -330,39 +329,11 @@ public class SessionManager : IDisposable {
     /// </summary>
     private async Task SetLockIconAsync() {
         try {
-            // Use locked icon variants (to be created as separate files)
-            var lockedIconPaths = new Dictionary<string, object> {
-                ["16"] = "/images/logoB016-locked.png",
-                ["32"] = "/images/logoB032-locked.png",
-                ["48"] = "/images/logoB048-locked.png",
-                ["128"] = "/images/logoB128-locked.png"
-            };
-
-            /*
-            await _webExtensionsApi.Action.SetIcon(new SetIconDetails() {
-                // Path = new WebExtensions.Net.ActionNs.Path(lockedIconPaths)
-                Path = new WebExtensions.Net.ActionNs.Path("/images/logoB128-locked.png")
-            });
-            */
-
-            // await _webExtensionsApi.Action.SetBadgeBackgroundColor(new SetBadgeBackgroundColorDetails() { Color = new ColorValue("#00FFFF") }); 
             await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = unicodeLockIcon });
-
-            /*
-            await chrome.action.setBadgeBackgroundColor({ color: isActive ? '#0F9D58' : '#808080', tabId });
-            if (isActive) {
-                await chrome.action.setBadgeText({ text: 'ON', tabId });
-            }
-            else {
-                await chrome.action.setBadgeText({ text: 'off', tabId });
-            }
-            */
-
             _logger.LogInformation("Lock icon set");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to set lock icon");
-            // Don't throw - icon update is not critical
         }
     }
 
@@ -372,26 +343,11 @@ public class SessionManager : IDisposable {
     /// </summary>
     private async Task ClearLockIconAsync() {
         try {
-            // Restore default icons by specifying paths
-            var defaultIconPaths = new Dictionary<string, object> {
-                ["16"] = "/images/logoB016.png",
-                ["32"] = "/images/logoB032.png",
-                ["48"] = "/images/logoB048.png",
-                ["128"] = "/images/logoB128.png"
-            };
-
-            /*
-            await _webExtensionsApi.Action.SetIcon(new SetIconDetails() {
-                Path = new WebExtensions.Net.ActionNs.Path(defaultIconPaths)
-            });
-            */
             await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = "" });
-
             _logger.LogInformation("Lock icon cleared");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to clear lock icon");
-            // Don't throw - icon update is not critical
         }
     }
 
