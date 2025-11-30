@@ -119,7 +119,6 @@ public class SessionManager : IDisposable {
                 // Session is still valid - reschedule alarm
                 _logger.LogInformation("PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
                     expirationUtc);
-                // TODO P0 tmp await ClearLockIconAsync();
                 await SetLockIconAsync();
                 await ScheduleExpirationAlarmAsync(expirationUtc);
                 return;
@@ -194,7 +193,7 @@ public class SessionManager : IDisposable {
     /// Alarm is scheduled to fire exactly at session expiration time, so just clear session.
     /// </summary>
     public async Task HandleAlarmAsync(Alarm alarm) {
-        if (alarm.Name != AppConfig.SessionManagerAlarmName) {  // TODO P1: rename alarm constant
+        if (alarm.Name != AppConfig.SessionManagerAlarmName) {
             _logger.LogWarning("SessionManager received unexpected alarm: {Name}", alarm.Name);
             return;
         }

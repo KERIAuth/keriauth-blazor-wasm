@@ -60,7 +60,7 @@
 
         public bool IsReadyToTransact => IsNotWaiting && IsConnectedToKeria;
 
-        // TODO P1 there may be a better way to verify connection, but for now we check that there is at least one identifier
+        // TODO P2 Could distinguish IsConnectedToKeria (with seeing KeriaConnectionInfo.PasscodeHash exists) versus IsIdentifierFetched
         public bool IsConnectedToKeria => IsIdentifierFetched && IsAuthenticated;
 
         // TODO P2 fix squirelly structure of IdentifiersList and Aids. Not intuitive here, with structured as aids, end, start, total.
@@ -135,7 +135,7 @@
             MyOnboardState.IsWelcomed &&
             IsInstalledVersionAcknowledged;
         public bool IsInstalledVersionAcknowledged =>
-            // TODO P1 must confirm it is current version in manifest. Compute in Program or App. Remove from Index.razor
+            // TODO P2 must confirm it is current version in manifest. Compute in Program or App. Remove from Index.razor
             MyOnboardState.InstallVersionAcknowledged is not null;
 
         /// <summary>

@@ -68,8 +68,6 @@
             CurrentVersion = versionElement.ToString();
         }
 
-
-
         // TODO P2: Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
         // for how the following is placed into storage
         // bool isUpdated = false;
@@ -79,9 +77,7 @@
             // isUpdated = true;
         }
 
-        // TODO P0
         await HandleAppCacheChanged();
-        // logger.LogInformation($"OnInitializedAsync done");
     }
 
 

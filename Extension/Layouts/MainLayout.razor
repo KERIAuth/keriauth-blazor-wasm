@@ -32,7 +32,7 @@
         bool IsProfilePanelOpen { get; set; }
         DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
         bool IsMenuDrawerOpen { get; set; }
-        // TODO P1 Having one session timer at App level or a new inherited KeriAuthBaseLayout would be better, since DialogLayout and popups may also timeout and should have warning.
+        // TODO P0 Having one session timer at App level or a new inherited KeriAuthBaseLayout would be better, since DialogLayout and popups may also timeout and should have warning.
         Timer? appBarRefreshTimer;
 
         // reactive properties ...

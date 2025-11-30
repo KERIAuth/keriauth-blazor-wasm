@@ -16,7 +16,6 @@ using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using WebExtensions.Net;
-using WebExtensions.Net.ActionNs;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
 using WebExtensions.Net.Runtime;
@@ -179,7 +178,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
         logger.LogInformation("BackgroundWorker initializing...");
-        // TODO P1 Perform any necessary initialization tasks here
+        // TODO P2 Perform any necessary initialization tasks here
         // e.g., load settings, initialize services, etc.
 
         // reload javascript modules, such as signifyClient
@@ -200,7 +199,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("OnStartupAsync event handler called");
             logger.LogInformation("Browser startup detected - reinitializing background worker");
             InitializeIfNeeded();
-            await ResetSessionExpirationTimer();
+            await _sessionManager.ExtendIfUnlockedAsync();
             logger.LogInformation("Background worker reinitialized on browser startup");
         }
         catch (Exception ex) {
@@ -255,7 +254,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             return;
                         }
 
-                        // TODO P1: we could here reset SessionExpirationTimer if desired
+                        await _sessionManager.ExtendIfUnlockedAsync();
 
                         string? tabUrl = messageDict.TryGetValue("tabUrl", out var tabUrlElem) ? tabUrlElem?.GetString() : null;
                         int tabId = (messageDict.TryGetValue("tabId", out JsonElement? tabIdElem) && tabIdElem?.ValueKind == JsonValueKind.Number) ? tabIdElem.Value.GetInt32() : 0;
@@ -289,7 +288,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // Handle ContentScript messages (from web pages)
                     var contentScriptMsg = JsonSerializer.Deserialize<CsBwMessage>(messageJson, PortMessageJsonOptions);
                     if (contentScriptMsg != null) {
-                        // TODO P1: we could here reset SessionExpirationTimer if desired
+                        // Note: intentionally not extending SessionExpirationTimer here, to effectively prevent a malicious page sending messages via ContentScript from keeping the session alive 
+                        // await _sessionManager.ExtendIfUnlockedAsync();
                         await HandleContentScriptMessageAsync(contentScriptMsg, sender);
                         return;
                     }
@@ -1079,7 +1079,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     break; // will forward
                 case AppBwMessageTypes.USER_ACTIVITY:
                     logger.LogInformation("BW←App: USER_ACTIVITY message received, updating session expiration if applicable");
-                    await ResetSessionExpirationTimer();
+                    await _sessionManager.ExtendIfUnlockedAsync();
                     return;
                 default:
                     logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
@@ -1110,18 +1110,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
     }
-
-
-    /// <summary>
-    /// Resets session expiration timer based on user activity.
-    /// REFACTORED: Delegates to SessionManager which handles session expiration reactively.
-    /// SessionManager creates/extends SessionExpiration when PasscodeModel is set/verified,
-    /// and updates it when Preferences.InactivityTimeoutMinutes changes.
-    /// </summary>
-    private async Task ResetSessionExpirationTimer() {
-        await _sessionManager.ExtendIfUnlockedAsync();
-    }
-
 
     /// <summary>
     /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port

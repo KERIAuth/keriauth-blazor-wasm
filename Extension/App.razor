@@ -59,14 +59,14 @@
         sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
             storageService,
             StorageArea.Session,
-            // TODO P1 remove?
+            // TODO P2 remove?
             onNext: async (SessionExpiration updatedValue) =>
             {
                 InactivityTimeoutCache = updatedValue;
                 logger.LogInformation("SessionExpiration value updated: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
                     InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
                 StateHasChanged();
-                // TODO P1: in case this has been deleted, handle that case
+                // TODO P2: in case this has been deleted, handle that case
                 logger.LogWarning("SessionExpiration value updated?: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}", appCache.MySessionExpiration.SessionExpirationUtc, DateTime.UtcNow);
                 await RedirectIfNeeded();
             },
@@ -85,7 +85,7 @@
         keriaConnectionInfoStorageObserver = new StorageObserver<KeriaConnectionInfo>(
             storageService,
             StorageArea.Session,
-            // TODO P1 remove
+            // TODO P2 remove
             onNext: (updatedValue) =>
             {
                 logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
@@ -102,7 +102,7 @@
         passcodeModelStorageObserver = new StorageObserver<PasscodeModel>(
             storageService,
             StorageArea.Session,
-            // TODO P1 remove
+            // TODO P2 remove
             onNext: (updatedValue) =>
             {
                 logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
@@ -119,7 +119,7 @@
         onboardStateStorageObserver = new StorageObserver<OnboardState>(
            storageService,
            StorageArea.Local,
-           // TODO P1 remove
+           // TODO P2 remove
            onNext: (updatedValue) =>
            {
                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
@@ -136,7 +136,7 @@
         keriaConnectConfigStorageObserver = new StorageObserver<KeriaConnectConfig>(
             storageService,
             StorageArea.Local,
-            // TODO P1 remove
+            // TODO P2 remove
             onNext: (updatedValue) =>
             {
                 logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());

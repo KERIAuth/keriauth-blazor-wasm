@@ -211,7 +211,14 @@
     {
         throwIfNotConfigured();
         logger.LogInformation("UnlockWithPasscode...");
-        // TODO P1 validate the app is still in expected "state" to unlock
+
+        // precondition: the app must be in expected config state to unlock
+        if (!a.IsKeriaConfigValidated)
+        {
+            throw new InvalidOperationException("KERI Auth configuration is not validated");
+        }
+        // clear anything left over in sessionstorage from previous session
+        await storageService.Clear(StorageArea.Session);
 
         openWalletError = String.Empty;
 
@@ -220,7 +227,6 @@
             snackbar.Add("Invalid passcode. Should be 21 characters.", Severity.Error);
             return;
         }
-
 
         if (DeterministicHash.ComputeHash(password) == keriaConnectConfig.PasscodeHash)
         {
@@ -246,12 +252,9 @@
                     snackbar.Add("Failed to store session credentials", Severity.Error);
                     return;
                 }
-
-                // SessionManager will detect PasscodeModel change and schedule alarm
+                // Note: SessionManager will detect PasscodeModel change and schedule alarm
             }
-
-            // TODO P1 await webExtensionsApi.Runtime.SendMessage(new { action = "resetInactivityTimer" }); // or just clear session?
-            // TODO P1 clear any existing KeriaConnectionInfo in session storage ??
+            
             // logger.LogWarning("returned from Authenticate. pausing...");
             if (keriaConnectConfig.AdminUrl is null)
             {
@@ -268,7 +271,7 @@
             else
             {
                 // fetch identifiers.  
-                // TODO P1 Might be fetching multiple times too many.  DRY
+                // TODO P2 Might be fetching multiple times too many.  DRY
                 // ... also have similar code as in ConfigurePage.razor DRY
                 var identifiersRes = await signifyClientService.GetIdentifiers();
                 if (identifiersRes.IsFailed)
