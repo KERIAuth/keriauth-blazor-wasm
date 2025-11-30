@@ -82,6 +82,73 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 
 * [CLAUDE.md](claude.md)
 
+## Build Environments
+
+### Supported Build Environments
+
+| Environment | Status | Notes |
+|-------------|--------|-------|
+| **Windows PowerShell** | ✅ Recommended | Primary development environment |
+| **Windows Git Bash** | ✅ Supported | Works with Windows `dotnet` CLI |
+| **Windows Command Prompt** | ✅ Supported | Works with Windows `dotnet` CLI |
+| **GitHub Actions (Ubuntu)** | ✅ CI/CD | Isolated Linux environment, no cache conflicts |
+| **WSL (Windows Subsystem for Linux)** | ⚠️ Not Recommended | Causes NuGet cache conflicts with Windows |
+
+### Why WSL Causes Problems
+
+WSL and Windows maintain **separate NuGet package caches**:
+- Windows: `C:\Users\<user>\.nuget\packages`
+- WSL: `/home/<user>/.nuget/packages`
+
+When you build in both environments, packages restored in one environment may have different hashes than the other, causing `NU1403: Package content hash validation failed` errors. The `Microsoft.NET.Sdk.WebAssembly.Pack` package is particularly sensitive to this.
+
+### Recommended Workflow
+
+**Pick one environment and stick with it:**
+
+```powershell
+# Windows PowerShell (recommended)
+cd Extension
+npm install
+npm run build
+cd ..
+dotnet build -p:FullBuild=true
+```
+
+Or use the slash command for a clean build:
+```
+/clean-build
+```
+
+### If You Must Use WSL
+
+If you have a specific need to build in WSL, keep the NuGet caches completely separate:
+
+1. Add to your WSL `~/.bashrc`:
+   ```bash
+   export NUGET_PACKAGES=/home/$USER/.nuget/packages
+   ```
+
+2. Never mix Windows and WSL builds in the same session
+
+3. If you see `NU1403` errors, clean and restore:
+   ```bash
+   rm -rf Extension/obj Extension.Tests/obj
+   dotnet nuget locals all --clear
+   dotnet restore --force-evaluate
+   ```
+
+### GitHub Actions CI
+
+The CI pipeline runs on `ubuntu-latest` and is completely isolated from local environments. It:
+1. Installs Node.js and npm dependencies
+2. Builds TypeScript (`npm run build`)
+3. Restores and builds C# (`dotnet build --configuration Release`)
+4. Runs tests
+5. Uploads build artifacts
+
+See [.github/workflows/dotnet.yml](.github/workflows/dotnet.yml) for details.
+
 # Acknowledgments and References
 * Components and Libraries
   * [BrowserExtension](https://github.com/mingyaulee/Blazor.BrowserExtension) by mingyaulee
