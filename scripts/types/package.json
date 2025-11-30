@@ -1,0 +1,17 @@
+{
+  "name": "@keriauth/types",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch --preserveWatchOutput",
+    "clean": "node -e \"const fs=require('fs');const p='../../Extension/wwwroot/scripts/es6';['ExCsInterfaces.js','ExCsInterfaces.js.map','ExCsInterfaces.d.ts','ExCsInterfaces.d.ts.map'].forEach(f=>{try{fs.unlinkSync(p+'/'+f)}catch{}})\""
+  },
+  "devDependencies": {
+    "typescript": "^5.4.2",
+    "chrome-types": "^0.1.372"
+  }
+}

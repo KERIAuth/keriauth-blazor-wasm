@@ -16,10 +16,14 @@ Key project layout:
 - `Extension.Tests/` - xUnit test project
 - `Extension/Services/` - Core services including SignifyService for KERI operations
 - `Extension/UI/` - Blazor pages and components
-- `Extension/wwwroot/scripts/` - TypeScript/JavaScript code
-  - `es6/` - TypeScript modules compiled to ES6
-  - `esbuild/` - Bundled scripts for service worker and content script
+- `Extension/wwwroot/scripts/` - Compiled JavaScript output (gitignored)
+  - `es6/` - ES6 modules compiled from scripts/types and scripts/modules
+  - `esbuild/` - Bundled scripts compiled from scripts/bundles
 - `Extension/Schemas/` - vLEI credential schema definitions (local copies)
+- `scripts/` - TypeScript source code (npm workspaces monorepo)
+  - `types/` - Shared type definitions (@keriauth/types)
+  - `modules/` - Simple ES6 modules compiled by tsc (@keriauth/modules)
+  - `bundles/` - esbuild-bundled scripts with signify-ts (@keriauth/bundles)
 
 The extension follows a multi-component architecture, including:
 1. **Service Worker** - BackgroundWorker for handling extension lifecycle and message routing
@@ -63,7 +67,6 @@ export async function beforeStart(
         // Load modules for BackgroundWorker
         await Promise.all([
             import('./scripts/esbuild/signifyClient.js'),
-            import('./scripts/es6/storageHelper.js'),
             // ... other modules
         ]);
     } else if (mode === 'Standard' || mode === 'Debug') {
@@ -149,7 +152,7 @@ BackgroundWorkerRunner.js (from Blazor.BrowserExtension)
   ↓
 app.ts beforeStart(mode='Background')
   ↓ Detects mode === 'Background'
-  ↓ Loads BackgroundWorker modules (signifyClient, storageHelper, etc.)
+  ↓ Loads BackgroundWorker modules (signifyClient, etc.)
   ↓ Imported modules are cached in BackgroundWorker's runtime
   ↓ Sets up browser event listeners (chrome.action.onClicked, etc.)
   ↓ Returns control
@@ -261,13 +264,12 @@ dotnet --version
 cd kbw
 
 # 2. Install dependencies and build TypeScript
-cd Extension
-npm install
-npm run build
+cd scripts && npm install && npm run build
+cd ../Extension && npm install && npm run build:app
 cd ..
 
 # 3. Build and test
-dotnet build
+dotnet build -p:Quick=true
 dotnet test
 
 # Extension package is now in: Extension/bin/Debug/net9.0/browserextension/
@@ -379,25 +381,23 @@ The build system uses MSBuild properties to control behavior:
 
 ### TypeScript Patterns for Browser Extension
 
-#### Service Worker (background script)
-- Location: `wwwroot/scripts/esbuild/service-worker.ts`
-- Must be bundled via esbuild: `npm run bundle:esbuild`
-- Handles all extension lifecycle events
-- Manages chrome.runtime message routing
-- No DOM access, runs in background context
-
 #### Content Script
-- Location: `wwwroot/scripts/esbuild/IsolatedWorldContentScript.ts`
+- Location: `scripts/bundles/src/ContentScript.ts`
+- Bundled via esbuild to `Extension/wwwroot/scripts/esbuild/ContentScript.js`
 - Injected conditionally into web pages
 - Runs in isolated context, separate from page scripts
 - Bridge between web page and extension via polaris-web
-- Must handle message validation and sanitization
 
-#### Signify TypeScript Shim
-- Location: `wwwroot/scripts/esbuild/signify_ts_shim.ts`
+#### Signify Client
+- Location: `scripts/bundles/src/signifyClient.ts`
 - Provides JavaScript-C# interop layer for signify-ts
-- Bundled with dependencies via esbuild
-- Paired with `Services/SignifyService/Signify_ts_shim.cs`
+- Bundled with signify-ts dependencies via esbuild
+- Paired with `Extension/Services/SignifyService/Signify_ts_shim.cs`
+
+#### Shared Types
+- Location: `scripts/types/src/`
+- Contains interfaces shared between TypeScript and C# (ExCsInterfaces.ts, storage-models.ts)
+- Compiled to ES6 modules for browser import
 
 #### Message Types
 Define interfaces for all chrome.runtime messages:
@@ -872,24 +872,22 @@ Final extension package: `Extension/bin/{Debug|Release}/net9.0/browserextension/
 ### Key Files
 
 1. **Extension.csproj** - MSBuild targets and properties
-   - `BuildExtensionScripts` target runs `npm run build`
-   - `CopyEsBuildJavascript` target copies from dist/
-   - Conditional builds based on properties
+   - `BuildExtensionScripts` target runs `npm run build` in scripts/ workspace
+   - `BuildAppTs` target compiles app.ts
+   - ProjectReferences to .esproj files ensure correct build order
 
-2. **package.json** - npm scripts for TypeScript
-   - `build` - Full TypeScript compilation
-   - `build:es6` - TypeScript to ES6 modules
-   - `bundle:esbuild` - Bundle with dependencies
+2. **scripts/package.json** - npm workspaces root
+   - `build` - Builds all three TypeScript projects in order (types → modules → bundles)
+   - Coordinates @keriauth/types, @keriauth/modules, @keriauth/bundles
 
-3. **esbuild.config.js** - JavaScript bundler configuration
-   - Bundles signify-ts dependencies
-   - Platform-specific polyfills
-   - Source maps for debugging
+3. **scripts/bundles/esbuild.config.js** - JavaScript bundler configuration
+   - Bundles signify-ts and dependencies
+   - Alias plugins resolve @keriauth/types to compiled output
+   - Platform-specific polyfills for libsodium
 
-4. **tsconfig.json** - TypeScript compiler options
-   - ES6 module output
-   - Strict type checking
-   - Declaration files
+4. **scripts/types/tsconfig.json**, **scripts/modules/tsconfig.json** - TypeScript configs
+   - ES6 module output to Extension/wwwroot/scripts/es6/
+   - Project references for build ordering
 
 ### Build Flags
 
@@ -936,12 +934,15 @@ Managed in `.csproj` files:
 - **xUnit/Moq**: Testing frameworks
 
 ### JavaScript Dependencies (npm)
-Managed in `Extension/package.json`:
-- **signify-ts**: Pinned to commit `78d0a694...` for KERI operations
+Managed in `scripts/bundles/package.json`:
+- **signify-ts**: For KERI operations
 - **signify-polaris-web**: Pinned to commit `7d7dd13` for web page protocol
 - **libsodium-wrappers-sumo**: Cryptographic operations
 - **esbuild**: JavaScript bundler for extension scripts
+
+Managed in `scripts/` workspace (types, modules, bundles):
 - **TypeScript**: Version 5.4.2 for type safety
+- **chrome-types**: Chrome extension API type definitions
 
 ### Version Management
 - **C# packages**: Use exact versions or narrow ranges
@@ -1009,12 +1010,12 @@ If builds consistently fail with path/lock issues:
 
 ```bash
 # Full cleanup and rebuild
-cd /mnt/c/s/k/k-b-w
-rm -rf Extension/bin Extension/obj Extension.Tests/bin Extension.Tests/obj
-rm -rf Extension/node_modules/.cache Extension/dist
+rm -rf Extension/bin Extension/obj Extension.Tests/obj
+rm -rf scripts/types/dist scripts/modules/dist scripts/bundles/node_modules/.cache
 dotnet clean
 dotnet restore --force-evaluate
-dotnet build /p:BuildingProject=true
+cd scripts && npm run build && cd ..
+dotnet build -p:Quick=true
 ```
 
 ### Build Command Reference
@@ -1027,7 +1028,7 @@ dotnet build /p:BuildingProject=true
 | `dotnet build /p:BuildingProject=true` | **Any** | **Canonical full build** | **Recommended for all environments** |
 | `dotnet build --configuration Release /p:BuildingProject=true` | **Any** | **Production build (canonical)** | **Used by CI/CD** |
 | `dotnet build` | Any | C# only build | No TypeScript compilation |
-| `cd Extension && npm run build` | Any | TypeScript only | Manual script build |
+| `cd scripts && npm run build` | Any | TypeScript only | Build all TS projects |
 | `dotnet clean` | Any | Clean .NET outputs | Safe for both environments |
 
 ## Debugging Tips
@@ -1082,11 +1083,8 @@ For more details on running and debugging Blazor browser extensions, see the [Bl
 **Solution Option 1: Recommended Workflow**
 
 ```bash
-# Clean TypeScript outputs (only when needed for full rebuild)
-cd Extension && npm run clean
-
-# Build TypeScript FIRST
-npm run build
+# Build TypeScript FIRST (in scripts workspace)
+cd scripts && npm run build
 
 # Then build C# (Quick mode since TypeScript already built)
 cd .. && dotnet build -p:Quick=true
@@ -1106,11 +1104,11 @@ dotnet build -p:FullBuild=true  # Second build: includes them in BackgroundWorke
 # Normal workflow (JS files persist across builds)
 dotnet build -p:FullBuild=true  # Works correctly
 
-# Deep clean only when absolutely necessary
+# Deep clean only when absolutely necessary (removes compiled JS)
 cd Extension && npm run clean  # Then use Solution 1 or 2
 ```
 
-**Note:** The csproj is configured to preserve `wwwroot/scripts/**/*.js` files during `dotnet clean` specifically to avoid this issue. Only use `npm run clean` when you need to regenerate TypeScript outputs from scratch.
+**Note:** The csproj preserves `wwwroot/scripts/**/*.js` files during `dotnet clean`. Only use `npm run clean` when you need to regenerate all TypeScript outputs from scratch.
 
 **Verification:**
 
@@ -1128,7 +1126,7 @@ grep -c "signifyClient" Extension/bin/Debug/net9.0/browserextension/content/Back
 
 ```bash
 # 1. Rebuild TypeScript
-cd Extension && npm run build
+cd scripts && npm run build
 
 # 2. Rebuild extension package
 cd .. && dotnet build -p:Quick=true
@@ -1147,7 +1145,7 @@ cd .. && dotnet build -p:Quick=true
 # 1. Close Visual Studio
 # 2. Close Windows Explorer windows showing project
 # 3. Try build again
-cd Extension && npm run build
+cd scripts && npm run build
 ```
 
 ### Issue: Build Works in VS Code but Not Visual Studio

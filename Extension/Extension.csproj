@@ -152,13 +152,29 @@
 
   </ItemGroup>
 
+  <!-- TypeScript Project References -->
+  <!-- The TypeScript projects output directly to Extension/wwwroot/scripts/ -->
+  <!-- Build order is enforced through ProjectReference dependencies -->
+  <ItemGroup>
+    <ProjectReference Include="..\scripts\types\Extension.Scripts.Types.esproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\scripts\modules\Extension.Scripts.Modules.esproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\scripts\bundles\Extension.Scripts.Bundles.esproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
   <!-- Build Tasks for TypeScript/JavaScript Extension Components -->
   <!-- Skip during design-time builds and restore to prevent loops -->
   <!-- Also skip if Visual Studio or other processes might have files locked -->
 
   <!-- Install npm dependencies before building TypeScript -->
+  <!-- Now runs from the scripts/ workspace root -->
   <Target Name="InstallDependencies" BeforeTargets="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
-    <Exec Command="npm install" ContinueOnError="true" />
+    <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)\..\scripts" ContinueOnError="true" />
   </Target>
 
   <!-- Build TypeScript/JavaScript when BuildingProject=true -->
@@ -167,8 +183,14 @@
   <!-- pipeline and requires JS files to pre-exist from previous builds. -->
   <!-- See BUILD_GUIDE.md "BackgroundWorker.js Missing TypeScript Modules" for details. -->
   <Target Name="BuildExtensionScripts" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
-    <Exec Command="npm run build" ContinueOnError="true" />
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\..\scripts" ContinueOnError="true" />
     <Message Importance="normal" Text="TypeScript/esbuild compilation completed, JavaScript files are in wwwroot" />
+  </Target>
+
+  <!-- Build app.ts after scripts workspace completes -->
+  <Target Name="BuildAppTs" AfterTargets="BuildExtensionScripts" Condition="'$(DesignTimeBuild)' != 'true' AND '$(BuildingProject)' == 'true' AND '$(SkipJavaScriptBuild)' != 'true'">
+    <Exec Command="npx tsc --project tsconfig.app.json" ContinueOnError="true" />
+    <Message Importance="normal" Text="app.ts compilation completed" />
   </Target>
 
   <!-- Clean Tasks for TypeScript/JavaScript Extension Components -->

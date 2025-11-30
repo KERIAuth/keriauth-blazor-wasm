@@ -1,0 +1,25 @@
+{
+  "name": "keriauth-scripts",
+  "private": true,
+  "workspaces": [
+    "types",
+    "modules",
+    "bundles"
+  ],
+  "scripts": {
+    "build": "npm run build -w types && npm run build -w modules && npm run build -w bundles",
+    "build:types": "npm run build -w types",
+    "build:modules": "npm run build -w modules",
+    "build:bundles": "npm run build -w bundles",
+    "clean": "npm run clean -w types --if-present && npm run clean -w modules --if-present && npm run clean -w bundles --if-present",
+    "watch": "concurrently \"npm run watch -w types\" \"npm run watch -w modules\" \"npm run watch -w bundles\"",
+    "typecheck": "npm run typecheck -w types --if-present && npm run typecheck -w modules --if-present && npm run typecheck -w bundles --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=22.13.0",
+    "npm": ">=11.0.0"
+  }
+}

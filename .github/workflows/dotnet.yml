@@ -31,13 +31,21 @@ jobs:
         cp .github/NuGet.config ./
         cat NuGet.config
 
-    - name: Install npm dependencies
+    - name: Install npm dependencies (scripts workspace)
+      working-directory: ./scripts
+      run: npm install
+
+    - name: Build TypeScript (types, modules, bundles)
+      working-directory: ./scripts
+      run: npm run build
+
+    - name: Install npm dependencies (Extension app.ts)
       working-directory: ./Extension
       run: npm install
 
-    - name: Build TypeScript
+    - name: Build app.ts
       working-directory: ./Extension
-      run: npm run build
+      run: npm run build:app
 
     - name: Restore dependencies
       run: dotnet restore

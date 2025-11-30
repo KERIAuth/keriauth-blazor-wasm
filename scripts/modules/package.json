@@ -1,0 +1,19 @@
+{
+  "name": "@keriauth/modules",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch --preserveWatchOutput",
+    "clean": "node -e \"const fs=require('fs');const path=require('path');const dir='../../Extension/wwwroot/scripts/es6';['webauthnCredentialWithPRF','libsodium-polyfill'].forEach(f=>{['.js','.js.map','.d.ts','.d.ts.map'].forEach(ext=>{try{fs.unlinkSync(path.join(dir,f+ext))}catch{}})})\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@keriauth/types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.2",
+    "chrome-types": "^0.1.372"
+  }
+}

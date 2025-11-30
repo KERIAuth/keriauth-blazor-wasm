@@ -108,11 +108,14 @@ When you build in both environments, packages restored in one environment may ha
 
 ```powershell
 # Windows PowerShell (recommended)
-cd Extension
+cd scripts
 npm install
 npm run build
+cd ../Extension
+npm install
+npm run build:app
 cd ..
-dotnet build -p:FullBuild=true
+dotnet build -p:Quick=true
 ```
 
 Or use the slash command for a clean build:

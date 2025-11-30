@@ -3,23 +3,31 @@
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "declaration": false,
-    "declarationMap": false,
+    "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
+    "outDir": "../../Extension/wwwroot/scripts/es6",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.types.tsbuildinfo",
+    "types": ["chrome-types"],
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "types": ["chrome-types"]
+    "composite": true
   },
-  "files": [
-    "wwwroot/app.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }
