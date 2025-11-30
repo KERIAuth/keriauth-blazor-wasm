@@ -1,9 +1,10 @@
 ﻿@inherits BaseLayout
 
 @inject IJSRuntime jsRuntime
-@inject AppCache a
+@inject AppCache appCache
+@inject ILogger<BaseLayout> logger
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@a.MyPreferences.IsDarkTheme" />
+<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@appCache.MyPreferences.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999" />
@@ -33,6 +34,18 @@
     /// </summary>
     public async Task ClosePopupAsync() {
         await jsRuntime.InvokeVoidAsync("window.close");
+    }
+
+    protected override Task HandleAppCacheChanged()
+    {
+        base.HandleAppCacheChanged();
+        logger.LogInformation("HandleAppCacheChanged");
+        return Task.CompletedTask;
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
     }
 }
 

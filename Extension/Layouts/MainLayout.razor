@@ -15,9 +15,7 @@
 @inject ISignifyClientService signifyClientService
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject AppCache appCache // Note: will receive reactive updates via SubscribeToAppCache
-
-@implements IDisposable
+@inject AppCache appCache // Note: will receive reactive updates via SubscribeToAppCache in BaseLayout
 
 @code {
         // fields...
@@ -32,8 +30,6 @@
         bool IsProfilePanelOpen { get; set; }
         DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
         bool IsMenuDrawerOpen { get; set; }
-        // TODO P0 Having one session timer at App level or a new inherited KeriAuthBaseLayout would be better, since DialogLayout and popups may also timeout and should have warning.
-        Timer? appBarRefreshTimer;
 
         // reactive properties ...
         Object ActiveAidObject => (object)ActivePrefix;
@@ -86,11 +82,6 @@
         {
             version_name = version_nameElement.ToString();
         }
-
-        // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
-        await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
-
-        CreateAppBarRefreshTimer();
     }
 
     async Task Lock() 
@@ -101,20 +92,11 @@
         await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
     }
 
-    async Task HandleAppCacheChanged()
+    protected override Task HandleAppCacheChanged()
     {
+        base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
-        
-        // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
-        if (!appCache.IsAuthenticated) {
-            if (!(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
-            {
-                logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
-                navManager.NavigateTo(AppConfig.RouteToIndex);
-                return;
-            } 
-        }
-        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -153,26 +135,6 @@
         StateHasChanged();
     }
 
-    private void CreateAppBarRefreshTimer()
-    {
-        appBarRefreshTimer = new Timer(
-            callback: (_) =>
-            {
-                // Periodically trigger a UI update of layout components only when helpful and necessary,
-                // such as showing a timeout countdown when session is about to expire.
-                // Note: the actual session expiration handling is done elsewhere. Search for various places of storage.clear of session storage.
-                if (appCache.IsSessionNotExpired &&
-                    (appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
-                {
-                    // logger.LogInformation("RestartOrExtendAppBarUpdateTime");
-                    StateHasChanged();
-                }
-            },
-            state: null,
-            dueTime: TimeSpan.FromSeconds(1),
-            period: TimeSpan.FromSeconds(1));
-    }
-
     async Task SetActiveAid(string prefix)
     {
         IsProfilePanelOpen = false;
@@ -204,9 +166,9 @@
         // snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
-        appBarRefreshTimer?.Dispose();
+        base.Dispose();
     }
 }
 

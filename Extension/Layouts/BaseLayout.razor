@@ -11,12 +11,62 @@
 @inject ISnackbar snackbar
 @inject ILogger<BaseLayout> logger
 @inject ISignifyClientService signifyClientService
-// implements IDisposable
+@inject AppCache appCache
+
+@implements IDisposable
 
 <!-- Note that @Body and other body content will be provided by specialized layouts inheriting from this BaseLayout -->
 @code {
+    protected Timer? appBarRefreshTimer;
+
     protected override async Task OnInitializedAsync()
     {
-        // await base.OnInitializedAsync();
+        await base.OnInitializedAsync();
+
+        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
+
+        CreateAppBarRefreshTimer();
+    }
+
+    protected virtual Task HandleAppCacheChanged()
+    {
+        // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
+        if (!appCache.IsAuthenticated) {
+            if (!(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
+            {
+                logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
+                navManager.NavigateTo(AppConfig.RouteToIndex);
+                return Task.CompletedTask;
+            }
+        }
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    protected void CreateAppBarRefreshTimer()
+    {
+        appBarRefreshTimer = new Timer(
+            callback: (_) =>
+            {
+                // Periodically trigger a UI update of layout components only when helpful and necessary,
+                // such as showing a timeout countdown when session is about to expire.
+                // Note: the actual session expiration handling is done elsewhere. Search for various places of storage.clear of session storage.
+                if (appCache.IsSessionNotExpired &&
+                    (appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
+                {
+                    // logger.LogInformation("RestartOrExtendAppBarUpdateTime");
+                    InvokeAsync(StateHasChanged);
+                }
+            },
+            state: null,
+            dueTime: TimeSpan.FromSeconds(1),
+            period: TimeSpan.FromSeconds(1));
+    }
+
+    public virtual void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        appBarRefreshTimer?.Dispose();
     }
 }
