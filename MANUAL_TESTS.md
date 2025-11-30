@@ -37,7 +37,7 @@
 #### With version change
 1. Install previous version of the extension
 1. Obtain or create a new version of the extension with a higher version number in manifest.json 
-1. In Chrome’s Extension page, hit Refresh (assuming a developer load)
+1. In Chromeï¿½s Extension page, hit Refresh (assuming a developer load)
 - [ ] Expected: see Welcome page and New Version info
 
 #### Without version change
@@ -56,16 +56,56 @@
 - [ ] Expected: Browser opens the configured page for user to provide freedback
 
 # Session Expiration Tests
-## Start App and Wait
-1. Prerequisite: onboard and navigate to Dashboard
-1. Set preferences to timeout in 1 minute
-1. Wait
 
-    Expected: 
-	- [ ] After 30 seconds, the countdown timer appears on the App Bar.  
-	- [ ] After 60 seconds, the Chrome.Storage.Session is cleared.  
-	- [ ] AppBar Lock icon appears. 
-	- [ ] App navigates to the Unlock page.
+## A. Inactivity Timeout Without User Activity
+1. Prerequisite: Onboard and unlock the app
+2. Set Preferences â†’ Inactivity Timeout to 1 minute
+3. Navigate to Dashboard and wait without any interaction
+
+    Expected after ~30 seconds:
+	- [ ] Countdown timer appears in AppBar (e.g., "Timeout in 29")
+
+    Expected after ~60 seconds:
+	- [ ] App navigates to Unlock page
+	- [ ] Lock icon appears in AppBar
+	- [ ] Session storage is cleared
+
+## B. Inactivity Timeout With User Activity
+1. Prerequisite: Onboard and unlock the app
+2. Set Preferences â†’ Inactivity Timeout to 1 minute
+3. Navigate to Dashboard
+4. Every ~20 seconds, click or press a key somewhere in the app
+
+    Expected:
+	- [ ] Countdown timer never appears (activity resets the 60-second timer)
+	- [ ] Session remains unlocked indefinitely while activity continues
+
+5. Stop interacting and wait 60+ seconds
+
+    Expected:
+	- [ ] Countdown timer appears after ~30 seconds of inactivity
+	- [ ] App navigates to Unlock page after ~60 seconds of inactivity
+
+## C. Session Persistence Across App Restart (Before Timeout)
+1. Prerequisite: Onboard, unlock, set timeout to 1 minute
+2. Close the extension popup/tab
+3. Wait 30 seconds
+4. Reopen the extension
+
+    Expected:
+	- [ ] App remains unlocked (not redirected to Unlock page)
+	- [ ] Countdown timer visible in AppBar (time remaining from original session)
+
+## D. Session Expiration During App Closure
+1. Prerequisite: Onboard, unlock, set timeout to 1 minute
+2. Close the extension popup/tab
+3. Wait 70 seconds (past timeout)
+4. Reopen the extension
+
+    Expected:
+	- [ ] App shows Unlock page (BackgroundWorker alarm cleared session)
+	- [ ] Lock icon visible in AppBar
+	- [ ] Service worker logs show alarm-triggered session clear
 
 ## Start App, Exit, Wait, Restart App
 1. Prerequisite: onboard, unlock, set preferences to 1 minute
@@ -83,8 +123,8 @@
 1. Restart App
 
  	Expected:
-	- [ ] Unlock Page, since the BackgroundWorker’s expiration timer took effect.
-	- [ ] Inspect the “service-worker” log to see this.  
+	- [ ] Unlock Page, since the BackgroundWorkerï¿½s expiration timer took effect.
+	- [ ] Inspect the ï¿½service-workerï¿½ log to see this.  
 	- [ ] App should have also detected any expired SessionExpiration in session.  (Could create manual test to tweak this in that storage.)
 
 ## Click or Keyboard Activity Resets Expiration Timer

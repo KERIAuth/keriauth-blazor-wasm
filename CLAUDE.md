@@ -235,6 +235,24 @@ The extension uses a multi-layered messaging system with strict boundaries:
 - **[PAGE-CS-MESSAGES.md](./PAGE-CS-MESSAGES.md)** - Complete reference for Page ↔ Content Script message protocol
 - **[POLARIS_WEB_COMPLIANCE.md](./POLARIS_WEB_COMPLIANCE.md)** - Polaris-web protocol compliance status
 
+## Session Timeout Management
+
+Session state is stored in `StorageArea.Session` via `PasscodeModel`, which contains both the passcode and `SessionExpirationUtc`. The BackgroundWorker clears this storage to lock the session, typically when the timeout expires.
+
+**Session Extension Flow:**
+1. **App Context**: `UserActivityService` listens for `keydown` and `mouseup` DOM events (debounced at 1s in TypeScript, throttled at 5s in C#)
+2. **Messaging**: On activity, sends `USER_ACTIVITY` message to BackgroundWorker
+3. **BackgroundWorker**: `SessionManager.ExtendIfUnlockedAsync()` updates `PasscodeModel.SessionExpirationUtc` and reschedules the Chrome alarm
+4. **Expiration**: When the alarm fires, BackgroundWorker clears session storage, locking the session
+
+**Key Components:**
+- `SessionManager` (BackgroundWorker): Authoritative session lifecycle management via Chrome alarms
+- `UserActivityService` (App): DOM event detection and activity message dispatch
+- `BaseLayout`: Starts/stops activity listener based on session state
+- `MainLayout`/`DialogLayout`: Display countdown timer in AppBar (informational only; may drift slightly from the authoritative alarm)
+
+**Security**: Content Script messages intentionally do not extend the session, preventing malicious pages from keeping sessions alive.
+
 ## Development Environment
 
 Primary development environment is Windows running WSL2. Commands work in both Windows PowerShell/Command Prompt and WSL2 bash. Claude Code operates within the WSL2 environment.
