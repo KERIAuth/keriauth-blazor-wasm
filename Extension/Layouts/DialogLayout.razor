@@ -43,16 +43,15 @@
         await jsRuntime.InvokeVoidAsync("window.close");
     }
 
-    protected override Task HandleAppCacheChanged()
+    protected override async Task HandleAppCacheChanged()
     {
-        base.HandleAppCacheChanged();
+        await base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
-        return Task.CompletedTask;
     }
 
-    public override void Dispose()
+    public override async ValueTask DisposeAsync()
     {
-        base.Dispose();
+        await base.DisposeAsync();
     }
 }
 

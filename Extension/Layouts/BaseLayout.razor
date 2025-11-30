@@ -12,8 +12,9 @@
 @inject ILogger<BaseLayout> logger
 @inject ISignifyClientService signifyClientService
 @inject AppCache appCache
+@inject IUserActivityService userActivityService
 
-@implements IDisposable
+@implements IAsyncDisposable
 
 <!-- Note that @Body and other body content will be provided by specialized layouts inheriting from this BaseLayout -->
 @code {
@@ -39,9 +40,14 @@
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
         CreateAppBarRefreshTimer();
+
+        // Start user activity detection if session is unlocked
+        if (appCache.IsSessionUnlocked) {
+            await userActivityService.StartListeningAsync();
+        }
     }
 
-    protected virtual Task HandleAppCacheChanged()
+    protected virtual async Task HandleAppCacheChanged()
     {
         // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated) {
@@ -49,11 +55,19 @@
             {
                 logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
                 navManager.NavigateTo(AppConfig.RouteToIndex);
-                return Task.CompletedTask;
+                return;
             }
         }
+
+        // Start/stop user activity detection based on session state
+        if (appCache.IsSessionUnlocked && !userActivityService.IsListening) {
+            await userActivityService.StartListeningAsync();
+        }
+        else if (!appCache.IsSessionUnlocked && userActivityService.IsListening) {
+            userActivityService.StopListening();
+        }
+
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     protected void CreateAppBarRefreshTimer()
@@ -76,9 +90,11 @@
             period: TimeSpan.FromSeconds(1));
     }
 
-    public virtual void Dispose()
+    public virtual async ValueTask DisposeAsync()
     {
         this.UnsubscribeFromAppCache();
         appBarRefreshTimer?.Dispose();
+        userActivityService.StopListening();
+        GC.SuppressFinalize(this);
     }
 }

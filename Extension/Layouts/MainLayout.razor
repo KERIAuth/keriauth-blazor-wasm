@@ -83,11 +83,10 @@
         await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
     }
 
-    protected override Task HandleAppCacheChanged()
+    protected override async Task HandleAppCacheChanged()
     {
-        base.HandleAppCacheChanged();
+        await base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
-        return Task.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -157,9 +156,9 @@
         // snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
-    public override void Dispose()
+    public override async ValueTask DisposeAsync()
     {
-        base.Dispose();
+        await base.DisposeAsync();
     }
 }
 
