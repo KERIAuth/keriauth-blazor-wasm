@@ -17,6 +17,13 @@
                     <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
                     <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
                 </MudButton>
+
+                <MudStack Row="true" Style="margin-left:16px; display:flex; align-items:center;">
+                    <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
+                        @TimeoutText.Text
+                    </MudText>
+                </MudStack>
+
                 <MudSpacer />
             </MudStack>
         </MudAppBar>

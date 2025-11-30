@@ -19,6 +19,18 @@
 @code {
     protected Timer? appBarRefreshTimer;
 
+    // Session timeout properties - available to all layouts
+    protected TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
+
+    // When session is unlocked and about to expire, provide countdown Text that alternates between two color Styles
+    protected (string Text, string Style) TimeoutText => (
+            appCache.IsAuthenticated &&
+            (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
+            (int)SessionDurationRemaining.TotalSeconds >= 1)
+            ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
+              : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
+            : ("", "");
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();

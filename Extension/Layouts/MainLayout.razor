@@ -38,7 +38,6 @@
         string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
         bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
         static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
-        TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
         string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
         {
             // TODO P2 consider SidePanel variant if implemented
@@ -49,14 +48,6 @@
             (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
             (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
         };
-        // When session is unlocked and about to expire, provide countdown Text that alternates between two color Styles
-        (string Text, string Style) TimeoutText => (
-                appCache.IsAuthenticated &&
-                (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
-                (int)SessionDurationRemaining.TotalSeconds >= 1)
-                ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
-                  : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
-                : ("", "");
 
     protected override async Task OnInitializedAsync()
     {
@@ -188,9 +179,7 @@
                 <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
             </MudButton>
 
-            <!-- Nice-to-have Indicators -->
             <MudStack Row="true" Style="margin-left:16px; display:flex; align-items:center;">
-                <!-- Session Timeout Indicator -->
                 <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
                     @TimeoutText.Text
                 </MudText>
