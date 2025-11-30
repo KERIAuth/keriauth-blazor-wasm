@@ -228,25 +228,98 @@ export async function beforeStart(
             // TAB EVENT LISTENERS FOR ICON UPDATES
             // ==================================================================================
 
+            /**
+             * Checks if a tab URL could have a content script registered.
+             * Only http/https URLs are supported for content script injection.
+             * @param url The tab URL to check
+             * @returns true if the URL scheme supports content scripts
+             */
+            const isSupportedUrlScheme = (url: string | undefined): boolean => {
+                if (!url) return false;
+                try {
+                    const u = new URL(url);
+                    return u.protocol === 'http:' || u.protocol === 'https:';
+                } catch {
+                    return false;
+                }
+            };
+
+            /**
+             * Checks if there's a registered content script that matches the given URL.
+             * @param url The URL to check against registered content scripts
+             * @returns true if a content script is registered for this URL's origin
+             */
+            const hasRegisteredContentScript = async (url: string): Promise<boolean> => {
+                const patterns = matchPatternsFromTabUrl(url);
+                if (patterns.length === 0) return false;
+
+                const hostWithPort = hostWithPortFromPattern(patterns[0]);
+                if (!hostWithPort) return false;
+
+                const scriptId = scriptIdFromHostWithPort(hostWithPort);
+                try {
+                    const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
+                    return registered.length > 0;
+                } catch {
+                    return false;
+                }
+            };
+
             chrome.tabs.onActivated.addListener(async (activeInfo) => {
+                // Get tab info to check URL before attempting to ping
+                let tab: chrome.tabs.Tab | undefined;
+                try {
+                    tab = await chrome.tabs.get(activeInfo.tabId);
+                } catch {
+                    // Tab may have been closed
+                    return;
+                }
+
+                // Skip unsupported URL schemes (chrome://, about:, etc.) - no content script possible
+                if (!isSupportedUrlScheme(tab.url)) {
+                    await updateIconForTab(activeInfo.tabId, false);
+                    return;
+                }
+
+                // Only ping if we have a registered content script for this origin
+                const hasScript = await hasRegisteredContentScript(tab.url!);
+                if (!hasScript) {
+                    await updateIconForTab(activeInfo.tabId, false);
+                    return;
+                }
+
                 try {
                     const pingResponse = await chrome.tabs.sendMessage(activeInfo.tabId, { type: 'ping' });
                     await updateIconForTab(activeInfo.tabId, pingResponse?.ok === true);
                 } catch {
-                    // No content script active
+                    // Content script registered but not responding (page may need reload)
                     await updateIconForTab(activeInfo.tabId, false);
                 }
             });
 
             chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
                 // Only check when page finishes loading
-                if (changeInfo.status === 'complete' && tab.url) {
-                    try {
-                        const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
-                        await updateIconForTab(tabId, pingResponse?.ok === true);
-                    } catch {
-                        await updateIconForTab(tabId, false);
-                    }
+                if (changeInfo.status !== 'complete') return;
+
+                // Skip unsupported URL schemes (chrome://, about:, etc.) - no content script possible
+                if (!isSupportedUrlScheme(tab.url)) {
+                    await updateIconForTab(tabId, false);
+                    return;
+                }
+
+                // Only ping if we have a registered content script for this origin
+                const hasScript = await hasRegisteredContentScript(tab.url!);
+                if (!hasScript) {
+                    await updateIconForTab(tabId, false);
+                    return;
+                }
+
+                try {
+                    const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+                    await updateIconForTab(tabId, pingResponse?.ok === true);
+                } catch {
+                    // Content script registered but not responding (page may need reload)
+                    await updateIconForTab(tabId, false);
                 }
             });
 
