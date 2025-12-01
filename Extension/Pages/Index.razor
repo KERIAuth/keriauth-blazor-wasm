@@ -13,7 +13,7 @@
 @using static System.Net.WebRequestMethods
 @using WebExtensions.Net.Manifest
 
-@inject AppCache appCache
+@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject IStorageService storageService
 @inject ILogger<IndexPage> logger
 

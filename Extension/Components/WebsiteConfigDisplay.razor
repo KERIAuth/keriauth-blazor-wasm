@@ -12,8 +12,7 @@
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 @inject NavigationManager navManager
-@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
-@inject AppCache a 
+@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 @using Extension.Services.SignifyService.Models
 
@@ -121,7 +120,7 @@
 
                 if (isConfigNew)
                 {
-                    SelectedPrefix = a.MyPreferences.SelectedPrefix;
+                    SelectedPrefix = appCache.MyPreferences.SelectedPrefix;
                     ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, IsAutoSignSafeHeaders = true };
                     await updateWebsiteConfigAndParent(ThisWebsiteConfig);
                     // Note above includes StateHasChanged.

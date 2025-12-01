@@ -11,7 +11,7 @@
 @inject ISnackbar snackbar
 @inject ILogger<BaseLayout> logger
 @inject ISignifyClientService signifyClientService
-@inject AppCache appCache
+@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject IUserActivityService userActivityService
 
 @implements IAsyncDisposable

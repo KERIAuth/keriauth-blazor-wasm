@@ -16,8 +16,7 @@
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
 @inject IWebauthnService webauthnService
-@inject AppCache a 
-@* TODO P2: note not subscribing to updates for AppCache? *@
+@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 @code {
     // fields
@@ -96,13 +95,13 @@
         _ => $"{RegisteredAuthenticators.Authenticators.Count} authenticators registered"
     };
     bool CanUseAuthenticator => RegisteredAuthenticators.Authenticators.Any();
-    bool PrefersToUseAuthenticator => a.MyPreferences.PrefersToUseAuthenticator;
+    bool PrefersToUseAuthenticator => appCache.MyPreferences.PrefersToUseAuthenticator;
     bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
-    string TimeoutDuration => a.MyPreferences.InactivityTimeoutMinutes switch
+    string TimeoutDuration => appCache.MyPreferences.InactivityTimeoutMinutes switch
     {
         0.5f => "30 seconds",
         1 => "1 minute",
-        _ => $"{a.MyPreferences.InactivityTimeoutMinutes} minutes"
+        _ => $"{appCache.MyPreferences.InactivityTimeoutMinutes} minutes"
     };
     string TimeoutNotice => "locked after " + TimeoutDuration + " of inactivity";
 
@@ -121,7 +120,7 @@
     {
         // logger.LogInformation("OnParametersSetAsync");
 
-        keriaConnectConfig = a.MyKeriaConnectConfig;
+        keriaConnectConfig = appCache.MyKeriaConnectConfig;
 
         var getRasResult = await webauthnService.GetRegisteredAuthenticators();
         if (getRasResult is not null)
@@ -149,7 +148,7 @@
     async Task SetPrefersToUseAuthenticator(bool prefersToUseAuthenticator)
     {
         throwIfNotConfigured();
-        await storageService.SetItem<Preferences>(a.MyPreferences with { PrefersToUseAuthenticator = prefersToUseAuthenticator }, StorageArea.Local);
+        await storageService.SetItem<Preferences>(appCache.MyPreferences with { PrefersToUseAuthenticator = prefersToUseAuthenticator }, StorageArea.Local);
         if (prefersToUseAuthenticator)
         {
             await UnlockWithAuthenticator();
@@ -201,7 +200,7 @@
 
     void throwIfNotConfigured()
     {
-        if (!a.IsConfigured)
+        if (!appCache.IsConfigured)
         {
             throw new InvalidOperationException("KERI Auth is not configured");
         }
@@ -213,7 +212,7 @@
         logger.LogInformation("UnlockWithPasscode...");
 
         // precondition: the app must be in expected config state to unlock
-        if (!a.IsKeriaConfigValidated)
+        if (!appCache.IsKeriaConfigValidated)
         {
             throw new InvalidOperationException("KERI Auth configuration is not validated");
         }
@@ -234,7 +233,7 @@
             // TODO P3 DRY with ConfigurePage.razor
             {
                 // Calculate session expiration time from Preferences
-                var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+                var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
 
                 // Store passcode and expiration atomically in PasscodeModel
                 // ATOMIC STORAGE: Both Passcode and SessionExpirationUtc are stored together to ensure
@@ -283,7 +282,7 @@
                 var keriaConnectionInfo = new KeriaConnectionInfo()
                 {
                     AgentPrefix = connectRes.Value.Agent!.I,
-                    // SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(a.MyPreferences.InactivityTimeoutMinutes),
+                    // SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(appCache.MyPreferences.InactivityTimeoutMinutes),
                     Config = new() {
                         AdminUrl = keriaConnectConfig.AdminUrl!,
                         // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
@@ -305,7 +304,7 @@
                     snackbar.Add("Failed to store KERI connection info", Severity.Error);
                     return;
                 }
-                await a.WaitForAppCache([() => !string.IsNullOrEmpty(a.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
+                await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
                 logger.LogInformation("Connected to KERI Agent");
             }
             navManager.NavigateTo(RouteToIndex);

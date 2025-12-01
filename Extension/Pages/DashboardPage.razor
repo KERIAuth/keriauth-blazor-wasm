@@ -6,8 +6,9 @@
 @inject ILogger<DashboardPage> logger
 @inject IWebsiteConfigService websiteConfigService
 @inject ISignifyClientService signifyClientService
-@inject AppCache appCache
-@inherits AppCacheReactiveComponentBase
+@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+
+@implements IDisposable
 
 @using Extension.Services.SignifyService.Models
 
@@ -35,6 +36,9 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+
+        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        await this.SubscribeToAppCache(appCache);
 
         // TODO P2 Evolve this temporary test into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
         var x = await signifyClientService.TestAsync();
@@ -85,6 +89,12 @@
                 Credentials = res.Value;
             }
         }
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
     }
 }
 

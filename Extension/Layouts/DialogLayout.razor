@@ -1,7 +1,7 @@
 ﻿@inherits BaseLayout
 
 @inject IJSRuntime jsRuntime
-@inject AppCache appCache
+@inject AppCache appCache  // Reactive: inherits subscription from BaseLayout
 @inject ILogger<BaseLayout> logger
 
 <MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@appCache.MyPreferences.IsDarkTheme" />

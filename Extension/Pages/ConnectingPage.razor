@@ -11,7 +11,7 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
-@inject AppCache appCache // TODO P1 will not subscribe to changes?
+@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">

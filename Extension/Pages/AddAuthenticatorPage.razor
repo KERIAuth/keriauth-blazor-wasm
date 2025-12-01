@@ -40,8 +40,7 @@
 @inject ISnackbar snackbar
 @inject IWebExtensionsApi webExtensionsApi
 @inject IWebauthnService webauthnService
-@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
-@inject AppCache appCache
+@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 @code {
     protected override async Task OnInitializedAsync()

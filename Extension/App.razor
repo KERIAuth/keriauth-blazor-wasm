@@ -11,10 +11,10 @@
 @inject ILogger<App> logger
 @inject IStorageService storageService
 @inject IAppBwMessagingService appBwMessagingService
-@inject AppCache appCache
+@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject HttpClient http
 
-@inherits AppCacheReactiveComponentBase // AppCacheReactiveComponentBase will invoke StateHasChanged() on AppCache changes
+@implements IDisposable
 
 @code {
     // fields
@@ -39,6 +39,9 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+
+        // Subscribe to AppCache changes - will trigger StateHasChanged and RedirectIfNeeded when state updates
+        await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
 
         await VerifyTermsAndPrivacyDigests(); 
 
@@ -308,6 +311,12 @@
         {
             logger.LogError($"privacyHash {privacyDigest} does not match expected {AppConfig.ExpectedPrivacyDigest}");
         }
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
     }
 }
 

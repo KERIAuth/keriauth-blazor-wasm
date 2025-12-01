@@ -8,7 +8,7 @@
 @inject IJSRuntime js
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
-@inject AppCache a
+@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @using System.Linq.Expressions
 
 @implements IDisposable
@@ -32,40 +32,40 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await this.SubscribeToAppCache(a);
+        await this.SubscribeToAppCache(appCache);
 
         logger.LogInformation("OnInitializedAsync");
         Conditions = new()
         {
-            new BoolItem(() => a.IsReadyToTransact, null, 0),
-            new BoolItem(() => a.IsNotWaiting, null, 1),
-            new BoolItem(() => a.IsNotWaitingOnKeria, null, 2),
-            new BoolItem(() => a.IsNotWaitingOnUser, null, 2),
-            new BoolItem(() => a.IsNotWaitingOnPendingRequests, null, 2),
-            new BoolItem(() => a.IsBwNotWaitingOnApp, null, 2),
-            new BoolItem(() => a.IsAppNotWaitingOnBw, null, 2),
-            new BoolItem(() => a.IsConnectedToKeria, null, 1),
-            new BoolItem(() => a.IsIdentifierFetched, null, 2),
-            new BoolItem(() => a.IsAuthenticated, null, 2),
-            new BoolItem(() => a.IsSessionUnlocked, null, 3),
-            new BoolItem(() => a.IsSessionPasscodeSet, null, 4),
-            new BoolItem(() => a.IsSessionNotExpired, null, 4),
-            new BoolItem(() => a.IsPasscodeHashSet, null, 4),
-            new BoolItem(() => a.IsInitialized, null, 3),
-            new BoolItem(() => a.IsConfigured, null, 4),
-            new BoolItem(() => a.IsPasscodeHashSet, null, 5),
-            new BoolItem(() => a.IsKeriaInitialConnectSuccess, null, 5),
-            new BoolItem(() => a.IsKeriaConfigValidated, null, 6),
-            new BoolItem(() => a.IsProductOnboarded, null, 6),
-            new BoolItem(() => a.IsPrivacyAgreed, null, 7),
-            new BoolItem(() => a.IsPrivacyAgreedUtc, null, 8),
-            new BoolItem(() => a.IsPrivacyHashExpected, null, 8),
-            new BoolItem(() => a.IsTosAgreed, null, 7),
-            new BoolItem(() => a.IsTosAgreedUtc, null, 8),
-            new BoolItem(() => a.IsTosHashExpected, null, 8),
-            new BoolItem(() => a.IsInstallAcknowledged, null , 7),
-            new BoolItem(() => a.IsInstalledVersionAcknowledged, null, 8),
-            new BoolItem(() => a.MyOnboardState.IsWelcomed, null, 8),
+            new BoolItem(() => appCache.IsReadyToTransact, null, 0),
+            new BoolItem(() => appCache.IsNotWaiting, null, 1),
+            new BoolItem(() => appCache.IsNotWaitingOnKeria, null, 2),
+            new BoolItem(() => appCache.IsNotWaitingOnUser, null, 2),
+            new BoolItem(() => appCache.IsNotWaitingOnPendingRequests, null, 2),
+            new BoolItem(() => appCache.IsBwNotWaitingOnApp, null, 2),
+            new BoolItem(() => appCache.IsAppNotWaitingOnBw, null, 2),
+            new BoolItem(() => appCache.IsConnectedToKeria, null, 1),
+            new BoolItem(() => appCache.IsIdentifierFetched, null, 2),
+            new BoolItem(() => appCache.IsAuthenticated, null, 2),
+            new BoolItem(() => appCache.IsSessionUnlocked, null, 3),
+            new BoolItem(() => appCache.IsSessionPasscodeSet, null, 4),
+            new BoolItem(() => appCache.IsSessionNotExpired, null, 4),
+            new BoolItem(() => appCache.IsPasscodeHashSet, null, 4),
+            new BoolItem(() => appCache.IsInitialized, null, 3),
+            new BoolItem(() => appCache.IsConfigured, null, 4),
+            new BoolItem(() => appCache.IsPasscodeHashSet, null, 5),
+            new BoolItem(() => appCache.IsKeriaInitialConnectSuccess, null, 5),
+            new BoolItem(() => appCache.IsKeriaConfigValidated, null, 6),
+            new BoolItem(() => appCache.IsProductOnboarded, null, 6),
+            new BoolItem(() => appCache.IsPrivacyAgreed, null, 7),
+            new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 8),
+            new BoolItem(() => appCache.IsPrivacyHashExpected, null, 8),
+            new BoolItem(() => appCache.IsTosAgreed, null, 7),
+            new BoolItem(() => appCache.IsTosAgreedUtc, null, 8),
+            new BoolItem(() => appCache.IsTosHashExpected, null, 8),
+            new BoolItem(() => appCache.IsInstallAcknowledged, null , 7),
+            new BoolItem(() => appCache.IsInstalledVersionAcknowledged, null, 8),
+            new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 8),
         };
     }
 

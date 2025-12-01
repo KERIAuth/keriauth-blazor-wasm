@@ -14,8 +14,7 @@
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
-@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
-@inject AppCache appCache
+@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 @code {
     // fields

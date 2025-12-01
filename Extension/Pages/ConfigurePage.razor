@@ -11,8 +11,7 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject AppCache a
-@* TODO P2: note not subscribing to updates for AppCache? *@
+@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 @using FluentResults
 
 @code {
@@ -226,7 +225,7 @@
         }
 
         // Wait for AppCache to reflect the partial config
-        await a.WaitForAppCache([() => a.MyKeriaConnectConfig.PasscodeHash != 0]);
+        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfig.PasscodeHash != 0]);
 
         // Step 3: Connect to KERIA
         ops3Connect.SetIsRunning();
@@ -255,7 +254,7 @@
         string agentAidPrefix = connectResult.Value.Agent!.I;
 
         // Step 4: Store PasscodeModel to Session storage
-        var sessionExpiry = DateTime.UtcNow.AddMinutes(a.MyPreferences.InactivityTimeoutMinutes);
+        var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
         var passcodeModel = new PasscodeModel
         {
             Passcode = configuredPasscodeModel.Passcode,
@@ -272,7 +271,7 @@
         }
 
         // Wait for PasscodeModel to be reflected in AppCache
-        await a.WaitForAppCache([() => a.IsSessionPasscodeSet, () => a.IsSessionNotExpired]);
+        await appCache.WaitForAppCache([() => appCache.IsSessionPasscodeSet, () => appCache.IsSessionNotExpired]);
 
         // Step 5: Update KeriaConnectConfig with complete information
         var completeConfig = new KeriaConnectConfig(
@@ -294,7 +293,7 @@
         }
 
         // Wait for complete config to be reflected in AppCache
-        await a.WaitForAppCache([() => a.IsConfigured]);
+        await appCache.WaitForAppCache([() => appCache.IsConfigured]);
         KeriaConnectConfig = completeConfig;
 
         // Step 6: Get Identifiers
@@ -363,7 +362,7 @@
         }
 
         // Wait for Preferences to be reflected in AppCache
-        await a.WaitForAppCache([() => !string.IsNullOrWhiteSpace(a.MyPreferences.SelectedPrefix)]);
+        await appCache.WaitForAppCache([() => !string.IsNullOrWhiteSpace(appCache.MyPreferences.SelectedPrefix)]);
 
         // Step 9: Store KeriaConnectionInfo to Session storage
         var connectionInfo = new KeriaConnectionInfo
@@ -383,10 +382,10 @@
         }
 
         // Wait for KeriaConnectionInfo to be reflected in AppCache
-        await a.WaitForAppCache([() => a.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
+        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
 
         // Step 10: Final confirmation and navigation
-        await a.WaitForAppCache([() => a.IsConnectedToKeria]);
+        await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria]);
 
         IsConnected = true;
         IsProcessing = false;

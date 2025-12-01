@@ -9,18 +9,28 @@
     /// AppCache provides reactive access to application state stored in browser storage, including some derived properties.
     /// Note: this is not a full state management solution, but a lightweight reactive cache over storage.
     /// Note: remember to call Initialize() after construction to start observing storage changes.
-    /// Note: The Change event is raised on any relevant storage change, so this will cause re-renders in dependent components, perhpas more than needed.
-    /// The rendering triggering it can be optomized by making the comparrisons more granular if/as needed or adding more kinds of change events.
+    /// Note: The Change event is raised on any relevant storage change, so this will cause re-renders in dependent components, perhaps more than needed.
+    /// The rendering triggering can be optimized by making the comparisons more granular if/as needed or adding more kinds of change events.
     ///
     /// Usage on razor pages:
-    /// @inject AppCache appCache   
-    /// 
-    /// A choice of how an observer will subscribe to changes:
-    /// 1) @inherits AppCacheReactiveComponentBase --- for a base component class that automatically subscribes to AppCache changes.
-    /// 2) Subscription in OnInitializedAsync... this.SubscribeToAppCache(...) --- for components that cannot inherit from the base class
     ///
-    /// See TestPage for how the IsFoo... reactive properties relate
-    /// 
+    /// For REACTIVE pages (auto-update on storage changes):
+    ///   @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+    ///   @implements IDisposable
+    ///
+    ///   In OnInitializedAsync:
+    ///     await this.SubscribeToAppCache(appCache);           // Basic: just StateHasChanged
+    ///     await this.SubscribeToAppCache(appCache, callback); // With callback after StateHasChanged
+    ///
+    ///   In Dispose:
+    ///     this.UnsubscribeFromAppCache();
+    ///
+    /// For NON-REACTIVE pages (read-only, no live updates):
+    ///   @inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+    ///
+    /// See TestPage for how the IsFoo... reactive properties relate.
+    /// See AppCacheComponentExtensions.cs for the SubscribeToAppCache extension method.
+    ///
     /// </summary>
     /// <param name="storageService"></param>
     /// <param name="logger"></param>

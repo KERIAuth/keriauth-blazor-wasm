@@ -23,8 +23,7 @@
 @inject ISignifyClientService signifyClientService;
 @inject IStorageService storageService;
 @inject ISnackbar snackbar;
-@* Note: no subscription on this AppCache (yet), assuming not live update needed *@
-@inject AppCache appCache;
+@inject AppCache appCache;  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">

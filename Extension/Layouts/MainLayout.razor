@@ -15,7 +15,7 @@
 @inject ISignifyClientService signifyClientService
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject AppCache appCache // Note: will receive reactive updates via SubscribeToAppCache in BaseLayout
+@inject AppCache appCache  // Reactive: inherits subscription from BaseLayout
 
 @code {
         // fields...

@@ -10,11 +10,11 @@
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IJSRuntime js
-@inject AppCache appCache
+@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject ILogger<PreferencesPage> logger
 @inject IAppBwMessagingService appBwMessagingService
 
-@inherits AppCacheReactiveComponentBase
+@implements IDisposable
 
 @code
 {
@@ -46,14 +46,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync(); // inherited AppCacheReactiveComponentBase will set up to invoke StateHasChanged() upon relevant changes from subscribed AppCache observables
+        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        await this.SubscribeToAppCache(appCache);
         logger.LogInformation("OnInitializedAsync");
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
     }
 
     async Task Persist(Preferences prefs)
     {
         await storageService.SetItem<Preferences>(prefs);
-        // Note: reactive update of AppCache will trigger this page's StateHasChanged via its inherited AppCacheReactiveComponentBase
+        // Note: reactive update of AppCache will trigger this page's StateHasChanged via SubscribeToAppCache()
 
         // Note: timer updates in MainLayout.razor are reactive via AppCache subscription
         // BackgroundWorker timer reset should also be updated because of reactive to this preferences change, or app activity in general
