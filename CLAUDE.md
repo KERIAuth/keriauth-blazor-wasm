@@ -275,23 +275,43 @@ dotnet --version
 
 ### First Time Setup
 
-**Environment**: These commands work in WSL, Linux, macOS, or Git Bash on Windows.
+**Environment**: These commands work in WSL, Linux, macOS, Git Bash on Windows, or Windows PowerShell.
+
+**IMPORTANT**: Before your first build, you must install npm dependencies. Skipping this step will cause TypeScript compilation errors like "Cannot find type definition file for 'chrome-types'".
 
 ```bash
 # 1. Clone and enter directory
 cd kbw
 
-# 2. Install dependencies and build TypeScript
-cd scripts && npm install && npm run build
-cd ../Extension && npm install && npm run build:app
+# 2. Install npm dependencies (REQUIRED for first-time setup)
+cd scripts
+npm install
+
+cd ../Extension
+npm install
 cd ..
 
-# 3. Build and test
+# 3. Build TypeScript
+cd scripts
+npm run build
+
+cd ../Extension
+npm run build:app
+cd ..
+
+# 4. Build and test
 dotnet build -p:Quick=true
 dotnet test
 
 # Extension package is now in: Extension/bin/Debug/net9.0/browserextension/
 ```
+
+**Note:** The `npm install` steps are only needed:
+- After first clone
+- When package.json or package-lock.json files change
+- After running `npm clean` or deleting node_modules/
+
+For subsequent builds, you can skip the install steps and just run the build commands.
 
 ### Load Extension in Browser
 

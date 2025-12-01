@@ -102,21 +102,31 @@ WSL and Windows maintain **separate NuGet package caches**:
 
 When you build in both environments, packages restored in one environment may have different hashes than the other, causing `NU1403: Package content hash validation failed` errors. The `Microsoft.NET.Sdk.WebAssembly.Pack` package is particularly sensitive to this.
 
-### Recommended Workflow
+### First Time Setup
 
-**Pick one environment and stick with it:**
+**Before your first build, install npm dependencies:**
 
 ```powershell
 # Windows PowerShell (recommended)
+# 1. Install dependencies for TypeScript projects
 cd scripts
 npm install
-npm run build
+
+# 2. Install dependencies for Extension
 cd ../Extension
 npm install
+cd ..
+
+# 3. Now you can build normally
+cd scripts
+npm run build
+cd ../Extension
 npm run build:app
 cd ..
 dotnet build -p:Quick=true
 ```
+
+**Note:** The `npm install` steps are only needed once after cloning the repository, or when package.json files change. For normal development, just run the build commands.
 
 Or use the slash command for a clean build:
 ```
