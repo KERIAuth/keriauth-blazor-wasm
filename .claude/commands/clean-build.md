@@ -11,7 +11,8 @@ Perform a complete clean build of the KERI Auth browser extension:
    - This prevents errors during `dotnet clean` that require package metadata
 
 2. Clean all build artifacts:
-   - Run `cd Extension && npm run clean` to remove TypeScript outputs and caches
+   - Run `cd scripts && npm run clean` to remove TypeScript outputs from all workspaces (types, modules, bundles) including tsbuildinfo files
+   - Run `cd Extension && npm run clean` to remove app.ts outputs
    - Note: Skip `dotnet clean` as it can fail if packages aren't fully restored
 
 3. Restore npm dependencies:
@@ -40,7 +41,7 @@ Perform a complete clean build of the KERI Auth browser extension:
 8. Report success with the extension path (use relative path from project root):
    - Extension ready to load: `Extension/bin/Debug/net9.0/browserextension/`
 
-**Note**: This workflow avoids the "two-build problem" by building TypeScript before C#. See CLAUDE.md "Common Build Issues" section for details.
+**Note**: This workflow avoids the "two-build problem" by building TypeScript before C#. The clean scripts now also remove tsbuildinfo files to ensure TypeScript rebuilds correctly after a clean. See CLAUDE.md "Common Build Issues" section for details.
 
 **If build fails**:
 

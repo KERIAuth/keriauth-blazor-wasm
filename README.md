@@ -147,6 +147,7 @@ If you have a specific need to build in WSL, keep the NuGet caches completely se
 3. If you see `NU1403` errors, clean and restore:
    ```bash
    rm -rf Extension/obj Extension.Tests/obj
+   cd scripts && npm run clean && cd ../Extension && npm run clean && cd ..
    dotnet nuget locals all --clear
    dotnet restore --force-evaluate
    ```

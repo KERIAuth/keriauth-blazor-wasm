@@ -1050,6 +1050,7 @@ If builds consistently fail with path/lock issues:
 # Full cleanup and rebuild
 rm -rf Extension/bin Extension/obj Extension.Tests/obj
 rm -rf scripts/types/dist scripts/modules/dist scripts/bundles/node_modules/.cache
+cd scripts && npm run clean && cd ../Extension && npm run clean && cd ..
 dotnet clean
 dotnet restore --force-evaluate
 cd scripts && npm run build && cd ..
@@ -1142,8 +1143,8 @@ dotnet build -p:FullBuild=true  # Second build: includes them in BackgroundWorke
 # Normal workflow (JS files persist across builds)
 dotnet build -p:FullBuild=true  # Works correctly
 
-# Deep clean only when absolutely necessary (removes compiled JS)
-cd Extension && npm run clean  # Then use Solution 1 or 2
+# Deep clean only when absolutely necessary (removes compiled JS and tsbuildinfo)
+cd scripts && npm run clean && cd ../Extension && npm run clean  # Then use Solution 1 or 2
 ```
 
 **Note:** The csproj preserves `wwwroot/scripts/**/*.js` files during `dotnet clean`. Only use `npm run clean` when you need to regenerate all TypeScript outputs from scratch.
@@ -1154,6 +1155,30 @@ cd Extension && npm run clean  # Then use Solution 1 or 2
 # Check if BackgroundWorker.js includes your modules
 grep -c "signifyClient" Extension/bin/Debug/net9.0/browserextension/content/BackgroundWorker.js
 # Should return 2 (one import, one in allImports array)
+```
+
+### Issue: TypeScript Files Not Rebuilding After Clean
+
+**Symptom:** After running `npm run clean`, the TypeScript build (`tsc`) completes instantly without errors but no `.js` files are generated.
+
+**Root Cause:** TypeScript's incremental compilation uses `.tsbuildinfo` files to track what's been built. If the output files are deleted but the tsbuildinfo file remains, TypeScript thinks everything is up-to-date and skips compilation.
+
+**Solution:** The clean scripts now remove tsbuildinfo files automatically. If you encounter this issue:
+
+```bash
+# Remove tsbuildinfo files manually
+rm -f scripts/types/dist/tsconfig.types.tsbuildinfo
+rm -f scripts/modules/dist/tsconfig.modules.tsbuildinfo
+
+# Then rebuild
+cd scripts && npm run build
+```
+
+**Prevention:** Always use `npm run clean` from the scripts workspace root, which removes both output files and tsbuildinfo files:
+
+```bash
+cd scripts && npm run clean  # Cleans types, modules, and bundles including tsbuildinfo
+cd Extension && npm run clean  # Cleans app.ts output
 ```
 
 ### Issue: "SignifyClient not connected" at Runtime

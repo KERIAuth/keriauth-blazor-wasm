@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch --preserveWatchOutput",
-    "clean": "node -e \"const fs=require('fs');const p='../../Extension/wwwroot/scripts/es6';['ExCsInterfaces.js','ExCsInterfaces.js.map','ExCsInterfaces.d.ts','ExCsInterfaces.d.ts.map'].forEach(f=>{try{fs.unlinkSync(p+'/'+f)}catch{}})\""
+    "clean": "node -e \"const fs=require('fs');const p='../../Extension/wwwroot/scripts/es6';['index','ExCsInterfaces','storage-models'].forEach(b=>{['.js','.js.map','.d.ts','.d.ts.map'].forEach(e=>{try{fs.unlinkSync(p+'/'+b+e)}catch{}})});try{fs.unlinkSync('./dist/tsconfig.types.tsbuildinfo')}catch{}\""
   },
   "devDependencies": {
     "typescript": "^5.4.2",
