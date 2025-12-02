@@ -299,8 +299,8 @@
     {
         const string termsUrlPath = "content/terms.html";
         const string privacyUrlPath = "content/privacy.html";
-        var termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
-        var privacyMarkup = new MarkupString(await http.GetStringAsync(privacyUrlPath));
+        var termsMarkup = new MarkupString(NormalizeContent(await http.GetStringAsync(termsUrlPath)));
+        var privacyMarkup = new MarkupString(NormalizeContent(await http.GetStringAsync(privacyUrlPath)));
         int termsDigest = DeterministicHash.ComputeHash(termsMarkup.Value);
         int privacyDigest = DeterministicHash.ComputeHash(privacyMarkup.Value);
         if (termsDigest != AppConfig.ExpectedTermsDigest)
@@ -311,6 +311,17 @@
         {
             logger.LogError($"privacyHash {privacyDigest} does not match expected {AppConfig.ExpectedPrivacyDigest}");
         }
+    }
+
+    // Normalize content to ensure consistent hashing across machines with different Git line ending settings
+    private static string NormalizeContent(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+        {
+            return content;
+        }
+        // Remove BOM if present, normalize CRLF to LF
+        return content.TrimStart('\uFEFF').Replace("\r\n", "\n");
     }
 
     public void Dispose()

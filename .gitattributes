@@ -1,2 +1,5 @@
 * text=auto
 *.cs diff=csharp
+
+# Force consistent line endings for files where hash consistency matters
+*.html text eol=lf
