@@ -33,7 +33,10 @@
       "Bash(else echo \"File already moved or doesn''t exist\")",
       "Bash(awk:*)",
       "Bash(git checkout:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(wsl -e bash -ic \"cd /mnt/c/s/k/kbw/Extension && npm run build:app\")",
+      "Bash(wsl -e bash:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
