@@ -255,7 +255,11 @@ Session state is stored in `StorageArea.Session` via `PasscodeModel`, which cont
 
 ## Development Environment
 
-Primary development environment is Windows running WSL2. Commands work in both Windows PowerShell/Command Prompt and WSL2 bash. Claude Code operates within the WSL2 environment.
+**Primary development environment is WSL2 (Windows Subsystem for Linux)**. Claude Code operates within WSL2 and all builds triggered by Claude Code use the WSL/Linux NuGet cache.
+
+**Critical:** Windows and WSL maintain separate, incompatible NuGet caches. Mixing builds between environments causes `NU1403: Package content hash validation failed` errors. See [README.md](README.md#build-environments) for the full environment compatibility matrix.
+
+**Recommended:** Use WSL bash for all local builds to maintain cache consistency with Claude Code.
 
 ## Prerequisites
 
@@ -275,7 +279,7 @@ dotnet --version
 
 ### First Time Setup
 
-**Environment**: These commands work in WSL, Linux, macOS, Git Bash on Windows, or Windows PowerShell.
+**Environment**: Use WSL bash for all builds to maintain cache consistency with Claude Code. See [README.md](README.md#build-environments) for details on why mixing Windows and WSL environments causes problems.
 
 **IMPORTANT**: Before your first build, you must install npm dependencies. Skipping this step will cause TypeScript compilation errors like "Cannot find type definition file for 'chrome-types'".
 
@@ -990,20 +994,30 @@ Managed in `scripts/` workspace (types, modules, bundles):
 
 ## Cross-Platform Build Issues & File Lock Detection
 
-### Windows/WSL Compatibility
+### NuGet Cache Incompatibility
 
-This project supports both Windows and WSL environments, but file locks and path conflicts can occur when:
-- Visual Studio is open while building in WSL
-- Windows Explorer is browsing the project directory during WSL builds
-- WSL processes are accessing files during Windows builds
-- NuGet package paths become mixed between Windows (`C:\Users\...`) and WSL (`/home/...`) formats
+**Critical:** Windows and WSL maintain separate, incompatible NuGet caches. See [README.md](README.md#build-environments) for the full environment compatibility matrix.
+
+Since Claude Code runs in WSL, **use WSL bash for all local builds** to maintain cache consistency.
 
 ### Troubleshooting Build Issues
+
+#### NU1403: Package Content Hash Validation Failed
+**Symptoms**: `NU1403: Package content hash validation failed for Microsoft.NET.Sdk.WebAssembly.Pack`
+**Cause**: Mixed builds between Windows (PowerShell, Command Prompt, Git Bash, VS Code Ctrl+Shift+B, Visual Studio) and WSL
+**Solution**:
+1. Pick one environment group and stick with it (WSL recommended for Claude Code compatibility)
+2. If switching to WSL, clean and restore:
+   ```bash
+   dotnet nuget locals all --clear
+   rm -rf Extension/obj Extension.Tests/obj
+   dotnet restore --force-evaluate
+   ```
 
 #### NuGet Restore Loop Error
 **Symptoms**: "A NuGet restore loop has been detected" in Visual Studio
 **Cause**: npm build targets running during restore operations
-**Solution**: 
+**Solution**:
 1. Close Visual Studio and any Windows Explorer windows
 2. Clean and rebuild from WSL: `rm -rf Extension/obj Extension.Tests/obj && dotnet restore && dotnet build`
 
@@ -1027,31 +1041,26 @@ This project supports both Windows and WSL environments, but file locks and path
 
 ### Build Environment Best Practices
 
-#### For Windows Development:
-- Use Visual Studio for C# development and debugging
-- Build final release using `dotnet build` in Command Prompt/PowerShell
-- Avoid mixing WSL commands while Visual Studio is open
+**Recommended workflow** (WSL-based, compatible with Claude Code):
+1. Use VS Code for editing (IntelliSense works without building)
+2. Build exclusively from WSL bash or via Claude Code
+3. Close Visual Studio before building if you use it for debugging
 
-#### For WSL Development:
-- Ensure Visual Studio and Windows Explorer are closed before building
-- Use `dotnet build /p:BuildingProject=true` for full builds
-- Monitor for Windows path pollution in `Extension/obj/*.props` files
-
-#### Cross-Environment Workflow:
-1. **Code in Windows**: Use Visual Studio for C# editing, IntelliSense
-2. **Build in WSL**: Close VS, run builds in WSL for consistency
-3. **Test in both**: Verify extension works in both environments
+**If you must use Windows environments:**
+1. The build will fail by default on Windows - use `-p:AllowWindowsBuild=true` to bypass
+2. **Choose one group and stick with it** - Don't mix Windows and WSL builds
+3. See [README.md](README.md#if-you-must-use-windows-environments) for cache switching instructions
 
 ### Emergency Build Recovery
 
 If builds consistently fail with path/lock issues:
 
 ```bash
-# Full cleanup and rebuild
+# Full cleanup and rebuild (run in WSL bash)
 rm -rf Extension/bin Extension/obj Extension.Tests/obj
 rm -rf scripts/types/dist scripts/modules/dist scripts/bundles/node_modules/.cache
 cd scripts && npm run clean && cd ../Extension && npm run clean && cd ..
-dotnet clean
+dotnet nuget locals all --clear
 dotnet restore --force-evaluate
 cd scripts && npm run build && cd ..
 dotnet build -p:Quick=true
@@ -1092,22 +1101,28 @@ For more details on running and debugging Blazor browser extensions, see the [Bl
 
 ### IDE-Specific Considerations
 
-**VS Code**:
-- Build tasks available via `Ctrl+Shift+B` (defined in `.vscode/tasks.json`)
-- Debugging: Press F5 to launch extension in new browser window
-- Terminal uses WSL on Windows (configured in `.vscode/settings.json`)
+**VS Code with Claude Code** (Recommended):
+- Claude Code runs in WSL, so builds use the WSL/Linux NuGet cache
+- Use Claude Code for all builds to maintain cache consistency
+- IntelliSense works without building
+- **Avoid Ctrl+Shift+B** - this uses Windows dotnet CLI and will cause cache conflicts
+
+**VS Code (without Claude Code)**:
+- Build tasks via `Ctrl+Shift+B` use Windows dotnet CLI (incompatible with Claude Code cache)
+- Terminal can be configured to use WSL (check `.vscode/settings.json`)
+- If using WSL terminal for builds, avoid Ctrl+Shift+B
 
 **Visual Studio**:
+- Uses Windows NuGet cache (incompatible with Claude Code/WSL builds)
 - **Critical**: Does NOT auto-rebuild TypeScript - must manually run npm build after .ts changes
-- **File locking**: Can prevent WSL builds - use VS **OR** WSL, not both simultaneously
+- **File locking**: Can prevent WSL builds - close VS before building in WSL
 - **Debugging**: Browser DevTools works better than VS debugger for Blazor WASM extension code
-- Close VS Code and WSL terminals before building in Visual Studio
 
 **Claude Code (WSL/Linux)**:
-- Handles builds automatically, no special configuration needed
+- Handles builds automatically using WSL/Linux NuGet cache
 - If build fails: Close Visual Studio (Windows) and Windows Explorer to release file locks
 
-**Key difference**: Visual Studio requires manual TypeScript compilation; VS Code and Claude Code can automate it.
+**Key takeaway**: If using Claude Code, avoid building from VS Code (Ctrl+Shift+B) or Visual Studio to prevent cache conflicts.
 
 ## Common Build Issues and Solutions
 

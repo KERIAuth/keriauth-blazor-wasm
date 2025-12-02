@@ -84,30 +84,36 @@ Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.c
 
 ## Build Environments
 
+### Understanding NuGet Cache Groups
+
+Windows and WSL maintain **separate NuGet package caches** that are incompatible:
+
+| Cache Group | NuGet Cache Location | Environments |
+|-------------|---------------------|--------------|
+| **WSL/Linux** | `/home/<user>/.nuget/packages` | WSL bash, Claude Code, VS Code with Claude extension, GitHub Actions |
+| **Windows** | `C:\Users\<user>\.nuget\packages` | PowerShell, Command Prompt, Git Bash, VS Code (Ctrl+Shift+B), Visual Studio |
+
+**Critical:** Mixing environments from different cache groups causes `NU1403: Package content hash validation failed` errors. The `Microsoft.NET.Sdk.WebAssembly.Pack` package is particularly sensitive to this.
+
 ### Supported Build Environments
 
-| Environment | Status | Notes |
-|-------------|--------|-------|
-| **Windows PowerShell** | ✅ Recommended | Primary development environment |
-| **Windows Git Bash** | ✅ Supported | Works with Windows `dotnet` CLI |
-| **Windows Command Prompt** | ✅ Supported | Works with Windows `dotnet` CLI |
-| **GitHub Actions (Ubuntu)** | ✅ CI/CD | Isolated Linux environment, no cache conflicts |
-| **WSL (Windows Subsystem for Linux)** | ⚠️ Not Recommended | Causes NuGet cache conflicts with Windows |
+| Environment | Status | Cache Group | Notes |
+|-------------|--------|-------------|-------|
+| **WSL bash** | ✅ Recommended | WSL/Linux | Compatible with Claude Code |
+| **Claude Code / VS Code with Claude** | ✅ Recommended | WSL/Linux | Primary development environment |
+| **GitHub Actions (Ubuntu)** | ✅ CI/CD | WSL/Linux | Isolated, no local cache conflicts |
+| **Windows PowerShell** | ⚠️ Incompatible | Windows | Conflicts with Claude Code builds |
+| **Windows Command Prompt** | ⚠️ Incompatible | Windows | Conflicts with Claude Code builds |
+| **Windows Git Bash** | ⚠️ Incompatible | Windows | Uses Windows dotnet CLI despite bash syntax |
+| **VS Code (Ctrl+Shift+B)** | ⚠️ Incompatible | Windows | Uses Windows dotnet CLI |
+| **Visual Studio** | ⚠️ Incompatible | Windows | Conflicts with Claude Code builds |
 
-### Why WSL Causes Problems
+### Recommended Setup: WSL/Linux Group
 
-WSL and Windows maintain **separate NuGet package caches**:
-- Windows: `C:\Users\<user>\.nuget\packages`
-- WSL: `/home/<user>/.nuget/packages`
+Since Claude Code runs in WSL, use WSL bash for all local builds to maintain cache consistency:
 
-When you build in both environments, packages restored in one environment may have different hashes than the other, causing `NU1403: Package content hash validation failed` errors. The `Microsoft.NET.Sdk.WebAssembly.Pack` package is particularly sensitive to this.
-
-### First Time Setup
-
-**Before your first build, install npm dependencies:**
-
-```powershell
-# Windows PowerShell (recommended)
+```bash
+# WSL bash (recommended)
 # 1. Install dependencies for TypeScript projects
 cd scripts
 npm install
@@ -128,29 +134,50 @@ dotnet build -p:Quick=true
 
 **Note:** The `npm install` steps are only needed once after cloning the repository, or when package.json files change. For normal development, just run the build commands.
 
-Or use the slash command for a clean build:
+Or use the Claude Code slash command for a clean build:
 ```
 /clean-build
 ```
 
-### If You Must Use WSL
+### If You Must Use Windows Environments
 
-If you have a specific need to build in WSL, keep the NuGet caches completely separate:
+**The build will fail by default on Windows** to prevent accidental cache conflicts with Claude Code. If you run `dotnet build` from PowerShell, Command Prompt, or Visual Studio, you'll see:
 
-1. Add to your WSL `~/.bashrc`:
-   ```bash
-   export NUGET_PACKAGES=/home/$USER/.nuget/packages
+```
+BUILD BLOCKED: Windows environment detected
+```
+
+If you need to build from Windows environments, you must:
+
+1. **Bypass the Windows build block:**
+   ```powershell
+   dotnet build -p:AllowWindowsBuild=true
    ```
 
-2. Never mix Windows and WSL builds in the same session
+2. **Keep caches completely separate** - Don't mix Windows and WSL builds
 
-3. If you see `NU1403` errors, clean and restore:
-   ```bash
-   rm -rf Extension/obj Extension.Tests/obj
-   cd scripts && npm run clean && cd ../Extension && npm run clean && cd ..
+3. **If switching from WSL to Windows**, clean and restore first:
+   ```powershell
+   # In Windows PowerShell
    dotnet nuget locals all --clear
+   Remove-Item -Recurse -Force Extension\obj, Extension.Tests\obj
+   dotnet restore --force-evaluate -p:AllowWindowsBuild=true
+   ```
+
+4. **If switching from Windows to WSL**, clean and restore first:
+   ```bash
+   # In WSL bash
+   dotnet nuget locals all --clear
+   rm -rf Extension/obj Extension.Tests/obj
    dotnet restore --force-evaluate
    ```
+
+### Ensuring WSL Uses Its Own Cache
+
+Add to your WSL `~/.bashrc` to ensure the cache stays in WSL:
+```bash
+export NUGET_PACKAGES=/home/$USER/.nuget/packages
+```
 
 ### GitHub Actions CI
 
