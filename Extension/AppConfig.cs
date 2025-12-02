@@ -84,8 +84,8 @@ namespace Extension {
 
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
 
-        public const int ExpectedTermsDigest = -666448542;
-        public const int ExpectedPrivacyDigest = 1268866105;
+        public const int ExpectedTermsDigest = 65063442;
+        public const int ExpectedPrivacyDigest = 1373375114;
 
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
         public const string ProductName = "KERI Auth";
