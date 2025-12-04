@@ -14,15 +14,15 @@
 
 @code {
     // fields
-    int identifiersCount = 0;
-    int identifiersCount2 = 0;
 
     // properties
-    Aid? SelectedAid { get; set; }
+
+   
     int NumWebsites { get; set; } = 0;
     List<RecursiveDictionary> Credentials = [];
 
     // reactive properties
+    int IdentifiersCount => appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
     // TODO P2 confirm what we want to show
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected" : appCache.IsAuthenticated ? "Not Connected" : "Locked";
@@ -32,6 +32,10 @@
     string SelectedPrefix => appCache.MyPreferences.SelectedPrefix;
     string? SelectedIdenticon => SelectedAid != null ? Helper.Identicon.MakeIdenticon(SelectedPrefix) : null;
     string SelectedAlias => SelectedAid?.Name ?? "";
+
+    Aid? SelectedAid => appCache.MyKeriaConnectionInfo.IdentifiersList
+        .SelectMany(id => id.Aids)
+        .FirstOrDefault(aid => aid.Prefix == SelectedPrefix);
 
     protected override async Task OnInitializedAsync()
     {
@@ -43,15 +47,6 @@
         // TODO P2 Evolve this temporary test into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
         var x = await signifyClientService.TestAsync();
         logger.LogInformation($"TestAsync result: {x.Value}");
-
-        // TODO P2 this identifiers count should be in AppCache
-        var res = await signifyClientService.GetIdentifiers();
-        if (res is not null && res.IsSuccess)
-        {
-            identifiersCount = res.Value.Aids.Count();
-        }
-
-        identifiersCount2 = appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -65,14 +60,6 @@
         else
         {
             NumWebsites = 0;
-        }
-
-        // TODO P2 move this into or to use AppCache and make it reactive
-        // Handle effects of value of MyPreferences updates
-        var identifiersRes = await signifyClientService.GetIdentifiers();
-        if (identifiersRes is not null && identifiersRes.IsSuccess && SelectedPrefix != string.Empty)
-        {
-            SelectedAid = identifiersRes.Value.Aids.FirstOrDefault(aid => aid.Prefix == SelectedPrefix);
         }
 
         // Get credentials for the number of credentials
@@ -118,7 +105,7 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right bt-home-status-number">@identifiersCount   @identifiersCount2</MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">@IdentifiersCount</MudText>
                     </MudStack>
 
                     <MudStack Row>
