@@ -36,7 +36,7 @@
     {
         await base.OnInitializedAsync();
 
-        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        // Subscribe to AppCache changes to receive reactive updates
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
         CreateAppBarRefreshTimer();

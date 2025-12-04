@@ -1,4 +1,4 @@
-using Extension.Models.Messages.AppBw;
+﻿using Extension.Models.Messages.AppBw;
 using Microsoft.JSInterop;
 
 namespace Extension.Services;
@@ -18,9 +18,6 @@ public class UserActivityService : IUserActivityService {
     private readonly IJSRuntime _jsRuntime;
     private readonly IAppBwMessagingService _messagingService;
     private readonly ILogger<UserActivityService> _logger;
-
-    // Throttle interval: don't send USER_ACTIVITY more often than this
-    private static readonly TimeSpan ThrottleInterval = TimeSpan.FromSeconds(5);
 
     // State
     private IJSObjectReference? _module;
@@ -128,7 +125,7 @@ public class UserActivityService : IUserActivityService {
         var now = DateTime.UtcNow;
 
         // Apply C# throttle: don't send more often than every 5 seconds
-        if (now - _lastActivitySentUtc < ThrottleInterval) {
+        if (now - _lastActivitySentUtc < AppConfig.ThrottleInactivityInterval) {
             // _logger.LogDebug("UserActivityService: Activity detected but throttled (last sent {Seconds}s ago)", (now - _lastActivitySentUtc).TotalSeconds);
             return;
         }

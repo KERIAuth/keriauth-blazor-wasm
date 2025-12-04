@@ -27,15 +27,24 @@ namespace Extension.Models.Messages.AppBw {
         [JsonPropertyName("error")]
         public string? Error { get; init; }
 
+        /// <summary>
+        /// Constructor for JSON deserialization.
+        /// </summary>
         [JsonConstructor]
-        public AppBwMessage(AppBwMessageType type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null) {
-            Type = type; // Implicit conversion to string
+        public AppBwMessage(string type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null) {
+            Type = type;
             TabId = tabId;
             TabUrl = tabUrl;
             RequestId = requestId;
             Payload = payload;
             Error = error;
         }
+
+        /// <summary>
+        /// Constructor for compile-time type-safe message creation.
+        /// </summary>
+        public AppBwMessage(AppBwMessageType type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null)
+            : this(type.Value, tabId, tabUrl, requestId, payload, error) { }
     }
 
     /// <summary>

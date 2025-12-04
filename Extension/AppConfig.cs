@@ -82,11 +82,13 @@ namespace Extension {
         public static readonly List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
         public static readonly List<string> AllHints = ["hybrid", "security-key", "client-device"];
 
+        // Other settings
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
-
+        public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
         public const int ExpectedTermsDigest = 65063442;
         public const int ExpectedPrivacyDigest = 1373375114;
 
+        // Branding and localization
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
         public const string ProductName = "KERI Auth";
 
