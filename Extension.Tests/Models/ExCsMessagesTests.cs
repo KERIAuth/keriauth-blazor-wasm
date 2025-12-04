@@ -70,7 +70,7 @@ namespace Extension.Tests.Models {
         public void AppMessage_ShouldSerializeCorrectly() {
             // Arrange
             var msg = new AppBwMessage<object>(
-                type: AppBwMessageTypes.REPLY_CREDENTIAL,
+                type: AppBwMessageType.ReplyCredential,
                 tabId: 42,
                 tabUrl: "https://localhost:1234",
                 requestId: "req-456",
@@ -98,7 +98,7 @@ namespace Extension.Tests.Models {
 
             // Assert
             Assert.NotNull(msg);
-            Assert.Equal(AppBwMessageTypes.REPLY_CREDENTIAL, msg.Type);
+            Assert.Equal(AppBwMessageType.ReplyCredential.Value, msg.Type);
             Assert.Equal(42, msg.TabId);
             Assert.Equal("req-456", msg.RequestId);
             Assert.NotNull(msg.Payload);

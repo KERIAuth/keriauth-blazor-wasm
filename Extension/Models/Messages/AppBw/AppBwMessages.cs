@@ -28,8 +28,8 @@ namespace Extension.Models.Messages.AppBw {
         public string? Error { get; init; }
 
         [JsonConstructor]
-        public AppBwMessage(string type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null) {
-            Type = type;
+        public AppBwMessage(AppBwMessageType type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null) {
+            Type = type; // Implicit conversion to string
             TabId = tabId;
             TabUrl = tabUrl;
             RequestId = requestId;
@@ -39,17 +39,66 @@ namespace Extension.Models.Messages.AppBw {
     }
 
     /// <summary>
-    /// Message types sent from App to BackgroundWorker.
+    /// Strongly-typed message type that must be one of the defined values.
+    /// Use the static properties (e.g., AppBwMessageType.ReplyCredential) for compile-time safety.
+    /// Use the Values nested class for switch case labels (e.g., AppBwMessageType.Values.ReplyCredential).
     /// </summary>
-    public static class AppBwMessageTypes {
-        public const string REPLY_CREDENTIAL = "/KeriAuth/AppBw/signify/replyCredential";
-        public const string REPLY_CANCELED = "/KeriAuth/AppBw/signify/replyCanceled";
-        public const string REPLY_ERROR = "/KeriAuth/AppBw/signify/replyError";
-        public const string REPLY_IDENTIFIER = "/KeriAuth/AppBw/signify/replyIdentifier";
-        public const string REPLY_AID = "/KeriAuth/AppBw/signify/replyAID";
-        public const string REPLY_APPROVED_SIGN_HEADERS = "/KeriAuth/AppBw/signify/approvedSignHeaders";
-        public const string APP_CLOSED = "/KeriAuth/AppBw/signify/app_closed";
-        public const string USER_ACTIVITY = "/KeriAuth/AppBw/user_activity";
+    public readonly struct AppBwMessageType : IEquatable<AppBwMessageType> {
+        /// <summary>
+        /// Constant string values for use in switch case labels.
+        /// </summary>
+        public static class Values {
+            public const string ReplyCredential = "/KeriAuth/AppBw/signify/replyCredential";
+            public const string ReplyCanceled = "/KeriAuth/AppBw/signify/replyCanceled";
+            public const string ReplyError = "/KeriAuth/AppBw/signify/replyError";
+            public const string ReplyIdentifier = "/KeriAuth/AppBw/signify/replyIdentifier";
+            public const string ReplyAid = "/KeriAuth/AppBw/signify/replyAID";
+            public const string ReplyApprovedSignHeaders = "/KeriAuth/AppBw/signify/approvedSignHeaders";
+            public const string AppClosed = "/KeriAuth/AppBw/signify/app_closed";
+            public const string UserActivity = "/KeriAuth/AppBw/user_activity";
+        }
+
+        public string Value { get; }
+
+        private AppBwMessageType(string value) => Value = value;
+
+        // Static properties for compile-time type safety
+        public static AppBwMessageType ReplyCredential { get; } = new(Values.ReplyCredential);
+        public static AppBwMessageType ReplyCanceled { get; } = new(Values.ReplyCanceled);
+        public static AppBwMessageType ReplyError { get; } = new(Values.ReplyError);
+        public static AppBwMessageType ReplyIdentifier { get; } = new(Values.ReplyIdentifier);
+        public static AppBwMessageType ReplyAid { get; } = new(Values.ReplyAid);
+        public static AppBwMessageType ReplyApprovedSignHeaders { get; } = new(Values.ReplyApprovedSignHeaders);
+        public static AppBwMessageType AppClosed { get; } = new(Values.AppClosed);
+        public static AppBwMessageType UserActivity { get; } = new(Values.UserActivity);
+
+        /// <summary>
+        /// Parse a string value into an AppBwMessageType.
+        /// Use this when deserializing from JSON or other external sources.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown when the value is not a valid message type.</exception>
+        public static AppBwMessageType Parse(string value) {
+            return value switch {
+                Values.ReplyCredential => ReplyCredential,
+                Values.ReplyCanceled => ReplyCanceled,
+                Values.ReplyError => ReplyError,
+                Values.ReplyIdentifier => ReplyIdentifier,
+                Values.ReplyAid => ReplyAid,
+                Values.ReplyApprovedSignHeaders => ReplyApprovedSignHeaders,
+                Values.AppClosed => AppClosed,
+                Values.UserActivity => UserActivity,
+                _ => throw new ArgumentException($"Invalid AppBwMessageType: '{value}'", nameof(value))
+            };
+        }
+
+        public static implicit operator string(AppBwMessageType type) => type.Value;
+        public override string ToString() => Value;
+
+        public bool Equals(AppBwMessageType other) => Value == other.Value;
+        public override bool Equals(object? obj) => obj is AppBwMessageType other && Equals(other);
+        public override int GetHashCode() => Value?.GetHashCode() ?? 0;
+        public static bool operator ==(AppBwMessageType left, AppBwMessageType right) => left.Equals(right);
+        public static bool operator !=(AppBwMessageType left, AppBwMessageType right) => !left.Equals(right);
     }
 
     /// <summary>
@@ -58,7 +107,7 @@ namespace Extension.Models.Messages.AppBw {
     /// </summary>
     public record AppBwReplyCredentialMessage : AppBwMessage<RecursiveDictionary> {
         public AppBwReplyCredentialMessage(int tabId, string? tabUrl, string requestId, RecursiveDictionary credential)
-            : base(AppBwMessageTypes.REPLY_CREDENTIAL, tabId, tabUrl, requestId, credential) { }
+            : base(AppBwMessageType.ReplyCredential, tabId, tabUrl, requestId, credential) { }
     }
 
     /// <summary>
@@ -67,7 +116,7 @@ namespace Extension.Models.Messages.AppBw {
     /// </summary>
     public record AppBwReplyAidMessage : AppBwMessage<AuthorizeResult> {
         public AppBwReplyAidMessage(int tabId, string? tabUrl, string requestId, AuthorizeResult authorizeResult)
-            : base(AppBwMessageTypes.REPLY_AID, tabId, tabUrl, requestId, authorizeResult) { }
+            : base(AppBwMessageType.ReplyAid, tabId, tabUrl, requestId, authorizeResult) { }
     }
 
     /// <summary>
@@ -96,7 +145,7 @@ namespace Extension.Models.Messages.AppBw {
     /// </summary>
     public record AppBwReplySignMessage : AppBwMessage<AppBwReplySignPayload1> {
         public AppBwReplySignMessage(int tabId, string? tabUrl, string requestId, Dictionary<string, string> headersDict, string prefix, bool isApproved)
-            : base(AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS, tabId, tabUrl, requestId, payload: new AppBwReplySignPayload1(headersDict, prefix, isApproved)) { }
+            : base(AppBwMessageType.ReplyApprovedSignHeaders, tabId, tabUrl, requestId, payload: new AppBwReplySignPayload1(headersDict, prefix, isApproved)) { }
     }
 
     /// <summary>
@@ -104,7 +153,7 @@ namespace Extension.Models.Messages.AppBw {
     /// </summary>
     public record AppBwReplyErrorMessage : AppBwMessage<object> {
         public AppBwReplyErrorMessage(int tabId, string? tabUrl, string requestId, string errorMessage)
-            : base(AppBwMessageTypes.REPLY_ERROR, tabId, tabUrl, requestId, new object(), errorMessage) { }
+            : base(AppBwMessageType.ReplyError, tabId, tabUrl, requestId, new object(), errorMessage) { }
     }
 
     /// <summary>
@@ -112,12 +161,12 @@ namespace Extension.Models.Messages.AppBw {
     /// </summary>
     public record AppBwReplyCanceledMessage : AppBwMessage<object> {
         public AppBwReplyCanceledMessage(int tabId, string? tabUrl, string requestId, string? errorMessage = null)
-            : base(AppBwMessageTypes.REPLY_CANCELED, tabId, tabUrl, requestId, new object(), errorMessage ?? "User cancelled") { }
+            : base(AppBwMessageType.ReplyCanceled, tabId, tabUrl, requestId, new object(), errorMessage ?? "User cancelled") { }
     }
 
     public record AppBwUserActivityMessage : AppBwMessage<object> {
         public AppBwUserActivityMessage()
-            : base(AppBwMessageTypes.USER_ACTIVITY, 0, null, string.Empty, new object()) { }
+            : base(AppBwMessageType.UserActivity, 0, null, string.Empty, new object()) { }
     }
 
     /// <summary>
@@ -125,7 +174,7 @@ namespace Extension.Models.Messages.AppBw {
     /// </summary>
     public record AppBwAppClosedMessage : AppBwMessage<object> {
         public AppBwAppClosedMessage(int tabId, string? tabUrl, string requestId)
-            : base(AppBwMessageTypes.APP_CLOSED, tabId, tabUrl, requestId) { }
+            : base(AppBwMessageType.AppClosed, tabId, tabUrl, requestId) { }
     }
 
     /// <summary>

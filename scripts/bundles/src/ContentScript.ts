@@ -31,7 +31,8 @@ type IPageMessageData =
     | ICsPageMsgData<unknown>;
 
 /*
- * This section is evaluated on document-start, as specified in the extension manifest
+ * This section is evaluated on document-start, as specified in the extension manifest.
+ * Because of the timing, you might not see some of these log messages.
  */
 
 // Sentinel pattern to prevent double-injection
@@ -62,17 +63,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     // Handle messages from BackgroundWorker
     if (msg && typeof msg === 'object' && 'type' in msg) {
-        console.log('KeriAuthCs←BW (via onMessage):', msg);
+        // TODO P2 messages here could be from BW or App. Clarify which in log. Ignore ones from App, which we don't want to talk directly to CS.
+        console.log('KeriAuthCs from BW or App (via onMessage):', msg);
         handleMsgFromBW(msg as Polaris.MessageData<unknown>);
+        return true;
     } else {
         // TODO P2: do a better job of knowing which are truely from BW versus other sources like App.  Then quietly ignore non-BW messages.
         // See AppBwMessageTypes for the list
-        console.log('KeriAuthCs←BW unhandled (via onMessage):', msg, sender, sendResponse.toString());
+        console.log('KeriAuthCs message from BW or App ignored (via onMessage):', msg, sender, sendResponse.toString());
         // Return false for other messages to allow other listeners to handle them
         return false;
     }
-
-
 });
 
 // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.

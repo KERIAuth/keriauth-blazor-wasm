@@ -34,8 +34,8 @@
         // reactive properties ...
         Object ActiveAidObject => (object)ActivePrefix;
         string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
-        string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix); // Identifiers.Find(x => x.Prefix == ActivePrefix) != null ? Helper.Identicon.MakeIdenticon(ActivePrefix) : "";
-        string ActiveAlias => "TBD"; // Identifiers.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
+        string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
+        string ActiveAlias => appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "not_found";
         bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
         static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
         string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
@@ -244,9 +244,9 @@
         <!-- The Identifier Selector overlay covers entire page -->
         <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
-                <MudList SelectedValue="ActiveAidObject" onselect="async (o) => await SetActiveAid(o)" Class="bt-sad-4;" Style="padding: 0px">
+                <MudList SelectedValue="ActiveAidObject" Class="bt-sad-4;" Style="padding: 0px">
 
-                    @foreach (var aid in new List<Aid>()) // TODO P1: Get Identifiers via App Session.KeriaConnectInfo that could later be in separate collection)
+                    @foreach (var aid in appCache.Aids)
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">

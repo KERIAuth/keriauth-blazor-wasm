@@ -275,7 +275,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                                 return;
                             }
 
-                            var appMsg = new AppBwMessage<object>(type, tabId, tabUrl, requestId, payload);
+                            var appMsg = new AppBwMessage<object>(AppBwMessageType.Parse(type), tabId, tabUrl, requestId, payload);
 
                             logger.LogInformation("AppMessage deserialized - Type: {Type}, TabId: {TabId}, TabUrl: {tt}", appMsg.Type, appMsg.TabId, appMsg.TabUrl);
                             await HandleAppMessageAsync(appMsg);
@@ -1025,23 +1025,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             string contentScriptMessageType;
             string? errorStr = null;
             switch (msg.Type) {
-                case AppBwMessageTypes.REPLY_AID:
-                case AppBwMessageTypes.REPLY_CREDENTIAL:
-                    // case AppBwMessageTypes.REPLY_SIGN:
+                case AppBwMessageType.Values.ReplyAid:
+                case AppBwMessageType.Values.ReplyCredential:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     break;
 
-                case AppBwMessageTypes.REPLY_APPROVED_SIGN_HEADERS:
+                case AppBwMessageType.Values.ReplyApprovedSignHeaders:
                     if (msg.Payload is null) {
-                        logger.LogWarning("Payload is null for REPLY_APPROVED_SIGN_HEADERS: {msg}", msg);
+                        logger.LogWarning("Payload is null for {t}: {msg}", msg.Type, msg);
                         return;
                     }
                     if (msg.RequestId is null) {
-                        logger.LogWarning("RequestId is null for REPLY_APPROVED_SIGN_HEADERS: {msg}", msg);
+                        logger.LogWarning("RequestId is null for {t}: {msg}", msg.Type, msg);
                         return;
                     }
                     if (msg.TabUrl is null) {
-                        logger.LogWarning("TabUrl is null for REPLY_APPROVED_SIGN_HEADERS: {msg}", msg);
+                        logger.LogWarning("TabUrl is null for {t}: {msg}", msg.Type, msg);
                         return;
                     }
 
@@ -1065,19 +1064,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         logger.LogError(ex, "Error deserializing AppBwReplySignPayload1 from payload: {payload}", msg.Payload);
                     }
                     return; // TODO P2 send error message back to Cs?
-                case AppBwMessageTypes.REPLY_ERROR:
+                case AppBwMessageType.Values.ReplyError:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     errorStr = "An error ocurred in the KERI Auth app";
                     break; // will forward
-                case AppBwMessageTypes.REPLY_CANCELED:
+                case AppBwMessageType.Values.ReplyCanceled:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
                     errorStr = "User canceled or rejected request";
                     break; // will forward
-                case AppBwMessageTypes.APP_CLOSED:
+                case AppBwMessageType.Values.AppClosed:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
                     errorStr = "The KERI Auth app was closed";
                     break; // will forward
-                case AppBwMessageTypes.USER_ACTIVITY:
+                case AppBwMessageType.Values.UserActivity:
                     logger.LogInformation("BW←App: USER_ACTIVITY message received, updating session expiration if applicable");
                     await _sessionManager.ExtendIfUnlockedAsync();
                     return;

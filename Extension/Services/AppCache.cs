@@ -1,7 +1,8 @@
 ﻿namespace Extension.Services {
-    using Extension.Helper;
     using Extension.Models;
     using Extension.Models.Storage;
+    using Extension.Services.SignifyService.Models;
+
     using Extension.Services.Storage;
     using Extension.Utilities;
 
@@ -66,7 +67,7 @@
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
 
         // TODO P1: populate from KERI client state, non-static
-        public static List<string> XIdentifiers => [];
+        public List<Aid> Aids => (MyKeriaConnectionInfo.IdentifiersList.Count != 0) ? MyKeriaConnectionInfo.IdentifiersList.First<Identifiers>().Aids : [];
 
         public bool IsReadyToTransact => IsNotWaiting && IsConnectedToKeria;
 
