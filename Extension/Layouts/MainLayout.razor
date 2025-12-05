@@ -35,8 +35,11 @@
         Object ActiveAidObject => (object)ActivePrefix;
         string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
         string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
-        string ActiveAlias => appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "not_found";
-        bool IsIdenticonHidden => (string.IsNullOrEmpty(ActivePrefix));
+        string ActiveAlias => string.IsNullOrEmpty(ActivePrefix) || appCache.Aids.Count == 0
+            ? ""
+            : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
+        bool IsIdenticonShown => appCache.IsSessionUnlocked && !string.IsNullOrEmpty(ActivePrefix); //&& !string.IsNullOrEmpty(ActiveAlias);
+
         static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
         string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
         {
@@ -87,6 +90,7 @@
     {
         await base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
+        StateHasChanged();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -103,7 +107,6 @@
         isInPopup = contexts2.Any(c => c.ContextType == ContextType.POPUP);
         var isInSidePanel = contexts2.Any(c => c.ContextType == ContextType.SIDEPANEL);
         var isInTab = contexts2.Any(c => c.ContextType == ContextType.TAB);
-
 
         ActiveDrawerVariant = (isInPopup, isInSidePanel, isInTab) switch
         {
@@ -216,22 +219,9 @@
                 }
             </div>
 
-            <!-- Current AID Alias and Prefix Identicon -->
-            @* // TODO P3 Fix Alias display when long - currently cuts off abruptly without ellipsis?
-                <MudStack Row AlignItems=AlignItems.Center>
-                    <!-- Middle Text with ellipsis -->
-                    <MudText Style="max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" Typo="Typo.body2"> @ActiveAlias </MudText>
-
-                    <!-- Right Icon -->
-                    <MudTooltip Text="@ActiveAlias" Arrow="true" Placement="Placement.Left" Delay="1000" Style="display:flex;">
-                        <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon="@ActivePrefixIdenticon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                    </MudTooltip>
-                </MudStack>
-            *@
-
             <!-- Current Identifier Identicon -->
             <div style="align-self:center; height: 35px; margin-right: -8px;">
-                @if (!IsIdenticonHidden)
+                @if (IsIdenticonShown)
                 {
                     <MudTooltip Text=@ActiveAlias Arrow="true" Placement="Placement.Left" Delay="500">
                         <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon=@ActivePrefixIdenticon Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />

@@ -60,7 +60,7 @@ public class SessionManager : IDisposable {
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "SessionManager initialization failed");
-                throw;
+                // Don't rethrow - nobody awaits this task, so the exception would be lost
             }
         });
     }
@@ -135,31 +135,46 @@ public class SessionManager : IDisposable {
     /// Replaces any existing alarm with the same name.
     /// Validates expiration time is in the future and within max timeout range.
     /// </summary>
-    private async Task ScheduleExpirationAlarmAsync(DateTime expirationUtc) {
+    private async Task ScheduleExpirationAlarmAsync(DateTime newExpirationUtc) {
+        _logger.LogDebug("Scheduling SessionExpirationUtc alarm for {Expiration} ???????", newExpirationUtc);
         try {
             var now = DateTime.UtcNow;
-            var timeUntilExpiration = expirationUtc - now;
+            var timeUntilExpiration = newExpirationUtc - now;
 
             // Validate expiration is in the future
-            if (expirationUtc <= now) {
+            if (newExpirationUtc <= now) {
                 throw new ArgumentException(
-                    $"Expiration time {expirationUtc} must be in the future (now: {now})");
+                    $"Expiration time {newExpirationUtc} must be in the future (now: {now})");
             }
 
             // Validate expiration is not too far in the future
             var maxTimeout = TimeSpan.FromMinutes(AppConfig.MaxInactivityTimeoutMins);
             if (timeUntilExpiration > maxTimeout) {
                 throw new ArgumentException(
-                    $"Expiration time {expirationUtc} is {timeUntilExpiration.TotalMinutes:F1} minutes in the future, " +
+                    $"Expiration time {newExpirationUtc} is {timeUntilExpiration.TotalMinutes:F1} minutes in the future, " +
                     $"exceeds max timeout of {AppConfig.MaxInactivityTimeoutMins} minutes");
             }
 
-            var whenMs = ((DateTimeOffset)expirationUtc).ToUnixTimeMilliseconds();
+            // Check if alarm already exists and would fire close to the new expiration time
+            // If so, skip rescheduling to reduce unnecessary alarm updates
+            var existingAlarm = await _webExtensionsApi.Alarms.Get(AppConfig.SessionManagerAlarmName);
+            if (existingAlarm is not null) {
+                var existingAlarmTime = DateTimeOffset.FromUnixTimeMilliseconds((long)existingAlarm.ScheduledTime).UtcDateTime;
+                var timeDifference = Math.Abs((newExpirationUtc - existingAlarmTime).TotalSeconds);
+                if (timeDifference < 15) { // TODO P2 put in AppConfig
+                    _logger.LogDebug("Session extended: skipped alarm rescheduling (existing alarm at {ExistingTime} is within 15s of {NewTime})",
+                        existingAlarmTime, newExpirationUtc);
+                    return;
+                }
+            }
+
+            // Create or reschedule the alarm
+            var whenMs = ((DateTimeOffset)newExpirationUtc).ToUnixTimeMilliseconds();
             await _webExtensionsApi.Alarms.Create(AppConfig.SessionManagerAlarmName, new AlarmInfo {
                 When = whenMs
             });
-            _logger.LogInformation("Scheduled SessionManager alarm to fire at {Expiration} (in {Minutes} min)",
-                expirationUtc, Math.Round(timeUntilExpiration.TotalMinutes, 1));
+            _logger.LogInformation("Session alarm scheduled for {Expiration} ({Minutes} min from now)",
+                newExpirationUtc, Math.Round(timeUntilExpiration.TotalMinutes, 1));
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to schedule SessionManager alarm");
@@ -194,7 +209,7 @@ public class SessionManager : IDisposable {
     /// </summary>
     public async Task HandleAlarmAsync(Alarm alarm) {
         if (alarm.Name != AppConfig.SessionManagerAlarmName) {
-            _logger.LogWarning("SessionManager received unexpected alarm: {Name}", alarm.Name);
+            _logger.LogError("SessionManager received unexpected alarm: {Name}", alarm.Name);
             return;
         }
 
@@ -240,8 +255,7 @@ public class SessionManager : IDisposable {
             // Schedule one-shot alarm to fire at expiration time
             await ScheduleExpirationAlarmAsync(newExpirationUtc);
 
-            _logger.LogInformation("Session extended to {Expiration} ({Minutes} min)",
-                newExpirationUtc, Math.Round(timeoutMinutes, 1));
+
         }
         else {
             _logger.LogInformation("Session not unlocked, locking session");

@@ -47,6 +47,7 @@
     {
         await base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
+        StateHasChanged();
     }
 
     public override async ValueTask DisposeAsync()

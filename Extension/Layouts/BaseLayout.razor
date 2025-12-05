@@ -27,7 +27,7 @@
     protected (string Text, string Style) TimeoutText => (
             appCache.IsAuthenticated &&
             (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
-            (int)SessionDurationRemaining.TotalSeconds >= 1)
+            (int)SessionDurationRemaining.TotalSeconds > 1)
             ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
               : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
             : ("", "");
@@ -36,7 +36,17 @@
     {
         await base.OnInitializedAsync();
 
-        // Subscribe to AppCache changes to receive reactive updates
+        // TODO P1: Subscribe to AppCache changes to receive reactive updates??
+        /*
+        await appCache.WaitForAppCache([
+            () => appCache.MyPreferences is not null,
+            () => appCache.MyOnboardState is not null,
+            () => appCache.MyKeriaConnectConfig is not null,
+            () => appCache.MyKeriaConnectionInfo is not null,
+            () => appCache.MyPasscodeModel is not null
+        ]);
+        */
+
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
         CreateAppBarRefreshTimer();

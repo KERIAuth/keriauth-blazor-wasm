@@ -40,7 +40,16 @@
     {
         logger.LogInformation($"OnInitializedAsync");
 
-        // Subscribe to AppCache changes - will trigger StateHasChanged and RedirectIfNeeded when state updates
+        // TODO P1: should "know" that appCache has did its initial fetching?  Subscribe to AppCache changes - will trigger StateHasChanged and RedirectIfNeeded when state updates
+        /*
+        await appCache.WaitForAppCache([
+            () => appCache.MyPreferences is not null,
+            () => appCache.MyOnboardState is not null,
+            () => appCache.MyKeriaConnectConfig is not null,
+            () => appCache.MyKeriaConnectionInfo is not null,
+            () => appCache.MyPasscodeModel is not null
+        ]);
+        */
         await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
 
         await VerifyTermsAndPrivacyDigests(); 
@@ -188,6 +197,7 @@
         // await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
         await RedirectIfNeeded();
+        logger.LogInformation("OnInitializedAsync complete");
         return;
     }
 
@@ -293,6 +303,29 @@
         // logger.LogInformation("RedirectIfNeeded: No re-route conditions detected.");
         // TODO P1: consider navigating to Dashboard or other page
         // NavigateIfNeeded(RouteToDashboard);
+        // if there's a query parameter for a specific page, navigate there
+        if (InitialUri?.Query is not null)
+        {
+            logger.LogWarning("RedirectIfNeeded: InitialUri.Query: {q}", InitialUri.Query);
+            var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
+            logger.LogWarning("RedirectIfNeeded: query string: {q}", query.ToString());
+            if (query["page"] != null)
+            {
+                var pageParam = query["popupType"] switch
+                {
+                    "selectAuthorize" => AppConfig.RouteToRequestSignIn,
+                    "signRequest" => AppConfig.RouteToRequestSignHeaders,
+                    _ => throw new Exception("unexpected popupType query param value")
+                };
+                logger.LogWarning("RedirectIfNeeded: navigating to page param: {p}", pageParam);
+                // NavigateIfNeeded(pageParam!);
+                return;
+            }
+        }
+        
+        
+        
+        
     }
 
     // Verify that the Terms and Privacy HTML files match expected hash digests. If not, developer needs to update expected digests in AppConfig.

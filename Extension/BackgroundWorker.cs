@@ -39,8 +39,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // TODO P2 move to AppConfig.cs and set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
-    private const string SESSION_INACTIVITY_ALARM_NAME = "SessionInactivityAlarm";
-
+    
     // Cached JsonSerializerOptions for message deserialization
     private static readonly JsonSerializerOptions PortMessageJsonOptions = new() {
         PropertyNameCaseInsensitive = true
@@ -336,12 +335,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("OnAlarmAsync: '{AlarmName}' fired", alarm.Name);
             InitializeIfNeeded();
             switch (alarm.Name) {
-                case SESSION_INACTIVITY_ALARM_NAME:
-                    // DEPRECATED: This alarm name is no longer used by BackgroundWorker
-                    // SessionManager now owns session expiration with its own alarm name
-                    logger.LogWarning("Received deprecated SESSION_INACTIVITY_ALARM_NAME - this should not fire");
-                    await WebExtensions.Alarms.Clear(SESSION_INACTIVITY_ALARM_NAME);
-                    return;
                 case AppConfig.SessionManagerAlarmName:
                     // Delegate to SessionManager
                     await _sessionManager.HandleAlarmAsync(alarm);
@@ -1115,7 +1108,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task HandleSelectAuthorizeAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
-            logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
+            logger.LogWarning("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
 
             if (sender?.Tab?.Id == null) {
                 logger.LogWarning("BW HandleSelectAuthorize: no tabId found");
@@ -1147,7 +1140,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task HandleRequestSignHeadersAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: {Message}", JsonSerializer.Serialize(msg));
+            logger.LogWarning("BW HandleRequestSignHeadersAsync: {Message}", JsonSerializer.Serialize(msg));
 
             if (sender?.Tab?.Id == null) {
                 logger.LogError("BW HandleRequestSignHeadersAsync: no tabId found");

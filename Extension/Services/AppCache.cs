@@ -66,8 +66,17 @@
         // Derived properties ("reactive selectors")
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
 
+        private static readonly List<Aid> EmptyAidsList = [];
         // TODO P1: populate from KERI client state, non-static
-        public List<Aid> Aids => (MyKeriaConnectionInfo.IdentifiersList.Count != 0) ? MyKeriaConnectionInfo.IdentifiersList.First<Identifiers>().Aids : [];
+        public List<Aid> Aids {
+            get {
+                var identifiersList = MyKeriaConnectionInfo?.IdentifiersList;
+                if (identifiersList is null || identifiersList.Count == 0) {
+                    return EmptyAidsList;
+                }
+                return identifiersList.First().Aids ?? EmptyAidsList;
+            }
+        }
 
         public bool IsReadyToTransact => IsNotWaiting && IsConnectedToKeria;
 
@@ -278,6 +287,17 @@
                 );
 
                 _isInitialized = true;
+
+                // TODO P1: consider awaiting initial load of all storage values before completing initialization
+                /*
+                await this.WaitForAppCache(new List<Func<bool>> {
+                    () => MyPreferences is not null,
+                    () => MyOnboardState is not null,
+                    () => MyKeriaConnectConfig is not null,
+                    () => MyKeriaConnectionInfo is not null,
+                    () => MyPasscodeModel is not null
+                }, maxWaitMs: 3000);
+                */
                 _logger.LogInformation("AppCache initialization complete");
             }
             finally {
