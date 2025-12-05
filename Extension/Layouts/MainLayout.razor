@@ -24,10 +24,11 @@
     const string openWidth = "var(--mud-drawer-width-left)";
     string version = "";
     string version_name = "";
-    
+
     // properties...
     bool IsProfilePanelOpen { get; set; }
     List<ExtensionContext> CurrentExtensionContexts { get; set; } = [];
+    bool IsPersistentDrawerOpenInPopup { get; set; }
 
     // reactive properties ...
     Object ActiveAidObject => (object)ActivePrefix;
@@ -54,29 +55,28 @@
         (false, _)
             => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-    ContextFilter contextFilter => new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
-    
+    ContextFilter contextFilter => new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
     bool IsInPopup => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.POPUP);
     bool IsInSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.SIDEPANEL);
-    bool IsInTab => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.TAB);
-    DrawerVariant ActiveDrawerVariant => (IsInPopup, IsInSidePanel, IsInTab) switch
+    // Note: SidePanel context is also a Tab context, so we need to exclude that here
+    bool IsInTabNotSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.TAB) && !IsInSidePanel;
+    DrawerVariant ActiveDrawerVariant => (IsInPopup, IsInSidePanel, IsInTabNotSidePanel) switch
     {
         (true, _, _) => appCache.MyPreferences.DrawerVariantInPopup,
-        // TODO P2 consider separate SidePanel preference
-        (_, true, _) => appCache.MyPreferences.DrawerVariantInTab, 
+        (_, true, _) => appCache.MyPreferences.DrawerVariantInSidePanel,
         (_, _, true) => appCache.MyPreferences.DrawerVariantInTab,
         _ => appCache.MyPreferences.DrawerVariantInTab
     };
+    bool IsMenuDrawerOpen => IsInTabNotSidePanel ? appCache.MyPreferences.IsPersistentDrawerOpenInTab : IsInSidePanel ? appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel : IsPersistentDrawerOpenInPopup;
 
-    // TODO P2 still have work to do here depending on context type, and when changing the user preference for IsPersistentDrawerOpen
-    bool IsMenuDrawerOpen => appCache.MyPreferences.IsPersistentDrawerOpen; // && ActiveDrawerVariant == DrawerVariant.Persistent;
-    
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
         CurrentExtensionContexts = (await webExtensionsApi.Runtime.GetContexts(contextFilter)).ToList();
+
+        logger.LogWarning("IsInPopup {p} IsInSidePanel {sp} IsInTab {t}", IsInPopup, IsInSidePanel, IsInTabNotSidePanel);
 
         // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
         // DRY and perf with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
@@ -131,10 +131,22 @@
 
     async Task ToggleMenuDrawer()
     {
-        // TODO P1 IsPersistentDrawerOpen should be per context type (i.e., popup, sidepanel, tab). Plus, do we really want two displayed tabs to toggle at the same time?
-        var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpen = !IsMenuDrawerOpen };
-        await storageService.SetItem<Preferences>(newPrefs);
-        await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpen == newPrefs.IsPersistentDrawerOpen]);
+        if (IsInTabNotSidePanel)
+        {
+            var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInTab = !IsMenuDrawerOpen };
+            await storageService.SetItem<Preferences>(newPrefs);
+            await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpenInTab == newPrefs.IsPersistentDrawerOpenInTab]);
+        }
+        else if (IsInSidePanel)
+        {
+            var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInSidePanel = !IsMenuDrawerOpen };
+            await storageService.SetItem<Preferences>(newPrefs);
+            await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel == newPrefs.IsPersistentDrawerOpenInSidePanel]);
+        }
+        else if (IsInPopup)
+        {
+            IsPersistentDrawerOpenInPopup = !IsPersistentDrawerOpenInPopup;
+        }
     }
 
     private async Task RefreshConnect()
@@ -159,7 +171,7 @@
     <!-- APP BAR -->
     <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
         <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleMenuDrawer" Style="padding-left: 5px;" data-testid="menuHamburger" />
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleMenuDrawer" Style="padding-left: 5px;" data-testid="menuHamburger" />
             <MudButton Href="@RouteToIndex" Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
                 <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
                 <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>

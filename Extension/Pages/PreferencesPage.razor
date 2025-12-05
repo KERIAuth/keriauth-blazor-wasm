@@ -1,4 +1,5 @@
 ﻿@page "/ManagePreferences.html"
+@layout Layouts.MainLayout
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
 @using Extension.Services
@@ -18,6 +19,7 @@
 
 @code
 {
+    // types
     enum DrawerVariantSupportedInTab
     {
         Persistent = MudBlazor.DrawerVariant.Persistent,
@@ -25,8 +27,15 @@
         Responsive = MudBlazor.DrawerVariant.Responsive
         // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
     }
+    enum DrawerVariantSupportedInSidePanel
+    {
+        Persistent = MudBlazor.DrawerVariant.Persistent,
+        Temporary = MudBlazor.DrawerVariant.Temporary,
+        Responsive = MudBlazor.DrawerVariant.Responsive
+        // Mini = MudBlazor.DrawerVariant.Mini, // has layout issues
+    }
 
-    // fields and types
+    // fields
 
     // properties
     
@@ -36,6 +45,7 @@
     string InactivityTimeoutLabel => InactivityTimeout.ToString() + " " + (InactivityTimeout <= 1.0f ? "minute" : "minutes");
     bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
+    MudBlazor.DrawerVariant DrawerVariantInSidePanel => Prefs.DrawerVariantInSidePanel;
     List<string> SelectedTransportOptions => Prefs.SelectedTransportOptions;
     string SelectedTransportOptionsList => string.Join(", ", SelectedTransportOptions);
     string userVerification => Prefs.UserVerification;
@@ -82,6 +92,11 @@
         await Persist(Prefs with { DrawerVariantInTab = dv });
     }
 
+    async Task SetAndPersistDVISP(DrawerVariant dv)
+    {
+        await Persist(Prefs with { DrawerVariantInSidePanel = dv });
+    }
+
     async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
     {
         await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
@@ -107,7 +122,7 @@
         await Persist(Prefs with { AttestationConveyancePref = v });
     }
 
-    private async Task UpdateSelection(string transport, bool isChecked)
+    private async Task UpdateTransportSelection(string transport, bool isChecked)
     {
         List<string> newSelection = SelectedTransportOptions.ToList();
         if (isChecked && !SelectedTransportOptions.Contains(transport))
@@ -276,6 +291,14 @@ private void SetMostPermissive()
                         }
                     </MudSelect>
                 </MudStack>
+                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInSidePanel" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVISP(a)" Label="In SidePanel" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInSidePanel)))
+                        {
+                            <MudSelectItem Value="item">@item</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
             </MudStack>
 
             <MudStack Row="false">
@@ -425,7 +448,7 @@ private void SetMostPermissive()
                             {
                                 var transportLabel = transport + "Checkbox";
                                 <MudCheckBox T="bool" Label="@transport" id="@transportLabel" Value="@SelectedTransportOptions.Contains(transport)"
-                                             ValueChanged="async (bool isChecked) => await UpdateSelection(transport, isChecked)" />
+                                             ValueChanged="async (bool isChecked) => await UpdateTransportSelection(transport, isChecked)" />
                             }
                         </MudStack>
                     </MudStack>
