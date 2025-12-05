@@ -205,40 +205,19 @@
     <Message Importance="high" Text="Cleaned C# build outputs (wwwroot\ JavaScript files preserved for incremental builds)" />
   </Target>
 
-  <!-- Target to detect environment and block Windows builds to prevent NuGet cache conflicts -->
-  <!-- Claude Code runs in WSL, so Windows builds will cause NU1403 hash validation errors -->
-  <!-- Use -p:AllowWindowsBuild=true to bypass this check if you understand the implications -->
-  <Target Name="CheckEnvironment" BeforeTargets="Restore;Build" Condition="'$(CI)' != 'true' AND '$(GITHUB_ACTIONS)' != 'true'">
+  <!-- Target to detect environment and provide user guidance -->
+  <!-- Windows and WSL maintain separate NuGet caches - pick one and stick with it -->
+  <Target Name="CheckEnvironment" BeforeTargets="InstallDependencies" Condition="'$(CI)' != 'true'">
     <PropertyGroup>
       <IsWSL Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux))) AND $([System.Environment]::GetEnvironmentVariable('WSL_DISTRO_NAME')) != ''">true</IsWSL>
       <IsWindows Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">true</IsWindows>
-      <IsLinuxNonWSL Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux))) AND '$(IsWSL)' != 'true'">true</IsLinuxNonWSL>
+      <IsCI Condition="'$(GITHUB_ACTIONS)' == 'true' OR '$(CI)' == 'true'">true</IsCI>
     </PropertyGroup>
 
-    <!-- Fail on Windows unless explicitly bypassed -->
-    <Error
-      Condition="'$(IsWindows)' == 'true' AND '$(AllowWindowsBuild)' != 'true'"
-      Text="
-================================================================================
-BUILD BLOCKED: Windows environment detected
-
-Claude Code runs in WSL, which uses a separate NuGet cache from Windows.
-Building on Windows will cause NU1403 package hash validation errors.
-
-RECOMMENDED: Build from WSL bash instead:
-  1. Open WSL terminal (type 'wsl' in PowerShell or use Windows Terminal)
-  2. Navigate to project: cd /mnt/c/s/k/kbw
-  3. Run: dotnet build -p:Quick=true
-
-TO BYPASS (not recommended - will break Claude Code builds):
-  dotnet build -p:AllowWindowsBuild=true
-
-See README.md#build-environments for details.
-================================================================================" />
-
-    <!-- Guidance messages for allowed environments -->
-    <Message Importance="high" Text="Building KERI Auth Browser Extension in WSL..." Condition="'$(IsWSL)' == 'true'" />
-    <Message Importance="high" Text="Building KERI Auth Browser Extension on Linux..." Condition="'$(IsLinuxNonWSL)' == 'true'" />
+    <!-- Only show guidance for local builds, not CI -->
+    <Message Importance="high" Text="Building KERI Auth Browser Extension in WSL. If build fails with NuGet package errors, ensure Visual Studio and Windows Explorer are closed." Condition="'$(IsWSL)' == 'true' AND '$(IsCI)' != 'true'" />
+    <Message Importance="high" Text="Building KERI Auth Browser Extension on Windows. If npm commands fail, ensure no WSL processes are accessing the project directory." Condition="'$(IsWindows)' == 'true' AND '$(IsCI)' != 'true'" />
+    <Message Importance="normal" Text="Building KERI Auth Browser Extension in CI environment." Condition="'$(IsCI)' == 'true'" />
   </Target>
 
   <Target Name="RemoveTypeScriptSourceFiles" AfterTargets="Build">

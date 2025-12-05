@@ -107,8 +107,9 @@
         "**/*.js.map": true
     },
     
-    // Terminal configuration for npm scripts
-    "terminal.integrated.defaultProfile.windows": "Ubuntu (WSL)",
+    // Terminal configuration - use Windows PowerShell for builds
+    // Change to "Ubuntu (WSL)" if you prefer WSL builds
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
     "terminal.integrated.defaultProfile.linux": "bash",
     
     // Testing

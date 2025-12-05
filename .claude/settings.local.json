@@ -36,7 +36,9 @@
       "Bash(git log:*)",
       "Bash(wsl -e bash -ic \"cd /mnt/c/s/k/kbw/Extension && npm run build:app\")",
       "Bash(wsl -e bash:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(dotnet --version:*)",
+      "Bash(git mv:*)"
     ],
     "deny": [],
     "ask": []
