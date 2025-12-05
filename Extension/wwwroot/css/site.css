@@ -38,6 +38,14 @@
     }
 }
 
+/* Disable all animations and transitions for elements within the drawer */
+.mud-drawer, .mud-drawer * {
+    transition: none !important;
+    animation: none !important;
+    /* Ensure the opacity is correct when visible without a transition */
+    opacity: 1 !important;
+}
+
 .mud-typography {
     overflow-wrap: break-word;
 }

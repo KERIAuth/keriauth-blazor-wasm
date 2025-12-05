@@ -269,9 +269,7 @@
             }
             else
             {
-                // fetch identifiers.  
-                // TODO P2 Might be fetching multiple times too many.  DRY
-                // ... also have similar code as in ConfigurePage.razor DRY
+                // TODO P0 get identifiers later, during ConnectingPage?
                 var identifiersRes = await signifyClientService.GetIdentifiers();
                 if (identifiersRes.IsFailed)
                 {

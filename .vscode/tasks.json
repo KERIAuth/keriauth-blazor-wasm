@@ -2,10 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build Extension (Full)",
+      "label": "Build Extension (Release)",
       "type": "shell",
       "command": "dotnet",
-      "args": ["build", "-p:FullBuild=true"],
+      "args": ["build", "--configuration", "Release", "-p:FullBuild=true"],
       "group": {
         "kind": "build",
         "isDefault": true

@@ -300,7 +300,7 @@
         ops4ListAids.SetIsRunning();
         StateHasChanged();
         await Task.Delay(100);
-
+        
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {

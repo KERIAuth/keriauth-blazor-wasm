@@ -22,8 +22,11 @@
         [JsonPropertyName("DrawerVariantInSidePanel")]
         public MudBlazor.DrawerVariant DrawerVariantInSidePanel { get; init; } = AppConfig.DefaultDrawerVariantInSidePanel;
 
-        [JsonPropertyName("IsPersistentDrawerOpen")]
-        public bool IsPersistentDrawerOpen { get; init; }
+        [JsonPropertyName("IsPersistentDrawerOpenInTab")]
+        public bool IsPersistentDrawerOpenInTab { get; init; }
+
+        [JsonPropertyName("IsPersistentDrawerOpenInSidePanel")]
+        public bool IsPersistentDrawerOpenInSidePanel { get; init; }
 
         [JsonPropertyName("PrefersToUseAuthenticator")]
         public bool PrefersToUseAuthenticator { get; init; } = AppConfig.DefaultPrefersToUseAuthenticator;

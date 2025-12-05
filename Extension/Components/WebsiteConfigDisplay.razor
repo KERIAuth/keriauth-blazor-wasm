@@ -12,7 +12,7 @@
 @inject IAppBwMessagingService appBwMessagingService
 @inject IJSRuntime jsRuntime
 @inject NavigationManager navManager
-@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+@inject AppCache appCache
 
 @using Extension.Services.SignifyService.Models
 
@@ -25,7 +25,9 @@
 
     // properties
     bool IsCredListExpanded { get; set; }
-    List<Aid>? Identifiers { get; set; }
+    List<Aid> Identifiers => appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
+        ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.OrderBy(a => a.Name).ToList()
+        : new List<Aid>();
     bool IsAutoSignInIdentifier { get; set; }
     string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
@@ -43,7 +45,6 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync...");
-        await getInitialIdentifiers();
         await getCredentials();
         // inform parent so it can enable or disable Sign In button, for example
         await sendValueToParent();
@@ -139,22 +140,6 @@
             }
         }
         logger.LogInformation("RefreshFromWebsiteConfig: done");
-    }
-
-    private async Task getInitialIdentifiers()
-    {
-        // logger.LogWarning("GetInitialIdentifiers() ...");
-        var res = await signifyClientService.GetIdentifiers();
-        if (res?.IsSuccess == true && res.Value?.Aids is not null)
-        {
-            Identifiers = res.Value.Aids.OrderBy(a => a.Name).ToList();
-        }
-        else
-        {
-            throw new Exception("unexpected null identifiers");
-        }
-        // StateHasChanged(); // TODO needed?
-        // logger.LogWarning("GetInitialIdentifiers() done count: {c}", Identifiers?.Count());
     }
 
     // TODO P2 DRY move this filterCredentials to a helper
