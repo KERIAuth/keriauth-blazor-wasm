@@ -38,7 +38,11 @@
       "Bash(wsl -e bash:*)",
       "Bash(rm:*)",
       "Bash(dotnet --version:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(tasklist:*)",
+      "Bash(echo:*)",
+      "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet restore:*)",
+      "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet build:*)"
     ],
     "deny": [],
     "ask": []
