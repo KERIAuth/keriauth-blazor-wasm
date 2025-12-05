@@ -9,6 +9,7 @@
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
+@inject AppCache appCache
 
 @using Extension.Services.SignifyService.Models
 
@@ -16,8 +17,8 @@
     // "Prefix" here is the Prefix under inspection, not necessarily the one in MyPreferences.Prefix
     [Parameter]
     public required string Prefix { get; set; }
-    [CascadingParameter]
-    public Preferences Prefs { get; set; } = new Preferences();
+    
+    public Preferences Prefs => appCache.MyPreferences;
 
     // typedefs and records
     record KeyEvent
@@ -109,7 +110,7 @@
                 // Load key state and key events
                 await LoadKeyStateData();
                 await LoadKeyEventsData();
-                await LoadDelegateesData();
+                LoadDelegateesData();
             }
             else
             {
@@ -333,15 +334,15 @@
         }
     }
 
-    async Task LoadDelegateesData()
+    void LoadDelegateesData()
     {
         try
         {
-            // Get all identifiers and filter for those delegated by this identifier
-            var identifiersResult = await signifyClientService.GetIdentifiers();
-            if (identifiersResult.IsSuccess)
+            // Get all identifiers from cache and filter for those delegated by this identifier
+            var identifiersList = appCache.MyKeriaConnectionInfo.IdentifiersList;
+            if (identifiersList.Count > 0)
             {
-                var allAids = identifiersResult.Value.Aids;
+                var allAids = identifiersList.SelectMany(i => i.Aids).ToList();
                 var delegateesList = new List<DelegateeInfo>();
 
                 foreach (var aid in allAids)
@@ -365,7 +366,7 @@
             }
             else
             {
-                logger.LogWarning("Failed to load identifiers for delegatee check: {errors}", identifiersResult.Errors);
+                logger.LogWarning("No identifiers available in cache for delegatee check");
             }
         }
         catch (Exception ex)

@@ -66,8 +66,6 @@
         }
 
         // fetch the list of identifiers from the KERI Agent Service
-        // TODO P1 is the identifiers list already returned in connectRes.Value, above?
-
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {

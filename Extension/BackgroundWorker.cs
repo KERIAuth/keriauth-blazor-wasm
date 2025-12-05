@@ -39,7 +39,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // TODO P2 move to AppConfig.cs and set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
     private const string UninstallUrl = "https://keriauth.com/uninstall.html";
     private const string DefaultVersion = "unknown";
-    
+
     // Cached JsonSerializerOptions for message deserialization
     private static readonly JsonSerializerOptions PortMessageJsonOptions = new() {
         PropertyNameCaseInsensitive = true
@@ -1409,10 +1409,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
 
                     var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyClientService.GetIdentifiers();
-                    if (identifiers.IsSuccess && identifiers.Value is not null) {
-                        var aids = identifiers.Value.Aids;
-                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                    // Get identifier name from cached session storage
+                    var aidNameResult = await GetIdentifierNameFromCacheAsync(prefix);
+                    if (aidNameResult.IsSuccess) {
+                        aidName = aidNameResult.Value;
                     }
                 }
             }
@@ -1547,12 +1547,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 if (websiteConfigResult.IsSuccess &&
                     websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-
                     var prefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                    var identifiers = await _signifyClientService.GetIdentifiers();
-                    if (identifiers.IsSuccess && identifiers.Value is not null) {
-                        var aids = identifiers.Value.Aids;
-                        aidName = aids.Where((a) => a.Prefix == prefix).FirstOrDefault()?.Name;
+                    var aidNameResult = await GetIdentifierNameFromCacheAsync(prefix);
+                    if (aidNameResult.IsSuccess) {
+                        aidName = aidNameResult.Value;
                     }
                 }
             }
@@ -1661,6 +1659,30 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             return;
         }
+    }
+
+    /// <summary>
+    /// Get the identifier name for a given prefix from cached session storage.
+    /// This avoids calling signifyClientService.GetIdentifiers() repeatedly.
+    /// </summary>
+    private async Task<Result<string>> GetIdentifierNameFromCacheAsync(string prefix) {
+        var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+        if (connectionInfoResult.IsFailed || connectionInfoResult.Value == null) {
+            return Result.Fail<string>("No KERIA connection info found in session storage");
+        }
+
+        var identifiersList = connectionInfoResult.Value.IdentifiersList;
+        if (identifiersList == null || identifiersList.Count == 0) {
+            return Result.Fail<string>("No identifiers found in cached connection info");
+        }
+
+        var allAids = identifiersList.SelectMany(i => i.Aids).ToList();
+        var aid = allAids.FirstOrDefault(a => a.Prefix == prefix);
+        if (aid == null) {
+            return Result.Fail<string>($"No identifier found with prefix {prefix}");
+        }
+
+        return Result.Ok(aid.Name);
     }
 
     /// <summary>
