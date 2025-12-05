@@ -18,55 +18,69 @@
 @inject AppCache appCache  // Reactive: inherits subscription from BaseLayout
 
 @code {
-        // fields...
-        static public IJSObjectReference? utilModule;
-        const string miniWidth = "var(--mud-drawer-mini-width-left)";
-        const string openWidth = "var(--mud-drawer-width-left)";
-        string version = "";
-        string version_name = "";
-        bool isInPopup;
+    // fields...
+    static public IJSObjectReference? utilModule;
+    const string miniWidth = "var(--mud-drawer-mini-width-left)";
+    const string openWidth = "var(--mud-drawer-width-left)";
+    string version = "";
+    string version_name = "";
+    
+    // properties...
+    bool IsProfilePanelOpen { get; set; }
+    List<ExtensionContext> CurrentExtensionContexts { get; set; } = [];
 
-        // properties...
-        bool IsProfilePanelOpen { get; set; }
-        DrawerVariant ActiveDrawerVariant { get; set; } = DrawerVariant.Persistent;
-        bool IsMenuDrawerOpen { get; set; }
+    // reactive properties ...
+    Object ActiveAidObject => (object)ActivePrefix;
+    string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
+    string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
+    string ActiveAlias => string.IsNullOrEmpty(ActivePrefix) || appCache.Aids.Count == 0
+        ? ""
+        : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
+    bool IsIdenticonShown => appCache.IsSessionUnlocked && !string.IsNullOrEmpty(ActivePrefix); //&& !string.IsNullOrEmpty(ActiveAlias);
+    static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
+    string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
+    {
+        // TODO P2 consider context (i.e., normal tab, SidePanel, popup) variant if implemented
+        (_, DrawerVariant.Mini)
+            => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
+        (_, DrawerVariant.Temporary)
+            => $"left: 0; width:calc(100vw);",
+        (true, DrawerVariant.Persistent)
+            => $" width:calc(100vw - {openWidth}); ",
+        (true, _)
+            => $"left: 0; width:calc(100vw);",
+        (false, DrawerVariant.Persistent)
+            => $"left: 0; width:calc(100vw); padding-right: 0;",
+        (false, _)
+            => $"left: {openWidth}; width:calc(100vw - {openWidth});"
+    };
+    ContextFilter contextFilter => new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
+    
+    bool IsInPopup => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.POPUP);
+    bool IsInSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.SIDEPANEL);
+    bool IsInTab => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.TAB);
+    DrawerVariant ActiveDrawerVariant => (IsInPopup, IsInSidePanel, IsInTab) switch
+    {
+        (true, _, _) => appCache.MyPreferences.DrawerVariantInPopup,
+        // TODO P2 consider separate SidePanel preference
+        (_, true, _) => appCache.MyPreferences.DrawerVariantInTab, 
+        (_, _, true) => appCache.MyPreferences.DrawerVariantInTab,
+        _ => appCache.MyPreferences.DrawerVariantInTab
+    };
 
-        // reactive properties ...
-        Object ActiveAidObject => (object)ActivePrefix;
-        string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
-        string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
-        string ActiveAlias => string.IsNullOrEmpty(ActivePrefix) || appCache.Aids.Count == 0
-            ? ""
-            : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
-        bool IsIdenticonShown => appCache.IsSessionUnlocked && !string.IsNullOrEmpty(ActivePrefix); //&& !string.IsNullOrEmpty(ActiveAlias);
-
-        static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
-        string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
-        {
-            // TODO P2 consider SidePanel variant if implemented
-            (_, DrawerVariant.Mini) => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
-            (_, DrawerVariant.Temporary) => $"left: 0; width:calc(100vw);",
-            (true, DrawerVariant.Persistent) => $" width:calc(100vw - {openWidth}); ",
-            (true, _) => $"left: 0; width:calc(100vw);",
-            (false, DrawerVariant.Persistent) => $"left: 0; width:calc(100vw); padding-right: 0;",
-            (false, _) => $"left: {openWidth}; width:calc(100vw - {openWidth});"
-        };
-
+    // TODO P2 still have work to do here depending on context type, and when changing the user preference for IsPersistentDrawerOpen
+    bool IsMenuDrawerOpen => appCache.MyPreferences.IsPersistentDrawerOpen; // && ActiveDrawerVariant == DrawerVariant.Persistent;
+    
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
+        CurrentExtensionContexts = (await webExtensionsApi.Runtime.GetContexts(contextFilter)).ToList();
+
         // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
-        // TODO P2 DRY with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
+        // DRY and perf with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        // var extensionId = webExtensionsApi.Runtime.Id;
-
-        var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
-        var contexts2 = await webExtensionsApi.Runtime.GetContexts(contextFilter);
-        // logger.LogInformation("OnInitializedAsync contexts: {c}", contexts2.ToList());
-        isInPopup = contexts2.Any(c => c.ContextType == ContextType.POPUP);
-
         var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
         if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
         {
@@ -78,11 +92,10 @@
         }
     }
 
-    async Task Lock() 
+    async Task Lock()
     {
         logger.LogInformation("Locking application - clearing session storage");
         await storageService.Clear(StorageArea.Session);
-        // assure time is allowed for AppCache to update via subscription
         await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
     }
 
@@ -97,41 +110,13 @@
     {
         await base.OnParametersSetAsync();
         logger.LogInformation("OnParametersSetAsync");
-
-        // determine drawer varient depending and open state depending on context.
-        // TODO P4 This could be moved into App or BaseLayout and be cascaded, unless specific to this layout
-
-        var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL, ContextType.BACKGROUND] };
-        var contexts2 = await webExtensionsApi.Runtime.GetContexts(contextFilter);
-        logger.LogInformation("OnInitializedAsync contexts: {c}", contexts2.ToList());
-        isInPopup = contexts2.Any(c => c.ContextType == ContextType.POPUP);
-        var isInSidePanel = contexts2.Any(c => c.ContextType == ContextType.SIDEPANEL);
-        var isInTab = contexts2.Any(c => c.ContextType == ContextType.TAB);
-
-        ActiveDrawerVariant = (isInPopup, isInSidePanel, isInTab) switch
-        {
-            (true, _, _) => appCache.MyPreferences.DrawerVariantInPopup,
-            (_, true, _) => appCache.MyPreferences.DrawerVariantInTab, // TODO P3 consider separate SidePanel preference
-            (_, _, true) => appCache.MyPreferences.DrawerVariantInTab,
-            _ => appCache.MyPreferences.DrawerVariantInTab
-        };
-
-        if (ActiveDrawerVariant == DrawerVariant.Persistent)
-        {
-            IsMenuDrawerOpen = appCache.MyPreferences.IsPersistentDrawerOpen;
-        }
-        else
-        {
-            IsMenuDrawerOpen = false;
-        }
-
-        StateHasChanged();
     }
 
     async Task SetActiveAid(string prefix)
     {
-        IsProfilePanelOpen = false;
         await storageService.SetItem<Preferences>(appCache.MyPreferences with { SelectedPrefix = prefix });
+        await appCache.WaitForAppCache([() => appCache.MyPreferences.SelectedPrefix == prefix]);
+        IsProfilePanelOpen = false;
     }
 
     async Task ClickToggleProfilePanel(MouseEventArgs _)
@@ -146,16 +131,15 @@
 
     async Task ToggleMenuDrawer()
     {
-        IsMenuDrawerOpen = !IsMenuDrawerOpen;
-        // TODO P3 Menu button: are really we toggling only the PersistentDrawer?
-        // .... and page will update via AppCache subscription, assuming we want to toggle ALL layouts using the same preference ???
-        // var newPrefs = a.MyPreferences with { IsPersistentDrawerOpen = IsMenuDrawerOpen };
-        // await storageService.SetItem<Preferences>(newPrefs);
+        // TODO P1 IsPersistentDrawerOpen should be per context type (i.e., popup, sidepanel, tab). Plus, do we really want two displayed tabs to toggle at the same time?
+        var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpen = !IsMenuDrawerOpen };
+        await storageService.SetItem<Preferences>(newPrefs);
+        await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpen == newPrefs.IsPersistentDrawerOpen]);
     }
 
     private async Task RefreshConnect()
     {
-        // TODO P3 not yet implemented
+        // TODO P3 not yet implemented. Intent is to refresh connection to KERI Agent and fetch identifier state again, etc.
         // snackbar.Add("Refreshing connection...", Severity.Info);
     }
 
@@ -235,7 +219,6 @@
         <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
             <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0px; display:block; width:300px; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
                 <MudList SelectedValue="ActiveAidObject" Class="bt-sad-4;" Style="padding: 0px">
-
                     @foreach (var aid in appCache.Aids)
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
@@ -262,7 +245,7 @@
         // TODO P3 the linear gradient background experiment below should either eliminated or make visually good and depending on IsDarkTheme setting
     *@
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:var(--mud-appbar-height); position:absolute; width:inherit; display:flex; background-image:linear-gradient( 135deg, HSLA(205, 45%, 44%, 0.0), HSLA(189, 100%, 50%, 0.1) );">
-        <MudDrawer id="MudDrawer" @bind-Open="@IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
+        <MudDrawer id="MudDrawer" Open="IsMenuDrawerOpen" Elevation="1" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
             <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-right:16px;">
                 <MudNavLink Href=@RouteToDashboard Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
                 <MudNavLink Href=@RouteToIdentifiers Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
