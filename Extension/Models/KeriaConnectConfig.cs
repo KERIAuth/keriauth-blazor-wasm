@@ -6,7 +6,7 @@ using FluentResults;
 namespace Extension.Models {
     public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null) {
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, bool isStored = false) {
             ProviderName = providerName;
             Alias = ""; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC";
             AdminUrl = adminUrl;
@@ -14,10 +14,14 @@ namespace Extension.Models {
             PasscodeHash = passcodeHash;
             ClientAidPrefix = clientAidPrefix;
             AgentAidPrefix = agentAidPrefix;
+            IsStored = isStored;
         }
 
         // important to have a parameterless constructor for deserialization or default constructor when storage is deleted
-        public KeriaConnectConfig() : this(null, null, null, 0, null, null) { }
+        public KeriaConnectConfig() : this(null, null, null, 0, null, null, false) { }
+
+        [JsonPropertyName("IsStored")]
+        public bool IsStored { get; init; }
 
         [JsonPropertyName("AdminUrl")]
         public string? AdminUrl { get; init; }

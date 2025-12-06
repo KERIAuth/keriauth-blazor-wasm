@@ -76,8 +76,6 @@
 
         CurrentExtensionContexts = (await webExtensionsApi.Runtime.GetContexts(contextFilter)).ToList();
 
-        logger.LogWarning("IsInPopup {p} IsInSidePanel {sp} IsInTab {t}", IsInPopup, IsInSidePanel, IsInTabNotSidePanel);
-
         // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
         // DRY and perf with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);

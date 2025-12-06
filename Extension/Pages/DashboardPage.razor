@@ -22,27 +22,28 @@
     List<RecursiveDictionary> Credentials = [];
 
     // reactive properties
-    int IdentifiersCount => appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
+    int? IdentifiersCount => appCache.IsReady && appCache?.MyKeriaConnectionInfo is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
     // TODO P2 confirm what we want to show
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected" : appCache.IsAuthenticated ? "Not Connected" : "Locked";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
     List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
-    string SelectedPrefix => appCache.MyPreferences.SelectedPrefix;
-    string? SelectedIdenticon => SelectedAid != null ? Helper.Identicon.MakeIdenticon(SelectedPrefix) : null;
-    string SelectedAlias => SelectedAid?.Name ?? "";
+    string SelectedPrefix => appCache.IsReady ? appCache.MyPreferences.SelectedPrefix : "";
+    string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
+    string? SelectedAlias => SelectedAid?.Name ?? "";
 
-    Aid? SelectedAid => appCache.MyKeriaConnectionInfo.IdentifiersList
+    Aid? SelectedAid => appCache.IsReady && appCache?.MyKeriaConnectionInfo != null ? appCache.MyKeriaConnectionInfo.IdentifiersList
         .SelectMany(id => id.Aids)
-        .FirstOrDefault(aid => aid.Prefix == SelectedPrefix);
+        .FirstOrDefault(aid => aid.Prefix == SelectedPrefix)
+        : null;
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
-        await this.SubscribeToAppCache(appCache);
+        await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
 
         // TODO P2 Evolve this temporary test into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
         var x = await signifyClientService.TestAsync();

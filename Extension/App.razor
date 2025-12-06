@@ -1,7 +1,6 @@
 ﻿@using Extension.Layouts
+@using Extension.Models
 @using Extension.Models.Messages.AppBw
-@using Extension.Models.Storage
-@using Extension.Services.Storage
 @using Extension.Pages
 @using System.Runtime.InteropServices.JavaScript
 @using Extension.Utilities
@@ -9,160 +8,30 @@
 @inject IJSRuntime jsRuntime
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ILogger<App> logger
-@inject IStorageService storageService
 @inject IAppBwMessagingService appBwMessagingService
-@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+@inject AppCache appCache
 @inject HttpClient http
 
 @implements IDisposable
 
 @code {
-    // fields
-    // session storage observers
-    // private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoStorageObserver;
-    // private StorageObserver<SessionExpiration>? sessionExpirationStorageObserver;
-    // private StorageObserver<PasscodeModel>? passcodeModelStorageObserver;
-    // local storage observers
-    // private StorageObserver<OnboardState>? onboardStateStorageObserver;
-    // private StorageObserver<Preferences>? preferencesStorageObserver;
-    // private StorageObserver<KeriaConnectConfig>? keriaConnectConfigStorageObserver;
-
-    // properties
+    // Properties
     public static Uri? InitialUri { get; set; }
-    // properties intended to cascade down to child components (layouts, pages) via [CascadingParameter] attribution
-    public static Preferences Prefs { get; set; } = new Preferences();
-    // OBSOLETE: InactivityTimeoutCache removed - use appCache.MyPasscodeModel.SessionExpirationUtc instead
-    // public SessionExpiration? InactivityTimeoutCache { get; set; }
-
-    // reactive properties
+    // public static Preferences Prefs { get; set; } = new Preferences();
 
     protected override async Task OnInitializedAsync()
     {
-        logger.LogInformation($"OnInitializedAsync");
+        logger.LogInformation("OnInitializedAsync");
 
-        // TODO P1: should "know" that appCache has did its initial fetching?  Subscribe to AppCache changes - will trigger StateHasChanged and RedirectIfNeeded when state updates
-        /*
-        await appCache.WaitForAppCache([
-            () => appCache.MyPreferences is not null,
-            () => appCache.MyOnboardState is not null,
-            () => appCache.MyKeriaConnectConfig is not null,
-            () => appCache.MyKeriaConnectionInfo is not null,
-            () => appCache.MyPasscodeModel is not null
-        ]);
-        */
+        // Ensure AppCache is initialized with initial fetch of essential storage records
+        // This replaces the previous WaitForAppCache polling approach.
+        // BackgroundWorker.InitializeStorageDefaultsAsync() creates skeleton records on install/startup,
+        // and AppCache.EnsureInitializedAsync() fetches them into cache before we proceed.
+        await appCache.EnsureInitializedAsync();
+
         await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
 
-        await VerifyTermsAndPrivacyDigests(); 
-
-        /*
-        // Create several storage observers with callbacks to keep local properties in sync with storage changes
-        // Note that AppCacheReactiveComponentBase will invoke StateHasChanged() on AppCache changes
-        // 1.
-        preferencesStorageObserver = new StorageObserver<Preferences>(
-            storageService,
-            StorageArea.Local,
-            onNext: _ => { },
-            // onNext: async (Preferences value) => StateHasChanged(),
-            onError: async (Exception error) => logger.LogError("HandleErrorPreferences: " + error.Message),
-            logger: logger
-        );
-
-        // 2.
-        sessionExpirationStorageObserver = new StorageObserver<SessionExpiration>(
-            storageService,
-            StorageArea.Session,
-            // TODO P2 remove?
-            onNext: async (SessionExpiration updatedValue) =>
-            {
-                InactivityTimeoutCache = updatedValue;
-                logger.LogInformation("SessionExpiration value updated: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}",
-                    InactivityTimeoutCache.SessionExpirationUtc, DateTime.UtcNow);
-                StateHasChanged();
-                // TODO P2: in case this has been deleted, handle that case
-                logger.LogWarning("SessionExpiration value updated?: SessionExpirationUtc={SessionExpirationUtc} UtcNow={s}", appCache.MySessionExpiration.SessionExpirationUtc, DateTime.UtcNow);
-                await RedirectIfNeeded();
-            },
-            onCompleted: async () =>
-            {
-                logger.LogInformation("SessionExpiration observation completed");
-            },
-            onError: async (Exception error) =>
-            {
-                logger.LogError("SessionExpiration observation error: " + error.Message);
-            },
-            logger: logger
-        );
-
-        // 3.
-        keriaConnectionInfoStorageObserver = new StorageObserver<KeriaConnectionInfo>(
-            storageService,
-            StorageArea.Session,
-            // TODO P2 remove
-            onNext: (updatedValue) =>
-            {
-                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
-                StateHasChanged();
-            },
-            onError: async (Exception error) =>
-            {
-                logger.LogError("TBD observation error: " + error.Message);
-            },
-            logger: logger
-        );
-
-        // 4.
-        passcodeModelStorageObserver = new StorageObserver<PasscodeModel>(
-            storageService,
-            StorageArea.Session,
-            // TODO P2 remove
-            onNext: (updatedValue) =>
-            {
-                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
-                StateHasChanged();
-            },
-            onError: async (Exception error) =>
-            {
-                logger.LogError("TBD observation error: " + error.Message);
-            },
-            logger: logger
-        );
-
-        // 5.
-        onboardStateStorageObserver = new StorageObserver<OnboardState>(
-           storageService,
-           StorageArea.Local,
-           // TODO P2 remove
-           onNext: (updatedValue) =>
-           {
-               logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
-               StateHasChanged();
-           },
-           onError: async (Exception error) =>
-           {
-               logger.LogError("TBD observation error: " + error.Message);
-           },
-           logger: logger
-        );
-
-        // 6.
-        keriaConnectConfigStorageObserver = new StorageObserver<KeriaConnectConfig>(
-            storageService,
-            StorageArea.Local,
-            // TODO P2 remove
-            onNext: (updatedValue) =>
-            {
-                logger.LogInformation("TBD value updated: {v}", updatedValue.ToString());
-                StateHasChanged();
-            },
-            onError: async (Exception error) =>
-            {
-                logger.LogError("TBD observation error: " + error.Message);
-            },
-            logger: logger
-        );
-        // 7. TODO P2 add WebsiteConfigList observer if needed
-        // 8. TODO P2 add AuthenticatorList observer if needed
-        */
+        await VerifyTermsAndPrivacyDigests();
 
         // Subscribe to and handle messages from background worker via messaging service
         appBwMessagingService.Subscribe(
@@ -185,37 +54,15 @@
         // Initialize messaging with background worker
         // Extract tabId from query string if present, otherwise use null
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
-        // logger.LogWarning("InitialUri: {u}", InitialUri.ToString());
-        // logger.LogWarning("OnInitializedAsync LocalPath: {p}", InitialUri.LocalPath);
-        // logger.LogWarning("OnInitializedAsync AbsolutePath: {p}", InitialUri.AbsolutePath);
         var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
         var tabIdParam = query["tabId"];
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
-        // Reset sessionExpiration by showing initial user activity
-        // var message = new AppBwUserActivityMessage();
-        // await appBwMessagingService.SendToBackgroundWorkerAsync(message);
-
         await RedirectIfNeeded();
         logger.LogInformation("OnInitializedAsync complete");
-        return;
     }
 
-    /*
-    [JSInvokableAttribute("LockApp")]
-    public static async Task LockApp()
-    {
-        // Note that other side-effects will be reactive. See IObserver<StateService>
-        if (staticStorageService is null || staticLogger is null)
-        {
-            throw new Exception("unexpected null staticStorageService");
-            }
-        var res = await staticStorageService.Clear(StorageArea.Session);
-        return;
-        }
-        */
-
-    // NavigateIfNeeded navigates to newUrl only if not already on that page. In a browser refresh, this may be a build-generated copy of index.html (named FooPage.html) versus the routed path
+    // NavigateIfNeeded navigates to newUrl only if not already on that page
     void NavigateIfNeeded(string newUrl)
     {
         // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
@@ -306,9 +153,9 @@
         // if there's a query parameter for a specific page, navigate there
         if (InitialUri?.Query is not null)
         {
-            logger.LogWarning("RedirectIfNeeded: InitialUri.Query: {q}", InitialUri.Query);
+            logger.LogInformation("RedirectIfNeeded: InitialUri.Query: {q}", InitialUri.Query);
             var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
-            logger.LogWarning("RedirectIfNeeded: query string: {q}", query.ToString());
+            logger.LogInformation("RedirectIfNeeded: query string: {q}", query.ToString());
             if (query["page"] != null)
             {
                 var pageParam = query["popupType"] switch

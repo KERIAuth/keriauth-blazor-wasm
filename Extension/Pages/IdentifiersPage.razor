@@ -17,9 +17,6 @@
 @using Extension.Services.SignifyService.Models
 
 @code {
-    [CascadingParameter]
-    public Preferences Prefs { get; set; } = new Preferences();
-
     // fields
     string DialogResult { get; set; } = "unknown";
 
@@ -30,12 +27,11 @@
     // reactive properties
     string CountLabel => (MyIdentifiers is not null) ? "(" + MyIdentifiers.Count + ")" : "...";
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
-    string ActiveAid => Prefs.SelectedPrefix;
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        await this.SubscribeToAppCache(appCache);
+        await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
     }
 
     protected override void OnParametersSet()
@@ -120,7 +116,7 @@
 
     async Task SetActiveAid(string identifier)
     {
-        await storageService.SetItem<Preferences>(Prefs with { SelectedPrefix = identifier }, StorageArea.Local);
+        await storageService.SetItem<Preferences>(appCache.MyPreferences with { SelectedPrefix = identifier }, StorageArea.Local);
     }
 
     public void Dispose()
@@ -147,7 +143,7 @@
                 {
                     <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + aid.Prefix)">
                         <MudCard Class="py-0 my-1">
-                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass((string)(ActiveAid ?? ""), aid.Prefix))>
+                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
                                 <MudTooltip Text="Set Identifier as active" Delay="1000">
                                     <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
                                         <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />

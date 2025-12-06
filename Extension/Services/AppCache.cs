@@ -41,6 +41,14 @@
         private bool _isInitialized;
         private readonly SemaphoreSlim _initLock = new(1, 1);
 
+        /// <summary>
+        /// Indicates whether AppCache has completed initial fetch of essential storage records.
+        /// True after Initialize() has fetched Preferences, OnboardState, and KeriaConnectConfig.
+        /// Components can check this to know if AppCache data is available.
+        /// </summary>
+        // TODO P1: make this a get-only property that checks the essential cached record properties
+        public bool IsReady { get; private set; }
+
         private StorageObserver<Preferences>? preferencesStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
@@ -288,21 +296,101 @@
 
                 _isInitialized = true;
 
-                // TODO P1: consider awaiting initial load of all storage values before completing initialization
-                /*
-                await this.WaitForAppCache(new List<Func<bool>> {
-                    () => MyPreferences is not null,
-                    () => MyOnboardState is not null,
-                    () => MyKeriaConnectConfig is not null,
-                    () => MyKeriaConnectionInfo is not null,
-                    () => MyPasscodeModel is not null
-                }, maxWaitMs: 3000);
-                */
-                _logger.LogInformation("AppCache initialization complete");
+                // Perform initial fetch of essential storage records
+                // This ensures My* properties have current values before IsReady is set
+                _logger.LogInformation("AppCache: Fetching initial storage values");
+                await FetchInitialStorageValuesAsync();
+
+                IsReady = true;
+                _logger.LogInformation("AppCache initialization complete, IsReady=true");
             }
             finally {
                 _initLock.Release();
             }
+        }
+
+        /// <summary>
+        /// Fetches initial values from storage for all essential records.
+        /// Called during Initialize() to populate My* properties before IsReady is set.
+        /// This ensures components don't see default values when storage has real data.
+        /// </summary>
+        private async Task FetchInitialStorageValuesAsync() {
+            // Fetch essential records (Local storage - persisted across sessions)
+            // These should exist after BackgroundWorker.InitializeStorageDefaultsAsync() runs
+
+            // 1. Preferences
+            var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
+            if (prefsResult.IsSuccess && prefsResult.Value is not null) {
+                MyPreferences = prefsResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - Preferences loaded (IsStored={IsStored})", prefsResult.Value.IsStored);
+            }
+            else {
+                _logger.LogWarning("AppCache: Initial fetch - Preferences not found or failed, using default");
+            }
+
+            // 2. OnboardState
+            var onboardResult = await storageService.GetItem<OnboardState>(StorageArea.Local);
+            if (onboardResult.IsSuccess && onboardResult.Value is not null) {
+                MyOnboardState = onboardResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - OnboardState loaded (IsStored={IsStored}, IsWelcomed={IsWelcomed})",
+                    onboardResult.Value.IsStored, onboardResult.Value.IsWelcomed);
+            }
+            else {
+                _logger.LogWarning("AppCache: Initial fetch - OnboardState not found or failed, using default");
+            }
+
+            // 3. KeriaConnectConfig (may not exist on first run - created by ConfigurePage)
+            var configResult = await storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+            if (configResult.IsSuccess && configResult.Value is not null) {
+                MyKeriaConnectConfig = configResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfig loaded (IsStored={IsStored}, AdminUrl={AdminUrl})",
+                    configResult.Value.IsStored, configResult.Value.AdminUrl ?? "(null)");
+            }
+            else {
+                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfig not found (expected on first run)");
+            }
+
+            // Fetch session-scoped records (Session storage - cleared on browser close)
+            // These may not exist if session is locked or browser was restarted
+
+            // 4. PasscodeModel (only exists when session is unlocked)
+            var passcodeResult = await storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            if (passcodeResult.IsSuccess && passcodeResult.Value is not null) {
+                MyPasscodeModel = passcodeResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - PasscodeModel loaded (Passcode length={Length})",
+                    passcodeResult.Value.Passcode?.Length ?? 0);
+            }
+            else {
+                _logger.LogDebug("AppCache: Initial fetch - PasscodeModel not found (session locked or new)");
+            }
+
+            // 5. KeriaConnectionInfo (only exists when connected to KERIA)
+            var connectionResult = await storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+            if (connectionResult.IsSuccess && connectionResult.Value is not null) {
+                MyKeriaConnectionInfo = connectionResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectionInfo loaded");
+            }
+            else {
+                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectionInfo not found (not connected)");
+            }
+
+            _logger.LogInformation("AppCache: Initial fetch complete");
+        }
+
+        /// <summary>
+        /// Ensures AppCache is initialized and ready before returning.
+        /// Call this from components that need AppCache data before proceeding.
+        /// This is the preferred entry point for App.razor and other root components.
+        /// </summary>
+        /// <returns>Task that completes when AppCache is ready</returns>
+        // TODO P2: investigate this use pattern
+        public async Task EnsureInitializedAsync() {
+            if (IsReady) {
+                _logger.LogDebug("AppCache: EnsureInitializedAsync - already ready");
+                return;
+            }
+
+            await Initialize();
         }
     }
 }

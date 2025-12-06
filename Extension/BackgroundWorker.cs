@@ -198,6 +198,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("OnStartupAsync event handler called");
             logger.LogInformation("Browser startup detected - reinitializing background worker");
             InitializeIfNeeded();
+
+            // Ensure skeleton storage records exist (may have been cleared or corrupted)
+            await InitializeStorageDefaultsAsync();
+
             await _sessionManager.ExtendIfUnlockedAsync();
             logger.LogInformation("Background worker reinitialized on browser startup");
         }
@@ -495,6 +499,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task OnInstalledInstallAsync() {
         try {
             InitializeIfNeeded();
+
+            // Create skeleton storage records for Preferences and OnboardState
+            // KeriaConnectConfig is NOT created here - it requires user-provided URLs
+            await InitializeStorageDefaultsAsync();
+
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html"); // TODO P2 + "?reason=install";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
@@ -504,6 +513,80 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             logger.LogError(ex, "Error handling install");
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Creates skeleton storage records for essential models if they don't already exist.
+    /// This ensures AppCache always has records to work with, even on first run.
+    ///
+    /// Records created:
+    /// - Preferences: User preferences with defaults, IsStored = true
+    /// - OnboardState: Onboarding state with IsWelcomed = false, IsStored = true
+    /// - KeriaConnectConfig: Requires additional user-provided KERIA URLs
+    /// </summary>
+    private async Task InitializeStorageDefaultsAsync() {
+        try {
+            logger.LogInformation("InitializeStorageDefaults: Checking and creating skeleton storage records");
+
+            // Check and create Preferences if not exists
+            var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
+            if (prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored) {
+                logger.LogDebug("InitializeStorageDefaults: Preferences already exists");
+            }
+            else {
+                var defaultPrefs = new Preferences { IsStored = true };
+                var setResult = await _storageService.SetItem(defaultPrefs, StorageArea.Local);
+                if (setResult.IsFailed) {
+                    logger.LogError("InitializeStorageDefaults: Failed to create Preferences: {Error}",
+                        string.Join("; ", setResult.Errors.Select(e => e.Message)));
+                }
+                else {
+                    logger.LogInformation("InitializeStorageDefaults: Created skeleton Preferences record");
+                }
+            }
+
+            // Check and create OnboardState if not exists
+            var onboardResult = await _storageService.GetItem<OnboardState>(StorageArea.Local);
+            if (onboardResult.IsSuccess && onboardResult.Value is not null && onboardResult.Value.IsStored) {
+                logger.LogDebug("InitializeStorageDefaults: OnboardState already exists");
+            }
+            else {
+                var defaultOnboard = new OnboardState { IsStored = true, IsWelcomed = false };
+                var setResult = await _storageService.SetItem(defaultOnboard, StorageArea.Local);
+                if (setResult.IsFailed) {
+                    logger.LogError("InitializeStorageDefaults: Failed to create OnboardState: {Error}",
+                        string.Join("; ", setResult.Errors.Select(e => e.Message)));
+                }
+                else {
+                    logger.LogInformation("InitializeStorageDefaults: Created skeleton OnboardState record");
+                }
+            }
+
+            // Check and create KeriaConnectConfig skeleton if not exists
+            // Unlike Preferences and OnboardState, KeriaConnectConfig requires user input (KERIA URLs)
+            // so we only create an empty skeleton with IsStored = true. ConfigurePage will update with real values.
+            var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+            if (configResult.IsSuccess && configResult.Value is not null && configResult.Value.IsStored) {
+                logger.LogDebug("InitializeStorageDefaults: KeriaConnectConfig already exists");
+            }
+            else {
+                var defaultConfig = new KeriaConnectConfig(isStored: true);
+                var setResult = await _storageService.SetItem(defaultConfig, StorageArea.Local);
+                if (setResult.IsFailed) {
+                    logger.LogError("InitializeStorageDefaults: Failed to create KeriaConnectConfig: {Error}",
+                        string.Join("; ", setResult.Errors.Select(e => e.Message)));
+                }
+                else {
+                    logger.LogInformation("InitializeStorageDefaults: Created skeleton KeriaConnectConfig record");
+                }
+            }
+
+            logger.LogInformation("InitializeStorageDefaults: Completed");
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "InitializeStorageDefaults: Error creating skeleton storage records");
+            // Don't throw - allow extension to continue even if defaults fail
         }
     }
 

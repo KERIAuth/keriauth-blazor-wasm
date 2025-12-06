@@ -7,8 +7,7 @@ namespace Extension {
         public const string RouteToIdentifiers = "/Identifiers.html";
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
-        public const string RouteToIndex = "/IndexPage.html";  // Used for re-routing logic or startup
-        public const string RouteToIndexHtml = "/index.html";  // Navigation to this causes restart of Blazor app
+        public const string RouteToIndex = "/index.html";  // Used for re-routing logic or startup
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToHome = "/Home.html";
         public const string RouteToDashboard = "/Dashboard.html";
@@ -67,8 +66,8 @@ namespace Extension {
         public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
         // default Preferences
-        public const float DefaultInactivityTimeoutMins = 0.5f; // TODO P1 should be 5.0f;
-        public const float MaxInactivityTimeoutMins = 10.0f;
+        public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P1 should be 10.0f;
+        public const float MaxInactivityTimeoutMins = 20.0f; // TODO P1 should be 10.0f;
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Persistent;

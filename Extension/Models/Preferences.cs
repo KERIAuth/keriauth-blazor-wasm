@@ -10,6 +10,9 @@
         [JsonPropertyName("SelectedPrefix")]
         public string SelectedPrefix { get; init; } = String.Empty;
 
+        [JsonPropertyName("IsStored")]
+        public bool IsStored { get; init; }
+
         [JsonPropertyName("IsOptedIntoDataCollection")]
         public bool IsOptedIntoDataCollection { get; init; } = false;
 

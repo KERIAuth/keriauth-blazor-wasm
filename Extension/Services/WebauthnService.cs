@@ -204,7 +204,8 @@ namespace Extension.Services {
                     registeredAuthenticators.Authenticators.Add(newRA);
 
                     // store updated registeredAuthenticators using storage service
-                    var storeResult = await _storageService.SetItem(registeredAuthenticators, StorageArea.Sync);
+                    // TODO P2 Consider storageArea.Sync vs Local
+                    var storeResult = await _storageService.SetItem(registeredAuthenticators, StorageArea.Local);
                     if (storeResult.IsFailed) {
                         logger.LogError("Failed to store RegisteredAuthenticators: {Errors}",
                             string.Join(", ", storeResult.Errors));
@@ -232,7 +233,8 @@ namespace Extension.Services {
             await Initialize();
 
             // Get registered authenticators from sync storage using storage service
-            var result = await _storageService.GetItem<RegisteredAuthenticators>(StorageArea.Sync);
+            // TODO P2 Consider storageArea.Sync vs Local
+            var result = await _storageService.GetItem<RegisteredAuthenticators>(StorageArea.Local);
 
             if (result.IsSuccess && result.Value != null) {
                 return result.Value;

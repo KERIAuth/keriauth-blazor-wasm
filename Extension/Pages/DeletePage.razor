@@ -53,7 +53,7 @@
             await storageService.Clear(StorageArea.Session);
 
             // restart the app
-            navManager.NavigateTo(RouteToIndexHtml, forceLoad: true, replace: true);
+            navManager.NavigateTo(RouteToIndex, forceLoad: true, replace: true);
         } else
         {
             navManager.NavigateTo(RouteToDashboard);

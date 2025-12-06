@@ -1,5 +1,4 @@
 ﻿@page "/index.html"
-@page "/IndexPage.html"
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Components
@@ -47,6 +46,11 @@
         await base.OnInitializedAsync();
 
         // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
+        
+        await appCache.WaitForAppCache(
+        [
+            () => appCache.IsReady
+        ]);
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
         // IsLoading = true;

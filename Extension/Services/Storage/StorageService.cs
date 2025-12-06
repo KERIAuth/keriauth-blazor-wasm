@@ -53,8 +53,9 @@ public class StorageService : IStorageService, IDisposable {
         _logger.Log(ServiceLogLevel, "StorageService: constructor");
         Initialize(StorageArea.Local);
         Initialize(StorageArea.Session);
-        Initialize(StorageArea.Sync);
-        Initialize(StorageArea.Managed);
+        // TODO P2: Enable Sync and Managed areas as needed
+        // Initialize(StorageArea.Sync);
+        // Initialize(StorageArea.Managed);
     }
 
     private void Initialize(StorageArea area = StorageArea.Local) {

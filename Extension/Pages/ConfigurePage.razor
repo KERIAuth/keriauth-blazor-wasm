@@ -205,15 +205,17 @@
         }
 
         // Step 2: Store partial KeriaConnectConfig with passcodeHash
+        // Use 'with' expression to preserve IsStored from skeleton record created by BackgroundWorker
         int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
-        var partialConfig = new KeriaConnectConfig(
-            _presetChoice.ProviderName,
-            urlModel.AdminUrl,
-            urlModel.BootUrl,
-            passcodeHash,
-            null, // clientAidPrefix - will be set after Connect
-            null  // agentAidPrefix - will be set after Connect
-        );
+        var partialConfig = appCache.MyKeriaConnectConfig with
+        {
+            ProviderName = _presetChoice.ProviderName,
+            AdminUrl = urlModel.AdminUrl,
+            BootUrl = urlModel.BootUrl,
+            PasscodeHash = passcodeHash,
+            ClientAidPrefix = null, // will be set after Connect
+            AgentAidPrefix = null   // will be set after Connect
+        };
 
         var storePartialConfigResult = await storageService.SetItem<KeriaConnectConfig>(partialConfig);
         if (storePartialConfigResult.IsFailed)
@@ -274,14 +276,11 @@
         await appCache.WaitForAppCache([() => appCache.IsSessionPasscodeSet, () => appCache.IsSessionNotExpired]);
 
         // Step 5: Update KeriaConnectConfig with complete information
-        var completeConfig = new KeriaConnectConfig(
-            _presetChoice.ProviderName,
-            urlModel.AdminUrl,
-            urlModel.BootUrl,
-            passcodeHash,
-            clientAidPrefix,
-            agentAidPrefix
-        );
+        var completeConfig = partialConfig with
+        {
+            ClientAidPrefix = clientAidPrefix,
+            AgentAidPrefix = agentAidPrefix
+        };
 
         var storeCompleteConfigResult = await storageService.SetItem<KeriaConnectConfig>(completeConfig);
         if (storeCompleteConfigResult.IsFailed)
