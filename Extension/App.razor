@@ -17,7 +17,6 @@
 @code {
     // Properties
     public static Uri? InitialUri { get; set; }
-    // public static Preferences Prefs { get; set; } = new Preferences();
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,11 +50,12 @@
             }
         );
 
-        // Initialize messaging with background worker
-        // Extract tabId from query string if present, otherwise use null
+        // Capture initial URI from which the app was loaded. This may contain query parameters we need.
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
+        // Extract tabId from query string if present, otherwise use null
         var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
         var tabIdParam = query["tabId"];
+        // Initialize messaging service with BackgroundWorker
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
         await RedirectIfNeeded();
@@ -66,7 +66,6 @@
     void NavigateIfNeeded(string newUrl)
     {
         // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
-
         navManager.NavigateTo(newUrl);
         return;
     }
