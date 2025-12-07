@@ -229,14 +229,8 @@
         if (DeterministicHash.ComputeHash(password) == appCache.MyKeriaConnectConfig.PasscodeHash)
         {
             // Store passcode and session expiry time in session storage atomically
-            // TODO P3 DRY with ConfigurePage.razor
             {
-                // Calculate session expiration time from Preferences
                 var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
-
-                // Store passcode and expiration atomically in PasscodeModel
-                // ATOMIC STORAGE: Both Passcode and SessionExpirationUtc are stored together to ensure
-                // reactive listeners (AppCache, SessionManager) never see intermediate state.
                 var storeResult = await storageService.SetItem(
                     new PasscodeModel
                     {
@@ -251,6 +245,7 @@
                     snackbar.Add("Failed to store session credentials", Severity.Error);
                     return;
                 }
+                await appCache.WaitForAppCache([() => appCache.MyPasscodeModel.Passcode == password]);
                 // Note: SessionManager will detect PasscodeModel change and schedule alarm
             }
 
@@ -259,53 +254,7 @@
             {
                 throw new IndexOutOfRangeException("KERI Agent AdminUrl is not configured");
             }
-
-            var connectRes = await signifyClientService.Connect(appCache.MyKeriaConnectConfig.AdminUrl, password, appCache.MyKeriaConnectConfig.BootUrl, false);
-            if (connectRes is null || connectRes.IsFailed)
-            {
-                openWalletError = "Could not connect to KERI Agent";
-                snackbar.Add(openWalletError, Severity.Error);
-                logger.LogWarning(openWalletError);
-            }
-            else
-            {
-                // TODO P0 get identifiers later, during ConnectingPage?
-                var identifiersRes = await signifyClientService.GetIdentifiers();
-                if (identifiersRes.IsFailed)
-                {
-                    throw new IndexOutOfRangeException("expected to retrieve identifiers from GetIdentifiers()");
-                }
-                var identifiers = identifiersRes.Value;
-
-                var keriaConnectionInfo = new KeriaConnectionInfo()
-                {
-                    AgentPrefix = connectRes.Value.Agent!.I,
-                    // SessionExpirationUtc = DateTime.UtcNow + TimeSpan.FromMinutes(appCache.MyPreferences.InactivityTimeoutMinutes),
-                    Config = new()
-                    {
-                        AdminUrl = appCache.MyKeriaConnectConfig.AdminUrl!,
-                        // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
-                        AgentAidPrefix = connectRes.Value.Agent!.I,
-                        Alias = appCache.MyKeriaConnectConfig.Alias,
-                        BootUrl = appCache.MyKeriaConnectConfig.BootUrl,
-                        // TODO P2 confirm correctness, and that it matches keriaConnectConfig value:
-                        ClientAidPrefix = connectRes.Value.Controller!.State!.I,
-                        // TODO P2 confirm correctness, and that it matches storage.local value, or leave intentionally blank here:
-                        PasscodeHash = DeterministicHash.ComputeHash(password),
-                        ProviderName = appCache.MyKeriaConnectConfig.ProviderName
-                    },
-                    IdentifiersList = [identifiers]
-                };
-                var setResult = await storageService.SetItem<KeriaConnectionInfo>(keriaConnectionInfo, StorageArea.Session);
-                if (setResult.IsFailed)
-                {
-                    logger.LogError("Failed to store KERI connection info: {Errors}", string.Join(", ", setResult.Errors));
-                    snackbar.Add("Failed to store KERI connection info", Severity.Error);
-                    return;
-                }
-                await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
-                logger.LogInformation("Connected to KERI Agent");
-            }
+            // expect navigation to ConnectingPage via Index
             navManager.NavigateTo(RouteToIndex);
             return;
         }

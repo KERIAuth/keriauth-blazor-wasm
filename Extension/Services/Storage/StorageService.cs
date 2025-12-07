@@ -55,7 +55,7 @@ public class StorageService : IStorageService, IDisposable {
         Initialize(StorageArea.Session);
         // TODO P2: Enable Sync and Managed areas as needed
         // Initialize(StorageArea.Sync);
-        // Initialize(StorageArea.Managed);
+        Initialize(StorageArea.Managed);
     }
 
     private void Initialize(StorageArea area = StorageArea.Local) {
