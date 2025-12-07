@@ -15,6 +15,9 @@
 @implements IDisposable
 
 @code {
+    // Fields
+    private bool _isInitialized;
+
     // Properties
     public static Uri? InitialUri { get; set; }
 
@@ -52,12 +55,16 @@
 
         // Capture initial URI from which the app was loaded. This may contain query parameters we need.
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
+        // TODO tmp
+        logger.LogWarning("InitialUri: {u}", InitialUri.ToString());
         // Extract tabId from query string if present, otherwise use null
         var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
         var tabIdParam = query["tabId"];
         // Initialize messaging service with BackgroundWorker
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
+        // Once the above is in place, the UI and other components that may rely on above state is ready to proceed
+        _isInitialized = true;
         await RedirectIfNeeded();
         logger.LogInformation("OnInitializedAsync complete");
     }
@@ -168,10 +175,10 @@
                 return;
             }
         }
-        
-        
-        
-        
+
+
+
+
     }
 
     // Verify that the Terms and Privacy HTML files match expected hash digests. If not, developer needs to update expected digests in AppConfig.
@@ -211,16 +218,28 @@
     }
 }
 
-<Router AppAssembly="@typeof(Program).Assembly">
-    <Found Context="routeData">
-        <PageTitle>@AppConfig.ProductName</PageTitle>
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-    </Found>
-    <NotFound>
-        <PageTitle>@AppConfig.ProductName</PageTitle>
-        <LayoutView>
-            <h1>Page not found</h1>
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+@if (!_isInitialized)
+{
+    @*
+    <MudThemeProvider />
+    <MudContainer Class="d-flex align-center justify-center" Style="height: 100vh;">
+        <MudProgressCircular Indeterminate="true" />
+    </MudContainer>
+    *@
+}
+else
+{
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            <PageTitle>@AppConfig.ProductName</PageTitle>
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        </Found>
+        <NotFound>
+            <PageTitle>@AppConfig.ProductName</PageTitle>
+            <LayoutView>
+                <h1>Page not found</h1>
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+}
