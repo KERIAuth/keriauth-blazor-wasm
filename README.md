@@ -106,6 +106,8 @@ When you build in both environments, packages restored in one environment may ha
 
 **Rule:** Pick either Windows OR WSL for all local builds on a given machine. Don't mix environments.
 
+**Build Configuration:** This project uses **Release configuration only**. The Debug configuration is intentionally disabled because browser extension debugging happens through Chrome DevTools, not Visual Studio debuggers. All `dotnet restore` and `dotnet build` commands should use Release configuration (or omit it when using the quick build shortcuts which default to Release). For additional debugging tips, see [running-and-debugging](https://mingyaulee.github.io/Blazor.BrowserExtension/running-and-debugging).
+
 ### First Time Setup
 
 **Before your first build, install npm dependencies:**
@@ -127,7 +129,7 @@ npm run build
 cd ..\Extension
 npm run build:app
 cd ..
-dotnet build -p:Quick=true
+dotnet build --configuration Release -p:Quick=true
 ```
 
 **Note:** The `npm install` steps are only needed once after cloning the repository, or when package.json files change. For normal development, just run the build commands.
@@ -146,14 +148,14 @@ If you must switch between Windows and WSL, clean caches first:
 # Windows PowerShell - before switching to/from WSL
 dotnet nuget locals all --clear
 Remove-Item -Recurse -Force Extension\obj, Extension.Tests\obj
-dotnet restore --force-evaluate
+dotnet restore -p:Configuration=Release --force-evaluate
 ```
 
 ```bash
 # WSL bash - before switching to/from Windows
 dotnet nuget locals all --clear
 rm -rf Extension/obj Extension.Tests/obj
-dotnet restore --force-evaluate
+dotnet restore -p:Configuration=Release --force-evaluate
 ```
 
 ### Ensuring WSL Uses Its Own Cache
