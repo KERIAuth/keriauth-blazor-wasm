@@ -48,7 +48,7 @@ jobs:
       run: npm run build:app
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore -p:Configuration=Release
 
     - name: Debug Environment Variables
       run: echo "GITHUB_SHA=$GITHUB_SHA"
