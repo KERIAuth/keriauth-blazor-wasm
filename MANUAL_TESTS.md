@@ -37,7 +37,7 @@
 #### With version change
 1. Install previous version of the extension
 1. Obtain or create a new version of the extension with a higher version number in manifest.json 
-1. In Chrome�s Extension page, hit Refresh (assuming a developer load)
+1. In Chrome's Extension page, hit Refresh (assuming a developer load)
 - [ ] Expected: see Welcome page and New Version info
 
 #### Without version change
@@ -107,7 +107,19 @@
 	- [ ] Lock icon visible in AppBar
 	- [ ] Service worker logs show alarm-triggered session clear
 
-## Start App, Exit, Wait, Restart App
+## E. Session Expiration after Browser Close, Restart
+1. Prerequisite: Onboard, unlock, set timeout to 30 seconds
+1. Navigate to Dashboard
+1. Close entire browser (all windows)
+1. Wait 45 seconds
+1. Restart browser, open extension
+
+	Expected:
+	- [ ] App shows Unlock page (BackgroundWorker alarm cleared session)
+	- [ ] Lock icon visible in AppBar
+	- [ ] Service worker logs show alarm-triggered session clear
+
+## F. Start App, Exit, Wait, Restart App
 1. Prerequisite: onboard, unlock, set preferences to 1 minute
 1. Start app
 1. Exit app
@@ -124,10 +136,10 @@
 
  	Expected:
 	- [ ] Unlock Page, since the BackgroundWorker�s expiration timer took effect.
-	- [ ] Inspect the �service-worker� log to see this.  
+	- [ ] Inspect the service-worker log to see this.  
 	- [ ] App should have also detected any expired SessionExpiration in session.  (Could create manual test to tweak this in that storage.)
 
-## Click or Keyboard Activity Resets Expiration Timer
+## G. Click or Keyboard Activity Resets Expiration Timer
 1. Prerequisite: onboard, unlock, set preferences to 1 minute
 1. Start app
 1. Wait 15 seconds, click somewhere in the app
