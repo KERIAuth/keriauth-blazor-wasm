@@ -1,5 +1,7 @@
 ﻿@page "/Dashboard.html"
 @using Extension.Services.Storage
+@using Extension.Components
+@inherits AuthenticatedPageBase
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IJSRuntime js
@@ -22,25 +24,27 @@
     List<RecursiveDictionary> Credentials = [];
 
     // reactive properties
-    int? IdentifiersCount => appCache.IsReady && appCache?.MyKeriaConnectionInfo is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
+    int? IdentifiersCount => appCache?.MyKeriaConnectionInfo?.IdentifiersList?.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
     // TODO P2 confirm what we want to show
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected" : appCache.IsAuthenticated ? "Not Connected" : "Locked";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
     List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
-    string SelectedPrefix => appCache.IsReady ? appCache.MyPreferences.SelectedPrefix : "";
+    string SelectedPrefix => appCache.MyPreferences?.SelectedPrefix ?? "";
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? "";
 
-    Aid? SelectedAid => appCache.IsReady && appCache?.MyKeriaConnectionInfo != null ? appCache.MyKeriaConnectionInfo.IdentifiersList
+    Aid? SelectedAid => appCache?.MyKeriaConnectionInfo?.IdentifiersList?
         .SelectMany(id => id.Aids)
-        .FirstOrDefault(aid => aid.Prefix == SelectedPrefix)
-        : null;
+        .FirstOrDefault(aid => aid.Prefix == SelectedPrefix);
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));

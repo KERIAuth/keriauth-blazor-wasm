@@ -2,6 +2,7 @@
 @layout Layouts.DialogLayout
 @using Extension.Services.Storage
 
+@inherits AuthenticatedPageBase
 
 @using System.Linq
 @using System.Text.Json
@@ -90,6 +91,10 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitialized");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
+
         await RefreshFromWebsiteConfig();
         IsInitialized = true;
         return;
@@ -169,14 +174,17 @@
 
     private void LoadIdentifiersFromCache()
     {
-        var identifiersList = appCache.MyKeriaConnectionInfo.IdentifiersList;
-        if (identifiersList.Count > 0 && identifiersList[0].Aids is not null)
+        // Guard against null during session timeout navigation
+        var identifiersList = appCache?.MyKeriaConnectionInfo?.IdentifiersList;
+        if (identifiersList is not null && identifiersList.Count > 0 && identifiersList[0].Aids is not null)
         {
             Identifiers = identifiersList[0].Aids.OrderBy(a => a.Name).ToList();
         }
         else
         {
-            throw new Exception("unexpected null identifiers in cache");
+            // During session timeout, identifiers may be unavailable - this is expected
+            logger.LogWarning("LoadIdentifiersFromCache: identifiers unavailable in cache");
+            Identifiers = null;
         }
     }
 

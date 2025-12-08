@@ -2,6 +2,7 @@
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 
+@inherits AuthenticatedPageBase
 
 @using Extension.Helper
 @using Extension.Models
@@ -133,6 +134,10 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
+
         keriaConnectConfig = appCache.MyKeriaConnectConfig;
     }
 

@@ -2,6 +2,7 @@
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 
+@inherits AuthenticatedPageBase
 @implements IDisposable
 
 @using Extension.Helper
@@ -46,6 +47,9 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

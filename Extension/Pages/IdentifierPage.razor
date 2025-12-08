@@ -1,5 +1,8 @@
 ﻿@page "/Identifier.html/{prefix}"
 @using Extension.Services.Storage
+@using Extension.Components
+
+@inherits AuthenticatedPageBase
 
 @inject HttpClient httpClient
 @inject IStorageService storageService
@@ -83,6 +86,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -339,8 +344,9 @@
         try
         {
             // Get all identifiers from cache and filter for those delegated by this identifier
-            var identifiersList = appCache.MyKeriaConnectionInfo.IdentifiersList;
-            if (identifiersList.Count > 0)
+            // Guard against null during session timeout navigation
+            var identifiersList = appCache?.MyKeriaConnectionInfo?.IdentifiersList;
+            if (identifiersList is not null && identifiersList.Count > 0)
             {
                 var allAids = identifiersList.SelectMany(i => i.Aids).ToList();
                 var delegateesList = new List<DelegateeInfo>();

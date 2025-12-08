@@ -1,8 +1,10 @@
 ﻿@page "/Identifiers.html"
 @using Extension.Models
 @using Extension.Services.Storage
+@using Extension.Components
 @using System.Text.Json
 
+@inherits AuthenticatedPageBase
 @implements IDisposable
 
 @inject IStorageService storageService
@@ -31,6 +33,10 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
+
         await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
     }
 
@@ -43,8 +49,9 @@
     private void LoadIdentifiersFromCache()
     {
         logger.LogInformation("LoadIdentifiersFromCache");
-        var identifiersList = appCache.MyKeriaConnectionInfo.IdentifiersList;
-        if (identifiersList.Count > 0 && identifiersList[0].Aids is not null)
+        // Guard against null during session timeout navigation
+        var identifiersList = appCache?.MyKeriaConnectionInfo?.IdentifiersList;
+        if (identifiersList is not null && identifiersList.Count > 0 && identifiersList[0].Aids is not null)
         {
             logger.LogInformation("LoadIdentifiersFromCache: {count}", identifiersList[0].Aids.Count);
             MyIdentifiers = identifiersList[0].Aids.OrderBy(a => a.Name).ToList();
