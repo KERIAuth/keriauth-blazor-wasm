@@ -288,7 +288,7 @@ public class SessionManager : IDisposable {
         // 1. Check PasscodeModel exists and has non-empty passcode
         var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
         if (passcodeModelRes.IsFailed || passcodeModelRes.Value is null) {
-            _logger.LogWarning("PasscodeModel does not exists");
+            _logger.LogInformation("PasscodeModel does not exists");
             return false;
         }
 

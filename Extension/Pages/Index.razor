@@ -1,125 +1,56 @@
 ﻿@page "/index.html"
-@using Extension.Models.Storage
-@using Extension.Services.Storage
 @using Extension.Components
+@using Extension.Layouts
+@using static Extension.AppConfig
 
-@* IndexPage provides NavManager instance and OnParametersSet navigation *@
+@* IndexPage (from Blazor.BrowserExtension) provides base page functionality *@
 @inherits IndexPage
 @layout MainLayout
 
-@using Extension.Layouts
-@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
-@using static System.Net.WebRequestMethods
-@using WebExtensions.Net.Manifest
-
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
-@inject IStorageService storageService
+@inject NavigationManager navManager
 @inject ILogger<IndexPage> logger
 
-@inject NavigationManager navManager
-@inject IJSRuntime js
-@inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject ISignifyClientService signifyClientService
-@inject ISnackbar snackbar
-
-@* Intentionally empty visible content (except from inherited IndexPage), to reduce flickering on changing pages. Uncomment to debug
-
+@* Intentionally empty visible content to reduce flickering during navigation.
+   This page serves as the routing hub - other pages navigate here when done with their step,
+   and RedirectIfNeeded() determines the next appropriate page based on app state.
+*@
     <MudContainer id="@this.GetType().Name" Class="bt-body-page" Style="background-color:red;">
         <MudText>Index.razor</MudText>
         <MudPaper Style="width:100vw; height: 90vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
             <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     </MudContainer>
-*@
 
 @implements IDisposable
 @code {
-    // private bool IsLoading { get; set; } = true;
-    private WebExtensionsApi? webExtensionsApi;
-    // string? initialUriQuery;
-    private static readonly KeriaConnectConfig defaultKeriaConnectConfig = new KeriaConnectConfig(AppConfig.LocalhostKeriaConnectAlias, AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl, 0);
-    // private KeriaConnectConfig? keriaConnectConfig;
-
-
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync Index.razor");
 
-        // Subscribe to AppCache changes - will trigger NavigateIfNeeded when state updates
-        
-        await appCache.WaitForAppCache(
-        [
-            () => appCache.IsReady
-        ]);
-        await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
+        // Subscribe to AppCache changes - will trigger RedirectIfNeeded when state updates
+        await appCache.WaitForAppCache([() => appCache.IsReady]);
+        await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
 
-        // IsLoading = true;
-        logger.LogInformation($"OnInitializedAsync Index.razor");
-
-        webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        // logger.LogInformation("OnInitializedAsync contexts: {c}", await webExtensionsApi.Runtime.GetContexts(new ContextFilter()));
-
-        // Get version info from Manifest file
-        // TODO P2 Refactor some of this and similar in Mainlayout into App, and pass into Layouts or Pages needing this as parameters
-        var manifestJsonElement = WebExtensions.Runtime.GetManifest();
-
-        var CurrentVersion = "";
-        if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
-        {
-            CurrentVersion = versionElement.ToString();
-        }
-
-        // TODO P2: Determine whether there was an update e.g. via a push from Chrome Web Store. See BackgroundWorker.ts
-        // for how the following is placed into storage
-        // bool isUpdated = false;
-        var updateDetailsRes = await storageService.GetItem<UpdateDetails>();
-        if (updateDetailsRes.IsSuccess && updateDetailsRes.Value is not null)
-        {
-            // isUpdated = true;
-        }
-
-        await HandleAppCacheChanged();
+        await RedirectIfNeeded();
     }
 
-
-    /*
-    protected override async Task OnParametersSetAsync()
+    // NavigateIfNeeded navigates to newUrl only if not already on that page.
+    void NavigateIfNeeded(string newUrl)
     {
-    }
-    */
-
-    /*
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            logger.LogInformation("OnAfterRenderAsync firstRender");
-        }
-    */
-
-   // NavigateIfNeeded navigates to newUrl only if not already on that page. In a browser refresh, this may be a build-generated copy of index.html versus the routed path
-   void NavigateIfNeeded(string newUrl)
-    {
-        // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
         if (navManager.Uri.Contains(newUrl))
         {
-            logger.LogInformation("Already on page {p}, so not navigating.");
             return;
         }
         navManager.NavigateTo(newUrl);
-        return;
     }
 
-    // NavigateIfNeeded checks AppCache state and navigates to appropriate page if needed, assuring the app is always configured, initialized, unlocked, authenticated, connected, etc. in the necessary order
-    async Task HandleAppCacheChanged()
+    // RedirectIfNeeded checks AppCache state and navigates to appropriate page,
+    // ensuring the app progresses through onboarding, configuration, authentication, etc.
+    async Task RedirectIfNeeded()
     {
-        logger.LogInformation("HandleAppCacheChanged");
-        // logger.LogInformation("{x}", a.MyPreferences);
-        // logger.LogInformation("{x}", a.MyOnboardState);
-        // logger.LogInformation("{x}", a.MyKeriaConnectConfig);
-        // logger.LogInformation("{x}", a.MyKeriaConnectionInfo);
-        // logger.LogInformation("{x}", a.MyPasscodeModel);
-        // logger.LogInformation("{x}", a.MySessionExpiration);
+        logger.LogInformation("RedirectIfNeeded");
 
         if (!appCache.MyOnboardState.IsWelcomed)
         {
@@ -144,7 +75,7 @@
         // Passing above conditions must equate to IsProductOnboarded
         if (!appCache.IsProductOnboarded)
         {
-            logger.LogError("HandleAppCacheChanged: Not ProductOnboarded");
+            logger.LogError("RedirectIfNeeded: Not ProductOnboarded");
             return;
         }
         if (!appCache.IsConfigured)
@@ -155,7 +86,7 @@
         // Passing the above conditions must equate to IsInitialized
         if (!appCache.IsInitialized)
         {
-            logger.LogError("HandleAppCacheChanged: Not Initialized");
+            logger.LogError("RedirectIfNeeded: Not Initialized");
             return;
         }
         if (!appCache.IsSessionUnlocked)
@@ -165,7 +96,7 @@
         }
         if (!appCache.IsAuthenticated)
         {
-            logger.LogError("HandleAppCacheChanged: Not Authenticated");
+            logger.LogError("RedirectIfNeeded: Not Authenticated");
             return;
         }
         if (!appCache.IsIdentifierFetched)
@@ -176,15 +107,38 @@
         // Passing the above conditions must equate to IsConnectedToKeria
         if (!appCache.IsConnectedToKeria)
         {
-            logger.LogError("HandleAppCacheChanged: Not ConnectedToKeria");
+            logger.LogError("RedirectIfNeeded: Not ConnectedToKeria");
             return;
         }
-        // TODO P1 should navigate here to Dashboard or important to leave other current page as is?  Check also for popup and sidepanel context
-        logger.LogInformation("HandleAppCacheChanged: No re-route conditions detected.");
+
+        // Check for query parameter routing (e.g., popup requests)
+        if (App.InitialUri?.Query is not null)
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(App.InitialUri.Query);
+            if (query["page"] != null)
+            {
+                var pageParam = query["popupType"] switch
+                {
+                    "selectAuthorize" => RouteToRequestSignIn,
+                    "signRequest" => RouteToRequestSignHeaders,
+                    _ => null
+                };
+                if (pageParam != null)
+                {
+                    logger.LogInformation("RedirectIfNeeded: navigating to page param: {p}", pageParam);
+                    NavigateIfNeeded(pageParam);
+                    return;
+                }
+            }
+        }
+
+        // Fully authenticated and connected - navigate to Dashboard
+        // logger.LogInformation("RedirectIfNeeded: No re-route conditions detected, navigating to Dashboard");
         NavigateIfNeeded(RouteToDashboard);
     }
 
-    public void Dispose() {
+    public void Dispose()
+    {
         this.UnsubscribeFromAppCache();
         GC.SuppressFinalize(this);
     }

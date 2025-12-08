@@ -1,12 +1,8 @@
-﻿@using Extension.Layouts
-@using Extension.Models
+﻿@using Extension.Components
+@using Extension.Layouts
 @using Extension.Models.Messages.AppBw
-@using Extension.Pages
-@using System.Runtime.InteropServices.JavaScript
 @using Extension.Utilities
 @inject NavigationManager navManager
-@inject IJSRuntime jsRuntime
-@inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ILogger<App> logger
 @inject IAppBwMessagingService appBwMessagingService
 @inject AppCache appCache
@@ -19,23 +15,26 @@
     private bool _isInitialized;
 
     // Properties
+    // InitialUri captures the URI from which the app was loaded. This is used by Index.razor for popup routing (e.g., ?popupType=selectAuthorize).
     public static Uri? InitialUri { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
 
-        // Ensure AppCache is initialized with initial fetch of essential storage records
-        // This replaces the previous WaitForAppCache polling approach.
+        // Ensure AppCache is initialized with initial fetch of essential storage records.
         // BackgroundWorker.InitializeStorageDefaultsAsync() creates skeleton records on install/startup,
         // and AppCache.EnsureInitializedAsync() fetches them into cache before we proceed.
         await appCache.EnsureInitializedAsync();
 
-        await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
+        // Subscribe to AppCache for reactivity (StateHasChanged on changes).
+        // Navigation logic is handled by Index.razor which serves as the routing hub.
+        // await this.SubscribeToAppCache(appCache);
 
         await VerifyTermsAndPrivacyDigests();
 
         // Subscribe to and handle messages from background worker via messaging service
+        /*
         appBwMessagingService.Subscribe(
             onNext: (message) =>
             {
@@ -52,11 +51,12 @@
                 logger.LogInformation("BW messaging service completed");
             }
         );
+        */
 
         // Capture initial URI from which the app was loaded. This may contain query parameters we need.
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
-        // TODO tmp
-        logger.LogWarning("InitialUri: {u}", InitialUri.ToString());
+        logger.LogInformation("InitialUri: {u}", InitialUri.ToString());
+
         // Extract tabId from query string if present, otherwise use null
         var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
         var tabIdParam = query["tabId"];
@@ -65,120 +65,7 @@
 
         // Once the above is in place, the UI and other components that may rely on above state is ready to proceed
         _isInitialized = true;
-        await RedirectIfNeeded();
         logger.LogInformation("OnInitializedAsync complete");
-    }
-
-    // NavigateIfNeeded navigates to newUrl only if not already on that page
-    void NavigateIfNeeded(string newUrl)
-    {
-        // logger.LogWarning("navManager.Uri: {u}", navManager.Uri);
-        navManager.NavigateTo(newUrl);
-        return;
-    }
-
-    async Task RedirectIfNeeded()
-    {
-        logger.LogInformation("RedirectIfNeeded");
-        // logger.LogInformation("{x}", a.MyPreferences);
-        // logger.LogInformation("{x}", a.MyOnboardState);
-        // logger.LogInformation("{x}", a.MyKeriaConnectConfig);
-        // logger.LogInformation("{x}", a.MyKeriaConnectionInfo);
-        // logger.LogInformation("{x}", a.MyPasscodeModel);
-        // logger.LogInformation("{x}", a.MySessionExpiration);
-
-        if (!appCache.MyOnboardState.IsWelcomed)
-        {
-            NavigateIfNeeded(RouteToWelcome);
-            return;
-        }
-        if (!appCache.IsInstallAcknowledged)
-        {
-            NavigateIfNeeded(RouteToNewRelease);
-            return;
-        }
-        if (!appCache.IsTosAgreed)
-        {
-            NavigateIfNeeded(RouteToTerms);
-            return;
-        }
-        if (!appCache.IsPrivacyAgreed)
-        {
-            NavigateIfNeeded(RouteToPrivacy);
-            return;
-        }
-        // Passing above conditions must equate to IsProductOnboarded
-        if (!appCache.IsProductOnboarded)
-        {
-            logger.LogError("RedirectIfNeeded: Not ProductOnboarded");
-            return;
-        }
-        // logger.LogWarning($"RedirectIfNeeded?: NotRequiringAuth: {string.Join(", ",AppConfig.PagesNotRequiringAuth)} this one: {navManager.ToBaseRelativePath(navManager.Uri)}");
-        // Check if on a page not requiring authentication
-        if (AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri)))
-        {
-            // Redirect not needed; okay to stay on this page
-            // logger.LogInformation($"RedirectIfNeeded: on unauthenticated page, so no re-route. {navManager.ToBaseRelativePath(navManager.Uri)}");
-            return;
-        }
-        if (!appCache.IsConfigured)
-        {
-            NavigateIfNeeded(RouteToConfigure);
-            return;
-        }
-        // Passing the above conditions must equate to IsInitialized
-        if (!appCache.IsInitialized)
-        {
-            logger.LogError("RedirectIfNeeded: Not Initialized");
-            return;
-        }
-        if (!appCache.IsSessionUnlocked)
-        {
-            NavigateIfNeeded(RouteToUnlock);
-            return;
-        }
-        if (!appCache.IsAuthenticated)
-        {
-            logger.LogError("RedirectIfNeeded: Not Authenticated");
-            return;
-        }
-        if (!appCache.IsIdentifierFetched)
-        {
-            NavigateIfNeeded(RouteToConnecting);
-            return;
-        }
-        // Passing the above conditions must equate to IsConnectedToKeria
-        if (!appCache.IsConnectedToKeria)
-        {
-            logger.LogError("RedirectIfNeeded: Not ConnectedToKeria");
-            return;
-        }
-        // logger.LogInformation("RedirectIfNeeded: No re-route conditions detected.");
-        // TODO P1: consider navigating to Dashboard or other page
-        // NavigateIfNeeded(RouteToDashboard);
-        // if there's a query parameter for a specific page, navigate there
-        if (InitialUri?.Query is not null)
-        {
-            logger.LogInformation("RedirectIfNeeded: InitialUri.Query: {q}", InitialUri.Query);
-            var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
-            logger.LogInformation("RedirectIfNeeded: query string: {q}", query.ToString());
-            if (query["page"] != null)
-            {
-                var pageParam = query["popupType"] switch
-                {
-                    "selectAuthorize" => AppConfig.RouteToRequestSignIn,
-                    "signRequest" => AppConfig.RouteToRequestSignHeaders,
-                    _ => throw new Exception("unexpected popupType query param value")
-                };
-                logger.LogWarning("RedirectIfNeeded: navigating to page param: {p}", pageParam);
-                // NavigateIfNeeded(pageParam!);
-                return;
-            }
-        }
-
-
-
-
     }
 
     // Verify that the Terms and Privacy HTML files match expected hash digests. If not, developer needs to update expected digests in AppConfig.
@@ -221,11 +108,13 @@
 @if (!_isInitialized)
 {
     @*
+        // TODO P1 remove this after debugging
+    *@
     <MudThemeProvider />
     <MudContainer Class="d-flex align-center justify-center" Style="height: 100vh;">
         <MudProgressCircular Indeterminate="true" />
     </MudContainer>
-    *@
+    
 }
 else
 {
