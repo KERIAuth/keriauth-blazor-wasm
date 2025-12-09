@@ -38,8 +38,6 @@
         var res = await ConnectAndFetchIdentifiers();
         if (res.IsSuccess)
         {
-            // TODO P0 tmp
-            await Task.Delay(5000);
             // Navigate to Index page to continue app flow
             navManager.NavigateTo(AppConfig.RouteToIndex);
         }

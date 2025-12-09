@@ -64,7 +64,7 @@
         /// <summary>
         /// Polling interval when checking for BwReadyState.
         /// </summary>
-        private const int BwReadyPollIntervalMs = 50;
+        private const int BwReadyPollIntervalMs = 200;
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
@@ -73,7 +73,7 @@
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
 
         // Base properties with default values
-        public Preferences MyPreferences { get; private set; } = new Preferences();
+        public Preferences MyPreferences { get; private set; } = AppConfig.DefaultPreferences;
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
         public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() {
             Passcode = "",
@@ -92,7 +92,7 @@
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
 
         private static readonly List<Aid> EmptyAidsList = [];
-        // TODO P1: populate from KERI client state, non-static
+
         public List<Aid> Aids {
             get {
                 var identifiersList = MyKeriaConnectionInfo?.IdentifiersList;
@@ -146,7 +146,7 @@
         public bool IsConfigured =>
             IsKeriaConfigValidated &&
             IsProductOnboarded &&
-            MyPreferences is not null;
+            MyPreferences.IsStored;
         // TODO P3 add other aspects of KeriaConfig validation as needed.  See also ValidateConfiguration() in KeriaConnectConfig.cs
         public bool IsKeriaConfigValidated =>
             !string.IsNullOrEmpty(MyKeriaConnectConfig.AdminUrl) &&
@@ -342,6 +342,7 @@
                 _logger.LogDebug("AppCache: Initial fetch - Preferences loaded (IsStored={IsStored})", prefsResult.Value.IsStored);
             }
             else {
+                // leaving default (without IsStored = true)
                 _logger.LogWarning("AppCache: Initial fetch - Preferences not found or failed, using default");
             }
 
@@ -353,6 +354,7 @@
                     onboardResult.Value.IsStored, onboardResult.Value.IsWelcomed);
             }
             else {
+                // leaving default (without IsStored = true)
                 _logger.LogWarning("AppCache: Initial fetch - OnboardState not found or failed, using default");
             }
 
@@ -364,6 +366,7 @@
                     configResult.Value.IsStored, configResult.Value.AdminUrl ?? "(null)");
             }
             else {
+                // leaving default (without IsStored = true)
                 _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfig not found (expected on first run)");
             }
 

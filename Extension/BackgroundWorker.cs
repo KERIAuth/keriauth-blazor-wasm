@@ -600,7 +600,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             logger.LogError(ex, "InitializeStorageDefaults: Error creating skeleton storage records");
-            // Don't throw - allow extension to continue even if defaults fail
+            // Don't throw? - allow extension to continue even if defaults fail
         }
     }
 
@@ -615,7 +615,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 IsInitialized = true,
                 InitializedAtUtc = DateTime.UtcNow
             };
-            var result = await _storageService.SetItem(readyState, StorageArea.Session);
+            var result = await _storageService.SetItem<BwReadyState>(readyState, StorageArea.Session);
             if (result.IsFailed) {
                 logger.LogError("SetBwReadyStateAsync: Failed to set BwReadyState: {Error}",
                     string.Join("; ", result.Errors.Select(e => e.Message)));
@@ -1339,7 +1339,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
                     ? prefsResult.Value.SelectedPrefix
-                    : new Preferences().SelectedPrefix;
+                    : AppConfig.DefaultPreferences.SelectedPrefix;
                 // TODO P1 check whether this is for only this origin or all origins?
                 var res = await _websiteConfigService.Update(websiteConfig with { RememberedPrefixOrNothing = rememberedPrefix });
                 if (res.IsFailed) {

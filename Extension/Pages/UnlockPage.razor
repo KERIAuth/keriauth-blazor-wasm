@@ -318,6 +318,7 @@
         </MudButton>
 
         @* // TODO P1 fix some rendering issue with conditional buttons
+        // also hide button if no authenticators registered
         @if (ShouldUseAuthenticator)
         {
             <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary" OnClick="async () => await SetPrefersToUseAuthenticator(false)">

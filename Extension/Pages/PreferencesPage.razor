@@ -38,7 +38,7 @@
     // fields
 
     // properties
-    
+
     // reactive properties
     Preferences Prefs => appCache.MyPreferences;
     float InactivityTimeout => Prefs.InactivityTimeoutMinutes;
@@ -187,32 +187,35 @@
         }
     }
 
-// TODO P3 for stronger typing, consider using Fido2NetLib; and using Fido2NetLib.Objects;
-private void SetMostPermissive()
+    // TODO P3 for stronger typing, consider using Fido2NetLib; and using Fido2NetLib.Objects;
+    private void SetMostPermissive()
     {
-        InvokeAsync(() => Persist(Prefs with { 
+        InvokeAsync(() => Persist(Prefs with
+        {
             SelectedHints = new List<string> { },
             ResidentKey = "preferred",
             AuthenticatorAttachment = "all-supported",
             UserVerification = "preferred",
             AttestationConveyancePref = "none",
             SelectedTransportOptions = new List<string> { "hybrid", "internal", "ble", "nfc", "usb" }
-            }));        
+        }));
     }
     private void SetForSecurityKey()
     {
-        InvokeAsync(() => Persist(Prefs with { 
+        InvokeAsync(() => Persist(Prefs with
+        {
             SelectedHints = new List<string> { "security-key" },
             ResidentKey = "required",
             AuthenticatorAttachment = "cross-platform",
             UserVerification = "required",
             AttestationConveyancePref = "direct",
             SelectedTransportOptions = new List<string> { "usb" }
-            }));
+        }));
     }
     private void SetDefaultWebauthn()
     {
-        InvokeAsync (() => Persist(Prefs with { 
+        InvokeAsync(() => Persist(Prefs with
+        {
             SelectedHints = new List<string> { },
             ResidentKey = AppConfig.DefaultResidentKey,
             AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
@@ -220,7 +223,7 @@ private void SetMostPermissive()
             AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref,
             // TODO P2 need to show checkboxes for transport options to make this useful
             SelectedTransportOptions = AppConfig.DefaultAuthenticatorTransports
-            }));
+        }));
     }
 
     private bool IsFirst(string hint) => SelectedHints.IndexOf(hint) == 0;
@@ -259,29 +262,15 @@ private void SetMostPermissive()
         };
     }
 
+    // Reset the preferences to default, preserving selected prefix and drawer open states
     private async Task ResetToDefault()
     {
-        // Reset preferences to defaults while preserving SelectedPrefix, SelectedKeriaAlias and IsStored
-        // TODO P2: define default values for all other inner keys via AppConfig
-        await Persist(Prefs with {
-            IsDarkTheme = AppConfig.DefaultIsDarkTheme,
-            IsOptedIntoDataCollection = false,
-            DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
-            DrawerVariantInTab = AppConfig.DefaultDrawerVariantInTab,
-            DrawerVariantInSidePanel = AppConfig.DefaultDrawerVariantInSidePanel,
-            IsPersistentDrawerOpenInTab = false,
-            IsPersistentDrawerOpenInSidePanel = false,
-            PrefersToUseAuthenticator = AppConfig.DefaultPrefersToUseAuthenticator,
-            // SelectedKeriaAlias = String.Empty,
-            ShowSignRequestDetail = false,
-            InactivityTimeoutMinutes = AppConfig.DefaultInactivityTimeoutMins,
-            UserVerification = AppConfig.DefaultUserVerification,
-            ResidentKey = AppConfig.DefaultResidentKey,
-            AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
-            AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref,
-            SelectedTransportOptions = AppConfig.DefaultAuthenticatorTransports,
-            SelectedHints = AppConfig.DefaultSelectedHints,
-            AuthenticatorTransports = AppConfig.DefaultAuthenticatorTransports
+        await Persist(AppConfig.DefaultPreferences with
+        {
+            SelectedPrefix = Prefs.SelectedPrefix,
+            IsPersistentDrawerOpenInSidePanel = Prefs.IsPersistentDrawerOpenInSidePanel,
+            IsPersistentDrawerOpenInTab = Prefs.IsPersistentDrawerOpenInTab,
+            IsStored = true
         });
     }
 }
@@ -354,11 +343,11 @@ private void SetMostPermissive()
                     <MudText Class="bt-pref-group-label1">
                         Presets
                     </MudText>
-                <MudStack Row>
-                    <MudButton OnClick="SetDefaultWebauthn" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Default</MudButton>
-                    <MudButton OnClick="SetMostPermissive" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Permissive</MudButton>
-                    <MudButton OnClick="SetForSecurityKey" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">USB Security Key</MudButton>
-                </MudStack>
+                    <MudStack Row>
+                        <MudButton OnClick="SetDefaultWebauthn" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Default</MudButton>
+                        <MudButton OnClick="SetMostPermissive" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Permissive</MudButton>
+                        <MudButton OnClick="SetForSecurityKey" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">USB Security Key</MudButton>
+                    </MudStack>
                 </MudStack>
                 <MudStack Row="false" Class="bt-pref-stack1">
                     <MudText Class="bt-pref-group-label1">
@@ -478,7 +467,7 @@ private void SetMostPermissive()
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
         <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Reset to Default</MudButton>
     </MudStack>

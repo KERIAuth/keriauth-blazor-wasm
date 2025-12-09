@@ -31,7 +31,7 @@
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
     List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
-    string SelectedPrefix => appCache.MyPreferences?.SelectedPrefix ?? "";
+    string SelectedPrefix => appCache.MyPreferences?.SelectedPrefix ?? AppConfig.DefaultPreferences.SelectedPrefix;
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? "";
 

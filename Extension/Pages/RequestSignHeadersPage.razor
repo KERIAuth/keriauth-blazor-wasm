@@ -86,7 +86,7 @@
     string WebsiteConfiguredAlias => Identifiers?.Find(x => x.Prefix == WebsiteConfiguredPrefix)?.Name ?? "not configured";
     Preferences Prefs => appCache.MyPreferences;
     string SelectedPrefix => Prefs.SelectedPrefix;
-    bool IsDetailShown => Prefs.ShowSignRequestDetail;
+    bool IsDetailShown => Prefs.IsSignRequestDetailShown;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,10 +107,8 @@
 
         LoadIdentifiersFromCache();
 
-        // TODO P1 instead use webExtensionsApi.Runtime.GetContexts
-        // remove temporary code below for exploration.  Will be useful when requested to sign a specific request, such as issuing a credential
-        string initialUriQuery = "TODO_not_set";
-        // var initialUriQuery = extensionEnvironmentService.InitialUriQuery;
+        // TODO P1 need to migrate away from UriQuery to Request records in Session
+        string initialUriQuery = App.InitialUri is not null ? App.InitialUri.Query : "";
         logger.LogInformation($"URI query: {initialUriQuery}");
 
         // Extract tabId from query string
@@ -221,8 +219,8 @@
     //
     async Task SetIsDetailShown(bool isDetailShown)
     {
-        // TODO P3 ShowSignRequestDetail should be per website, since not every site should be trusted the same
-        await storageService.SetItem<Preferences>(Prefs with { ShowSignRequestDetail = isDetailShown }, StorageArea.Local);
+        // TODO P3 IsSignRequestDetailShown should be per website, since not every site should be trusted the same
+        await storageService.SetItem<Preferences>(Prefs with { IsSignRequestDetailShown = isDetailShown }, StorageArea.Local);
         return;
     }
 
@@ -265,7 +263,7 @@
             var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
             WebsiteConfiguredPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
                 ? prefsResult.Value.SelectedPrefix
-                : new Preferences().SelectedPrefix;
+                : AppConfig.DefaultPreferences.SelectedPrefix;
             ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = WebsiteConfiguredPrefix };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }

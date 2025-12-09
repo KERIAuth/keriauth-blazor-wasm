@@ -13,9 +13,6 @@
         [JsonPropertyName("IsStored")]
         public bool IsStored { get; init; }
 
-        [JsonPropertyName("IsOptedIntoDataCollection")]
-        public bool IsOptedIntoDataCollection { get; init; } = false;
-
         [JsonPropertyName("DrawerVariantInPopup")]
         public MudBlazor.DrawerVariant DrawerVariantInPopup { get; init; } = MudBlazor.DrawerVariant.Temporary;
 
@@ -34,11 +31,8 @@
         [JsonPropertyName("PrefersToUseAuthenticator")]
         public bool PrefersToUseAuthenticator { get; init; } = AppConfig.DefaultPrefersToUseAuthenticator;
 
-        [JsonPropertyName("SelectedKeriaAlias")]
-        public string SelectedKeriaAlias { get; init; } = String.Empty;
-
-        [JsonPropertyName("ShowSignRequestDetail")]
-        public bool ShowSignRequestDetail { get; init; }
+        [JsonPropertyName("IsSignRequestDetailShown")]
+        public bool IsSignRequestDetailShown { get; init; }
 
         [JsonPropertyName("InactivityTimeoutMinutes")]
         public float InactivityTimeoutMinutes { get; init; } = AppConfig.DefaultInactivityTimeoutMins;

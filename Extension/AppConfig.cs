@@ -81,6 +81,27 @@ namespace Extension {
         public static readonly List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
         public static readonly List<string> AllHints = ["hybrid", "security-key", "client-device"];
 
+        public static readonly Models.Preferences DefaultPreferences = new() {
+            InactivityTimeoutMinutes = DefaultInactivityTimeoutMins,
+            IsDarkTheme = DefaultIsDarkTheme,
+            DrawerVariantInTab = DefaultDrawerVariantInTab,
+            DrawerVariantInSidePanel = DefaultDrawerVariantInSidePanel,
+            PrefersToUseAuthenticator = DefaultPrefersToUseAuthenticator,
+            UserVerification = DefaultUserVerification,
+            ResidentKey = DefaultResidentKey,
+            AuthenticatorAttachment = DefaultAuthenticatorAttachment,
+            AttestationConveyancePref = DefaultAttestationConveyancePref,
+            SelectedTransportOptions = DefaultAuthenticatorTransports,
+            AuthenticatorTransports = DefaultAuthenticatorTransports,
+            DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
+            IsPersistentDrawerOpenInSidePanel = false,
+            IsPersistentDrawerOpenInTab = false,
+            SelectedHints = DefaultSelectedHints,
+            IsSignRequestDetailShown = false,
+            IsStored = false,
+            SelectedPrefix = String.Empty
+        };
+
         // Other settings
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);

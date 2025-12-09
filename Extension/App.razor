@@ -117,14 +117,13 @@
 
 @if (!_isInitialized)
 {
+    // Comment in/out for debugging
     @*
-        // TODO P1 remove this after debugging
-    *@
     <MudThemeProvider />
     <MudContainer Class="d-flex align-center justify-center" Style="height: 100vh;">
         <MudProgressCircular Indeterminate="true" />
     </MudContainer>
-
+    *@
 }
 else
 {

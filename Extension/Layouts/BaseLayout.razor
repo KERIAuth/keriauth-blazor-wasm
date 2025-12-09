@@ -35,17 +35,8 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-
-        // TODO P1: Subscribe to AppCache changes to receive reactive updates??
-        /*
-        await appCache.WaitForAppCache([
-            () => appCache.MyPreferences is not null,
-            () => appCache.MyOnboardState is not null,
-            () => appCache.MyKeriaConnectConfig is not null,
-            () => appCache.MyKeriaConnectionInfo is not null,
-            () => appCache.MyPasscodeModel is not null
-        ]);
-        */
+        await appCache.Initialize();
+        await AssertHydratedCache();
 
         await this.SubscribeToAppCache(appCache, HandleAppCacheChanged);
 
@@ -59,6 +50,7 @@
 
     protected virtual async Task HandleAppCacheChanged()
     {
+        await AssertHydratedCache();
         // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated) {
             if (!(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
@@ -78,6 +70,28 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task AssertHydratedCache()
+    {
+        // Ensure that AppCache is fully initialized before proceeding
+        // helping assure critical records are loaded (and usually stored) before UI interaction
+
+        var isAppCacheReady = await appCache.WaitForAppCache([
+            // () => appCache.IsInitialized,
+            () => appCache.MyPreferences.IsStored,
+            () => appCache.MyOnboardState.IsStored,
+            () => appCache.MyKeriaConnectConfig.IsStored,
+            // () => appCache.MyKeriaConnectionInfo is not null,
+            // () => appCache.MyPasscodeModel is not null
+        ], 5000, 100);
+        // TODO P2: Make timeout duration configurable?
+        if (!isAppCacheReady)
+        {
+            logger.LogError("BaseLayout OnInitializedAsync: AppCache not ready after waiting.");
+            snackbar.Add("Application error: AppCache not ready.", Severity.Error);
+            // Optionally, throw or navigate to an error page or take other actions
+        }
     }
 
     protected void CreateAppBarRefreshTimer()
