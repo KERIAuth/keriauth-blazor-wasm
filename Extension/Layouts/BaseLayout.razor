@@ -35,7 +35,7 @@
     // Tooltip showing the time remaining
     protected string TimeoutTooltip => appCache.IsAuthenticated
         ? $"Timeout in {SessionDurationRemaining.Minutes:D}:{SessionDurationRemaining.Seconds:D}"
-        : "locked";
+        : "Locked";
 
     protected override async Task OnInitializedAsync()
     {
@@ -115,7 +115,7 @@
                 }
             },
             state: null,
-            dueTime: TimeSpan.FromSeconds(1),
+            dueTime: TimeSpan.FromSeconds(20), // TODO P2 calculated, but don't interfere with initialization time
             period: TimeSpan.FromSeconds(1));
     }
 
