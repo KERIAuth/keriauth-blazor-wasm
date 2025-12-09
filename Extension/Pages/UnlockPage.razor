@@ -285,7 +285,6 @@
                     <br />
                     <span style="font-style:italic; font-size:initial;">@taglineText</span>
                 </MudText>
-                <MudText Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
             </MudStack>
             <MudStack Style="justify-content: end; min-height:48px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUseAuthenticator)
@@ -303,9 +302,11 @@
                                       @onfocus="SelectAllText" />
                     </MudForm>
                 }
+                <MudText Class="pt-3" Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
             </MudStack>
         </MudStack>
     </div>
+
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         @if (ShouldUseAuthenticator)
