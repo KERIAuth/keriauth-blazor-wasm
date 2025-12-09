@@ -261,6 +261,8 @@ Session state is stored in `StorageArea.Session` via `PasscodeModel`, which cont
 
 **Rule:** Pick either Windows OR WSL for all local builds on a given machine. Don't mix environments.
 
+**Build Configuration:** This project uses **Release configuration only**. The Debug configuration is intentionally disabled in the solution file because browser extension debugging happens through Chrome DevTools, not Visual Studio debuggers. Running a "Debug" build provides no additional debugging capability and may mislead developers into thinking they can set breakpoints in Visual Studio. All `dotnet restore` and `dotnet build` commands should use Release configuration.
+
 ## Prerequisites
 
 - Node.js >= 22.13.0
@@ -304,10 +306,10 @@ npm run build:app
 cd ..
 
 # 4. Build and test
-dotnet build -p:Quick=true
-dotnet test
+dotnet build --configuration Release -p:Quick=true
+dotnet test --configuration Release
 
-# Extension package is now in: Extension/bin/Debug/net9.0/browserextension/
+# Extension package is now in: Extension/bin/Release/net9.0/browserextension/
 ```
 
 **Note:** The `npm install` steps are only needed:
@@ -1013,12 +1015,12 @@ Managed in `scripts/` workspace (types, modules, bundles):
    # Windows PowerShell
    dotnet nuget locals all --clear
    Remove-Item -Recurse -Force Extension\obj, Extension.Tests\obj
-   dotnet restore --force-evaluate
+   dotnet restore -p:Configuration=Release --force-evaluate
 
    # WSL/Linux bash
    dotnet nuget locals all --clear
    rm -rf Extension/obj Extension.Tests/obj
-   dotnet restore --force-evaluate
+   dotnet restore -p:Configuration=Release --force-evaluate
    ```
 
 #### NuGet Restore Loop Error
@@ -1031,8 +1033,8 @@ Managed in `scripts/` workspace (types, modules, bundles):
    ```powershell
    # Windows
    Remove-Item -Recurse -Force Extension\obj, Extension.Tests\obj
-   dotnet restore
-   dotnet build
+   dotnet restore -p:Configuration=Release
+   dotnet build --configuration Release
    ```
 
 #### Package Not Found Errors
@@ -1042,8 +1044,8 @@ Managed in `scripts/` workspace (types, modules, bundles):
 1. Close Visual Studio completely
 2. Close Windows Explorer if browsing project directory
 3. Clean obj directories: `rm -rf Extension/obj Extension.Tests/obj`
-4. Restore with correct paths: `dotnet restore`
-5. Build: `dotnet build /p:BuildingProject=true`
+4. Restore with correct paths: `dotnet restore -p:Configuration=Release`
+5. Build: `dotnet build --configuration Release /p:BuildingProject=true`
 
 #### TypeScript Permission Errors
 **Symptoms**: "tsc: Permission denied" during esbuild type checking
@@ -1079,9 +1081,9 @@ Remove-Item -Recurse -Force Extension\bin, Extension\obj, Extension.Tests\obj -E
 Remove-Item -Recurse -Force scripts\types\dist, scripts\modules\dist, scripts\bundles\node_modules\.cache -ErrorAction SilentlyContinue
 cd scripts; npm run clean; cd ..\Extension; npm run clean; cd ..
 dotnet nuget locals all --clear
-dotnet restore --force-evaluate
+dotnet restore -p:Configuration=Release --force-evaluate
 cd scripts; npm run build; cd ..
-dotnet build -p:Quick=true
+dotnet build --configuration Release -p:Quick=true
 ```
 
 ```bash
@@ -1090,9 +1092,9 @@ rm -rf Extension/bin Extension/obj Extension.Tests/obj
 rm -rf scripts/types/dist scripts/modules/dist scripts/bundles/node_modules/.cache
 cd scripts && npm run clean && cd ../Extension && npm run clean && cd ..
 dotnet nuget locals all --clear
-dotnet restore --force-evaluate
+dotnet restore -p:Configuration=Release --force-evaluate
 cd scripts && npm run build && cd ..
-dotnet build -p:Quick=true
+dotnet build --configuration Release -p:Quick=true
 ```
 
 ### Build Command Reference

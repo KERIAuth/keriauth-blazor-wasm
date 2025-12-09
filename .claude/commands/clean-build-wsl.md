@@ -52,8 +52,10 @@ dotnet nuget locals all --clear
 
 ### 4. Restore NuGet Dependencies
 
+**Note:** This project uses Release configuration only. Debug is intentionally disabled because browser extension debugging happens through Chrome DevTools, not Visual Studio debuggers.
+
 ```bash
-dotnet restore --force-evaluate
+dotnet restore -p:Configuration=Release --force-evaluate
 ```
 
 ### 5. Build TypeScript FIRST (Critical)
@@ -98,13 +100,13 @@ If any files are missing, the TypeScript build failed silently. Check for errors
 Use Quick mode since TypeScript was already built in step 5:
 
 ```bash
-dotnet build -p:Quick=true
+dotnet build --configuration Release -p:Quick=true
 ```
 
 ### 8. Run Tests
 
 ```bash
-dotnet test
+dotnet test --configuration Release
 ```
 
 Verify all tests pass before proceeding.
@@ -115,20 +117,20 @@ Check that the extension package is complete:
 
 ```bash
 # Manifest exists
-ls -la Extension/bin/Debug/net9.0/browserextension/manifest.json
+ls -la Extension/bin/Release/net9.0/browserextension/manifest.json
 
 # BackgroundWorker.js includes all required imports
-grep -c "signifyClient" Extension/bin/Debug/net9.0/browserextension/content/BackgroundWorker.js
+grep -c "signifyClient" Extension/bin/Release/net9.0/browserextension/content/BackgroundWorker.js
 # Should return 2 (one import statement, one in allImports array)
 
 # Key JavaScript files exist in output
-ls -la Extension/bin/Debug/net9.0/browserextension/scripts/esbuild/
-ls -la Extension/bin/Debug/net9.0/browserextension/scripts/es6/
+ls -la Extension/bin/Release/net9.0/browserextension/scripts/esbuild/
+ls -la Extension/bin/Release/net9.0/browserextension/scripts/es6/
 ```
 
 ### 10. Report Success
 
-Extension ready to load: `Extension/bin/Debug/net9.0/browserextension/`
+Extension ready to load: `Extension/bin/Release/net9.0/browserextension/`
 
 ## Troubleshooting
 
@@ -137,7 +139,7 @@ Extension ready to load: `Extension/bin/Debug/net9.0/browserextension/`
 This error means the service worker JavaScript failed to load. Common causes:
 
 1. **Missing JavaScript files**: TypeScript build was skipped or failed
-   * Verify files exist in `Extension/bin/Debug/net9.0/browserextension/scripts/`
+   * Verify files exist in `Extension/bin/Release/net9.0/browserextension/scripts/`
    * Rebuild TypeScript: `cd scripts && npm run build`
 
 2. **BackgroundWorker.js missing imports**: The "two-build problem"
@@ -157,7 +159,7 @@ Mixed builds between Windows and WSL. Pick one environment and stick with it:
 # Clean and restore in WSL
 dotnet nuget locals all --clear
 rm -rf Extension/obj Extension.Tests/obj
-dotnet restore --force-evaluate
+dotnet restore -p:Configuration=Release --force-evaluate
 ```
 
 ### esbuild Platform Mismatch
