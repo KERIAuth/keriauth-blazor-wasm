@@ -349,7 +349,8 @@
         }
 
         var selectedPrefix = identifiers.Aids.First().Prefix;
-        var preferences = new Preferences { SelectedPrefix = selectedPrefix };
+        // Use 'with' to preserve existing preferences (theme, timeouts, etc.) when setting SelectedPrefix
+        var preferences = appCache.MyPreferences with { SelectedPrefix = selectedPrefix };
 
         var storePreferencesResult = await storageService.SetItem<Preferences>(preferences, StorageArea.Local);
         if (storePreferencesResult.IsFailed)

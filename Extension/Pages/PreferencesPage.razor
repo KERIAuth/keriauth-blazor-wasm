@@ -261,7 +261,28 @@ private void SetMostPermissive()
 
     private async Task ResetToDefault()
     {
-        await Persist(new Preferences()); 
+        // Reset preferences to defaults while preserving SelectedPrefix, SelectedKeriaAlias and IsStored
+        // TODO P2: define default values for all other inner keys via AppConfig
+        await Persist(Prefs with {
+            IsDarkTheme = AppConfig.DefaultIsDarkTheme,
+            IsOptedIntoDataCollection = false,
+            DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
+            DrawerVariantInTab = AppConfig.DefaultDrawerVariantInTab,
+            DrawerVariantInSidePanel = AppConfig.DefaultDrawerVariantInSidePanel,
+            IsPersistentDrawerOpenInTab = false,
+            IsPersistentDrawerOpenInSidePanel = false,
+            PrefersToUseAuthenticator = AppConfig.DefaultPrefersToUseAuthenticator,
+            // SelectedKeriaAlias = String.Empty,
+            ShowSignRequestDetail = false,
+            InactivityTimeoutMinutes = AppConfig.DefaultInactivityTimeoutMins,
+            UserVerification = AppConfig.DefaultUserVerification,
+            ResidentKey = AppConfig.DefaultResidentKey,
+            AuthenticatorAttachment = AppConfig.DefaultAuthenticatorAttachment,
+            AttestationConveyancePref = AppConfig.DefaultAttestationConveyancePref,
+            SelectedTransportOptions = AppConfig.DefaultAuthenticatorTransports,
+            SelectedHints = AppConfig.DefaultSelectedHints,
+            AuthenticatorTransports = AppConfig.DefaultAuthenticatorTransports
+        });
     }
 }
 
