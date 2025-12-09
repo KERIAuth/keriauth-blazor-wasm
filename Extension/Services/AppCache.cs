@@ -46,7 +46,6 @@
         /// True after Initialize() has fetched Preferences, OnboardState, and KeriaConnectConfig.
         /// Components can check this to know if AppCache data is available.
         /// </summary>
-        // TODO P1: make this a get-only property that checks the essential cached record properties
         public bool IsReady { get; private set; }
 
         /// <summary>
@@ -335,12 +334,10 @@
         /// This ensures components don't see default values when storage has real data.
         /// </summary>
         private async Task FetchInitialStorageValuesAsync() {
-            // Fetch essential records (Local storage - persisted across sessions)
+            await WaitForBwReadyOrThrowAsync();
 
-            // TODO P1 some DRY refactoring needed here, to check result and set IsBwReady
-            _ = await WaitForBwReadyAsync();
-
-            // These should exist after BackgroundWorker.InitializeStorageDefaultsAsync() runs
+            // Fetch essential records
+            // These should "must" exist after BackgroundWorker.InitializeStorageDefaultsAsync() runs
 
             // 1. Preferences
             var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
@@ -420,17 +417,25 @@
                 _logger.LogDebug("AppCache: EnsureInitializedAsync - already ready");
                 return;
             }
-
-            // Wait for BackgroundWorker to complete initialization first
-            // This ensures storage defaults exist and expired sessions are cleared
-            IsBwReady = await WaitForBwReadyAsync();
-            if (!IsBwReady) {
-                _logger.LogWarning("AppCache: BackgroundWorker did not become ready within timeout - proceeding anyway");
-                // Continue anyway - will use defaults for missing values
-            }
-
+            await WaitForBwReadyOrThrowAsync();
             await Initialize();
         }
+
+        /// <summary>
+        /// Wait for BackgroundWorker to complete its initialization first
+        /// This ensures storage defaults exist and expired sessions are cleared
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="TimeoutException"></exception>
+        private async Task WaitForBwReadyOrThrowAsync() {
+            IsBwReady = await WaitForBwReadyAsync();
+            if (!IsBwReady) {
+                _logger.LogError("AppCache: BackgroundWorker did not become ready within timeout - proceeding anyway");
+                throw new TimeoutException("BackgroundWorker did not become ready within timeout");
+            }
+            return;
+        }
+
 
         /// <summary>
         /// Waits for BackgroundWorker to set BwReadyState.IsInitialized = true.
