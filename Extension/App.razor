@@ -1,6 +1,7 @@
 ﻿@using Extension.Components
 @using Extension.Layouts
 @using Extension.Models.Messages.AppBw
+@using Extension.Services
 @using Extension.Utilities
 @inject NavigationManager navManager
 @inject ILogger<App> logger
@@ -22,9 +23,9 @@
     {
         logger.LogInformation("OnInitializedAsync");
 
-        // Ensure AppCache is initialized with initial fetch of essential storage records.
-        // BackgroundWorker.InitializeStorageDefaultsAsync() creates skeleton records on install/startup,
-        // and AppCache.EnsureInitializedAsync() fetches them into cache before we proceed.
+        // Initialize AppCache - this internally waits for BackgroundWorker to complete
+        // initialization before reading storage values, ensuring storage defaults exist
+        // and expired sessions are cleared.
         await appCache.EnsureInitializedAsync();
 
         // Subscribe to AppCache for reactivity (StateHasChanged on changes).

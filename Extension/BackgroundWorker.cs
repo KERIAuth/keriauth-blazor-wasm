@@ -197,12 +197,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation("OnStartupAsync event handler called");
             logger.LogInformation("Browser startup detected - reinitializing background worker");
+
+            // Clear BwReadyState first to prevent App from using stale flag
+            await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
+
             InitializeIfNeeded();
 
             // Ensure skeleton storage records exist (may have been cleared or corrupted)
             await InitializeStorageDefaultsAsync();
 
             await _sessionManager.ExtendIfUnlockedAsync();
+
+            // Signal to App that BackgroundWorker initialization is complete
+            await SetBwReadyStateAsync();
+
             logger.LogInformation("Background worker reinitialized on browser startup");
         }
         catch (Exception ex) {
@@ -498,11 +506,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onInstall fires when the extension is installed
     private async Task OnInstalledInstallAsync() {
         try {
+            // Clear BwReadyState first to prevent App from using stale flag
+            await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
+
             InitializeIfNeeded();
 
             // Create skeleton storage records for Preferences and OnboardState
             // KeriaConnectConfig is NOT created here - it requires user-provided URLs
             await InitializeStorageDefaultsAsync();
+
+            // Signal to App that BackgroundWorker initialization is complete
+            await SetBwReadyStateAsync();
 
             var installUrl = _webExtensionsApi.Runtime.GetURL("index.html"); // TODO P2 + "?reason=install";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
@@ -590,7 +604,31 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-
+    /// <summary>
+    /// Sets BwReadyState.IsInitialized = true in session storage.
+    /// Called after BackgroundWorker completes all initialization tasks.
+    /// App waits for this flag before reading storage to avoid race conditions.
+    /// </summary>
+    private async Task SetBwReadyStateAsync() {
+        try {
+            var readyState = new BwReadyState {
+                IsInitialized = true,
+                InitializedAtUtc = DateTime.UtcNow
+            };
+            var result = await _storageService.SetItem(readyState, StorageArea.Session);
+            if (result.IsFailed) {
+                logger.LogError("SetBwReadyStateAsync: Failed to set BwReadyState: {Error}",
+                    string.Join("; ", result.Errors.Select(e => e.Message)));
+            }
+            else {
+                logger.LogInformation("SetBwReadyStateAsync: BwReadyState.IsInitialized set to true");
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "SetBwReadyStateAsync: Error setting BwReadyState");
+            // Don't throw - allow extension to continue even if this fails
+        }
+    }
 
     public async Task OnContextMenuClickedAsync(MenusOnClickData info, BrowserTab tab) {
         try {
@@ -659,7 +697,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;
             logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
+            // Clear BwReadyState first to prevent App from using stale flag
+            await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
+
             InitializeIfNeeded();
+
+            // Ensure skeleton storage records exist (may need migration for new version)
+            await InitializeStorageDefaultsAsync();
 
             var updateDetails = new UpdateDetails {
                 Reason = OnInstalledReason.Update.ToString(),
@@ -668,6 +712,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 Timestamp = DateTime.UtcNow.ToString("O")
             };
             await _storageService.SetItem(updateDetails, StorageArea.Local);
+
+            // Signal to App that BackgroundWorker initialization is complete
+            await SetBwReadyStateAsync();
 
             var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=update";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {

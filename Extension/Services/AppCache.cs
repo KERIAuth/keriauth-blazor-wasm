@@ -49,6 +49,23 @@
         // TODO P1: make this a get-only property that checks the essential cached record properties
         public bool IsReady { get; private set; }
 
+        /// <summary>
+        /// Indicates whether BackgroundWorker has completed initialization.
+        /// Set during EnsureInitializedAsync() after waiting for BwReadyState.
+        /// This is a prerequisite for AppCache initialization.
+        /// </summary>
+        public bool IsBwReady { get; private set; }
+
+        /// <summary>
+        /// Default timeout for waiting for BackgroundWorker to become ready.
+        /// </summary>
+        private const int BwReadyTimeoutMs = 5000;
+
+        /// <summary>
+        /// Polling interval when checking for BwReadyState.
+        /// </summary>
+        private const int BwReadyPollIntervalMs = 50;
+
         private StorageObserver<Preferences>? preferencesStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
@@ -381,16 +398,60 @@
         /// Ensures AppCache is initialized and ready before returning.
         /// Call this from components that need AppCache data before proceeding.
         /// This is the preferred entry point for App.razor and other root components.
+        ///
+        /// This method first waits for BackgroundWorker to complete initialization
+        /// (setting BwReadyState.IsInitialized = true in session storage), ensuring
+        /// storage defaults are created and expired sessions are cleared before
+        /// AppCache reads storage values.
         /// </summary>
         /// <returns>Task that completes when AppCache is ready</returns>
-        // TODO P2: investigate this use pattern
         public async Task EnsureInitializedAsync() {
             if (IsReady) {
                 _logger.LogDebug("AppCache: EnsureInitializedAsync - already ready");
                 return;
             }
 
+            // Wait for BackgroundWorker to complete initialization first
+            // This ensures storage defaults exist and expired sessions are cleared
+            IsBwReady = await WaitForBwReadyAsync();
+            if (!IsBwReady) {
+                _logger.LogWarning("AppCache: BackgroundWorker did not become ready within timeout - proceeding anyway");
+                // Continue anyway - will use defaults for missing values
+            }
+
             await Initialize();
+        }
+
+        /// <summary>
+        /// Waits for BackgroundWorker to set BwReadyState.IsInitialized = true.
+        /// Polls session storage at regular intervals until ready or timeout.
+        /// </summary>
+        /// <returns>True if BackgroundWorker became ready, false if timeout occurred.</returns>
+        private async Task<bool> WaitForBwReadyAsync() {
+            _logger.LogInformation("AppCache: Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", BwReadyTimeoutMs);
+
+            var elapsedMs = 0;
+
+            while (elapsedMs < BwReadyTimeoutMs) {
+                var result = await storageService.GetItem<BwReadyState>(StorageArea.Session);
+
+                if (result.IsSuccess && result.Value?.IsInitialized == true) {
+                    _logger.LogInformation(
+                        "AppCache: BackgroundWorker ready after {ElapsedMs}ms (initialized at {InitializedAt})",
+                        elapsedMs,
+                        result.Value.InitializedAtUtc);
+                    return true;
+                }
+
+                await Task.Delay(BwReadyPollIntervalMs);
+                elapsedMs += BwReadyPollIntervalMs;
+            }
+
+            _logger.LogWarning(
+                "AppCache: Timeout after {TimeoutMs}ms - BackgroundWorker did not become ready. " +
+                "App will proceed but may encounter stale or missing storage data.",
+                BwReadyTimeoutMs);
+            return false;
         }
     }
 }

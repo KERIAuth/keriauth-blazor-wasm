@@ -1,5 +1,6 @@
 ﻿@page "/Unlock.html"
 @layout Layouts.MainLayout
+@using Extension.Services
 @using Extension.Services.Storage
 @using Extension.Models.Storage
 @using Extension.Utilities
@@ -17,6 +18,7 @@
 @inject IWebExtensionsApi webExtensionsApi
 @inject IWebauthnService webauthnService
 @inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+@inject SessionManager sessionManager
 
 @code {
     // fields
@@ -215,8 +217,8 @@
         {
             throw new InvalidOperationException("KERI Auth configuration is not validated");
         }
-        // clear anything left over in sessionstorage from previous session
-        await storageService.Clear(StorageArea.Session);
+        // clear anything left over in session storage from previous session (but preserve BwReadyState)
+        await sessionManager.ClearKeriaSessionRecordsAsync();
 
         openWalletError = String.Empty;
 

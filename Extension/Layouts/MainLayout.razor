@@ -1,5 +1,6 @@
 ﻿@inherits BaseLayout
 @using Extension.Models.Storage
+@using Extension.Services
 @using Extension.Services.Storage
 @using System
 @using Extension.Services.SignifyService.Models
@@ -16,6 +17,7 @@
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject AppCache appCache  // Reactive: inherits subscription from BaseLayout
+@inject SessionManager sessionManager
 
 @code {
     // fields...
@@ -92,8 +94,8 @@
 
     async Task Lock()
     {
-        logger.LogInformation("Locking application - clearing session storage");
-        await storageService.Clear(StorageArea.Session);
+        logger.LogInformation("Locking application - clearing KERIA session records");
+        await sessionManager.ClearKeriaSessionRecordsAsync();
         await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
     }
 
