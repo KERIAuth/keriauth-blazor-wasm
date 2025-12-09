@@ -29,8 +29,13 @@
             (int)SessionDurationRemaining.TotalSeconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining &&
             (int)SessionDurationRemaining.TotalSeconds > 1)
             ? (DateTime.UtcNow.Second % 2) == 0 ? ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);")
-              : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-primary);")
-            : ("", "");
+              : ($"Timeout in {SessionDurationRemaining.Seconds:D}", "color:var(--mud-palette-warning);") // "color:var(--mud-palette-primary);")
+            : ("", "color:var(--mud-palette-warning);");
+
+    // Tooltip showing the time remaining
+    protected string TimeoutTooltip => appCache.IsAuthenticated
+        ? $"Timeout in {SessionDurationRemaining.Minutes:D}:{SessionDurationRemaining.Seconds:D}"
+        : "locked";
 
     protected override async Task OnInitializedAsync()
     {
