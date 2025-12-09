@@ -109,7 +109,8 @@
             else
             {
                 logger.LogInformation("AddIdentifier: {1}", res.Value);
-                // TODO P1. Would rather have this reactive and/or lower-level from BackgroundWorker the reactive update here.
+                // TODO P1 Move RefreshIdentifiersCache() to be called from backgroundWorker and then reactive update via subscribe to appCache?.MyKeriaConnectionInfo.
+                //
                 // Fetch fresh identifiers from KERIA and update cache
                 await RefreshIdentifiersCache();
                 LoadIdentifiersFromCache();

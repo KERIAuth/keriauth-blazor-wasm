@@ -66,8 +66,8 @@ namespace Extension {
         public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
         // default Preferences
-        public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P1 should be 10.0f;
-        public const float MaxInactivityTimeoutMins = 20.0f; // TODO P1 should be 10.0f;
+        public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
+        public const float MaxInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Persistent;

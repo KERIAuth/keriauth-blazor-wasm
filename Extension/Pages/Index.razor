@@ -32,7 +32,7 @@
         logger.LogInformation("OnInitializedAsync Index.razor");
 
         // Subscribe to AppCache changes - will trigger RedirectIfNeeded when state updates
-        await appCache.WaitForAppCache([() => appCache.IsReady]);
+        await appCache.WaitForAppCache([() => appCache.IsReady]); // TODO P1: adjust timeouts as needed
         await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
 
         await RedirectIfNeeded();

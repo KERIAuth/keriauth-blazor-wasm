@@ -75,7 +75,7 @@
         // Note: timer updates in MainLayout.razor are reactive via AppCache subscription
         // BackgroundWorker timer reset should also be updated because of reactive to this preferences change, or app activity in general
 
-        // TODO P1 BW can be reactive, too...
+        // TODO P1 Perf BW can be reactive, too...
         // Notify BW so it can reset its inactivity timer with new value?
         // Or, does BW know to treat any Prefs change as user activity?
         var message = new AppBwUserActivityMessage();
@@ -262,7 +262,7 @@
         };
     }
 
-    // Reset the preferences to default, preserving selected prefix and drawer open states
+    // Reset preferences to default, preserving selected prefix and drawer open states
     private async Task ResetToDefault()
     {
         await Persist(AppConfig.DefaultPreferences with

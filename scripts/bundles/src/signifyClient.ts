@@ -106,7 +106,7 @@ const validateClient = async (): Promise<SignifyClient> => {
         // console.warn('signifyClient: validateClient - Reconnecting to SignifyClient with agentUrl and passcode:', agentUrl, passcode);
 
         const ts = Date.now();
-        // TODO P1 wrap in try-catch
+        // TODO P2 wrap in try-catch
         // Note: don't log state
         await connect(agentUrl, passcode);
         const duration = Date.now() - ts;
@@ -252,7 +252,7 @@ export const bootAndConnect = async (
             throw new Error('Boot operation failed');
         }
         console.debug('signifyClient: connecting...');
-        // TODO P1: if _bootedSignifyClient contains updated client info, use it and no need to connect again?
+        // TODO P2: if _bootedSignifyClient contains updated client info, use it and no need to connect again?
         await _client.connect();
     } catch (error) {
         console.error('signifyClient: client could not boot then connect', error);

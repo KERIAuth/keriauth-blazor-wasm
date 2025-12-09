@@ -59,11 +59,13 @@
         /// <summary>
         /// Default timeout for waiting for BackgroundWorker to become ready.
         /// </summary>
+        // TODO P2: move to AppConfig
         private const int BwReadyTimeoutMs = 5000;
 
         /// <summary>
         /// Polling interval when checking for BwReadyState.
         /// </summary>
+        // TODO P2: move to AppConfig
         private const int BwReadyPollIntervalMs = 200;
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
@@ -192,7 +194,8 @@
         /// <param name="maxWaitMs">Maximum time to wait in milliseconds. Default: 5000ms (5 seconds).</param>
         /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
         /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
-        public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 50) {
+        // TODO P2: adjust default timeouts as needed based on real-world performance
+        public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
             if (assertions is null || assertions.Count == 0) {
                 _logger.LogWarning("WaitForAppCache called with no assertions");
                 return true; // No assertions means nothing to wait for
@@ -333,6 +336,10 @@
         /// </summary>
         private async Task FetchInitialStorageValuesAsync() {
             // Fetch essential records (Local storage - persisted across sessions)
+
+            // TODO P1 some DRY refactoring needed here, to check result and set IsBwReady
+            _ = await WaitForBwReadyAsync();
+
             // These should exist after BackgroundWorker.InitializeStorageDefaultsAsync() runs
 
             // 1. Preferences
