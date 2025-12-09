@@ -44,7 +44,7 @@ using MudBlazor.Services;
 // 2. Reopen them - they will load with the new version
 // 3. BackgroundWorker restarts automatically on next event
 //
-// TODO: Consider detecting SRI failures in app.ts and showing user-friendly error
+// TODO P3: Consider detecting SRI failures in app.ts and showing user-friendly error
 // message instead of silent failure. Would require error handling in beforeStart().
 //
 // ==================================================================================

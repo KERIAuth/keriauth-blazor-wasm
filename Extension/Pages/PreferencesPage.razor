@@ -338,12 +338,12 @@
                     Client-device: Indicates the intention to use a platform authenticator built into the client device (e.g., Touch ID on a Mac or Windows Hello).
             -->
 
-            <MudExpansionPanel Text="Webauthn Authenticator ('Passkey') Settings" Class="mt-3 mb-3 bt-pref-group-label0" Expanded="false">
+            <MudExpansionPanel Text="Passkey (Webauthn Authenticator) Settings" Class="mt-3 mb-3 bt-pref-group-label0" Expanded="false">
                 <MudStack Row="false" Class="bt-pref-stack1">
                     <MudText Class="bt-pref-group-label1">
-                        Presets
+                        <b>Presets</b>
                     </MudText>
-                    <MudStack Row>
+                    <MudStack Row Class="ml-1 mb-2">
                         <MudButton OnClick="SetDefaultWebauthn" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Default</MudButton>
                         <MudButton OnClick="SetMostPermissive" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Permissive</MudButton>
                         <MudButton OnClick="SetForSecurityKey" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">USB Security Key</MudButton>
@@ -351,7 +351,7 @@
                 </MudStack>
                 <MudStack Row="false" Class="bt-pref-stack1">
                     <MudText Class="bt-pref-group-label1">
-                        Registration Settings
+                        <b>Registration Settings</b>
                     </MudText>
 
                     <MudText Class="bt-pref-group-label2">
@@ -448,7 +448,7 @@
                     @* // TODO P2: get TransportOptions working *@
                     <MudStack>
                         <MudText Class="bt-pref-group-label1">
-                            Authentication Settings
+                            <b>Authentication Settings</b>
                         </MudText>
                         <MudText Class="bt-pref-group-label2">
                             Transports

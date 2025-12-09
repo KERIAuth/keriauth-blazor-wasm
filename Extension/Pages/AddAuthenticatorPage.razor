@@ -64,7 +64,7 @@
         if (res.IsFailed)
         {
             snackbar.Add("Authenticator not registered", Severity.Warning);
-            logger.LogWarning("RegisterCredential failed: {x}", res.Errors.ToArray());
+            logger.LogInformation("RegisterCredential failed: {x}", res.Errors.ToArray());
         }
         else
         {
