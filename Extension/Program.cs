@@ -86,6 +86,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
             builder.Services.AddSingleton<IUserActivityService, UserActivityService>();
+            builder.Services.AddSingleton<SessionManager>();
             break;
     }
 });

@@ -11,7 +11,9 @@
 @inject NavigationManager navManager
 @inject ILogger<IndexPage> logger
 
-@* Intentionally empty visible content to reduce flickering during navigation.
+@* 
+   // TODO P2: remove this loading indicator if it is always quick.
+   Intentionally empty visible content to reduce flickering during navigation.
    This page serves as the routing hub - other pages navigate here when done with their step,
    and RedirectIfNeeded() determines the next appropriate page based on app state.
 *@

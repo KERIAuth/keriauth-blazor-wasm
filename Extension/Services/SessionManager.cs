@@ -264,18 +264,42 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Locks session by clearing session storage.
+    /// Locks session by clearing KERIA session records (PasscodeModel and KeriaConnectionInfo).
     /// Public API called by BackgroundWorker or when PasscodeModel is cleared.
+    /// NOTE: This does NOT clear BwReadyState - BackgroundWorker is still initialized.
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
     public async Task LockSessionAsync() {
-        _logger.LogInformation("Locking session (clearing session storage)");
-        var clearRes = await _storageService.Clear(StorageArea.Session);
-        if (clearRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to clear session storage: {clearRes.Errors[0].Message}");
-        }
+        _logger.LogInformation("Locking session (clearing KERIA session records)");
+        await ClearKeriaSessionRecordsAsync();
         await SetLockIconAsync();
+    }
+
+    /// <summary>
+    /// Clears KERIA session records (PasscodeModel and KeriaConnectionInfo) from session storage.
+    /// Does NOT clear BwReadyState - BackgroundWorker initialization state is separate from user session.
+    /// Public API for use by App pages that need to clear session state (UnlockPage, MainLayout).
+    /// Throws exception on storage operation failure (fail-fast).
+    ///
+    /// NOTE: Named "KeriaSessionRecords" rather than "Credentials" because in KERI/ACDC domain,
+    /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
+    /// </summary>
+    public async Task ClearKeriaSessionRecordsAsync() {
+        _logger.LogInformation("ClearKeriaSessionRecordsAsync: Removing PasscodeModel and KeriaConnectionInfo");
+
+        var removePasscodeRes = await _storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
+        if (removePasscodeRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove PasscodeModel: {removePasscodeRes.Errors[0].Message}");
+        }
+
+        var removeConnectionRes = await _storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
+        if (removeConnectionRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove KeriaConnectionInfo: {removeConnectionRes.Errors[0].Message}");
+        }
+
+        _logger.LogInformation("ClearKeriaSessionRecordsAsync: KERIA session records cleared");
     }
 
     /// <summary>
