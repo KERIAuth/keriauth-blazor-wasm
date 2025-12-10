@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Serialization;
 using Extension.Helper;
-using Extension.Models.Messages.Common;
 using Extension.Services.SignifyService.Models;
 
 namespace Extension.Models.Messages.AppBw {
@@ -206,34 +205,4 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("cesr")] string Cesr
     );
 
-    /// <summary>
-    /// Payload for requesting a new identifier to be created.
-    /// </summary>
-    public record RequestAddIdentifierPayload(
-        [property: JsonPropertyName("alias")] string Alias
-    );
-
-    /// <summary>
-    /// Message requesting BackgroundWorker to create a new identifier.
-    /// </summary>
-    public record AppBwRequestAddIdentifierMessage : AppBwMessage<RequestAddIdentifierPayload> {
-        public AppBwRequestAddIdentifierMessage(string alias)
-            : base(AppBwMessageType.RequestAddIdentifier, 0, null, null, new RequestAddIdentifierPayload(alias)) { }
-    }
-
-    /// <summary>
-    /// Response from BackgroundWorker for RequestAddIdentifier.
-    /// Contains success/failure status and optional error message.
-    /// </summary>
-    public record AddIdentifierResponse(
-        [property: JsonPropertyName("success")] bool Success,
-        [property: JsonPropertyName("error")] string? Error = null,
-        [property: JsonPropertyName("prefix")] string? Prefix = null
-    ) : IResponseMessage
-    {
-        /// <summary>
-        /// Implements IResponseMessage.ErrorMessage by delegating to the Error property.
-        /// </summary>
-        public string? ErrorMessage => Error;
-    }
 }
