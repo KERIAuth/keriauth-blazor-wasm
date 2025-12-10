@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace Extension.Models.Messages.BwApp {
     /// <summary>
@@ -19,6 +19,9 @@ namespace Extension.Models.Messages.BwApp {
         [JsonPropertyName("error")]
         public string? Error { get; init; }
 
+        /// <summary>
+        /// Constructor for JSON deserialization.
+        /// </summary>
         [JsonConstructor]
         public BwAppMessage(string type, string? requestId = null, T? payload = default, string? error = null) {
             Type = type;
@@ -26,16 +29,63 @@ namespace Extension.Models.Messages.BwApp {
             Payload = payload;
             Error = error;
         }
+
+        /// <summary>
+        /// Constructor for compile-time type-safe message creation.
+        /// </summary>
+        public BwAppMessage(BwAppMessageType type, string? requestId = null, T? payload = default, string? error = null)
+            : this(type.Value, requestId, payload, error) { }
     }
 
     /// <summary>
-    /// Message types sent from BackgroundWorker to App.
+    /// Strongly-typed message type that must be one of the defined values.
+    /// Use the static properties (e.g., BwAppMessageType.LockApp) for compile-time safety.
+    /// Use the Values nested class for switch case labels (e.g., BwAppMessageType.Values.LockApp).
     /// </summary>
-    public static class BwAppMessageTypes {
-        public const string LOCK_APP = "lockApp";
-        public const string SYSTEM_LOCK_DETECTED = "systemLockDetected";
-        public const string FROM_BACKGROUND_WORKER = "fromBackgroundWorker";
-        public const string FORWARDED_MESSAGE = "forwardedMessage";
+    public readonly struct BwAppMessageType : IEquatable<BwAppMessageType> {
+        /// <summary>
+        /// Constant string values for use in switch case labels.
+        /// </summary>
+        public static class Values {
+            public const string LockApp = "lockApp";
+            public const string SystemLockDetected = "systemLockDetected";
+            public const string FromBackgroundWorker = "fromBackgroundWorker";
+            public const string ForwardedMessage = "forwardedMessage";
+        }
+
+        public string Value { get; }
+
+        private BwAppMessageType(string value) => Value = value;
+
+        // Static properties for compile-time type safety
+        public static BwAppMessageType LockApp { get; } = new(Values.LockApp);
+        public static BwAppMessageType SystemLockDetected { get; } = new(Values.SystemLockDetected);
+        public static BwAppMessageType FromBackgroundWorker { get; } = new(Values.FromBackgroundWorker);
+        public static BwAppMessageType ForwardedMessage { get; } = new(Values.ForwardedMessage);
+
+        /// <summary>
+        /// Parse a string value into a BwAppMessageType.
+        /// Use this when deserializing from JSON or other external sources.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown when the value is not a valid message type.</exception>
+        public static BwAppMessageType Parse(string value) {
+            return value switch {
+                Values.LockApp => LockApp,
+                Values.SystemLockDetected => SystemLockDetected,
+                Values.FromBackgroundWorker => FromBackgroundWorker,
+                Values.ForwardedMessage => ForwardedMessage,
+                _ => throw new ArgumentException($"Invalid BwAppMessageType: '{value}'", nameof(value))
+            };
+        }
+
+        public static implicit operator string(BwAppMessageType type) => type.Value;
+        public override string ToString() => Value;
+
+        public bool Equals(BwAppMessageType other) => Value == other.Value;
+        public override bool Equals(object? obj) => obj is BwAppMessageType other && Equals(other);
+        public override int GetHashCode() => Value?.GetHashCode() ?? 0;
+        public static bool operator ==(BwAppMessageType left, BwAppMessageType right) => left.Equals(right);
+        public static bool operator !=(BwAppMessageType left, BwAppMessageType right) => !left.Equals(right);
     }
 
     /// <summary>
@@ -43,7 +93,7 @@ namespace Extension.Models.Messages.BwApp {
     /// </summary>
     public record BwAppLockMessage : BwAppMessage<object> {
         public BwAppLockMessage()
-            : base(BwAppMessageTypes.LOCK_APP) { }
+            : base(BwAppMessageType.LockApp) { }
     }
 
     /// <summary>
@@ -52,7 +102,7 @@ namespace Extension.Models.Messages.BwApp {
     /// </summary>
     public record BwAppSystemLockDetectedMessage : BwAppMessage<object> {
         public BwAppSystemLockDetectedMessage()
-            : base(BwAppMessageTypes.SYSTEM_LOCK_DETECTED) { }
+            : base(BwAppMessageType.SystemLockDetected) { }
     }
 
     /// <summary>
@@ -61,6 +111,6 @@ namespace Extension.Models.Messages.BwApp {
     /// </summary>
     public record BwAppForwardedMessage : BwAppMessage<object> {
         public BwAppForwardedMessage(string? requestId, object? payload, string? error = null)
-            : base(BwAppMessageTypes.FORWARDED_MESSAGE, requestId, payload, error) { }
+            : base(BwAppMessageType.ForwardedMessage, requestId, payload, error) { }
     }
 }
