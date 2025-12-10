@@ -2,7 +2,6 @@
 @using Extension.Models
 @using Extension.Services.Storage
 @using Extension.Components
-@using System.Text.Json
 
 @inherits AuthenticatedPageBase
 @implements IDisposable
@@ -11,12 +10,13 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<IdentifiersPage> logger
-@inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject AppCache appCache
+@inject IAppBwMessagingService appBwMessagingService
 
 @using Extension.Services.SignifyService.Models
+@using Extension.Models.Messages.AppBw
 
 @code {
     // fields
@@ -39,30 +39,15 @@
         // Initialize base class for authentication-based render suppression
         InitializeAppCache(appCache);
 
-        await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
+        await this.SubscribeToAppCache(appCache, async () =>
+        {
+            await InvokeAsync(StateHasChanged);
+        });
     }
 
     protected override void OnParametersSet()
     {
         logger.LogInformation($"OnParametersSet");
-    }
-
-    private async Task RefreshIdentifiersCache()
-    {
-        var identifiersRes = await signifyClientService.GetIdentifiers();
-        if (identifiersRes.IsSuccess)
-        {
-            var updatedConnectionInfo = appCache.MyKeriaConnectionInfo with
-            {
-                IdentifiersList = [identifiersRes.Value]
-            };
-            await storageService.SetItem<KeriaConnectionInfo>(updatedConnectionInfo, StorageArea.Session);
-            await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count == identifiersRes.Value.Aids.Count]);
-        }
-        else
-        {
-            logger.LogWarning("Failed to refresh identifiers cache: {errors}", identifiersRes.Errors);
-        }
     }
 
     private async Task AddIdentifier()
@@ -85,29 +70,30 @@
         }
         else
         {
-            DialogResult = $"Dialog result: {result.Data}";
-            logger.LogInformation("AddIdentifier: {1}", result.Data);
+            var alias = result.Data?.ToString() ?? String.Empty;
+            if (string.IsNullOrWhiteSpace(alias))
+            {
+                logger.LogWarning("AddIdentifier: alias is empty");
+                snackbar.Add("Identifier alias cannot be empty", Severity.Warning);
+                return;
+            }
+
+            DialogResult = $"Dialog result: {alias}";
+            logger.LogInformation("AddIdentifier: Sending request to BackgroundWorker with alias '{Alias}'", alias);
             IsAddingAid = true;
             StateHasChanged();
-            var res = await signifyClientService.RunCreateAid(result.Data?.ToString() ?? String.Empty);
-            if (res.IsFailed || res.Value is null)
-            {
-                logger.LogWarning("AddIdentifier failed: {e}", string.Join("; ", res.Errors.Select(e => e.Message)));
-                snackbar.Add("Failed to add identifier", Severity.Error);
-            }
-            else
-            {
-                logger.LogInformation("AddIdentifier: {1}", res.Value);
-                // TODO P1 Move RefreshIdentifiersCache() to be called from backgroundWorker and then reactive update via subscribe to appCache?.MyKeriaConnectionInfo.
-                //
-                // Fetch fresh identifiers from KERIA and update cache
-                await RefreshIdentifiersCache();
-                var prefix = appCache.MyPreferences.SelectedPrefix;
-                await SetActiveAid(prefix);
-            }
+
+            // Send message to BackgroundWorker to create the identifier
+            // The UI will update automatically via AppCache subscription when storage changes
+            var message = new AppBwRequestAddIdentifierMessage(alias);
+            var currentAidCount = MyIdentifiers.Count;
+            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            // TODO P2 : improve this wait logic - ideally use an event or notification rather than polling. We are also not handling a failure case here, such as if a duplicate alias value were provided.
+            // wait until AppCache updates
+            await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo?.IdentifiersList.Count > currentAidCount]);
+            IsAddingAid = false;
+            await InvokeAsync(StateHasChanged);
         }
-        IsAddingAid = false;
-        StateHasChanged();
     }
 
     async Task SetActiveAid(string prefix)
@@ -150,6 +136,7 @@
             }
             @if (IsAddingAid)
             {
+                // non-reachable code path for now - kept for reference.  IsAddingAid is set to true when adding an identifier, but...
                 <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
                     <MudProgressCircular Color="Color.Default" Indeterminate="true" />
                 </div>

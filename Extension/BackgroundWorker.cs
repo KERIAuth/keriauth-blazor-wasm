@@ -1203,6 +1203,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     logger.LogInformation("BW←App: USER_ACTIVITY message received, updating session expiration if applicable");
                     await _sessionManager.ExtendIfUnlockedAsync();
                     return;
+                case AppBwMessageType.Values.RequestAddIdentifier:
+                    await HandleRequestAddIdentifierAsync(msg);
+                    return;
                 default:
                     logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
                     contentScriptMessageType = msg.Type;
@@ -1230,6 +1233,73 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             logger.LogError(ex, "Error forwarding App message to ContentScript");
             return;
+        }
+    }
+
+    /// <summary>
+    /// Handles RequestAddIdentifier message from App to create a new identifier.
+    /// On success, refreshes identifiers cache and updates storage.
+    /// </summary>
+    private async Task HandleRequestAddIdentifierAsync(AppBwMessage<object> msg) {
+        try {
+            logger.LogInformation("BW HandleRequestAddIdentifier: Processing request");
+
+            // Deserialize payload to RequestAddIdentifierPayload
+            if (msg.Payload is null) {
+                logger.LogWarning("BW HandleRequestAddIdentifier: Payload is null");
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
+            var payload = JsonSerializer.Deserialize<RequestAddIdentifierPayload>(payloadJson, RecursiveDictionaryJsonOptions);
+
+            if (payload is null || string.IsNullOrEmpty(payload.Alias)) {
+                logger.LogWarning("BW HandleRequestAddIdentifier: Invalid payload or empty alias");
+                return;
+            }
+
+            logger.LogInformation("BW HandleRequestAddIdentifier: Creating identifier with alias '{Alias}'", payload.Alias);
+
+            // Create the identifier
+            var createResult = await _signifyClientService.RunCreateAid(payload.Alias);
+            if (createResult.IsFailed || createResult.Value is null) {
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to create identifier: {Errors}",
+                    string.Join("; ", createResult.Errors.Select(e => e.Message)));
+                return;
+            }
+
+            logger.LogInformation("BW HandleRequestAddIdentifier: Successfully created identifier '{Alias}'", payload.Alias);
+
+            // Refresh identifiers from KERIA
+            var identifiersResult = await _signifyClientService.GetIdentifiers();
+            if (identifiersResult.IsFailed) {
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to refresh identifiers: {Errors}",
+                    string.Join("; ", identifiersResult.Errors.Select(e => e.Message)));
+                return;
+            }
+
+            // Update storage with new identifiers list
+            var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+            if (connectionInfoResult.IsFailed || connectionInfoResult.Value is null) {
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to get KeriaConnectionInfo from storage");
+                return;
+            }
+
+            var updatedConnectionInfo = connectionInfoResult.Value with {
+                IdentifiersList = [identifiersResult.Value]
+            };
+
+            var setResult = await _storageService.SetItem<KeriaConnectionInfo>(updatedConnectionInfo, StorageArea.Session);
+            if (setResult.IsFailed) {
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to update KeriaConnectionInfo in storage: {Errors}",
+                    string.Join("; ", setResult.Errors.Select(e => e.Message)));
+                return;
+            }
+
+            logger.LogInformation("BW HandleRequestAddIdentifier: Successfully updated identifiers in storage");
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "BW HandleRequestAddIdentifier: Exception occurred");
         }
     }
 

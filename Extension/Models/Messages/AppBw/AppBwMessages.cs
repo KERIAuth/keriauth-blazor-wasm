@@ -65,6 +65,7 @@ namespace Extension.Models.Messages.AppBw {
             public const string ReplyApprovedSignHeaders = "/KeriAuth/AppBw/signify/approvedSignHeaders";
             public const string AppClosed = "/KeriAuth/AppBw/signify/app_closed";
             public const string UserActivity = "/KeriAuth/AppBw/user_activity";
+            public const string RequestAddIdentifier = "/KeriAuth/AppBw/requestAddIdentifier";
         }
 
         public string Value { get; }
@@ -80,6 +81,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType ReplyApprovedSignHeaders { get; } = new(Values.ReplyApprovedSignHeaders);
         public static AppBwMessageType AppClosed { get; } = new(Values.AppClosed);
         public static AppBwMessageType UserActivity { get; } = new(Values.UserActivity);
+        public static AppBwMessageType RequestAddIdentifier { get; } = new(Values.RequestAddIdentifier);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -96,6 +98,7 @@ namespace Extension.Models.Messages.AppBw {
                 Values.ReplyApprovedSignHeaders => ReplyApprovedSignHeaders,
                 Values.AppClosed => AppClosed,
                 Values.UserActivity => UserActivity,
+                Values.RequestAddIdentifier => RequestAddIdentifier,
                 _ => throw new ArgumentException($"Invalid AppBwMessageType: '{value}'", nameof(value))
             };
         }
@@ -201,4 +204,19 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("raw")] RecursiveDictionary Raw,
         [property: JsonPropertyName("cesr")] string Cesr
     );
+
+    /// <summary>
+    /// Payload for requesting a new identifier to be created.
+    /// </summary>
+    public record RequestAddIdentifierPayload(
+        [property: JsonPropertyName("alias")] string Alias
+    );
+
+    /// <summary>
+    /// Message requesting BackgroundWorker to create a new identifier.
+    /// </summary>
+    public record AppBwRequestAddIdentifierMessage : AppBwMessage<RequestAddIdentifierPayload> {
+        public AppBwRequestAddIdentifierMessage(string alias)
+            : base(AppBwMessageType.RequestAddIdentifier, 0, null, null, new RequestAddIdentifierPayload(alias)) { }
+    }
 }
