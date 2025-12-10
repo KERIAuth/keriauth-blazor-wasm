@@ -24,10 +24,12 @@
 
     // properties
     bool IsAddingAid { get; set; }
-    List<Aid>? MyIdentifiers { get; set; }
-
-    // reactive properties
-    string CountLabel => (MyIdentifiers is not null) ? "(" + MyIdentifiers.Count + ")" : "...";
+   
+    // computed properties
+     List<Aid> MyIdentifiers => appCache?.MyKeriaConnectionInfo?.IdentifiersList is { Count: > 0 } list && list[0].Aids is not null
+        ? list[0].Aids.OrderBy(a => a.Name).ToList()
+        : [];
+    string CountLabel => "(" + MyIdentifiers.Count + ")";
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
 
     protected override async Task OnInitializedAsync()
@@ -43,19 +45,6 @@
     protected override void OnParametersSet()
     {
         logger.LogInformation($"OnParametersSet");
-        LoadIdentifiersFromCache();
-    }
-
-    private void LoadIdentifiersFromCache()
-    {
-        logger.LogInformation("LoadIdentifiersFromCache");
-        // Guard against null during session timeout navigation
-        var identifiersList = appCache?.MyKeriaConnectionInfo?.IdentifiersList;
-        if (identifiersList is not null && identifiersList.Count > 0 && identifiersList[0].Aids is not null)
-        {
-            logger.LogInformation("LoadIdentifiersFromCache: {count}", identifiersList[0].Aids.Count);
-            MyIdentifiers = identifiersList[0].Aids.OrderBy(a => a.Name).ToList();
-        }
     }
 
     private async Task RefreshIdentifiersCache()
@@ -113,7 +102,6 @@
                 //
                 // Fetch fresh identifiers from KERIA and update cache
                 await RefreshIdentifiersCache();
-                LoadIdentifiersFromCache();
                 var prefix = appCache.MyPreferences.SelectedPrefix;
                 await SetActiveAid(prefix);
             }
@@ -145,23 +133,20 @@
 
             </MudStack>
 
-            @if (MyIdentifiers is not null)
+            @foreach (Aid aid in MyIdentifiers)
             {
-                @foreach (Aid aid in MyIdentifiers)
-                {
-                    <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + aid.Prefix)">
-                        <MudCard Class="py-0 my-1">
-                            <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
-                                <MudTooltip Text="Set Identifier as active" Delay="1000">
-                                    <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
-                                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
-                                    </MudButton>
-                                </MudTooltip>
-                                <MudText Typo="Typo.h6">@aid.Name</MudText>
-                            </div>
-                        </MudCard>
-                    </MudLink>
-                }
+                <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + aid.Prefix)">
+                    <MudCard Class="py-0 my-1">
+                        <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
+                            <MudTooltip Text="Set Identifier as active" Delay="1000">
+                                <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
+                                    <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                </MudButton>
+                            </MudTooltip>
+                            <MudText Typo="Typo.h6">@aid.Name</MudText>
+                        </div>
+                    </MudCard>
+                </MudLink>
             }
             @if (IsAddingAid)
             {
