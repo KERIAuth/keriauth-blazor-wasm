@@ -1,6 +1,8 @@
 ﻿using Extension.Helper;
 using Extension.Models.Messages.AppBw;
 using Extension.Models.Messages.BwApp;
+using Extension.Models.Messages.Common;
+using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using System.Text.Json;
@@ -155,10 +157,19 @@ namespace Extension.Services {
         /// TResponse is the expected response type from BackgroundWorker.
         /// The browser-polyfill enables Promise returns from onMessage handlers,
         /// allowing this method to receive the BackgroundWorker's return value.
+        /// Returns Result.Fail on timeout, deserialization failure, or communication error.
         /// </summary>
-        public async Task<TResponse?> SendRequestAsync<TPayload, TResponse>(AppBwMessage<TPayload> message) where TResponse : class {
-            logger.LogInformation("SendRequestAsync type {typeName}, message type: {messageType}, expecting response type: {responseType}",
-                typeof(AppBwMessage<TPayload>).Name, message.Type, typeof(TResponse).Name);
+        /// <param name="message">The request message to send</param>
+        /// <param name="timeout">Optional timeout (defaults to AppConfig.DefaultRequestTimeout)</param>
+        /// <returns>Result containing the response or failure information</returns>
+        public async Task<Result<TResponse?>> SendRequestAsync<TPayload, TResponse>(
+            AppBwMessage<TPayload> message,
+            TimeSpan? timeout = null) where TResponse : class, IResponseMessage {
+
+            timeout ??= AppConfig.DefaultRequestTimeout;
+
+            logger.LogInformation("SendRequestAsync type {typeName}, message type: {messageType}, expecting response type: {responseType}, timeout: {timeout}",
+                typeof(AppBwMessage<TPayload>).Name, message.Type, typeof(TResponse).Name, timeout);
 
             try {
                 // Serialize the strongly-typed AppBwMessage with increased depth and RecursiveDictionary support
@@ -170,15 +181,30 @@ namespace Extension.Services {
                 // Deserialize back to object for sending via WebExtensions API
                 var messageToSend = JsonSerializer.Deserialize<object>(messageJson, MessageJsonOptions);
 
-                // Send to BackgroundWorker and await response
+                // Send to BackgroundWorker and await response with timeout
                 // The browser-polyfill wraps Chrome's sendMessage to support Promise returns from onMessage
-                var response = await _webExtensionsApi.Runtime.SendMessage(messageToSend);
+                using var cts = new CancellationTokenSource(timeout.Value);
+
+                // Convert ValueTask to Task for use with Task.WhenAny
+                var sendTask = _webExtensionsApi.Runtime.SendMessage(messageToSend).AsTask();
+                var delayTask = Task.Delay(timeout.Value, cts.Token);
+                var completedTask = await Task.WhenAny(sendTask, delayTask);
+
+                if (completedTask != sendTask) {
+                    logger.LogWarning("SendRequestAsync timed out after {timeout}", timeout);
+                    return Result.Fail<TResponse?>($"Request timed out after {timeout.Value.TotalSeconds} seconds waiting for BackgroundWorker response");
+                }
+
+                // Cancel the delay task since sendTask completed
+                await cts.CancelAsync();
+
+                var response = await sendTask;
 
                 logger.LogInformation("SendRequestAsync received response: {response}", response);
 
                 if (response.ValueKind == JsonValueKind.Null || response.ValueKind == JsonValueKind.Undefined) {
                     logger.LogWarning("SendRequestAsync received null/undefined response");
-                    return null;
+                    return Result.Fail<TResponse?>("Received null/undefined response from BackgroundWorker");
                 }
 
                 // Deserialize the response to the expected type
@@ -188,11 +214,19 @@ namespace Extension.Services {
                 logger.LogInformation("SendRequestAsync deserialized response to {responseType}: {response}",
                     typeof(TResponse).Name, responseJson);
 
-                return typedResponse;
+                return Result.Ok(typedResponse);
+            }
+            catch (TaskCanceledException) {
+                logger.LogWarning("SendRequestAsync was cancelled");
+                return Result.Fail<TResponse?>("Request was cancelled");
+            }
+            catch (JsonException ex) {
+                logger.LogError(ex, "SendRequestAsync failed to deserialize response");
+                return Result.Fail<TResponse?>($"Failed to deserialize response: {ex.Message}");
             }
             catch (Exception ex) {
                 logger.LogError(ex, "Error sending request to BackgroundWorker");
-                throw;
+                return Result.Fail<TResponse?>($"Request failed: {ex.Message}");
             }
         }
 

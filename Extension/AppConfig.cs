@@ -60,6 +60,9 @@ namespace Extension {
         // SessionManager configuration
         public const string SessionManagerAlarmName = "SessionManagerAlarm";
 
+        // Request/Response messaging configuration
+        public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
+
         // KERI agent connection settings
         public const string LocalhostKeriaConnectAlias = "localhost";
         public const string LocalhostKeriaAdminUrl = "http://localhost:3901";

@@ -87,28 +87,30 @@
             {
                 // Send request to BackgroundWorker and await response
                 var message = new AppBwRequestAddIdentifierMessage(alias);
-                var response = await appBwMessagingService.SendRequestAsync<RequestAddIdentifierPayload, AddIdentifierResponse>(message);
+                var addResult = await appBwMessagingService.SendRequestAsync<RequestAddIdentifierPayload, AddIdentifierResponse>(message);
 
-                if (response is null)
+                if (addResult.IsFailed)
+                {
+                    // Communication/timeout error
+                    logger.LogWarning("AddIdentifier: Request failed - {Error}", addResult.Errors.FirstOrDefault()?.Message);
+                    snackbar.Add(addResult.Errors.FirstOrDefault()?.Message ?? "Request failed", Severity.Error);
+                }
+                else if (addResult.Value is null)
                 {
                     logger.LogWarning("AddIdentifier: No response received from BackgroundWorker");
                     snackbar.Add("No response from background worker", Severity.Error);
                 }
-                else if (!response.Success)
+                else if (!addResult.Value.Success)
                 {
-                    logger.LogWarning("AddIdentifier: Failed - {Error}", response.Error);
-                    snackbar.Add(response.Error ?? "Failed to add identifier", Severity.Error);
+                    // BackgroundWorker returned an error in the response
+                    logger.LogWarning("AddIdentifier: Failed - {Error}", addResult.Value.Error);
+                    snackbar.Add(addResult.Value.Error ?? "Failed to add identifier", Severity.Error);
                 }
                 else
                 {
                     logger.LogInformation("AddIdentifier: Success");
                     snackbar.Add($"Identifier '{alias}' created successfully", Severity.Success);
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "AddIdentifier: Exception occurred");
-                snackbar.Add($"Error: {ex.Message}", Severity.Error);
             }
             finally
             {

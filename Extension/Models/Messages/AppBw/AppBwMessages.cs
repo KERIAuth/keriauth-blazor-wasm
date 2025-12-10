@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 using Extension.Helper;
+using Extension.Models.Messages.Common;
 using Extension.Services.SignifyService.Models;
 
 namespace Extension.Models.Messages.AppBw {
@@ -228,5 +229,11 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("error")] string? Error = null,
         [property: JsonPropertyName("prefix")] string? Prefix = null
-    );
+    ) : IResponseMessage
+    {
+        /// <summary>
+        /// Implements IResponseMessage.ErrorMessage by delegating to the Error property.
+        /// </summary>
+        public string? ErrorMessage => Error;
+    }
 }
