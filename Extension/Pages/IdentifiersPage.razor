@@ -83,16 +83,38 @@
             IsAddingAid = true;
             StateHasChanged();
 
-            // Send message to BackgroundWorker to create the identifier
-            // The UI will update automatically via AppCache subscription when storage changes
-            var message = new AppBwRequestAddIdentifierMessage(alias);
-            var currentAidCount = MyIdentifiers.Count;
-            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
-            // TODO P2 : improve this wait logic - ideally use an event or notification rather than polling. We are also not handling a failure case here, such as if a duplicate alias value were provided.
-            // wait until AppCache updates
-            await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo?.IdentifiersList.Count > currentAidCount]);
-            IsAddingAid = false;
-            await InvokeAsync(StateHasChanged);
+            try
+            {
+                // Send request to BackgroundWorker and await response
+                var message = new AppBwRequestAddIdentifierMessage(alias);
+                var response = await appBwMessagingService.SendRequestAsync<RequestAddIdentifierPayload, AddIdentifierResponse>(message);
+
+                if (response is null)
+                {
+                    logger.LogWarning("AddIdentifier: No response received from BackgroundWorker");
+                    snackbar.Add("No response from background worker", Severity.Error);
+                }
+                else if (!response.Success)
+                {
+                    logger.LogWarning("AddIdentifier: Failed - {Error}", response.Error);
+                    snackbar.Add(response.Error ?? "Failed to add identifier", Severity.Error);
+                }
+                else
+                {
+                    logger.LogInformation("AddIdentifier: Success");
+                    snackbar.Add($"Identifier '{alias}' created successfully", Severity.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "AddIdentifier: Exception occurred");
+                snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                IsAddingAid = false;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 

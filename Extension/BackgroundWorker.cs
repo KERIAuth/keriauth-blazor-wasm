@@ -222,8 +222,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onMessage fires when extension parts or external apps send messages.
     // Typical use: Coordination, data requests.
     // Returns: Response to send back to the message sender (or null)
+    // The browser-polyfill supports Promise returns from onMessage handlers,
+    // allowing the sender's SendMessage to receive this return value.
     // [JSInvokable]
-    public async Task OnMessageAsync(object messageObj, WebExtensions.Net.Runtime.MessageSender sender) {
+    public async Task<object?> OnMessageAsync(object messageObj, WebExtensions.Net.Runtime.MessageSender sender) {
         try {
             logger.LogInformation("OnMessageAsync event handler called");
 
@@ -234,7 +236,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var isValidSender = await ValidateMessageSenderAsync(sender, messageObj);
             if (!isValidSender) {
                 logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender URL: {Url}, ID: {Id}", sender.Url, sender.Id);
-                return;
+                return null;
             }
 
             // Try to deserialize as InboundMessage
@@ -262,7 +264,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         if (type is null) {
                             logger.LogWarning("Failed to extract message type from AppBwMessage");
                             await HandleUnknownMessageActionAsync("unknown");
-                            return;
+                            return null;
                         }
 
                         await _sessionManager.ExtendIfUnlockedAsync();
@@ -283,15 +285,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             if (payload is null) {
                                 logger.LogWarning("Failed to extract message payload of type {t} from AppBwMessage", type);
                                 // await HandleUnknownMessageActionAsync("unknown");
-                                return;
+                                return null;
                             }
 
                             var appMsg = new AppBwMessage<object>(AppBwMessageType.Parse(type), tabId, tabUrl, requestId, payload);
 
                             logger.LogInformation("AppMessage deserialized - Type: {Type}, TabId: {TabId}, TabUrl: {tt}", appMsg.Type, appMsg.TabId, appMsg.TabUrl);
-                            await HandleAppMessageAsync(appMsg);
+                            var response = await HandleAppMessageAsync(appMsg);
 
-                            return;
+                            return response;
                         }
                     }
                 }
@@ -299,10 +301,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // Handle ContentScript messages (from web pages)
                     var contentScriptMsg = JsonSerializer.Deserialize<CsBwMessage>(messageJson, PortMessageJsonOptions);
                     if (contentScriptMsg != null) {
-                        // Note: intentionally not extending SessionExpirationTimer here, to effectively prevent a malicious page sending messages via ContentScript from keeping the session alive 
+                        // Note: intentionally not extending SessionExpirationTimer here, to effectively prevent a malicious page sending messages via ContentScript from keeping the session alive
                         // await _sessionManager.ExtendIfUnlockedAsync();
                         await HandleContentScriptMessageAsync(contentScriptMsg, sender);
-                        return;
+                        return null;
                     }
                 }
 
@@ -326,18 +328,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             await HandleUnknownMessageActionAsync(message.Action);
                             break;
                     }
-                    return;
+                    return null;
                 }
             }
             else {
                 logger.LogWarning("Failed to deserialize InboundMessage.Type {MessageJson}", messageJson);
-                return;
+                return null;
             }
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error handling runtime message");
-            return;
+            return null;
         }
+
+        return null;
     }
 
     // onAlarm fires at a scheduled interval/time.
@@ -1137,8 +1141,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// BW→CS message types (e.g., /signify/reply) to maintain separate contracts.
     /// </summary>
     /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
-    /// <returns>Status response</returns>
-    private async Task HandleAppMessageAsync(AppBwMessage<object> msg) {
+    /// <returns>Response object to send back to the App, or null for fire-and-forget messages</returns>
+    private async Task<object?> HandleAppMessageAsync(AppBwMessage<object> msg) {
         try {
             logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId} msg: {msg}", msg.Type, msg.TabId, msg);
 
@@ -1156,15 +1160,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppBwMessageType.Values.ReplyApprovedSignHeaders:
                     if (msg.Payload is null) {
                         logger.LogWarning("Payload is null for {t}: {msg}", msg.Type, msg);
-                        return;
+                        return null;
                     }
                     if (msg.RequestId is null) {
                         logger.LogWarning("RequestId is null for {t}: {msg}", msg.Type, msg);
-                        return;
+                        return null;
                     }
                     if (msg.TabUrl is null) {
                         logger.LogWarning("TabUrl is null for {t}: {msg}", msg.Type, msg);
-                        return;
+                        return null;
                     }
 
                     try {
@@ -1174,7 +1178,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                         if (signPayload is null) {
                             logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload1: {payload}", msg.Payload);
-                            return;
+                            return null;
                         }
 
                         logger.LogInformation("Prefix = {prefix}, Approved = {isApproved}, headersDict = {headersDict}",
@@ -1186,7 +1190,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     catch (Exception ex) {
                         logger.LogError(ex, "Error deserializing AppBwReplySignPayload1 from payload: {payload}", msg.Payload);
                     }
-                    return; // TODO P2 send error message back to Cs?
+                    return null; // TODO P2 send error message back to Cs?
                 case AppBwMessageType.Values.ReplyError:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
                     errorStr = "An error ocurred in the KERI Auth app";
@@ -1202,10 +1206,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppBwMessageType.Values.UserActivity:
                     logger.LogInformation("BW←App: USER_ACTIVITY message received, updating session expiration if applicable");
                     await _sessionManager.ExtendIfUnlockedAsync();
-                    return;
+                    return null;
                 case AppBwMessageType.Values.RequestAddIdentifier:
-                    await HandleRequestAddIdentifierAsync(msg);
-                    return;
+                    return await HandleRequestAddIdentifierAsync(msg);
                 default:
                     logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
                     contentScriptMessageType = msg.Type;
@@ -1228,11 +1231,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             logger.LogInformation("BW→CS: Successfully sent message to tab {TabId}", msg.TabId);
 
-            return;
+            return null;
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error forwarding App message to ContentScript");
-            return;
+            return null;
         }
     }
 
@@ -1240,14 +1243,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles RequestAddIdentifier message from App to create a new identifier.
     /// On success, refreshes identifiers cache and updates storage.
     /// </summary>
-    private async Task HandleRequestAddIdentifierAsync(AppBwMessage<object> msg) {
+    /// <returns>AddIdentifierResponse indicating success/failure</returns>
+    private async Task<object?> HandleRequestAddIdentifierAsync(AppBwMessage<object> msg) {
         try {
             logger.LogInformation("BW HandleRequestAddIdentifier: Processing request");
 
             // Deserialize payload to RequestAddIdentifierPayload
             if (msg.Payload is null) {
                 logger.LogWarning("BW HandleRequestAddIdentifier: Payload is null");
-                return;
+                return new AddIdentifierResponse(Success: false, Error: "Payload is null");
             }
 
             var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
@@ -1255,7 +1259,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (payload is null || string.IsNullOrEmpty(payload.Alias)) {
                 logger.LogWarning("BW HandleRequestAddIdentifier: Invalid payload or empty alias");
-                return;
+                return new AddIdentifierResponse(Success: false, Error: "Invalid payload or empty alias");
             }
 
             logger.LogInformation("BW HandleRequestAddIdentifier: Creating identifier with alias '{Alias}'", payload.Alias);
@@ -1263,26 +1267,27 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Create the identifier
             var createResult = await _signifyClientService.RunCreateAid(payload.Alias);
             if (createResult.IsFailed || createResult.Value is null) {
-                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to create identifier: {Errors}",
-                    string.Join("; ", createResult.Errors.Select(e => e.Message)));
-                return;
+                var errorMsg = string.Join("; ", createResult.Errors.Select(e => e.Message));
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to create identifier: {Errors}", errorMsg);
+                return new AddIdentifierResponse(Success: false, Error: $"Failed to create identifier: {errorMsg}");
             }
 
-            logger.LogInformation("BW HandleRequestAddIdentifier: Successfully created identifier '{Alias}'", payload.Alias);
+            // createResult.Value is a JSON string containing the created AID info
+            logger.LogInformation("BW HandleRequestAddIdentifier: Successfully created identifier '{Alias}', result: {Result}", payload.Alias, createResult.Value);
 
             // Refresh identifiers from KERIA
             var identifiersResult = await _signifyClientService.GetIdentifiers();
             if (identifiersResult.IsFailed) {
-                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to refresh identifiers: {Errors}",
-                    string.Join("; ", identifiersResult.Errors.Select(e => e.Message)));
-                return;
+                var errorMsg = string.Join("; ", identifiersResult.Errors.Select(e => e.Message));
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to refresh identifiers: {Errors}", errorMsg);
+                return new AddIdentifierResponse(Success: false, Error: $"Identifier created but failed to refresh list: {errorMsg}");
             }
 
             // Update storage with new identifiers list
             var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             if (connectionInfoResult.IsFailed || connectionInfoResult.Value is null) {
                 logger.LogWarning("BW HandleRequestAddIdentifier: Failed to get KeriaConnectionInfo from storage");
-                return;
+                return new AddIdentifierResponse(Success: false, Error: "Failed to get connection info from storage");
             }
 
             var updatedConnectionInfo = connectionInfoResult.Value with {
@@ -1291,15 +1296,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             var setResult = await _storageService.SetItem<KeriaConnectionInfo>(updatedConnectionInfo, StorageArea.Session);
             if (setResult.IsFailed) {
-                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to update KeriaConnectionInfo in storage: {Errors}",
-                    string.Join("; ", setResult.Errors.Select(e => e.Message)));
-                return;
+                var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
+                logger.LogWarning("BW HandleRequestAddIdentifier: Failed to update KeriaConnectionInfo in storage: {Errors}", errorMsg);
+                return new AddIdentifierResponse(Success: false, Error: $"Failed to update storage: {errorMsg}");
             }
 
             logger.LogInformation("BW HandleRequestAddIdentifier: Successfully updated identifiers in storage");
+            return new AddIdentifierResponse(Success: true);
         }
         catch (Exception ex) {
             logger.LogError(ex, "BW HandleRequestAddIdentifier: Exception occurred");
+            return new AddIdentifierResponse(Success: false, Error: $"Exception: {ex.Message}");
         }
     }
 

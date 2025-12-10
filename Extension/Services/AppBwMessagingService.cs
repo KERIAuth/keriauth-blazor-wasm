@@ -118,7 +118,7 @@ namespace Extension.Services {
         }
 
         /// <summary>
-        /// Sends a strongly-typed message from App to BackgroundWorker.
+        /// Sends a strongly-typed message from App to BackgroundWorker (fire-and-forget).
         /// TPayload is the payload type for the message.
         /// Uses MessageJsonOptions with increased MaxDepth and RecursiveDictionaryConverter
         /// to handle deeply nested credential structures while preserving CESR/SAID ordering.
@@ -145,6 +145,53 @@ namespace Extension.Services {
             }
             catch (Exception ex) {
                 logger.LogError(ex, "Error sending message to BackgroundWorker");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Sends a strongly-typed message from App to BackgroundWorker and awaits a response.
+        /// TPayload is the payload type for the request message.
+        /// TResponse is the expected response type from BackgroundWorker.
+        /// The browser-polyfill enables Promise returns from onMessage handlers,
+        /// allowing this method to receive the BackgroundWorker's return value.
+        /// </summary>
+        public async Task<TResponse?> SendRequestAsync<TPayload, TResponse>(AppBwMessage<TPayload> message) where TResponse : class {
+            logger.LogInformation("SendRequestAsync type {typeName}, message type: {messageType}, expecting response type: {responseType}",
+                typeof(AppBwMessage<TPayload>).Name, message.Type, typeof(TResponse).Name);
+
+            try {
+                // Serialize the strongly-typed AppBwMessage with increased depth and RecursiveDictionary support
+                var messageJson = JsonSerializer.Serialize(message, MessageJsonOptions);
+
+                logger.LogInformation("SendRequestAsync sending message with tabId {tabId}: {json}",
+                    message.TabId, messageJson);
+
+                // Deserialize back to object for sending via WebExtensions API
+                var messageToSend = JsonSerializer.Deserialize<object>(messageJson, MessageJsonOptions);
+
+                // Send to BackgroundWorker and await response
+                // The browser-polyfill wraps Chrome's sendMessage to support Promise returns from onMessage
+                var response = await _webExtensionsApi.Runtime.SendMessage(messageToSend);
+
+                logger.LogInformation("SendRequestAsync received response: {response}", response);
+
+                if (response.ValueKind == JsonValueKind.Null || response.ValueKind == JsonValueKind.Undefined) {
+                    logger.LogWarning("SendRequestAsync received null/undefined response");
+                    return null;
+                }
+
+                // Deserialize the response to the expected type
+                var responseJson = response.GetRawText();
+                var typedResponse = JsonSerializer.Deserialize<TResponse>(responseJson, MessageJsonOptions);
+
+                logger.LogInformation("SendRequestAsync deserialized response to {responseType}: {response}",
+                    typeof(TResponse).Name, responseJson);
+
+                return typedResponse;
+            }
+            catch (Exception ex) {
+                logger.LogError(ex, "Error sending request to BackgroundWorker");
                 throw;
             }
         }

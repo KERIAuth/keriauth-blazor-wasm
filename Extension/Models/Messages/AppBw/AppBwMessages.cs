@@ -219,4 +219,14 @@ namespace Extension.Models.Messages.AppBw {
         public AppBwRequestAddIdentifierMessage(string alias)
             : base(AppBwMessageType.RequestAddIdentifier, 0, null, null, new RequestAddIdentifierPayload(alias)) { }
     }
+
+    /// <summary>
+    /// Response from BackgroundWorker for RequestAddIdentifier.
+    /// Contains success/failure status and optional error message.
+    /// </summary>
+    public record AddIdentifierResponse(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null,
+        [property: JsonPropertyName("prefix")] string? Prefix = null
+    );
 }
