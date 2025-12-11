@@ -1,6 +1,8 @@
 ﻿@page "/index.html"
 @using Extension.Components
 @using Extension.Layouts
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
 @using static Extension.AppConfig
 
 @* IndexPage (from Blazor.BrowserExtension) provides base page functionality *@
@@ -55,11 +57,30 @@
     {
         logger.LogInformation("RedirectIfNeeded");
 
+        // Get pending request early for use throughout the routing logic
+        var pendingRequest = appCache.NextPendingBwAppRequest;
+
         if (!appCache.MyOnboardState.IsWelcomed)
         {
             NavigateIfNeeded(RouteToWelcome);
             return;
         }
+
+        // Check for update notification request before IsInstallAcknowledged check
+        // This ensures user sees update info even if they haven't acknowledged previous install
+        if (pendingRequest?.Type == BwAppMessageType.Values.RequestNotifyUserOfUpdate)
+        {
+            var updatePayload = pendingRequest.GetPayload<RequestNotifyUserOfUpdatePayload>();
+            logger.LogInformation(
+                "RedirectIfNeeded: Update notification request detected, requestId={RequestId}, version={Version}",
+                pendingRequest.RequestId,
+                updatePayload?.CurrentVersion ?? "unknown");
+            
+            NavigateIfNeeded(RouteToNewRelease);
+            return;
+        }
+
+        // TODO P2 consider this check with the one above for RequestNotifyUserOfUpdate
         if (!appCache.IsInstallAcknowledged)
         {
             NavigateIfNeeded(RouteToNewRelease);
@@ -114,24 +135,31 @@
             return;
         }
 
-        // Check for query parameter routing (e.g., popup requests)
-        if (App.InitialUri?.Query is not null)
+        // Check for pending BW→App requests that require App UI interaction
+        if (pendingRequest is not null)
         {
-            var query = System.Web.HttpUtility.ParseQueryString(App.InitialUri.Query);
-            if (query["page"] != null)
+            var route = pendingRequest.Type switch
             {
-                var pageParam = query["popupType"] switch
-                {
-                    "selectAuthorize" => RouteToRequestSignIn,
-                    "signRequest" => RouteToRequestSignHeaders,
-                    _ => null
-                };
-                if (pageParam != null)
-                {
-                    logger.LogInformation("RedirectIfNeeded: navigating to page param: {p}", pageParam);
-                    NavigateIfNeeded(pageParam);
-                    return;
-                }
+                BwAppMessageType.Values.RequestSelectAuthorize => RouteToRequestSignIn,
+                BwAppMessageType.Values.RequestSignHeaders => RouteToRequestSignHeaders,
+                BwAppMessageType.Values.RequestNotifyUserOfUpdate => RouteToIndex,
+                _ => null
+            };
+
+            if (route is not null)
+            {
+                logger.LogInformation(
+                    "RedirectIfNeeded: Pending BW→App request detected, type={Type}, requestId={RequestId}, navigating to {Route}",
+                    pendingRequest.Type, pendingRequest.RequestId, route);
+                NavigateIfNeeded(route);
+                return;
+            }
+            else
+            {
+                // Unknown request type - log warning but don't block navigation
+                logger.LogWarning(
+                    "RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}",
+                    pendingRequest.Type, pendingRequest.RequestId);
             }
         }
 

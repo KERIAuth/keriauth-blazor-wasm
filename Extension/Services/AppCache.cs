@@ -1,10 +1,14 @@
 ﻿namespace Extension.Services {
+    using System.Text.Json;
     using Extension.Models;
     using Extension.Models.Storage;
     using Extension.Services.SignifyService.Models;
 
     using Extension.Services.Storage;
     using Extension.Utilities;
+    using WebExtensions.Net;
+
+
 
     /// <summary>
     /// AppCache provides reactive access to application state stored in browser storage, including some derived properties.
@@ -35,11 +39,13 @@
     /// </summary>
     /// <param name="storageService"></param>
     /// <param name="logger"></param>
-    public class AppCache(IStorageService storageService, ILogger<AppCache> logger) : IDisposable {
+    /// <param name="webExtensionsApi"></param>
+    public class AppCache(IStorageService storageService, ILogger<AppCache> logger, IWebExtensionsApi webExtensionsApi) : IDisposable {
         private readonly IStorageService storageService = storageService;
         private readonly ILogger<AppCache> _logger = logger;
         private bool _isInitialized;
         private readonly SemaphoreSlim _initLock = new(1, 1);
+        private readonly IWebExtensionsApi webExtensionsApi = webExtensionsApi;
 
         /// <summary>
         /// Indicates whether AppCache has completed initial fetch of essential storage records.
@@ -72,6 +78,7 @@
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
         private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
+        private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = AppConfig.DefaultPreferences;
@@ -89,8 +96,25 @@
             AgentPrefix = ""
         };
 
+        /// <summary>
+        /// Pending requests from BackgroundWorker awaiting App processing.
+        /// Direction: BackgroundWorker → App
+        /// Components can check HasPendingBwAppRequests or NextPendingBwAppRequest to react to incoming requests.
+        /// </summary>
+        public PendingBwAppRequests MyPendingBwAppRequests { get; private set; } = PendingBwAppRequests.Empty;
+
         // Derived properties ("reactive selectors")
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
+
+        /// <summary>
+        /// True if there are pending BW→App requests awaiting processing.
+        /// </summary>
+        public bool HasPendingBwAppRequests => !MyPendingBwAppRequests.IsEmpty;
+
+        /// <summary>
+        /// The next pending BW→App request to process (oldest first), or null if none.
+        /// </summary>
+        public PendingBwAppRequest? NextPendingBwAppRequest => MyPendingBwAppRequests.NextRequest;
 
         private static readonly List<Aid> EmptyAidsList = [];
 
@@ -180,9 +204,20 @@
         public bool IsInstallAcknowledged =>
             MyOnboardState.IsWelcomed &&
             IsInstalledVersionAcknowledged;
+
+        public string ManifestVersion {
+            get {
+                string version = "unknown";
+                var manifestJsonElement = webExtensionsApi.Runtime.GetManifest();
+                if (manifestJsonElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String) {
+                    version = versionElement.ToString();
+                }
+                return version;
+            }
+        }
+
         public bool IsInstalledVersionAcknowledged =>
-            // TODO P2 must confirm it is current version in manifest. Compute in Program or App. Remove from Index.razor
-            MyOnboardState.InstallVersionAcknowledged is not null;
+            MyOnboardState.InstallVersionAcknowledged == ManifestVersion;
 
         /// <summary>
         /// Waits for AppCache to satisfy all provided assertion functions.
@@ -231,6 +266,7 @@
             passcodeModelObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
             keriaConnectionInfoObserver?.Dispose();
+            pendingBwAppRequestsObserver?.Dispose();
             _initLock?.Dispose();
             GC.SuppressFinalize(this);
         }
@@ -309,6 +345,18 @@
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing Keria connection info storage"),
+                    null,
+                    _logger
+                );
+                pendingBwAppRequestsObserver = new StorageObserver<PendingBwAppRequests>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (value) => {
+                        MyPendingBwAppRequests = value;
+                        _logger.LogInformation("AppCache updated MyPendingBwAppRequests: count={Count}", value.Count);
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing pending BW→App requests storage"),
                     null,
                     _logger
                 );
@@ -396,6 +444,17 @@
             }
             else {
                 _logger.LogDebug("AppCache: Initial fetch - KeriaConnectionInfo not found (not connected)");
+            }
+
+            // 6. PendingBwAppRequests (pending requests from BackgroundWorker)
+            var pendingRequestsResult = await storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            if (pendingRequestsResult.IsSuccess && pendingRequestsResult.Value is not null) {
+                MyPendingBwAppRequests = pendingRequestsResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - PendingBwAppRequests loaded (count={Count})",
+                    pendingRequestsResult.Value.Count);
+            }
+            else {
+                _logger.LogDebug("AppCache: Initial fetch - PendingBwAppRequests not found (none pending)");
             }
 
             _logger.LogInformation("AppCache: Initial fetch complete");

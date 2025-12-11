@@ -10,14 +10,15 @@
 @using Extension.Layouts
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
+@using Extension.Models.Storage
 @using Extension.Components
 @using Extension.Pages
 @using Extension.Services
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig
-@using System.Diagnostics
-@using Microsoft.AspNetCore.WebUtilities
 @using MudBlazor
 @using FluentResults
 @using System.Web
@@ -27,7 +28,7 @@
 @using JsBind.Net
 @using WebExtensions.Net
 
-@implements IDisposable
+@implements IAsyncDisposable
 
 @inject IStorageService storageService
 @inject NavigationManager navManager
@@ -39,6 +40,7 @@
 @inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
 @inject IAppBwMessagingService appBwMessagingService
+@inject IPendingBwAppRequestService pendingBwAppRequestService
 @inject IJSRuntime jsRuntime
 @inject IJSRuntime js
 @inject IJsRuntimeAdapter jsRuntimeAdapter
@@ -90,84 +92,47 @@
 
     protected override async Task OnInitializedAsync()
     {
-        logger.LogInformation($"OnInitialized");
+        logger.LogInformation("OnInitializedAsync");
 
         // Initialize base class for authentication-based render suppression
         InitializeAppCache(appCache);
 
-        await RefreshFromWebsiteConfig();
-        IsInitialized = true;
-        return;
-    }
+        // Get the pending request from storage (set by BackgroundWorker before opening popup)
+        var pendingRequest = appCache.NextPendingBwAppRequest;
+        if (pendingRequest?.Type != BwAppMessageType.Values.RequestSignHeaders)
+        {
+            logger.LogError("OnInitializedAsync: No pending RequestSignHeaders request found");
+            return;
+        }
 
-    protected override async Task OnParametersSetAsync()
-    {
-        logger.LogInformation($"OnParametersSetAsync");
-        logger.LogInformation("OnParametersSetAsync requestId {r}", RequestId);
+        var payload = pendingRequest.GetPayload<RequestSignHeadersPayload>();
+        if (payload is null)
+        {
+            logger.LogError("OnInitializedAsync: Failed to deserialize pending request payload to RequestSignHeadersPayload");
+            return;
+        }
+
+        // Extract values from the pending request payload
+        RequestId = pendingRequest.RequestId;
+        TabId = payload.TabId;
+        encodedOrigin = HttpUtility.UrlEncode(payload.Origin);
+        HeadersDict = payload.Headers;
+        PayloadJson = JsonSerializer.Serialize(payload.Headers);
+        WebsiteConfiguredPrefix = payload.RememberedPrefix ?? "unknown";
+
+        logger.LogInformation("OnInitializedAsync: requestId={RequestId}, tabId={TabId}, origin={Origin}",
+            RequestId, TabId, payload.Origin);
 
         LoadIdentifiersFromCache();
+        await RefreshFromWebsiteConfig();
 
-        // TODO P1 need to migrate away from UriQuery to Request records in Session
-        string initialUriQuery = App.InitialUri is not null ? App.InitialUri.Query : "";
-        logger.LogInformation($"URI query: {initialUriQuery}");
-
-        // Extract tabId from query string
-        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("tabId", out var tabIdStr))
+        if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
         {
-            if (int.TryParse(tabIdStr, out var parsedTabId))
-            {
-                TabId = parsedTabId;
-                logger.LogInformation("TabId from query string: {tabId}", TabId);
-            }
+            // TODO P2: Move this logic into BackgroundWorker.cs, to avoid calling this page altogether.
+            // TODO P2 notify the user signing is happening, and close?
         }
 
-        // TODO P1 should be a well-defined typed object instead of a double-encoded JSON string. Could base64 encode it.
-        // TODO P2 add try-catch
-        // TODO P2 decide whether these values (RequestId, Type, and others) should come in page parameters, initialUriQuery, or database/service.
-        if (QueryHelpers.ParseQuery(initialUriQuery).TryGetValue("message", out var outterMessage))
-        {
-            var decodedMsg = HttpUtility.UrlDecode(outterMessage);
-            logger.LogInformation("Chrome URI query message decoded: {msg}", decodedMsg);
-            var decodedMsg2 = HttpUtility.UrlDecode(decodedMsg);
-            logger.LogInformation("Chrome URI query message decoded2: {msg}", decodedMsg2);
-
-            if (!IsJsonValid(decodedMsg2))
-            {
-                logger.LogError("Chrome URI query Invalid JSON message: {msg}", decodedMsg2);
-                return;
-            }
-            ;
-
-            string jsonString = decodedMsg2.ToString(); // Convert StringValues to string
-
-            // Parse the JSON string
-            // TODO P2 write exception handling around the following
-            JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
-            JsonElement payload = jsonDocument.RootElement.GetProperty("payload");
-            PayloadJson = payload.ToString();
-            HeadersDict = JsonSerializer.Deserialize<Dictionary<string, string>>(payload) ?? new Dictionary<string, string>();
-
-            JsonElement requestId = jsonDocument.RootElement.GetProperty("requestId");
-            RequestId = requestId.ToString();
-
-            if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
-            {
-                // TODO P2: Move this logic into BackgroundWorker.cs, to avoid calling this page altogether.  Get identifier name from SelectedPrefix instead of fetching all identifiers
-                // await SignRequest(RequestedSignInMode, RequestId, null, PayloadJson);
-
-                // var message = new AppBwReplySignMessage(TabId, RequestId, Prefix);
-                // await appBwMessagingService.SendToBackgroundWorkerAsync(message);
-
-
-                // TODO P2 notify the user signing is happening, and close?
-            }
-            return;
-        }
-        else
-        {
-            logger.LogError("Could not find UriQuery content containing outter \"message\".");
-            return;
-        }
+        IsInitialized = true;
     }
 
     private void LoadIdentifiersFromCache()
@@ -282,6 +247,10 @@
     {
         var message = new AppBwReplyCanceledMessage(TabId, OriginStr, RequestId, "User cancelled sign request");
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+
+        // Clear the pending request now that cancel is complete
+        await ClearPendingRequestAsync();
+
         if (Layout is not null)
         {
             await Layout.ClosePopupAsync();
@@ -293,28 +262,28 @@
     //
     //
     //
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        // Clear pending request if user closes popup without explicit action
+        await ClearPendingRequestAsync();
         // TODO P4 unsubscribe from services, observables
     }
 
-    //
-    //
-    //
-    // TODO P4 remove or create helper?
-    static bool IsJsonValid(string jsonString)
+    /// <summary>
+    /// Clears any pending RequestSignHeaders request from storage.
+    /// Should be called when user completes or cancels the sign headers flow.
+    /// </summary>
+    // TODO P1: This method fetches NextPendingBwAppRequest each time it's called, which could be
+    // a different request if multiple are queued and one was already cleared. To fix: capture the
+    // requestId when the page initializes (from the pending request that triggered navigation here)
+    // and only clear that specific request, rather than whatever is currently first in the queue.
+    async Task ClearPendingRequestAsync()
     {
-        try
+        var pendingRequest = appCache.NextPendingBwAppRequest;
+        if (pendingRequest?.Type == BwAppMessageType.Values.RequestSignHeaders)
         {
-            // Attempt to parse the JSON string
-            var jsonDocument = JsonDocument.Parse(jsonString);
-            return true;
-        }
-        catch (JsonException ex)
-        {
-            // JSON parsing failed, likely due to improper escaping or formatting
-            Console.WriteLine($"JSON Parsing Error: {ex.Message}");
-            return false;
+            logger.LogInformation("ClearPendingRequestAsync: Clearing pending RequestSignHeaders, requestId={RequestId}", pendingRequest.RequestId);
+            await pendingBwAppRequestService.RemoveRequestAsync(pendingRequest.RequestId);
         }
     }
 
@@ -333,6 +302,10 @@
     {
         var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, HeadersDict, WebsiteConfiguredPrefix, true);
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+
+        // Clear the pending request now that approval is complete
+        await ClearPendingRequestAsync();
+
         if (Layout is not null)
         {
             await Layout.ClosePopupAsync();

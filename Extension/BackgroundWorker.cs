@@ -5,6 +5,8 @@ using Extension.Models;
 using Extension.Models.Messages.AppBw;
 using Extension.Models.Messages.AppBw.Requests;
 using Extension.Models.Messages.AppBw.Responses;
+using Extension.Models.Messages.BwApp;
+using Extension.Models.Messages.BwApp.Requests;
 using Extension.Models.Messages.CsBw;
 using Extension.Models.Messages.ExCs;
 using Extension.Models.Messages.Polaris;
@@ -72,6 +74,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IStorageService _storageService;
     private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
+    private readonly IBwAppMessagingService _bwAppMessagingService;
+    private readonly IPendingBwAppRequestService _pendingBwAppRequestService;
     private readonly IDemo1Binding _demo1Binding;
     private readonly WebExtensionsApi _webExtensionsApi;
 
@@ -116,6 +120,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService,
+        IBwAppMessagingService bwAppMessagingService,
+        IPendingBwAppRequestService pendingBwAppRequestService,
         IDemo1Binding demo1Binding,
         SessionManager sessionManager) {
         this.logger = logger;
@@ -126,6 +132,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _storageService = storageService;
         _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
+        _bwAppMessagingService = bwAppMessagingService;
+        _pendingBwAppRequestService = pendingBwAppRequestService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
         _sessionManager = sessionManager;
     }
@@ -711,18 +719,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Ensure skeleton storage records exist (may need migration for new version)
             await InitializeStorageDefaultsAsync();
 
-            var updateDetails = new UpdateDetails {
-                Reason = OnInstalledReason.Update.ToString(),
-                PreviousVersion = previousVersion,
-                CurrentVersion = currentVersion,
-                Timestamp = DateTime.UtcNow.ToString("O")
+            // Create pending request for App to notify user of update
+            var updatePayload = new Models.Messages.BwApp.Requests.RequestNotifyUserOfUpdatePayload(
+                Reason: OnInstalledReason.Update.ToString(),
+                PreviousVersion: previousVersion,
+                CurrentVersion: currentVersion,
+                Timestamp: DateTime.UtcNow.ToString("O")
+            );
+            var requestId = Guid.NewGuid().ToString();
+            var pendingRequest = new Models.Storage.PendingBwAppRequest {
+                RequestId = requestId,
+                Type = Models.Messages.BwApp.BwAppMessageType.Values.RequestNotifyUserOfUpdate,
+                Payload = updatePayload,
+                CreatedAtUtc = DateTime.UtcNow
             };
-            await _storageService.SetItem(updateDetails, StorageArea.Local);
+            await _pendingBwAppRequestService.AddRequestAsync(pendingRequest);
 
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab&reason=update";
+            var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab";
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
@@ -807,30 +823,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Serializes an object to JSON and URL-encodes it
+    /// Opens an action popup for the specified tab, storing the pending request for App to retrieve.
+    /// The App will read the pending request from storage and route to the appropriate page.
     /// </summary>
-    private static string SerializeAndEncode(object obj) {
-        var jsonString = JsonSerializer.Serialize(obj);
-        var encodedString = Uri.EscapeDataString(jsonString);
-        return encodedString;
-    }
-
-    /// <summary>
-    /// Opens an action popup for the specified tab with query parameters
-    /// </summary>
-    private async Task UseActionPopupAsync(int tabId, List<QueryParam> queryParams) {
+    /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
+    private async Task UseActionPopupAsync(PendingBwAppRequest pendingRequest) {
         try {
-            logger.LogInformation("BW UseActionPopup acting on tab {TabId}", tabId);
+            logger.LogInformation("BW UseActionPopup: type={Type}, requestId={RequestId}, tabId={TabId}",
+                pendingRequest.Type, pendingRequest.RequestId, pendingRequest.TabId);
 
-            // Add environment parameter
-            queryParams.Add(new QueryParam("environment", "ActionPopup"));
+            // Store the pending request for App to retrieve
+            var addResult = await _pendingBwAppRequestService.AddRequestAsync(pendingRequest);
+            if (addResult.IsFailed) {
+                logger.LogError("BW UseActionPopup: Failed to store pending request: {Error}",
+                    addResult.Errors.Count > 0 ? addResult.Errors[0].Message : "Unknown error");
+                return;
+            }
 
-            // Build URL with encoded query strings
-            var url = CreateUrlWithEncodedQueryStrings("./index.html", queryParams);
+            // Build simple URL - App will read request details from storage
+            var url = _webExtensionsApi.Runtime.GetURL("./index.html") + "?environment=ActionPopup";
 
-            // TODO P2: could update this flow to use sidePanel depending on user prefsRes
-            // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3) ??
-
+            // TODO P2: could update this flow to use sidePanel depending on user prefs
+            // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
             await WebExtensions.Action.SetPopup(new() {
                 Popup = new(url)
             });
@@ -845,65 +859,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 logger.LogDebug(ex, "BW UseActionPopup openPopup() exception");
             }
 
-            // Clear the Popup setting so future OpenPopup() invokations, perhaps when handling action button clicked events, will be handled without a tab context
+            // Clear the Popup setting so future OpenPopup() invocations will be handled without a tab context
             await WebExtensions.Action.SetPopup(new() {
-                Popup =
-                new WebExtensions.Net.ActionNs.Popup("")
+                Popup = new WebExtensions.Net.ActionNs.Popup("")
             });
         }
         catch (Exception ex) {
             logger.LogError(ex, "BW UseActionPopup");
         }
     }
-
-    /// <summary>
-    /// Creates a URL with encoded query string parameters
-    /// </summary>
-    private string CreateUrlWithEncodedQueryStrings(string baseUrl, List<QueryParam> queryParams) {
-        var fullUrl = _webExtensionsApi.Runtime.GetURL(baseUrl);
-        var uriBuilder = new UriBuilder(fullUrl);
-        var query = System.Web.HttpUtility.ParseQueryString(uriBuilder.Query);
-
-        foreach (var param in queryParams) {
-            if (IsValidKey(param.Key)) {
-                // Parameters are already URL-encoded by the caller where needed
-                query[param.Key] = param.Value;
-            }
-            else {
-                logger.LogWarning("BW Invalid key skipped: {Key}", param.Key);
-            }
-        }
-
-        uriBuilder.Query = query.ToString();
-        return uriBuilder.ToString();
-    }
-
-    /// <summary>
-    /// Validates that a query parameter key contains only safe characters
-    /// </summary>
-    private static bool IsValidKey(string key) {
-        // Only allow alphanumeric characters, hyphens, and underscores
-        return MyRegex().IsMatch(key);
-    }
-
-    private string GetAuthorityFromUrl(string url) {
-        try {
-            if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri)) {
-                return uri.Authority;
-            }
-        }
-        catch (Exception ex) {
-            logger.LogInformation(ex, "Error extracting authority from URL: {Url}", url);
-        }
-
-        return "unknown";
-    }
-
-    /// <summary>
-    /// Helper record for query parameters
-    /// </summary>
-    private sealed record QueryParam(string Key, string Value);
-
     // NOTE: CsConnection and BlazorAppConnection classes removed
     // No longer needed with stateless runtime.sendMessage approach
 
@@ -987,7 +951,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var matchPattern = $"{senderOrigin}/*";
 
             var anyPermissions = new WebExtensions.Net.Permissions.AnyPermissions {
-                Origins = [new WebExtensions.Net.Manifest.MatchPattern(new WebExtensions.Net.Manifest.MatchPatternRestricted(matchPattern))]
+                Origins = [new  WebExtensions.Net.Manifest.MatchPattern(new WebExtensions.Net.Manifest.MatchPatternRestricted(matchPattern))]
             };
 
             var hasPermission = await WebExtensions.Permissions.Contains(anyPermissions);
@@ -1202,6 +1166,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     errorStr = "User canceled or rejected request";
                     break; // will forward
                 case AppBwMessageType.Values.AppClosed:
+                    // Notify BwAppMessagingService to fail any pending requests
+                    _bwAppMessagingService.HandleAppClosed(msg.TabId);
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
                     errorStr = "The KERI Auth app was closed";
                     break; // will forward
@@ -1211,6 +1177,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return null;
                 case AppBwMessageType.Values.RequestAddIdentifier:
                     return await HandleRequestAddIdentifierAsync(msg);
+                case AppBwMessageType.Values.ResponseToBwRequest:
+                    // App is responding to a BW-initiated request
+                    if (msg.RequestId is not null) {
+                        _bwAppMessagingService.HandleResponseFromApp(msg.RequestId, msg.Payload);
+                    } else {
+                        logger.LogWarning("BW←App: ResponseToBwRequest received without requestId");
+                    }
+                    return null;
                 default:
                     logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
                     contentScriptMessageType = msg.Type;
@@ -1313,11 +1287,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port
+    /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port.
+    /// Creates a pending BW→App request and opens the action popup for user to select an identifier.
     /// </summary>
     private async Task HandleSelectAuthorizeAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
-            logger.LogWarning("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
+            logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
 
             if (sender?.Tab?.Id == null) {
                 logger.LogWarning("BW HandleSelectAuthorize: no tabId found");
@@ -1325,19 +1300,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             var tabId = sender.Tab.Id.Value;
-            var origin = sender.Url ?? "unknown";
-            var jsonOrigin = JsonSerializer.Serialize(origin);
+            var tabUrl = sender.Url;
 
-            logger.LogInformation("BW HandleSelectAuthorize: tabId: {TabId}, origin: {Origin}",
-                tabId, jsonOrigin);
+            // Extract origin from tab URL
+            string origin = "unknown";
+            if (tabUrl is not null && Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
+                origin = $"{originUri.Scheme}://{originUri.Host}";
+                if (!originUri.IsDefaultPort) {
+                    origin += $":{originUri.Port}";
+                }
+            }
 
-            var encodedMsg = SerializeAndEncode(msg);
-            await UseActionPopupAsync(tabId, [
-                new QueryParam("message", encodedMsg),
-                new QueryParam("origin", jsonOrigin),
-                new QueryParam("popupType", "SelectAuthorize"),
-                new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            ]);
+            logger.LogInformation("BW HandleSelectAuthorize: tabId={TabId}, origin={Origin}", tabId, origin);
+
+            // Create the payload with original CS request details for response routing
+            var payload = new RequestSelectAuthorizePayload(
+                Origin: origin,
+                TabId: tabId,
+                TabUrl: tabUrl,
+                OriginalRequestId: msg.RequestId,
+                OriginalType: msg.Type,
+                OriginalPayload: msg.Payload
+            );
+
+            // Create pending request for App
+            var pendingRequest = new PendingBwAppRequest {
+                RequestId = Guid.NewGuid().ToString(),
+                Type = BwAppMessageType.Values.RequestSelectAuthorize,
+                Payload = payload,
+                CreatedAtUtc = DateTime.UtcNow,
+                TabId = tabId,
+                TabUrl = tabUrl
+            };
+
+            await UseActionPopupAsync(pendingRequest);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error in HandleSelectAuthorize");
@@ -1345,11 +1341,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Handles sign request via runtime.sendMessage
+    /// Handles sign request via runtime.sendMessage.
+    /// Creates a pending BW→App request and opens the action popup for user to approve signing.
     /// </summary>
     private async Task HandleRequestSignHeadersAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender) {
         try {
-            logger.LogWarning("BW HandleRequestSignHeadersAsync: {Message}", JsonSerializer.Serialize(msg));
+            logger.LogInformation("BW HandleRequestSignHeadersAsync: {Message}", JsonSerializer.Serialize(msg));
 
             if (sender?.Tab?.Id == null) {
                 logger.LogError("BW HandleRequestSignHeadersAsync: no tabId found");
@@ -1357,62 +1354,54 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             int tabId = sender.Tab.Id.Value;
-            if (sender.Url is null) {
+            var tabUrl = sender.Url;
+            if (tabUrl is null) {
                 logger.LogWarning("BW HandleRequestSignHeadersAsync: sender URL is null");
                 return;
             }
 
-            // Extract host (and port if applicable) from the tab's URL
-            string hostAndPort = "";
-            if (Uri.TryCreate(sender.Url, UriKind.Absolute, out var originUri)) {
-                hostAndPort = $"{originUri.Scheme}://{originUri.Host}";
+            // Extract origin (scheme://host:port) from the tab's URL
+            string origin = "";
+            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
+                origin = $"{originUri.Scheme}://{originUri.Host}";
                 if (!originUri.IsDefaultPort) {
-                    hostAndPort += $":{originUri.Port}";
+                    origin += $":{originUri.Port}";
                 }
             }
-            // TODO P2 validate hostAndPort against allowed patterns / permissions
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}", tabId, hostAndPort);
+            // TODO P2 validate origin against allowed patterns / permissions
+            logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId={TabId}, origin={Origin}", tabId, origin);
 
             // Deserialize payload to SignRequestArgs
             var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var payload = JsonSerializer.Deserialize<SignRequestArgs>(payloadJson, PortMessageJsonOptions);
-            if (payload == null) {
+            var signRequestPayload = JsonSerializer.Deserialize<SignRequestArgs>(payloadJson, PortMessageJsonOptions);
+            if (signRequestPayload == null) {
                 logger.LogWarning("BW HandleRequestSignHeadersAsync: invalid payload");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
                 return;
             }
 
             // Extract method and url from typed payload
-            var method = payload.Method ?? "GET";
-            var rurl = payload.Url;
-            if (string.IsNullOrEmpty(rurl)) {
+            var method = signRequestPayload.Method ?? "GET";
+            var requestUrl = signRequestPayload.Url;
+            if (string.IsNullOrEmpty(requestUrl)) {
                 logger.LogWarning("BW HandleRequestSignHeadersAsync: URL is empty");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL must not be empty"));
                 return;
             }
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: method: {Method}, url: {Url}", method, rurl);
-
-            var jsonOrigin = JsonSerializer.Serialize(hostAndPort);
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId: {TabId}, origin: {Origin}",
-                tabId, jsonOrigin);
-            var requestDict = new Dictionary<string, string>
-            {
-                { "method", method },
-                { "url", rurl }
-            };
+            logger.LogInformation("BW HandleRequestSignHeadersAsync: method={Method}, url={Url}", method, requestUrl);
 
             // Get or create website config for this origin
-            var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(hostAndPort));
+            var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
             if (getOrCreateWebsiteRes.IsFailed) {
                 logger.LogWarning("BW HandleRequestSignHeadersAsync: failed to get or create website config for origin {Origin}: {Error}",
-                    hostAndPort, string.Join("; ", getOrCreateWebsiteRes.Errors.Select(e => e.Message)));
+                    origin, string.Join("; ", getOrCreateWebsiteRes.Errors.Select(e => e.Message)));
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to get or create website config"));
                 return;
             }
             WebsiteConfig websiteConfig = getOrCreateWebsiteRes.Value.websiteConfig1;
             string? rememberedPrefix = websiteConfig.RememberedPrefixOrNothing ?? null;
             if (rememberedPrefix is null) {
-                logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier was configured for origin {Origin}, so using user's currently selected prefix", hostAndPort);
+                logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier was configured for origin {Origin}, so using user's currently selected prefix", origin);
 
                 var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
 
@@ -1423,25 +1412,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 var res = await _websiteConfigService.Update(websiteConfig with { RememberedPrefixOrNothing = rememberedPrefix });
                 if (res.IsFailed) {
                     logger.LogWarning("BW HandleRequestSignHeadersAsync: failed to update website config with remembered prefix for origin {Origin}: {Error}",
-                        hostAndPort, string.Join("; ", res.Errors.Select(e => e.Message)));
+                        origin, string.Join("; ", res.Errors.Select(e => e.Message)));
                     await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to update website config with remembered prefix"));
                     return;
                 }
             }
-            // we can now use the (potentially updated) rememberedPrefix and send all parameters to the popup
-            var encodedMsg = SerializeAndEncode(msg);
-            await UseActionPopupAsync(tabId, [
-                new QueryParam("message", encodedMsg),  // TODO P2 consider sending typed message specific to BW->Popup instead of original message
-                new QueryParam("origin", jsonOrigin),
-                new QueryParam("popupType", "SignRequest"),  // TODO P2 should be an enum literal
-                new QueryParam("tabId", tabId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                new QueryParam("prefix", rememberedPrefix ?? "")  // TODO P2 instead, consider sending typed message specific to BW->Popup instead of original message
-            ]);
-            return;
+
+            // Create the payload with original CS request details for response routing
+            var payload = new RequestSignHeadersPayload(
+                Origin: origin,
+                Url: requestUrl,
+                Method: method,
+                Headers: signRequestPayload.Headers ?? new Dictionary<string, string>(),
+                TabId: tabId,
+                TabUrl: tabUrl,
+                OriginalRequestId: msg.RequestId,
+                OriginalType: msg.Type,
+                OriginalPayload: msg.Payload,
+                RememberedPrefix: rememberedPrefix
+            );
+
+            // Create pending request for App
+            var pendingRequest = new PendingBwAppRequest {
+                RequestId = Guid.NewGuid().ToString(),
+                Type = BwAppMessageType.Values.RequestSignHeaders,
+                Payload = payload,
+                CreatedAtUtc = DateTime.UtcNow,
+                TabId = tabId,
+                TabUrl = tabUrl
+            };
+
+            await UseActionPopupAsync(pendingRequest);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error in HandleRequestSignHeadersAsync");
-            return; // don't have the tabId here to send errorStr back
         }
     }
 
@@ -1962,7 +1966,4 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public void Dispose() {
         GC.SuppressFinalize(this);
     }
-
-    [System.Text.RegularExpressions.GeneratedRegex(@"^[a-zA-Z0-9\-_]+$")]
-    private static partial System.Text.RegularExpressions.Regex MyRegex();
 }

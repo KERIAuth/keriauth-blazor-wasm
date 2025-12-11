@@ -24,12 +24,13 @@ namespace Extension {
         public const string RouteToSidePanel = "/SidePanel.html";
         public const string RouteToTest = "/Test.html";
         public const string RouteToConnecting = "/Connecting.html";
+        public const string RouteToRequestSignIn = "/RequestSignIn.html";
+        public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html/";
         // routes with parameters, with intentional trailing /
         // TODO P2 better to have pattern with query string? because of browser refresh on one of these pages
         public const string RouteToIdentifier = "/Identifier.html/";
         public const string RouteToWebsite = "/Website.html/";
-        public const string RouteToRequestSignIn = "/RequestSignIn.html/";
-        public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html/";
+
 
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,

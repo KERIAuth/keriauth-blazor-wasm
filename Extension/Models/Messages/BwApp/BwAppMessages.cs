@@ -51,6 +51,14 @@ namespace Extension.Models.Messages.BwApp {
             public const string SystemLockDetected = "systemLockDetected";
             public const string FromBackgroundWorker = "fromBackgroundWorker";
             public const string ForwardedMessage = "forwardedMessage";
+
+            // BW→App request types (require App UI interaction and response)
+            /// <summary>Request App to show SelectAuthorize UI for user to select an identifier.</summary>
+            public const string RequestSelectAuthorize = "/KeriAuth/BwApp/requestSelectAuthorize";
+            /// <summary>Request App to show SignHeaders UI for user to approve signing.</summary>
+            public const string RequestSignHeaders = "/KeriAuth/BwApp/requestSignHeaders";
+            /// <summary>Request App to notify user of extension update.</summary>
+            public const string RequestNotifyUserOfUpdate = "/KeriAuth/BwApp/requestNotifyUserOfUpdate";
         }
 
         public string Value { get; }
@@ -62,6 +70,9 @@ namespace Extension.Models.Messages.BwApp {
         public static BwAppMessageType SystemLockDetected { get; } = new(Values.SystemLockDetected);
         public static BwAppMessageType FromBackgroundWorker { get; } = new(Values.FromBackgroundWorker);
         public static BwAppMessageType ForwardedMessage { get; } = new(Values.ForwardedMessage);
+        public static BwAppMessageType RequestSelectAuthorize { get; } = new(Values.RequestSelectAuthorize);
+        public static BwAppMessageType RequestSignHeaders { get; } = new(Values.RequestSignHeaders);
+        public static BwAppMessageType RequestNotifyUserOfUpdate { get; } = new(Values.RequestNotifyUserOfUpdate);
 
         /// <summary>
         /// Parse a string value into a BwAppMessageType.
@@ -74,6 +85,9 @@ namespace Extension.Models.Messages.BwApp {
                 Values.SystemLockDetected => SystemLockDetected,
                 Values.FromBackgroundWorker => FromBackgroundWorker,
                 Values.ForwardedMessage => ForwardedMessage,
+                Values.RequestSelectAuthorize => RequestSelectAuthorize,
+                Values.RequestSignHeaders => RequestSignHeaders,
+                Values.RequestNotifyUserOfUpdate => RequestNotifyUserOfUpdate,
                 _ => throw new ArgumentException($"Invalid BwAppMessageType: '{value}'", nameof(value))
             };
         }

@@ -66,6 +66,10 @@ namespace Extension.Models.Messages.AppBw {
             public const string AppClosed = "/KeriAuth/AppBw/signify/app_closed";
             public const string UserActivity = "/KeriAuth/AppBw/user_activity";
             public const string RequestAddIdentifier = "/KeriAuth/AppBw/requestAddIdentifier";
+            /// <summary>
+            /// Response from App to a BW-initiated request.
+            /// </summary>
+            public const string ResponseToBwRequest = "/KeriAuth/AppBw/responseToBwRequest";
         }
 
         public string Value { get; }
@@ -82,6 +86,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType AppClosed { get; } = new(Values.AppClosed);
         public static AppBwMessageType UserActivity { get; } = new(Values.UserActivity);
         public static AppBwMessageType RequestAddIdentifier { get; } = new(Values.RequestAddIdentifier);
+        public static AppBwMessageType ResponseToBwRequest { get; } = new(Values.ResponseToBwRequest);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -99,6 +104,7 @@ namespace Extension.Models.Messages.AppBw {
                 Values.AppClosed => AppClosed,
                 Values.UserActivity => UserActivity,
                 Values.RequestAddIdentifier => RequestAddIdentifier,
+                Values.ResponseToBwRequest => ResponseToBwRequest,
                 _ => throw new ArgumentException($"Invalid AppBwMessageType: '{value}'", nameof(value))
             };
         }
@@ -205,4 +211,12 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("cesr")] string Cesr
     );
 
+    /// <summary>
+    /// Message sent from App to BackgroundWorker in response to a BW-initiated request.
+    /// Contains a generic payload that can be deserialized to the expected response type.
+    /// </summary>
+    public record AppBwResponseToBwRequestMessage : AppBwMessage<object> {
+        public AppBwResponseToBwRequestMessage(int tabId, string? tabUrl, string requestId, object? responsePayload)
+            : base(AppBwMessageType.ResponseToBwRequest, tabId, tabUrl, requestId, responsePayload) { }
+    }
 }

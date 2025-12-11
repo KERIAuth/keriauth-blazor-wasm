@@ -77,6 +77,8 @@ builder.UseBrowserExtension(browserExtension => {
             // Console.WriteLine($"Program.cs [{mode}]: Configuring Background mode - adding BackgroundWorker root component");
             builder.RootComponents.AddBackgroundWorker<BackgroundWorker>();
             builder.Services.AddSingleton<SessionManager>();
+            builder.Services.AddSingleton<IBwAppMessagingService, BwAppMessagingService>();
+            builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
             break;
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:
@@ -87,6 +89,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.RootComponents.Add<HeadOutlet>("head::after");
             builder.Services.AddSingleton<IUserActivityService, UserActivityService>();
             builder.Services.AddSingleton<SessionManager>();
+            builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
             break;
     }
 });

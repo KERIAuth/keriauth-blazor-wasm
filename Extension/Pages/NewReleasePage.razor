@@ -1,5 +1,6 @@
 ﻿@page "/NewRelease.html"
 @using Extension.Services.Storage
+@using Extension.Models.Messages.BwApp
 
 @using Extension.Helper
 @using Extension.Models
@@ -39,7 +40,8 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ISnackbar snackbar
 @inject IStorageService storageService
-@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+@inject IPendingBwAppRequestService pendingBwAppRequestService
+@inject AppCache appCache // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 @code {
     // fields
@@ -79,6 +81,7 @@
 
         MyOnboardState = appCache.MyOnboardState;
 
+        // TODO P1 is this needed here if already in AppCache or a Request
         var updateDetailsRes = await storageService.GetItem<UpdateDetails>();
         if (updateDetailsRes.IsSuccess && updateDetailsRes.Value is not null)
         {
@@ -94,22 +97,20 @@
 
     async Task AckNewRelease()
     {
-        if (MyOnboardState is null)
-            MyOnboardState = new OnboardState
-            {
-                InstallVersionAcknowledged = ManifestVersion
-            };
-        else
+        // Clear any pending RequestNotifyUserOfUpdate request
+        var pendingRequest = appCache.NextPendingBwAppRequest;
+        if (pendingRequest?.Type == BwAppMessageType.Values.RequestNotifyUserOfUpdate)
         {
-            MyOnboardState = MyOnboardState! with
-            {
-                InstallVersionAcknowledged = ManifestVersion
-            };
-            _ = await storageService.SetItem<OnboardState>(MyOnboardState);
+            logger.LogInformation("AckNewRelease: Clearing pending RequestNotifyUserOfUpdate, requestId={RequestId}", pendingRequest.RequestId);
+            await pendingBwAppRequestService.RemoveRequestAsync(pendingRequest.RequestId);
         }
 
-        await storageService.RemoveItem<UpdateDetails>();
-
+        var newOnboardState = appCache.MyOnboardState with
+        {
+            InstallVersionAcknowledged = ManifestVersion,
+        };
+        _ = await storageService.SetItem<OnboardState>(newOnboardState);
+        StateHasChanged();
         navManager.NavigateTo(RouteToIndex);
     }
 }
@@ -122,24 +123,24 @@
             {
                 <MudText Typo="Typo.h6">New Release - Fresh Install</MudText>
                 <MudText>
-                    KERI Auth version @ManifestVersion has been installed.
+                    Version @ManifestVersion has been installed.
                 </MudText>
             }
             else
             {
-                <MudText Typo="Typo.h6">New Release - Update Installed</MudText>
-                if (MyUpdateDetails is null || MyUpdateDetails.CurrentVersion == MyUpdateDetails.PreviousVersion)
+                <MudText Typo="Typo.h6">New Release - Updated Installed</MudText>
+                if (@MyOnboardState.InstallVersionAcknowledged == ManifestVersion)
                 {
-                    <!-- reloaded can occur via DevTools, loading an unpacked extension -->
+                    <!-- May reach here if reloaded via DevTools, loading an unpacked extension -->
                     <MudText>
-                        KERI Auth has been reloaded or updated to version @ManifestVersion.
+                        Software has been reloaded with version @ManifestVersion.
                     </MudText>
                 }
                 else
                 {
                     <MudText>
-                        KERI Auth has been automatically updated from version @MyOnboardState.InstallVersionAcknowledged to
-                        @(MyUpdateDetails.CurrentVersion).
+                        Version updated from @MyOnboardState.InstallVersionAcknowledged to
+                        @ManifestVersion.
                     </MudText>
                 }
                 <MudText>
