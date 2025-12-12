@@ -196,7 +196,7 @@
         {
             StateHasChanged(); // update reactive properties
             await refreshFromWebsiteConfig(OriginUri);
-            await sendValueToParent(); // may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
+            await sendValueToParent(); // TODO P1: may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
         }
         logger.LogInformation("updateSelectedPrefix 4");
         StateHasChanged(); // update reactive properties

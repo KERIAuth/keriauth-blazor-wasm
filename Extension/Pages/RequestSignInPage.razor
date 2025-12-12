@@ -1,8 +1,7 @@
 ﻿@page "/RequestSignIn.html"
 @layout Layouts.DialogLayout
+
 @using Extension.Services.Storage
-
-
 @using System;
 @using System.Collections.Generic;
 @using System.Diagnostics
@@ -46,7 +45,6 @@
 @inject ISignifyClientBinding signifyClientBinding
 
 @code {
-    [Parameter] public string encodedOrigin { get; set; } = "";
     [CascadingParameter] public DialogLayout? Layout { get; set; }
 
     // fields and types
@@ -70,9 +68,9 @@
     /// Used to avoid sending duplicate cancel messages on dispose.
     /// </summary>
     bool HasRepliedToPage { get; set; } = false;
+    string OriginStr { get; set; } = "unset";
 
     // reactive properties
-    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,6 +84,7 @@
             return;
         }
 
+        OriginStr = pendingRequest.TabUrl ?? "unknown";
         var payload = pendingRequest.GetPayload<RequestSelectAuthorizePayload>();
         if (payload is null)
         {
@@ -97,7 +96,6 @@
         // pageRequestId is the original request ID from the web page - must be returned in replies
         pageRequestId = pendingRequest.RequestId;
         tabId = payload.TabId;
-        encodedOrigin = HttpUtility.UrlEncode(payload.Origin);
 
         logger.LogInformation("OnInitializedAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}",
             pageRequestId, tabId, payload.Origin);
@@ -383,6 +381,7 @@
                         <MudText Typo="Typo.h6">Unsupported SignIn Mode: @RequestedSignInMode</MudText>
                         break;
                 }
+                <MudText>from @OriginStr</MudText>
 
                 @switch (RequestedSignInMode)
                 {

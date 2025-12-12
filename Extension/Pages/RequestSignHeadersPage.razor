@@ -1,4 +1,4 @@
-﻿@page "/RequestSignHeaders.html/{encodedOrigin}"
+﻿@page "/RequestSignHeaders.html"
 @layout Layouts.DialogLayout
 @using Extension.Services.Storage
 
@@ -48,8 +48,6 @@
 @inject AppCache appCache // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 @code {
-    // TODO P2 why not expand this encodedOrigin to be a base64 encoded typed object with everything needed?
-    [Parameter] public string encodedOrigin { get; set; } = "";
     [CascadingParameter] public DialogLayout? Layout { get; set; }
 
     // fields
@@ -75,10 +73,9 @@
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string WebsiteConfiguredPrefix { get; set; } = "unknown";
     List<Aid>? Identifiers { get; set; }
+    string OriginStr { get; set; } = "unset";
 
     // reactive properties
-    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
-    string AuthorityStr => (new Uri(OriginStr)).Authority;
     public bool HasSafeHttpRequestMethod => HeadersDict.Any(header =>
        string.Equals(header.Key, "method", StringComparison.OrdinalIgnoreCase) &&
        SafeMethods.Contains(header.Value));
@@ -105,6 +102,7 @@
             return;
         }
 
+        OriginStr = pendingRequest.TabUrl ?? "unknown";
         var payload = pendingRequest.GetPayload<RequestSignHeadersPayload>();
         if (payload is null)
         {
@@ -115,7 +113,6 @@
         // Extract values from the pending request payload
         RequestId = pendingRequest.RequestId;
         TabId = payload.TabId;
-        encodedOrigin = HttpUtility.UrlEncode(payload.Origin);
         HeadersDict = payload.Headers;
         PayloadJson = JsonSerializer.Serialize(payload.Headers);
         WebsiteConfiguredPrefix = payload.RememberedPrefix ?? "unknown";
@@ -169,7 +166,7 @@
     {
         try
         {
-            var uri = new Uri(OriginStr);
+            var uri = App.InitialUri;
             return uri;
         }
         catch (Exception ex)
@@ -331,7 +328,7 @@
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign HTTP Request Headers</MudText>
             <MudText class="mt-6" Typo="Typo.body1">
-                The website <b>@AuthorityStr</b> is requesting KERI Auth, with your approval,
+                The website <b>@OriginStr</b> is requesting KERI Auth, with your approval,
                 to cryptographically sign HTTP Request Headers with the key material of the identifier you selected for this site when you signed in to it.
                 The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
             </MudText>
@@ -342,8 +339,7 @@
                 <MudText>@WebsiteConfiguredAlias</MudText>
             </MudStack>
 
-            @if (IsInitialized && HeadersDict is not null && HeadersDict.Any()) // prevent distracting progressive loading
-            {
+            
                 <MudStack Row>
                 <MudCheckBox Label="Show Input Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
                 </MudStack>
@@ -371,7 +367,7 @@
                 }
                 <!-- The following mayb be display:none; -->
                 <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 28px;" />
-            }
+            
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
