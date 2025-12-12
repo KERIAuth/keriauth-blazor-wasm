@@ -5,6 +5,7 @@ using Extension.Models;
 using Extension.Models.Messages.AppBw;
 using Extension.Models.Messages.AppBw.Requests;
 using Extension.Models.Messages.AppBw.Responses;
+using AppBwAuthorizeResult = Extension.Models.Messages.AppBw.AuthorizeResult;
 using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.BwApp.Requests;
 using Extension.Models.Messages.CsBw;
@@ -1113,14 +1114,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId} msg: {msg}", msg.Type, msg.TabId, msg);
 
             // Transform App message type to ContentScript message type
-            // App uses /KeriAuth/signify/replyCredential
-            // ContentScript expects /signify/reply
+            // App uses /KeriAuth/signify/replyCredential or /KeriAuth/signify/replyAID
+            // ContentScript expects /signify/reply with polaris-web AuthorizeResult payload
             string contentScriptMessageType;
             string? errorStr = null;
+            object? transformedPayload = msg.Payload; // Default to original payload
+
             switch (msg.Type) {
                 case AppBwMessageType.Values.ReplyAid:
                 case AppBwMessageType.Values.ReplyCredential:
                     contentScriptMessageType = BwCsMessageTypes.REPLY;
+                    // Transform AuthorizeResult (with Aid) to BwCsAuthorizeResultPayload (with identifier)
+                    // to conform to polaris-web AuthorizeResult interface
+                    transformedPayload = TransformToPolariWebAuthorizeResult(msg.Payload);
                     break;
 
                 case AppBwMessageType.Values.ReplyApprovedSignHeaders:
@@ -1195,7 +1201,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var forwardMsg = new BwCsMessage(
                 type: contentScriptMessageType,
                 requestId: msg.RequestId,
-                payload: msg.Payload,
+                payload: transformedPayload,
                 error: errorStr
             );
 
@@ -1211,6 +1217,64 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error forwarding App message to ContentScript");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Transforms an internal AuthorizeResult payload (with Aid) to polaris-web AuthorizeResult format (with identifier).
+    ///
+    /// Internal format (AppBw AuthorizeResult):
+    /// { aid: { name, prefix, salty, transferable, state, windexes }, credential: { raw, cesr } }
+    ///
+    /// Polaris-web format (BwCsAuthorizeResultPayload):
+    /// { identifier: { prefix }, credential: { raw, cesr } }
+    /// </summary>
+    private BwCsAuthorizeResultPayload? TransformToPolariWebAuthorizeResult(object? payload) {
+        if (payload is null) {
+            logger.LogWarning("TransformToPolariWebAuthorizeResult: payload is null");
+            return null;
+        }
+
+        try {
+            // Deserialize the payload to AppBw AuthorizeResult (internal format with Aid)
+            var payloadJson = JsonSerializer.Serialize(payload, RecursiveDictionaryJsonOptions);
+            var authorizeResult = JsonSerializer.Deserialize<AppBwAuthorizeResult>(payloadJson, RecursiveDictionaryJsonOptions);
+
+            if (authorizeResult is null) {
+                logger.LogWarning("TransformToPolariWebAuthorizeResult: Could not deserialize to AuthorizeResult");
+                return null;
+            }
+
+            // Transform to polaris-web compliant format
+            BwCsAuthorizeResultIdentifier? identifier = null;
+            if (authorizeResult.Aid is not null) {
+                identifier = new BwCsAuthorizeResultIdentifier(
+                    Prefix: authorizeResult.Aid.Prefix,
+                    Name: authorizeResult.Aid.Name
+                );
+            }
+
+            BwCsAuthorizeResultCredential? credential = null;
+            if (authorizeResult.Credential is not null) {
+                credential = new BwCsAuthorizeResultCredential(
+                    Raw: authorizeResult.Credential.Raw,
+                    Cesr: authorizeResult.Credential.Cesr
+                );
+            }
+
+            var result = new BwCsAuthorizeResultPayload(
+                Identifier: identifier,
+                Credential: credential
+            );
+
+            logger.LogInformation("TransformToPolariWebAuthorizeResult: Transformed payload with identifier prefix={Prefix}",
+                identifier?.Prefix ?? "null");
+
+            return result;
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "TransformToPolariWebAuthorizeResult: Error transforming payload");
             return null;
         }
     }
@@ -1323,9 +1387,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 OriginalPayload: msg.Payload
             );
 
-            // Create pending request for App
+            // Create pending request for App - use original requestId so it's returned in the reply
             var pendingRequest = new PendingBwAppRequest {
-                RequestId = Guid.NewGuid().ToString(),
+                RequestId = msg.RequestId ?? Guid.NewGuid().ToString(),
                 Type = BwAppMessageType.Values.RequestSelectAuthorize,
                 Payload = payload,
                 CreatedAtUtc = DateTime.UtcNow,
@@ -1432,9 +1496,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 RememberedPrefix: rememberedPrefix
             );
 
-            // Create pending request for App
+            // Create pending request for App - use original requestId so it's returned in the reply
             var pendingRequest = new PendingBwAppRequest {
-                RequestId = Guid.NewGuid().ToString(),
+                RequestId = msg.RequestId ?? Guid.NewGuid().ToString(),
                 Type = BwAppMessageType.Values.RequestSignHeaders,
                 Payload = payload,
                 CreatedAtUtc = DateTime.UtcNow,

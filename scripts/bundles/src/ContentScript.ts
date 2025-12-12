@@ -127,16 +127,16 @@ function handleMsgFromBW(message: Polaris.MessageData<unknown>): void {
                 };
                 postMessageToPage<ICsPageMsgData<null>>(errorMsg);
             } else {
-                // Check if payload contains credentialJson string that needs to be parsed
-                let payload = message.payload as any;
-                if (payload && payload.credentialJson && typeof payload.credentialJson === 'string') {
+                // Check if data contains credentialJson string that needs to be parsed
+                let data = message.data as any;
+                if (data && data.credentialJson && typeof data.credentialJson === 'string') {
                     // Parse the credentialJson string to get the actual credential object
                     try {
-                        payload = {
-                            ...payload,
-                            credential: JSON.parse(payload.credentialJson)
+                        data = {
+                            ...data,
+                            credential: JSON.parse(data.credentialJson)
                         };
-                        delete payload.credentialJson;
+                        delete data.credentialJson;
                     } catch (parseError) {
                         console.error('KeriAuthCs: Failed to parse credentialJson', parseError);
                     }
@@ -146,7 +146,7 @@ function handleMsgFromBW(message: Polaris.MessageData<unknown>): void {
                     source: CsPageMsgTag,
                     type: message.type,
                     requestId: message.requestId,
-                    payload: payload as Polaris.AuthorizeResult
+                    payload: data as Polaris.AuthorizeResult
                 };
                 postMessageToPage<ICsPageMsgData<Polaris.AuthorizeResult>>(msg);
             }

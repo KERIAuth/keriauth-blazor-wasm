@@ -29,7 +29,7 @@ export enum CsBwMsgEnum {
 export interface IBwCsMsg {
     type: string // BwCsMsgEnum  // TODO P2 typof BwCsMsgEnum ?
     requestId?: string // response to this requestId
-    payload?: object
+    data?: object // The payload data from BackgroundWorker
     error?: string
 }
 
@@ -93,13 +93,17 @@ export interface IReplyMessageData<T = unknown> {
 
 export const CsPageMsgTag = 'KeriAuthCs';
 
-// This interface helps shape ContentScript messages to tab that may have a payload, error
-export interface ICsPageMsgData<T> extends Polaris.MessageData<T> {
+// This interface helps shape ContentScript messages to tab that may have a payload and/or error
+export interface ICsPageMsgData<T> {
     source: typeof CsPageMsgTag;
+    type: string;
+    requestId?: string;
+    payload?: T;
+    error?: string;
 }
 
-// This interface helps shape ContentScript messages to tab that will have no payload, but may have a data or error property
-export interface ICsPageMsgDataData<T> extends ICsPageMsgData<null> {
+// This interface helps shape ContentScript messages to tab with a specific data type
+export interface ICsPageMsgDataData<T> extends Omit<ICsPageMsgData<T>, 'data'> {
     data?: T;
 }
 

@@ -2,6 +2,7 @@
 using System.Text.Json.Serialization;
 
 namespace Extension.Models.Messages.Polaris {
+    // See also ISignin in signify-browser-extension https://github.com/WebOfTrust/signify-browser-extension/blob/main/src/config/types.ts#L46
     public record AuthorizeResult {
         [JsonPropertyName("credential")]
         public required AuthorizeResultCredential? ARCredential { get; init; }

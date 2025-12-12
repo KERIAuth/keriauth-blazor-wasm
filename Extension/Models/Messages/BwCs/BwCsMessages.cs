@@ -9,12 +9,15 @@ namespace Extension.Models.Messages.ExCs {
         public string Type { get; init; }
 
         [JsonPropertyName("requestId")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? RequestId { get; init; }
 
-        [JsonPropertyName("payload")]
+        [JsonPropertyName("data")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public object? Payload { get; init; }
 
         [JsonPropertyName("error")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Error { get; init; }
 
         [JsonConstructor]
@@ -60,4 +63,38 @@ namespace Extension.Models.Messages.ExCs {
         public ErrorReplyMessage(string? requestId, string error)
             : base(BwCsMessageTypes.REPLY, requestId, null, error) { }
     }
+
+    /// <summary>
+    /// Identifier payload conforming to polaris-web AuthorizeResultIdentifier.
+    /// Contains prefix (required) and optionally name as expected by the protocol.
+    /// </summary>
+    public record BwCsAuthorizeResultIdentifier(
+        [property: JsonPropertyName("prefix")] string Prefix,
+        [property: JsonPropertyName("name"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name = null
+    );
+
+    /// <summary>
+    /// Credential payload conforming to polaris-web AuthorizeResultCredential.
+    /// </summary>
+    public record BwCsAuthorizeResultCredential(
+        [property: JsonPropertyName("raw")] object Raw,
+        [property: JsonPropertyName("cesr")] string Cesr
+    );
+
+    /// <summary>
+    /// Payload conforming to polaris-web AuthorizeResult interface.
+    /// Used when sending authorization replies to ContentScript → Page.
+    ///
+    /// Expected by polaris-web:
+    /// {
+    ///     identifier?: { prefix: string },
+    ///     credential?: { raw: unknown, cesr: string },
+    ///     headers?: Record&lt;string, string&gt;
+    /// }
+    /// </summary>
+    public record BwCsAuthorizeResultPayload(
+        [property: JsonPropertyName("identifier"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BwCsAuthorizeResultIdentifier? Identifier = null,
+        [property: JsonPropertyName("credential"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BwCsAuthorizeResultCredential? Credential = null,
+        [property: JsonPropertyName("headers"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, string>? Headers = null
+    );
 }
