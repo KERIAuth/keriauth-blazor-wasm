@@ -62,7 +62,7 @@
     bool IsInPopup => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.POPUP);
     bool IsInSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.SIDEPANEL);
     // Note: SidePanel context is also a Tab context, so we need to exclude that here
-    bool IsInTabNotSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.TAB) && !IsInSidePanel;
+    bool IsInTabNotSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.TAB && !IsInSidePanel);
     DrawerVariant ActiveDrawerVariant => (IsInPopup, IsInSidePanel, IsInTabNotSidePanel) switch
     {
         (true, _, _) => appCache.MyPreferences.DrawerVariantInPopup,
@@ -70,7 +70,24 @@
         (_, _, true) => appCache.MyPreferences.DrawerVariantInTab,
         _ => appCache.MyPreferences.DrawerVariantInTab
     };
-    bool IsMenuDrawerOpen => IsInTabNotSidePanel ? appCache.MyPreferences.IsPersistentDrawerOpenInTab : IsInSidePanel ? appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel : IsPersistentDrawerOpenInPopup;
+    bool IsMenuDrawerOpen
+    {
+        get
+        {
+            if (IsInTabNotSidePanel)
+            {
+                return appCache.MyPreferences.IsPersistentDrawerOpenInTab;
+            }
+            else if (IsInSidePanel)
+            {
+                return appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel;
+            }
+            else
+            {
+                return IsPersistentDrawerOpenInPopup;
+            }
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
