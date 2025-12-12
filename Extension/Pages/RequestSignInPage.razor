@@ -54,13 +54,22 @@
     private MudButton? signInButton;
 
     // properties
-    public string requestId { get; set; } = "";
+    /// <summary>
+    /// The original requestId from the web page that initiated this authorization request.
+    /// This must be returned in replies so the page can correlate the response.
+    /// </summary>
+    public string pageRequestId { get; set; } = "";
     public int tabId { get; set; } = -1;
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string? SelectedPrefix { get; set; }
     string? SelectedAlias { get; set; }
     RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
     bool IsInitialized { get; set; }
+    /// <summary>
+    /// Tracks whether a reply (success or cancel) has been sent to the page.
+    /// Used to avoid sending duplicate cancel messages on dispose.
+    /// </summary>
+    bool HasRepliedToPage { get; set; } = false;
 
     // reactive properties
     string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
@@ -85,12 +94,13 @@
         }
 
         // Extract values from the pending request payload
-        requestId = pendingRequest.RequestId;
+        // pageRequestId is the original request ID from the web page - must be returned in replies
+        pageRequestId = pendingRequest.RequestId;
         tabId = payload.TabId;
         encodedOrigin = HttpUtility.UrlEncode(payload.Origin);
 
-        logger.LogInformation("OnInitializedAsync: requestId={RequestId}, tabId={TabId}, origin={Origin}",
-            requestId, tabId, payload.Origin);
+        logger.LogInformation("OnInitializedAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}",
+            pageRequestId, tabId, payload.Origin);
 
         // Determine sign-in mode from the original message type
         var originalType = payload.OriginalType ?? string.Empty;
@@ -134,7 +144,7 @@
     /*
     * SignIn()
     */
-    async Task<Result> SignIn(SignInMode RequestedSignInMode, string requestId2)
+    async Task<Result> SignIn(SignInMode RequestedSignInMode, string pageRequestIdParam)
     {
         // will received Prefix and credential via callback from WebsiteConfigDisplay component
 
@@ -160,8 +170,9 @@
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: null
                 );
-                var identifierMessage = new AppBwReplyAidMessage(tabId, OriginStr, requestId, identifierResult);
+                var identifierMessage = new AppBwReplyAidMessage(tabId, OriginStr, pageRequestId, identifierResult);
                 await appBwMessagingService.SendToBackgroundWorkerAsync(identifierMessage);
+                HasRepliedToPage = true;
                 break;
 
             case SignInMode.Credential:
@@ -193,8 +204,9 @@
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: authorizeResultCredential
                 );
-                var credentialMessage = new AppBwReplyAidMessage(tabId, OriginStr, requestId, authorizeResult);
+                var credentialMessage = new AppBwReplyAidMessage(tabId, OriginStr, pageRequestId, authorizeResult);
                 await appBwMessagingService.SendToBackgroundWorkerAsync(credentialMessage);
+                HasRepliedToPage = true;
                 break;
 
             default:
@@ -229,40 +241,71 @@
             return;
         }
 
-        var message = new AppBwReplyCanceledMessage(tabId, OriginStr, requestId, "User canceled sign-in");
-        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User canceled sign-in");
+        try
+        {
+            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            HasRepliedToPage = true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Cancel: Failed to send cancel message to BackgroundWorker");
+            // Continue to clear pending request and close popup even if message send failed
+        }
 
         // Clear the pending request now that cancel is complete
         await ClearPendingRequestAsync();
 
         if (Layout is not null) {
+            logger.LogInformation("Cancel: Closing popup via Layout.ClosePopupAsync");
             await Layout.ClosePopupAsync();
+        }
+        else {
+            logger.LogWarning("Cancel: Layout is null, cannot close popup");
         }
         // maybe unreachable if popup closes
     }
 
     public async ValueTask DisposeAsync()
     {
+        // If user closes popup without explicitly clicking Sign In or Cancel,
+        // send a cancel reply to the page so it's not left waiting
+        if (!HasRepliedToPage && tabId > 0 && !string.IsNullOrEmpty(pageRequestId))
+        {
+            logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", pageRequestId);
+            try
+            {
+                var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User closed sign-in popup");
+                await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "DisposeAsync: Failed to send cancel message to BackgroundWorker");
+            }
+        }
+
         // Clear pending request if user closes popup without explicit action
         await ClearPendingRequestAsync();
         // TODO P4 unsubscribe from services, observables
     }
 
     /// <summary>
-    /// Clears any pending RequestSelectAuthorize request from storage.
-    /// Should be called when user completes or cancels the sign-in flow.
+    /// Clears the pending request from storage using the pageRequestId captured during initialization.
+    /// This ensures we clear the correct request even if multiple requests are queued.
     /// </summary>
-    // TODO P1: This method fetches NextPendingBwAppRequest each time it's called, which could be
-    // a different request if multiple are queued and one was already cleared. To fix: capture the
-    // requestId when the page initializes (from the pending request that triggered navigation here)
-    // and only clear that specific request, rather than whatever is currently first in the queue.
     async Task ClearPendingRequestAsync()
     {
-        var pendingRequest = appCache.NextPendingBwAppRequest;
-        if (pendingRequest?.Type == BwAppMessageType.Values.RequestSelectAuthorize)
+        if (string.IsNullOrEmpty(pageRequestId))
         {
-            logger.LogInformation("ClearPendingRequestAsync: Clearing pending RequestSelectAuthorize, requestId={RequestId}", pendingRequest.RequestId);
-            await pendingBwAppRequestService.RemoveRequestAsync(pendingRequest.RequestId);
+            logger.LogWarning("ClearPendingRequestAsync: No pageRequestId available to clear");
+            return;
+        }
+
+        logger.LogInformation("ClearPendingRequestAsync: Clearing pending request, pageRequestId={PageRequestId}", pageRequestId);
+        var result = await pendingBwAppRequestService.RemoveRequestAsync(pageRequestId);
+        if (result.IsFailed)
+        {
+            logger.LogError("ClearPendingRequestAsync: Failed to remove request - {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
         }
     }
 
@@ -299,7 +342,7 @@
     //
     private async Task SignInHandler()
     {
-        var result = await SignIn(RequestedSignInMode, requestId);
+        var result = await SignIn(RequestedSignInMode, pageRequestId);
         if (result.IsFailed)
         {
             logger.LogError("Sign-in failed: {error}", result.Errors.FirstOrDefault()?.Message);

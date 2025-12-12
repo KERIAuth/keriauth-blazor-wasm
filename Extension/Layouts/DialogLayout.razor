@@ -40,7 +40,12 @@
     /// Closes the popup window (when DialogLayout is rendered in popup context)
     /// </summary>
     public async Task ClosePopupAsync() {
-        await jsRuntime.InvokeVoidAsync("window.close");
+        try {
+            await jsRuntime.InvokeVoidAsync("window.close");
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "DialogLayout.ClosePopupAsync: Failed to close popup window");
+        }
     }
 
     protected override async Task HandleAppCacheChanged()
