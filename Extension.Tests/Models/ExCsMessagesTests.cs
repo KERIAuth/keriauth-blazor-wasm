@@ -120,7 +120,7 @@ namespace Extension.Tests.Models {
 
             // Act
             var json = JsonSerializer.Serialize(msg, _jsonOptions);
-            var expected = "{\"type\":\"/signify/reply\",\"requestId\":\"req-456\",\"payload\":{\"result\":\"success\"}}";
+            var expected = "{\"type\":\"/signify/reply\",\"requestId\":\"req-456\",\"data\":{\"result\":\"success\"}}";
 
             // Assert
             Assert.Equal(expected, json);
@@ -186,7 +186,7 @@ namespace Extension.Tests.Models {
             // Assert
             Assert.Contains("\"type\":\"/signify/reply\"", json);
             Assert.Contains("\"requestId\":\"req-123\"", json);
-            Assert.Contains("\"payload\":{", json);
+            Assert.Contains("\"data\":{", json);
             Assert.Contains("\"key1\":\"value1\"", json);
         }
 
