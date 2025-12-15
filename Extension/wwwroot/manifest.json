@@ -46,7 +46,7 @@
   ],
   "short_name": "KERI Auth",
   "side_panel": {
-    "default_path": "SidePanel.html"
+    "default_path": "index.html"
   },
   "version": "0.2.10",
   "version_name": "0.2.10-local",

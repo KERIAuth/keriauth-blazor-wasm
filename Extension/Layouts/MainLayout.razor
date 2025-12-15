@@ -1,4 +1,5 @@
 ﻿@inherits BaseLayout
+@using Extension.Models.Messages.BwApp
 @using Extension.Models.Storage
 @using Extension.Services
 @using Extension.Services.Storage
@@ -110,6 +111,32 @@
         }
     }
 
+    override protected async Task HandleBwRequests()
+    {
+        // This will be invoked from BaseLayout's OnAppCacheChanged handler after any AppCache change.
+        // If App is in SidePanel context and there is a pending BwAppRequest, navigate to the appropriate page.
+        if (IsInSidePanel)
+        {
+            var pendingRequest = appCache.NextPendingBwAppRequest;
+            if (pendingRequest is not null)
+            {
+                logger.LogInformation("HandleBwRequests: pendingRequest Type={type}, RequestId={requestId}", pendingRequest.Type, pendingRequest.RequestId);
+                switch (pendingRequest.Type)
+                {
+                    case BwAppMessageType.Values.RequestSelectAuthorize:
+                        navManager.NavigateTo(AppConfig.RouteToRequestSignIn);
+                        break;
+                    case BwAppMessageType.Values.RequestSignHeaders:
+                        navManager.NavigateTo(AppConfig.RouteToRequestSignHeaders);
+                        break;
+                    default:
+                        logger.LogWarning("HandleBwRequests: Unhandled pendingRequest Type={type}", pendingRequest.Type);
+                        break;
+                }
+            }
+        }
+    }
+
     async Task Lock()
     {
         logger.LogInformation("Locking application - clearing KERIA session records");
@@ -202,7 +229,7 @@
                       @onmouseenter="() => isTimeoutHovered = true"
                       @onmouseleave="() => isTimeoutHovered = false">
                 <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
-                    @(isTimeoutHovered ? TimeoutTooltip : TimeoutText.Text)
+                    @(isTimeoutHovered? TimeoutTooltip : TimeoutText.Text)
                 </MudText>
             </MudStack>
 

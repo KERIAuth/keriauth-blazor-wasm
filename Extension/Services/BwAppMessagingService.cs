@@ -1,10 +1,9 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.Common;
 using Extension.Models.Storage;
 using FluentResults;
-using Microsoft.Extensions.Logging;
 using WebExtensions.Net;
 
 namespace Extension.Services;

@@ -52,7 +52,7 @@
     string residentKey => Prefs.ResidentKey;
     string authenticatorAttachment => Prefs.AuthenticatorAttachment;
     string attestationConveyancePreference => Prefs.AttestationConveyancePref;
-
+    bool isSidePanelUsedForPageInteraction => Prefs.IsSidePanelUsedForPageInteraction;
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,6 +85,11 @@
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
     {
         await Persist(Prefs with { IsDarkTheme = isDarkTheme });
+    }
+
+    async Task SetAndPersistIsSidePanelUsedForPageInteraction(bool isSidePanelUsed)
+    {
+        await Persist(Prefs with { IsSidePanelUsedForPageInteraction = isSidePanelUsed });
     }
 
     async Task SetAndPersistDVIT(DrawerVariant dv)
@@ -289,6 +294,18 @@
                     <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
                 </MudStack>
             </MudStack>
+
+            <MudStack>
+                <MudText Class="bt-pref-group-label0">
+                    Page Interaction
+                </MudText>
+                <MudStack Row="true" Style="margin-left:20px; align-items:baseline; height:35px;">
+                    <MudText>Action Popup</MudText>
+                    <MudSwitch Value="isSidePanelUsedForPageInteraction" id="asdfassdfdf" ValueChanged="async (bool isOn) => await SetAndPersistIsSidePanelUsedForPageInteraction(isOn)" T="bool" Color="Color.Primary" Class="mb-6" />
+                    <MudText>Side Panel</MudText>
+                </MudStack>
+            </MudStack>
+
             <MudStack Row="false">
                 <MudText Class="bt-pref-group-label0">
                     Menu Mode

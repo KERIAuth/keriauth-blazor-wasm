@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@using Extension.Models.Messages.BwApp
 @using Extension.Services.Storage
 
 @using Extension.Pages
@@ -48,16 +49,19 @@
         CreateAppBarRefreshTimer();
 
         // Start user activity detection if session is unlocked
-        if (appCache.IsSessionUnlocked) {
+        if (appCache.IsSessionUnlocked)
+        {
             await userActivityService.StartListeningAsync();
         }
     }
 
     protected virtual async Task HandleAppCacheChanged()
     {
+        logger.LogInformation("HandleAppCacheChanged invoked");
         await AssertHydratedCache();
         // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
-        if (!appCache.IsAuthenticated) {
+        if (!appCache.IsAuthenticated)
+        {
             if (!(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
             {
                 logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
@@ -67,15 +71,20 @@
         }
 
         // Start/stop user activity detection based on session state
-        if (appCache.IsSessionUnlocked && !userActivityService.IsListening) {
+        if (appCache.IsSessionUnlocked && !userActivityService.IsListening)
+        {
             await userActivityService.StartListeningAsync();
         }
-        else if (!appCache.IsSessionUnlocked && userActivityService.IsListening) {
+        else if (!appCache.IsSessionUnlocked && userActivityService.IsListening)
+        {
             userActivityService.StopListening();
         }
 
+        await HandleBwRequests();
         StateHasChanged();
     }
+
+    protected virtual async Task HandleBwRequests() { }
 
     private async Task AssertHydratedCache()
     {

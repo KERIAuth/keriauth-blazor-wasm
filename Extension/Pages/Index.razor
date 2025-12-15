@@ -30,18 +30,16 @@
 @code {
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync Index.razor");
-
+        await base.OnInitializedAsync();
         // Subscribe to AppCache changes - will trigger RedirectIfNeeded when state updates
-        // TODO P1: adjust timeouts as needed
+        // TODO P2: perf: adjust optional WaitForAppCache timeout params if needed
         await appCache.WaitForAppCache([() => appCache.IsReady]); 
         await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
-
         await RedirectIfNeeded();
     }
 
-    // NavigateIfNeeded navigates to newUrl only if not already on that page.
+    // NavigateIfNeeded navigates to newUrl only if not already on that page
     void NavigateIfNeeded(string newUrl)
     {
         if (navManager.Uri.Contains(newUrl))
@@ -75,7 +73,7 @@
                 "RedirectIfNeeded: Update notification request detected, requestId={RequestId}, version={Version}",
                 pendingRequest.RequestId,
                 updatePayload?.CurrentVersion ?? "unknown");
-            
+
             NavigateIfNeeded(RouteToNewRelease);
             return;
         }
@@ -138,13 +136,28 @@
         // Check for pending BW→App requests that require App UI interaction
         if (pendingRequest is not null)
         {
-            var route = pendingRequest.Type switch
+            var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
+            var contexts = await WebExtensions.Runtime.GetContexts(contextFilter);
+            var willRedirectDialog = contexts.Any(c => c.ContextType == ContextType.POPUP || c.ContextType == ContextType.SIDEPANEL);
+
+            string? route = null;
+
+            switch (pendingRequest.Type, willRedirectDialog)
             {
-                BwAppMessageType.Values.RequestSelectAuthorize => RouteToRequestSignIn,
-                BwAppMessageType.Values.RequestSignHeaders => RouteToRequestSignHeaders,
-                BwAppMessageType.Values.RequestNotifyUserOfUpdate => RouteToIndex,
-                _ => null
-            };
+                case (BwAppMessageType.Values.RequestSelectAuthorize, true):
+                    route = RouteToRequestSignIn;
+                    break;
+                case (BwAppMessageType.Values.RequestSignHeaders, true):
+                    route = RouteToRequestSignHeaders;
+                    break;
+                case (BwAppMessageType.Values.RequestNotifyUserOfUpdate, _):
+                    route = RouteToIndex;
+                    break;
+                default:
+                    logger.LogWarning("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
+                    route = null;
+                    break;
+            }
 
             if (route is not null)
             {
@@ -153,13 +166,6 @@
                     pendingRequest.Type, pendingRequest.RequestId, route);
                 NavigateIfNeeded(route);
                 return;
-            }
-            else
-            {
-                // Unknown request type - log warning but don't block navigation
-                logger.LogWarning(
-                    "RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}",
-                    pendingRequest.Type, pendingRequest.RequestId);
             }
         }
 

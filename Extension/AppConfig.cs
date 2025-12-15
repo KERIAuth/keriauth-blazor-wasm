@@ -26,12 +26,11 @@ namespace Extension {
         public const string RouteToConnecting = "/Connecting.html";
         public const string RouteToRequestSignIn = "/RequestSignIn.html";
         public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html";
+
         // routes with parameters, with intentional trailing /
         // TODO P2 better to have pattern with query string? because of browser refresh on one of these pages
         public const string RouteToIdentifier = "/Identifier.html/";
         public const string RouteToWebsite = "/Website.html/";
-
-
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
             RouteToDelete,
@@ -45,7 +44,6 @@ namespace Extension {
             RouteToSidePanel,
             RouteToTest,
         ];
-
         // routes to static content
         public const string RouteToTermsHtml = "content/terms.html";
         public const string RouteToPrivacyHtml = "content/privacy.html";
@@ -103,7 +101,8 @@ namespace Extension {
             SelectedHints = DefaultSelectedHints,
             IsSignRequestDetailShown = false,
             IsStored = false,
-            SelectedPrefix = String.Empty
+            SelectedPrefix = String.Empty,
+            IsSidePanelUsedForPageInteraction = true
         };
 
         // Other settings

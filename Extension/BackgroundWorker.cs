@@ -112,6 +112,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private readonly ISignifyClientBinding _signifyClientBinding;
     private readonly SessionManager _sessionManager;
+    private readonly ChromeSidePanel _chromeSidePanel;
 
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
@@ -137,6 +138,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _pendingBwAppRequestService = pendingBwAppRequestService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
         _sessionManager = sessionManager;
+        _chromeSidePanel = new ChromeSidePanel(_jsRuntimeAdapter);
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -842,28 +844,55 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Build simple URL - App will read request details from storage
-            var url = _webExtensionsApi.Runtime.GetURL("./index.html") + "?environment=ActionPopup";
+            var url = _webExtensionsApi.Runtime.GetURL("./index.html"); // + "?environment=ActionPopup";
 
-            // TODO P2: could update this flow to use sidePanel depending on user prefs
-            // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
-            await WebExtensions.Action.SetPopup(new() {
-                Popup = new(url)
-            });
+            // Launch in action popup or side-panel based on user preference
+            var useActionPopupNow = true;
+            var prefs = await _storageService.GetItem<Preferences>(StorageArea.Local);
+            if (prefs is null || prefs.Value is null) {
+                logger.LogWarning("BW UseActionPopup: Preferences not found, defaulting to ActionPopup environment");
 
-            // Open popup
-            try {
-                WebExtensions.Action.OpenPopup();
-                logger.LogInformation("BW UseActionPopup succeeded");
             }
-            catch (Exception ex) {
-                // Note: openPopup() sometimes throws even when successful
-                logger.LogDebug(ex, "BW UseActionPopup openPopup() exception");
+            else {
+                if (prefs.Value.IsSidePanelUsedForPageInteraction) {
+                    useActionPopupNow = false;
+                }
             }
 
-            // Clear the Popup setting so future OpenPopup() invocations will be handled without a tab context
-            await WebExtensions.Action.SetPopup(new() {
-                Popup = new WebExtensions.Net.ActionNs.Popup("")
-            });
+            if (!useActionPopupNow) {
+                logger.LogWarning("BW UseActionPopup: TODO P0 Need to ... Opening in side panel as per user preference");
+                // TODO P2: Implement side panel opening.  Known issue with WebExtensions API and the .open() method requiring to be in consistent user context, requiring listener and handler to be in same javascript env
+                /* SidePanel, if open, will handle the request automatically */
+                /*
+                var x = await WebExtensions.Tabs.Query(new WebExtensions.Net.Tabs.QueryInfo() {
+                    Active = true,
+                    CurrentWindow = true
+                });
+                var windowId = x.First().WindowId ?? 0;
+                _chromeSidePanel.Open(windowId);
+                */
+            }
+            else {
+                // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
+                await WebExtensions.Action.SetPopup(new() {
+                    Popup = new(url)
+                });
+
+                // Open popup
+                try {
+                    WebExtensions.Action.OpenPopup();
+                    logger.LogInformation("BW UseActionPopup succeeded");
+                }
+                catch (Exception ex) {
+                    // Note: openPopup() sometimes throws even when successful
+                    logger.LogDebug(ex, "BW UseActionPopup openPopup() exception");
+                }
+
+                // Clear the Popup setting so future OpenPopup() invocations will be handled without a tab context
+                await WebExtensions.Action.SetPopup(new() {
+                    Popup = new WebExtensions.Net.ActionNs.Popup("")
+                });
+            }
         }
         catch (Exception ex) {
             logger.LogError(ex, "BW UseActionPopup");
@@ -886,7 +915,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Deserialize back to object for WebExtensions API while preserving ordering
             var messageToSend = JsonSerializer.Deserialize<object>(messageJson, RecursiveDictionaryJsonOptions);
-            await WebExtensions.Tabs.SendMessage(tabId, messageToSend);
+            // TODO P0: check -- don't wait for response.  Maybe ContentScript listener is responding with true?
+            _ = await WebExtensions.Tabs.SendMessage(tabId, messageToSend);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error sending message to tab {TabId}", tabId);
@@ -1120,6 +1150,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             string? errorStr = null;
             object? transformedPayload = msg.Payload; // Default to original payload
 
+
+            // TODO P0 tmp clear all pending requests
+            logger.LogWarning("TODO P0: Clearing all pending BwApp requests (temporary)");
+            await _storageService.RemoveItem<List<PendingBwAppRequest>>(StorageArea.Session);
+
+
+//            webExtensions.Net.
+
+            logger.LogWarning("TODO P0: Did they clear?  Waiting 20 seconds...");
+            await Task.Delay(20000);
+
+
             switch (msg.Type) {
                 case AppBwMessageType.Values.ReplyAid:
                 case AppBwMessageType.Values.ReplyCredential:
@@ -1170,6 +1212,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppBwMessageType.Values.ReplyCanceled:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
                     errorStr = "User canceled or rejected request";
+
+
+                // TODO P0 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
+
+
+
+
+
+
+
                     break; // will forward
                 case AppBwMessageType.Values.AppClosed:
                     // Notify BwAppMessagingService to fail any pending requests
@@ -1183,9 +1235,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return null;
                 case AppBwMessageType.Values.RequestAddIdentifier:
                     return await HandleRequestAddIdentifierAsync(msg);
+
+
                 case AppBwMessageType.Values.ResponseToBwRequest:
                     // App is responding to a BW-initiated request
                     if (msg.RequestId is not null) {
+                        // TODO P1 remove warning
+                        logger.LogWarning("BW←App: received ResponseToBwRequest ... handling");
                         _bwAppMessagingService.HandleResponseFromApp(msg.RequestId, msg.Payload);
                     } else {
                         logger.LogWarning("BW←App: ResponseToBwRequest received without requestId");
@@ -2031,3 +2087,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         GC.SuppressFinalize(this);
     }
 }
+
+// TODO P3 see https://github.com/mingyaulee/Blazor.BrowserExtension/issues/55
+public sealed class ChromeSidePanel : ObjectBindingBase {
+    public ChromeSidePanel(IJsRuntimeAdapter jsRuntime) {
+        SetAccessPath("chrome.sidePanel");
+        Initialize(jsRuntime);
+    }
+
+    public void Open(int windowId) => InvokeVoid("open", new { windowId });
+}
+

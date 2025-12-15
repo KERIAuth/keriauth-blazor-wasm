@@ -299,6 +299,7 @@ public class StorageService : IStorageService, IDisposable {
         }
     }
 
+    // TODO P0: this is flawed, since not every type T maps to a single key matching its name.
     public async Task<Result> RemoveItem<T>(StorageArea area = StorageArea.Local) {
         var validation = StorageServiceValidation.ValidateOperation(nameof(RemoveItem), area);
         if (validation.IsFailed) return validation;

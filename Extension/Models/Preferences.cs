@@ -28,6 +28,9 @@
         [JsonPropertyName("IsPersistentDrawerOpenInSidePanel")]
         public bool IsPersistentDrawerOpenInSidePanel { get; init; }
 
+        [JsonPropertyName("IsSidePanelUsedForPageInteraction")]
+        public bool IsSidePanelUsedForPageInteraction { get; init; }
+
         [JsonPropertyName("PrefersToUseAuthenticator")]
         public bool PrefersToUseAuthenticator { get; init; } = AppConfig.DefaultPrefersToUseAuthenticator;
 
