@@ -870,8 +870,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     CurrentWindow = true
                 });
                 var windowId = x.First().WindowId ?? 0;
-                _chromeSidePanel.Open(windowId);
                 */
+                // SidePanel will only open in response to user action, which also means in same javascript context -- hard to do in Blazor
+                // _chromeSidePanel.Open(-1);
+                // await _chromeSidePanel.SetPanelBehaviorAsync(new SidePanelBehavior() {
+                //    OpenPanelOnActionClick = true
+                // });
+
             }
             else {
                 // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
