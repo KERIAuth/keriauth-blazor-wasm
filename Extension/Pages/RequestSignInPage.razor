@@ -25,6 +25,7 @@
 @using FluentResults
 @using MudBlazor
 @using static Extension.AppConfig
+@using WebExtensions.Net.Runtime
 
 @implements IAsyncDisposable
 
@@ -72,6 +73,8 @@
     string OriginStr { get; set; } = "unset";
 
     // reactive properties
+    bool IsSignInDisabled => (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null));
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -216,10 +219,7 @@
         {
             // Clear the pending request now that sign-in is complete
             await ClearPendingRequestAsync();
-
-            if (Layout is not null) {
-                await Layout.ClosePopupAsync();
-            }
+            await ReturnToPriorUI();
             // maybe unreachable if popup closes
             return Result.Ok();
         }
@@ -227,6 +227,30 @@
         {
             logger.LogError("Failed to send sign-in response: {error}", ex.Message);
             return Result.Fail(new JavaScriptInteropError("SendToServiceWorker", ex.Message, ex));
+        }
+
+    }
+
+    async Task ReturnToPriorUI()
+    {
+        logger.LogInformation("ReturnToPriorUI: Returning to prior UI context: {AppContextType}", App.AppContext);
+        switch (App.AppContext)
+        {
+            case ContextType.POPUP:
+                if (Layout is not null)
+                {
+                    await Layout.ClosePopupAsync();
+                }
+                break;
+            case ContextType.SIDEPANEL:
+                navManager.NavigateTo(AppConfig.RouteToIndex);
+                break;
+            case ContextType.TAB:
+                navManager.NavigateTo(AppConfig.RouteToIndex);
+                break;
+            default:
+                logger.LogWarning("ReturnToPriorUI: Unknown AppContextType {AppContextType}", App.AppContext);
+                break;
         }
     }
 
@@ -243,7 +267,7 @@
             }
         */
 
-                var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User canceled sign-in");
+        var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User canceled sign-in");
         try
         {
             await appBwMessagingService.SendToBackgroundWorkerAsync(message);
@@ -259,33 +283,13 @@
         // BackgroundWorker will clear pending requests on receiving cancel message
 
         // TODO P2 could tweak timeout/wait params
-        await appCache.WaitForAppCache([() => appCache.IsNotWaitingOnPendingRequests], 10000, 200); 
+        // await appCache.WaitForAppCache([() => appCache.IsNotWaitingOnPendingRequests], 10000, 200);
 
-        logger.LogInformation("Cancel: done waiting for AppCache update");
+        // logger.LogInformation("Cancel: done waiting for AppCache update");
 
+        await ReturnToPriorUI();
 
-        if (Layout is not null) {
-            // TODO P0 same DRY needed for "return to regularlly schedule program" from RequestSignHeadersPage Cancel method
-            // "return to regularlly scheduled program", which could be placed in BaseLayout? ;-)
-
-            var contexts = await webExtensionsApi.Runtime.GetContexts(new ContextFilter() { ContextTypes = new List<ContextType>() { ContextType.SIDEPANEL } });
-            if (contexts.Any(c => c.ContextType == ContextType.SIDEPANEL))
-            {
-                logger.LogInformation("Cancel: In SidePanel context, not closing popup");
-                navManager.NavigateTo(AppConfig.RouteToIndex);
-                // Likely unreachable here
-            }
-            else
-            {
-                logger.LogInformation("Cancel: Not in SidePanel context, closing popup via Layout.ClosePopupAsync");
-                await Layout.ClosePopupAsync();
-                // likely unreachable here, since window with App closed
-            }
-        }
-        else {
-            logger.LogWarning("Cancel: Layout is null, cannot close popup");
-        }
-        // TODO P1
+        // TODO P1 make this configurable debug option, to dwell on a dialog before closing
         // logger.LogWarning("Cancel: Reached end of Cancel method. Waiting a long time now for debugging.....");
         // await Task.Delay(1000000);
         return;
@@ -300,7 +304,7 @@
             logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", pageRequestId);
             try
             {
-                var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User closed sign-in popup");
+                var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User closed sign-in dialog (popup or SidePanel dialog");
                 await appBwMessagingService.SendToBackgroundWorkerAsync(message);
             }
             catch (Exception ex)
@@ -312,6 +316,8 @@
         // Clear pending request if user closes popup without explicit action
         await ClearPendingRequestAsync();
         // TODO P4 unsubscribe from services, observables
+
+        // TODO P1 on dispose(), We are not calling ReturnToPriorUI();  Should we be?
     }
 
     /// <summary>
@@ -344,24 +350,6 @@
         await SetSignInFocus();
     }
 
-    private bool IsSignInDisabled
-    {
-        get
-        {
-            // logger.LogWarning("isSignInDisabled: RequestedSignInMode: {m} SelectedCredentialOrNothing: {s}", RequestedSignInMode, SelectedCredentialOrNothing?.GetType().ToString() );
-            if (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null))
-            {
-                // logger.LogWarning("isSignInDisabled {b}", true);
-                return true;
-            }
-            else
-            {
-                // logger.LogWarning("isSignInDisabled {b}", false);
-                return false;
-            }
-        }
-    }
-
     //
     //
     //
@@ -387,10 +375,11 @@
 
 }
 
-@if (IsInitialized) {
-<div id="@this.GetType().Name" class="bt-body-page">
-    
-    
+@if (IsInitialized)
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+
+
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
                 @switch (RequestedSignInMode)
@@ -434,7 +423,7 @@
             </div>
         </MudStack>
 
-    <MudStack Row="true" class="bt-button-tray">
+        <MudStack Row="true" class="bt-button-tray">
             <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" OnClick=Cancel>Cancel</MudButton>
             <MudButton @ref="signInButton"
                        StartIcon="@Icons.Material.Filled.Login"
@@ -445,9 +434,9 @@
                        @onkeydown="HandleKeyDown">
                 Sign In
             </MudButton>
-    </MudStack>
-</div>
-        }
+        </MudStack>
+    </div>
+}
 
 <style>
     .mud-select .mud-select-input .mud-input-slot {

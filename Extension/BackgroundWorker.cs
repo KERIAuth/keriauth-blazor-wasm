@@ -1153,7 +1153,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
             // TODO P0 tmp clear all pending requests
-
             logger.LogWarning("TODO P0: Clearing all pending BwApp requests (temporary)");
             await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
 

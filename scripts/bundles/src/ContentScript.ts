@@ -66,13 +66,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // TODO P2 messages here could be from BW or App. Clarify which in log. Ignore ones from App, which we don't want to talk directly to CS.
         console.log('KeriAuthCs from BW or App (via onMessage):', msg);
         handleMsgFromBW(msg as Polaris.MessageData<unknown>);
-        return true;
+        return false; // don't keep channel open for caller
     } else {
         // TODO P2: do a better job of knowing which are truely from BW versus other sources like App.  Then quietly ignore non-BW messages.
         // See AppBwMessageTypes for the list
         console.log('KeriAuthCs message from BW or App ignored (via onMessage):', msg, sender, sendResponse.toString());
         // Return false for other messages to allow other listeners to handle them
-        return false;
+        return false; // don't keep channel open for caller
     }
 });
 
