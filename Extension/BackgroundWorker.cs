@@ -5,7 +5,6 @@ using Extension.Models;
 using Extension.Models.Messages.AppBw;
 using Extension.Models.Messages.AppBw.Requests;
 using Extension.Models.Messages.AppBw.Responses;
-using AppBwAuthorizeResult = Extension.Models.Messages.AppBw.AuthorizeResult;
 using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.BwApp.Requests;
 using Extension.Models.Messages.CsBw;
@@ -24,6 +23,7 @@ using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
 using WebExtensions.Net.Runtime;
+using AppBwAuthorizeResult = Extension.Models.Messages.AppBw.AuthorizeResult;
 using BrowserAlarm = WebExtensions.Net.Alarms.Alarm;
 using BrowserTab = WebExtensions.Net.Tabs.Tab;
 using MenusContextType = WebExtensions.Net.Menus.ContextType;
@@ -535,7 +535,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var installUrl = _webExtensionsApi.Runtime.GetURL("index.html"); // TODO P2 + "?reason=install";
+            var installUrl = _webExtensionsApi.Runtime.GetURL("indexInTab.html");
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
             };
@@ -741,7 +741,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var updateUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab";
+            var updateUrl = _webExtensionsApi.Runtime.GetURL("indexInTab.html");
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
@@ -813,7 +813,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
     private async Task CreateExtensionTabAsync() {
         try {
-            var tabUrl = _webExtensionsApi.Runtime.GetURL("index.html") + "?environment=tab";
+            var tabUrl = _webExtensionsApi.Runtime.GetURL("indexInTab.html");
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = tabUrl
                 // TODO P2 use the same tab identifier, so we don't get multiple tabs
@@ -844,7 +844,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Build simple URL - App will read request details from storage
-            var url = _webExtensionsApi.Runtime.GetURL("./index.html"); // + "?environment=ActionPopup";
+            var url = _webExtensionsApi.Runtime.GetURL("./indexInPopup.html");
 
             // Launch in action popup or side-panel based on user preference
             var useActionPopupNow = true;
@@ -861,6 +861,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (!useActionPopupNow) {
                 logger.LogWarning("BW UseActionPopup: TODO P0 Need to ... Opening in side panel as per user preference");
+                // TODO P0
                 // TODO P2: Implement side panel opening.  Known issue with WebExtensions API and the .open() method requiring to be in consistent user context, requiring listener and handler to be in same javascript env
                 /* SidePanel, if open, will handle the request automatically */
                 /*
@@ -982,7 +983,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var matchPattern = $"{senderOrigin}/*";
 
             var anyPermissions = new WebExtensions.Net.Permissions.AnyPermissions {
-                Origins = [new  WebExtensions.Net.Manifest.MatchPattern(new WebExtensions.Net.Manifest.MatchPatternRestricted(matchPattern))]
+                Origins = [new WebExtensions.Net.Manifest.MatchPattern(new WebExtensions.Net.Manifest.MatchPatternRestricted(matchPattern))]
             };
 
             var hasPermission = await WebExtensions.Permissions.Contains(anyPermissions);
@@ -1152,14 +1153,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
 
             // TODO P0 tmp clear all pending requests
+
             logger.LogWarning("TODO P0: Clearing all pending BwApp requests (temporary)");
-            await _storageService.RemoveItem<List<PendingBwAppRequest>>(StorageArea.Session);
+            await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
 
-
-//            webExtensions.Net.
-
-            logger.LogWarning("TODO P0: Did they clear?  Waiting 20 seconds...");
-            await Task.Delay(20000);
+            // logger.LogWarning("TODO P0: Did they clear?  Waiting 20 seconds...");
+            // await Task.Delay(20000);
 
 
             switch (msg.Type) {
@@ -1214,7 +1213,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     errorStr = "User canceled or rejected request";
 
 
-                // TODO P0 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
+                    // TODO P0 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
 
 
 
@@ -1243,7 +1242,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         // TODO P1 remove warning
                         logger.LogWarning("BW←App: received ResponseToBwRequest ... handling");
                         _bwAppMessagingService.HandleResponseFromApp(msg.RequestId, msg.Payload);
-                    } else {
+                    }
+                    else {
                         logger.LogWarning("BW←App: ResponseToBwRequest received without requestId");
                     }
                     return null;
@@ -2086,15 +2086,5 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public void Dispose() {
         GC.SuppressFinalize(this);
     }
-}
-
-// TODO P3 see https://github.com/mingyaulee/Blazor.BrowserExtension/issues/55
-public sealed class ChromeSidePanel : ObjectBindingBase {
-    public ChromeSidePanel(IJsRuntimeAdapter jsRuntime) {
-        SetAccessPath("chrome.sidePanel");
-        Initialize(jsRuntime);
-    }
-
-    public void Open(int windowId) => InvokeVoid("open", new { windowId });
 }
 

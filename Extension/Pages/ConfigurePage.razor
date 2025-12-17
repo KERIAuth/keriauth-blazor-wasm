@@ -201,7 +201,7 @@
                 return;
             }
             ops2CheckHealth.SetCompletedWithoutErrors();
-            await Task.Delay(100);
+            // await Task.Delay(100);
         }
 
         // Step 2: Store partial KeriaConnectConfig with passcodeHash
@@ -232,7 +232,7 @@
         // Step 3: Connect to KERIA
         ops3Connect.SetIsRunning();
         StateHasChanged();
-        await Task.Delay(100);
+        // await Task.Delay(100);
 
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
         var connectResult = await signifyClientService.Connect(
@@ -298,7 +298,7 @@
         // Step 6: Get Identifiers
         ops4ListAids.SetIsRunning();
         StateHasChanged();
-        await Task.Delay(100);
+        // await Task.Delay(100);
         
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
@@ -311,7 +311,7 @@
 
         var identifiers = identifiersRes.Value;
         ops4ListAids.SetCompletedWithoutErrors();
-        await Task.Delay(100);
+        // await Task.Delay(100);
 
         // Step 7: Create identifier if none exist
         if (identifiers.Aids.Count == 0)

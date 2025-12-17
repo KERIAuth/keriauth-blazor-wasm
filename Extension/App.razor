@@ -2,12 +2,15 @@
 @using Extension.Layouts
 @using Extension.Models.Messages.AppBw
 @using Extension.Services
+@using Extension.Services.JsBindings
 @using Extension.Utilities
+@using WebExtensions.Net.Runtime
 @inject NavigationManager navManager
 @inject ILogger<App> logger
 @inject IAppBwMessagingService appBwMessagingService
 @inject AppCache appCache
 @inject HttpClient http
+@inject IJsRuntimeAdapter jsRuntimeAdapter
 
 @implements IDisposable
 
@@ -19,9 +22,23 @@
     // InitialUri captures the URI from which the app was loaded. This is used by Index.razor for popup routing (e.g., ?popupType=selectAuthorize).
     public static Uri? InitialUri { get; set; }
 
+    /// <summary>
+    /// The context type from which the app was loaded (e.g., TAB, POPUP, SIDEPANEL).
+    /// Set during OnInitializedAsync from globalThis.__EXT_CONTEXT__.type.
+    /// Defaults to null if the context is not set or cannot be mapped.
+    /// </summary>
+    public static ContextType? AppContext { get; private set; }
+
+    public static bool IsInPopup => AppContext is not null ? AppContext == ContextType.POPUP : false;
+    public static bool IsInSidePanel => AppContext is not null ? AppContext == ContextType.SIDEPANEL : false;
+    public static bool IsInTab => !(IsInPopup || IsInSidePanel);
+
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
+
+        // Read the extension context from globalThis.__EXT_CONTEXT__ set in the HTML page
+        await ReadAppContextAsync();
 
         // Initialize AppCache - this internally waits for BackgroundWorker to complete
         // initialization before reading storage values, ensuring storage defaults exist
@@ -69,6 +86,7 @@
         if (!appCache.IsAuthenticated && !(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
         {
             logger.LogInformation("Navigating to IndexPage with force reload since no longer authenticated");
+            // TODO P1: Consider to initialUri, which may be dependent on context (tab, popup, sidepanel)
             navManager.NavigateTo(AppConfig.RouteToIndex, true);
             return;
         }
@@ -95,6 +113,48 @@
         {
             logger.LogError($"privacyHash {privacyDigest} does not match expected {AppConfig.ExpectedPrivacyDigest}");
         }
+    }
+
+    /// <summary>
+    /// Reads the extension context from globalThis.__EXT_CONTEXT__ set in the HTML page.
+    /// Sets AppContext to the mapped ContextType enum value (TAB, POPUP, SIDEPANEL) or null if not set/unknown.
+    /// </summary>
+    private async Task ReadAppContextAsync()
+    {
+        try
+        {
+            var globalThis = new GlobalThisBinding(jsRuntimeAdapter);
+            var hasCtx = await globalThis.HasAsync("__EXT_CONTEXT__");
+            if (hasCtx)
+            {
+                var ctx = await globalThis.GetAsync<ExtContext>("__EXT_CONTEXT__");
+                AppContext = MapStringToContextType(ctx?.Type);
+                logger.LogInformation("AppContext: {ctx}", AppContext?.ToString() ?? "null");
+            }
+            else
+            {
+                logger.LogWarning("globalThis.__EXT_CONTEXT__ not found, AppContext will be null");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to read AppContext from globalThis.__EXT_CONTEXT__");
+        }
+    }
+
+    /// <summary>
+    /// Maps the string context type from HTML to the WebExtensions.Net.Runtime.ContextType enum.
+    /// </summary>
+    private static ContextType? MapStringToContextType(string? contextString)
+    {
+        return contextString?.ToUpperInvariant() switch
+        {
+            "TAB" => ContextType.TAB,
+            "POPUP" => ContextType.POPUP,
+            "SIDEPANEL" => ContextType.SIDEPANEL,
+            "OPTIONS" => ContextType.TAB, // OPTIONS page runs in a tab context
+            _ => null
+        };
     }
 
     // Normalize content to ensure consistent hashing across machines with different Git line ending settings
@@ -137,7 +197,7 @@ else
             <PageTitle>@AppConfig.ProductName</PageTitle>
             <LayoutView>
                 <h1>Page not found</h1>
-                <p role="alert">Sorry, there's nothing at this address.</p>
+                <p role="alert">Sorry, there's nothing at this address</p>
             </LayoutView>
         </NotFound>
     </Router>

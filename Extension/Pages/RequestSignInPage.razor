@@ -255,13 +255,13 @@
             // Continue to clear pending request and close popup even if message send failed
         }
 
-        
+        logger.LogInformation("Cancel: Waiting for AppCache update");
         // BackgroundWorker will clear pending requests on receiving cancel message
 
         // TODO P2 could tweak timeout/wait params
-        await appCache.WaitForAppCache([() => appCache.IsNotWaitingOnPendingRequests]); 
+        await appCache.WaitForAppCache([() => appCache.IsNotWaitingOnPendingRequests], 10000, 200); 
 
-        
+        logger.LogInformation("Cancel: done waiting for AppCache update");
 
 
         if (Layout is not null) {
@@ -286,8 +286,8 @@
             logger.LogWarning("Cancel: Layout is null, cannot close popup");
         }
         // TODO P1
-        logger.LogWarning("Cancel: Reached end of Cancel method. Waiting a long time now for debugging.....");
-        await Task.Delay(1000000);
+        // logger.LogWarning("Cancel: Reached end of Cancel method. Waiting a long time now for debugging.....");
+        // await Task.Delay(1000000);
         return;
     }
 

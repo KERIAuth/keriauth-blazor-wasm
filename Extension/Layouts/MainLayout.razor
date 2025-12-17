@@ -5,9 +5,10 @@
 @using Extension.Services.Storage
 @using System
 @using Extension.Services.SignifyService.Models
-
+@using static WebExtensions.Net.Runtime.ContextType
 @using Extension.Pages
 @using System.Reactive.Linq
+@using WebExtensions.Net.Extension
 @inject HttpClient http
 @inject IJSRuntime js
 @inject NavigationManager navManager
@@ -59,12 +60,8 @@
         (false, _)
             => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-    ContextFilter contextFilter => new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
-    bool IsInPopup => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.POPUP);
-    bool IsInSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.SIDEPANEL);
-    // Note: SidePanel context is also a Tab context, so we need to exclude that here
-    bool IsInTabNotSidePanel => CurrentExtensionContexts.Any(c => c.ContextType == ContextType.TAB && !IsInSidePanel);
-    DrawerVariant ActiveDrawerVariant => (IsInPopup, IsInSidePanel, IsInTabNotSidePanel) switch
+
+    DrawerVariant ActiveDrawerVariant => (App.IsInPopup, App.IsInSidePanel, App.IsInTab) switch
     {
         (true, _, _) => appCache.MyPreferences.DrawerVariantInPopup,
         (_, true, _) => appCache.MyPreferences.DrawerVariantInSidePanel,
@@ -75,11 +72,11 @@
     {
         get
         {
-            if (IsInTabNotSidePanel)
+            if (App.IsInTab)
             {
                 return appCache.MyPreferences.IsPersistentDrawerOpenInTab;
             }
-            else if (IsInSidePanel)
+            else if (App.IsInSidePanel)
             {
                 return appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel;
             }
@@ -90,12 +87,54 @@
         }
     }
 
+    private ExtensionContext? currentExtensionContext;
+
+    static private ContextFilter contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        CurrentExtensionContexts = (await webExtensionsApi.Runtime.GetContexts(contextFilter)).ToList();
+        // Initialize the currentExtensionContext
+        var currentTab = await webExtensionsApi.Tabs.GetCurrent();
+        var currentWindow = await webExtensionsApi.Windows.GetCurrent();
+        var windowId = currentWindow?.Id ?? -1;
+        logger.LogWarning("OnInitializedAsync: currentTab Id={tabId}, currentWindow Id={windowId}", currentTab?.Id, windowId);
+
+        var allContexts = await webExtensionsApi.Runtime.GetContexts(contextFilter);
+        foreach (ExtensionContext i in allContexts)
+        {
+            logger.LogWarning("OnInitializedAsync: allContexts ContextType={contextType}, TabId={tabId}, WindowId={windowId}, ContextId={c}, FrameId {f}",
+                i.ContextType,
+                i.TabId,
+                i.WindowId,
+
+            i.ContextId,
+            i.FrameId
+            );
+        }
+        ;
+
+        if (currentTab is not null)
+        {
+            // We're in an extension Tab - match by TabId
+            currentExtensionContext = allContexts.FirstOrDefault(c => c.TabId == currentTab.Id);
+        }
+        else
+        {
+            // We're in Popup or SidePanel (both return null from GetCurrent)
+            // Filter to non-TAB contexts in this window
+            // There should only be one Popup OR one SidePanel open per window
+            currentExtensionContext = allContexts
+                .FirstOrDefault(c => c.WindowId == windowId && c.ContextType != ContextType.TAB);
+        }
+        logger.LogWarning("OnInitializedAsync: currentExtensionContext ContextType={contextType}, TabId={tabId}, WindowId={windowId}",
+            currentExtensionContext?.ContextType,
+            currentExtensionContext?.TabId,
+            currentExtensionContext?.WindowId);
+
+        logger.LogWarning("IsInPopup {iip}, IsInSidePanel {iisp}, IsInTabNotSidePanel {iitnsp}", App.IsInPopup, App.IsInSidePanel, App.IsInTab);
 
         // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
         // DRY and perf with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
@@ -115,7 +154,7 @@
     {
         // This will be invoked from BaseLayout's OnAppCacheChanged handler after any AppCache change.
         // If App is in SidePanel context and there is a pending BwAppRequest, navigate to the appropriate page.
-        if (IsInSidePanel)
+        if (App.IsInSidePanel)
         {
             var pendingRequest = appCache.NextPendingBwAppRequest;
             if (pendingRequest is not null)
@@ -139,15 +178,21 @@
 
     async Task Lock()
     {
-        logger.LogInformation("Locking application - clearing KERIA session records");
+        // logger.LogInformation("Locking application - clearing KERIA session records");
         await sessionManager.ClearKeriaSessionRecordsAsync();
         await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
     }
 
+    async Task Unlock()
+    {
+        // logger.LogInformation("Unlocking application - navigating to Unlock page");
+        navManager.NavigateTo(AppConfig.RouteToUnlock);
+    }
+
     protected override async Task HandleAppCacheChanged()
     {
-        await base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
+        await base.HandleAppCacheChanged();
         StateHasChanged();
     }
 
@@ -176,21 +221,25 @@
 
     async Task ToggleMenuDrawer()
     {
-        if (IsInTabNotSidePanel)
+        if (App.IsInTab)
         {
             var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInTab = !IsMenuDrawerOpen };
             await storageService.SetItem<Preferences>(newPrefs);
             // await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpenInTab == newPrefs.IsPersistentDrawerOpenInTab]);
         }
-        else if (IsInSidePanel)
+        else if (App.IsInSidePanel)
         {
             var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInSidePanel = !IsMenuDrawerOpen };
             await storageService.SetItem<Preferences>(newPrefs);
             // await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel == newPrefs.IsPersistentDrawerOpenInSidePanel]);
         }
-        else if (IsInPopup)
+        else if (App.IsInPopup)
         {
             IsPersistentDrawerOpenInPopup = !IsPersistentDrawerOpenInPopup;
+        }
+        else
+        {
+            logger.LogError("ToggleMenuDrawer: Unknown App context");
         }
     }
 
@@ -232,6 +281,10 @@
                     @(isTimeoutHovered? TimeoutTooltip : TimeoutText.Text)
                 </MudText>
             </MudStack>
+
+            <MudText>
+                AppContext: @App.AppContext.ToString()
+            </MudText>
 
             <MudSpacer />
 
@@ -320,11 +373,11 @@
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     @if (appCache.IsAuthenticated)
                     {
-                        <MudNavLink OnClick="async () => await Lock()" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                        <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                     }
                     else
                     {
-                        <MudNavLink OnClick="() => navManager.NavigateTo(RouteToIndex)" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
+                        <MudNavLink OnClick=Unlock Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
                     }
                     <MudNavLink Href=@RouteToDelete Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
                     <MudNavLink Href=@RouteToTest Icon="@Icons.Material.Filled.TempleBuddhist" IconColor="Color.Surface">Test</MudNavLink>

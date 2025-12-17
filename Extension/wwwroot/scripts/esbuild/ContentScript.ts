@@ -65,6 +65,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg && typeof msg === 'object' && 'type' in msg) {
         console.log('KeriAuthCs←BW (via onMessage):', msg);
         handleMsgFromBW(msg as PW.MessageData<unknown>);
+        return false;
     } else {
         // TODO P2: do a better job of knowing which are truely from BW versus other sources like App.  Then quietly ignore non-BW messages.
         // See AppBwMessageTypes for the list

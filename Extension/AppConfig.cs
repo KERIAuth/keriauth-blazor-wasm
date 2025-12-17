@@ -7,6 +7,7 @@ namespace Extension {
         public const string RouteToIdentifiers = "/Identifiers.html";
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
+        // TODO P0 revisit index.html vs indexTab.html etc
         public const string RouteToIndex = "/index.html";  // Used for re-routing logic or startup
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToHome = "/Home.html";

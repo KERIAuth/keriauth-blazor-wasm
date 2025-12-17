@@ -45,6 +45,7 @@ namespace Extension.Services {
                     logger.LogInformation("Current tab ID: {tabId}", _currentTabId);
                 }
 
+                /*
                 // Get current runtime context to determine the appropriate context type
                 var contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
                 var contexts = await _webExtensionsApi.Runtime.GetContexts(contextFilter);
@@ -54,18 +55,18 @@ namespace Extension.Services {
                 // Find the current context (should be this instance)
                 var currentContext = contexts.FirstOrDefault();
                 string contextType = currentContext?.ContextType.ToString() ?? "UNKNOWN";
+                */
 
 
 
 
 
-
-                logger.LogInformation("Initializing messaging for context type: {contextType}", contextType);
+                // logger.LogInformation("Initializing messaging for context type: {contextType}", contextType);
 
                 // Set up listener for messages from BackgroundWorker using WebExtensions.Net
                 _webExtensionsApi.Runtime.OnMessage.AddListener(OnMessageFromBackgroundWorker);
 
-                logger.LogInformation("AppBwMessagingService: Message listener initialized for {contextType}", contextType);
+                logger.LogInformation("AppBwMessagingService: Message listener initialized for {contextType}", App.AppContext is not null ? App.AppContext : "unknown2");
             }
             catch (Exception ex) {
                 logger.LogError(ex, "Failed to initialize AppBwMessagingService");

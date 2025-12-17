@@ -159,9 +159,9 @@
         }
     }
 
-    async Task SelectAllText()
+    async Task SelectAllText(Microsoft.AspNetCore.Components.Web.FocusEventArgs _)
     {
-        await Task.Delay(100); // minor delay to ensure the focus event completes
+        // await Task.Delay(100); // minor delay to ensure the focus event completes
         if (passcodeField is not null)
             await passcodeField.SelectAsync();
     }

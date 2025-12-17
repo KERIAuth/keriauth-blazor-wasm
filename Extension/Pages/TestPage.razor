@@ -28,7 +28,7 @@
         }
     }
 
-    private const string popupTestUrl = "chrome-extension://dkjahajaknoahpngklccdmbgdnjlempj/index.html?message=%257B%2522type%2522%253A%2522%252Fsignify%252Fauthorize%2522%252C%2522requestId%2522%253A%252247705f1b-d4ba-43b0-ac3b-7637bcd9c572%2522%252C%2522payload%2522%253A%257B%2522message%2522%253A%2522Message%25201765134849911%2522%257D%257D&origin=\"http%3a%2f%2flocalhost%3a5173%2f\"&popupType=SelectAuthorize&tabId=1716420357&environment=ActionPopup";
+    // private const string popupTestUrl = "chrome-extension://dkjahajaknoahpngklccdmbgdnjlempj/index.html?message=%257B%2522type%2522%253A%2522%252Fsignify%252Fauthorize%2522%252C%2522requestId%2522%253A%252247705f1b-d4ba-43b0-ac3b-7637bcd9c572%2522%252C%2522payload%2522%253A%257B%2522message%2522%253A%2522Message%25201765134849911%2522%257D%257D&origin=\"http%3a%2f%2flocalhost%3a5173%2f\"&popupType=SelectAuthorize&tabId=1716420357&environment=ActionPopup";
     private List<BoolItem> Conditions = new();
 
     protected override async Task OnInitializedAsync()
@@ -78,7 +78,9 @@
 
     private void TestPopup()
     {
-        navManager.NavigateTo(popupTestUrl, true);
+        // TODO P0: implement a better test mechanism. URL may be also dependent e.g. popup.html vs index.html
+        // Instead, send a request to backgroundWorker to open a test popup
+        // navManager.NavigateTo(popupTestUrl, true);
     }
 }
 
