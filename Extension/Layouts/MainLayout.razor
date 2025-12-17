@@ -87,7 +87,6 @@
         }
     }
 
-    private ExtensionContext? currentExtensionContext;
 
     static private ContextFilter contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
 
@@ -101,40 +100,6 @@
         var currentWindow = await webExtensionsApi.Windows.GetCurrent();
         var windowId = currentWindow?.Id ?? -1;
         logger.LogWarning("OnInitializedAsync: currentTab Id={tabId}, currentWindow Id={windowId}", currentTab?.Id, windowId);
-
-        var allContexts = await webExtensionsApi.Runtime.GetContexts(contextFilter);
-        foreach (ExtensionContext i in allContexts)
-        {
-            logger.LogWarning("OnInitializedAsync: allContexts ContextType={contextType}, TabId={tabId}, WindowId={windowId}, ContextId={c}, FrameId {f}",
-                i.ContextType,
-                i.TabId,
-                i.WindowId,
-
-            i.ContextId,
-            i.FrameId
-            );
-        }
-        ;
-
-        if (currentTab is not null)
-        {
-            // We're in an extension Tab - match by TabId
-            currentExtensionContext = allContexts.FirstOrDefault(c => c.TabId == currentTab.Id);
-        }
-        else
-        {
-            // We're in Popup or SidePanel (both return null from GetCurrent)
-            // Filter to non-TAB contexts in this window
-            // There should only be one Popup OR one SidePanel open per window
-            currentExtensionContext = allContexts
-                .FirstOrDefault(c => c.WindowId == windowId && c.ContextType != ContextType.TAB);
-        }
-        logger.LogWarning("OnInitializedAsync: currentExtensionContext ContextType={contextType}, TabId={tabId}, WindowId={windowId}",
-            currentExtensionContext?.ContextType,
-            currentExtensionContext?.TabId,
-            currentExtensionContext?.WindowId);
-
-        logger.LogWarning("IsInPopup {iip}, IsInSidePanel {iisp}, IsInTabNotSidePanel {iitnsp}", App.IsInPopup, App.IsInSidePanel, App.IsInTab);
 
         // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
         // DRY and perf with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.
@@ -286,9 +251,9 @@
             <MudText>
                 AppContext: @App.AppContext.ToString()
             </MudText>
+            *@
 
             <MudSpacer />
-            *@
 
             <!-- KERIA Connected Indicator -->
             <div style="align-self:center; height: 35px; margin-right: -8px;">
