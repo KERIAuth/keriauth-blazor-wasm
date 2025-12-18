@@ -81,7 +81,7 @@
             };
         // Use StorageService via type-safe model
         // TODO P2 Consider StorageArea.Sync vs Local here?
-        var saveResult = await storageService.SetItem(updatedAuthenticators, StorageArea.Local);
+        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators);
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save authenticator changes", Severity.Error);
@@ -104,7 +104,7 @@
             };
         // Use StorageService via type-safe model
         // TODO P2 Consider StorageArea.Sync vs Local here?
-        var saveResult = await storageService.SetItem(updatedAuthenticators, StorageArea.Local);
+        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators);
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to delete authenticator", Severity.Error);

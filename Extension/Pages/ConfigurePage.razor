@@ -263,7 +263,7 @@
             SessionExpirationUtc = sessionExpiry
         };
 
-        var storePasscodeResult = await storageService.SetItem(passcodeModel, StorageArea.Session);
+        var storePasscodeResult = await storageService.SetItem<PasscodeModel>(passcodeModel, StorageArea.Session);
         if (storePasscodeResult.IsFailed)
         {
             logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storePasscodeResult.Errors));
@@ -352,7 +352,7 @@
         // Use 'with' to preserve existing preferences (theme, timeouts, etc.) when setting SelectedPrefix
         var preferences = appCache.MyPreferences with { SelectedPrefix = selectedPrefix };
 
-        var storePreferencesResult = await storageService.SetItem<Preferences>(preferences, StorageArea.Local);
+        var storePreferencesResult = await storageService.SetItem<Preferences>(preferences);
         if (storePreferencesResult.IsFailed)
         {
             logger.LogError("Failed to store preferences: {Errors}", string.Join(", ", storePreferencesResult.Errors));

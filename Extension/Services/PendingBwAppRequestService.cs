@@ -60,7 +60,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             var updated = current.WithRequest(request);
 
             // Save to storage
-            var setResult = await _storageService.SetItem(updated, StorageArea.Session);
+            var setResult = await _storageService.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
             if (setResult.IsFailed) {
                 return Result.Fail(setResult.Errors);
             }
@@ -97,7 +97,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 }
             }
             else {
-                var setResult = await _storageService.SetItem(updated, StorageArea.Session);
+                var setResult = await _storageService.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
                 if (setResult.IsFailed) {
                     return Result.Fail(setResult.Errors);
                 }
@@ -188,7 +188,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 }
             }
             else {
-                var setResult = await _storageService.SetItem(cleaned, StorageArea.Session);
+                var setResult = await _storageService.SetItem<PendingBwAppRequests>(cleaned, StorageArea.Session);
                 if (setResult.IsFailed) {
                     return Result.Fail(setResult.Errors);
                 }

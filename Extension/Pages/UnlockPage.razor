@@ -236,7 +236,7 @@
             // Store passcode and session expiry time in session storage atomically
             {
                 var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
-                var storeResult = await storageService.SetItem(
+                var storeResult = await storageService.SetItem<PasscodeModel>(
                 new PasscodeModel
                 {
                     Passcode = password,

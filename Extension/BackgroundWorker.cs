@@ -561,13 +561,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("InitializeStorageDefaults: Checking and creating skeleton storage records");
 
             // Check and create Preferences if not exists
-            var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
+            var prefsResult = await _storageService.GetItem<Preferences>();
             if (prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored) {
                 logger.LogDebug("InitializeStorageDefaults: Preferences already exists");
             }
             else {
                 var defaultPrefs = new Preferences { IsStored = true };
-                var setResult = await _storageService.SetItem(defaultPrefs, StorageArea.Local);
+                var setResult = await _storageService.SetItem<Preferences>(defaultPrefs);
                 if (setResult.IsFailed) {
                     logger.LogError("InitializeStorageDefaults: Failed to create Preferences: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
@@ -578,13 +578,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Check and create OnboardState if not exists
-            var onboardResult = await _storageService.GetItem<OnboardState>(StorageArea.Local);
+            var onboardResult = await _storageService.GetItem<OnboardState>();
             if (onboardResult.IsSuccess && onboardResult.Value is not null && onboardResult.Value.IsStored) {
                 logger.LogDebug("InitializeStorageDefaults: OnboardState already exists");
             }
             else {
                 var defaultOnboard = new OnboardState { IsStored = true, IsWelcomed = false };
-                var setResult = await _storageService.SetItem(defaultOnboard, StorageArea.Local);
+                var setResult = await _storageService.SetItem<OnboardState>(defaultOnboard);
                 if (setResult.IsFailed) {
                     logger.LogError("InitializeStorageDefaults: Failed to create OnboardState: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
@@ -597,13 +597,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Check and create KeriaConnectConfig skeleton if not exists
             // Unlike Preferences and OnboardState, KeriaConnectConfig requires user input (KERIA URLs)
             // so we only create an empty skeleton with IsStored = true. ConfigurePage will update with real values.
-            var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+            var configResult = await _storageService.GetItem<KeriaConnectConfig>();
             if (configResult.IsSuccess && configResult.Value is not null && configResult.Value.IsStored) {
                 logger.LogDebug("InitializeStorageDefaults: KeriaConnectConfig already exists");
             }
             else {
                 var defaultConfig = new KeriaConnectConfig(isStored: true);
-                var setResult = await _storageService.SetItem(defaultConfig, StorageArea.Local);
+                var setResult = await _storageService.SetItem<KeriaConnectConfig>(defaultConfig);
                 if (setResult.IsFailed) {
                     logger.LogError("InitializeStorageDefaults: Failed to create KeriaConnectConfig: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
@@ -848,7 +848,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Launch in action popup or side-panel based on user preference
             var useActionPopupNow = true;
-            var prefs = await _storageService.GetItem<Preferences>(StorageArea.Local);
+            var prefs = await _storageService.GetItem<Preferences>();
             if (prefs is null || prefs.Value is null) {
                 logger.LogWarning("BW UseActionPopup: Preferences not found, defaulting to ActionPopup environment");
 
@@ -1501,7 +1501,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (rememberedPrefix is null) {
                 logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier was configured for origin {Origin}, so using user's currently selected prefix", origin);
 
-                var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
+                var prefsResult = await _storageService.GetItem<Preferences>();
 
                 rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
                     ? prefsResult.Value.SelectedPrefix

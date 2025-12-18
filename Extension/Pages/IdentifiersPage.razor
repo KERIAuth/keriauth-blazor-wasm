@@ -124,7 +124,7 @@
 
     async Task SetActiveAid(string prefix)
     {
-        await storageService.SetItem<Preferences>(appCache.MyPreferences with { SelectedPrefix = prefix }, StorageArea.Local);
+        await storageService.SetItem<Preferences>(appCache.MyPreferences with { SelectedPrefix = prefix });
     }
 
     public void Dispose()

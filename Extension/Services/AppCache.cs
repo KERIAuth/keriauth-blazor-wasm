@@ -388,7 +388,7 @@
             // These should "must" exist after BackgroundWorker.InitializeStorageDefaultsAsync() runs
 
             // 1. Preferences
-            var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
+            var prefsResult = await storageService.GetItem<Preferences>();
             if (prefsResult.IsSuccess && prefsResult.Value is not null) {
                 MyPreferences = prefsResult.Value;
                 _logger.LogDebug("AppCache: Initial fetch - Preferences loaded (IsStored={IsStored})", prefsResult.Value.IsStored);
@@ -399,7 +399,7 @@
             }
 
             // 2. OnboardState
-            var onboardResult = await storageService.GetItem<OnboardState>(StorageArea.Local);
+            var onboardResult = await storageService.GetItem<OnboardState>();
             if (onboardResult.IsSuccess && onboardResult.Value is not null) {
                 MyOnboardState = onboardResult.Value;
                 _logger.LogDebug("AppCache: Initial fetch - OnboardState loaded (IsStored={IsStored}, IsWelcomed={IsWelcomed})",
@@ -411,7 +411,7 @@
             }
 
             // 3. KeriaConnectConfig (may not exist on first run - created by ConfigurePage)
-            var configResult = await storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+            var configResult = await storageService.GetItem<KeriaConnectConfig>();
             if (configResult.IsSuccess && configResult.Value is not null) {
                 MyKeriaConnectConfig = configResult.Value;
                 _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfig loaded (IsStored={IsStored}, AdminUrl={AdminUrl})",

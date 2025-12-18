@@ -182,7 +182,7 @@
     async Task SetIsDetailShown(bool isDetailShown)
     {
         // TODO P3 IsSignRequestDetailShown should be per website, since not every site should be trusted the same
-        await storageService.SetItem<Preferences>(Prefs with { IsSignRequestDetailShown = isDetailShown }, StorageArea.Local);
+        await storageService.SetItem<Preferences>(Prefs with { IsSignRequestDetailShown = isDetailShown });
         return;
     }
 
@@ -222,7 +222,7 @@
 
         if (isConfigNew)
         {
-            var prefsResult = await storageService.GetItem<Preferences>(StorageArea.Local);
+            var prefsResult = await storageService.GetItem<Preferences>();
             WebsiteConfiguredPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
                 ? prefsResult.Value.SelectedPrefix
                 : AppConfig.DefaultPreferences.SelectedPrefix;

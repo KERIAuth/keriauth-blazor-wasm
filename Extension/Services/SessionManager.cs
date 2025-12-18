@@ -230,7 +230,7 @@ public class SessionManager : IDisposable {
                 throw new InvalidOperationException("PasscodeModel not found when extending session");
             }
 
-            var prefsRes = await _storageService.GetItem<Preferences>(StorageArea.Local);
+            var prefsRes = await _storageService.GetItem<Preferences>();
             if (prefsRes.IsFailed) {
                 throw new InvalidOperationException(
                     $"Failed to get Preferences: {prefsRes.Errors[0].Message}");
@@ -246,7 +246,7 @@ public class SessionManager : IDisposable {
                 SessionExpirationUtc = newExpirationUtc
             };
 
-            var setRes = await _storageService.SetItem(updatedPasscodeModel, StorageArea.Session);
+            var setRes = await _storageService.SetItem<PasscodeModel>(updatedPasscodeModel, StorageArea.Session);
             if (setRes.IsFailed) {
                 throw new InvalidOperationException(
                     $"Failed to update PasscodeModel: {setRes.Errors[0].Message}");
@@ -324,7 +324,7 @@ public class SessionManager : IDisposable {
         }
 
         // 2. Verify passcode hash matches stored hash in KeriaConnectConfig
-        var configRes = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+        var configRes = await _storageService.GetItem<KeriaConnectConfig>();
         if (configRes.IsFailed || configRes.Value is null) {
             _logger.LogWarning("KeriaConnectConfig not stored");
             return false;
