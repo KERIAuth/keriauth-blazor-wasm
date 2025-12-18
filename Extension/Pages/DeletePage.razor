@@ -7,6 +7,7 @@
 @using static Extension.AppConfig;
 @inject IDialogService dialogService
 @inject ILogger<DeletePage> logger
+@inject IWebExtensionsApi webExtensions
 @using static Extension.Helper.PreviousPage
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -36,7 +37,7 @@
         // show a dialog to confirm deletion
         var result = await dialogService.ShowMessageBox(
             "Delete Configuration",
-            $"Are you sure you want to delete your local configuration?",
+            $"Are you sure you want to delete your local configuration and reload the extension?",
             yesText: "Yes, Delete",
             cancelText: "Cancel",
              options: new DialogOptions()
@@ -47,13 +48,11 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            // Clear all storage areas using StorageService
             await storageService.Clear(StorageArea.Local);
             await storageService.Clear(StorageArea.Sync);
             await storageService.Clear(StorageArea.Session);
-
-            // restart the app
-            navManager.NavigateTo(RouteToIndex, forceLoad: true, replace: true);
+            webExtensions.Runtime.Reload();
+            // unreachable
         } else
         {
             navManager.NavigateTo(RouteToDashboard);
