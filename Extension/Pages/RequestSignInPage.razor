@@ -262,7 +262,7 @@
         if (tabId == -1) // Chrome uses -1 to mean “no tab” or “not associated with a tab.”
         {
             logger.LogWarning("Cannot cancel - invalid tab ID");
-            // TODO P1: ? Still clear the pending request even if we can't send cancel message
+            // TODO P2: ? Still clear the pending request even if we can't send cancel message
             // await ClearPendingRequestAsync();
             }
         */
@@ -289,7 +289,7 @@
 
         await ReturnToPriorUI();
 
-        // TODO P1 make this configurable debug option, to dwell on a dialog before closing
+        // TODO P2 make this configurable debug option, to dwell on a dialog before closing
         // logger.LogWarning("Cancel: Reached end of Cancel method. Waiting a long time now for debugging.....");
         // await Task.Delay(1000000);
         return;
@@ -316,8 +316,6 @@
         // Clear pending request if user closes popup without explicit action
         await ClearPendingRequestAsync();
         // TODO P4 unsubscribe from services, observables
-
-        // TODO P1 on dispose(), We are not calling ReturnToPriorUI();  Should we be?
     }
 
     /// <summary>
