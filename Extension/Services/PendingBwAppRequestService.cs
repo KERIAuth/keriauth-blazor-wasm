@@ -49,7 +49,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
 
             // Log warning if there are already pending requests (initial implementation handles one at a time)
             if (current.Count > 0) {
-                // TODO P0 either support multiple requests or don't.
+                // TODO P1 either support multiple requests or don't.
                 _logger.LogWarning(
                     "AddRequestAsync: Adding request when {Count} already pending. " +
                     "Current implementation may not process all requests correctly.",

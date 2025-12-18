@@ -859,26 +859,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
 
-            if (!useActionPopupNow) {
-                logger.LogWarning("BW UseActionPopup: TODO P0 Need to ... Opening in side panel as per user preference");
-                // TODO P0
-                // TODO P2: Implement side panel opening.  Known issue with WebExtensions API and the .open() method requiring to be in consistent user context, requiring listener and handler to be in same javascript env
-                /* SidePanel, if open, will handle the request automatically */
-                /*
-                var x = await WebExtensions.Tabs.Query(new WebExtensions.Net.Tabs.QueryInfo() {
-                    Active = true,
-                    CurrentWindow = true
-                });
-                var windowId = x.First().WindowId ?? 0;
-                */
-                // SidePanel will only open in response to user action, which also means in same javascript context -- hard to do in Blazor
-                // _chromeSidePanel.Open(-1);
-                // await _chromeSidePanel.SetPanelBehaviorAsync(new SidePanelBehavior() {
-                //    OpenPanelOnActionClick = true
-                // });
-
-            }
-            else {
+            if (useActionPopupNow) {
+                
                 // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
                 await WebExtensions.Action.SetPopup(new() {
                     Popup = new(url)
@@ -898,6 +880,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 await WebExtensions.Action.SetPopup(new() {
                     Popup = new WebExtensions.Net.ActionNs.Popup("")
                 });
+            } 
+            else 
+            {
+                logger.LogInformation("BW UseActionPopup: Waiting for SidePanel to detect and handle request");
+                // SidePanel, if now or soon opened, will read pending request from storage and navigate accordingly
             }
         }
         catch (Exception ex) {
@@ -921,8 +908,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Deserialize back to object for WebExtensions API while preserving ordering
             var messageToSend = JsonSerializer.Deserialize<object>(messageJson, RecursiveDictionaryJsonOptions);
-            // TODO P0: check -- don't wait for response.  Maybe ContentScript listener is responding with true?
-            _ = await WebExtensions.Tabs.SendMessage(tabId, messageToSend);
+            await WebExtensions.Tabs.SendMessage(tabId, messageToSend);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error sending message to tab {TabId}", tabId);
@@ -1157,13 +1143,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             object? transformedPayload = msg.Payload; // Default to original payload
 
 
-            // TODO P0 tmp clear all pending requests
-            logger.LogWarning("TODO P0: Clearing all pending BwApp requests (temporary)");
+            // TODO P1 tmp clear all pending requests
+            logger.LogWarning("Clearing all pending BwApp requests (temporary)");
             await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
-
-            // logger.LogWarning("TODO P0: Did they clear?  Waiting 20 seconds...");
-            // await Task.Delay(20000);
-
 
             switch (msg.Type) {
                 case AppBwMessageType.Values.ReplyAid:
@@ -1216,15 +1198,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
                     errorStr = "User canceled or rejected request";
 
-
-                    // TODO P0 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
-
-
-
-
-
-
-
+                    // TODO P1 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
                     break; // will forward
                 case AppBwMessageType.Values.AppClosed:
                     // Notify BwAppMessagingService to fail any pending requests

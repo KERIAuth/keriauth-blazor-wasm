@@ -75,16 +75,7 @@
         this.UnsubscribeFromAppCache();
         GC.SuppressFinalize(this);
     }
-
-    private void TestPopup()
-    {
-        // TODO P0: implement a better test mechanism. URL may be also dependent e.g. popup.html vs index.html
-        // Instead, send a request to backgroundWorker to open a test popup
-        // navManager.NavigateTo(popupTestUrl, true);
-    }
 }
-
-
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
@@ -106,7 +97,6 @@
                 <MudLink Href="@RouteToConfigure" Target="_self">Configure</MudLink>
                 <MudLink Href="@RouteToUnlock" Target="_self">Unlock</MudLink>
                 <MudLink Href="@RouteToConnecting" Target="_self">Connecting</MudLink>
-                <MudButton OnClick="TestPopup">Test Popup</MudButton>
             </MudStack>
         </div>
     </div>

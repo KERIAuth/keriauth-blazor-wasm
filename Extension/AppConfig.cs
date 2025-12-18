@@ -7,11 +7,13 @@ namespace Extension {
         public const string RouteToIdentifiers = "/Identifiers.html";
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
-        // TODO P0 revisit index.html vs indexTab.html etc
-        public const string RouteToIndex = "/index.html";  // Used for re-routing logic (Index.razor) or startup (index.html)
+
+        public const string RouteToIndex = "/index.html";  // Used for re-routing logic (via Index.razor) or on App startup (index.html)
+        // RouteToIndexIn<foo> are used to differentiate the context in which the index page is shown. They are otherwise near-identical in content to index.html.
         public const string RouteToIndexInTab = "/indexInTab.html";
         public const string RouteToIndexInSidePanel = "/indexInSidePanel.html";
         public const string RouteToIndexInPopup = "/indexInPopup.html";
+
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToHome = "/Home.html";
         public const string RouteToDashboard = "/Dashboard.html";
