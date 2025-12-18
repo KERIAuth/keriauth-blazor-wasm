@@ -71,6 +71,7 @@
         );
         */
 
+        // TODO P2 is tabId or any query param needed? If not, remove this logic.
         // Capture initial URI from which the app was loaded. This may contain query parameters we need.
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
         logger.LogInformation("InitialUri: {u}", InitialUri.ToString());
@@ -81,13 +82,12 @@
         // Initialize messaging service with BackgroundWorker
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
-        // If we're on a page that requires auth (unlocked), but we're no longer authenticated, navigate to index.html with force reload for redirection, e.g. to UnlockPage
-        // This scenario may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
+        // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to index.html with force reload for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated && !(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
         {
-            logger.LogInformation("Navigating to IndexPage with force reload since no longer authenticated");
-            // TODO P1: Consider to initialUri, which may be dependent on context (tab, popup, sidepanel)
-            navManager.NavigateTo(AppConfig.RouteToIndex, true);
+            // This situation may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
+            // Navigate to InitialUri (e.g. index.html, indexInPopup.html, indexInSidePanel ...) with forced reload since we are in an unknown App load state.
+            navManager.NavigateTo(InitialUri.AbsolutePath, true);
             return;
         }
 

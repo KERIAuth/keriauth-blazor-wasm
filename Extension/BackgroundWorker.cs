@@ -535,7 +535,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var installUrl = _webExtensionsApi.Runtime.GetURL("indexInTab.html");
+            var installUrl = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
             };
@@ -741,7 +741,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var updateUrl = _webExtensionsApi.Runtime.GetURL("indexInTab.html");
+            var updateUrl = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
@@ -813,7 +813,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
     private async Task CreateExtensionTabAsync() {
         try {
-            var tabUrl = _webExtensionsApi.Runtime.GetURL("indexInTab.html");
+            var tabUrl = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = tabUrl
                 // TODO P2 use the same tab identifier, so we don't get multiple tabs
@@ -844,7 +844,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Build simple URL - App will read request details from storage
-            var url = _webExtensionsApi.Runtime.GetURL("./indexInPopup.html");
+            var url = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInPopup);
 
             // Launch in action popup or side-panel based on user preference
             var useActionPopupNow = true;

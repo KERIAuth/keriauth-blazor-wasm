@@ -8,7 +8,10 @@ namespace Extension {
         public const string RouteToCredentials = "/Credentials.html";
         public const string RouteToWebsites = "/Websites.html";
         // TODO P0 revisit index.html vs indexTab.html etc
-        public const string RouteToIndex = "/index.html";  // Used for re-routing logic or startup
+        public const string RouteToIndex = "/index.html";  // Used for re-routing logic (Index.razor) or startup (index.html)
+        public const string RouteToIndexInTab = "/indexInTab.html";
+        public const string RouteToIndexInSidePanel = "/indexInSidePanel.html";
+        public const string RouteToIndexInPopup = "/indexInPopup.html";
         public const string RouteToDelete = "/Delete.html";
         public const string RouteToHome = "/Home.html";
         public const string RouteToDashboard = "/Dashboard.html";
@@ -34,6 +37,9 @@ namespace Extension {
         public const string RouteToWebsite = "/Website.html/";
         public static readonly List<string> PagesNotRequiringAuth = [
             RouteToIndex,
+            RouteToIndexInTab,
+            RouteToIndexInSidePanel,
+            RouteToIndexInPopup,
             RouteToDelete,
             RouteToWelcome,
             RouteToNewRelease,
