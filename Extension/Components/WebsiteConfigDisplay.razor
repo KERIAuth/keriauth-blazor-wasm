@@ -196,7 +196,8 @@
         {
             StateHasChanged(); // update reactive properties
             await refreshFromWebsiteConfig(OriginUri);
-            await sendValueToParent(); // TODO P1: may not be necessary here. test by changing Prefix to see if Sign In button goes disabled
+            // Note, if changing selection like Prefix, the parent's Sign In button may need to be disabled
+            await sendValueToParent();
         }
         logger.LogInformation("updateSelectedPrefix 4");
         StateHasChanged(); // update reactive properties

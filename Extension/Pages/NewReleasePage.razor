@@ -56,7 +56,6 @@
     string ManifestVersion { get; set; } = "unset";
     string? PriorVersion { get; set; }
     OnboardState? MyOnboardState { get; set; }
-    UpdateDetails? MyUpdateDetails { get; set; }
 
     // reactive properties
 
@@ -80,13 +79,6 @@
         }
 
         MyOnboardState = appCache.MyOnboardState;
-
-        // TODO P1 is this needed here if already in AppCache or a Request
-        var updateDetailsRes = await storageService.GetItem<UpdateDetails>();
-        if (updateDetailsRes.IsSuccess && updateDetailsRes.Value is not null)
-        {
-            MyUpdateDetails = updateDetailsRes.Value;
-        }
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
