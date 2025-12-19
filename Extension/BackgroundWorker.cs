@@ -826,11 +826,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Opens an action popup for the specified tab, storing the pending request for App to retrieve.
+    /// Store the pending request for App to retrieve, then uses SidePanel if already open, otherwise action popup for the specified tab. 
     /// The App will read the pending request from storage and route to the appropriate page.
     /// </summary>
     /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
-    private async Task UseActionPopupAsync(PendingBwAppRequest pendingRequest) {
+    private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest) {
         try {
             logger.LogInformation("BW UseActionPopup: type={Type}, requestId={RequestId}, tabId={TabId}",
                 pendingRequest.Type, pendingRequest.RequestId, pendingRequest.TabId);
@@ -843,27 +843,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Build simple URL - App will read request details from storage
-            var url = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInPopup);
+            // Determine if SidePanel is currently open, and if not use Action popup
 
-            // Launch in action popup or side-panel based on user preference
-            var useActionPopupNow = true;
-            var prefs = await _storageService.GetItem<Preferences>();
-            if (prefs is null || prefs.Value is null) {
-                logger.LogWarning("BW UseActionPopup: Preferences not found, defaulting to ActionPopup environment");
+            var contextFilter = new ContextFilter() { ContextTypes = [ContextType.SIDEPANEL] };
+            var contexts = await _webExtensionsApi.Runtime.GetContexts(contextFilter);
+            if (!contexts.Any()) {
+                logger.LogInformation("BW UseActionPopup: SidePanel context(s) detected, will use SidePanel for request");
 
-            }
-            else {
-                if (prefs.Value.IsSidePanelUsedForPageInteraction) {
-                    useActionPopupNow = false;
-                }
-            }
-
-            if (useActionPopupNow) {
-                
-                // Set popup URL (note: SetPopup applies globally, not per-tab in Manifest V3)
+                // Note: SetPopup applies globally, not per-tab in Manifest V3
                 await WebExtensions.Action.SetPopup(new() {
-                    Popup = new(url)
+                    Popup = new(_webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInPopup))
                 });
 
                 // Open popup
@@ -880,9 +869,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 await WebExtensions.Action.SetPopup(new() {
                     Popup = new WebExtensions.Net.ActionNs.Popup("")
                 });
-            } 
-            else 
-            {
+            }
+            else {
                 logger.LogInformation("BW UseActionPopup: Waiting for SidePanel to detect and handle request");
                 // SidePanel, if now or soon opened, will read pending request from storage and navigate accordingly
             }
@@ -891,9 +879,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, "BW UseActionPopup");
         }
     }
-    // NOTE: CsConnection and BlazorAppConnection classes removed
-    // No longer needed with stateless runtime.sendMessage approach
-
 
     /// <summary>
     /// Sends a message to a ContentScript in a specific tab using runtime.sendMessage.
@@ -1431,7 +1416,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 TabUrl = tabUrl
             };
 
-            await UseActionPopupAsync(pendingRequest);
+            await UseSidePanelOrActionPopupAsync(pendingRequest);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error in HandleSelectAuthorize");
@@ -1540,7 +1525,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 TabUrl = tabUrl
             };
 
-            await UseActionPopupAsync(pendingRequest);
+            await UseSidePanelOrActionPopupAsync(pendingRequest);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error in HandleRequestSignHeadersAsync");

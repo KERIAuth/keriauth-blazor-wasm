@@ -7,7 +7,6 @@ using JsBind.Net;
 using Microsoft.JSInterop;
 using System.Text.Json;
 using WebExtensions.Net;
-using WebExtensions.Net.Runtime;
 
 namespace Extension.Services {
     /// <summary>

@@ -110,8 +110,7 @@ namespace Extension {
             SelectedHints = DefaultSelectedHints,
             IsSignRequestDetailShown = false,
             IsStored = false,
-            SelectedPrefix = String.Empty,
-            IsSidePanelUsedForPageInteraction = true
+            SelectedPrefix = String.Empty
         };
 
         // Other settings
