@@ -1,4 +1,5 @@
 ﻿@inherits BaseLayout
+
 @using Extension.Models.Messages.BwApp
 @using Extension.Models.Storage
 @using Extension.Services
@@ -9,6 +10,7 @@
 @using Extension.Pages
 @using System.Reactive.Linq
 @using WebExtensions.Net.Extension
+
 @inject HttpClient http
 @inject IJSRuntime js
 @inject NavigationManager navManager
@@ -35,7 +37,7 @@
     List<ExtensionContext> CurrentExtensionContexts { get; set; } = [];
     bool IsPersistentDrawerOpenInPopup { get; set; }
 
-    // reactive properties ...
+    // computed properties ...
     Object ActiveAidObject => (object)ActivePrefix;
     string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
     string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
@@ -60,7 +62,6 @@
         (false, _)
             => $"left: {openWidth}; width:calc(100vw - {openWidth});"
     };
-
     DrawerVariant ActiveDrawerVariant => (App.IsInPopup, App.IsInSidePanel, App.IsInTab) switch
     {
         (true, _, _) => appCache.MyPreferences.DrawerVariantInPopup,
@@ -88,7 +89,6 @@
     }
 
 
-    static private ContextFilter contextFilter = new ContextFilter() { ContextTypes = [ContextType.POPUP, ContextType.TAB, ContextType.SIDEPANEL] };
 
     protected override async Task OnInitializedAsync()
     {

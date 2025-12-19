@@ -3,6 +3,7 @@
 @inject IJSRuntime jsRuntime
 @inject AppCache appCache  // Reactive: inherits subscription from BaseLayout
 @inject ILogger<BaseLayout> logger
+@inject NavigationManager navManager
 
 <MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@appCache.MyPreferences.IsDarkTheme" />
 <MudPopoverProvider />
@@ -23,7 +24,6 @@
                         @TimeoutText.Text
                     </MudText>
                 </MudStack>
-
                 <MudSpacer />
             </MudStack>
         </MudAppBar>
@@ -58,6 +58,26 @@
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
+    }
+
+    public async Task ReturnToPriorUI()
+    {
+        logger.LogInformation("ReturnToPriorUI: Returning to prior UI context: {AppContextType}", App.AppContext);
+        switch (App.AppContext)
+        {
+            case ContextType.POPUP:
+                await ClosePopupAsync();
+                break;
+            case ContextType.SIDEPANEL:
+                navManager.NavigateTo(AppConfig.RouteToIndex);
+                break;
+            case ContextType.TAB:
+                navManager.NavigateTo(AppConfig.RouteToIndex);
+                break;
+            default:
+                logger.LogWarning("ReturnToPriorUI: Unknown AppContextType {AppContextType}", App.AppContext);
+                break;
+        }
     }
 }
 

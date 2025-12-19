@@ -19,6 +19,7 @@
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig
+@using Extension.UI.Components
 @using MudBlazor
 @using FluentResults
 @using System.Web
@@ -27,6 +28,8 @@
 @using System.Collections.Generic;
 @using JsBind.Net
 @using WebExtensions.Net
+@using WebExtensions.Net.Tabs
+@using BrowserTab = WebExtensions.Net.Tabs.Tab
 
 @implements IAsyncDisposable
 
@@ -46,6 +49,7 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ISnackbar snackbar
 @inject AppCache appCache // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+@inject IWebExtensionsApi webExtensionsApi
 
 @code {
     [CascadingParameter] public DialogLayout? Layout { get; set; }
@@ -74,6 +78,7 @@
     string WebsiteConfiguredPrefix { get; set; } = "unknown";
     List<Aid>? Identifiers { get; set; }
     string OriginStr { get; set; } = "unset";
+    public BrowserTab? ActiveTab { get; set; }
 
     // reactive properties
     public bool HasSafeHttpRequestMethod => HeadersDict.Any(header =>
@@ -113,6 +118,7 @@
         // Extract values from the pending request payload
         RequestId = pendingRequest.RequestId;
         TabId = payload.TabId;
+        ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
         HeadersDict = payload.Headers;
         PayloadJson = JsonSerializer.Serialize(payload.Headers);
         WebsiteConfiguredPrefix = payload.RememberedPrefix ?? "unknown";
@@ -327,25 +333,26 @@
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Typo="Typo.h6">Request to Sign HTTP Request Headers</MudText>
+            @if (ActiveTab is not null)
+                {
+                    <TabInteractionDisplay ActiveTab=@ActiveTab />
+                } 
             <MudText class="mt-6" Typo="Typo.body1">
-                The website <b>@OriginStr</b> is requesting KERI Auth, with your approval,
+                This website is requesting KERI Auth, with your approval,
                 to cryptographically sign HTTP Request Headers with the key material of the identifier you selected for this site when you signed in to it.
                 The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
             </MudText>
-
-            <MudText><b>Signing Identifier</b></MudText>
+            <MudText Style="margin-top:10px;"><b>Signing Identifier</b></MudText>
             <MudStack Row Class="pl-1" Style="align-items:center;">
                 <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
                 <MudText>@WebsiteConfiguredAlias</MudText>
             </MudStack>
-
-            
                 <MudStack Row>
                 <MudCheckBox Label="Show Input Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
                 </MudStack>
                 @if (IsDetailShown)
                 {
-                    <MudPaper>
+                    <MudPaper Style="margin-left:48px">
                         <table class="non-responsive-table">
                             <thead style="text-align:left;">
                                 <tr>
@@ -365,9 +372,7 @@
                         </table>
                     </MudPaper>
                 }
-                <!-- The following mayb be display:none; -->
-                <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 28px;" />
-            
+                <MudCheckBox Label="Always auto-sign Http Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 28px;" />
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">

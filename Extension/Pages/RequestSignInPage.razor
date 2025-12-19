@@ -22,10 +22,13 @@
 @using Extension.Services.JsBindings
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
+@using Extension.UI.Components
 @using FluentResults
 @using MudBlazor
 @using static Extension.AppConfig
 @using WebExtensions.Net.Runtime
+@using WebExtensions.Net.Tabs
+@using BrowserTab = WebExtensions.Net.Tabs.Tab
 
 @implements IAsyncDisposable
 
@@ -54,12 +57,14 @@
     private MudButton? signInButton;
 
     // properties
+
+    public BrowserTab? ActiveTab { get; set; }
     /// <summary>
     /// The original requestId from the web page that initiated this authorization request.
     /// This must be returned in replies so the page can correlate the response.
     /// </summary>
-    public string pageRequestId { get; set; } = "";
-    public int tabId { get; set; } = -1;
+    public string PageRequestId { get; set; } = "";
+    public int TabId { get; set; } = -1;
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string? SelectedPrefix { get; set; }
     string? SelectedAlias { get; set; }
@@ -72,7 +77,7 @@
     bool HasRepliedToPage { get; set; } = false;
     string OriginStr { get; set; } = "unset";
 
-    // reactive properties
+    // computed properties
     bool IsSignInDisabled => (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null));
 
 
@@ -98,11 +103,14 @@
 
         // Extract values from the pending request payload
         // pageRequestId is the original request ID from the web page - must be returned in replies
-        pageRequestId = pendingRequest.RequestId;
-        tabId = payload.TabId;
+        PageRequestId = pendingRequest.RequestId;
+        TabId = payload.TabId;
 
         logger.LogInformation("OnInitializedAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}",
-            pageRequestId, tabId, payload.Origin);
+            PageRequestId, TabId, payload.Origin);
+
+        // TODO P2 move this into component, then pass only the TabId to component
+        ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
 
         // Determine sign-in mode from the original message type
         var originalType = payload.OriginalType ?? string.Empty;
@@ -111,7 +119,7 @@
             CsBwMessageTypes.SELECT_AUTHORIZE_AID => SignInMode.Identifier,
             CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL => SignInMode.Credential,
             CsBwMessageTypes.AUTHORIZE => SignInMode.Prompt,
-            _ => SignInMode.Prompt // Default to prompt if unknown
+            _ => SignInMode.Prompt
         };
 
         if (originalType != CsBwMessageTypes.AUTHORIZE &&
@@ -123,7 +131,6 @@
 
         IsInitialized = true;
         StateHasChanged();
-
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -150,7 +157,7 @@
     {
         // will received Prefix and credential via callback from WebsiteConfigDisplay component
 
-        if (tabId <= 0)
+        if (TabId <= 0)
         {
             var error = new ValidationError("TabId", "Invalid tab ID");
             snackbar.Add(error.Message, Severity.Error);
@@ -172,7 +179,7 @@
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: null
                 );
-                var identifierMessage = new AppBwReplyAidMessage(tabId, OriginStr, pageRequestId, identifierResult);
+                var identifierMessage = new AppBwReplyAidMessage(TabId, OriginStr, PageRequestId, identifierResult);
                 await appBwMessagingService.SendToBackgroundWorkerAsync(identifierMessage);
                 HasRepliedToPage = true;
                 break;
@@ -206,7 +213,7 @@
                     Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
                     Credential: authorizeResultCredential
                 );
-                var credentialMessage = new AppBwReplyAidMessage(tabId, OriginStr, pageRequestId, authorizeResult);
+                var credentialMessage = new AppBwReplyAidMessage(TabId, OriginStr, PageRequestId, authorizeResult);
                 await appBwMessagingService.SendToBackgroundWorkerAsync(credentialMessage);
                 HasRepliedToPage = true;
                 break;
@@ -219,7 +226,7 @@
         {
             // Clear the pending request now that sign-in is complete
             await ClearPendingRequestAsync();
-            await ReturnToPriorUI();
+            await Layout!.ReturnToPriorUI();
             // maybe unreachable if popup closes
             return Result.Ok();
         }
@@ -231,32 +238,9 @@
 
     }
 
-    async Task ReturnToPriorUI()
-    {
-        logger.LogInformation("ReturnToPriorUI: Returning to prior UI context: {AppContextType}", App.AppContext);
-        switch (App.AppContext)
-        {
-            case ContextType.POPUP:
-                if (Layout is not null)
-                {
-                    await Layout.ClosePopupAsync();
-                }
-                break;
-            case ContextType.SIDEPANEL:
-                navManager.NavigateTo(AppConfig.RouteToIndex);
-                break;
-            case ContextType.TAB:
-                navManager.NavigateTo(AppConfig.RouteToIndex);
-                break;
-            default:
-                logger.LogWarning("ReturnToPriorUI: Unknown AppContextType {AppContextType}", App.AppContext);
-                break;
-        }
-    }
-
     async Task Cancel(MouseEventArgs _)
     {
-        logger.LogInformation("Cancel: User initiated cancel for pageRequestId={PageRequestId}", pageRequestId);
+        logger.LogInformation("Cancel: User initiated cancel for pageRequestId={PageRequestId}", PageRequestId);
 
         /*
         if (tabId == -1) // Chrome uses -1 to mean “no tab” or “not associated with a tab.”
@@ -267,7 +251,7 @@
             }
         */
 
-        var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User canceled sign-in");
+        var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User canceled sign-in");
         try
         {
             await appBwMessagingService.SendToBackgroundWorkerAsync(message);
@@ -287,7 +271,7 @@
 
         // logger.LogInformation("Cancel: done waiting for AppCache update");
 
-        await ReturnToPriorUI();
+        await Layout!.ReturnToPriorUI();
 
         // TODO P2 make this configurable debug option, to dwell on a dialog before closing
         // logger.LogWarning("Cancel: Reached end of Cancel method. Waiting a long time now for debugging.....");
@@ -299,12 +283,12 @@
     {
         // If user closes popup without previously clicking Sign In or Cancel,
         // send a cancel reply to the page so it's not left waiting
-        if (!HasRepliedToPage && tabId > 0 && !string.IsNullOrEmpty(pageRequestId))
+        if (!HasRepliedToPage && TabId > 0 && !string.IsNullOrEmpty(PageRequestId))
         {
-            logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", pageRequestId);
+            logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", PageRequestId);
             try
             {
-                var message = new AppBwReplyCanceledMessage(tabId, OriginStr, pageRequestId, "User closed sign-in dialog (popup or SidePanel dialog");
+                var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User closed sign-in dialog (popup or SidePanel dialog");
                 await appBwMessagingService.SendToBackgroundWorkerAsync(message);
             }
             catch (Exception ex)
@@ -324,14 +308,14 @@
     /// </summary>
     async Task ClearPendingRequestAsync()
     {
-        if (string.IsNullOrEmpty(pageRequestId))
+        if (string.IsNullOrEmpty(PageRequestId))
         {
             logger.LogWarning("ClearPendingRequestAsync: No pageRequestId available to clear");
             return;
         }
 
-        logger.LogInformation("ClearPendingRequestAsync: Clearing pending request, pageRequestId={PageRequestId}", pageRequestId);
-        var result = await pendingBwAppRequestService.RemoveRequestAsync(pageRequestId);
+        logger.LogInformation("ClearPendingRequestAsync: Clearing pending request, pageRequestId={PageRequestId}", PageRequestId);
+        var result = await pendingBwAppRequestService.RemoveRequestAsync(PageRequestId);
         if (result.IsFailed)
         {
             logger.LogError("ClearPendingRequestAsync: Failed to remove request - {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
@@ -353,7 +337,7 @@
     //
     private async Task SignInHandler()
     {
-        var result = await SignIn(RequestedSignInMode, pageRequestId);
+        var result = await SignIn(RequestedSignInMode, PageRequestId);
         if (result.IsFailed)
         {
             logger.LogError("Sign-in failed: {error}", result.Errors.FirstOrDefault()?.Message);
@@ -376,8 +360,6 @@
 @if (IsInitialized)
 {
     <div id="@this.GetType().Name" class="bt-body-page">
-        <MudText
-
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
                 @switch (RequestedSignInMode)
@@ -395,7 +377,13 @@
                         <MudText Typo="Typo.h6">Unsupported SignIn Mode: @RequestedSignInMode</MudText>
                         break;
                 }
-                <MudText>from @OriginStr</MudText>
+                @if (ActiveTab is not null)
+                {
+                    <TabInteractionDisplay ActiveTab=@ActiveTab />
+                } else
+                {
+                    <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
+                }
 
                 @switch (RequestedSignInMode)
                 {
@@ -403,8 +391,8 @@
                         <MudStack Class="gap-0">
                             <MudText Class="mt-6"><b>Sign-in method</b></MudText>
                             <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode InputStyle="flex-direction:column; align-items:start;">
-                                <MudRadio Value=@(SignInMode.Identifier)>Identifier</MudRadio>
-                                <MudRadio Value=@(SignInMode.Credential)>Credential</MudRadio>
+                                <MudRadio Value=@(SignInMode.Identifier)>Identifier only</MudRadio>
+                                <MudRadio Value=@(SignInMode.Credential)>Identifier with Credential</MudRadio>
                             </MudRadioGroup>
                         </MudStack>
                         break;
