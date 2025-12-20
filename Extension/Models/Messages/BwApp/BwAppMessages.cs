@@ -5,9 +5,10 @@ namespace Extension.Models.Messages.BwApp {
     /// <summary>
     /// Message sent from BackgroundWorker to App (popup/tab/sidepanel).
     /// Direction: BackgroundWorker → App
-    /// Non-generic version for initial deserialization when payload type is unknown.
+    /// Non-generic version for convenience when constructing messages with untyped data.
+    /// For initial deserialization when type is unknown, use FromBwMessage directly.
     /// </summary>
-    public record BwAppMessage : FromBwMessage {
+    public record BwAppMessage : FromBwMessage<object> {
         public BwAppMessage(string type, string? requestId = null, object? data = null, string? error = null)
             : base(type, requestId, data, error) { }
 
@@ -80,21 +81,49 @@ namespace Extension.Models.Messages.BwApp {
         /// </summary>
         /// <exception cref="ArgumentException">Thrown when the value is not a valid message type.</exception>
         public static BwAppMessageType Parse(string value) {
-            return value switch {
-                Values.LockApp => LockApp,
-                Values.SystemLockDetected => SystemLockDetected,
-                Values.FromBackgroundWorker => FromBackgroundWorker,
-                Values.ForwardedMessage => ForwardedMessage,
-                Values.RequestSelectAuthorize => RequestSelectAuthorize,
-                Values.RequestSignHeaders => RequestSignHeaders,
-                Values.RequestNotifyUserOfUpdate => RequestNotifyUserOfUpdate,
-                _ => throw new ArgumentException($"Invalid BwAppMessageType: '{value}'", nameof(value))
-            };
+            if (TryParse(value, out var result)) {
+                return result;
+            }
+            throw new ArgumentException($"Invalid BwAppMessageType: '{value}'", nameof(value));
+        }
+
+        /// <summary>
+        /// Try to parse a string value into a BwAppMessageType.
+        /// Returns true if successful, false if the value is not a valid message type.
+        /// </summary>
+        public static bool TryParse(string? value, out BwAppMessageType result) {
+            result = default;
+            if (value is null) return false;
+
+            switch (value) {
+                case Values.LockApp:
+                    result = LockApp;
+                    return true;
+                case Values.SystemLockDetected:
+                    result = SystemLockDetected;
+                    return true;
+                case Values.FromBackgroundWorker:
+                    result = FromBackgroundWorker;
+                    return true;
+                case Values.ForwardedMessage:
+                    result = ForwardedMessage;
+                    return true;
+                case Values.RequestSelectAuthorize:
+                    result = RequestSelectAuthorize;
+                    return true;
+                case Values.RequestSignHeaders:
+                    result = RequestSignHeaders;
+                    return true;
+                case Values.RequestNotifyUserOfUpdate:
+                    result = RequestNotifyUserOfUpdate;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         public static implicit operator string(BwAppMessageType type) => type.Value;
         public override string ToString() => Value;
-
         public bool Equals(BwAppMessageType other) => Value == other.Value;
         public override bool Equals(object? obj) => obj is BwAppMessageType other && Equals(other);
         public override int GetHashCode() => Value?.GetHashCode() ?? 0;

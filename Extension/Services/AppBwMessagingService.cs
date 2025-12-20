@@ -65,7 +65,9 @@ namespace Extension.Services {
         }
 
         /// <summary>
-        /// Handles messages received from BackgroundWorker via chrome.runtime.onMessage
+        /// Handles messages received from BackgroundWorker via chrome.runtime.onMessage.
+        /// Uses two-phase deserialization: first to FromBwMessage to inspect the type,
+        /// then creates appropriate BwAppMessage for subscribers.
         /// </summary>
         private void OnMessageFromBackgroundWorker(object messageObj, WebExtensions.Net.Runtime.MessageSender sender, Func<object, ValueTask> sendResponse) {
             try {
@@ -77,33 +79,29 @@ namespace Extension.Services {
                     return;
                 }
 
-                // Deserialize to BwAppMessage by extracting properties manually
-                // This approach avoids constructor binding issues with derived record types
+                // First phase: deserialize to FromBwMessage (base type with JsonElement? Data)
                 var messageJson = JsonSerializer.Serialize(messageObj);
-                var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
+                var baseMessage = JsonSerializer.Deserialize<FromBwMessage>(messageJson, MessageJsonOptions);
 
-                if (messageDict != null) {
-                    // Extract properties from dictionary
-                    var type = messageDict.TryGetValue("type", out var typeElem) ? typeElem.GetString() : null;
-                    var requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem.GetString() : null;
-                    var error = messageDict.TryGetValue("error", out var errorElem) ? errorElem.GetString() : null;
-
-                    // Extract data (could be complex object)
-                    object? data = null;
-                    if (messageDict.TryGetValue("data", out var dataElem) && dataElem.ValueKind != JsonValueKind.Null) {
-                        var dataJson = dataElem.GetRawText();
-                        data = JsonSerializer.Deserialize<object>(dataJson, MessageJsonOptions);
-                    }
-
-                    if (!string.IsNullOrEmpty(type)) {
-                        // Create a BwAppMessage instance using the non-generic version
-                        var bwAppMessage = new BwAppMessage(type, requestId, data, error);
-                        ReceiveMessage(bwAppMessage);
-                    }
-                    else {
-                        logger.LogWarning("AppBwMessagingService: Message missing 'type' property");
-                    }
+                if (baseMessage is null) {
+                    logger.LogWarning("AppBwMessagingService: Failed to deserialize message");
+                    return;
                 }
+
+                if (string.IsNullOrEmpty(baseMessage.Type)) {
+                    logger.LogWarning("AppBwMessagingService: Message missing 'type' property");
+                    return;
+                }
+
+                // Convert JsonElement? Data to object? for BwAppMessage
+                // Note: If specific message types need typed Data, subscribers can deserialize
+                // baseMessage.Data (JsonElement) to the expected type
+                object? data = baseMessage.Data.HasValue
+                    ? JsonSerializer.Deserialize<object>(baseMessage.Data.Value.GetRawText(), MessageJsonOptions)
+                    : null;
+
+                var bwAppMessage = new BwAppMessage(baseMessage.Type, baseMessage.RequestId, data, baseMessage.Error);
+                ReceiveMessage(bwAppMessage);
             }
             catch (Exception ex) {
                 logger.LogError(ex, "Error handling message from BackgroundWorker");

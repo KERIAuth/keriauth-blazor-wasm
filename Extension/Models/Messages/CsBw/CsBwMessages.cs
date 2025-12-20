@@ -5,9 +5,10 @@ namespace Extension.Models.Messages.CsBw {
     /// <summary>
     /// Message from ContentScript to BackgroundWorker.
     /// Originates from web page via polaris-web protocol.
-    /// Non-generic version for initial deserialization.
+    /// Non-generic version for convenience when constructing messages with untyped payload.
+    /// For initial deserialization when type is unknown, use ToBwMessage directly.
     /// </summary>
-    public record CsBwMessage : ToBwMessage {
+    public record CsBwMessage : ToBwMessage<object> {
         public CsBwMessage(string type, string? requestId = null, object? payload = null)
             : base(type, requestId, payload) { }
     }

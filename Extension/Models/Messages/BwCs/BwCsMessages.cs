@@ -4,9 +4,10 @@ using Extension.Models.Messages.Common;
 namespace Extension.Models.Messages.ExCs {
     /// <summary>
     /// Message sent from BackgroundWorker to ContentScript (outbound direction).
-    /// Non-generic version for initial deserialization.
+    /// Non-generic version for convenience when constructing messages with untyped data.
+    /// For initial deserialization when type is unknown, use FromBwMessage directly.
     /// </summary>
-    public record BwCsMessage : FromBwMessage {
+    public record BwCsMessage : FromBwMessage<object> {
         public BwCsMessage(string type, string? requestId = null, object? data = null, string? error = null)
             : base(type, requestId, data, error) { }
     }

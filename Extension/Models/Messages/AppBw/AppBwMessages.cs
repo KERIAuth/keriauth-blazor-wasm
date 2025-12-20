@@ -1,14 +1,54 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using Extension.Helper;
 using Extension.Models.Messages.Common;
 using Extension.Services.SignifyService.Models;
 
 namespace Extension.Models.Messages.AppBw {
     /// <summary>
-    /// Base record for all messages sent from App (popup/tab/sidepanel) to BackgroundWorker.
+    /// Non-generic version of AppBwMessage for initial deserialization when payload type is unknown.
+    /// Direction: App → BackgroundWorker
+    /// Contains App-specific properties (TabId, TabUrl, Error) with JsonElement? Payload for two-phase deserialization.
+    /// Use to inspect Type property, then convert to typed AppBwMessage if needed.
+    /// </summary>
+    public record AppBwMessage : ToBwMessage {
+        [JsonPropertyName("tabId")]
+        public int TabId { get; init; }
+
+        [JsonPropertyName("tabUrl")]
+        public string? TabUrl { get; init; }
+
+        [JsonPropertyName("error")]
+        public string? Error { get; init; }
+
+        /// <summary>
+        /// Constructor for JSON deserialization.
+        /// </summary>
+        [JsonConstructor]
+        public AppBwMessage(string type, int tabId = 0, string? tabUrl = null, string? requestId = null, JsonElement? payload = null, string? error = null)
+            : base(type, requestId, payload) {
+            TabId = tabId;
+            TabUrl = tabUrl;
+            Error = error;
+        }
+
+        /// <summary>
+        /// Converts this non-generic message to a typed AppBwMessage.
+        /// Deserializes the Payload JsonElement to the specified type using the provided options.
+        /// </summary>
+        public AppBwMessage<T> ToTyped<T>(JsonSerializerOptions? options = null) {
+            T? typedPayload = default;
+            if (Payload.HasValue && Payload.Value.ValueKind != JsonValueKind.Null) {
+                typedPayload = JsonSerializer.Deserialize<T>(Payload.Value.GetRawText(), options);
+            }
+            return new AppBwMessage<T>(Type, TabId, TabUrl, RequestId, typedPayload, Error);
+        }
+    }
+
+    /// <summary>
+    /// Generic version of AppBwMessage with typed payload.
     /// Direction: App → BackgroundWorker
     /// Extends ToBwMessage with App-specific properties (TabId, TabUrl, Error).
-    /// Not abstract, because it is helpful as first step of instantiating more specific type.
     /// </summary>
     public record AppBwMessage<T> : ToBwMessage<T> {
         [JsonPropertyName("tabId")]
@@ -85,19 +125,54 @@ namespace Extension.Models.Messages.AppBw {
         /// </summary>
         /// <exception cref="ArgumentException">Thrown when the value is not a valid message type.</exception>
         public static AppBwMessageType Parse(string value) {
-            return value switch {
-                Values.ReplyCredential => ReplyCredential,
-                Values.ReplyCanceled => ReplyCanceled,
-                Values.ReplyError => ReplyError,
-                Values.ReplyIdentifier => ReplyIdentifier,
-                Values.ReplyAid => ReplyAid,
-                Values.ReplyApprovedSignHeaders => ReplyApprovedSignHeaders,
-                Values.AppClosed => AppClosed,
-                Values.UserActivity => UserActivity,
-                Values.RequestAddIdentifier => RequestAddIdentifier,
-                Values.ResponseToBwRequest => ResponseToBwRequest,
-                _ => throw new ArgumentException($"Invalid AppBwMessageType: '{value}'", nameof(value))
-            };
+            if (TryParse(value, out var result)) {
+                return result;
+            }
+            throw new ArgumentException($"Invalid AppBwMessageType: '{value}'", nameof(value));
+        }
+
+        /// <summary>
+        /// Try to parse a string value into an AppBwMessageType.
+        /// Returns true if successful, false if the value is not a valid message type.
+        /// </summary>
+        public static bool TryParse(string? value, out AppBwMessageType result) {
+            result = default;
+            if (value is null) return false;
+
+            switch (value) {
+                case Values.ReplyCredential:
+                    result = ReplyCredential;
+                    return true;
+                case Values.ReplyCanceled:
+                    result = ReplyCanceled;
+                    return true;
+                case Values.ReplyError:
+                    result = ReplyError;
+                    return true;
+                case Values.ReplyIdentifier:
+                    result = ReplyIdentifier;
+                    return true;
+                case Values.ReplyAid:
+                    result = ReplyAid;
+                    return true;
+                case Values.ReplyApprovedSignHeaders:
+                    result = ReplyApprovedSignHeaders;
+                    return true;
+                case Values.AppClosed:
+                    result = AppClosed;
+                    return true;
+                case Values.UserActivity:
+                    result = UserActivity;
+                    return true;
+                case Values.RequestAddIdentifier:
+                    result = RequestAddIdentifier;
+                    return true;
+                case Values.ResponseToBwRequest:
+                    result = ResponseToBwRequest;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         public static implicit operator string(AppBwMessageType type) => type.Value;

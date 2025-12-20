@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Extension.Models.Messages.Common {
@@ -7,6 +8,7 @@ namespace Extension.Models.Messages.Common {
     /// Non-generic version for initial deserialization when payload type is unknown.
     /// Use to inspect Type property, then deserialize to specific typed message if needed.
     /// Note: Uses "data" as JSON property name for payload to match polaris-web protocol.
+    /// Data is JsonElement? to make the JSON structure explicit (rather than hiding it behind object).
     /// </summary>
     public record FromBwMessage {
         [JsonPropertyName("type")]
@@ -17,15 +19,15 @@ namespace Extension.Models.Messages.Common {
         public string? RequestId { get; init; }
 
         [JsonPropertyName("data")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public object? Data { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public JsonElement? Data { get; init; }
 
         [JsonPropertyName("error")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Error { get; init; }
 
         [JsonConstructor]
-        public FromBwMessage(string type, string? requestId = null, object? data = null, string? error = null) {
+        public FromBwMessage(string type, string? requestId = null, JsonElement? data = null, string? error = null) {
             Type = type;
             RequestId = requestId;
             Data = data;

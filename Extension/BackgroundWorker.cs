@@ -267,49 +267,32 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Messages from App
                 if (isFromExtension) {
                     logger.LogInformation("App->BW msgJson: {j}", messageJson);
-                    // Deserialize directly to base AppBwMessage type
-                    // The base type contains all necessary properties (Type, TabId, TabUrl, RequestId, Payload, Error)
-                    // No need to deserialize to specific subtypes since they only wrap the base constructor
-                    // Note payload may be null
-                    var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement?>>(messageJson);
-                    if (messageDict is not null) {
-                        // Extract properties from dictionary
-                        string? type = messageDict.TryGetValue("type", out var typeElem) ? typeElem?.GetString() : null;
-                        if (type is null) {
-                            logger.LogWarning("Failed to extract message type from AppBwMessage");
-                            await HandleUnknownMessageActionAsync("unknown");
-                            return null;
-                        }
 
-                        await _sessionManager.ExtendIfUnlockedAsync();
-
-                        string? tabUrl = messageDict.TryGetValue("tabUrl", out var tabUrlElem) ? tabUrlElem?.GetString() : null;
-                        int tabId = (messageDict.TryGetValue("tabId", out JsonElement? tabIdElem) && tabIdElem?.ValueKind == JsonValueKind.Number) ? tabIdElem.Value.GetInt32() : 0;
-                        string? requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem?.GetString() : null;
-                        string? error = messageDict.TryGetValue("error", out var errorElem) ? errorElem?.GetString() : null;
-
-                        // Extract payload (could be complex object like RecursiveDictionary)
-                        object? payload = null;
-                        if (messageDict.TryGetValue("payload", out var payloadElem) && payloadElem?.ValueKind != JsonValueKind.Null) {
-                            // Deserialize payload with RecursiveDictionary support and increased depth
-                            var payloadJson = payloadElem?.GetRawText();
-                            if (payloadJson is not null) {
-                                payload = JsonSerializer.Deserialize<object>(payloadJson, RecursiveDictionaryJsonOptions);
-                            }
-                            if (payload is null) {
-                                logger.LogWarning("Failed to extract message payload of type {t} from AppBwMessage", type);
-                                // await HandleUnknownMessageActionAsync("unknown");
-                                return null;
-                            }
-
-                            var appMsg = new AppBwMessage<object>(AppBwMessageType.Parse(type), tabId, tabUrl, requestId, payload);
-
-                            logger.LogInformation("AppMessage deserialized - Type: {Type}, TabId: {TabId}, TabUrl: {tt}", appMsg.Type, appMsg.TabId, appMsg.TabUrl);
-                            var response = await HandleAppMessageAsync(appMsg);
-
-                            return response;
-                        }
+                    // Deserialize to non-generic AppBwMessage (has JsonElement? Payload for two-phase deserialization)
+                    var baseAppMsg = JsonSerializer.Deserialize<AppBwMessage>(messageJson, PortMessageJsonOptions);
+                    if (baseAppMsg is null || string.IsNullOrEmpty(baseAppMsg.Type)) {
+                        logger.LogWarning("Failed to deserialize AppBwMessage or missing type");
+                        await HandleUnknownMessageActionAsync("unknown");
+                        return null;
                     }
+
+                    // Validate message type is known
+                    if (!AppBwMessageType.TryParse(baseAppMsg.Type, out _)) {
+                        logger.LogWarning("Unknown AppBwMessageType: {Type}", baseAppMsg.Type);
+                        await HandleUnknownMessageActionAsync(baseAppMsg.Type);
+                        return null;
+                    }
+
+                    await _sessionManager.ExtendIfUnlockedAsync();
+
+                    // Convert to typed message using RecursiveDictionaryJsonOptions for payload deserialization
+                    var appMsg = baseAppMsg.ToTyped<object>(RecursiveDictionaryJsonOptions);
+
+                    logger.LogInformation("AppMessage deserialized - Type: {Type}, TabId: {TabId}, TabUrl: {TabUrl}",
+                        appMsg.Type, appMsg.TabId, appMsg.TabUrl);
+
+                    var response = await HandleAppMessageAsync(appMsg);
+                    return response;
                 }
                 else {
                     // Handle ContentScript messages (from web pages)

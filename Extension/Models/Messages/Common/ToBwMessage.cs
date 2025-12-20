@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Extension.Models.Messages.Common {
@@ -6,6 +7,7 @@ namespace Extension.Models.Messages.Common {
     /// Can come from ContentScript or App.
     /// Non-generic version for initial deserialization when payload type is unknown.
     /// Use to inspect Type property, then deserialize to specific typed message if needed.
+    /// Payload is JsonElement? to make the JSON structure explicit (rather than hiding it behind object).
     /// </summary>
     public record ToBwMessage {
         [JsonPropertyName("type")]
@@ -15,10 +17,11 @@ namespace Extension.Models.Messages.Common {
         public string? RequestId { get; init; }
 
         [JsonPropertyName("payload")]
-        public object? Payload { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public JsonElement? Payload { get; init; }
 
         [JsonConstructor]
-        public ToBwMessage(string type, string? requestId = null, object? payload = null) {
+        public ToBwMessage(string type, string? requestId = null, JsonElement? payload = null) {
             Type = type;
             RequestId = requestId;
             Payload = payload;
