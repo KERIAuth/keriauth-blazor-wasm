@@ -1971,39 +1971,31 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<Result> TryConnectSignifyClientAsync() {
         try {
-            // Get connection config from storage
+            // Get connection config from storage and minimally validate
             var configResult = await _storageService.GetItem<KeriaConnectConfig>();
             if (configResult.IsFailed || configResult.Value == null) {
                 return Result.Fail("No KERIA connection configuration found");
             }
-
             var config = configResult.Value;
-
             if (string.IsNullOrEmpty(config.AdminUrl)) {
                 return Result.Fail("Admin URL not configured");
             }
-
             if (string.IsNullOrEmpty(config.BootUrl)) {
                 return Result.Fail("Boot URL not configured");
             }
 
-            // Get passcode from session storage using new type-safe model
+            // Retrieve passcode from session storage
             var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-
             if (passcodeResult.IsFailed) {
                 return Result.Fail($"Failed to retrieve passcode: {passcodeResult.Errors[0].Message}");
             }
-
             if (passcodeResult.Value == null) {
                 return Result.Fail("Passcode not found in session storage");
             }
-
             var passcode = passcodeResult.Value.Passcode;
-
             if (string.IsNullOrEmpty(passcode)) {
                 return Result.Fail("Passcode not available");
             }
-
             if (passcode.Length != 21) {
                 return Result.Fail("Invalid passcode length");
             }
@@ -2016,11 +2008,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 config.BootUrl,
                 isBootForced: false  // Don't force boot - just connect
             );
-
             if (connectResult.IsFailed) {
                 return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
             }
-
             logger.LogInformation("BW TryConnectSignifyClient: connected successfully");
             return Result.Ok();
         }

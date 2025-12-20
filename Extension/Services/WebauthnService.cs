@@ -146,7 +146,7 @@ namespace Extension.Services {
                 return Result.Fail("Failed to verify with authenticator 444");
             }
 
-            // Get the cleartext passcode from session storage using new type-safe model
+            // Get the passcode from session storage
             var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
             if (passcodeResult.IsSuccess && passcodeResult.Value != null) {
                 try {
