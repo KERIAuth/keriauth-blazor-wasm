@@ -1124,7 +1124,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // to conform to polaris-web AuthorizeResult interface
                     transformedPayload = TransformToPolariWebAuthorizeResult(msg.Payload);
                     break;
-
                 case AppBwMessageType.Values.ReplyApprovedSignHeaders:
                     if (msg.Payload is null) {
                         logger.LogWarning("Payload is null for {t}: {msg}", msg.Type, msg);
@@ -1166,8 +1165,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppBwMessageType.Values.ReplyCanceled:
                     contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
                     errorStr = "User canceled or rejected request";
-
-                    // TODO P1 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
+                    // TODO P2 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
                     break; // will forward
                 case AppBwMessageType.Values.AppClosed:
                     // Notify BwAppMessagingService to fail any pending requests
@@ -1181,13 +1179,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return null;
                 case AppBwMessageType.Values.RequestAddIdentifier:
                     return await HandleRequestAddIdentifierAsync(msg);
-
-
                 case AppBwMessageType.Values.ResponseToBwRequest:
                     // App is responding to a BW-initiated request
                     if (msg.RequestId is not null) {
-                        // TODO P1 remove warning
-                        logger.LogWarning("BW←App: received ResponseToBwRequest ... handling");
+                        logger.LogInformation("BW←App: received ResponseToBwRequest ... handling");
                         _bwAppMessagingService.HandleResponseFromApp(msg.RequestId, msg.Payload);
                     }
                     else {
@@ -1208,14 +1203,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 error: errorStr
             );
 
-            // Forward the message to the ContentScript on the specified tab
+            // Forward the message to ContentScript on the specified tab
             logger.LogInformation("BW→CS: Forwarding message type {Type} (transformed from {OriginalType}) to tab {TabId}",
                 contentScriptMessageType, msg.Type, msg.TabId);
-
             await SendMessageToTabAsync(msg.TabId, forwardMsg);
-
-            logger.LogInformation("BW→CS: Successfully sent message to tab {TabId}", msg.TabId);
-
             return null;
         }
         catch (Exception ex) {
