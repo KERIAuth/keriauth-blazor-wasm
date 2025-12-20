@@ -7,6 +7,7 @@ using Extension.Models.Messages.AppBw.Requests;
 using Extension.Models.Messages.AppBw.Responses;
 using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.BwApp.Requests;
+using Extension.Models.Messages.Common;
 using Extension.Models.Messages.CsBw;
 using Extension.Models.Messages.ExCs;
 using Extension.Models.Messages.Polaris;
@@ -1220,7 +1221,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var forwardMsg = new BwCsMessage(
                 type: contentScriptMessageType,
                 requestId: msg.RequestId,
-                payload: transformedPayload,
+                data: transformedPayload,
                 error: errorStr
             );
 
@@ -1629,7 +1630,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await SendMessageToTabAsync(tabId, new BwCsMessage(
                 type: BwCsMessageTypes.REPLY,
                 requestId: msg.RequestId,
-                payload: new { headers = signedHeaders },
+                data: new { headers = signedHeaders },
                 error: null
             ));
             return;
@@ -1747,8 +1748,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await SendMessageToTabAsync(tabId, new BwCsMessage(
                 type: BwCsMessageTypes.REPLY,
                 requestId: msg.RequestId,
-                payload: new { signature = signature.Signature, verfer = signature.Verfer },
-                errorStr: null
+                data: new { signature = signature.Signature, verfer = signature.Verfer },
+                error: null
             ));
             */
             return;
@@ -1933,13 +1934,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("BW HandleCreateDataAttestation: successfully created credential");
 
             // Send credential back to ContentScript
-            // CRITICAL: Pass RecursiveDictionary directly as payload to preserve CESR/SAID ordering
+            // CRITICAL: Pass RecursiveDictionary directly as data to preserve CESR/SAID ordering
             // RecursiveDictionary maintains insertion order required for SAID verification
             // The messaging infrastructure will handle serialization properly
             await SendMessageToTabAsync(tabId, new BwCsMessage(
                 type: BwCsMessageTypes.REPLY,
                 requestId: msg.RequestId,
-                payload: credential,
+                data: credential,
                 error: null
             ));
             return;

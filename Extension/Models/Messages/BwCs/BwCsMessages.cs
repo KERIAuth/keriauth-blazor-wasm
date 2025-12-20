@@ -1,32 +1,22 @@
 ﻿using System.Text.Json.Serialization;
+using Extension.Models.Messages.Common;
 
 namespace Extension.Models.Messages.ExCs {
     /// <summary>
     /// Message sent from BackgroundWorker to ContentScript (outbound direction).
+    /// Non-generic version for initial deserialization.
     /// </summary>
-    public record BwCsMessage {
-        [JsonPropertyName("type")]
-        public string Type { get; init; }
+    public record BwCsMessage : FromBwMessage {
+        public BwCsMessage(string type, string? requestId = null, object? data = null, string? error = null)
+            : base(type, requestId, data, error) { }
+    }
 
-        [JsonPropertyName("requestId")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? RequestId { get; init; }
-
-        [JsonPropertyName("data")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public object? Payload { get; init; }
-
-        [JsonPropertyName("error")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Error { get; init; }
-
-        [JsonConstructor]
-        public BwCsMessage(string type, string? requestId = null, object? payload = null, string? error = null) {
-            Type = type;
-            RequestId = requestId;
-            Payload = payload;
-            Error = error;
-        }
+    /// <summary>
+    /// Message sent from BackgroundWorker to ContentScript with typed payload.
+    /// </summary>
+    public record BwCsMessage<T> : FromBwMessage<T> {
+        public BwCsMessage(string type, string? requestId = null, T? data = default, string? error = null)
+            : base(type, requestId, data, error) { }
     }
 
     /// <summary>
@@ -49,11 +39,11 @@ namespace Extension.Models.Messages.ExCs {
     }
 
     /// <summary>
-    /// Reply message with payload of type T.
+    /// Reply message with data of type T.
     /// </summary>
-    public record ReplyMessage<T> : BwCsMessage {
-        public ReplyMessage(string? requestId, T? payload)
-            : base(BwCsMessageTypes.REPLY, requestId, payload) { }
+    public record ReplyMessage<T> : BwCsMessage<T> {
+        public ReplyMessage(string? requestId, T? data)
+            : base(BwCsMessageTypes.REPLY, requestId, data) { }
     }
 
     /// <summary>

@@ -9,17 +9,8 @@ using System.Text.Json;
 using WebExtensions.Net;
 
 namespace Extension.Services {
-    /// <summary>
-    /// Concrete implementation of BwAppMessage for deserialization purposes.
-    /// Used internally by AppBwMessagingService to deserialize messages from BackgroundWorker.
-    /// </summary>
-    internal sealed record ConcreteBwAppMessage : BwAppMessage<object> {
-        public ConcreteBwAppMessage(string type, string? requestId = null, object? payload = null, string? error = null)
-            : base(type, requestId, payload, error) { }
-    }
-
     public class AppBwMessagingService(ILogger<AppBwMessagingService> logger, IJsRuntimeAdapter jsRuntimeAdapter) : IAppBwMessagingService, IDisposable {
-        private readonly List<IObserver<BwAppMessage<object>>> observers = [];
+        private readonly List<IObserver<BwAppMessage>> observers = [];
         private DotNetObjectReference<AppBwMessagingService> _objectReference = default!;
         private int? _currentTabId;
         private WebExtensionsApi _webExtensionsApi = default!;
@@ -97,16 +88,16 @@ namespace Extension.Services {
                     var requestId = messageDict.TryGetValue("requestId", out var reqIdElem) ? reqIdElem.GetString() : null;
                     var error = messageDict.TryGetValue("error", out var errorElem) ? errorElem.GetString() : null;
 
-                    // Extract payload (could be complex object)
-                    object? payload = null;
-                    if (messageDict.TryGetValue("payload", out var payloadElem) && payloadElem.ValueKind != JsonValueKind.Null) {
-                        var payloadJson = payloadElem.GetRawText();
-                        payload = JsonSerializer.Deserialize<object>(payloadJson, MessageJsonOptions);
+                    // Extract data (could be complex object)
+                    object? data = null;
+                    if (messageDict.TryGetValue("data", out var dataElem) && dataElem.ValueKind != JsonValueKind.Null) {
+                        var dataJson = dataElem.GetRawText();
+                        data = JsonSerializer.Deserialize<object>(dataJson, MessageJsonOptions);
                     }
 
                     if (!string.IsNullOrEmpty(type)) {
-                        // Create a concrete BwAppMessage instance
-                        var bwAppMessage = new ConcreteBwAppMessage(type, requestId, payload, error);
+                        // Create a BwAppMessage instance using the non-generic version
+                        var bwAppMessage = new BwAppMessage(type, requestId, data, error);
                         ReceiveMessage(bwAppMessage);
                     }
                     else {
@@ -231,21 +222,21 @@ namespace Extension.Services {
         }
 
         [JSInvokable]
-        public void ReceiveMessage(BwAppMessage<object> message) {
+        public void ReceiveMessage(BwAppMessage message) {
             // Handle the message received from the background worker
             logger.LogInformation("AppBwMessagingService from BW: type={type}, requestId={requestId}",
                 message.Type, message.RequestId);
             OnNext(message);
         }
 
-        public IDisposable Subscribe(IObserver<BwAppMessage<object>> observer) {
+        public IDisposable Subscribe(IObserver<BwAppMessage> observer) {
             if (!observers.Contains(observer)) {
                 observers.Add(observer);
             }
             return new Unsubscriber(observers, observer);
         }
 
-        private void OnNext(BwAppMessage<object> value) {
+        private void OnNext(BwAppMessage value) {
             logger.LogDebug("Notifying {count} observers of message type: {type}", observers.Count, value.Type);
             foreach (var observer in observers) {
                 observer.OnNext(value);
@@ -271,7 +262,7 @@ namespace Extension.Services {
         }
 
         // Inner class to handle unsubscribing
-        private sealed class Unsubscriber(List<IObserver<BwAppMessage<object>>> observers, IObserver<BwAppMessage<object>> observer) : IDisposable {
+        private sealed class Unsubscriber(List<IObserver<BwAppMessage>> observers, IObserver<BwAppMessage> observer) : IDisposable {
             public void Dispose() {
                 if (observer != null && observers.Contains(observer)) {
                     observers.Remove(observer);

@@ -1,6 +1,6 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
-namespace Extension.Models.Messages.AppBw {
+namespace Extension.Models.Messages.Common {
     public record AuthorizeResultIdentifier : IEquatable<AuthorizeResultIdentifier> {
         [JsonConstructor]
         public AuthorizeResultIdentifier(

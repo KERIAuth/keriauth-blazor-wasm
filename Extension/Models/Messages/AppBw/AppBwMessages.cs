@@ -1,28 +1,21 @@
 ﻿using System.Text.Json.Serialization;
 using Extension.Helper;
+using Extension.Models.Messages.Common;
 using Extension.Services.SignifyService.Models;
 
 namespace Extension.Models.Messages.AppBw {
     /// <summary>
     /// Base record for all messages sent from App (popup/tab/sidepanel) to BackgroundWorker.
     /// Direction: App → BackgroundWorker
-    /// Not abstract, because it is helpful as first step of instantiating more specific type
+    /// Extends ToBwMessage with App-specific properties (TabId, TabUrl, Error).
+    /// Not abstract, because it is helpful as first step of instantiating more specific type.
     /// </summary>
-    public record AppBwMessage<T> {
-        [JsonPropertyName("type")]
-        public string Type { get; init; }
-
+    public record AppBwMessage<T> : ToBwMessage<T> {
         [JsonPropertyName("tabId")]
         public int TabId { get; init; }
 
         [JsonPropertyName("tabUrl")]
         public string? TabUrl { get; init; }
-
-        [JsonPropertyName("requestId")]
-        public string? RequestId { get; init; }
-
-        [JsonPropertyName("payload")]
-        public T? Payload { get; init; }
 
         [JsonPropertyName("error")]
         public string? Error { get; init; }
@@ -31,12 +24,10 @@ namespace Extension.Models.Messages.AppBw {
         /// Constructor for JSON deserialization.
         /// </summary>
         [JsonConstructor]
-        public AppBwMessage(string type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null) {
-            Type = type;
+        public AppBwMessage(string type, int tabId, string? tabUrl, string? requestId = null, T? payload = default, string? error = null)
+            : base(type, requestId, payload) {
             TabId = tabId;
             TabUrl = tabUrl;
-            RequestId = requestId;
-            Payload = payload;
             Error = error;
         }
 
@@ -57,19 +48,19 @@ namespace Extension.Models.Messages.AppBw {
         /// Constant string values for use in switch case labels.
         /// </summary>
         public static class Values {
-            public const string ReplyCredential = "/KeriAuth/AppBw/signify/replyCredential";
-            public const string ReplyCanceled = "/KeriAuth/AppBw/signify/replyCanceled";
-            public const string ReplyError = "/KeriAuth/AppBw/signify/replyError";
-            public const string ReplyIdentifier = "/KeriAuth/AppBw/signify/replyIdentifier";
-            public const string ReplyAid = "/KeriAuth/AppBw/signify/replyAID";
-            public const string ReplyApprovedSignHeaders = "/KeriAuth/AppBw/signify/approvedSignHeaders";
-            public const string AppClosed = "/KeriAuth/AppBw/signify/app_closed";
-            public const string UserActivity = "/KeriAuth/AppBw/user_activity";
-            public const string RequestAddIdentifier = "/KeriAuth/AppBw/requestAddIdentifier";
+            public const string ReplyCredential = "AppBw.ReplyCredential";
+            public const string ReplyCanceled = "AppBw.ReplyCanceled";
+            public const string ReplyError = "AppBw.ReplyError";
+            public const string ReplyIdentifier = "AppBw.ReplyIdentifier";
+            public const string ReplyAid = "AppBw.ReplyAid";
+            public const string ReplyApprovedSignHeaders = "AppBw.ReplyApprovedSignHeaders";
+            public const string AppClosed = "AppBw.AppClosed";
+            public const string UserActivity = "AppBw.UserActivity";
+            public const string RequestAddIdentifier = "AppBw.RequestAddIdentifier";
             /// <summary>
             /// Response from App to a BW-initiated request.
             /// </summary>
-            public const string ResponseToBwRequest = "/KeriAuth/AppBw/responseToBwRequest";
+            public const string ResponseToBwRequest = "AppBw.ResponseToBwRequest";
         }
 
         public string Value { get; }

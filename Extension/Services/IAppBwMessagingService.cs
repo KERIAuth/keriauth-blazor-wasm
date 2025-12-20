@@ -5,7 +5,7 @@ using FluentResults;
 using Microsoft.JSInterop;
 
 namespace Extension.Services {
-    public interface IAppBwMessagingService : IObservable<BwAppMessage<object>> {
+    public interface IAppBwMessagingService : IObservable<BwAppMessage> {
         Task Initialize(string tabId);
 
         /// <summary>
@@ -28,7 +28,7 @@ namespace Extension.Services {
             TimeSpan? timeout = null) where TResponse : class, IResponseMessage;
 
         [JSInvokable]
-        void ReceiveMessage(BwAppMessage<object> message);
+        void ReceiveMessage(BwAppMessage message);
 
         void Dispose();
     }

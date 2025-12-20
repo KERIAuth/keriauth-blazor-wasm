@@ -1,34 +1,23 @@
 ﻿using System.Text.Json.Serialization;
+using Extension.Models.Messages.Common;
 
 namespace Extension.Models.Messages.CsBw {
     /// <summary>
-    /// Base message received by BackgroundWorker (inbound direction).
-    /// Can come from ContentScript or App.
-    /// </summary>
-    public record ToBwMessage {
-        [JsonPropertyName("type")]
-        public string Type { get; init; }
-
-        [JsonPropertyName("requestId")]
-        public string? RequestId { get; init; }
-
-        [JsonPropertyName("payload")]
-        public object? Payload { get; init; }
-
-        [JsonConstructor]
-        public ToBwMessage(string type, string? requestId = null, object? payload = null) {
-            Type = type;
-            RequestId = requestId;
-            Payload = payload;
-        }
-    }
-
-    /// <summary>
     /// Message from ContentScript to BackgroundWorker.
     /// Originates from web page via polaris-web protocol.
+    /// Non-generic version for initial deserialization.
     /// </summary>
     public record CsBwMessage : ToBwMessage {
         public CsBwMessage(string type, string? requestId = null, object? payload = null)
+            : base(type, requestId, payload) { }
+    }
+
+    /// <summary>
+    /// Message from ContentScript to BackgroundWorker with typed payload.
+    /// Originates from web page via polaris-web protocol.
+    /// </summary>
+    public record CsBwMessage<T> : ToBwMessage<T> {
+        public CsBwMessage(string type, string? requestId = null, T? payload = default)
             : base(type, requestId, payload) { }
     }
 

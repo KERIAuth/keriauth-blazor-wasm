@@ -1,40 +1,40 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
+using Extension.Models.Messages.Common;
 
 namespace Extension.Models.Messages.BwApp {
     /// <summary>
-    /// Base record for all messages sent from BackgroundWorker to App (popup/tab/sidepanel).
+    /// Message sent from BackgroundWorker to App (popup/tab/sidepanel).
     /// Direction: BackgroundWorker → App
-    /// Not abstract, because it is helpful as first step of instantiating more specific type
+    /// Non-generic version for initial deserialization when payload type is unknown.
     /// </summary>
-    public record BwAppMessage<T> {
-        [JsonPropertyName("type")]
-        public string Type { get; init; }
-
-        [JsonPropertyName("requestId")]
-        public string? RequestId { get; init; }
-
-        [JsonPropertyName("payload")]
-        public T? Payload { get; init; }
-
-        [JsonPropertyName("error")]
-        public string? Error { get; init; }
-
-        /// <summary>
-        /// Constructor for JSON deserialization.
-        /// </summary>
-        [JsonConstructor]
-        public BwAppMessage(string type, string? requestId = null, T? payload = default, string? error = null) {
-            Type = type;
-            RequestId = requestId;
-            Payload = payload;
-            Error = error;
-        }
+    public record BwAppMessage : FromBwMessage {
+        public BwAppMessage(string type, string? requestId = null, object? data = null, string? error = null)
+            : base(type, requestId, data, error) { }
 
         /// <summary>
         /// Constructor for compile-time type-safe message creation.
         /// </summary>
-        public BwAppMessage(BwAppMessageType type, string? requestId = null, T? payload = default, string? error = null)
-            : this(type.Value, requestId, payload, error) { }
+        public BwAppMessage(BwAppMessageType type, string? requestId = null, object? data = null, string? error = null)
+            : this(type.Value, requestId, data, error) { }
+    }
+
+    /// <summary>
+    /// Message sent from BackgroundWorker to App (popup/tab/sidepanel) with typed payload.
+    /// Direction: BackgroundWorker → App
+    /// </summary>
+    public record BwAppMessage<T> : FromBwMessage<T> {
+        /// <summary>
+        /// Constructor for JSON deserialization.
+        /// </summary>
+        [JsonConstructor]
+        public BwAppMessage(string type, string? requestId = null, T? data = default, string? error = null)
+            : base(type, requestId, data, error) { }
+
+        /// <summary>
+        /// Constructor for compile-time type-safe message creation.
+        /// </summary>
+        public BwAppMessage(BwAppMessageType type, string? requestId = null, T? data = default, string? error = null)
+            : this(type.Value, requestId, data, error) { }
     }
 
     /// <summary>
@@ -47,18 +47,18 @@ namespace Extension.Models.Messages.BwApp {
         /// Constant string values for use in switch case labels.
         /// </summary>
         public static class Values {
-            public const string LockApp = "lockApp";
-            public const string SystemLockDetected = "systemLockDetected";
-            public const string FromBackgroundWorker = "fromBackgroundWorker";
-            public const string ForwardedMessage = "forwardedMessage";
+            public const string LockApp = "BwApp.LockApp";
+            public const string SystemLockDetected = "BwApp.SystemLockDetected";
+            public const string FromBackgroundWorker = "BwApp.FromBackgroundWorker";
+            public const string ForwardedMessage = "BwApp.ForwardedMessage";
 
             // BW→App request types (require App UI interaction and response)
             /// <summary>Request App to show SelectAuthorize UI for user to select an identifier.</summary>
-            public const string RequestSelectAuthorize = "/KeriAuth/BwApp/requestSelectAuthorize";
+            public const string RequestSelectAuthorize = "BwApp.RequestSelectAuthorize";
             /// <summary>Request App to show SignHeaders UI for user to approve signing.</summary>
-            public const string RequestSignHeaders = "/KeriAuth/BwApp/requestSignHeaders";
+            public const string RequestSignHeaders = "BwApp.RequestSignHeaders";
             /// <summary>Request App to notify user of extension update.</summary>
-            public const string RequestNotifyUserOfUpdate = "/KeriAuth/BwApp/requestNotifyUserOfUpdate";
+            public const string RequestNotifyUserOfUpdate = "BwApp.RequestNotifyUserOfUpdate";
         }
 
         public string Value { get; }
@@ -124,7 +124,7 @@ namespace Extension.Models.Messages.BwApp {
     /// Used for messages that originate from web pages and need to be displayed/handled in the App UI.
     /// </summary>
     public record BwAppForwardedMessage : BwAppMessage<object> {
-        public BwAppForwardedMessage(string? requestId, object? payload, string? error = null)
-            : base(BwAppMessageType.ForwardedMessage, requestId, payload, error) { }
+        public BwAppForwardedMessage(string? requestId, object? data, string? error = null)
+            : base(BwAppMessageType.ForwardedMessage, requestId, data, error) { }
     }
 }

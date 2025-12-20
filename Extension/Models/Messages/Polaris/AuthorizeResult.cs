@@ -1,4 +1,4 @@
-﻿using Extension.Models.Messages.AppBw;
+﻿using Extension.Models.Messages.Common;
 using System.Text.Json.Serialization;
 
 namespace Extension.Models.Messages.Polaris {

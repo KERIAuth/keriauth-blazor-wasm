@@ -110,7 +110,7 @@ public class BwAppMessagingService : IBwAppMessagingService {
             var storageRequest = new PendingBwAppRequest {
                 RequestId = requestId,
                 Type = requestMessage.Type,
-                Payload = requestMessage.Payload,
+                Payload = requestMessage.Data,
                 CreatedAtUtc = DateTime.UtcNow,
                 TabId = null, // Can be set if request is tab-specific
                 TabUrl = null
