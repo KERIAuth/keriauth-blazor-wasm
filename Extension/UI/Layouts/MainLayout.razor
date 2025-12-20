@@ -7,7 +7,6 @@
 @using System
 @using Extension.Services.SignifyService.Models
 @using static WebExtensions.Net.Runtime.ContextType
-@using Extension.Pages
 @using System.Reactive.Linq
 @using WebExtensions.Net.Extension
 
@@ -99,7 +98,7 @@
         var currentTab = await webExtensionsApi.Tabs.GetCurrent();
         var currentWindow = await webExtensionsApi.Windows.GetCurrent();
         var windowId = currentWindow?.Id ?? -1;
-        logger.LogWarning("OnInitializedAsync: currentTab Id={tabId}, currentWindow Id={windowId}", currentTab?.Id, windowId);
+        // logger.LogWarning("OnInitializedAsync: currentTab Id={tabId}, currentWindow Id={windowId}", currentTab?.Id, windowId);
 
         // TODO P3 Perf: these (i.e., extensionId, manifestJson, version, version_name, ...) could be moved into App, and availale widely with static property
         // DRY and perf with this (e.g. setting version, version_name) in other locations including Index, NewReleasePage. Move to App.

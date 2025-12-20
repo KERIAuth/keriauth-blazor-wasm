@@ -1,4 +1,4 @@
-﻿namespace Extension.Components {
+﻿namespace Extension.UI.Components {
     public class OperationDisplay(string label, string successLabel) {
         public void SetIsRunning() {
             CompletedSuccessfully = false;

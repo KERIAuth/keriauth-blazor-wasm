@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Components;
 using System.Runtime.CompilerServices;
 
-namespace Extension.Components {
+namespace Extension.UI.Components {
     /// <summary>
     /// Extension methods for ComponentBase to enable reactive AppCache subscriptions
     /// without requiring inheritance from AppCacheReactiveComponentBase.

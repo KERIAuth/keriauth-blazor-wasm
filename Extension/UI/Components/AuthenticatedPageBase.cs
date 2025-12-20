@@ -1,7 +1,7 @@
 using Extension.Services;
 using Microsoft.AspNetCore.Components;
 
-namespace Extension.Components;
+namespace Extension.UI.Components;
 
 /// <summary>
 /// Base class for pages that require authentication.

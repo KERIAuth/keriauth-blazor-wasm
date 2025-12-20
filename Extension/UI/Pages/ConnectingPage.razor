@@ -38,7 +38,7 @@
         var res = await ConnectAndFetchIdentifiers();
         if (res.IsSuccess)
         {
-            // Navigate to Index page to continue app flow
+            await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.IdentifiersList is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0]);
             navManager.NavigateTo(AppConfig.RouteToIndex);
         }
     }

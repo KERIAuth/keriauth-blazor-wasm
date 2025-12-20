@@ -42,7 +42,8 @@
       "Bash(tasklist:*)",
       "Bash(echo:*)",
       "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet restore:*)",
-      "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet build:*)"
+      "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet build:*)",
+      "Bash(rmdir:*)"
     ],
     "deny": [],
     "ask": []
