@@ -10,9 +10,10 @@ public static class RegisteredAuthenticatorSchema {
     /// <summary>
     /// Current schema version.
     /// Version 2: Added Transports, SchemaVersion. Changed key derivation from HKDF to SHA-256.
-    /// Old registrations (version 1 or missing version) are invalid and must be re-registered.
+    /// Version 3: Added PasscodeHash to detect configuration consistency.
+    /// Old registrations (version 1-2 or missing version) are invalid and must be re-registered.
     /// </summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 }
 
 public record RegisteredAuthenticator {
@@ -45,6 +46,14 @@ public record RegisteredAuthenticator {
     /// </summary>
     [JsonPropertyName("encryptedPasscodeBase64")]
     public required string EncryptedPasscodeBase64 { get; init; }
+
+    /// <summary>
+    /// Hash of the passcode at the time of registration.
+    /// Used to detect if the authenticator is consistent with the current configuration.
+    /// Copied from KeriaConnectConfig.PasscodeHash during registration.
+    /// </summary>
+    [JsonPropertyName("passcodeHash")]
+    public required int PasscodeHash { get; init; }
 
     [JsonPropertyName("registeredUtc")]
     public required DateTime CreationTime { get; init; }

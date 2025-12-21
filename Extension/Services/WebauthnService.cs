@@ -142,6 +142,13 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail<string>("Passcode encryption verification failed");
             }
 
+            // Get PasscodeHash from KeriaConnectConfig
+            var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+            if (configResult.IsFailed || configResult.Value is null) {
+                return Result.Fail<string>("Could not retrieve KERIA configuration");
+            }
+            var passcodeHash = configResult.Value.PasscodeHash;
+
             // Create new authenticator record
             var creationTime = DateTime.UtcNow;
             var newAuthenticator = new RegisteredAuthenticator {
@@ -150,15 +157,19 @@ public class WebauthnService : IWebauthnService {
                 CredentialBase64 = credential.CredentialId,
                 Transports = credential.Transports,
                 EncryptedPasscodeBase64 = encryptedPasscodeBase64,
+                PasscodeHash = passcodeHash,
                 CreationTime = creationTime,
                 LastUpdatedUtc = creationTime
             };
 
-            // Add to storage
-            var allAuthenticators = await GetAllAuthenticatorsFromStorageAsync();
+            // Add to storage (preserving ProfileId)
+            var existingData = await GetRegisteredAuthenticatorsDataAsync();
+            var allAuthenticators = existingData.Authenticators.ToList();
             allAuthenticators.Add(newAuthenticator);
 
-            var storeResult = await _storageService.SetItem(new RegisteredAuthenticators { Authenticators = allAuthenticators });
+            var storeResult = await _storageService.SetItem(
+                new RegisteredAuthenticators { ProfileId = existingData.ProfileId, Authenticators = allAuthenticators },
+                StorageArea.Local);
             if (storeResult.IsFailed) {
                 _logger.LogError("Failed to store authenticator: {Errors}", string.Join(", ", storeResult.Errors));
                 return Result.Fail<string>("Failed to store authenticator registration");
@@ -252,14 +263,17 @@ public class WebauthnService : IWebauthnService {
 
     public async Task<Result> RemoveAuthenticatorAsync(string credentialBase64) {
         try {
-            var allAuthenticators = await GetAllAuthenticatorsFromStorageAsync();
+            var existingData = await GetRegisteredAuthenticatorsDataAsync();
+            var allAuthenticators = existingData.Authenticators.ToList();
             var removed = allAuthenticators.RemoveAll(a => a.CredentialBase64 == credentialBase64);
 
             if (removed == 0) {
                 return Result.Fail("Authenticator not found");
             }
 
-            var storeResult = await _storageService.SetItem(new RegisteredAuthenticators { Authenticators = allAuthenticators });
+            var storeResult = await _storageService.SetItem(
+                new RegisteredAuthenticators { ProfileId = existingData.ProfileId, Authenticators = allAuthenticators },
+                StorageArea.Local);
             if (storeResult.IsFailed) {
                 return Result.Fail(storeResult.Errors);
             }
@@ -411,20 +425,38 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Gets or creates the browser profile identifier stored in sync storage.
+    /// Gets the full RegisteredAuthenticators data including ProfileId.
+    /// Creates a new ProfileId if none exists.
     /// </summary>
-    private async Task<string> GetOrCreateProfileIdentifierAsync() {
-        var result = await _storageService.GetItem<ProfileIdentifierModel>(StorageArea.Sync);
+    private async Task<RegisteredAuthenticators> GetRegisteredAuthenticatorsDataAsync() {
+        var result = await _storageService.GetItem<RegisteredAuthenticators>(StorageArea.Local);
         if (result.IsSuccess && result.Value is not null) {
-            return result.Value.ProfileId;
+            // Ensure ProfileId exists (migration from old data)
+            if (result.Value.ProfileId is not null) {
+                return result.Value;
+            }
+            // Migrate: add ProfileId to existing data
+            var newProfileId = Guid.NewGuid().ToString();
+            var updatedData = result.Value with { ProfileId = newProfileId };
+            await _storageService.SetItem(updatedData, StorageArea.Local);
+            _logger.LogInformation("Migrated RegisteredAuthenticators with new profile identifier");
+            return updatedData;
         }
 
-        // Create new identifier
+        // Create new structure with ProfileId
         var newId = Guid.NewGuid().ToString();
-        var model = new ProfileIdentifierModel { ProfileId = newId };
-        await _storageService.SetItem(model, StorageArea.Sync);
-        _logger.LogInformation("Created new profile identifier");
-        return newId;
+        var newData = new RegisteredAuthenticators { ProfileId = newId, Authenticators = [] };
+        await _storageService.SetItem(newData, StorageArea.Local);
+        _logger.LogInformation("Created new RegisteredAuthenticators with profile identifier");
+        return newData;
+    }
+
+    /// <summary>
+    /// Gets or creates the browser profile identifier stored in local storage.
+    /// </summary>
+    private async Task<string> GetOrCreateProfileIdentifierAsync() {
+        var data = await GetRegisteredAuthenticatorsDataAsync();
+        return data.ProfileId!;
     }
 
     /// <summary>
@@ -450,11 +482,8 @@ public class WebauthnService : IWebauthnService {
     /// Gets all authenticators from storage, regardless of schema version.
     /// </summary>
     private async Task<List<RegisteredAuthenticator>> GetAllAuthenticatorsFromStorageAsync() {
-        var result = await _storageService.GetItem<RegisteredAuthenticators>();
-        if (result.IsSuccess && result.Value is not null) {
-            return result.Value.Authenticators.ToList();
-        }
-        return [];
+        var data = await GetRegisteredAuthenticatorsDataAsync();
+        return data.Authenticators.ToList();
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 ﻿@page "/Delete.html"
+@using Extension.Models
 @using Extension.Services.Storage
 @using Extension.Services
 @inject IJSRuntime js
@@ -48,9 +49,20 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
+            // Preserve RegisteredAuthenticators before clearing storage
+            var authenticatorsResult = await storageService.GetItem<RegisteredAuthenticators>(StorageArea.Local);
+            var preservedAuthenticators = authenticatorsResult.IsSuccess ? authenticatorsResult.Value : null;
+
             await storageService.Clear(StorageArea.Local);
             await storageService.Clear(StorageArea.Sync);
             await storageService.Clear(StorageArea.Session);
+
+            // Restore RegisteredAuthenticators after clearing
+            if (preservedAuthenticators is not null)
+            {
+                await storageService.SetItem(preservedAuthenticators, StorageArea.Local);
+            }
+
             webExtensions.Runtime.Reload();
             // unreachable
         } else

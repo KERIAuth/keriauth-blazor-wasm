@@ -349,6 +349,19 @@ After building from source code:
 
 **Why reload required**: Browser caches extension files; must click reload button in chrome://extensions to see changes.
 
+### WebAuthn Authenticator Persistence
+
+WebAuthn authenticator registrations are stored in `chrome.storage.sync`, which means:
+
+- **Persists across reinstalls**: When Chrome sync is enabled, authenticator registrations survive extension uninstall/reinstall
+- **Syncs across devices**: Registrations sync to other devices signed into the same Chrome account
+- **No developer configuration needed**: Just register an authenticator once and it persists
+
+**Important notes:**
+- The profile ID (used as PRF salt) is also stored in sync storage, ensuring the same encryption key is derived
+- If Chrome sync is disabled, data persists locally but won't survive extension uninstall
+- Storage limit: 8 KB per item, 100 KB total (sufficient for ~16 authenticators)
+
 ## Build System Architecture
 
 ### Why Two Separate Build Systems

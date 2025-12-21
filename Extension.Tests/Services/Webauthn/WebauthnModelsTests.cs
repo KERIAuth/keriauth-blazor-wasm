@@ -17,9 +17,9 @@ public class WebauthnModelsTests {
     #region RegisteredAuthenticatorSchema Tests
 
     [Fact]
-    public void RegisteredAuthenticatorSchema_CurrentVersion_IsTwo() {
-        // Assert - Version 2 includes Transports and new key derivation
-        Assert.Equal(2, RegisteredAuthenticatorSchema.CurrentVersion);
+    public void RegisteredAuthenticatorSchema_CurrentVersion_IsThree() {
+        // Assert - Version 3 includes PasscodeHash for consistency checks
+        Assert.Equal(3, RegisteredAuthenticatorSchema.CurrentVersion);
     }
 
     #endregion
@@ -36,6 +36,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "dGVzdC1jcmVkZW50aWFs",
             Transports = ["usb", "internal"],
             EncryptedPasscodeBase64 = "ZW5jcnlwdGVkLXBhc3Njb2Rl",
+            PasscodeHash = 12345,
             CreationTime = now,
             LastUpdatedUtc = now
         };
@@ -57,11 +58,12 @@ public class WebauthnModelsTests {
     public void RegisteredAuthenticator_Serialization_UsesCorrectPropertyNames() {
         // Arrange
         var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = 2,
+            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
             Name = "Test",
             CredentialBase64 = "abc123",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "encrypted",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow,
             LastUpdatedUtc = DateTime.UtcNow
         };
@@ -83,10 +85,11 @@ public class WebauthnModelsTests {
     public void RegisteredAuthenticator_Transports_CanBeEmpty() {
         // Arrange
         var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = 2,
+            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
             CredentialBase64 = "abc",
             Transports = [],
             EncryptedPasscodeBase64 = "enc",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow
         };
 
@@ -104,10 +107,11 @@ public class WebauthnModelsTests {
         // Arrange
         var transports = new[] { "usb", "nfc", "ble", "internal", "hybrid" };
         var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = 2,
+            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
             CredentialBase64 = "abc",
             Transports = transports,
             EncryptedPasscodeBase64 = "enc",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow
         };
 
@@ -124,11 +128,12 @@ public class WebauthnModelsTests {
     public void RegisteredAuthenticator_Name_CanBeNull() {
         // Arrange
         var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = 2,
+            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
             Name = null,
             CredentialBase64 = "abc",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow
         };
 
@@ -375,21 +380,24 @@ public class WebauthnModelsTests {
         // Arrange
         var now = DateTime.UtcNow;
         var original = new RegisteredAuthenticators {
+            ProfileId = "test-profile-id",
             Authenticators = [
                 new RegisteredAuthenticator {
-                    SchemaVersion = 2,
+                    SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
                     Name = "Auth 1",
                     CredentialBase64 = "cred1",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc1",
+                    PasscodeHash = 12345,
                     CreationTime = now
                 },
                 new RegisteredAuthenticator {
-                    SchemaVersion = 2,
+                    SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
                     Name = "Auth 2",
                     CredentialBase64 = "cred2",
                     Transports = ["usb", "nfc"],
                     EncryptedPasscodeBase64 = "enc2",
+                    PasscodeHash = 12345,
                     CreationTime = now
                 }
             ]
@@ -432,6 +440,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "cred",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow
         };
 
@@ -450,6 +459,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "cred",
             Transports = [],  // Would be missing in actual old data
             EncryptedPasscodeBase64 = "enc",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow
         };
 
@@ -468,6 +478,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "cred",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
+            PasscodeHash = 12345,
             CreationTime = DateTime.UtcNow
         };
 
@@ -487,20 +498,23 @@ public class WebauthnModelsTests {
                 CredentialBase64 = "old-cred",
                 Transports = [],
                 EncryptedPasscodeBase64 = "old-enc",
+                PasscodeHash = 12345,
                 CreationTime = DateTime.UtcNow
             },
             new() {
-                SchemaVersion = 2,  // Current
+                SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
                 CredentialBase64 = "new-cred",
                 Transports = ["internal"],
                 EncryptedPasscodeBase64 = "new-enc",
+                PasscodeHash = 12345,
                 CreationTime = DateTime.UtcNow
             },
             new() {
-                SchemaVersion = 2,  // Current
+                SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
                 CredentialBase64 = "another-cred",
                 Transports = ["usb"],
                 EncryptedPasscodeBase64 = "another-enc",
+                PasscodeHash = 12345,
                 CreationTime = DateTime.UtcNow
             }
         };
@@ -512,7 +526,7 @@ public class WebauthnModelsTests {
 
         // Assert
         Assert.Equal(2, valid.Count);
-        Assert.All(valid, a => Assert.Equal(2, a.SchemaVersion));
+        Assert.All(valid, a => Assert.Equal(RegisteredAuthenticatorSchema.CurrentVersion, a.SchemaVersion));
         Assert.DoesNotContain(valid, a => a.CredentialBase64 == "old-cred");
     }
 

@@ -32,6 +32,7 @@
 @code {
     // fields
     RegisteredAuthenticators MyRegisteredAuthenticators = new RegisteredAuthenticators();
+    int CurrentPasscodeHash = 0;
 
     // reactive properties
     string CountLabel => "(" + MyRegisteredAuthenticators.Authenticators.Count + ")";
@@ -46,6 +47,14 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
+
+        // Load current PasscodeHash from configuration
+        var configResult = await storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+        if (configResult.IsSuccess && configResult.Value is not null)
+        {
+            CurrentPasscodeHash = configResult.Value.PasscodeHash;
+        }
+
         var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
         if (result.IsSuccess)
         {
@@ -53,6 +62,9 @@
         }
         StateHasChanged();
     }
+
+    bool IsConsistentWithCurrentPasscode(RegisteredAuthenticator authenticator) =>
+        CurrentPasscodeHash != 0 && authenticator.PasscodeHash == CurrentPasscodeHash;
 
     async Task AddAuthenticator()
     {
@@ -74,8 +86,7 @@
                         .ToList()
             };
         // Use StorageService via type-safe model
-        // TODO P2 Consider StorageArea.Sync vs Local here?
-        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators);
+        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators, StorageArea.Local);
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save authenticator changes", Severity.Error);
@@ -150,7 +161,7 @@
                 .ToList()
         };
 
-        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators);
+        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators, StorageArea.Local);
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save transport changes", Severity.Error);
@@ -218,6 +229,17 @@
                                     <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" />
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
+                                    @{
+                                        var isConsistent = IsConsistentWithCurrentPasscode(ra);
+                                    }
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="margin-top:8px;">
+                                        <MudIcon Icon="@(isConsistent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                                 Color="@(isConsistent ? Color.Success : Color.Error)"
+                                                 Size="Size.Small" />
+                                        <MudText Color="@(isConsistent ? Color.Success : Color.Error)" Style="font-weight:100; font-size:small;">
+                                            Consistent with current passcode
+                                        </MudText>
+                                    </MudStack>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small; margin-top:8px;">Transports:</MudText>
                                     <MudStack Row="true" Style="flex-wrap:wrap; gap:4px; margin-left:8px;">
                                         @foreach (var transport in AllTransports)
