@@ -33,7 +33,8 @@ public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger
     // Module definitions: name -> path
     private readonly Dictionary<string, string> _moduleDefinitions = new() {
         { "signifyClient", "./scripts/esbuild/signifyClient.js" },
-        { "webauthnCredentialWithPRF", "./scripts/es6/webauthnCredentialWithPRF.js" },
+        { "navigatorCredentialsShim", "./scripts/es6/navigatorCredentialsShim.js" },
+        { "aesGcmCrypto", "./scripts/es6/aesGcmCrypto.js" },
         { "demo1", "./scripts/esbuild/demo1.js" }
     };
 

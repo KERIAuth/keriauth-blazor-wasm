@@ -30,17 +30,8 @@
 @inject IWebauthnService webauthnService
 
 @code {
-    public record RegisteredAuthenticator
-    {
-        public string? credential { get; init; }
-        public required string name { get; init; }
-    }
-
     // fields
     RegisteredAuthenticators MyRegisteredAuthenticators = new RegisteredAuthenticators();
-
-    // properties
-
 
     // reactive properties
     string CountLabel => "(" + MyRegisteredAuthenticators.Authenticators.Count + ")";
@@ -55,7 +46,11 @@
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
+        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        if (result.IsSuccess)
+        {
+            MyRegisteredAuthenticators = result.Value;
+        }
         StateHasChanged();
     }
 
@@ -89,45 +84,112 @@
         }
         snackbar.Add("Successfully renamed authenticator", Severity.Success);
         // update page's collection
-        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
+        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        if (result.IsSuccess)
+        {
+            MyRegisteredAuthenticators = result.Value;
+        }
         StateHasChanged();
     }
 
     async Task delete(string credentialBase64)
     {
-        var updatedAuthenticators = new RegisteredAuthenticators()
-            {
-                Authenticators = MyRegisteredAuthenticators.Authenticators
-                                .Where(auths => auths.CredentialBase64.GetHashCode() != credentialBase64.GetHashCode())
-                                .ToList()
-            };
-        // Use StorageService via type-safe model
-        // TODO P2 Consider StorageArea.Sync vs Local here?
-        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators);
-        if (saveResult.IsFailed)
+        var deleteResult = await webauthnService.RemoveAuthenticatorAsync(credentialBase64);
+        if (deleteResult.IsFailed)
         {
             snackbar.Add("Failed to delete authenticator", Severity.Error);
-            logger.LogError("Failed to delete authenticator: {Errors}", string.Join(", ", saveResult.Errors));
+            logger.LogError("Failed to delete authenticator: {Errors}", string.Join(", ", deleteResult.Errors));
             return;
         }
         snackbar.Add("Successfully removed authenticator registration", Severity.Success);
         // update page's collection
-        MyRegisteredAuthenticators = await webauthnService.GetRegisteredAuthenticators();
+        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        if (result.IsSuccess)
+        {
+            MyRegisteredAuthenticators = result.Value;
+        }
+        StateHasChanged();
+    }
+
+    // All available WebAuthn transport types
+    static readonly string[] AllTransports = new[] { "usb", "nfc", "ble", "internal", "hybrid" };
+
+    async Task UpdateTransport(string credentialBase64, string transport, bool isEnabled)
+    {
+        var authenticator = MyRegisteredAuthenticators.Authenticators
+            .FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
+        if (authenticator == null) return;
+
+        var currentTransports = authenticator.Transports.ToList();
+        if (isEnabled && !currentTransports.Contains(transport))
+        {
+            currentTransports.Add(transport);
+        }
+        else if (!isEnabled && currentTransports.Contains(transport))
+        {
+            currentTransports.Remove(transport);
+        }
+        else
+        {
+            return; // No change needed
+        }
+
+        // Ensure at least one transport remains enabled
+        if (currentTransports.Count == 0)
+        {
+            snackbar.Add("At least one transport must be enabled", Severity.Warning);
+            return;
+        }
+
+        var updatedAuthenticators = new RegisteredAuthenticators()
+        {
+            Authenticators = MyRegisteredAuthenticators.Authenticators
+                .Select(auth => auth.CredentialBase64 == credentialBase64
+                    ? auth with { Transports = currentTransports.ToArray(), LastUpdatedUtc = DateTime.UtcNow }
+                    : auth)
+                .ToList()
+        };
+
+        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators);
+        if (saveResult.IsFailed)
+        {
+            snackbar.Add("Failed to save transport changes", Severity.Error);
+            logger.LogError("Failed to update transports: {Errors}", string.Join(", ", saveResult.Errors));
+            return;
+        }
+
+        // Refresh the list
+        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        if (result.IsSuccess)
+        {
+            MyRegisteredAuthenticators = result.Value;
+        }
         StateHasChanged();
     }
 
     async Task test(string credentialBase64)
     {
-        var authCredResult = await webauthnService.AuthenticateCredential([credentialBase64]);
-        if (authCredResult.IsSuccess) {
-            // TODO P2 do a complete decryption test
-            snackbar.Add("Test successful", Severity.Success);
-        } else
-        {
-            snackbar.Add("Test failed", Severity.Warning);
+        // Test only the specific authenticator that was clicked
+        var testResult = await webauthnService.TestAuthenticatorAsync(credentialBase64);
+        if (testResult.IsSuccess) {
+            snackbar.Add("Test successful - authenticator verified", Severity.Success);
+        } else {
+            snackbar.Add("Test failed: " + string.Join(", ", testResult.Errors.Select(e => e.Message)), Severity.Warning);
         }
-        return;
     }
+
+    async Task testAll()
+    {
+        // Test all authenticators with permissive options
+        var testResult = await webauthnService.TestAllAuthenticatorsAsync();
+        if (testResult.IsSuccess) {
+            snackbar.Add($"Test successful using: {testResult.Value}", Severity.Success);
+        } else {
+            snackbar.Add("Test failed: " + string.Join(", ", testResult.Errors.Select(e => e.Message)), Severity.Warning);
+        }
+    }
+
+    bool HasAuthenticators => MyRegisteredAuthenticators.Authenticators.Any();
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -138,7 +200,15 @@
                     <MudText Typo="Typo.h6">Authenticators</MudText>
                     <MudText Typo="Typo.h6">@CountLabel</MudText>
                 </MudStack>
-                <MudStack Class="pt-8">
+                @if (HasAuthenticators)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2" Style="font-size:small;">
+                        <b>Transport priority:</b> Authenticators with "internal" transport (e.g., Windows Hello, Touch ID)
+                        are prioritized by the browser during authentication. To prefer a USB security key, uncheck
+                        "internal" on platform authenticators or use the per-authenticator "Test" button.
+                    </MudAlert>
+                }
+                <MudStack Class="pt-4">
                     @if (MyRegisteredAuthenticators.Authenticators.Any())
                     {
                         @foreach (var ra in MyRegisteredAuthenticators.Authenticators)
@@ -148,6 +218,18 @@
                                     <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" />
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small; margin-top:8px;">Transports:</MudText>
+                                    <MudStack Row="true" Style="flex-wrap:wrap; gap:4px; margin-left:8px;">
+                                        @foreach (var transport in AllTransports)
+                                        {
+                                            var credId = ra.CredentialBase64;
+                                            var isEnabled = ra.Transports.Contains(transport);
+                                            <MudCheckBox T="bool" Label="@transport" Size="Size.Small" Dense="true"
+                                                         Value="@isEnabled"
+                                                         ValueChanged="@(async (bool val) => await UpdateTransport(credId, transport, val))"
+                                                         Style="margin:0; padding:0;" />
+                                        }
+                                    </MudStack>
                                 </MudCardContent>
                                 <MudCardActions Style="justify-content:flex-end; padding:0;">
                                     <MudButton OnClick="async () => await test(ra.CredentialBase64)">Test</MudButton>
@@ -163,6 +245,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
+        <MudButton OnClick="async () => await testAll()" Variant="Variant.Outlined" Disabled="@(!HasAuthenticators)">Test All</MudButton>
         <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="async () => await AddAuthenticator()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
     </MudStack>
 </div>

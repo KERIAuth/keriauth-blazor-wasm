@@ -1,6 +1,7 @@
 ﻿using Blazor.BrowserExtension;
 using Extension;
 using Extension.Services;
+using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService;
 using Extension.Services.Storage;
@@ -103,7 +104,11 @@ builder.Services.AddSingleton<AppCache>();
 // JavaScript module bindings
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
 builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
+builder.Services.AddSingleton<INavigatorCredentialsBinding, NavigatorCredentialsBinding>();
 builder.Services.AddSingleton<IDemo1Binding, Demo1Binding>();
+
+// Cryptography services
+builder.Services.AddSingleton<ICryptoService, SubtleCryptoService>();
 
 // Application services
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();

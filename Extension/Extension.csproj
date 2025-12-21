@@ -107,6 +107,7 @@
     <TypeScriptCompile Remove="wwwroot\scripts\types\types.ts" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Blazor.SubtleCrypto" Version="9.0.0" />
     <PackageReference Include="Castle.Core" Version="5.2.1" />
     <PackageReference Include="FluentResults" Version="4.0.0" />
     <PackageReference Include="JsBind.Net" Version="2.2.1" />

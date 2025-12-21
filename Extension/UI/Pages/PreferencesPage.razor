@@ -46,8 +46,6 @@
     bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
     MudBlazor.DrawerVariant DrawerVariantInSidePanel => Prefs.DrawerVariantInSidePanel;
-    List<string> SelectedTransportOptions => Prefs.SelectedTransportOptions;
-    string SelectedTransportOptionsList => string.Join(", ", SelectedTransportOptions);
     string userVerification => Prefs.UserVerification;
     string residentKey => Prefs.ResidentKey;
     string authenticatorAttachment => Prefs.AuthenticatorAttachment;
@@ -121,18 +119,6 @@
         await Persist(Prefs with { AttestationConveyancePref = v });
     }
 
-    private async Task UpdateTransportSelection(string transport, bool isChecked)
-    {
-        List<string> newSelection = SelectedTransportOptions.ToList();
-        if (isChecked && !SelectedTransportOptions.Contains(transport))
-        {
-            await Persist(Prefs with { SelectedTransportOptions = newSelection.Append(transport).ToList() });
-        }
-        else if (!isChecked && SelectedTransportOptions.Contains(transport))
-        {
-            await Persist(Prefs with { SelectedTransportOptions = newSelection.Where(item => item != transport).ToList() });
-        }
-    }
 
     private List<string> SelectedHints
     {
@@ -445,23 +431,6 @@
                         <MudRadio Value=@("none") Class="bt-pref-radio">None</MudRadio>
                     </MudRadioGroup>
 
-                    @* // TODO P2: get TransportOptions working *@
-                    <MudStack>
-                        <MudText Class="bt-pref-group-label1">
-                            <b>Authentication Settings</b>
-                        </MudText>
-                        <MudText Class="bt-pref-group-label2">
-                            Transports
-                        </MudText>
-                        <MudStack Row="true" Class="bt-pref-radiogroup">
-                            @foreach (var transport in AppConfig.AvailableTransportOptions)
-                            {
-                                var transportLabel = transport + "Checkbox";
-                                <MudCheckBox T="bool" Label="@transport" id="@transportLabel" Value="@SelectedTransportOptions.Contains(transport)"
-                                             ValueChanged="async (bool isChecked) => await UpdateTransportSelection(transport, isChecked)" />
-                            }
-                        </MudStack>
-                    </MudStack>
                 </MudStack>
             </MudExpansionPanel>
         </div>

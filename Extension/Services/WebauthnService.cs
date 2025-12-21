@@ -1,289 +1,475 @@
-﻿using FluentResults;
-using JsBind.Net;
+using FluentResults;
 using Extension.Models;
 using Extension.Models.Storage;
+using Extension.Services.Crypto;
+using Extension.Services.JsBindings;
 using Extension.Services.Storage;
 using Microsoft.JSInterop;
 using System.Text;
-using System.Text.Json;
-using WebExtensions.Net;
-// using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace Extension.Services {
-    public class WebauthnService(IJSRuntime jsRuntime, IJsRuntimeAdapter jsRuntimeAdapter, IStorageService storageService, ILogger<WebauthnService> logger) : IWebauthnService {
-        private readonly IStorageService _storageService = storageService;
-        private IJSObjectReference? interopModule;
-        private WebExtensionsApi? webExtensionsApi;
+namespace Extension.Services;
 
-        private async Task<Result> Initialize() {
-            // TODO P2 might be able to instead move some of this into program.cs and inject these as parameters
+/// <summary>
+/// WebAuthn service for authenticator registration and authentication using PRF extension.
+/// Uses C# for cryptography (SHA-256, AES-GCM) and minimal TypeScript shim for navigator.credentials API.
+/// </summary>
+public class WebauthnService : IWebauthnService {
+    private readonly IStorageService _storageService;
+    private readonly INavigatorCredentialsBinding _credentialsBinding;
+    private readonly ICryptoService _cryptoService;
+    private readonly IJSRuntime _jsRuntime;
+    private readonly ILogger<WebauthnService> _logger;
+
+    // Fixed nonce for AES-GCM encryption.
+    // This is safe because keys are derived fresh from PRF each time (never reused).
+    // The PRF output is unique per-authenticator and per-profile, so the key is always unique.
+    private static readonly byte[] FixedNonce = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+    private const string KeriAuthExtensionName = "KERI Auth";
+
+    public WebauthnService(
+        IStorageService storageService,
+        INavigatorCredentialsBinding credentialsBinding,
+        ICryptoService cryptoService,
+        IJSRuntime jsRuntime,
+        ILogger<WebauthnService> logger) {
+        _storageService = storageService;
+        _credentialsBinding = credentialsBinding;
+        _cryptoService = cryptoService;
+        _jsRuntime = jsRuntime;
+        _logger = logger;
+    }
+
+    public async Task<Result<string>> RegisterAttestStoreAuthenticatorAsync(
+        string residentKey,
+        string authenticatorAttachment,
+        string userVerification,
+        string attestationConveyancePreference,
+        List<string> hints) {
+        try {
+            // Get profile identifier and compute PRF salt
+            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var prfSalt = ComputePrfSalt(profileId);
+            var prfSaltBase64 = Convert.ToBase64String(prfSalt);
+
+            // Compute user ID from profile identifier
+            var userId = _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId));
+            var userIdBase64 = Convert.ToBase64String(userId);
+
+            // Generate user display name
+            var userName = GenerateUserName(profileId);
+
+            // Get existing credential IDs to exclude
+            var existingAuthenticators = await GetValidAuthenticatorsAsync();
+            var excludeCredentialIds = existingAuthenticators
+                .Select(a => a.CredentialBase64)
+                .ToList();
+
+            // Normalize authenticatorAttachment - only "platform" and "cross-platform" are valid WebAuthn values
+            // "undefined", "all-supported", empty string, or null all mean "no preference"
+            var normalizedAttachment = authenticatorAttachment switch {
+                "platform" => "platform",
+                "cross-platform" => "cross-platform",
+                _ => null  // Any other value (including "undefined", "all-supported", "") means no preference
+            };
+
+            // Step 1: Create credential
+            var createOptions = new CreateCredentialOptions {
+                ExcludeCredentialIds = excludeCredentialIds,
+                ResidentKey = residentKey,
+                AuthenticatorAttachment = normalizedAttachment,
+                UserVerification = userVerification,
+                Attestation = attestationConveyancePreference,
+                Hints = hints,
+                UserIdBase64 = userIdBase64,
+                UserName = userName,
+                PrfSaltBase64 = prfSaltBase64
+            };
+
+            var createResult = await _credentialsBinding.CreateCredentialAsync(createOptions);
+            if (createResult.IsFailed) {
+                _logger.LogWarning("Failed to create credential: {Errors}", string.Join(", ", createResult.Errors));
+                return Result.Fail<string>(createResult.Errors);
+            }
+
+            var credential = createResult.Value;
+            _logger.LogInformation("Step 1 complete: Credential created with ID {CredentialId}", credential.CredentialId);
+
+            // Notify user of step 1 success
+            await _jsRuntime.InvokeVoidAsync("alert",
+                "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
+
+            // Step 2: Get assertion to derive encryption key
+            var getOptions = new GetCredentialOptions {
+                AllowCredentialIds = [credential.CredentialId],
+                TransportsPerCredential = [credential.Transports],
+                UserVerification = userVerification,
+                PrfSaltBase64 = prfSaltBase64
+            };
+
+            var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
+            if (assertionResult.IsFailed) {
+                _logger.LogWarning("Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
+                return Result.Fail<string>(assertionResult.Errors);
+            }
+
+            if (assertionResult.Value.PrfOutputBase64 is null) {
+                return Result.Fail<string>("Authenticator did not return PRF output during verification");
+            }
+
+            // Derive encryption key from PRF output
+            var prfOutput = Convert.FromBase64String(assertionResult.Value.PrfOutputBase64);
+            var encryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+
+            // Get passcode from session storage
+            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            if (passcodeResult.IsFailed || passcodeResult.Value?.Passcode is null) {
+                return Result.Fail<string>("No passcode is cached in session storage");
+            }
+
+            var passcode = passcodeResult.Value.Passcode;
+
+            // Encrypt passcode
+            var passcodeBytes = Encoding.UTF8.GetBytes(passcode);
+            var encryptedPasscode = await _cryptoService.AesGcmEncryptAsync(encryptionKey, passcodeBytes, FixedNonce);
+            var encryptedPasscodeBase64 = Convert.ToBase64String(encryptedPasscode);
+
+            // Verify encrypt/decrypt roundtrip
+            var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(encryptionKey, encryptedPasscode, FixedNonce);
+            var decryptedPasscodeString = Encoding.UTF8.GetString(decryptedPasscode);
+            if (decryptedPasscodeString != passcode) {
+                _logger.LogError("Passcode encrypt/decrypt verification failed");
+                return Result.Fail<string>("Passcode encryption verification failed");
+            }
+
+            // Create new authenticator record
+            var creationTime = DateTime.UtcNow;
+            var newAuthenticator = new RegisteredAuthenticator {
+                SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+                Name = "Unnamed Authenticator",
+                CredentialBase64 = credential.CredentialId,
+                Transports = credential.Transports,
+                EncryptedPasscodeBase64 = encryptedPasscodeBase64,
+                CreationTime = creationTime,
+                LastUpdatedUtc = creationTime
+            };
+
+            // Add to storage
+            var allAuthenticators = await GetAllAuthenticatorsFromStorageAsync();
+            allAuthenticators.Add(newAuthenticator);
+
+            var storeResult = await _storageService.SetItem(new RegisteredAuthenticators { Authenticators = allAuthenticators });
+            if (storeResult.IsFailed) {
+                _logger.LogError("Failed to store authenticator: {Errors}", string.Join(", ", storeResult.Errors));
+                return Result.Fail<string>("Failed to store authenticator registration");
+            }
+
+            _logger.LogInformation("Authenticator registered successfully: {Name}", newAuthenticator.Name);
+            return Result.Ok(newAuthenticator.Name ?? "Unnamed Authenticator");
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Unexpected error during authenticator registration");
+            return Result.Fail<string>(new Error("Unexpected error during authenticator registration").CausedBy(ex));
+        }
+    }
+
+    public async Task<Result<string>> AuthenticateAndDecryptPasscodeAsync() {
+        try {
+            // Get valid authenticators
+            var authenticators = await GetValidAuthenticatorsAsync();
+            if (authenticators.Count == 0) {
+                _logger.LogWarning("No valid registered authenticators found");
+                return Result.Fail<string>("No registered authenticators");
+            }
+
+            // Get profile identifier and compute PRF salt
+            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var prfSalt = ComputePrfSalt(profileId);
+            var prfSaltBase64 = Convert.ToBase64String(prfSalt);
+
+            // Build credential options with per-credential transports
+            var credentialIds = authenticators.Select(a => a.CredentialBase64).ToList();
+            var transportsPerCredential = authenticators.Select(a => a.Transports).ToList();
+
+            // Log transports for each credential to help diagnose authenticator selection
+            for (int i = 0; i < authenticators.Count; i++) {
+                _logger.LogWarning(
+                    "Authentication: Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
+                    i,
+                    authenticators[i].Name ?? "(unnamed)",
+                    authenticators[i].CredentialBase64,
+                    string.Join(", ", authenticators[i].Transports));
+            }
+
+            var getOptions = new GetCredentialOptions {
+                AllowCredentialIds = credentialIds,
+                TransportsPerCredential = transportsPerCredential,
+                UserVerification = "preferred",
+                PrfSaltBase64 = prfSaltBase64
+            };
+
+            var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
+            if (assertionResult.IsFailed) {
+                _logger.LogWarning("Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
+                return Result.Fail<string>(assertionResult.Errors);
+            }
+
+            var assertion = assertionResult.Value;
+            if (assertion.PrfOutputBase64 is null) {
+                return Result.Fail<string>("Authenticator did not return PRF output");
+            }
+
+            // Find matching authenticator
+            var matchingAuthenticator = authenticators.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
+            if (matchingAuthenticator is null) {
+                _logger.LogError("Assertion credential ID does not match any registered authenticator");
+                return Result.Fail<string>("Credential not found in registered authenticators");
+            }
+
+            // Derive decryption key
+            var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
+            var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+
+            // Decrypt passcode
+            var encryptedPasscode = Convert.FromBase64String(matchingAuthenticator.EncryptedPasscodeBase64);
+            var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
+            var passcode = Encoding.UTF8.GetString(decryptedPasscode);
+
+            _logger.LogInformation("Successfully authenticated and decrypted passcode using credential {CredentialId}",
+                assertion.CredentialId);
+            return Result.Ok(passcode);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Unexpected error during authentication");
+            return Result.Fail<string>(new Error("Could not decrypt passcode").CausedBy(ex));
+        }
+    }
+
+    public async Task<Result<RegisteredAuthenticators>> GetRegisteredAuthenticatorsAsync() {
+        var authenticators = await GetValidAuthenticatorsAsync();
+        return Result.Ok(new RegisteredAuthenticators { Authenticators = authenticators });
+    }
+
+    public async Task<Result> RemoveAuthenticatorAsync(string credentialBase64) {
+        try {
+            var allAuthenticators = await GetAllAuthenticatorsFromStorageAsync();
+            var removed = allAuthenticators.RemoveAll(a => a.CredentialBase64 == credentialBase64);
+
+            if (removed == 0) {
+                return Result.Fail("Authenticator not found");
+            }
+
+            var storeResult = await _storageService.SetItem(new RegisteredAuthenticators { Authenticators = allAuthenticators });
+            if (storeResult.IsFailed) {
+                return Result.Fail(storeResult.Errors);
+            }
+
+            _logger.LogInformation("Removed authenticator with credential ID {CredentialId}", credentialBase64);
+            return Result.Ok();
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error removing authenticator");
+            return Result.Fail(new Error("Failed to remove authenticator").CausedBy(ex));
+        }
+    }
+
+    public async Task<Result> TestAuthenticatorAsync(string credentialBase64) {
+        try {
+            // Find the specific authenticator
+            var authenticators = await GetValidAuthenticatorsAsync();
+            var authenticator = authenticators.FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
+
+            if (authenticator is null) {
+                _logger.LogWarning("Authenticator not found for testing: {CredentialId}", credentialBase64);
+                return Result.Fail("Authenticator not found");
+            }
+
+            // Get profile identifier and compute PRF salt
+            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var prfSalt = ComputePrfSalt(profileId);
+            var prfSaltBase64 = Convert.ToBase64String(prfSalt);
+
+            _logger.LogWarning(
+                "Testing specific authenticator - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
+                authenticator.Name ?? "(unnamed)",
+                authenticator.CredentialBase64,
+                string.Join(", ", authenticator.Transports));
+
+            // Build options for only this specific credential
+            var getOptions = new GetCredentialOptions {
+                AllowCredentialIds = [authenticator.CredentialBase64],
+                TransportsPerCredential = [authenticator.Transports],
+                UserVerification = "preferred",
+                PrfSaltBase64 = prfSaltBase64
+            };
+
+            var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
+            if (assertionResult.IsFailed) {
+                _logger.LogWarning("Test failed for authenticator {Name}: {Errors}",
+                    authenticator.Name, string.Join(", ", assertionResult.Errors));
+                return Result.Fail(assertionResult.Errors);
+            }
+
+            var assertion = assertionResult.Value;
+            if (assertion.PrfOutputBase64 is null) {
+                return Result.Fail("Authenticator did not return PRF output during test");
+            }
+
+            // Verify we can decrypt the passcode
+            var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
+            var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+            var encryptedPasscode = Convert.FromBase64String(authenticator.EncryptedPasscodeBase64);
+
             try {
-                webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
-                interopModule ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "/scripts/es6/webauthnCredentialWithPRF.js");
+                var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
+                _logger.LogInformation("Test successful for authenticator {Name}", authenticator.Name);
                 return Result.Ok();
             }
-            catch (JSException jsEx) {
-                logger.LogError("Could not initialize {e}", jsEx.Message);
-                return Result.Fail(new JavaScriptInteropError("WebAuthn module import", jsEx.Message, jsEx));
-            }
-            catch (Exception ex) {
-                logger.LogError("Could not initialize {e}", ex.Message);
-                return Result.Fail(new JavaScriptInteropError("WebAuthn initialization", ex.Message, ex));
+            catch (Exception decryptEx) {
+                _logger.LogError(decryptEx, "Test failed - could not decrypt passcode for authenticator {Name}", authenticator.Name);
+                return Result.Fail("Decryption failed - authenticator may have been registered with different profile");
             }
         }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Unexpected error during authenticator test");
+            return Result.Fail(new Error("Test failed unexpectedly").CausedBy(ex));
+        }
+    }
 
-        public async Task<Result<CredentialWithPRF>> RegisterCredentialAsync(List<string> registeredCredIds, string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints) {
+    public async Task<Result<string>> TestAllAuthenticatorsAsync() {
+        try {
+            // Get all valid authenticators
+            var authenticators = await GetValidAuthenticatorsAsync();
+            if (authenticators.Count == 0) {
+                _logger.LogWarning("No valid registered authenticators found for testing");
+                return Result.Fail<string>("No registered authenticators");
+            }
+
+            // Get profile identifier and compute PRF salt
+            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var prfSalt = ComputePrfSalt(profileId);
+            var prfSaltBase64 = Convert.ToBase64String(prfSalt);
+
+            // Build credential options with per-credential transports (same as AuthenticateAndDecryptPasscodeAsync)
+            var credentialIds = authenticators.Select(a => a.CredentialBase64).ToList();
+            var transportsPerCredential = authenticators.Select(a => a.Transports).ToList();
+
+            _logger.LogWarning("Testing all {Count} authenticators with stored transports", authenticators.Count);
+            foreach (var auth in authenticators) {
+                _logger.LogWarning(
+                    "  - Name: {Name}, CredentialId: {CredentialId}, Stored Transports: [{Transports}]",
+                    auth.Name ?? "(unnamed)",
+                    auth.CredentialBase64,
+                    string.Join(", ", auth.Transports));
+            }
+
+            var getOptions = new GetCredentialOptions {
+                AllowCredentialIds = credentialIds,
+                TransportsPerCredential = transportsPerCredential,
+                UserVerification = "preferred",
+                PrfSaltBase64 = prfSaltBase64
+            };
+
+            var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
+            if (assertionResult.IsFailed) {
+                _logger.LogWarning("Test All failed: {Errors}", string.Join(", ", assertionResult.Errors));
+                return Result.Fail<string>(assertionResult.Errors);
+            }
+
+            var assertion = assertionResult.Value;
+            if (assertion.PrfOutputBase64 is null) {
+                return Result.Fail<string>("Authenticator did not return PRF output during test");
+            }
+
+            // Find which authenticator was used
+            var usedAuthenticator = authenticators.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
+            if (usedAuthenticator is null) {
+                _logger.LogError("Assertion credential ID does not match any registered authenticator");
+                return Result.Fail<string>("Unknown credential was used");
+            }
+
+            // Verify we can decrypt the passcode
+            var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
+            var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+            var encryptedPasscode = Convert.FromBase64String(usedAuthenticator.EncryptedPasscodeBase64);
+
             try {
-                // Attempt to call the JavaScript function and map to the CredentialWithPRF type
-                var initResult = await Initialize();
-                if (initResult.IsFailed) {
-                    return Result.Fail<CredentialWithPRF>(initResult.Errors);
-                }
-                var credential = await interopModule!.InvokeAsync<CredentialWithPRF>("registerCredential", registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
-                // logger.LogWarning("credential: {c}", credential);
-                return Result.Ok(credential);
+                var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
+                _logger.LogInformation("Test All successful using authenticator {Name}", usedAuthenticator.Name);
+                return Result.Ok(usedAuthenticator.Name ?? "Unnamed Authenticator");
             }
-            catch (JSException jsEx) {
-                // Return a failure with a meaningful message and error metadata
-                return Result.Fail(new FluentResults.Error("JavaScript error occurred")
-                    .CausedBy(jsEx)
-                    .WithMetadata("Function", "registerCredential"));
-            }
-            catch (Exception ex) {
-                // Return a failure for unexpected exceptions
-                return Result.Fail(new FluentResults.Error("Unexpected error occurred")
-                    .CausedBy(ex));
+            catch (Exception decryptEx) {
+                _logger.LogError(decryptEx, "Test All failed - could not decrypt passcode using authenticator {Name}",
+                    usedAuthenticator.Name);
+                return Result.Fail<string>("Decryption failed - authenticator may have been registered with different profile");
             }
         }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Unexpected error during Test All");
+            return Result.Fail<string>(new Error("Test All failed unexpectedly").CausedBy(ex));
+        }
+    }
 
-        private static readonly JsonSerializerOptions jsonSerializerOptions = new() {
-            PropertyNameCaseInsensitive = false,
-            IncludeFields = true,
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper,
-            //Converters =
-            //{
-            //    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-            //}
-        };
-
-        public async Task<Result<AuthenticateCredResult>> AuthenticateCredential(List<string> credentialIdBase64) {
-            // logger.LogWarning("credentialIdBase64s: {r}", credentialIdBase64s);
-            try {
-                // Attempt to authenticate the credential and re-compute the encryption key
-                var initResult = await Initialize();
-                if (initResult.IsFailed) {
-                    return Result.Fail<AuthenticateCredResult>(initResult.Errors);
-                }
-                var authenticateCredResult = await interopModule!.InvokeAsync<AuthenticateCredResult>("authenticateCredential", credentialIdBase64);
-
-                if (authenticateCredResult is not null) {
-                    return Result.Ok(authenticateCredResult);
-                }
-                else {
-                    return Result.Fail("failed to authenticate credential");
-                }
-            }
-            catch (JSException jsEx) {
-                // Return a failure with a meaningful message and error metadata
-                return Result.Fail(new FluentResults.Error("JavaScript error occurred")
-                    .CausedBy(jsEx)
-                    .WithMetadata("Function", "authenticateCredential"));
-            }
-            catch (Exception ex) {
-                // Return a failure for unexpected exceptions
-                return Result.Fail(new FluentResults.Error("Unexpected error occurred in AuthenticateCredential")
-                    .CausedBy(ex));
-            }
+    /// <summary>
+    /// Gets or creates the browser profile identifier stored in sync storage.
+    /// </summary>
+    private async Task<string> GetOrCreateProfileIdentifierAsync() {
+        var result = await _storageService.GetItem<ProfileIdentifierModel>(StorageArea.Sync);
+        if (result.IsSuccess && result.Value is not null) {
+            return result.Value.ProfileId;
         }
 
-        private static string GetEncryptKeyBase64(string encryptKey) {
-            // logger.LogWarning("encryptKey original length (chars): {b}", encryptKey.Length);
+        // Create new identifier
+        var newId = Guid.NewGuid().ToString();
+        var model = new ProfileIdentifierModel { ProfileId = newId };
+        await _storageService.SetItem(model, StorageArea.Sync);
+        _logger.LogInformation("Created new profile identifier");
+        return newId;
+    }
 
-            // Step 1: Adjust the raw key to ensure 32 credentialIdBytes (256 bits)
-            byte[] rawKeyBytes = Encoding.UTF8.GetBytes(encryptKey);
+    /// <summary>
+    /// Computes the PRF salt from the profile identifier using SHA-256.
+    /// </summary>
+    private byte[] ComputePrfSalt(string profileId) {
+        return _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId));
+    }
 
-            // Truncate or pad the key to exactly 32 credentialIdBytes
-            byte[] adjustedKeyBytes = new byte[32];
-            Buffer.BlockCopy(rawKeyBytes, 0, adjustedKeyBytes, 0, Math.Min(rawKeyBytes.Length, 32));
+    /// <summary>
+    /// Generates a user-friendly name for the WebAuthn credential based on profile identifier.
+    /// </summary>
+    private string GenerateUserName(string profileId) {
+        // Generate a 6-digit hash for easy identification
+        var hash = _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId + "fixed"));
+        var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
+        var numericValue = Convert.ToInt64(hashHex[..10], 16) % 1000000;
+        var sixDigit = numericValue.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
+        return $"{KeriAuthExtensionName} ({sixDigit})";
+    }
 
-            // Step 2: Convert the adjusted raw key to Base64
-            string encryptKeyBase64 = Convert.ToBase64String(adjustedKeyBytes);
-            // logger.LogWarning("encryptKeyBase64 adjusted length (chars): {b}", encryptKeyBase64.Length);
+    /// <summary>
+    /// Gets all authenticators from storage, regardless of schema version.
+    /// </summary>
+    private async Task<List<RegisteredAuthenticator>> GetAllAuthenticatorsFromStorageAsync() {
+        var result = await _storageService.GetItem<RegisteredAuthenticators>();
+        if (result.IsSuccess && result.Value is not null) {
+            return result.Value.Authenticators.ToList();
+        }
+        return [];
+    }
 
-            return encryptKeyBase64;
+    /// <summary>
+    /// Gets only authenticators with valid (current) schema version.
+    /// Old registrations are silently filtered out.
+    /// </summary>
+    private async Task<List<RegisteredAuthenticator>> GetValidAuthenticatorsAsync() {
+        var all = await GetAllAuthenticatorsFromStorageAsync();
+        var valid = all.Where(a => a.SchemaVersion == RegisteredAuthenticatorSchema.CurrentVersion).ToList();
+
+        if (valid.Count < all.Count) {
+            _logger.LogInformation("Filtered out {Count} authenticators with old schema version",
+                all.Count - valid.Count);
         }
 
-        public async Task<Result<string>> RegisterAttestStoreAuthenticator(string residentKey, string authenticatorAttachment, string userVerification, string attestationConveyancePreference, List<string> hints) {
-            await Initialize();
-            // Get list of currently registered authenticators, so there isn't an attempt to create redundant credentials (i.e., same RP and user) on same authenticator
-            var registeredAuthenticators = await GetRegisteredAuthenticators() ?? throw new InvalidOperationException("RegisteredAuthenticators list is null.");
-
-            // populate a list of registered authenticator credential ids
-            List<string> registeredCredIds = [];
-            foreach (var authenticator in registeredAuthenticators.Authenticators) {
-                registeredCredIds.Add(authenticator.CredentialBase64);
-            }
-
-            // Register a new authenticator, excluding reregistering any authenticator already having a credential with same RP and user
-            var credentialRet = await RegisterCredentialAsync(registeredCredIds, residentKey, authenticatorAttachment, userVerification, attestationConveyancePreference, hints);
-            if (credentialRet is null || credentialRet.IsFailed) {
-                return Result.Fail("Failed to register authenticator 333");
-            }
-
-            await jsRuntime.InvokeVoidAsync("alert", "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
-
-            // Now that authenticator is registered, we need to confirm that with user, and get the encrypt key that is derrived from the PRF attestation
-            // First, some prep
-            CredentialWithPRF credential = credentialRet.Value;
-            string credentialIdBase64Url = credential.CredentialId;
-            // logger.LogWarning("credentialIdBase64: {b}", credentialIdBase64Url);
-            List<string> credentialIds = [];
-            credentialIds.Add(credentialIdBase64Url);
-
-            // Get the attestation from same authenticator
-            var encryptKeyBase64Ret = await AuthenticateCredential(credentialIds);
-            if (encryptKeyBase64Ret is null || encryptKeyBase64Ret.IsFailed) {
-                return Result.Fail("Failed to verify with authenticator 444");
-            }
-
-            // Get the passcode from session storage
-            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeResult.IsSuccess && passcodeResult.Value != null) {
-                try {
-                    var passcode = passcodeResult.Value.Passcode;
-                    if (passcode is null) {
-                        return Result.Fail("no passcode is cached");
-                    }
-
-                    // Encrypt the passcode with the encryptKey generated with the help of PRF from the authenticator
-                    // First, convert the encrypt key to Base64
-                    var encryptKeyBase64 = GetEncryptKeyBase64(encryptKeyBase64Ret.Value.EncryptKey);
-
-                    // Convert the passcode to Base64
-                    byte[] plainBytes = Encoding.UTF8.GetBytes(passcode);
-                    string passcodeBase64 = Convert.ToBase64String(plainBytes);
-
-                    // confirm the encryptKey size
-                    var encryptKeyBytes = Convert.FromBase64String(encryptKeyBase64);
-                    // Console.WriteLine($"Key length in bytes: {encryptKeyBytes.Length}");
-                    if (encryptKeyBytes.Length != 16 && encryptKeyBytes.Length != 32) {
-                        throw new InvalidOperationException("Encryption key must be 16 or 32 bytes.");
-                    }
-
-                    // Encrypt
-                    var encryptedPasscodeBase64 = await interopModule!.InvokeAsync<string>("encryptWithNounce", encryptKeyBase64, passcodeBase64);
-
-                    // convert encrypted passcode to bytes
-                    var encryptedBytes = Convert.FromBase64String(encryptedPasscodeBase64);
-
-                    // Verify the expected length
-                    // Console.WriteLine($"Encrypted data length: {encryptedBytes.Length}");
-                    if (encryptedBytes.Length == 0) {
-                        throw new InvalidOperationException("Encrypted data is empty or invalid.");
-                    }
-
-                    // TODO P2 remove this temporary test to compare encrypt and decrypt
-                    var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, encryptedPasscodeBase64);
-                    byte[] dataBytes = Convert.FromBase64String(decryptedPasscode);
-                    string plainTextPasscode = Encoding.UTF8.GetString(dataBytes);
-                    // logger.LogWarning("decryptedPasscode: {p} passcode {pp}", plainTextPasscode, passcode);
-                    if (plainTextPasscode != passcode) {
-                        // logger.LogError("passcode failed to encrypt-decrypt");
-                        return Result.Fail("passcode failed to encrypt-decrypt");
-                    }
-
-                    // Append the new registered authenticator and prepare set for storage
-                    var creationTime = DateTime.UtcNow;
-                    var newRA = new Models.RegisteredAuthenticator() {
-                        CreationTime = creationTime,
-                        LastUpdatedUtc = creationTime,
-                        CredentialBase64 = credentialRet.Value.CredentialId,
-                        EncryptedPasscodeBase64 = encryptedPasscodeBase64,
-                        Name = $"Unnamed Authenticator"
-                    };
-                    registeredAuthenticators.Authenticators.Add(newRA);
-
-                    // store updated registeredAuthenticators using storage service
-                    // TODO P2 Consider storageArea.Sync vs Local
-                    var storeResult = await _storageService.SetItem<RegisteredAuthenticators>(registeredAuthenticators);
-                    if (storeResult.IsFailed) {
-                        logger.LogError("Failed to store RegisteredAuthenticators: {Errors}",
-                            string.Join(", ", storeResult.Errors));
-                        return Result.Fail("Failed to store authenticator registration");
-                    }
-
-                    // return the name of the newly added authenticatorRegistration
-                    return Result.Ok(newRA.Name);
-                }
-                catch (JSException jsEx) {
-                    throw new ArgumentException(jsEx.Message);
-                }
-                catch (Exception ex) {
-                    logger.LogError("{m}", ex.Message);
-                    return Result.Fail(ex.ToString());
-                }
-            }
-            else {
-                return Result.Fail("failed to retreive passcode from cache");
-            }
-        }
-
-        // TODO P2 migrate to Result pattern
-        public async Task<RegisteredAuthenticators> GetRegisteredAuthenticators() {
-            await Initialize();
-
-            // Get registered authenticators from sync storage using storage service
-            // TODO P2 Consider storageArea.Sync vs Local
-            var result = await _storageService.GetItem<RegisteredAuthenticators>();
-
-            if (result.IsSuccess && result.Value != null) {
-                return result.Value;
-            }
-
-            // Return empty list if not found
-            return new RegisteredAuthenticators();
-        }
-
-        public async Task<Result<string>> AuthenticateAKnownCredential() {
-            await Initialize();
-            RegisteredAuthenticators ras = await GetRegisteredAuthenticators();
-
-            if (ras is null || ras.Authenticators.Count == 0) {
-                logger.LogWarning("no registered authenticators");
-                return Result.Fail("no registered authenticators");
-            }
-
-            List<string> registeredCredIds = [];
-            foreach (var registeredAuthenticator in ras.Authenticators) {
-                registeredCredIds.Add(registeredAuthenticator.CredentialBase64);
-            }
-
-            var authenticateCredResult = await AuthenticateCredential(registeredCredIds);
-
-            if (authenticateCredResult is null || authenticateCredResult.IsFailed) {
-                logger.LogWarning("Failed to get result from authenticator");
-                return Result.Fail("Failed to get result from authenticator");
-            }
-            // logger.LogWarning("success value: {s}", authenticateCredResult.Value);
-
-            // Find the registered authenticator matching the credentialID, decrypt its encrypted passcode, and return that
-            foreach (var registeredCred in ras.Authenticators) {
-                if (registeredCred.CredentialBase64 == authenticateCredResult.Value.CredentialId) {
-                    try {
-                        string encryptKeyBase64 = GetEncryptKeyBase64(authenticateCredResult.Value.EncryptKey);
-                        var decryptedPasscode = await interopModule!.InvokeAsync<string>("decryptWithNounce", encryptKeyBase64, registeredCred.EncryptedPasscodeBase64);
-                        // logger.LogWarning("decryptedPasscode {p}", decryptedPasscode);
-                        byte[] decryptedPasscodeBytes = Convert.FromBase64String(decryptedPasscode);
-                        string decryptedPlaintextPasscode = Encoding.UTF8.GetString(decryptedPasscodeBytes);
-                        // logger.LogWarning("plainText {p}", decryptedPlaintextPasscode);
-                        return Result.Ok(decryptedPlaintextPasscode);
-                    }
-                    catch {
-                        return Result.Fail("Could not decrypt");
-                    }
-                }
-            }
-            return Result.Fail($"Could not decrypt passcode based on webauthn credential");
-        }
+        return valid;
     }
 }

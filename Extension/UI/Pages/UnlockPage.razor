@@ -123,10 +123,10 @@
     protected override async Task OnParametersSetAsync()
     {
         // logger.LogInformation("OnParametersSetAsync");
-        var getRasResult = await webauthnService.GetRegisteredAuthenticators();
-        if (getRasResult is not null)
+        var getRasResult = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        if (getRasResult.IsSuccess)
         {
-            RegisteredAuthenticators = getRasResult;
+            RegisteredAuthenticators = getRasResult.Value;
         }
     }
 
@@ -177,8 +177,8 @@
     async Task UnlockWithAuthenticator()
     {
         throwIfNotConfigured();
-        var passcodeRes = await webauthnService.AuthenticateAKnownCredential();
-        if (passcodeRes is null || passcodeRes.IsFailed)
+        var passcodeRes = await webauthnService.AuthenticateAndDecryptPasscodeAsync();
+        if (passcodeRes.IsFailed)
         {
             snackbar.Add("Failed to authenticate", Severity.Warning);
             return;
