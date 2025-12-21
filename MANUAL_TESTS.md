@@ -179,7 +179,23 @@
 1. On Configure page, select "New Passcode"
 1. ...
 
-# Webauthn Authenticator Tests
+# Webauthn Authenticator ("Passkey") Tests
+
+## A. Register and Test Webauthn Authenticator
+
+## B. Authenticate with Webauthn Authenticator
+
+## C. Fail Webauthn Authentication
+
+## D. Remove Webauthn Authenticator
+
+## E. Fallback to Passcode Authentication
+
+## F. Multiple Webauthn Authenticators
+
+## G. Webauthn Authenticator on Different Browsers/Devices
+
+
 
 
 
