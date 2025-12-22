@@ -73,14 +73,14 @@ public class WebauthnModelsTests {
         // Act
         var json = JsonSerializer.Serialize(passkey, JsonOptions);
 
-        // Assert - Check JSON property names match JsonPropertyName attributes
-        Assert.Contains("\"schemaVersion\":", json);
-        Assert.Contains("\"name\":", json);
-        Assert.Contains("\"credential\":", json);  // Note: CredentialBase64 maps to "credential"
-        Assert.Contains("\"transports\":", json);
-        Assert.Contains("\"encryptedPasscodeBase64\":", json);
-        Assert.Contains("\"createdUtc\":", json);  // Note: CreationTime maps to "createdUtc"
-        Assert.Contains("\"lastUpdatedUtc\":", json);
+        // Assert - Check JSON property names match JsonPropertyName attributes (PascalCase)
+        Assert.Contains("\"SchemaVersion\":", json);
+        Assert.Contains("\"Name\":", json);
+        Assert.Contains("\"CredentialBase64\":", json);
+        Assert.Contains("\"Transports\":", json);
+        Assert.Contains("\"EncryptedPasscodeBase64\":", json);
+        Assert.Contains("\"CreationTime\":", json);
+        Assert.Contains("\"LastUpdatedUtc\":", json);
     }
 
     [Fact]

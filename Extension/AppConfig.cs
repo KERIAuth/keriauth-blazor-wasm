@@ -84,7 +84,7 @@ namespace Extension {
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Persistent;
-        public const bool DefaultPrefersToUsePasskey = true;
+        public const bool DefaultIsPasskeyUsePreferred = true;
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
         public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
@@ -99,7 +99,7 @@ namespace Extension {
             IsDarkTheme = DefaultIsDarkTheme,
             DrawerVariantInTab = DefaultDrawerVariantInTab,
             DrawerVariantInSidePanel = DefaultDrawerVariantInSidePanel,
-            PrefersToUsePasskey = DefaultPrefersToUsePasskey,
+            IsPasskeyUsePreferred = DefaultIsPasskeyUsePreferred,
             DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
             IsPersistentDrawerOpenInSidePanel = false,
             IsPersistentDrawerOpenInTab = false,

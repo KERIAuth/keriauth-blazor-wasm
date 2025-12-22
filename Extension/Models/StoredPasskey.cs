@@ -23,30 +23,30 @@ public record StoredPasskey {
     /// Schema version of this passkey.
     /// Used for forward compatibility checks.
     /// </summary>
-    [JsonPropertyName("schemaVersion")]
+    [JsonPropertyName("SchemaVersion")]
     public required int SchemaVersion { get; init; }
 
-    [JsonPropertyName("name")]
+    [JsonPropertyName("Name")]
     public string? Name { get; init; }
 
     /// <summary>
     /// Base64URL-encoded credential ID from WebAuthn registration.
     /// </summary>
-    [JsonPropertyName("credential")]
+    [JsonPropertyName("CredentialBase64")]
     public required string CredentialBase64 { get; init; }
 
     /// <summary>
     /// Transport types supported by this passkey's authenticator (e.g., "usb", "nfc", "ble", "internal", "hybrid").
     /// Used to provide transport hints during authentication for better UX.
     /// </summary>
-    [JsonPropertyName("transports")]
+    [JsonPropertyName("Transports")]
     public required string[] Transports { get; init; }
 
     /// <summary>
     /// Passcode encrypted with AES-GCM using key derived from PRF output.
     /// Key derivation: SHA256(profileId || prfOutput || "KERI Auth").
     /// </summary>
-    [JsonPropertyName("encryptedPasscodeBase64")]
+    [JsonPropertyName("EncryptedPasscodeBase64")]
     public required string EncryptedPasscodeBase64 { get; init; }
 
     /// <summary>
@@ -54,14 +54,14 @@ public record StoredPasskey {
     /// Used to detect if the passkey is consistent with the current configuration.
     /// Copied from KeriaConnectConfig.PasscodeHash during creation.
     /// </summary>
-    [JsonPropertyName("passcodeHash")]
+    [JsonPropertyName("PasscodeHash")]
     public required int PasscodeHash { get; init; }
 
     /// <summary>
     /// AAGUID of the authenticator in UUID format (e.g., "08987058-cadc-4b81-b6e1-30de50dcbe96").
     /// Used to look up the authenticator's friendly name and icon from FIDO metadata.
     /// </summary>
-    [JsonPropertyName("aaguid")]
+    [JsonPropertyName("Aaguid")]
     public required string Aaguid { get; init; }
 
     /// <summary>
@@ -69,13 +69,13 @@ public record StoredPasskey {
     /// Retrieved from FIDO convenience metadata during passkey creation.
     /// May be null if the authenticator is not in the metadata.
     /// </summary>
-    [JsonPropertyName("icon")]
+    [JsonPropertyName("Icon")]
     public string? Icon { get; init; }
 
-    [JsonPropertyName("createdUtc")]
+    [JsonPropertyName("CreationTime")]
     public required DateTime CreationTime { get; init; }
 
-    [JsonPropertyName("lastUpdatedUtc")]
+    [JsonPropertyName("LastUpdatedUtc")]
     public DateTime LastUpdatedUtc { get; init; } = DateTime.UtcNow;
 
     // TODO P2 create a last successfully used property? Perhaps as a separate structure in storage

@@ -390,14 +390,15 @@
 
         IsConnected = true;
         IsProcessing = false;
+        snackbar.Add("Connection to KERIA Service successful", Severity.Success);
 
         if (nextButton is not null)
             await nextButton.FocusAsync();
 
         logger.LogInformation("UnifiedOnboardingFlow completed successfully, navigating to passkey offer");
+        // TODO P2 Or, should this be NavigateTo(RouteToIndex), e.g. in case of timeout before next button is clicked?
         navManager.NavigateTo(RouteToOfferPasskey);
     }
-
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">

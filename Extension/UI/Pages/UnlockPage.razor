@@ -98,8 +98,8 @@
         _ => $"{StoredPasskeys.Passkeys.Count} passkeys available"
     };
     bool CanUsePasskey => StoredPasskeys.Passkeys.Any();
-    bool PrefersToUsePasskey => appCache.MyPreferences.PrefersToUsePasskey;
-    bool ShouldUsePasskey => CanUsePasskey && PrefersToUsePasskey;
+    bool IsPasskeyUsePreferred => appCache.MyPreferences.IsPasskeyUsePreferred;
+    bool ShouldUsePasskey => CanUsePasskey && IsPasskeyUsePreferred;
     string TimeoutDuration => appCache.MyPreferences.InactivityTimeoutMinutes switch
     {
         0.5f => "30 seconds",
@@ -146,14 +146,14 @@
         }
     }
 
-    async Task SetPrefersToUsePasskey(bool prefersToUsePasskey)
+    async Task SetIsPasskeyUsePreferred(bool isPasskeyUsePreferred)
     {
         throwIfNotConfigured();
         await storageService.SetItem<Preferences>(appCache.MyPreferences with
         {
-            PrefersToUsePasskey = prefersToUsePasskey
+            IsPasskeyUsePreferred = isPasskeyUsePreferred
         }, StorageArea.Local);
-        if (prefersToUsePasskey)
+        if (isPasskeyUsePreferred)
         {
             await UnlockWithPasskey();
         }
@@ -312,7 +312,7 @@
         @if (ShouldUsePasskey)
         {
             <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
-                       OnClick="async () => await SetPrefersToUsePasskey(false)">
+                       OnClick="async () => await SetIsPasskeyUsePreferred(false)">
                 Use passcode
             </MudButton>
             <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
@@ -325,7 +325,7 @@
             @if (CanUsePasskey)
             {
                 <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
-                           OnClick="() => SetPrefersToUsePasskey(true)">
+                           OnClick="() => SetIsPasskeyUsePreferred(true)">
                     Use Passkey
                 </MudButton>
             }

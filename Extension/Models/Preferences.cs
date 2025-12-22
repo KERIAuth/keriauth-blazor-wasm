@@ -28,9 +28,8 @@
         [JsonPropertyName("IsPersistentDrawerOpenInSidePanel")]
         public bool IsPersistentDrawerOpenInSidePanel { get; init; }
 
-        // Note: JsonPropertyName kept as "PrefersToUseAuthenticator" for backward compatibility with stored data
-        [JsonPropertyName("PrefersToUseAuthenticator")]
-        public bool PrefersToUsePasskey { get; init; } = AppConfig.DefaultPrefersToUsePasskey;
+        [JsonPropertyName("IsPasskeyUsePreferred")]
+        public bool IsPasskeyUsePreferred { get; init; } = AppConfig.DefaultIsPasskeyUsePreferred;
 
         [JsonPropertyName("IsSignRequestDetailShown")]
         public bool IsSignRequestDetailShown { get; init; }
