@@ -1,4 +1,4 @@
-﻿@page "/Authenticators.html"
+@page "/Passkeys.html"
 @using Extension.Services.Storage
 
 @using Extension.Helper
@@ -21,7 +21,7 @@
 @inject IStorageService storageService
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject ILogger<Authenticators> logger
+@inject ILogger<Passkeys> logger
 @inject ISignifyClientService signifyClientService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
@@ -33,11 +33,11 @@
 
 @code {
     // fields
-    RegisteredAuthenticators MyRegisteredAuthenticators = new RegisteredAuthenticators();
+    StoredPasskeys MyStoredPasskeys = new StoredPasskeys();
     int CurrentPasscodeHash = 0;
 
     // reactive properties
-    string CountLabel => "(" + MyRegisteredAuthenticators.Authenticators.Count + ")";
+    string CountLabel => "(" + MyStoredPasskeys.Passkeys.Count + ")";
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,20 +57,20 @@
             CurrentPasscodeHash = configResult.Value.PasscodeHash;
         }
 
-        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        var result = await webauthnService.GetStoredPasskeysAsync();
         if (result.IsSuccess)
         {
-            MyRegisteredAuthenticators = result.Value;
+            MyStoredPasskeys = result.Value;
         }
         StateHasChanged();
     }
 
-    bool IsConsistentWithCurrentPasscode(RegisteredAuthenticator authenticator) =>
-        CurrentPasscodeHash != 0 && authenticator.PasscodeHash == CurrentPasscodeHash;
+    bool IsConsistentWithCurrentPasscode(StoredPasskey passkey) =>
+        CurrentPasscodeHash != 0 && passkey.PasscodeHash == CurrentPasscodeHash;
 
-    async Task AddAuthenticator()
+    async Task AddPasskey()
     {
-        navManager.NavigateTo(AppConfig.RouteToAddAuthenticator);
+        navManager.NavigateTo(AppConfig.RouteToAddPasskey);
     }
 
     async Task rename(string newName, string credentialBase64)
@@ -79,47 +79,47 @@
         {
             return;
         }
-        var updatedAuthenticators = new RegisteredAuthenticators()
+        var updatedPasskeys = new StoredPasskeys()
             {
-                Authenticators = MyRegisteredAuthenticators.Authenticators
-                        .Select(auth => auth.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
-                            ? auth with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
-                            : auth)
+                Passkeys = MyStoredPasskeys.Passkeys
+                        .Select(pk => pk.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
+                            ? pk with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
+                            : pk)
                         .ToList()
             };
         // Use StorageService via type-safe model
-        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators, StorageArea.Local);
+        var saveResult = await storageService.SetItem<StoredPasskeys>(updatedPasskeys, StorageArea.Local);
         if (saveResult.IsFailed)
         {
-            snackbar.Add("Failed to save authenticator changes", Severity.Error);
-            logger.LogError("Failed to rename authenticator: {Errors}", string.Join(", ", saveResult.Errors));
+            snackbar.Add("Failed to save passkey changes", Severity.Error);
+            logger.LogError("Failed to rename passkey: {Errors}", string.Join(", ", saveResult.Errors));
             return;
         }
-        snackbar.Add("Successfully renamed authenticator", Severity.Success);
+        snackbar.Add("Successfully renamed passkey", Severity.Success);
         // update page's collection
-        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        var result = await webauthnService.GetStoredPasskeysAsync();
         if (result.IsSuccess)
         {
-            MyRegisteredAuthenticators = result.Value;
+            MyStoredPasskeys = result.Value;
         }
         StateHasChanged();
     }
 
     async Task delete(string credentialBase64)
     {
-        var deleteResult = await webauthnService.RemoveAuthenticatorAsync(credentialBase64);
+        var deleteResult = await webauthnService.RemovePasskeyAsync(credentialBase64);
         if (deleteResult.IsFailed)
         {
-            snackbar.Add("Failed to delete authenticator", Severity.Error);
-            logger.LogError("Failed to delete authenticator: {Errors}", string.Join(", ", deleteResult.Errors));
+            snackbar.Add("Failed to delete passkey", Severity.Error);
+            logger.LogError("Failed to delete passkey: {Errors}", string.Join(", ", deleteResult.Errors));
             return;
         }
-        snackbar.Add("Successfully removed authenticator registration", Severity.Success);
+        snackbar.Add("Successfully removed passkey", Severity.Success);
         // update page's collection
-        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        var result = await webauthnService.GetStoredPasskeysAsync();
         if (result.IsSuccess)
         {
-            MyRegisteredAuthenticators = result.Value;
+            MyStoredPasskeys = result.Value;
         }
         StateHasChanged();
     }
@@ -129,11 +129,11 @@
 
     async Task UpdateTransport(string credentialBase64, string transport, bool isEnabled)
     {
-        var authenticator = MyRegisteredAuthenticators.Authenticators
+        var passkey = MyStoredPasskeys.Passkeys
             .FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
-        if (authenticator == null) return;
+        if (passkey == null) return;
 
-        var currentTransports = authenticator.Transports.ToList();
+        var currentTransports = passkey.Transports.ToList();
         if (isEnabled && !currentTransports.Contains(transport))
         {
             currentTransports.Add(transport);
@@ -154,16 +154,16 @@
             return;
         }
 
-        var updatedAuthenticators = new RegisteredAuthenticators()
+        var updatedPasskeys = new StoredPasskeys()
         {
-            Authenticators = MyRegisteredAuthenticators.Authenticators
-                .Select(auth => auth.CredentialBase64 == credentialBase64
-                    ? auth with { Transports = currentTransports.ToArray(), LastUpdatedUtc = DateTime.UtcNow }
-                    : auth)
+            Passkeys = MyStoredPasskeys.Passkeys
+                .Select(pk => pk.CredentialBase64 == credentialBase64
+                    ? pk with { Transports = currentTransports.ToArray(), LastUpdatedUtc = DateTime.UtcNow }
+                    : pk)
                 .ToList()
         };
 
-        var saveResult = await storageService.SetItem<RegisteredAuthenticators>(updatedAuthenticators, StorageArea.Local);
+        var saveResult = await storageService.SetItem<StoredPasskeys>(updatedPasskeys, StorageArea.Local);
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save transport changes", Severity.Error);
@@ -172,20 +172,20 @@
         }
 
         // Refresh the list
-        var result = await webauthnService.GetRegisteredAuthenticatorsAsync();
+        var result = await webauthnService.GetStoredPasskeysAsync();
         if (result.IsSuccess)
         {
-            MyRegisteredAuthenticators = result.Value;
+            MyStoredPasskeys = result.Value;
         }
         StateHasChanged();
     }
 
     async Task test(string credentialBase64)
     {
-        // Test only the specific authenticator that was clicked
-        var testResult = await webauthnService.TestAuthenticatorAsync(credentialBase64);
+        // Test only the specific passkey that was clicked
+        var testResult = await webauthnService.TestPasskeyAsync(credentialBase64);
         if (testResult.IsSuccess) {
-            snackbar.Add("Test successful - authenticator verified", Severity.Success);
+            snackbar.Add("Test successful - passkey verified", Severity.Success);
         } else {
             snackbar.Add("Test failed: " + string.Join(", ", testResult.Errors.Select(e => e.Message)), Severity.Warning);
         }
@@ -193,8 +193,8 @@
 
     async Task testAll()
     {
-        // Test all authenticators with permissive options
-        var testResult = await webauthnService.TestAllAuthenticatorsAsync();
+        // Test all passkeys with permissive options
+        var testResult = await webauthnService.TestAllPasskeysAsync();
         if (testResult.IsSuccess) {
             snackbar.Add($"Test successful using: {testResult.Value}", Severity.Success);
         } else {
@@ -202,21 +202,21 @@
         }
     }
 
-    bool HasAuthenticators => MyRegisteredAuthenticators.Authenticators.Any();
+    bool HasPasskeys => MyStoredPasskeys.Passkeys.Any();
 
     /// <summary>
-    /// Gets the appropriate icon for an authenticator based on the current theme.
+    /// Gets the appropriate icon for a passkey based on the current theme.
     /// Uses IconDark when dark theme is active and available, otherwise falls back to Icon.
     /// Looks up IconDark from FIDO metadata at display time using the stored AAGUID.
     /// </summary>
-    string? GetAuthenticatorIcon(RegisteredAuthenticator authenticator) {
+    string? GetPasskeyIcon(StoredPasskey passkey) {
         if (appCache.MyPreferences.IsDarkTheme) {
-            var metadata = fidoMetadataService.GetMetadata(authenticator.Aaguid);
+            var metadata = fidoMetadataService.GetMetadata(passkey.Aaguid);
             if (!string.IsNullOrEmpty(metadata?.IconDark)) {
                 return metadata.IconDark;
             }
         }
-        return authenticator.Icon;
+        return passkey.Icon;
     }
 }
 
@@ -225,32 +225,32 @@
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
                 <MudStack Row="true">
-                    <MudText Typo="Typo.h6">Authenticators</MudText>
+                    <MudText Typo="Typo.h6">Passkeys</MudText>
                     <MudText Typo="Typo.h6">@CountLabel</MudText>
                 </MudStack>
-                @if (HasAuthenticators)
+                @if (HasPasskeys)
                 {
                     <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2" Style="font-size:small;">
-                        <b>Transport priority:</b> Authenticators with "internal" transport (e.g., Windows Hello, Touch ID)
+                        <b>Transport priority:</b> Passkeys with "internal" transport (e.g., Windows Hello, Touch ID)
                         are prioritized by the browser during authentication. To prefer a USB security key, uncheck
-                        "internal" on platform authenticators or use the per-authenticator "Test" button.
+                        "internal" on platform passkeys or use the per-passkey "Test" button.
                     </MudAlert>
                 }
                 <MudStack Class="pt-4">
-                    @if (MyRegisteredAuthenticators.Authenticators.Any())
+                    @if (MyStoredPasskeys.Passkeys.Any())
                     {
-                        @foreach (var ra in MyRegisteredAuthenticators.Authenticators)
+                        @foreach (var pk in MyStoredPasskeys.Passkeys)
                         {
                             <MudCard>
                                 <MudCardContent Style="pb-0 mb-0">
                                     @{
-                                        var iconUrl = GetAuthenticatorIcon(ra);
+                                        var iconUrl = GetPasskeyIcon(pk);
                                     }
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         @if (!string.IsNullOrEmpty(iconUrl))
                                         {
                                             <MudAvatar Size="Size.Medium" Style="background-color:transparent;">
-                                                <MudImage Src="@iconUrl" Alt="Authenticator icon" Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
+                                                <MudImage Src="@iconUrl" Alt="Passkey icon" Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
                                             </MudAvatar>
                                         }
                                         else
@@ -259,12 +259,12 @@
                                                 <MudIcon Icon="@Icons.Material.Filled.Key" />
                                             </MudAvatar>
                                         }
-                                        <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" Style="flex:1;" />
+                                        <MudTextField Value="@pk.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, pk.CredentialBase64))" Style="flex:1;" />
                                     </MudStack>
-                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
-                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
                                     @{
-                                        var isConsistent = IsConsistentWithCurrentPasscode(ra);
+                                        var isConsistent = IsConsistentWithCurrentPasscode(pk);
                                     }
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Style="margin-top:8px;">
                                         <MudIcon Icon="@(isConsistent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
@@ -278,8 +278,8 @@
                                     <MudStack Row="true" Style="flex-wrap:wrap; gap:4px; margin-left:8px;">
                                         @foreach (var transport in AllTransports)
                                         {
-                                            var credId = ra.CredentialBase64;
-                                            var isEnabled = ra.Transports.Contains(transport);
+                                            var credId = pk.CredentialBase64;
+                                            var isEnabled = pk.Transports.Contains(transport);
                                             <MudCheckBox T="bool" Label="@transport" Size="Size.Small" Dense="true"
                                                          Value="@isEnabled"
                                                          ValueChanged="@(async (bool val) => await UpdateTransport(credId, transport, val))"
@@ -288,8 +288,8 @@
                                     </MudStack>
                                 </MudCardContent>
                                 <MudCardActions Style="justify-content:flex-end; padding:0;">
-                                    <MudButton OnClick="async () => await test(ra.CredentialBase64)">Test</MudButton>
-                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" OnClick="async () => await delete(ra.CredentialBase64)">Delete</MudIconButton>
+                                    <MudButton OnClick="async () => await test(pk.CredentialBase64)">Test</MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" OnClick="async () => await delete(pk.CredentialBase64)">Delete</MudIconButton>
                                 </MudCardActions>
                             </MudCard>
                         }
@@ -301,7 +301,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton OnClick="async () => await testAll()" Variant="Variant.Outlined" Disabled="@(!HasAuthenticators)">Test All</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="async () => await AddAuthenticator()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
+        <MudButton OnClick="async () => await testAll()" Variant="Variant.Outlined" Disabled="@(!HasPasskeys)">Test All</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="async () => await AddPasskey()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
     </MudStack>
 </div>

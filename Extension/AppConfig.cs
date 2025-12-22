@@ -24,9 +24,10 @@ namespace Extension {
         public const string RouteToWelcome = "/Welcome.html";
         public const string RouteToNewRelease = "/NewRelease.html";
         public const string RouteToConfigure = "/Configure.html";
-        public const string RouteToAddAuthenticator = "/AddAuthenticator.html";
-        public const string RouteToAuthenticators = "/Authenticators.html";
+        public const string RouteToAddPasskey = "/AddPasskey.html";
+        public const string RouteToPasskeys = "/Passkeys.html";
         public const string RouteToUnlock = "/Unlock.html";
+        public const string RouteToOfferPasskey = "/OfferPasskey.html";
         public const string RouteToSidePanel = "/SidePanel.html";
         public const string RouteToTest = "/Test.html";
         public const string RouteToConnecting = "/Connecting.html";
@@ -46,6 +47,7 @@ namespace Extension {
             RouteToWelcome,
             RouteToNewRelease,
             RouteToConfigure,
+            RouteToOfferPasskey,
             RouteToUnlock,
             RouteToManagePrefs,
             RouteToTerms,
@@ -82,7 +84,7 @@ namespace Extension {
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Persistent;
-        public const bool DefaultPrefersToUseAuthenticator = true;
+        public const bool DefaultPrefersToUsePasskey = true;
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
         public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
@@ -97,7 +99,7 @@ namespace Extension {
             IsDarkTheme = DefaultIsDarkTheme,
             DrawerVariantInTab = DefaultDrawerVariantInTab,
             DrawerVariantInSidePanel = DefaultDrawerVariantInSidePanel,
-            PrefersToUseAuthenticator = DefaultPrefersToUseAuthenticator,
+            PrefersToUsePasskey = DefaultPrefersToUsePasskey,
             DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
             IsPersistentDrawerOpenInSidePanel = false,
             IsPersistentDrawerOpenInTab = false,

@@ -1,4 +1,4 @@
-@page "/AddAuthenticator.html"
+@page "/AddPasskey.html"
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 
@@ -32,7 +32,7 @@
 @using System.Security.Cryptography
 
 @inject IStorageService storageService
-@inject ILogger<AddAuthenticatorPage> logger
+@inject ILogger<AddPasskeyPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -43,8 +43,8 @@
 @inject AppCache appCache
 
 @code {
-    // Target authenticator type enum
-    enum TargetAuthenticatorType
+    // Target passkey type enum
+    enum TargetPasskeyType
     {
         HardwareSecurityKey,
         GooglePasswordManager,
@@ -52,7 +52,7 @@
     }
 
     // Current selection (default to Hardware Security Key)
-    TargetAuthenticatorType _selectedTarget = TargetAuthenticatorType.HardwareSecurityKey;
+    TargetPasskeyType _selectedTarget = TargetPasskeyType.HardwareSecurityKey;
 
     // Local settings for this registration (not persisted to preferences)
     string _residentKey = "required";
@@ -62,7 +62,7 @@
     List<string> _selectedHints = new List<string> { "security-key" };
 
     // Track previous selection to preserve Custom settings when switching back
-    TargetAuthenticatorType _previousTarget = TargetAuthenticatorType.HardwareSecurityKey;
+    TargetPasskeyType _previousTarget = TargetPasskeyType.HardwareSecurityKey;
 
     protected override async Task OnInitializedAsync()
     {
@@ -75,20 +75,20 @@
         ApplyHardwareSecurityKeySettings();
     }
 
-    void OnTargetChanged(TargetAuthenticatorType newTarget)
+    void OnTargetChanged(TargetPasskeyType newTarget)
     {
         _previousTarget = _selectedTarget;
         _selectedTarget = newTarget;
 
         switch (newTarget)
         {
-            case TargetAuthenticatorType.HardwareSecurityKey:
+            case TargetPasskeyType.HardwareSecurityKey:
                 ApplyHardwareSecurityKeySettings();
                 break;
-            case TargetAuthenticatorType.GooglePasswordManager:
+            case TargetPasskeyType.GooglePasswordManager:
                 ApplyGooglePasswordManagerSettings();
                 break;
-            case TargetAuthenticatorType.Custom:
+            case TargetPasskeyType.Custom:
                 // If coming from GPM, keep GPM settings as starting point
                 // If coming from Hardware Key, keep Hardware Key settings as starting point
                 // (settings are already set from previous selection)
@@ -118,7 +118,7 @@
     {
     }
 
-    async Task RegisterAuthenticatorAndAttest()
+    async Task CreatePasskey()
     {
         // Use local settings instead of preferences
         var res = await webauthnService.RegisterAttestStoreAuthenticatorAsync(
@@ -130,14 +130,25 @@
 
         if (res.IsFailed)
         {
-            snackbar.Add("Authenticator not registered", Severity.Warning);
-            logger.LogInformation("RegisterCredential failed: {x}", res.Errors.ToArray());
+            snackbar.Add("Passkey not created", Severity.Warning);
+            logger.LogInformation("CreatePasskey failed: {x}", res.Errors.ToArray());
+            // Stay on page to let user try again
+            return;
+        }
+
+        snackbar.Add("Passkey successfully created.", Severity.Success);
+
+        // If we came from the passkey offer flow, complete it and go to Index (which routes to Dashboard)
+        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
+        {
+            App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+            navManager.NavigateTo(AppConfig.RouteToIndex);
         }
         else
         {
-            snackbar.Add("Authenticator successfully registered.", Severity.Success);
+            // Normal flow - go to Passkeys page
+            navManager.NavigateTo(AppConfig.RouteToPasskeys);
         }
-        navManager.NavigateTo(AppConfig.RouteToAuthenticators);
     }
 
     // Hint management for Custom mode
@@ -182,7 +193,7 @@
     bool IsLastHint(string hint) => _selectedHints.IndexOf(hint) == _selectedHints.Count - 1;
     IEnumerable<string> AvailableHints => AppConfig.AllHints.Except(_selectedHints);
 
-    bool ShowCustomSettings => _selectedTarget == TargetAuthenticatorType.Custom;
+    bool ShowCustomSettings => _selectedTarget == TargetPasskeyType.Custom;
 
     // Misalignment warnings for conflicting settings combinations
     string? MisalignmentAuthenticatorAttachment1 =>
@@ -219,6 +230,22 @@
         MisalignmentResidentKey1 != null ||
         MisalignmentResidentKey2 != null;
 
+    async Task CancelOrGoBack()
+    {
+        // If we came from the passkey offer flow, cancel it and go to Index (which routes to Dashboard)
+        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
+        {
+            logger.LogInformation("User cancelled passkey creation from offer flow");
+            App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+            navManager.NavigateTo(AppConfig.RouteToIndex);
+        }
+        else
+        {
+            // Normal flow - go back using browser history
+            await GoBack(js);
+        }
+    }
+
     public void Dispose()
     {
     }
@@ -227,21 +254,21 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Register an Authenticator</MudText>
+            <MudText Typo="Typo.h6">Create a Passkey</MudText>
             <MudStack>
                 <MudText Class="mt-4" Style="font-weight:bold;">
-                    Target Passkey Authenticator
+                    Passkey Type
                 </MudText>
-                <MudRadioGroup T="TargetAuthenticatorType" Value="_selectedTarget" ValueChanged="OnTargetChanged" Class="ml-4">
-                    <MudRadio Value="TargetAuthenticatorType.HardwareSecurityKey" Color="Color.Primary">
+                <MudRadioGroup T="TargetPasskeyType" Value="_selectedTarget" ValueChanged="OnTargetChanged" Class="ml-4">
+                    <MudRadio Value="TargetPasskeyType.HardwareSecurityKey" Color="Color.Primary">
                         Hardware Security Key
                         <MudText Typo="Typo.caption" Color="Color.Secondary">(YubiKey, Google Titan, etc.)</MudText>
                     </MudRadio>
-                    <MudRadio Value="TargetAuthenticatorType.GooglePasswordManager" Color="Color.Primary">
+                    <MudRadio Value="TargetPasskeyType.GooglePasswordManager" Color="Color.Primary">
                         Google Password Manager
                         <MudText Typo="Typo.caption" Color="Color.Secondary">(Chrome platform passkey)</MudText>
                     </MudRadio>
-                    <MudRadio Value="TargetAuthenticatorType.Custom" Color="Color.Primary">
+                    <MudRadio Value="TargetPasskeyType.Custom" Color="Color.Primary">
                         Custom
                         <MudText Typo="Typo.caption" Color="Color.Secondary">(configure settings manually)</MudText>
                     </MudRadio>
@@ -372,14 +399,16 @@
                         <MudStack Class="mt-4">
                             <MudText Style="font-weight:bold;">How does this work?</MudText>
                             <MudText>
-                                You'll follow the prompts during registration. Once registered, you'll be able to use the authenticator to unlock KERI Auth.
+                                During creation, you'll follow your browser's prompts. Once created, you can use this passkey on this computer to unlock KERI Auth without typing your passcode.
                             </MudText>
                             <MudText Class="mt-2">
-                                The authenticator uses its Pseudo-random Function (PRF) to generate a unique key that encrypts your passcode.
-                                Your passcode is never stored directly - only the encrypted version is kept in your browser profile.
+                                Each passkey uses the authenticator's Pseudo-random Function (PRF) to derive a unique encryption key. Your passcode is encrypted with this key and stored in your browser profile - the passcode itself is not stored when the extension is inactive.
                             </MudText>
                             <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
-                                <b>Important:</b> Keep your passcode safely stored! If the authenticator becomes unavailable or your browser profile is reset, you'll need your passcode to recover access.
+                                <b>Important:</b> Keep your passkey authenticator safely stored! Each passkey is specific to this browser profile and computer.
+                            </MudAlert>
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                <b>Important:</b> Keep your passcode safely stored, in case it is needed on another computer or if your passkey(s) become unavailable.
                             </MudAlert>
                         </MudStack>
                         <MudStack Class="mt-4">
@@ -405,8 +434,8 @@
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick="@(async () => await CancelOrGoBack())" Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await RegisterAuthenticatorAndAttest())">Register</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await CreatePasskey())">Create</MudButton>
     </MudStack>
 </div>

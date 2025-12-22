@@ -334,7 +334,7 @@
                 <MudNavLink Href=@RouteToWebsites Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
 
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
-                    <MudNavLink Href=@RouteToAuthenticators Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Authenticators</MudNavLink>
+                    <MudNavLink Href=@RouteToPasskeys Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Href=@RouteToManagePrefs Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href=@RouteToManageAgents Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
                     @if (appCache.IsAuthenticated)

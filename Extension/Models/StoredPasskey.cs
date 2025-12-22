@@ -3,23 +3,24 @@ using System.Text.Json.Serialization;
 namespace Extension.Models;
 
 /// <summary>
-/// Schema version for RegisteredAuthenticator model.
+/// Schema version for StoredPasskey model.
 /// Increment when making breaking changes to the data format.
 /// </summary>
-public static class RegisteredAuthenticatorSchema {
+public static class StoredPasskeySchema {
     /// <summary>
     /// Current schema version.
     /// Version 2: Added Transports, SchemaVersion. Changed key derivation from HKDF to SHA-256.
     /// Version 3: Added PasscodeHash to detect configuration consistency.
     /// Version 4: Added Aaguid, Icon for descriptive names and visual identification.
-    /// Old registrations (version 1-3 or missing version) are invalid and must be re-registered.
+    /// Version 5: Renamed from RegisteredAuthenticator to StoredPasskey (breaking change).
+    /// Old registrations (version 1-4 or missing version) are invalid and must be re-created.
     /// </summary>
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 }
 
-public record RegisteredAuthenticator {
+public record StoredPasskey {
     /// <summary>
-    /// Schema version of this registration.
+    /// Schema version of this passkey.
     /// Used for forward compatibility checks.
     /// </summary>
     [JsonPropertyName("schemaVersion")]
@@ -35,7 +36,7 @@ public record RegisteredAuthenticator {
     public required string CredentialBase64 { get; init; }
 
     /// <summary>
-    /// Transport types supported by this authenticator (e.g., "usb", "nfc", "ble", "internal", "hybrid").
+    /// Transport types supported by this passkey's authenticator (e.g., "usb", "nfc", "ble", "internal", "hybrid").
     /// Used to provide transport hints during authentication for better UX.
     /// </summary>
     [JsonPropertyName("transports")]
@@ -49,9 +50,9 @@ public record RegisteredAuthenticator {
     public required string EncryptedPasscodeBase64 { get; init; }
 
     /// <summary>
-    /// Hash of the passcode at the time of registration.
-    /// Used to detect if the authenticator is consistent with the current configuration.
-    /// Copied from KeriaConnectConfig.PasscodeHash during registration.
+    /// Hash of the passcode at the time of passkey creation.
+    /// Used to detect if the passkey is consistent with the current configuration.
+    /// Copied from KeriaConnectConfig.PasscodeHash during creation.
     /// </summary>
     [JsonPropertyName("passcodeHash")]
     public required int PasscodeHash { get; init; }
@@ -65,13 +66,13 @@ public record RegisteredAuthenticator {
 
     /// <summary>
     /// Data URL for the authenticator's icon (e.g., "data:image/png;base64,...").
-    /// Retrieved from FIDO convenience metadata during registration.
+    /// Retrieved from FIDO convenience metadata during passkey creation.
     /// May be null if the authenticator is not in the metadata.
     /// </summary>
     [JsonPropertyName("icon")]
     public string? Icon { get; init; }
 
-    [JsonPropertyName("registeredUtc")]
+    [JsonPropertyName("createdUtc")]
     public required DateTime CreationTime { get; init; }
 
     [JsonPropertyName("lastUpdatedUtc")]
