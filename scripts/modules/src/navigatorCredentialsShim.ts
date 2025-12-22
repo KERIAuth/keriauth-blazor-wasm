@@ -28,6 +28,8 @@ export interface CredentialCreationResult {
     prfEnabled: boolean;
     /** Whether a resident key (passkey) was created */
     residentKeyCreated: boolean;
+    /** AAGUID of the authenticator (UUID format, e.g., "08987058-cadc-4b81-b6e1-30de50dcbe96") */
+    aaguid: string;
 }
 
 /**
@@ -132,6 +134,63 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 /**
+ * Helper: Extract AAGUID from authenticator data.
+ * AAGUID is located at bytes 37-52 (16 bytes) in the attestedCredentialData section.
+ * Returns UUID format string (e.g., "08987058-cadc-4b81-b6e1-30de50dcbe96").
+ *
+ * AuthenticatorData structure:
+ * - rpIdHash: 32 bytes (0-31)
+ * - flags: 1 byte (32)
+ * - signCount: 4 bytes (33-36)
+ * - attestedCredentialData (if AT flag set):
+ *   - aaguid: 16 bytes (37-52)
+ *   - credentialIdLength: 2 bytes (53-54)
+ *   - credentialId: variable
+ *   - credentialPublicKey: variable (COSE format)
+ */
+function extractAaguidFromAuthenticatorData(authData: ArrayBuffer): string {
+    const bytes = new Uint8Array(authData);
+
+    console.warn(`[navigatorCredentialsShim] extractAaguid - authData length: ${bytes.length} bytes`);
+
+    if (bytes.length < 37) {
+        console.warn(`[navigatorCredentialsShim] extractAaguid - authData too short for flags check`);
+        return '00000000-0000-0000-0000-000000000000';
+    }
+
+    // Check if we have attested credential data (flags byte at position 32, bit 6 = 0x40)
+    const flags = bytes[32]!;
+    const hasAttestedCredentialData = (flags & 0x40) !== 0;
+    const hasExtensions = (flags & 0x80) !== 0;
+
+    console.warn(`[navigatorCredentialsShim] extractAaguid - flags: 0x${flags.toString(16)}, ` +
+        `AT=${hasAttestedCredentialData}, ED=${hasExtensions}`);
+
+    if (!hasAttestedCredentialData) {
+        console.warn(`[navigatorCredentialsShim] extractAaguid - AT flag not set, no attested credential data`);
+        return '00000000-0000-0000-0000-000000000000';
+    }
+
+    if (bytes.length < 55) {
+        console.warn(`[navigatorCredentialsShim] extractAaguid - authData too short for AAGUID (need 55, have ${bytes.length})`);
+        return '00000000-0000-0000-0000-000000000000';
+    }
+
+    // AAGUID starts at byte 37 (after rpIdHash[32] + flags[1] + signCount[4])
+    const aaguidBytes = bytes.slice(37, 53);
+
+    // Format as UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    const hex = Array.from(aaguidBytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+    const aaguid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+    console.warn(`[navigatorCredentialsShim] extractAaguid - extracted AAGUID: ${aaguid}`);
+
+    return aaguid;
+}
+
+/**
  * Creates a new WebAuthn credential with PRF extension.
  * Called from C# via IJSRuntime.
  */
@@ -207,10 +266,77 @@ export async function createCredential(
     const prfEnabled = clientExtensionResults.prf?.enabled === true;
     const residentKeyCreated = clientExtensionResults.credProps?.rk === true;
 
-    // Extract credential ID and transports
+    // Extract credential ID, transports, and AAGUID
     const credentialId = arrayBufferToBase64Url(credential.rawId);
     const response = credential.response as AuthenticatorAttestationResponse;
     let transports: string[] = [];
+
+    // Extract AAGUID from authenticator data
+    // Try getAuthenticatorData() first (available in modern browsers)
+    // Fall back to parsing attestationObject if not available
+    let aaguid = '00000000-0000-0000-0000-000000000000';
+    if (typeof response.getAuthenticatorData === 'function') {
+        const authData = response.getAuthenticatorData();
+        console.warn(`[navigatorCredentialsShim] createCredential - using getAuthenticatorData()`);
+        aaguid = extractAaguidFromAuthenticatorData(authData);
+    } else {
+        // Fallback: parse attestationObject (CBOR encoded)
+        // The attestationObject contains authData which has the AAGUID
+        console.warn(`[navigatorCredentialsShim] createCredential - getAuthenticatorData() not available, trying attestationObject`);
+        try {
+            // attestationObject is CBOR-encoded, authData is at a known offset after the "authData" key
+            // For simplicity, we'll try to find the authData within the attestationObject
+            const attestationObject = new Uint8Array(response.attestationObject);
+            // The authData in CBOR is usually after the key "authData" (0x68 0x61 0x75 0x74 0x68 0x44 0x61 0x74 0x61)
+            // This is a simplified approach - look for the pattern and extract
+            const authDataMarker = [0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61]; // "authData" in CBOR text
+            let markerIndex = -1;
+            for (let i = 0; i < attestationObject.length - authDataMarker.length; i++) {
+                let match = true;
+                for (let j = 0; j < authDataMarker.length; j++) {
+                    if (attestationObject[i + j] !== authDataMarker[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    markerIndex = i;
+                    break;
+                }
+            }
+            if (markerIndex >= 0) {
+                // After "authData" key, there's a CBOR byte string header
+                // Skip the key (9 bytes) and parse the byte string length
+                const headerStart = markerIndex + 9;
+                const header = attestationObject[headerStart];
+                let authDataStart = headerStart + 1;
+                let authDataLength = 0;
+
+                if (header !== undefined) {
+                    if ((header & 0xe0) === 0x40) {
+                        // Short byte string (0x40-0x57)
+                        authDataLength = header & 0x1f;
+                    } else if (header === 0x58) {
+                        // 1-byte length
+                        authDataLength = attestationObject[headerStart + 1] || 0;
+                        authDataStart = headerStart + 2;
+                    } else if (header === 0x59) {
+                        // 2-byte length
+                        authDataLength = ((attestationObject[headerStart + 1] || 0) << 8) | (attestationObject[headerStart + 2] || 0);
+                        authDataStart = headerStart + 3;
+                    }
+                }
+
+                if (authDataLength > 0 && authDataStart + authDataLength <= attestationObject.length) {
+                    const authData = attestationObject.slice(authDataStart, authDataStart + authDataLength);
+                    aaguid = extractAaguidFromAuthenticatorData(authData.buffer);
+                }
+            }
+        } catch (e) {
+            console.warn(`[navigatorCredentialsShim] createCredential - failed to parse attestationObject:`, e);
+        }
+    }
+    console.warn(`[navigatorCredentialsShim] createCredential - AAGUID: ${aaguid}`);
 
     if (typeof response.getTransports === 'function') {
         transports = response.getTransports() || [];
@@ -245,7 +371,8 @@ export async function createCredential(
         credentialId,
         transports,
         prfEnabled,
-        residentKeyCreated
+        residentKeyCreated,
+        aaguid
     };
 }
 

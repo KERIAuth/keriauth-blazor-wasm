@@ -14,36 +14,37 @@ public class WebauthnModelsTests {
         WriteIndented = false
     };
 
-    #region RegisteredAuthenticatorSchema Tests
+    #region StoredPasskeySchema Tests
 
     [Fact]
-    public void RegisteredAuthenticatorSchema_CurrentVersion_IsThree() {
-        // Assert - Version 3 includes PasscodeHash for consistency checks
-        Assert.Equal(3, RegisteredAuthenticatorSchema.CurrentVersion);
+    public void StoredPasskeySchema_CurrentVersion_IsFive() {
+        // Assert - Version 5 is the renamed version from RegisteredAuthenticator
+        Assert.Equal(5, StoredPasskeySchema.CurrentVersion);
     }
 
     #endregion
 
-    #region RegisteredAuthenticator Serialization Tests
+    #region StoredPasskey Serialization Tests
 
     [Fact]
-    public void RegisteredAuthenticator_Serialization_RoundTrip() {
+    public void StoredPasskey_Serialization_RoundTrip() {
         // Arrange
         var now = DateTime.UtcNow;
-        var original = new RegisteredAuthenticator {
-            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
-            Name = "Test Authenticator",
+        var original = new StoredPasskey {
+            SchemaVersion = StoredPasskeySchema.CurrentVersion,
+            Name = "Test Passkey",
             CredentialBase64 = "dGVzdC1jcmVkZW50aWFs",
             Transports = ["usb", "internal"],
             EncryptedPasscodeBase64 = "ZW5jcnlwdGVkLXBhc3Njb2Rl",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = now,
             LastUpdatedUtc = now
         };
 
         // Act
         var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisteredAuthenticator>(json, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<StoredPasskey>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -55,47 +56,49 @@ public class WebauthnModelsTests {
     }
 
     [Fact]
-    public void RegisteredAuthenticator_Serialization_UsesCorrectPropertyNames() {
+    public void StoredPasskey_Serialization_UsesCorrectPropertyNames() {
         // Arrange
-        var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+        var passkey = new StoredPasskey {
+            SchemaVersion = StoredPasskeySchema.CurrentVersion,
             Name = "Test",
             CredentialBase64 = "abc123",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "encrypted",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow,
             LastUpdatedUtc = DateTime.UtcNow
         };
 
         // Act
-        var json = JsonSerializer.Serialize(authenticator, JsonOptions);
+        var json = JsonSerializer.Serialize(passkey, JsonOptions);
 
-        // Assert - Check JSON property names match JsonPropertyName attributes
-        Assert.Contains("\"schemaVersion\":", json);
-        Assert.Contains("\"name\":", json);
-        Assert.Contains("\"credential\":", json);  // Note: CredentialBase64 maps to "credential"
-        Assert.Contains("\"transports\":", json);
-        Assert.Contains("\"encryptedPasscodeBase64\":", json);
-        Assert.Contains("\"registeredUtc\":", json);  // Note: CreationTime maps to "registeredUtc"
-        Assert.Contains("\"lastUpdatedUtc\":", json);
+        // Assert - Check JSON property names match JsonPropertyName attributes (PascalCase)
+        Assert.Contains("\"SchemaVersion\":", json);
+        Assert.Contains("\"Name\":", json);
+        Assert.Contains("\"CredentialBase64\":", json);
+        Assert.Contains("\"Transports\":", json);
+        Assert.Contains("\"EncryptedPasscodeBase64\":", json);
+        Assert.Contains("\"CreationTime\":", json);
+        Assert.Contains("\"LastUpdatedUtc\":", json);
     }
 
     [Fact]
-    public void RegisteredAuthenticator_Transports_CanBeEmpty() {
+    public void StoredPasskey_Transports_CanBeEmpty() {
         // Arrange
-        var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+        var passkey = new StoredPasskey {
+            SchemaVersion = StoredPasskeySchema.CurrentVersion,
             CredentialBase64 = "abc",
             Transports = [],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
         // Act
-        var json = JsonSerializer.Serialize(authenticator, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisteredAuthenticator>(json, JsonOptions);
+        var json = JsonSerializer.Serialize(passkey, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<StoredPasskey>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -103,21 +106,22 @@ public class WebauthnModelsTests {
     }
 
     [Fact]
-    public void RegisteredAuthenticator_Transports_PreservesOrder() {
+    public void StoredPasskey_Transports_PreservesOrder() {
         // Arrange
         var transports = new[] { "usb", "nfc", "ble", "internal", "hybrid" };
-        var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+        var passkey = new StoredPasskey {
+            SchemaVersion = StoredPasskeySchema.CurrentVersion,
             CredentialBase64 = "abc",
             Transports = transports,
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
         // Act
-        var json = JsonSerializer.Serialize(authenticator, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisteredAuthenticator>(json, JsonOptions);
+        var json = JsonSerializer.Serialize(passkey, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<StoredPasskey>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -125,21 +129,22 @@ public class WebauthnModelsTests {
     }
 
     [Fact]
-    public void RegisteredAuthenticator_Name_CanBeNull() {
+    public void StoredPasskey_Name_CanBeNull() {
         // Arrange
-        var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+        var passkey = new StoredPasskey {
+            SchemaVersion = StoredPasskeySchema.CurrentVersion,
             Name = null,
             CredentialBase64 = "abc",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
         // Act
-        var json = JsonSerializer.Serialize(authenticator, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisteredAuthenticator>(json, JsonOptions);
+        var json = JsonSerializer.Serialize(passkey, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<StoredPasskey>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -294,7 +299,8 @@ public class WebauthnModelsTests {
             "credentialId": "dGVzdC1jcmVkLWlk",
             "transports": ["internal", "hybrid"],
             "prfEnabled": true,
-            "residentKeyCreated": true
+            "residentKeyCreated": true,
+            "aaguid": "08987058-cadc-4b81-b6e1-30de50dcbe96"
         }
         """;
 
@@ -307,6 +313,7 @@ public class WebauthnModelsTests {
         Assert.Equal(["internal", "hybrid"], result.Transports);
         Assert.True(result.PrfEnabled);
         Assert.True(result.ResidentKeyCreated);
+        Assert.Equal("08987058-cadc-4b81-b6e1-30de50dcbe96", result.Aaguid);
     }
 
     [Fact]
@@ -317,7 +324,8 @@ public class WebauthnModelsTests {
             "credentialId": "abc",
             "transports": ["usb"],
             "prfEnabled": false,
-            "residentKeyCreated": true
+            "residentKeyCreated": true,
+            "aaguid": "00000000-0000-0000-0000-000000000000"
         }
         """;
 
@@ -373,31 +381,33 @@ public class WebauthnModelsTests {
 
     #endregion
 
-    #region RegisteredAuthenticators Collection Tests
+    #region StoredPasskeys Collection Tests
 
     [Fact]
-    public void RegisteredAuthenticators_Serialization_RoundTrip() {
+    public void StoredPasskeys_Serialization_RoundTrip() {
         // Arrange
         var now = DateTime.UtcNow;
-        var original = new RegisteredAuthenticators {
+        var original = new StoredPasskeys {
             ProfileId = "test-profile-id",
-            Authenticators = [
-                new RegisteredAuthenticator {
-                    SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
-                    Name = "Auth 1",
+            Passkeys = [
+                new StoredPasskey {
+                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                    Name = "Passkey 1",
                     CredentialBase64 = "cred1",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc1",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = now
                 },
-                new RegisteredAuthenticator {
-                    SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
-                    Name = "Auth 2",
+                new StoredPasskey {
+                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                    Name = "Passkey 2",
                     CredentialBase64 = "cred2",
                     Transports = ["usb", "nfc"],
                     EncryptedPasscodeBase64 = "enc2",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = now
                 }
             ]
@@ -405,27 +415,27 @@ public class WebauthnModelsTests {
 
         // Act
         var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisteredAuthenticators>(json, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<StoredPasskeys>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
-        Assert.Equal(2, deserialized.Authenticators.Count);
-        Assert.Equal("Auth 1", deserialized.Authenticators[0].Name);
-        Assert.Equal("Auth 2", deserialized.Authenticators[1].Name);
+        Assert.Equal(2, deserialized.Passkeys.Count);
+        Assert.Equal("Passkey 1", deserialized.Passkeys[0].Name);
+        Assert.Equal("Passkey 2", deserialized.Passkeys[1].Name);
     }
 
     [Fact]
-    public void RegisteredAuthenticators_Empty_SerializesCorrectly() {
+    public void StoredPasskeys_Empty_SerializesCorrectly() {
         // Arrange
-        var empty = new RegisteredAuthenticators { Authenticators = [] };
+        var empty = new StoredPasskeys { Passkeys = [] };
 
         // Act
         var json = JsonSerializer.Serialize(empty, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisteredAuthenticators>(json, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<StoredPasskeys>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
-        Assert.Empty(deserialized.Authenticators);
+        Assert.Empty(deserialized.Passkeys);
     }
 
     #endregion
@@ -435,17 +445,18 @@ public class WebauthnModelsTests {
     [Fact]
     public void SchemaVersionFiltering_CurrentVersion_IsValid() {
         // Arrange
-        var authenticator = new RegisteredAuthenticator {
-            SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+        var passkey = new StoredPasskey {
+            SchemaVersion = StoredPasskeySchema.CurrentVersion,
             CredentialBase64 = "cred",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
         // Act
-        var isValid = authenticator.SchemaVersion == RegisteredAuthenticatorSchema.CurrentVersion;
+        var isValid = passkey.SchemaVersion == StoredPasskeySchema.CurrentVersion;
 
         // Assert
         Assert.True(isValid);
@@ -454,17 +465,18 @@ public class WebauthnModelsTests {
     [Fact]
     public void SchemaVersionFiltering_OldVersion_IsInvalid() {
         // Arrange - Version 1 is the old format without Transports
-        var authenticator = new RegisteredAuthenticator {
+        var passkey = new StoredPasskey {
             SchemaVersion = 1,
             CredentialBase64 = "cred",
             Transports = [],  // Would be missing in actual old data
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
         // Act
-        var isValid = authenticator.SchemaVersion == RegisteredAuthenticatorSchema.CurrentVersion;
+        var isValid = passkey.SchemaVersion == StoredPasskeySchema.CurrentVersion;
 
         // Assert
         Assert.False(isValid);
@@ -473,17 +485,18 @@ public class WebauthnModelsTests {
     [Fact]
     public void SchemaVersionFiltering_FutureVersion_IsInvalid() {
         // Arrange - A hypothetical future version
-        var authenticator = new RegisteredAuthenticator {
+        var passkey = new StoredPasskey {
             SchemaVersion = 99,
             CredentialBase64 = "cred",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
         // Act
-        var isValid = authenticator.SchemaVersion == RegisteredAuthenticatorSchema.CurrentVersion;
+        var isValid = passkey.SchemaVersion == StoredPasskeySchema.CurrentVersion;
 
         // Assert
         Assert.False(isValid);
@@ -492,41 +505,44 @@ public class WebauthnModelsTests {
     [Fact]
     public void SchemaVersionFiltering_MixedVersions_FiltersCorrectly() {
         // Arrange - Mix of old and current versions
-        var authenticators = new List<RegisteredAuthenticator> {
+        var passkeys = new List<StoredPasskey> {
             new() {
                 SchemaVersion = 1,  // Old
                 CredentialBase64 = "old-cred",
                 Transports = [],
                 EncryptedPasscodeBase64 = "old-enc",
                 PasscodeHash = 12345,
+                Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             },
             new() {
-                SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+                SchemaVersion = StoredPasskeySchema.CurrentVersion,
                 CredentialBase64 = "new-cred",
                 Transports = ["internal"],
                 EncryptedPasscodeBase64 = "new-enc",
                 PasscodeHash = 12345,
+                Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             },
             new() {
-                SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
+                SchemaVersion = StoredPasskeySchema.CurrentVersion,
                 CredentialBase64 = "another-cred",
                 Transports = ["usb"],
                 EncryptedPasscodeBase64 = "another-enc",
                 PasscodeHash = 12345,
+                Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             }
         };
 
-        // Act - Same filtering logic as WebauthnService.GetValidAuthenticatorsAsync
-        var valid = authenticators
-            .Where(a => a.SchemaVersion == RegisteredAuthenticatorSchema.CurrentVersion)
+        // Act - Same filtering logic as WebauthnService.GetValidPasskeysAsync
+        var valid = passkeys
+            .Where(a => a.SchemaVersion == StoredPasskeySchema.CurrentVersion)
             .ToList();
 
         // Assert
         Assert.Equal(2, valid.Count);
-        Assert.All(valid, a => Assert.Equal(RegisteredAuthenticatorSchema.CurrentVersion, a.SchemaVersion));
+        Assert.All(valid, a => Assert.Equal(StoredPasskeySchema.CurrentVersion, a.SchemaVersion));
         Assert.DoesNotContain(valid, a => a.CredentialBase64 == "old-cred");
     }
 

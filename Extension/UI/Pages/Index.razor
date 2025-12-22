@@ -3,6 +3,7 @@
 @page "/indexInPopup.html"
 @page "/indexInSidePanel.html"
 @page "/indexInOptions.html"
+@using Extension.Models
 @using Extension.Models.Messages.BwApp
 @using Extension.Models.Messages.BwApp.Requests
 @using static Extension.AppConfig
@@ -132,6 +133,15 @@
         if (!appCache.IsConnectedToKeria)
         {
             logger.LogError("RedirectIfNeeded: Not ConnectedToKeria");
+            return;
+        }
+
+        // Check for passkey creation offer flow (after first-time KERIA connection)
+        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.Yes)
+        {
+            logger.LogInformation("RedirectIfNeeded: User accepted passkey offer, navigating to AddPasskey");
+            App.OfferCreatePasskeyState = OfferCreatePasskeyState.InProcess;
+            NavigateIfNeeded(RouteToAddPasskey);
             return;
         }
 

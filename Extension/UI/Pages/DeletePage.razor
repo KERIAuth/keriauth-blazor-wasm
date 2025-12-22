@@ -49,18 +49,19 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            // Preserve RegisteredAuthenticators before clearing storage
-            var authenticatorsResult = await storageService.GetItem<RegisteredAuthenticators>(StorageArea.Local);
-            var preservedAuthenticators = authenticatorsResult.IsSuccess ? authenticatorsResult.Value : null;
+            // TODO P2: clear StoredPasskeys or preserve them?
+            // Preserve StoredPasskeys before clearing storage
+            var passkeysResult = await storageService.GetItem<StoredPasskeys>(StorageArea.Local);
+            var preservedPasskeys = passkeysResult.IsSuccess ? passkeysResult.Value : null;
 
             await storageService.Clear(StorageArea.Local);
             await storageService.Clear(StorageArea.Sync);
             await storageService.Clear(StorageArea.Session);
 
-            // Restore RegisteredAuthenticators after clearing
-            if (preservedAuthenticators is not null)
+            // Restore StoredPasskeys after clearing
+            if (preservedPasskeys is not null)
             {
-                await storageService.SetItem(preservedAuthenticators, StorageArea.Local);
+                await storageService.SetItem(preservedPasskeys, StorageArea.Local);
             }
 
             webExtensions.Runtime.Reload();

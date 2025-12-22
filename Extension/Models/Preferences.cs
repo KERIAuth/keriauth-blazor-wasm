@@ -28,34 +28,13 @@
         [JsonPropertyName("IsPersistentDrawerOpenInSidePanel")]
         public bool IsPersistentDrawerOpenInSidePanel { get; init; }
 
-        [JsonPropertyName("PrefersToUseAuthenticator")]
-        public bool PrefersToUseAuthenticator { get; init; } = AppConfig.DefaultPrefersToUseAuthenticator;
+        [JsonPropertyName("IsPasskeyUsePreferred")]
+        public bool IsPasskeyUsePreferred { get; init; } = AppConfig.DefaultIsPasskeyUsePreferred;
 
         [JsonPropertyName("IsSignRequestDetailShown")]
         public bool IsSignRequestDetailShown { get; init; }
 
         [JsonPropertyName("InactivityTimeoutMinutes")]
         public float InactivityTimeoutMinutes { get; init; } = AppConfig.DefaultInactivityTimeoutMins;
-
-        [JsonPropertyName("W_UserVerification")]
-        public string UserVerification { get; init; } = AppConfig.DefaultUserVerification;
-
-        [JsonPropertyName("W_ResidentKey")]
-        public string ResidentKey { get; init; } = AppConfig.DefaultResidentKey;
-
-        [JsonPropertyName("W_AuthenticatorAttachment")]
-        public string AuthenticatorAttachment { get; init; } = AppConfig.DefaultAuthenticatorAttachment;
-
-        [JsonPropertyName("W_Attestation")]
-        public string AttestationConveyancePref { get; init; } = AppConfig.DefaultAttestationConveyancePref;
-
-        [JsonPropertyName("W_SelectedTransportOptions")]
-        public List<string> SelectedTransportOptions { get; init; } = AppConfig.DefaultAuthenticatorTransports;
-
-        [JsonPropertyName("W_SelectedHints")]
-        public List<string> SelectedHints { get; init; } = AppConfig.DefaultSelectedHints;
-
-        [JsonPropertyName("W_Authenticator_Transports")]
-        public List<string> AuthenticatorTransports { get; init; } = AppConfig.DefaultAuthenticatorTransports;
     }
 }

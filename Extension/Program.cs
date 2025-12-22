@@ -114,6 +114,7 @@ builder.Services.AddSingleton<ICryptoService, SubtleCryptoService>();
 builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 builder.Services.AddSingleton<IAppBwMessagingService, AppBwMessagingService>();
+builder.Services.AddSingleton<IFidoMetadataService, FidoMetadataService>();
 builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
 builder.Services.AddJsBind();
 

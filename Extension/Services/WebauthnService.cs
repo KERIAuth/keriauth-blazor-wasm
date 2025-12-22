@@ -10,13 +10,14 @@ using System.Text;
 namespace Extension.Services;
 
 /// <summary>
-/// WebAuthn service for authenticator registration and authentication using PRF extension.
+/// WebAuthn service for passkey creation and authentication using PRF extension.
 /// Uses C# for cryptography (SHA-256, AES-GCM) and minimal TypeScript shim for navigator.credentials API.
 /// </summary>
 public class WebauthnService : IWebauthnService {
     private readonly IStorageService _storageService;
     private readonly INavigatorCredentialsBinding _credentialsBinding;
     private readonly ICryptoService _cryptoService;
+    private readonly IFidoMetadataService _fidoMetadataService;
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<WebauthnService> _logger;
 
@@ -31,18 +32,20 @@ public class WebauthnService : IWebauthnService {
         IStorageService storageService,
         INavigatorCredentialsBinding credentialsBinding,
         ICryptoService cryptoService,
+        IFidoMetadataService fidoMetadataService,
         IJSRuntime jsRuntime,
         ILogger<WebauthnService> logger) {
         _storageService = storageService;
         _credentialsBinding = credentialsBinding;
         _cryptoService = cryptoService;
+        _fidoMetadataService = fidoMetadataService;
         _jsRuntime = jsRuntime;
         _logger = logger;
     }
 
     public async Task<Result<string>> RegisterAttestStoreAuthenticatorAsync(
         string residentKey,
-        string authenticatorAttachment,
+        string? authenticatorAttachment,
         string userVerification,
         string attestationConveyancePreference,
         List<string> hints) {
@@ -60,8 +63,8 @@ public class WebauthnService : IWebauthnService {
             var userName = GenerateUserName(profileId);
 
             // Get existing credential IDs to exclude
-            var existingAuthenticators = await GetValidAuthenticatorsAsync();
-            var excludeCredentialIds = existingAuthenticators
+            var existingPasskeys = await GetValidPasskeysAsync();
+            var excludeCredentialIds = existingPasskeys
                 .Select(a => a.CredentialBase64)
                 .ToList();
 
@@ -97,7 +100,7 @@ public class WebauthnService : IWebauthnService {
 
             // Notify user of step 1 success
             await _jsRuntime.InvokeVoidAsync("alert",
-                "Step 1 of 2 registering authenticator successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
+                "Step 1 of 2 creating passkey successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
 
             // Step 2: Get assertion to derive encryption key
             var getOptions = new GetCredentialOptions {
@@ -149,48 +152,69 @@ public class WebauthnService : IWebauthnService {
             }
             var passcodeHash = configResult.Value.PasscodeHash;
 
-            // Create new authenticator record
+            // Compute transport intersection between requested and returned transports
+            var requestedTransports = GetRequestedTransports(normalizedAttachment);
+            var effectiveTransports = ComputeTransportIntersection(credential.Transports, requestedTransports);
+            _logger.LogInformation(
+                "Transport intersection: requested=[{Requested}], returned=[{Returned}], effective=[{Effective}]",
+                string.Join(", ", requestedTransports),
+                string.Join(", ", credential.Transports),
+                string.Join(", ", effectiveTransports));
+
+            // Get AAGUID, friendly name, and icon from metadata
+            var aaguid = credential.Aaguid;
+            var metadata = _fidoMetadataService.GetMetadata(aaguid);
+            var descriptiveName = _fidoMetadataService.GenerateDescriptiveName(aaguid, effectiveTransports);
+            var icon = metadata?.Icon;
+
+            _logger.LogInformation(
+                "Authenticator metadata: AAGUID={Aaguid}, Name={Name}, HasIcon={HasIcon}",
+                aaguid, descriptiveName, icon is not null);
+
+            // Create new passkey record
             var creationTime = DateTime.UtcNow;
-            var newAuthenticator = new RegisteredAuthenticator {
-                SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
-                Name = "Unnamed Authenticator",
+            var newPasskey = new StoredPasskey {
+                SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                Name = descriptiveName,
                 CredentialBase64 = credential.CredentialId,
-                Transports = credential.Transports,
+                Transports = effectiveTransports,
                 EncryptedPasscodeBase64 = encryptedPasscodeBase64,
                 PasscodeHash = passcodeHash,
+                Aaguid = aaguid,
+                Icon = icon,
                 CreationTime = creationTime,
                 LastUpdatedUtc = creationTime
             };
 
             // Add to storage (preserving ProfileId)
-            var existingData = await GetRegisteredAuthenticatorsDataAsync();
-            var allAuthenticators = existingData.Authenticators.ToList();
-            allAuthenticators.Add(newAuthenticator);
+            var existingData = await GetStoredPasskeysDataAsync();
+            var allPasskeys = existingData.Passkeys.ToList();
+            allPasskeys.Add(newPasskey);
 
             var storeResult = await _storageService.SetItem(
-                new RegisteredAuthenticators { ProfileId = existingData.ProfileId, Authenticators = allAuthenticators },
+                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
-                _logger.LogError("Failed to store authenticator: {Errors}", string.Join(", ", storeResult.Errors));
-                return Result.Fail<string>("Failed to store authenticator registration");
+                _logger.LogError("Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
+                return Result.Fail<string>("Failed to store passkey");
             }
 
-            _logger.LogInformation("Authenticator registered successfully: {Name}", newAuthenticator.Name);
-            return Result.Ok(newAuthenticator.Name ?? "Unnamed Authenticator");
+            _logger.LogInformation("Passkey created successfully: {Name}", newPasskey.Name);
+            return Result.Ok(newPasskey.Name ?? "Unnamed Passkey");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during authenticator registration");
-            return Result.Fail<string>(new Error("Unexpected error during authenticator registration").CausedBy(ex));
+            _logger.LogError(ex, "Unexpected error during passkey creation");
+            return Result.Fail<string>(new Error("Unexpected error during passkey creation").CausedBy(ex));
         }
     }
 
     public async Task<Result<string>> AuthenticateAndDecryptPasscodeAsync() {
         try {
-            // Get valid authenticators
-            var authenticators = await GetValidAuthenticatorsAsync();
-            if (authenticators.Count == 0) {
-                _logger.LogWarning("No valid registered authenticators found");
-                return Result.Fail<string>("No registered authenticators");
+            // Get valid passkeys
+            var passkeys = await GetValidPasskeysAsync();
+            if (passkeys.Count == 0) {
+                _logger.LogWarning("No valid stored passkeys found");
+                return Result.Fail<string>("No stored passkeys");
             }
 
             // Get profile identifier and compute PRF salt
@@ -199,17 +223,17 @@ public class WebauthnService : IWebauthnService {
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             // Build credential options with per-credential transports
-            var credentialIds = authenticators.Select(a => a.CredentialBase64).ToList();
-            var transportsPerCredential = authenticators.Select(a => a.Transports).ToList();
+            var credentialIds = passkeys.Select(a => a.CredentialBase64).ToList();
+            var transportsPerCredential = passkeys.Select(a => a.Transports).ToList();
 
-            // Log transports for each credential to help diagnose authenticator selection
-            for (int i = 0; i < authenticators.Count; i++) {
+            // Log transports for each credential to help diagnose passkey selection
+            for (int i = 0; i < passkeys.Count; i++) {
                 _logger.LogWarning(
                     "Authentication: Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
                     i,
-                    authenticators[i].Name ?? "(unnamed)",
-                    authenticators[i].CredentialBase64,
-                    string.Join(", ", authenticators[i].Transports));
+                    passkeys[i].Name ?? "(unnamed)",
+                    passkeys[i].CredentialBase64,
+                    string.Join(", ", passkeys[i].Transports));
             }
 
             var getOptions = new GetCredentialOptions {
@@ -230,11 +254,11 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail<string>("Authenticator did not return PRF output");
             }
 
-            // Find matching authenticator
-            var matchingAuthenticator = authenticators.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
-            if (matchingAuthenticator is null) {
-                _logger.LogError("Assertion credential ID does not match any registered authenticator");
-                return Result.Fail<string>("Credential not found in registered authenticators");
+            // Find matching passkey
+            var matchingPasskey = passkeys.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
+            if (matchingPasskey is null) {
+                _logger.LogError("Assertion credential ID does not match any stored passkey");
+                return Result.Fail<string>("Credential not found in stored passkeys");
             }
 
             // Derive decryption key
@@ -242,7 +266,7 @@ public class WebauthnService : IWebauthnService {
             var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
 
             // Decrypt passcode
-            var encryptedPasscode = Convert.FromBase64String(matchingAuthenticator.EncryptedPasscodeBase64);
+            var encryptedPasscode = Convert.FromBase64String(matchingPasskey.EncryptedPasscodeBase64);
             var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
             var passcode = Encoding.UTF8.GetString(decryptedPasscode);
 
@@ -256,46 +280,46 @@ public class WebauthnService : IWebauthnService {
         }
     }
 
-    public async Task<Result<RegisteredAuthenticators>> GetRegisteredAuthenticatorsAsync() {
-        var authenticators = await GetValidAuthenticatorsAsync();
-        return Result.Ok(new RegisteredAuthenticators { Authenticators = authenticators });
+    public async Task<Result<StoredPasskeys>> GetStoredPasskeysAsync() {
+        var passkeys = await GetValidPasskeysAsync();
+        return Result.Ok(new StoredPasskeys { Passkeys = passkeys });
     }
 
-    public async Task<Result> RemoveAuthenticatorAsync(string credentialBase64) {
+    public async Task<Result> RemovePasskeyAsync(string credentialBase64) {
         try {
-            var existingData = await GetRegisteredAuthenticatorsDataAsync();
-            var allAuthenticators = existingData.Authenticators.ToList();
-            var removed = allAuthenticators.RemoveAll(a => a.CredentialBase64 == credentialBase64);
+            var existingData = await GetStoredPasskeysDataAsync();
+            var allPasskeys = existingData.Passkeys.ToList();
+            var removed = allPasskeys.RemoveAll(a => a.CredentialBase64 == credentialBase64);
 
             if (removed == 0) {
-                return Result.Fail("Authenticator not found");
+                return Result.Fail("Passkey not found");
             }
 
             var storeResult = await _storageService.SetItem(
-                new RegisteredAuthenticators { ProfileId = existingData.ProfileId, Authenticators = allAuthenticators },
+                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
                 return Result.Fail(storeResult.Errors);
             }
 
-            _logger.LogInformation("Removed authenticator with credential ID {CredentialId}", credentialBase64);
+            _logger.LogInformation("Removed passkey with credential ID {CredentialId}", credentialBase64);
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error removing authenticator");
-            return Result.Fail(new Error("Failed to remove authenticator").CausedBy(ex));
+            _logger.LogError(ex, "Error removing passkey");
+            return Result.Fail(new Error("Failed to remove passkey").CausedBy(ex));
         }
     }
 
-    public async Task<Result> TestAuthenticatorAsync(string credentialBase64) {
+    public async Task<Result> TestPasskeyAsync(string credentialBase64) {
         try {
-            // Find the specific authenticator
-            var authenticators = await GetValidAuthenticatorsAsync();
-            var authenticator = authenticators.FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
+            // Find the specific passkey
+            var passkeys = await GetValidPasskeysAsync();
+            var passkey = passkeys.FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
 
-            if (authenticator is null) {
-                _logger.LogWarning("Authenticator not found for testing: {CredentialId}", credentialBase64);
-                return Result.Fail("Authenticator not found");
+            if (passkey is null) {
+                _logger.LogWarning("Passkey not found for testing: {CredentialId}", credentialBase64);
+                return Result.Fail("Passkey not found");
             }
 
             // Get profile identifier and compute PRF salt
@@ -304,23 +328,23 @@ public class WebauthnService : IWebauthnService {
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             _logger.LogWarning(
-                "Testing specific authenticator - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
-                authenticator.Name ?? "(unnamed)",
-                authenticator.CredentialBase64,
-                string.Join(", ", authenticator.Transports));
+                "Testing specific passkey - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
+                passkey.Name ?? "(unnamed)",
+                passkey.CredentialBase64,
+                string.Join(", ", passkey.Transports));
 
             // Build options for only this specific credential
             var getOptions = new GetCredentialOptions {
-                AllowCredentialIds = [authenticator.CredentialBase64],
-                TransportsPerCredential = [authenticator.Transports],
+                AllowCredentialIds = [passkey.CredentialBase64],
+                TransportsPerCredential = [passkey.Transports],
                 UserVerification = "preferred",
                 PrfSaltBase64 = prfSaltBase64
             };
 
             var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
             if (assertionResult.IsFailed) {
-                _logger.LogWarning("Test failed for authenticator {Name}: {Errors}",
-                    authenticator.Name, string.Join(", ", assertionResult.Errors));
+                _logger.LogWarning("Test failed for passkey {Name}: {Errors}",
+                    passkey.Name, string.Join(", ", assertionResult.Errors));
                 return Result.Fail(assertionResult.Errors);
             }
 
@@ -332,31 +356,31 @@ public class WebauthnService : IWebauthnService {
             // Verify we can decrypt the passcode
             var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
             var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
-            var encryptedPasscode = Convert.FromBase64String(authenticator.EncryptedPasscodeBase64);
+            var encryptedPasscode = Convert.FromBase64String(passkey.EncryptedPasscodeBase64);
 
             try {
                 var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
-                _logger.LogInformation("Test successful for authenticator {Name}", authenticator.Name);
+                _logger.LogInformation("Test successful for passkey {Name}", passkey.Name);
                 return Result.Ok();
             }
             catch (Exception decryptEx) {
-                _logger.LogError(decryptEx, "Test failed - could not decrypt passcode for authenticator {Name}", authenticator.Name);
-                return Result.Fail("Decryption failed - authenticator may have been registered with different profile");
+                _logger.LogError(decryptEx, "Test failed - could not decrypt passcode for passkey {Name}", passkey.Name);
+                return Result.Fail("Decryption failed - passkey may have been created with different profile");
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during authenticator test");
+            _logger.LogError(ex, "Unexpected error during passkey test");
             return Result.Fail(new Error("Test failed unexpectedly").CausedBy(ex));
         }
     }
 
-    public async Task<Result<string>> TestAllAuthenticatorsAsync() {
+    public async Task<Result<string>> TestAllPasskeysAsync() {
         try {
-            // Get all valid authenticators
-            var authenticators = await GetValidAuthenticatorsAsync();
-            if (authenticators.Count == 0) {
-                _logger.LogWarning("No valid registered authenticators found for testing");
-                return Result.Fail<string>("No registered authenticators");
+            // Get all valid passkeys
+            var passkeys = await GetValidPasskeysAsync();
+            if (passkeys.Count == 0) {
+                _logger.LogWarning("No valid stored passkeys found for testing");
+                return Result.Fail<string>("No stored passkeys");
             }
 
             // Get profile identifier and compute PRF salt
@@ -365,16 +389,16 @@ public class WebauthnService : IWebauthnService {
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             // Build credential options with per-credential transports (same as AuthenticateAndDecryptPasscodeAsync)
-            var credentialIds = authenticators.Select(a => a.CredentialBase64).ToList();
-            var transportsPerCredential = authenticators.Select(a => a.Transports).ToList();
+            var credentialIds = passkeys.Select(a => a.CredentialBase64).ToList();
+            var transportsPerCredential = passkeys.Select(a => a.Transports).ToList();
 
-            _logger.LogWarning("Testing all {Count} authenticators with stored transports", authenticators.Count);
-            foreach (var auth in authenticators) {
+            _logger.LogWarning("Testing all {Count} passkeys with stored transports", passkeys.Count);
+            foreach (var pk in passkeys) {
                 _logger.LogWarning(
                     "  - Name: {Name}, CredentialId: {CredentialId}, Stored Transports: [{Transports}]",
-                    auth.Name ?? "(unnamed)",
-                    auth.CredentialBase64,
-                    string.Join(", ", auth.Transports));
+                    pk.Name ?? "(unnamed)",
+                    pk.CredentialBase64,
+                    string.Join(", ", pk.Transports));
             }
 
             var getOptions = new GetCredentialOptions {
@@ -395,27 +419,27 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail<string>("Authenticator did not return PRF output during test");
             }
 
-            // Find which authenticator was used
-            var usedAuthenticator = authenticators.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
-            if (usedAuthenticator is null) {
-                _logger.LogError("Assertion credential ID does not match any registered authenticator");
+            // Find which passkey was used
+            var usedPasskey = passkeys.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
+            if (usedPasskey is null) {
+                _logger.LogError("Assertion credential ID does not match any stored passkey");
                 return Result.Fail<string>("Unknown credential was used");
             }
 
             // Verify we can decrypt the passcode
             var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
             var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
-            var encryptedPasscode = Convert.FromBase64String(usedAuthenticator.EncryptedPasscodeBase64);
+            var encryptedPasscode = Convert.FromBase64String(usedPasskey.EncryptedPasscodeBase64);
 
             try {
                 var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
-                _logger.LogInformation("Test All successful using authenticator {Name}", usedAuthenticator.Name);
-                return Result.Ok(usedAuthenticator.Name ?? "Unnamed Authenticator");
+                _logger.LogInformation("Test All successful using passkey {Name}", usedPasskey.Name);
+                return Result.Ok(usedPasskey.Name ?? "Unnamed Passkey");
             }
             catch (Exception decryptEx) {
-                _logger.LogError(decryptEx, "Test All failed - could not decrypt passcode using authenticator {Name}",
-                    usedAuthenticator.Name);
-                return Result.Fail<string>("Decryption failed - authenticator may have been registered with different profile");
+                _logger.LogError(decryptEx, "Test All failed - could not decrypt passcode using passkey {Name}",
+                    usedPasskey.Name);
+                return Result.Fail<string>("Decryption failed - passkey may have been created with different profile");
             }
         }
         catch (Exception ex) {
@@ -425,11 +449,11 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Gets the full RegisteredAuthenticators data including ProfileId.
+    /// Gets the full StoredPasskeys data including ProfileId.
     /// Creates a new ProfileId if none exists.
     /// </summary>
-    private async Task<RegisteredAuthenticators> GetRegisteredAuthenticatorsDataAsync() {
-        var result = await _storageService.GetItem<RegisteredAuthenticators>(StorageArea.Local);
+    private async Task<StoredPasskeys> GetStoredPasskeysDataAsync() {
+        var result = await _storageService.GetItem<StoredPasskeys>(StorageArea.Local);
         if (result.IsSuccess && result.Value is not null) {
             // Ensure ProfileId exists (migration from old data)
             if (result.Value.ProfileId is not null) {
@@ -439,15 +463,15 @@ public class WebauthnService : IWebauthnService {
             var newProfileId = Guid.NewGuid().ToString();
             var updatedData = result.Value with { ProfileId = newProfileId };
             await _storageService.SetItem(updatedData, StorageArea.Local);
-            _logger.LogInformation("Migrated RegisteredAuthenticators with new profile identifier");
+            _logger.LogInformation("Migrated StoredPasskeys with new profile identifier");
             return updatedData;
         }
 
         // Create new structure with ProfileId
         var newId = Guid.NewGuid().ToString();
-        var newData = new RegisteredAuthenticators { ProfileId = newId, Authenticators = [] };
+        var newData = new StoredPasskeys { ProfileId = newId, Passkeys = [] };
         await _storageService.SetItem(newData, StorageArea.Local);
-        _logger.LogInformation("Created new RegisteredAuthenticators with profile identifier");
+        _logger.LogInformation("Created new StoredPasskeys with profile identifier");
         return newData;
     }
 
@@ -455,7 +479,7 @@ public class WebauthnService : IWebauthnService {
     /// Gets or creates the browser profile identifier stored in local storage.
     /// </summary>
     private async Task<string> GetOrCreateProfileIdentifierAsync() {
-        var data = await GetRegisteredAuthenticatorsDataAsync();
+        var data = await GetStoredPasskeysDataAsync();
         return data.ProfileId!;
     }
 
@@ -479,26 +503,56 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Gets all authenticators from storage, regardless of schema version.
+    /// Gets all passkeys from storage, regardless of schema version.
     /// </summary>
-    private async Task<List<RegisteredAuthenticator>> GetAllAuthenticatorsFromStorageAsync() {
-        var data = await GetRegisteredAuthenticatorsDataAsync();
-        return data.Authenticators.ToList();
+    private async Task<List<StoredPasskey>> GetAllPasskeysFromStorageAsync() {
+        var data = await GetStoredPasskeysDataAsync();
+        return data.Passkeys.ToList();
     }
 
     /// <summary>
-    /// Gets only authenticators with valid (current) schema version.
-    /// Old registrations are silently filtered out.
+    /// Gets only passkeys with valid (current) schema version.
+    /// Old passkeys are silently filtered out.
     /// </summary>
-    private async Task<List<RegisteredAuthenticator>> GetValidAuthenticatorsAsync() {
-        var all = await GetAllAuthenticatorsFromStorageAsync();
-        var valid = all.Where(a => a.SchemaVersion == RegisteredAuthenticatorSchema.CurrentVersion).ToList();
+    private async Task<List<StoredPasskey>> GetValidPasskeysAsync() {
+        var all = await GetAllPasskeysFromStorageAsync();
+        var valid = all.Where(a => a.SchemaVersion == StoredPasskeySchema.CurrentVersion).ToList();
 
         if (valid.Count < all.Count) {
-            _logger.LogInformation("Filtered out {Count} authenticators with old schema version",
+            _logger.LogInformation("Filtered out {Count} passkeys with old schema version",
                 all.Count - valid.Count);
         }
 
         return valid;
+    }
+
+    /// <summary>
+    /// Gets the set of transports that were requested based on authenticator attachment preference.
+    /// </summary>
+    private static string[] GetRequestedTransports(string? authenticatorAttachment) {
+        return authenticatorAttachment switch {
+            "platform" => ["internal"],
+            "cross-platform" => ["usb", "nfc", "ble", "hybrid"],
+            _ => ["usb", "nfc", "ble", "internal", "hybrid"]  // No preference - all transports
+        };
+    }
+
+    /// <summary>
+    /// Computes the intersection of returned transports and requested transports.
+    /// This provides the most accurate transport hints for subsequent authentication.
+    /// </summary>
+    private static string[] ComputeTransportIntersection(string[] returnedTransports, string[] requestedTransports) {
+        if (returnedTransports.Length == 0) {
+            // If getTransports() returned empty, use the requested transports as fallback
+            return requestedTransports;
+        }
+
+        var requestedSet = new HashSet<string>(requestedTransports, StringComparer.OrdinalIgnoreCase);
+        var intersection = returnedTransports
+            .Where(t => requestedSet.Contains(t))
+            .ToArray();
+
+        // If intersection is empty (shouldn't happen in practice), fall back to returned transports
+        return intersection.Length > 0 ? intersection : returnedTransports;
     }
 }

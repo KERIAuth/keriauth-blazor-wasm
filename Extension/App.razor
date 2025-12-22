@@ -1,4 +1,5 @@
-﻿@using Extension.Models.Messages.AppBw
+﻿@using Extension.Models
+@using Extension.Models.Messages.AppBw
 @using Extension.Services
 @using Extension.Services.JsBindings
 @using Extension.Utilities
@@ -19,6 +20,12 @@
     // Properties
     // InitialUri captures the URI from which the app was loaded. This is used by Index.razor for popup routing (e.g., ?popupType=selectAuthorize).
     public static Uri? InitialUri { get; set; }
+
+    /// <summary>
+    /// State for the passkey creation offer flow during initial setup.
+    /// Set by ConfigurePage after successful KERIA connection, checked by Index.razor for routing.
+    /// </summary>
+    public static OfferCreatePasskeyState OfferCreatePasskeyState { get; set; } = OfferCreatePasskeyState.NotOffered;
 
     /// <summary>
     /// The context type from which the app was loaded (e.g., TAB, POPUP, SIDEPANEL).

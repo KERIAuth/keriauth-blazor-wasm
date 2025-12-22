@@ -26,7 +26,7 @@
     string[] errors = { };
     PasscodeFormModel unlockPasscodeModel = new PasscodeFormModel();
     MudTextField<string>? passcodeField;
-    MudButton? unlockWithAuthenticatorButton;
+    MudButton? unlockWithPasskeyButton;
     string openWalletError = string.Empty;
     // KeriaConnectConfig keriaConnectConfig = new();
     private string taglineText = taglineAlternatives[0];
@@ -87,19 +87,19 @@
 };
 
     // properties
-    RegisteredAuthenticators RegisteredAuthenticators { get; set; } = new RegisteredAuthenticators();
+    StoredPasskeys StoredPasskeys { get; set; } = new StoredPasskeys();
     bool isValid { get; set; }
 
     // reactive properties
-    string NumberAuthenticatorsLabel => RegisteredAuthenticators.Authenticators.Count switch
+    string NumberPasskeysLabel => StoredPasskeys.Passkeys.Count switch
     {
-        0 => "No authenticators registered",
-        1 => "1 authenticator registered",
-        _ => $"{RegisteredAuthenticators.Authenticators.Count} authenticators registered"
+        0 => "No passkeys created",
+        1 => "1 passkey available",
+        _ => $"{StoredPasskeys.Passkeys.Count} passkeys available"
     };
-    bool CanUseAuthenticator => RegisteredAuthenticators.Authenticators.Any();
-    bool PrefersToUseAuthenticator => appCache.MyPreferences.PrefersToUseAuthenticator;
-    bool ShouldUseAuthenticator => CanUseAuthenticator && PrefersToUseAuthenticator;
+    bool CanUsePasskey => StoredPasskeys.Passkeys.Any();
+    bool IsPasskeyUsePreferred => appCache.MyPreferences.IsPasskeyUsePreferred;
+    bool ShouldUsePasskey => CanUsePasskey && IsPasskeyUsePreferred;
     string TimeoutDuration => appCache.MyPreferences.InactivityTimeoutMinutes switch
     {
         0.5f => "30 seconds",
@@ -123,21 +123,21 @@
     protected override async Task OnParametersSetAsync()
     {
         // logger.LogInformation("OnParametersSetAsync");
-        var getRasResult = await webauthnService.GetRegisteredAuthenticatorsAsync();
-        if (getRasResult.IsSuccess)
+        var getPasskeysResult = await webauthnService.GetStoredPasskeysAsync();
+        if (getPasskeysResult.IsSuccess)
         {
-            RegisteredAuthenticators = getRasResult.Value;
+            StoredPasskeys = getPasskeysResult.Value;
         }
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
         // logger.LogInformation("OnAfterRenderAsync");
-        if (ShouldUseAuthenticator)
+        if (ShouldUsePasskey)
         {
-            if (unlockWithAuthenticatorButton is not null)
+            if (unlockWithPasskeyButton is not null)
             {
-                await unlockWithAuthenticatorButton.FocusAsync();
+                await unlockWithPasskeyButton.FocusAsync();
             }
         }
         else if (passcodeField is not null)
@@ -146,16 +146,16 @@
         }
     }
 
-    async Task SetPrefersToUseAuthenticator(bool prefersToUseAuthenticator)
+    async Task SetIsPasskeyUsePreferred(bool isPasskeyUsePreferred)
     {
         throwIfNotConfigured();
         await storageService.SetItem<Preferences>(appCache.MyPreferences with
         {
-            PrefersToUseAuthenticator = prefersToUseAuthenticator
+            IsPasskeyUsePreferred = isPasskeyUsePreferred
         }, StorageArea.Local);
-        if (prefersToUseAuthenticator)
+        if (isPasskeyUsePreferred)
         {
-            await UnlockWithAuthenticator();
+            await UnlockWithPasskey();
         }
     }
 
@@ -174,13 +174,13 @@
         }
     }
 
-    async Task UnlockWithAuthenticator()
+    async Task UnlockWithPasskey()
     {
         throwIfNotConfigured();
         var passcodeRes = await webauthnService.AuthenticateAndDecryptPasscodeAsync();
         if (passcodeRes.IsFailed)
         {
-            snackbar.Add("Failed to authenticate", Severity.Warning);
+            snackbar.Add("Passkey verification unsuccessful or canceled", Severity.Warning);
             return;
         }
         await UnlockWithPasscode(passcodeRes.Value);
@@ -287,10 +287,10 @@
                 </MudText>
             </MudStack>
             <MudStack Style="justify-content: end; min-height:48px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
-                @if (ShouldUseAuthenticator)
+                @if (ShouldUsePasskey)
                 {
                     <MudText>
-                        @NumberAuthenticatorsLabel
+                        @NumberPasskeysLabel
                     </MudText>
                 }
                 else // passcode
@@ -309,23 +309,23 @@
 
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
-        @if (ShouldUseAuthenticator)
+        @if (ShouldUsePasskey)
         {
             <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
-                       OnClick="async () => await SetPrefersToUseAuthenticator(false)">
+                       OnClick="async () => await SetIsPasskeyUsePreferred(false)">
                 Use passcode
             </MudButton>
-            <MudButton @ref="unlockWithAuthenticatorButton" Disabled="!CanUseAuthenticator" Class="bt-button-wrap"
-                       Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithAuthenticator()">
+            <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
+                       Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
                 Unlock with Passkey
             </MudButton>
         }
         else
         {
-            @if (CanUseAuthenticator)
+            @if (CanUsePasskey)
             {
                 <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
-                           OnClick="() => SetPrefersToUseAuthenticator(true)">
+                           OnClick="() => SetIsPasskeyUsePreferred(true)">
                     Use Passkey
                 </MudButton>
             }

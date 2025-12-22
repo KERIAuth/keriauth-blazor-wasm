@@ -1,0 +1,441 @@
+@page "/AddPasskey.html"
+@layout Layouts.MainLayout
+@using Extension.Services.Storage
+
+@inherits AuthenticatedPageBase
+@implements IDisposable
+
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Services
+@using Extension
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using static Extension.Helper.PreviousPage
+@using static Extension.AppConfig;
+@using static Extension.Services.SignifyService.SignifyServiceConfig
+@using FluentResults
+@using JsBind.Net
+@using JsBind.Net.Configurations
+@using System.Diagnostics;
+@using System.Text.Json;
+@using System.Text.Json.Nodes
+@using Blazor.BrowserExtension
+@using WebExtensions.Net
+@using WebExtensions.Net.Runtime
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@using JsonSerializer = System.Text.Json.JsonSerializer
+@using static System.Net.WebRequestMethods
+@using System.ComponentModel.DataAnnotations
+@using System.Linq
+@using System.Text
+@using System.Security.Cryptography
+
+@inject IStorageService storageService
+@inject ILogger<AddPasskeyPage> logger
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ISignifyClientService signifyClientService
+@inject ISnackbar snackbar
+@inject IWebExtensionsApi webExtensionsApi
+@inject IWebauthnService webauthnService
+@inject AppCache appCache
+
+@code {
+    // Target passkey type enum
+    enum TargetPasskeyType
+    {
+        HardwareSecurityKey,
+        GooglePasswordManager,
+        Custom
+    }
+
+    // Current selection (default to Hardware Security Key)
+    TargetPasskeyType _selectedTarget = TargetPasskeyType.HardwareSecurityKey;
+
+    // Local settings for this registration (not persisted to preferences)
+    string _residentKey = "required";
+    string _authenticatorAttachment = "cross-platform";
+    string _userVerification = "required";
+    string _attestation = "direct";
+    List<string> _selectedHints = new List<string> { "security-key" };
+
+    // Track previous selection to preserve Custom settings when switching back
+    TargetPasskeyType _previousTarget = TargetPasskeyType.HardwareSecurityKey;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
+
+        // Initialize with Hardware Security Key settings
+        ApplyHardwareSecurityKeySettings();
+    }
+
+    void OnTargetChanged(TargetPasskeyType newTarget)
+    {
+        _previousTarget = _selectedTarget;
+        _selectedTarget = newTarget;
+
+        switch (newTarget)
+        {
+            case TargetPasskeyType.HardwareSecurityKey:
+                ApplyHardwareSecurityKeySettings();
+                break;
+            case TargetPasskeyType.GooglePasswordManager:
+                ApplyGooglePasswordManagerSettings();
+                break;
+            case TargetPasskeyType.Custom:
+                // If coming from GPM, keep GPM settings as starting point
+                // If coming from Hardware Key, keep Hardware Key settings as starting point
+                // (settings are already set from previous selection)
+                break;
+        }
+    }
+
+    void ApplyHardwareSecurityKeySettings()
+    {
+        _residentKey = "required";
+        _authenticatorAttachment = "cross-platform";
+        _userVerification = "required";
+        _attestation = "direct";
+        _selectedHints = new List<string> { "security-key" };
+    }
+
+    void ApplyGooglePasswordManagerSettings()
+    {
+        _residentKey = "required";
+        _authenticatorAttachment = "platform";
+        _userVerification = "required";
+        _attestation = "none";
+        _selectedHints = new List<string> { "client-device" };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+    }
+
+    async Task CreatePasskey()
+    {
+        // Use local settings instead of preferences
+        var res = await webauthnService.RegisterAttestStoreAuthenticatorAsync(
+            _residentKey,
+            _authenticatorAttachment == "undefined" ? null : _authenticatorAttachment,
+            _userVerification,
+            _attestation,
+            _selectedHints);
+
+        if (res.IsFailed)
+        {
+            snackbar.Add("Passkey not created", Severity.Warning);
+            logger.LogInformation("CreatePasskey failed: {x}", res.Errors.ToArray());
+            // Stay on page to let user try again
+            return;
+        }
+
+        snackbar.Add("Passkey successfully created.", Severity.Success);
+
+        // If we came from the passkey offer flow, complete it and go to Index (which routes to Dashboard)
+        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
+        {
+            App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+            navManager.NavigateTo(AppConfig.RouteToIndex);
+        }
+        else
+        {
+            // Normal flow - go to Passkeys page
+            navManager.NavigateTo(AppConfig.RouteToPasskeys);
+        }
+    }
+
+    // Hint management for Custom mode
+    void AddHint(string hint)
+    {
+        if (!_selectedHints.Contains(hint))
+        {
+            _selectedHints = _selectedHints.Append(hint).ToList();
+        }
+    }
+
+    void RemoveHint(string hint)
+    {
+        _selectedHints = _selectedHints.Where(h => h != hint).ToList();
+    }
+
+    void MoveHintUp(string hint)
+    {
+        var index = _selectedHints.IndexOf(hint);
+        if (index > 0)
+        {
+            var list = _selectedHints.ToList();
+            list.RemoveAt(index);
+            list.Insert(index - 1, hint);
+            _selectedHints = list;
+        }
+    }
+
+    void MoveHintDown(string hint)
+    {
+        var index = _selectedHints.IndexOf(hint);
+        if (index >= 0 && index < _selectedHints.Count - 1)
+        {
+            var list = _selectedHints.ToList();
+            list.RemoveAt(index);
+            list.Insert(index + 1, hint);
+            _selectedHints = list;
+        }
+    }
+
+    bool IsFirstHint(string hint) => _selectedHints.IndexOf(hint) == 0;
+    bool IsLastHint(string hint) => _selectedHints.IndexOf(hint) == _selectedHints.Count - 1;
+    IEnumerable<string> AvailableHints => AppConfig.AllHints.Except(_selectedHints);
+
+    bool ShowCustomSettings => _selectedTarget == TargetPasskeyType.Custom;
+
+    // Misalignment warnings for conflicting settings combinations
+    string? MisalignmentAuthenticatorAttachment1 =>
+        (_authenticatorAttachment == "platform" && _selectedHints.Contains("security-key"))
+            ? "The hint 'security-key' is indicated, but Attachment is 'platform', so a platform authenticator will be used instead of a security key."
+            : null;
+
+    string? MisalignmentAuthenticatorAttachment2 =>
+        (_authenticatorAttachment == "platform" && _selectedHints.Contains("hybrid"))
+            ? "The hint 'hybrid' is indicated, but the Attachment setting is 'platform', so hybrid authenticators are not prioritized."
+            : null;
+
+    string? MisalignmentResidentKey1 =>
+        (_selectedHints.Contains("client-device") && _residentKey == "required" && !SupportsDiscoverableCredentials("client-device"))
+            ? "The hint 'client-device' is indicated, but Resident Key is required, and the platform authenticator may not support discoverable credentials, so the operation may fail."
+            : null;
+
+    string? MisalignmentResidentKey2 =>
+        (_authenticatorAttachment == "cross-platform" && _residentKey == "required" && _selectedHints.Contains("hybrid"))
+            ? "The hint 'hybrid' is indicated, and cross-platform authenticators are required to store discoverable credentials, which may not be supported by some devices."
+            : null;
+
+    // Check capabilities of authenticator type
+    bool SupportsDiscoverableCredentials(string authenticatorType) =>
+        authenticatorType switch
+        {
+            "client-device" => true, // Assume platform authenticators generally support discoverable credentials
+            _ => false
+        };
+
+    bool HasMisalignmentWarnings =>
+        MisalignmentAuthenticatorAttachment1 != null ||
+        MisalignmentAuthenticatorAttachment2 != null ||
+        MisalignmentResidentKey1 != null ||
+        MisalignmentResidentKey2 != null;
+
+    async Task CancelOrGoBack()
+    {
+        // If we came from the passkey offer flow, cancel it and go to Index (which routes to Dashboard)
+        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
+        {
+            logger.LogInformation("User cancelled passkey creation from offer flow");
+            App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+            navManager.NavigateTo(AppConfig.RouteToIndex);
+        }
+        else
+        {
+            // Normal flow - go back using browser history
+            await GoBack(js);
+        }
+    }
+
+    public void Dispose()
+    {
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Typo="Typo.h6">Create a Passkey</MudText>
+            <MudStack>
+                <MudText Class="mt-4" Style="font-weight:bold;">
+                    Passkey Type
+                </MudText>
+                <MudRadioGroup T="TargetPasskeyType" Value="_selectedTarget" ValueChanged="OnTargetChanged" Class="ml-4">
+                    <MudRadio Value="TargetPasskeyType.HardwareSecurityKey" Color="Color.Primary">
+                        Hardware Security Key
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(YubiKey, Google Titan, etc.)</MudText>
+                    </MudRadio>
+                    <MudRadio Value="TargetPasskeyType.GooglePasswordManager" Color="Color.Primary">
+                        Google Password Manager
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(Chrome platform passkey)</MudText>
+                    </MudRadio>
+                    <MudRadio Value="TargetPasskeyType.Custom" Color="Color.Primary">
+                        Custom
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(configure settings manually)</MudText>
+                    </MudRadio>
+                </MudRadioGroup>
+
+                @if (ShowCustomSettings)
+                {
+                    <MudPaper Class="pa-4 mt-4" Elevation="1">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:bold;">Registration Settings</MudText>
+
+                        <MudText Class="mt-3" Style="font-weight:500;">Hints</MudText>
+                        <MudStack Row="false" Class="ml-4 mt-1">
+                            <MudText Typo="Typo.body2">Selected (most to least preferred)</MudText>
+                            @if (_selectedHints.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
+                            }
+                            else
+                            {
+                                <MudList Dense="true" T="string" Class="ml-2">
+                                    @foreach (var hint in _selectedHints)
+                                    {
+                                        <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                                <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
+                                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Primary" Disabled="@IsFirstHint(hint)" OnClick="() => MoveHintUp(hint)" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Primary" Disabled="@IsLastHint(hint)" OnClick="() => MoveHintDown(hint)" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Primary" OnClick="() => RemoveHint(hint)" />
+                                            </MudStack>
+                                        </MudListItem>
+                                    }
+                                </MudList>
+                            }
+                            <MudText Typo="Typo.body2" Class="mt-2">Available</MudText>
+                            @if (!AvailableHints.Any())
+                            {
+                                <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
+                            }
+                            else
+                            {
+                                <MudList Dense="true" T="string" Class="ml-2">
+                                    @foreach (var hint in AvailableHints)
+                                    {
+                                        <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                                <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="() => AddHint(hint)" />
+                                            </MudStack>
+                                        </MudListItem>
+                                    }
+                                </MudList>
+                            }
+                        </MudStack>
+
+                        <MudText Class="mt-3" Style="font-weight:500;">Resident Key</MudText>
+                        <MudRadioGroup T="string" @bind-Value="_residentKey" Class="ml-4">
+                            <MudRadio Value=@("required")>Required</MudRadio>
+                            <MudRadio Value=@("preferred")>Preferred</MudRadio>
+                            <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
+                        </MudRadioGroup>
+
+                        <MudText Class="mt-3" Style="font-weight:500;">Attachment</MudText>
+                        <MudRadioGroup T="string" @bind-Value="_authenticatorAttachment" Class="ml-4">
+                            <MudRadio Value=@("platform")>Platform</MudRadio>
+                            <MudRadio Value=@("cross-platform")>Cross-platform</MudRadio>
+                            <MudRadio Value=@("undefined")>All Supported</MudRadio>
+                        </MudRadioGroup>
+
+                        <MudText Class="mt-3" Style="font-weight:500;">User Verification</MudText>
+                        <MudRadioGroup T="string" @bind-Value="_userVerification" Class="ml-4">
+                            <MudRadio Value=@("required")>Required</MudRadio>
+                            <MudRadio Value=@("preferred")>Preferred</MudRadio>
+                            <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
+                        </MudRadioGroup>
+
+                        <MudText Class="mt-3" Style="font-weight:500;">Attestation</MudText>
+                        <MudRadioGroup T="string" @bind-Value="_attestation" Class="ml-4">
+                            <MudRadio Value=@("enterprise")>Full Attestation of Individual Device ("enterprise")</MudRadio>
+                            <MudRadio Value=@("direct")>Full Attestation ("direct")</MudRadio>
+                            <MudRadio Value=@("indirect")>Attestation Allowing Anonymity ("indirect")</MudRadio>
+                            <MudRadio Value=@("none")>None</MudRadio>
+                        </MudRadioGroup>
+
+                        @if (HasMisalignmentWarnings)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-4">
+                                <MudText Typo="Typo.body2" Style="font-weight:bold;">Settings Conflicts</MudText>
+                                @if (MisalignmentAuthenticatorAttachment1 != null)
+                                {
+                                    <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment1</MudText>
+                                }
+                                @if (MisalignmentAuthenticatorAttachment2 != null)
+                                {
+                                    <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment2</MudText>
+                                }
+                                @if (MisalignmentResidentKey1 != null)
+                                {
+                                    <MudText Typo="Typo.body2">@MisalignmentResidentKey1</MudText>
+                                }
+                                @if (MisalignmentResidentKey2 != null)
+                                {
+                                    <MudText Typo="Typo.body2">@MisalignmentResidentKey2</MudText>
+                                }
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                }
+
+                <MudExpansionPanels Class="mt-4">
+                    <MudExpansionPanel Text="More information...">
+                        <MudStack>
+                            <MudText Style="font-weight:bold;">What do I need?</MudText>
+                            <MudText>
+                                You'll need an authenticator that supports the CTAP 2.1 standard with PRF extension. This includes:
+                            </MudText>
+                            <MudList T="string" Dense="true">
+                                <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                                    Hardware security keys (e.g., YubiKey 5 series, Google Titan)
+                                </MudListItem>
+                                <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                                    Google Password Manager (Chrome platform passkey with PRF support)
+                                </MudListItem>
+                            </MudList>
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                <b>Note:</b> Windows Hello and Apple Touch ID/Face ID do not currently support the PRF extension required by KERI Auth.
+                            </MudAlert>
+                        </MudStack>
+                        <MudStack Class="mt-4">
+                            <MudText Style="font-weight:bold;">How does this work?</MudText>
+                            <MudText>
+                                During creation, you'll follow your browser's prompts. Once created, you can use this passkey on this computer to unlock KERI Auth without typing your passcode.
+                            </MudText>
+                            <MudText Class="mt-2">
+                                Each passkey uses the authenticator's Pseudo-random Function (PRF) to derive a unique encryption key. Your passcode is encrypted with this key and stored in your browser profile - the passcode itself is not stored when the extension is inactive.
+                            </MudText>
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                <b>Important:</b> Keep your passkey authenticator safely stored! Each passkey is specific to this browser profile and computer.
+                            </MudAlert>
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                <b>Important:</b> Keep your passcode safely stored, in case it is needed on another computer or if your passkey(s) become unavailable.
+                            </MudAlert>
+                        </MudStack>
+                        <MudStack Class="mt-4">
+                            <MudText Style="font-weight:bold;">Troubleshooting Google Password Manager</MudText>
+                            <MudText>
+                                If Google Password Manager isn't appearing as an option during registration:
+                            </MudText>
+                            <MudList T="string" Dense="true">
+                                <MudListItem Icon="@Icons.Material.Filled.Settings">
+                                    In Chrome, go to <b>chrome://password-manager/settings</b> and enable <b>"Offer to save passwords and passkeys"</b>
+                                </MudListItem>
+                                <MudListItem Icon="@Icons.Material.Filled.Extension">
+                                    Password manager extensions (e.g., 1Password, LastPass) may intercept passkey requests. In 1Password, disable <b>"Make 1Password the default password manager in this browser"</b> under General settings
+                                </MudListItem>
+                                <MudListItem Icon="@Icons.Material.Filled.Business">
+                                    Enterprise Chrome profiles may have policies that force Windows Hello. Try using a personal (non-enterprise) Chrome profile
+                                </MudListItem>
+                            </MudList>
+                        </MudStack>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </MudStack>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick="@(async () => await CancelOrGoBack())" Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await CreatePasskey())">Create</MudButton>
+    </MudStack>
+</div>

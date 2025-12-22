@@ -1,4 +1,5 @@
 ﻿@page "/Configure.html"
+@using Extension.Models
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Utilities
@@ -389,14 +390,15 @@
 
         IsConnected = true;
         IsProcessing = false;
+        snackbar.Add("Connection to KERIA Service successful", Severity.Success);
 
         if (nextButton is not null)
             await nextButton.FocusAsync();
 
-        logger.LogInformation("UnifiedOnboardingFlow completed successfully");
-        navManager.NavigateTo(RouteToIndex);
+        logger.LogInformation("UnifiedOnboardingFlow completed successfully, navigating to passkey offer");
+        // TODO P2 Or, should this be NavigateTo(RouteToIndex), e.g. in case of timeout before next button is clicked?
+        navManager.NavigateTo(RouteToOfferPasskey);
     }
-
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -489,6 +491,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <!-- Intentionally no back button here -->
         <MudSpacer />
-        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToIndex))" Class="justify-start" data-testid="next">Next</MudButton>
+        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToOfferPasskey))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
 </div>

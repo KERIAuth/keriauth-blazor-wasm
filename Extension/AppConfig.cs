@@ -24,9 +24,10 @@ namespace Extension {
         public const string RouteToWelcome = "/Welcome.html";
         public const string RouteToNewRelease = "/NewRelease.html";
         public const string RouteToConfigure = "/Configure.html";
-        public const string RouteToAddAuthenticator = "/AddAuthenticator.html";
-        public const string RouteToAuthenticators = "/Authenticators.html";
+        public const string RouteToAddPasskey = "/AddPasskey.html";
+        public const string RouteToPasskeys = "/Passkeys.html";
         public const string RouteToUnlock = "/Unlock.html";
+        public const string RouteToOfferPasskey = "/OfferPasskey.html";
         public const string RouteToSidePanel = "/SidePanel.html";
         public const string RouteToTest = "/Test.html";
         public const string RouteToConnecting = "/Connecting.html";
@@ -46,6 +47,7 @@ namespace Extension {
             RouteToWelcome,
             RouteToNewRelease,
             RouteToConfigure,
+            RouteToOfferPasskey,
             RouteToUnlock,
             RouteToManagePrefs,
             RouteToTerms,
@@ -82,11 +84,11 @@ namespace Extension {
         public const bool DefaultIsDarkTheme = false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Persistent;
-        public const bool DefaultPrefersToUseAuthenticator = true;
+        public const bool DefaultIsPasskeyUsePreferred = true;
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
         public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
-        public const string DefaultAttestationConveyancePref = "none";  // reasonably strongest is "direct", but need to implement this functionality
+        public const string DefaultAttestationConveyancePref = "direct";  // "direct" needed to get AAGUID for authenticator identification
         public static readonly List<string> DefaultAuthenticatorTransports = ["usb"]; // ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
         public static readonly List<string> DefaultSelectedHints = []; // more secure default would be ["security-key"]
         public static readonly List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
@@ -97,17 +99,10 @@ namespace Extension {
             IsDarkTheme = DefaultIsDarkTheme,
             DrawerVariantInTab = DefaultDrawerVariantInTab,
             DrawerVariantInSidePanel = DefaultDrawerVariantInSidePanel,
-            PrefersToUseAuthenticator = DefaultPrefersToUseAuthenticator,
-            UserVerification = DefaultUserVerification,
-            ResidentKey = DefaultResidentKey,
-            AuthenticatorAttachment = DefaultAuthenticatorAttachment,
-            AttestationConveyancePref = DefaultAttestationConveyancePref,
-            SelectedTransportOptions = DefaultAuthenticatorTransports,
-            AuthenticatorTransports = DefaultAuthenticatorTransports,
+            IsPasskeyUsePreferred = DefaultIsPasskeyUsePreferred,
             DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
             IsPersistentDrawerOpenInSidePanel = false,
             IsPersistentDrawerOpenInTab = false,
-            SelectedHints = DefaultSelectedHints,
             IsSignRequestDetailShown = false,
             IsStored = false,
             SelectedPrefix = String.Empty
