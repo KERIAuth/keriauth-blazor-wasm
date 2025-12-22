@@ -17,6 +17,7 @@ public class WebauthnService : IWebauthnService {
     private readonly IStorageService _storageService;
     private readonly INavigatorCredentialsBinding _credentialsBinding;
     private readonly ICryptoService _cryptoService;
+    private readonly IFidoMetadataService _fidoMetadataService;
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<WebauthnService> _logger;
 
@@ -31,18 +32,20 @@ public class WebauthnService : IWebauthnService {
         IStorageService storageService,
         INavigatorCredentialsBinding credentialsBinding,
         ICryptoService cryptoService,
+        IFidoMetadataService fidoMetadataService,
         IJSRuntime jsRuntime,
         ILogger<WebauthnService> logger) {
         _storageService = storageService;
         _credentialsBinding = credentialsBinding;
         _cryptoService = cryptoService;
+        _fidoMetadataService = fidoMetadataService;
         _jsRuntime = jsRuntime;
         _logger = logger;
     }
 
     public async Task<Result<string>> RegisterAttestStoreAuthenticatorAsync(
         string residentKey,
-        string authenticatorAttachment,
+        string? authenticatorAttachment,
         string userVerification,
         string attestationConveyancePreference,
         List<string> hints) {
@@ -149,15 +152,36 @@ public class WebauthnService : IWebauthnService {
             }
             var passcodeHash = configResult.Value.PasscodeHash;
 
+            // Compute transport intersection between requested and returned transports
+            var requestedTransports = GetRequestedTransports(normalizedAttachment);
+            var effectiveTransports = ComputeTransportIntersection(credential.Transports, requestedTransports);
+            _logger.LogInformation(
+                "Transport intersection: requested=[{Requested}], returned=[{Returned}], effective=[{Effective}]",
+                string.Join(", ", requestedTransports),
+                string.Join(", ", credential.Transports),
+                string.Join(", ", effectiveTransports));
+
+            // Get AAGUID, friendly name, and icon from metadata
+            var aaguid = credential.Aaguid;
+            var metadata = _fidoMetadataService.GetMetadata(aaguid);
+            var descriptiveName = _fidoMetadataService.GenerateDescriptiveName(aaguid, effectiveTransports);
+            var icon = metadata?.Icon;
+
+            _logger.LogInformation(
+                "Authenticator metadata: AAGUID={Aaguid}, Name={Name}, HasIcon={HasIcon}",
+                aaguid, descriptiveName, icon is not null);
+
             // Create new authenticator record
             var creationTime = DateTime.UtcNow;
             var newAuthenticator = new RegisteredAuthenticator {
                 SchemaVersion = RegisteredAuthenticatorSchema.CurrentVersion,
-                Name = "Unnamed Authenticator",
+                Name = descriptiveName,
                 CredentialBase64 = credential.CredentialId,
-                Transports = credential.Transports,
+                Transports = effectiveTransports,
                 EncryptedPasscodeBase64 = encryptedPasscodeBase64,
                 PasscodeHash = passcodeHash,
+                Aaguid = aaguid,
+                Icon = icon,
                 CreationTime = creationTime,
                 LastUpdatedUtc = creationTime
             };
@@ -500,5 +524,35 @@ public class WebauthnService : IWebauthnService {
         }
 
         return valid;
+    }
+
+    /// <summary>
+    /// Gets the set of transports that were requested based on authenticator attachment preference.
+    /// </summary>
+    private static string[] GetRequestedTransports(string? authenticatorAttachment) {
+        return authenticatorAttachment switch {
+            "platform" => ["internal"],
+            "cross-platform" => ["usb", "nfc", "ble", "hybrid"],
+            _ => ["usb", "nfc", "ble", "internal", "hybrid"]  // No preference - all transports
+        };
+    }
+
+    /// <summary>
+    /// Computes the intersection of returned transports and requested transports.
+    /// This provides the most accurate transport hints for subsequent authentication.
+    /// </summary>
+    private static string[] ComputeTransportIntersection(string[] returnedTransports, string[] requestedTransports) {
+        if (returnedTransports.Length == 0) {
+            // If getTransports() returned empty, use the requested transports as fallback
+            return requestedTransports;
+        }
+
+        var requestedSet = new HashSet<string>(requestedTransports, StringComparer.OrdinalIgnoreCase);
+        var intersection = returnedTransports
+            .Where(t => requestedSet.Contains(t))
+            .ToArray();
+
+        // If intersection is empty (shouldn't happen in practice), fall back to returned transports
+        return intersection.Length > 0 ? intersection : returnedTransports;
     }
 }

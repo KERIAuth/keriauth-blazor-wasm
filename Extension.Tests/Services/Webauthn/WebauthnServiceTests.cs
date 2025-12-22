@@ -1,5 +1,4 @@
-using Extension.Models;
-using Extension.Models.Storage;
+﻿using Extension.Models;
 using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
@@ -19,6 +18,7 @@ public class WebauthnServiceTests {
     private readonly Mock<IStorageService> _mockStorageService;
     private readonly Mock<INavigatorCredentialsBinding> _mockCredentialsBinding;
     private readonly Mock<ICryptoService> _mockCryptoService;
+    private readonly Mock<IFidoMetadataService> _mockFidoMetadataService;
     private readonly Mock<IJSRuntime> _mockJsRuntime;
     private readonly Mock<ILogger<WebauthnService>> _mockLogger;
 
@@ -26,6 +26,7 @@ public class WebauthnServiceTests {
         _mockStorageService = new Mock<IStorageService>();
         _mockCredentialsBinding = new Mock<INavigatorCredentialsBinding>();
         _mockCryptoService = new Mock<ICryptoService>();
+        _mockFidoMetadataService = new Mock<IFidoMetadataService>();
         _mockJsRuntime = new Mock<IJSRuntime>();
         _mockLogger = new Mock<ILogger<WebauthnService>>();
     }
@@ -35,6 +36,7 @@ public class WebauthnServiceTests {
             _mockStorageService.Object,
             _mockCredentialsBinding.Object,
             _mockCryptoService.Object,
+            _mockFidoMetadataService.Object,
             _mockJsRuntime.Object,
             _mockLogger.Object
         );
@@ -54,6 +56,7 @@ public class WebauthnServiceTests {
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
             ]
@@ -87,6 +90,7 @@ public class WebauthnServiceTests {
                     Transports = [],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 },
                 new RegisteredAuthenticator {
@@ -95,6 +99,7 @@ public class WebauthnServiceTests {
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
             ]
@@ -146,6 +151,7 @@ public class WebauthnServiceTests {
                     Transports = ["usb"],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
             ]
@@ -181,6 +187,7 @@ public class WebauthnServiceTests {
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 },
                 new RegisteredAuthenticator {
@@ -189,6 +196,7 @@ public class WebauthnServiceTests {
                     Transports = ["usb"],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
             ]
@@ -228,6 +236,7 @@ public class WebauthnServiceTests {
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
             ]

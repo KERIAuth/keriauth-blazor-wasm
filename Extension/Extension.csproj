@@ -74,6 +74,13 @@
     <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Embedded Resources -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data\fido-convenience-metadata.json">
+      <LogicalName>Extension.Data.fido-convenience-metadata.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <!-- Static imports of 3rd party library files needed for BackgroundWorker. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker -->
   <ItemGroup>
     <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />

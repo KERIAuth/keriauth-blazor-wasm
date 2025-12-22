@@ -16,7 +16,7 @@ public interface IWebauthnService {
     /// <returns>Name of the newly registered authenticator, or error</returns>
     Task<Result<string>> RegisterAttestStoreAuthenticatorAsync(
         string residentKey,
-        string authenticatorAttachment,
+        string? authenticatorAttachment,
         string userVerification,
         string attestationConveyancePreference,
         List<string> hints);

@@ -28,6 +28,8 @@
 @inject IWebExtensionsApi webExtensionsApi
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject IWebauthnService webauthnService
+@inject AppCache appCache
+@inject IFidoMetadataService fidoMetadataService
 
 @code {
     // fields
@@ -201,6 +203,21 @@
     }
 
     bool HasAuthenticators => MyRegisteredAuthenticators.Authenticators.Any();
+
+    /// <summary>
+    /// Gets the appropriate icon for an authenticator based on the current theme.
+    /// Uses IconDark when dark theme is active and available, otherwise falls back to Icon.
+    /// Looks up IconDark from FIDO metadata at display time using the stored AAGUID.
+    /// </summary>
+    string? GetAuthenticatorIcon(RegisteredAuthenticator authenticator) {
+        if (appCache.MyPreferences.IsDarkTheme) {
+            var metadata = fidoMetadataService.GetMetadata(authenticator.Aaguid);
+            if (!string.IsNullOrEmpty(metadata?.IconDark)) {
+                return metadata.IconDark;
+            }
+        }
+        return authenticator.Icon;
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -226,7 +243,24 @@
                         {
                             <MudCard>
                                 <MudCardContent Style="pb-0 mb-0">
-                                    <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" />
+                                    @{
+                                        var iconUrl = GetAuthenticatorIcon(ra);
+                                    }
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        @if (!string.IsNullOrEmpty(iconUrl))
+                                        {
+                                            <MudAvatar Size="Size.Medium" Style="background-color:transparent;">
+                                                <MudImage Src="@iconUrl" Alt="Authenticator icon" Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
+                                            </MudAvatar>
+                                        }
+                                        else
+                                        {
+                                            <MudAvatar Size="Size.Medium" Color="Color.Default">
+                                                <MudIcon Icon="@Icons.Material.Filled.Key" />
+                                            </MudAvatar>
+                                        }
+                                        <MudTextField Value="@ra.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, ra.CredentialBase64))" Style="flex:1;" />
+                                    </MudStack>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Registered: </span>@ra.CreationTime.ToString("u")</MudText>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@ra.LastUpdatedUtc.ToString("u")</MudText>
                                     @{

@@ -11,9 +11,10 @@ public static class RegisteredAuthenticatorSchema {
     /// Current schema version.
     /// Version 2: Added Transports, SchemaVersion. Changed key derivation from HKDF to SHA-256.
     /// Version 3: Added PasscodeHash to detect configuration consistency.
-    /// Old registrations (version 1-2 or missing version) are invalid and must be re-registered.
+    /// Version 4: Added Aaguid, Icon for descriptive names and visual identification.
+    /// Old registrations (version 1-3 or missing version) are invalid and must be re-registered.
     /// </summary>
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 }
 
 public record RegisteredAuthenticator {
@@ -54,6 +55,21 @@ public record RegisteredAuthenticator {
     /// </summary>
     [JsonPropertyName("passcodeHash")]
     public required int PasscodeHash { get; init; }
+
+    /// <summary>
+    /// AAGUID of the authenticator in UUID format (e.g., "08987058-cadc-4b81-b6e1-30de50dcbe96").
+    /// Used to look up the authenticator's friendly name and icon from FIDO metadata.
+    /// </summary>
+    [JsonPropertyName("aaguid")]
+    public required string Aaguid { get; init; }
+
+    /// <summary>
+    /// Data URL for the authenticator's icon (e.g., "data:image/png;base64,...").
+    /// Retrieved from FIDO convenience metadata during registration.
+    /// May be null if the authenticator is not in the metadata.
+    /// </summary>
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
 
     [JsonPropertyName("registeredUtc")]
     public required DateTime CreationTime { get; init; }

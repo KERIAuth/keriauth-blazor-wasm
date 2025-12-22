@@ -86,7 +86,7 @@ namespace Extension {
         public const string DefaultUserVerification = "preferred"; // "required" is most secure default
         public const string DefaultResidentKey = "preferred"; // "required" is most secure default
         public const string DefaultAuthenticatorAttachment = "undefined"; // "platform" is most secure default
-        public const string DefaultAttestationConveyancePref = "none";  // reasonably strongest is "direct", but need to implement this functionality
+        public const string DefaultAttestationConveyancePref = "direct";  // "direct" needed to get AAGUID for authenticator identification
         public static readonly List<string> DefaultAuthenticatorTransports = ["usb"]; // ["hybrid", "internal", "ble", "nfc", "usb"]; // more secure default would be ["internal", "usb"]
         public static readonly List<string> DefaultSelectedHints = []; // more secure default would be ["security-key"]
         public static readonly List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
@@ -98,16 +98,9 @@ namespace Extension {
             DrawerVariantInTab = DefaultDrawerVariantInTab,
             DrawerVariantInSidePanel = DefaultDrawerVariantInSidePanel,
             PrefersToUseAuthenticator = DefaultPrefersToUseAuthenticator,
-            UserVerification = DefaultUserVerification,
-            ResidentKey = DefaultResidentKey,
-            AuthenticatorAttachment = DefaultAuthenticatorAttachment,
-            AttestationConveyancePref = DefaultAttestationConveyancePref,
-            SelectedTransportOptions = DefaultAuthenticatorTransports,
-            AuthenticatorTransports = DefaultAuthenticatorTransports,
             DrawerVariantInPopup = MudBlazor.DrawerVariant.Temporary,
             IsPersistentDrawerOpenInSidePanel = false,
             IsPersistentDrawerOpenInTab = false,
-            SelectedHints = DefaultSelectedHints,
             IsSignRequestDetailShown = false,
             IsStored = false,
             SelectedPrefix = String.Empty

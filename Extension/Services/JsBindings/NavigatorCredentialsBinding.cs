@@ -25,6 +25,10 @@ public record CredentialCreationResult {
     /// <summary>Whether a resident key (passkey) was created</summary>
     [JsonPropertyName("residentKeyCreated")]
     public required bool ResidentKeyCreated { get; init; }
+
+    /// <summary>AAGUID of the authenticator in UUID format (e.g., "08987058-cadc-4b81-b6e1-30de50dcbe96")</summary>
+    [JsonPropertyName("aaguid")]
+    public required string Aaguid { get; init; }
 }
 
 /// <summary>

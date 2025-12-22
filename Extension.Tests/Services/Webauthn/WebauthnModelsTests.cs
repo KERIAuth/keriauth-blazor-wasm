@@ -17,9 +17,9 @@ public class WebauthnModelsTests {
     #region RegisteredAuthenticatorSchema Tests
 
     [Fact]
-    public void RegisteredAuthenticatorSchema_CurrentVersion_IsThree() {
-        // Assert - Version 3 includes PasscodeHash for consistency checks
-        Assert.Equal(3, RegisteredAuthenticatorSchema.CurrentVersion);
+    public void RegisteredAuthenticatorSchema_CurrentVersion_IsFour() {
+        // Assert - Version 4 includes Aaguid and Icon for descriptive names
+        Assert.Equal(4, RegisteredAuthenticatorSchema.CurrentVersion);
     }
 
     #endregion
@@ -37,6 +37,7 @@ public class WebauthnModelsTests {
             Transports = ["usb", "internal"],
             EncryptedPasscodeBase64 = "ZW5jcnlwdGVkLXBhc3Njb2Rl",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = now,
             LastUpdatedUtc = now
         };
@@ -64,6 +65,7 @@ public class WebauthnModelsTests {
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "encrypted",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow,
             LastUpdatedUtc = DateTime.UtcNow
         };
@@ -90,6 +92,7 @@ public class WebauthnModelsTests {
             Transports = [],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
@@ -112,6 +115,7 @@ public class WebauthnModelsTests {
             Transports = transports,
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
@@ -134,6 +138,7 @@ public class WebauthnModelsTests {
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
@@ -294,7 +299,8 @@ public class WebauthnModelsTests {
             "credentialId": "dGVzdC1jcmVkLWlk",
             "transports": ["internal", "hybrid"],
             "prfEnabled": true,
-            "residentKeyCreated": true
+            "residentKeyCreated": true,
+            "aaguid": "08987058-cadc-4b81-b6e1-30de50dcbe96"
         }
         """;
 
@@ -307,6 +313,7 @@ public class WebauthnModelsTests {
         Assert.Equal(["internal", "hybrid"], result.Transports);
         Assert.True(result.PrfEnabled);
         Assert.True(result.ResidentKeyCreated);
+        Assert.Equal("08987058-cadc-4b81-b6e1-30de50dcbe96", result.Aaguid);
     }
 
     [Fact]
@@ -317,7 +324,8 @@ public class WebauthnModelsTests {
             "credentialId": "abc",
             "transports": ["usb"],
             "prfEnabled": false,
-            "residentKeyCreated": true
+            "residentKeyCreated": true,
+            "aaguid": "00000000-0000-0000-0000-000000000000"
         }
         """;
 
@@ -389,6 +397,7 @@ public class WebauthnModelsTests {
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc1",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = now
                 },
                 new RegisteredAuthenticator {
@@ -398,6 +407,7 @@ public class WebauthnModelsTests {
                     Transports = ["usb", "nfc"],
                     EncryptedPasscodeBase64 = "enc2",
                     PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = now
                 }
             ]
@@ -441,6 +451,7 @@ public class WebauthnModelsTests {
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
@@ -460,6 +471,7 @@ public class WebauthnModelsTests {
             Transports = [],  // Would be missing in actual old data
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
@@ -479,6 +491,7 @@ public class WebauthnModelsTests {
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
             PasscodeHash = 12345,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
 
@@ -499,6 +512,7 @@ public class WebauthnModelsTests {
                 Transports = [],
                 EncryptedPasscodeBase64 = "old-enc",
                 PasscodeHash = 12345,
+                Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             },
             new() {
@@ -507,6 +521,7 @@ public class WebauthnModelsTests {
                 Transports = ["internal"],
                 EncryptedPasscodeBase64 = "new-enc",
                 PasscodeHash = 12345,
+                Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             },
             new() {
@@ -515,6 +530,7 @@ public class WebauthnModelsTests {
                 Transports = ["usb"],
                 EncryptedPasscodeBase64 = "another-enc",
                 PasscodeHash = 12345,
+                Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             }
         };
