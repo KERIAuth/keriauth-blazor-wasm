@@ -1,4 +1,4 @@
-@page "/Passkeys.html"
+﻿@page "/Passkeys.html"
 @using Extension.Services.Storage
 
 @using Extension.Helper
@@ -33,11 +33,12 @@
 
 @code {
     // fields
-    StoredPasskeys MyStoredPasskeys = new StoredPasskeys();
+    // TODO P2: should MyStoredPasskeys be initialized here or only in OnParametersSetAsync? Should it be cached and retrieved from AppCache as needed with a reactive pattern and subscription to appCache?
+    StoredPasskeys MyStoredPasskeys = new();
     int CurrentPasscodeHash = 0;
 
     // reactive properties
-    string CountLabel => "(" + MyStoredPasskeys.Passkeys.Count + ")";
+    string CountLabel => "(" + MyStoredPasskeys.Passkeys.Count.ToString() + ")";
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,7 +80,7 @@
         {
             return;
         }
-        var updatedPasskeys = new StoredPasskeys()
+        var updatedPasskeys = MyStoredPasskeys with
             {
                 Passkeys = MyStoredPasskeys.Passkeys
                         .Select(pk => pk.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
@@ -154,7 +155,7 @@
             return;
         }
 
-        var updatedPasskeys = new StoredPasskeys()
+        var updatedPasskeys = MyStoredPasskeys with
         {
             Passkeys = MyStoredPasskeys.Passkeys
                 .Select(pk => pk.CredentialBase64 == credentialBase64
@@ -242,7 +243,7 @@
                         @foreach (var pk in MyStoredPasskeys.Passkeys)
                         {
                             <MudCard>
-                                <MudCardContent Style="pb-0 mb-0">
+                                <MudCardContent Class="pb-0 mb-0">
                                     @{
                                         var iconUrl = GetPasskeyIcon(pk);
                                     }

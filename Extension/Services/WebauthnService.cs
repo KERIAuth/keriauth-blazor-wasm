@@ -281,8 +281,11 @@ public class WebauthnService : IWebauthnService {
     }
 
     public async Task<Result<StoredPasskeys>> GetStoredPasskeysAsync() {
-        var passkeys = await GetValidPasskeysAsync();
-        return Result.Ok(new StoredPasskeys { Passkeys = passkeys });
+        var data = await GetStoredPasskeysDataAsync();
+        var validPasskeys = data.Passkeys
+            .Where(a => a.SchemaVersion == StoredPasskeySchema.CurrentVersion)
+            .ToList();
+        return Result.Ok(data with { Passkeys = validPasskeys });
     }
 
     public async Task<Result> RemovePasskeyAsync(string credentialBase64) {
