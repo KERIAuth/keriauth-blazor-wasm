@@ -8,9 +8,21 @@
 @inject IJSRuntime js
 
 @code {
+    private MudButton? createPasskeyButton;
+    private bool _shouldFocusButton = true;
+
     protected override void OnInitialized()
     {
         logger.LogInformation("OfferPasskeyPage OnInitialized");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusButton && createPasskeyButton is not null)
+        {
+            _shouldFocusButton = false;
+            await createPasskeyButton.FocusAsync();
+        }
     }
 
     void AcceptOffer()
@@ -31,16 +43,13 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Create Passkey?</MudText>
+            <MudText Typo="Typo.h6">Create a Passkey?</MudText>
             <MudStack Class="mt-4">
                 <MudText>
-                    Optionally create a convenient passkey that lets you unlock KERI Auth instead of typing your passcode.
+                    You may now (or later) create a convenient passkey that lets you unlock KERI Auth instead of typing your passcode.
                 </MudText>
                 <MudText Class="mt-4">
-                    You still must securely store and protect your passcode, as it may be later required.
-                </MudText>
-                <MudText Class="mt-4">
-                    Create or manage passkeys later from the Passkeys page in the menu.
+                    You must still securely store and protect your passcode, as it will be required at some point.
                 </MudText>
             </MudStack>
         </div>
@@ -48,6 +57,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
         <MudButton Variant="Variant.Text" OnClick="DeclineOffer">Maybe Later</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptOffer">Create Passkey</MudButton>
+        <MudButton @ref="createPasskeyButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptOffer">Create Passkey</MudButton>
     </MudStack>
 </div>

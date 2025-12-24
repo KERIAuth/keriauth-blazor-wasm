@@ -46,10 +46,12 @@
     // fields
     MudButton? buttonRef;
     const string releaseUrlPath = "content/release.html";
-    static MarkupString releaseMarkup = new("Placeholder for Release Notes");
+    MarkupString releaseMarkup;
     const string releaseHistoryUrlPath = "content/release_history.html";
-    static MarkupString releaseHistoryMarkup = new("Placeholder for Release Notes");
+    MarkupString releaseHistoryMarkup;
     private WebExtensionsApi? webExtensionsApi;
+    bool isLoaded;
+    bool buttonFocused;
 
     // properties
     string ManifestVersion { get; set; } = "unset";
@@ -78,12 +80,16 @@
         }
 
         MyOnboardState = appCache.MyOnboardState;
+        isLoaded = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        if (isFirstRender && buttonRef is not null)
+        if (isLoaded && buttonRef is not null && !buttonFocused)
+        {
+            buttonFocused = true;
             await buttonRef.FocusAsync();
+        }
     }
 
     async Task AckNewRelease()
@@ -106,6 +112,11 @@
     }
 }
 
+
+@if (!isLoaded)
+{
+    return;
+}
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
