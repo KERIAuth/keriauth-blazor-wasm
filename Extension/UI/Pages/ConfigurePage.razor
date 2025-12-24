@@ -143,9 +143,9 @@
             _focusTarget = FocusTarget.None;
             await nextButton.FocusAsync();
         }
-        else if (_focusTarget != FocusTarget.None)
+        else if (_focusTarget == FocusTarget.Passcode || _focusTarget == FocusTarget.ConfirmPasscode)
         {
-            // Reset focus target after render to prevent re-focusing on subsequent renders
+            // Text fields use AutoFocus attribute - reset after first render so it triggers
             _focusTarget = FocusTarget.None;
         }
     }
@@ -461,25 +461,38 @@
     <div class="d-flex gap-3 bt-main">
         <MudStack Style="min-width: 340px; width:100%; margin-right:16px;">
             <MudText Typo="Typo.h6">Connect with KERI Agent Service (KERIA)</MudText>
-            <MudStack>
-                <MudText Typo="Typo.h6">Service</MudText>
-                <MudSelect T="Preset" Label="Provider Preset" @bind-Value="@PresetChoice">
-                    @foreach (var preset in presetAgents)
-                    {
-                        <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
-                    }
-                </MudSelect>
-                <MudTextField Label="Agent URL"
-                              @bind-Value="@urlModel.AdminUrl"
-                              For="@(() => urlModel.AdminUrl)"
-                              Immediate="true" />
-                <MudTextField Label="@BootUrlLabel"
-                              Required="!IsUsingExistingPasscode"
-                              @bind-Value="@urlModel.BootUrl"
-                              For="@(() => urlModel.BootUrl)"
-                              Immediate="true" />
-                <MudText Typo="Typo.h6">Your Passcode</MudText>
-                <MudRadioGroup T="Boolean" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
+
+            <MudText Typo="Typo.h6">Service</MudText>
+            <MudStack Class="ml-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Style="min-width: 120px;">Provider Preset</MudText>
+                    <MudSelect T="Preset" @bind-Value="@PresetChoice" Style="flex-grow: 1;">
+                        @foreach (var preset in presetAgents)
+                        {
+                            <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Style="min-width: 120px;">Agent URL</MudText>
+                    <MudTextField @bind-Value="@urlModel.AdminUrl"
+                                  For="@(() => urlModel.AdminUrl)"
+                                  Immediate="true"
+                                  Style="flex-grow: 1;" />
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Style="min-width: 120px;">Boot URL</MudText>
+                    <MudTextField Required="!IsUsingExistingPasscode"
+                                  @bind-Value="@urlModel.BootUrl"
+                                  For="@(() => urlModel.BootUrl)"
+                                  Immediate="true"
+                                  Style="flex-grow: 1;" />
+                </MudStack>
+            </MudStack>
+
+            <MudText Typo="Typo.h6">Your Passcode</MudText>
+            <MudStack Class="ml-4">
+                <MudRadioGroup T="Boolean" Style="margin-left:-16px;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
                     </MudRadio>
@@ -489,69 +502,68 @@
                 </MudRadioGroup>
                 @if (IsUsingExistingPasscode)
                 {
-                    <MudTextField T="string"
-                                  Label="Your passcode"
-                                  InputType="InputType.Password"
-                                  Value="@configuredPasscodeModel.Passcode"
-                                  ValueChanged="@OnPasscodeChanged"
-                                  OnKeyDown="@HandlePasscodeKeyDown"
-                                  For="@(() => configuredPasscodeModel.Passcode)"
-                                  Immediate="true"
-                                  AutoFocus="@ShouldFocusPasscode" />
-                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
-                }
-                else // create a new passcode
-                {
-                    <MudTextField Label="Generated random passcode"
-                                  InputType="InputType.Password"
-                                  @bind-Value="@RandomPasscode"
-                                  ReadOnly="true"
-                                  Immediate="true" />
-                    // TODO P4 implmement Reveal and CopyToClipboard
-                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
-                    @if (IsPasscodeCopyConfirmed)
-                    {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Style="min-width: 120px;">Passcode</MudText>
                         <MudTextField T="string"
-                                      Label="Confirm your passcode"
                                       InputType="InputType.Password"
                                       Value="@configuredPasscodeModel.Passcode"
                                       ValueChanged="@OnPasscodeChanged"
                                       OnKeyDown="@HandlePasscodeKeyDown"
                                       For="@(() => configuredPasscodeModel.Passcode)"
                                       Immediate="true"
-                                      AutoFocus="@ShouldFocusConfirmPasscode" />
-                        @if (@configuredPasscodeModel.Passcode.Length != 21)
-                        {
-                            <MudText></MudText>
-                        }
-                        else if (@configuredPasscodeModel.Passcode != RandomPasscode)
-                        {
-                            <MudText Color="Color.Error">Passcode does not match</MudText>
-                        }
-                        else
+                                      AutoFocus="@ShouldFocusPasscode"
+                                      Style="flex-grow: 1;" />
+                    </MudStack>
+                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
+                }
+                else // create a new passcode
+                {
+                    <MudText Style="min-width: 120px;">A new random passcode has been placed on your clipboard</MudText>
+                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-16px; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
+                    @if (IsPasscodeCopyConfirmed)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText Style="min-width: 120px;">Confirm your passcode</MudText>
+                            <MudTextField T="string"
+                                          InputType="InputType.Password"
+                                          Value="@configuredPasscodeModel.Passcode"
+                                          ValueChanged="@OnPasscodeChanged"
+                                          OnKeyDown="@HandlePasscodeKeyDown"
+                                          For="@(() => configuredPasscodeModel.Passcode)"
+                                          Immediate="true"
+                                          AutoFocus="@ShouldFocusConfirmPasscode"
+                                          Style="flex-grow: 1;" />
+                        </MudStack>
+                        @if (configuredPasscodeModel.Passcode == RandomPasscode)
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
                             <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(IsKeriaConfigured || !IsValidNewInfo)" Color="Color.Primary">Connect</MudButton>
                         }
+                        else if (!string.IsNullOrEmpty(configuredPasscodeModel.Passcode))
+                        {
+                            <MudText Color="Color.Error">Passcode does not match</MudText>
+                        }
                     }
                 }
-                @if (IsProcessing || IsConnected)
-                {
-                    <MudStack Class="mt-5">
-                        @if (IsValidBootURL)
-                        {
-                            <OperationDisplayComponent ops="@ops1CheckLiveness"></OperationDisplayComponent>
-                            <OperationDisplayComponent ops="@ops2CheckHealth"></OperationDisplayComponent>
-                        }
-                        <OperationDisplayComponent ops="@ops3Connect"></OperationDisplayComponent>
-                        <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                        @if (ops5CreatePersonalAid.IsRunning || ops5CreatePersonalAid.CompletedSuccessfully || !string.IsNullOrEmpty(ops5CreatePersonalAid.ErrorMessage))
-                        {
-                            <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
-                        }
-                    </MudStack>
-                }
             </MudStack>
+
+            @if (IsProcessing || IsConnected)
+            {
+                <MudText Typo="Typo.h6" Class="mt-4">Connection</MudText>
+                <MudStack Class="ml-4">
+                    @if (IsValidBootURL)
+                    {
+                        <OperationDisplayComponent ops="@ops1CheckLiveness"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@ops2CheckHealth"></OperationDisplayComponent>
+                    }
+                    <OperationDisplayComponent ops="@ops3Connect"></OperationDisplayComponent>
+                    <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
+                    @if (ops5CreatePersonalAid.IsRunning || ops5CreatePersonalAid.CompletedSuccessfully || !string.IsNullOrEmpty(ops5CreatePersonalAid.ErrorMessage))
+                    {
+                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                    }
+                </MudStack>
+            }
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
