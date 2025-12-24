@@ -94,6 +94,8 @@
                 // (settings are already set from previous selection)
                 break;
         }
+
+        RequestFocusOnCreateButton();
     }
 
     void ApplyHardwareSecurityKeySettings()
@@ -116,6 +118,17 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Focus Create button on initial render and after page interactions
+        if (_shouldFocusCreateButton && _createButton is not null)
+        {
+            _shouldFocusCreateButton = false;
+            await _createButton.FocusAsync();
+        }
+    }
+
+    void RequestFocusOnCreateButton()
+    {
+        _shouldFocusCreateButton = true;
     }
 
     async Task CreatePasskey()
@@ -157,12 +170,14 @@
         if (!_selectedHints.Contains(hint))
         {
             _selectedHints = _selectedHints.Append(hint).ToList();
+            RequestFocusOnCreateButton();
         }
     }
 
     void RemoveHint(string hint)
     {
         _selectedHints = _selectedHints.Where(h => h != hint).ToList();
+        RequestFocusOnCreateButton();
     }
 
     void MoveHintUp(string hint)
@@ -174,6 +189,7 @@
             list.RemoveAt(index);
             list.Insert(index - 1, hint);
             _selectedHints = list;
+            RequestFocusOnCreateButton();
         }
     }
 
@@ -186,6 +202,7 @@
             list.RemoveAt(index);
             list.Insert(index + 1, hint);
             _selectedHints = list;
+            RequestFocusOnCreateButton();
         }
     }
 
@@ -194,6 +211,10 @@
     IEnumerable<string> AvailableHints => AppConfig.AllHints.Except(_selectedHints);
 
     bool isCustomSettingsShown => _selectedTarget == TargetPasskeyType.Custom;
+
+    // Focus management - focus Create button after render
+    private MudButton? _createButton;
+    private bool _shouldFocusCreateButton = true;
 
     // Misalignment warnings for conflicting settings combinations
     string? MisalignmentAuthenticatorAttachment1 =>
@@ -438,6 +459,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick="@(async () => await CancelOrGoBack())" Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await CreatePasskey())">Create</MudButton>
+        <MudButton @ref="_createButton" StartIcon="@Icons.Material.Filled.Key" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await CreatePasskey())">Create</MudButton>
     </MudStack>
 </div>
