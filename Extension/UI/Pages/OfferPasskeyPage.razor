@@ -1,4 +1,4 @@
-@page "/OfferPasskey.html"
+﻿@page "/OfferPasskey.html"
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 @using static Extension.AppConfig
@@ -31,26 +31,23 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Do you want to create a passkey?</MudText>
+            <MudText Typo="Typo.h6">Create Passkey?</MudText>
             <MudStack Class="mt-4">
                 <MudText>
-                    A passkey lets you unlock KERI Auth without typing your passcode every time.
+                    Optionally create a convenient passkey that lets you unlock KERI Auth instead of typing your passcode.
                 </MudText>
-                <MudText Class="mt-2">
-                    You'll need an authenticator that supports the CTAP 2.1 standard with PRF extension, such as a YubiKey 5 series, Google Titan key, or Google Password Manager (Chrome platform passkey).
-                </MudText>
-                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">
-                    <b>Note:</b> Windows Hello and Apple Touch ID/Face ID do not currently support the PRF extension required by KERI Auth.
-                </MudAlert>
                 <MudText Class="mt-4">
-                    You can always create or manage passkeys later from the Passkeys page in the menu.
+                    You still must securely store and protect your passcode, as it may be later required.
+                </MudText>
+                <MudText Class="mt-4">
+                    Create or manage passkeys later from the Passkeys page in the menu.
                 </MudText>
             </MudStack>
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
-        <MudButton Variant="Variant.Text" OnClick="DeclineOffer">Maybe later</MudButton>
+        <MudButton Variant="Variant.Text" OnClick="DeclineOffer">Maybe Later</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptOffer">Create Passkey</MudButton>
     </MudStack>
 </div>

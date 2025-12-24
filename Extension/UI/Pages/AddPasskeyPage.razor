@@ -1,4 +1,4 @@
-@page "/AddPasskey.html"
+﻿@page "/AddPasskey.html"
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 
@@ -193,7 +193,7 @@
     bool IsLastHint(string hint) => _selectedHints.IndexOf(hint) == _selectedHints.Count - 1;
     IEnumerable<string> AvailableHints => AppConfig.AllHints.Except(_selectedHints);
 
-    bool ShowCustomSettings => _selectedTarget == TargetPasskeyType.Custom;
+    bool isCustomSettingsShown => _selectedTarget == TargetPasskeyType.Custom;
 
     // Misalignment warnings for conflicting settings combinations
     string? MisalignmentAuthenticatorAttachment1 =>
@@ -254,126 +254,128 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Typo="Typo.h6">Create a Passkey</MudText>
+            <MudText Typo="Typo.h6">Create Passkey</MudText>
             <MudStack>
                 <MudText Class="mt-4" Style="font-weight:bold;">
                     Passkey Type
                 </MudText>
-                <MudRadioGroup T="TargetPasskeyType" Value="_selectedTarget" ValueChanged="OnTargetChanged" Class="ml-4">
+                <MudRadioGroup T="TargetPasskeyType" Value="_selectedTarget" ValueChanged="OnTargetChanged" Class="ml-4" InputStyle="flex-direction:column; align-items:flex-start;">
                     <MudRadio Value="TargetPasskeyType.HardwareSecurityKey" Color="Color.Primary">
                         Hardware Security Key
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">(YubiKey, Google Titan, etc.)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(strongest security via Yubikey, Feitian, Thales, others)</MudText>
                     </MudRadio>
                     <MudRadio Value="TargetPasskeyType.GooglePasswordManager" Color="Color.Primary">
-                        Google Password Manager
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">(Chrome platform passkey)</MudText>
+                        Platform
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(strong security via Google Password Manager, Windows Hello, iCloud Keychain)</MudText>
                     </MudRadio>
                     <MudRadio Value="TargetPasskeyType.Custom" Color="Color.Primary">
                         Custom
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">(configure settings manually)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary"></MudText>
                     </MudRadio>
                 </MudRadioGroup>
 
-                @if (ShowCustomSettings)
+                @if (isCustomSettingsShown)
                 {
-                    <MudPaper Class="pa-4 mt-4" Elevation="1">
-                        <MudText Typo="Typo.subtitle1" Style="font-weight:bold;">Registration Settings</MudText>
+                    <MudPaper Class="mt-0 pt-0 ml-16" Elevation="1">
+                        <MudStack Class="pa-4">
+                            <MudText Typo="Typo.subtitle1"><strong>Registration Settings</strong> (ordered by impact on provider selection)</MudText>
 
-                        <MudText Class="mt-3" Style="font-weight:500;">Hints</MudText>
-                        <MudStack Row="false" Class="ml-4 mt-1">
-                            <MudText Typo="Typo.body2">Selected (most to least preferred)</MudText>
-                            @if (_selectedHints.Count == 0)
+                            <MudText Class="mt-3" Style="font-weight:500;">Attachment</MudText>
+                            <MudRadioGroup T="string" @bind-Value="_authenticatorAttachment" Class="ml-4">
+                                <MudRadio Value=@("platform")>Platform</MudRadio>
+                                <MudRadio Value=@("cross-platform")>Cross-platform</MudRadio>
+                                <MudRadio Value=@("undefined")>All Supported</MudRadio>
+                            </MudRadioGroup>
+
+                            <MudText Class="mt-3" Style="font-weight:500;">Resident Key (discoverable credential)</MudText>
+                            <MudRadioGroup T="string" @bind-Value="_residentKey" Class="ml-4">
+                                <MudRadio Value=@("required")>Required</MudRadio>
+                                <MudRadio Value=@("preferred")>Preferred</MudRadio>
+                                <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
+                            </MudRadioGroup>
+
+                            <MudText Class="mt-3" Style="font-weight:500;">User Verification</MudText>
+                            <MudRadioGroup T="string" @bind-Value="_userVerification" Class="ml-4">
+                                <MudRadio Value=@("required")>Required</MudRadio>
+                                <MudRadio Value=@("preferred")>Preferred</MudRadio>
+                                <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
+                            </MudRadioGroup>
+
+                            <MudText Class="mt-3" Style="font-weight:500;">Hints</MudText>
+                            <MudStack Row="false" Class="ml-4 mt-1">
+                                <MudText Typo="Typo.body2">Selected (most to least preferred)</MudText>
+                                @if (_selectedHints.Count == 0)
+                                {
+                                    <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
+                                }
+                                else
+                                {
+                                    <MudList Dense="true" T="string" Class="ml-2">
+                                        @foreach (var hint in _selectedHints)
+                                        {
+                                            <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                                    <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Primary" Disabled="@IsFirstHint(hint)" OnClick="() => MoveHintUp(hint)" />
+                                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Primary" Disabled="@IsLastHint(hint)" OnClick="() => MoveHintDown(hint)" />
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Primary" OnClick="() => RemoveHint(hint)" />
+                                                </MudStack>
+                                            </MudListItem>
+                                        }
+                                    </MudList>
+                                }
+                                <MudText Typo="Typo.body2" Class="mt-2">Available</MudText>
+                                @if (!AvailableHints.Any())
+                                {
+                                    <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
+                                }
+                                else
+                                {
+                                    <MudList Dense="true" T="string" Class="ml-2">
+                                        @foreach (var hint in AvailableHints)
+                                        {
+                                            <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                                    <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="() => AddHint(hint)" />
+                                                </MudStack>
+                                            </MudListItem>
+                                        }
+                                    </MudList>
+                                }
+                            </MudStack>
+
+                            <MudText Class="mt-3" Style="font-weight:500;">Attestation</MudText>
+                            <MudRadioGroup T="string" @bind-Value="_attestation" Class="ml-4">
+                                <MudRadio Value=@("enterprise")>Full Attestation of Individual Device ("enterprise")</MudRadio>
+                                <MudRadio Value=@("direct")>Full Attestation ("direct")</MudRadio>
+                                <MudRadio Value=@("indirect")>Attestation Allowing Anonymity ("indirect")</MudRadio>
+                                <MudRadio Value=@("none")>None</MudRadio>
+                            </MudRadioGroup>
+
+                            @if (HasMisalignmentWarnings)
                             {
-                                <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
-                            }
-                            else
-                            {
-                                <MudList Dense="true" T="string" Class="ml-2">
-                                    @foreach (var hint in _selectedHints)
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-4">
+                                    <MudText Typo="Typo.body2" Style="font-weight:bold;">Settings Conflicts</MudText>
+                                    @if (MisalignmentAuthenticatorAttachment1 != null)
                                     {
-                                        <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
-                                            <MudStack Row="true" AlignItems="AlignItems.Center">
-                                                <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
-                                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Primary" Disabled="@IsFirstHint(hint)" OnClick="() => MoveHintUp(hint)" />
-                                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Primary" Disabled="@IsLastHint(hint)" OnClick="() => MoveHintDown(hint)" />
-                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Primary" OnClick="() => RemoveHint(hint)" />
-                                            </MudStack>
-                                        </MudListItem>
+                                        <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment1</MudText>
                                     }
-                                </MudList>
-                            }
-                            <MudText Typo="Typo.body2" Class="mt-2">Available</MudText>
-                            @if (!AvailableHints.Any())
-                            {
-                                <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
-                            }
-                            else
-                            {
-                                <MudList Dense="true" T="string" Class="ml-2">
-                                    @foreach (var hint in AvailableHints)
+                                    @if (MisalignmentAuthenticatorAttachment2 != null)
                                     {
-                                        <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
-                                            <MudStack Row="true" AlignItems="AlignItems.Center">
-                                                <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
-                                                <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="() => AddHint(hint)" />
-                                            </MudStack>
-                                        </MudListItem>
+                                        <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment2</MudText>
                                     }
-                                </MudList>
+                                    @if (MisalignmentResidentKey1 != null)
+                                    {
+                                        <MudText Typo="Typo.body2">@MisalignmentResidentKey1</MudText>
+                                    }
+                                    @if (MisalignmentResidentKey2 != null)
+                                    {
+                                        <MudText Typo="Typo.body2">@MisalignmentResidentKey2</MudText>
+                                    }
+                                </MudAlert>
                             }
                         </MudStack>
-
-                        <MudText Class="mt-3" Style="font-weight:500;">Resident Key</MudText>
-                        <MudRadioGroup T="string" @bind-Value="_residentKey" Class="ml-4">
-                            <MudRadio Value=@("required")>Required</MudRadio>
-                            <MudRadio Value=@("preferred")>Preferred</MudRadio>
-                            <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
-                        </MudRadioGroup>
-
-                        <MudText Class="mt-3" Style="font-weight:500;">Attachment</MudText>
-                        <MudRadioGroup T="string" @bind-Value="_authenticatorAttachment" Class="ml-4">
-                            <MudRadio Value=@("platform")>Platform</MudRadio>
-                            <MudRadio Value=@("cross-platform")>Cross-platform</MudRadio>
-                            <MudRadio Value=@("undefined")>All Supported</MudRadio>
-                        </MudRadioGroup>
-
-                        <MudText Class="mt-3" Style="font-weight:500;">User Verification</MudText>
-                        <MudRadioGroup T="string" @bind-Value="_userVerification" Class="ml-4">
-                            <MudRadio Value=@("required")>Required</MudRadio>
-                            <MudRadio Value=@("preferred")>Preferred</MudRadio>
-                            <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
-                        </MudRadioGroup>
-
-                        <MudText Class="mt-3" Style="font-weight:500;">Attestation</MudText>
-                        <MudRadioGroup T="string" @bind-Value="_attestation" Class="ml-4">
-                            <MudRadio Value=@("enterprise")>Full Attestation of Individual Device ("enterprise")</MudRadio>
-                            <MudRadio Value=@("direct")>Full Attestation ("direct")</MudRadio>
-                            <MudRadio Value=@("indirect")>Attestation Allowing Anonymity ("indirect")</MudRadio>
-                            <MudRadio Value=@("none")>None</MudRadio>
-                        </MudRadioGroup>
-
-                        @if (HasMisalignmentWarnings)
-                        {
-                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-4">
-                                <MudText Typo="Typo.body2" Style="font-weight:bold;">Settings Conflicts</MudText>
-                                @if (MisalignmentAuthenticatorAttachment1 != null)
-                                {
-                                    <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment1</MudText>
-                                }
-                                @if (MisalignmentAuthenticatorAttachment2 != null)
-                                {
-                                    <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment2</MudText>
-                                }
-                                @if (MisalignmentResidentKey1 != null)
-                                {
-                                    <MudText Typo="Typo.body2">@MisalignmentResidentKey1</MudText>
-                                }
-                                @if (MisalignmentResidentKey2 != null)
-                                {
-                                    <MudText Typo="Typo.body2">@MisalignmentResidentKey2</MudText>
-                                }
-                            </MudAlert>
-                        }
                     </MudPaper>
                 }
 
