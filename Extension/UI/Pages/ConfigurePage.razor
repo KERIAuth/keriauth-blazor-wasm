@@ -73,6 +73,7 @@
     };
     PasscodeFormModel configuredPasscodeModel = new PasscodeFormModel();
     private MudButton? nextButton;
+    private MudButton? connectButton;
 
     // properties
     KeriaConnectConfig? KeriaConnectConfig { get; set; }
@@ -81,6 +82,7 @@
     bool IsUsingExistingPasscode { get; set; } = true;
     bool IsProcessing { get; set; }
     bool IsConnected { get; set; }
+    bool IsReadyForNext { get; set; }
     Preset PresetChoice
     {
         get
@@ -113,12 +115,66 @@
                 && IsPasscodeCopyConfirmed)
         );
     bool IsKeriaConfigured => (KeriaConnectConfig is not null) && KeriaConnectConfig.ValidateConfiguration().IsSuccess;
-    string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you already have account)" : "Boot URL";
+    string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you have established KERIA connection passcode)" : "Boot URL";
+
+    // Focus state - determines which element should have focus
+    enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next }
+    FocusTarget _focusTarget = FocusTarget.Passcode;
+    bool ShouldFocusPasscode => _focusTarget == FocusTarget.Passcode && IsUsingExistingPasscode;
+    bool ShouldFocusConfirmPasscode => _focusTarget == FocusTarget.ConfirmPasscode && !IsUsingExistingPasscode && IsPasscodeCopyConfirmed;
+    bool ShouldFocusConnect => _focusTarget == FocusTarget.Connect;
 
 
     protected override async Task OnInitializedAsync()
     {
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        // Handle button focus imperatively (MudButton doesn't support AutoFocus)
+        if (_focusTarget == FocusTarget.Connect && connectButton is not null)
+        {
+            _focusTarget = FocusTarget.None;
+            await connectButton.FocusAsync();
+        }
+        else if (_focusTarget == FocusTarget.Next && nextButton is not null)
+        {
+            _focusTarget = FocusTarget.None;
+            await nextButton.FocusAsync();
+        }
+        else if (_focusTarget != FocusTarget.None)
+        {
+            // Reset focus target after render to prevent re-focusing on subsequent renders
+            _focusTarget = FocusTarget.None;
+        }
+    }
+
+    void OnPasscodeChanged(string value)
+    {
+        configuredPasscodeModel.Passcode = value;
+        if (value.Length == 21)
+        {
+            _focusTarget = FocusTarget.Connect;
+            StateHasChanged();
+        }
+    }
+
+    async Task HandlePasscodeKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && IsValidNewInfo && !IsKeriaConfigured)
+        {
+            await UnifiedOnboardingFlow();
+        }
+    }
+
+    void OnPasscodeCopyConfirmedChanged(bool value)
+    {
+        IsPasscodeCopyConfirmed = value;
+        if (value)
+        {
+            _focusTarget = FocusTarget.ConfirmPasscode;
+        }
     }
 
     async Task SetIsNewAccount(bool isNewAccount)
@@ -140,6 +196,7 @@
         ops3Connect.Reset();
         ops4ListAids.Reset();
         ops5CreatePersonalAid.Reset();
+        IsReadyForNext = false;
         StateHasChanged();
     }
 
@@ -211,6 +268,7 @@
         var partialConfig = appCache.MyKeriaConnectConfig with
         {
             ProviderName = _presetChoice.ProviderName,
+            Alias = _presetChoice.ProviderName, // Use provider name as default alias
             AdminUrl = urlModel.AdminUrl,
             BootUrl = urlModel.BootUrl,
             PasscodeHash = passcodeHash,
@@ -300,7 +358,7 @@
         ops4ListAids.SetIsRunning();
         StateHasChanged();
         // await Task.Delay(100);
-        
+
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {
@@ -392,12 +450,10 @@
         IsProcessing = false;
         snackbar.Add("Connection to KERIA Service successful", Severity.Success);
 
-        if (nextButton is not null)
-            await nextButton.FocusAsync();
+        _focusTarget = FocusTarget.Next;
+        StateHasChanged();
 
         logger.LogInformation("UnifiedOnboardingFlow completed successfully, navigating to passkey offer");
-        // TODO P2 Or, should this be NavigateTo(Routes.PathFor<Index>()), e.g. in case of timeout before next button is clicked?
-        navManager.NavigateTo(Routes.PathFor<OfferPasskeyPage>());
     }
 }
 
@@ -433,12 +489,16 @@
                 </MudRadioGroup>
                 @if (IsUsingExistingPasscode)
                 {
-                    <MudTextField Label="Your passcode"
+                    <MudTextField T="string"
+                                  Label="Your passcode"
                                   InputType="InputType.Password"
-                                  @bind-Value="@configuredPasscodeModel.Passcode"
+                                  Value="@configuredPasscodeModel.Passcode"
+                                  ValueChanged="@OnPasscodeChanged"
+                                  OnKeyDown="@HandlePasscodeKeyDown"
                                   For="@(() => configuredPasscodeModel.Passcode)"
-                                  Immediate="true" />
-                    <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
+                                  Immediate="true"
+                                  AutoFocus="@ShouldFocusPasscode" />
+                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
                 {
@@ -448,14 +508,18 @@
                                   ReadOnly="true"
                                   Immediate="true" />
                     // TODO P4 implmement Reveal and CopyToClipboard
-                    <MudCheckBox @bind-Value="IsPasscodeCopyConfirmed" Style="overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
+                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
                     @if (IsPasscodeCopyConfirmed)
                     {
-                        <MudTextField Label="Confirm your passcode"
+                        <MudTextField T="string"
+                                      Label="Confirm your passcode"
                                       InputType="InputType.Password"
-                                      @bind-Value="@configuredPasscodeModel.Passcode"
+                                      Value="@configuredPasscodeModel.Passcode"
+                                      ValueChanged="@OnPasscodeChanged"
+                                      OnKeyDown="@HandlePasscodeKeyDown"
                                       For="@(() => configuredPasscodeModel.Passcode)"
-                                      Immediate="true" />
+                                      Immediate="true"
+                                      AutoFocus="@ShouldFocusConfirmPasscode" />
                         @if (@configuredPasscodeModel.Passcode.Length != 21)
                         {
                             <MudText></MudText>
@@ -467,13 +531,12 @@
                         else
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                            <MudButton Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
+                            <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(IsKeriaConfigured || !IsValidNewInfo)" Color="Color.Primary">Connect</MudButton>
                         }
                     }
                 }
-                @if (IsProcessing)
+                @if (IsProcessing || IsConnected)
                 {
-                    <MudText Typo="Typo.h6">Connecting...</MudText>
                     <MudStack Class="mt-5">
                         @if (IsValidBootURL)
                         {
@@ -482,7 +545,10 @@
                         }
                         <OperationDisplayComponent ops="@ops3Connect"></OperationDisplayComponent>
                         <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                        @if (ops5CreatePersonalAid.IsRunning || ops5CreatePersonalAid.CompletedSuccessfully || !string.IsNullOrEmpty(ops5CreatePersonalAid.ErrorMessage))
+                        {
+                            <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                        }
                     </MudStack>
                 }
             </MudStack>
