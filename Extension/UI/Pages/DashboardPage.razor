@@ -98,7 +98,7 @@
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToManageAgents)">KERI Agent</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<KeriAgentServicePage>())">KERI Agent</MudLink>
                         </MudText>
                         <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
                             <MudIcon Icon="@Icons.Material.Filled.Check" Color=KeriaConnectStatusColor Class="bt-home-status-icon"></MudIcon>
@@ -107,14 +107,14 @@
                     </MudStack>
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifiers)">Identifiers</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifiersPage>())">Identifiers</MudLink>
                         </MudText>
                         <MudText Class="mudtext-half-width-right bt-home-status-number">@IdentifiersCount</MudText>
                     </MudStack>
 
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToWebsites)">Websites</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<WebsitesPage>())">Websites</MudLink>
                         </MudText>
                         <MudText Class="mudtext-half-width-right bt-home-status-number">@NumWebsites</MudText>
                     </MudStack>
@@ -123,7 +123,7 @@
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:10px;">
                     <MudStack Row Style="align-items:center;">
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToIdentifier + SelectedPrefix)">Selected Identifier</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifierPage>() + SelectedPrefix)">Selected Identifier</MudLink>
                         </MudText>
                         <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:38px;">
                             @if (!string.IsNullOrEmpty(SelectedPrefix))
@@ -136,7 +136,7 @@
 
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(AppConfig.RouteToCredentials)">Credentials</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<CredentialsPage>())">Credentials</MudLink>
                         </MudText>
                         <MudText Class="mudtext-half-width-right bt-home-status-number">@NumCredentialsThisIdentifier</MudText>
                     </MudStack>

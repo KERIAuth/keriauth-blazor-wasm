@@ -71,7 +71,7 @@
 
     async Task AddPasskey()
     {
-        navManager.NavigateTo(AppConfig.RouteToAddPasskey);
+        navManager.NavigateTo(Routes.PathFor<AddPasskeyPage>());
     }
 
     async Task rename(string newName, string credentialBase64)

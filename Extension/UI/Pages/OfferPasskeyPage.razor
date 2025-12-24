@@ -17,14 +17,14 @@
     {
         logger.LogInformation("User accepted passkey offer");
         App.OfferCreatePasskeyState = OfferCreatePasskeyState.Yes;
-        navManager.NavigateTo(RouteToIndex);
+        navManager.NavigateTo(Routes.PathFor<Index>());
     }
 
     void DeclineOffer()
     {
         logger.LogInformation("User declined passkey offer");
         App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
-        navManager.NavigateTo(RouteToIndex);
+        navManager.NavigateTo(Routes.PathFor<Index>());
     }
 }
 

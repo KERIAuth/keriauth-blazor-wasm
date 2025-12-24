@@ -145,7 +145,7 @@
 
             @foreach (Aid aid in MyIdentifiers)
             {
-                <MudLink OnClick="() => navManager.NavigateTo(RouteToIdentifier + aid.Prefix)">
+                <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifierPage>() + aid.Prefix)">
                     <MudCard Class="py-0 my-1">
                         <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
                             <MudTooltip Text="Set Identifier as active" Delay="1000">

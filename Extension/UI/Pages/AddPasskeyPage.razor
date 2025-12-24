@@ -142,12 +142,12 @@
         if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
         {
             App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
-            navManager.NavigateTo(AppConfig.RouteToIndex);
+            navManager.NavigateTo(Routes.PathFor<Index>());
         }
         else
         {
             // Normal flow - go to Passkeys page
-            navManager.NavigateTo(AppConfig.RouteToPasskeys);
+            navManager.NavigateTo(Routes.PathFor<Passkeys>());
         }
     }
 
@@ -237,7 +237,7 @@
         {
             logger.LogInformation("User cancelled passkey creation from offer flow");
             App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
-            navManager.NavigateTo(AppConfig.RouteToIndex);
+            navManager.NavigateTo(Routes.PathFor<Index>());
         }
         else
         {

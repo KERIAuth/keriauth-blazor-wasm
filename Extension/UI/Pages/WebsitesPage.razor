@@ -69,7 +69,7 @@
 
     async Task navigateToWebsitePage(string origin)
     {
-        navManager.NavigateTo(AppConfig.RouteToWebsite + HttpUtility.UrlEncode(origin.ToString()));
+        navManager.NavigateTo(Routes.PathFor<WebsitePage>() + HttpUtility.UrlEncode(origin.ToString()));
     }
 }
 

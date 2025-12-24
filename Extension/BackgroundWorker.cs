@@ -519,7 +519,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var installUrl = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInTab);
+            var installUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
             };
@@ -725,7 +725,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
-            var updateUrl = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInTab);
+            var updateUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
@@ -797,7 +797,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
     private async Task CreateExtensionTabAsync() {
         try {
-            var tabUrl = _webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInTab);
+            var tabUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = tabUrl
                 // TODO P2 use the same tab identifier, so we don't get multiple tabs
@@ -836,7 +836,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 // Note: SetPopup applies globally, not per-tab in Manifest V3
                 await WebExtensions.Action.SetPopup(new() {
-                    Popup = new(_webExtensionsApi.Runtime.GetURL(AppConfig.RouteToIndexInPopup))
+                    Popup = new(_webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InPopup))
                 });
 
                 // Open popup

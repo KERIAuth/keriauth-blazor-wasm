@@ -260,7 +260,7 @@
                 throw new IndexOutOfRangeException("KERI Agent AdminUrl is not configured");
             }
             // expect navigation to ConnectingPage via Index
-            navManager.NavigateTo(RouteToIndex);
+            navManager.NavigateTo(Routes.PathFor<Index>());
             return;
         }
         else

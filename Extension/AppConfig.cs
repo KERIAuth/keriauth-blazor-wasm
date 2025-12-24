@@ -3,67 +3,6 @@ using MudBlazor.Utilities;
 
 namespace Extension {
     public static class AppConfig {
-        // Routes, which must match the fixed @page string value in its .razor file.
-        public const string RouteToIdentifiers = "/Identifiers.html";
-        public const string RouteToCredentials = "/Credentials.html";
-        public const string RouteToWebsites = "/Websites.html";
-
-        public const string RouteToIndex = "/index.html";  // Used for re-routing logic (via Index.razor) or on App startup (index.html)
-        // RouteToIndexIn<foo> are used to differentiate the context in which the index page is shown. They are otherwise near-identical in content to index.html.
-        public const string RouteToIndexInTab = "/indexInTab.html";
-        public const string RouteToIndexInSidePanel = "/indexInSidePanel.html";
-        public const string RouteToIndexInPopup = "/indexInPopup.html";
-
-        public const string RouteToDelete = "/Delete.html";
-        public const string RouteToHome = "/Home.html";
-        public const string RouteToDashboard = "/Dashboard.html";
-        public const string RouteToTerms = "/Terms.html";
-        public const string RouteToPrivacy = "/Privacy.html";
-        public const string RouteToManagePrefs = "/ManagePreferences.html";
-        public const string RouteToManageAgents = "/KeriAgentService.html";
-        public const string RouteToWelcome = "/Welcome.html";
-        public const string RouteToNewRelease = "/NewRelease.html";
-        public const string RouteToConfigure = "/Configure.html";
-        public const string RouteToAddPasskey = "/AddPasskey.html";
-        public const string RouteToPasskeys = "/Passkeys.html";
-        public const string RouteToUnlock = "/Unlock.html";
-        public const string RouteToOfferPasskey = "/OfferPasskey.html";
-        public const string RouteToSidePanel = "/SidePanel.html";
-        public const string RouteToTest = "/Test.html";
-        public const string RouteToConnecting = "/Connecting.html";
-        public const string RouteToRequestSignIn = "/RequestSignIn.html";
-        public const string RouteToRequestSignHeaders = "/RequestSignHeaders.html";
-
-        // routes with parameters, with intentional trailing /
-        // TODO P2 better to have pattern with query string? because of browser refresh on one of these pages
-        public const string RouteToIdentifier = "/Identifier.html/";
-        public const string RouteToWebsite = "/Website.html/";
-        public static readonly List<string> PagesNotRequiringAuth = [
-            RouteToIndex,
-            RouteToIndexInTab,
-            RouteToIndexInSidePanel,
-            RouteToIndexInPopup,
-            RouteToDelete,
-            RouteToWelcome,
-            RouteToNewRelease,
-            RouteToConfigure,
-            RouteToOfferPasskey,
-            RouteToUnlock,
-            RouteToManagePrefs,
-            RouteToTerms,
-            RouteToPrivacy,
-            RouteToSidePanel,
-            RouteToTest,
-        ];
-        // routes to static content
-        public const string RouteToTermsHtml = "content/terms.html";
-        public const string RouteToPrivacyHtml = "content/privacy.html";
-        public const string RouteToAbout = "content/about.html";
-        public const string RouteToHelp = "content/help.html";
-        public const string RouteToLicensesHtml = "content/licenses.html";
-        public const string RouteToReleaseHtml = "content/release.html";
-        public const string RouteToReleaseHistoryHtml = "content/release_history.html";
-
         // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup
         public const int SignifyTimeoutMs = 20000; // Note, had fast retry issues when this was set to 1000, since a KERIA boot with KERIA oobi behinds the scenes take long time.
 

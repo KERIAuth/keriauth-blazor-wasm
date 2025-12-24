@@ -396,8 +396,8 @@
             await nextButton.FocusAsync();
 
         logger.LogInformation("UnifiedOnboardingFlow completed successfully, navigating to passkey offer");
-        // TODO P2 Or, should this be NavigateTo(RouteToIndex), e.g. in case of timeout before next button is clicked?
-        navManager.NavigateTo(RouteToOfferPasskey);
+        // TODO P2 Or, should this be NavigateTo(Routes.PathFor<Index>()), e.g. in case of timeout before next button is clicked?
+        navManager.NavigateTo(Routes.PathFor<OfferPasskeyPage>());
     }
 }
 
@@ -491,6 +491,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <!-- Intentionally no back button here -->
         <MudSpacer />
-        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToOfferPasskey))" Class="justify-start" data-testid="next">Next</MudButton>
+        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<OfferPasskeyPage>()))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
 </div>

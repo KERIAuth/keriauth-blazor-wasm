@@ -60,10 +60,10 @@
         // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated)
         {
-            if (!(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
+            if (Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
             {
                 logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
-                navManager.NavigateTo(AppConfig.RouteToIndex);
+                navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>());
                 return;
             }
         }

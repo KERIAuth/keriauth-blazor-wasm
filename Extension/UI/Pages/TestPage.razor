@@ -89,13 +89,13 @@
                 </MudStack>
             </MudStack>
             <MudStack>
-                <MudLink Href="@RouteToWelcome" Target="_self">Welcome</MudLink>
-                <MudLink Href="@RouteToNewRelease" Target="_self">Release</MudLink>
-                <MudLink Href="@RouteToTerms" Target="_self">Terms</MudLink>
-                <MudLink Href="@RouteToPrivacy" Target="_self">Privacy</MudLink>
-                <MudLink Href="@RouteToConfigure" Target="_self">Configure</MudLink>
-                <MudLink Href="@RouteToUnlock" Target="_self">Unlock</MudLink>
-                <MudLink Href="@RouteToConnecting" Target="_self">Connecting</MudLink>
+                <MudLink Href="@(Routes.PathFor<WelcomePage>())" Target="_self">Welcome</MudLink>
+                <MudLink Href="@(Routes.PathFor<NewReleasePage>())" Target="_self">Release</MudLink>
+                <MudLink Href="@(Routes.PathFor<TermsPage>())" Target="_self">Terms</MudLink>
+                <MudLink Href="@(Routes.PathFor<PrivacyPage>())" Target="_self">Privacy</MudLink>
+                <MudLink Href="@(Routes.PathFor<ConfigurePage>())" Target="_self">Configure</MudLink>
+                <MudLink Href="@(Routes.PathFor<UnlockPage>())" Target="_self">Unlock</MudLink>
+                <MudLink Href="@(Routes.PathFor<ConnectingPage>())" Target="_self">Connecting</MudLink>
             </MudStack>
         </div>
     </div>

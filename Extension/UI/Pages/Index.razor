@@ -63,7 +63,7 @@
 
         if (!appCache.MyOnboardState.IsWelcomed)
         {
-            NavigateIfNeeded(RouteToWelcome);
+            NavigateIfNeeded(Routes.PathFor<WelcomePage>());
             return;
         }
 
@@ -77,24 +77,24 @@
                 pendingRequest.RequestId,
                 updatePayload?.CurrentVersion ?? "unknown");
 
-            NavigateIfNeeded(RouteToNewRelease);
+            NavigateIfNeeded(Routes.PathFor<NewReleasePage>());
             return;
         }
 
         // TODO P2 consider this check with the one above for RequestNotifyUserOfUpdate
         if (!appCache.IsInstallAcknowledged)
         {
-            NavigateIfNeeded(RouteToNewRelease);
+            NavigateIfNeeded(Routes.PathFor<NewReleasePage>());
             return;
         }
         if (!appCache.IsTosAgreed)
         {
-            NavigateIfNeeded(RouteToTerms);
+            NavigateIfNeeded(Routes.PathFor<TermsPage>());
             return;
         }
         if (!appCache.IsPrivacyAgreed)
         {
-            NavigateIfNeeded(RouteToPrivacy);
+            NavigateIfNeeded(Routes.PathFor<PrivacyPage>());
             return;
         }
         // Passing above conditions must equate to IsProductOnboarded
@@ -105,7 +105,7 @@
         }
         if (!appCache.IsConfigured)
         {
-            NavigateIfNeeded(RouteToConfigure);
+            NavigateIfNeeded(Routes.PathFor<ConfigurePage>());
             return;
         }
         // Passing the above conditions must equate to IsInitialized
@@ -116,7 +116,7 @@
         }
         if (!appCache.IsSessionUnlocked)
         {
-            NavigateIfNeeded(RouteToUnlock);
+            NavigateIfNeeded(Routes.PathFor<UnlockPage>());
             return;
         }
         if (!appCache.IsAuthenticated)
@@ -126,7 +126,7 @@
         }
         if (!appCache.IsIdentifierFetched)
         {
-            NavigateIfNeeded(RouteToConnecting);
+            NavigateIfNeeded(Routes.PathFor<ConnectingPage>());
             return;
         }
         // Passing the above conditions must equate to IsConnectedToKeria
@@ -141,7 +141,7 @@
         {
             logger.LogInformation("RedirectIfNeeded: User accepted passkey offer, navigating to AddPasskey");
             App.OfferCreatePasskeyState = OfferCreatePasskeyState.InProcess;
-            NavigateIfNeeded(RouteToAddPasskey);
+            NavigateIfNeeded(Routes.PathFor<AddPasskeyPage>());
             return;
         }
 
@@ -157,13 +157,13 @@
             switch (pendingRequest.Type, willRedirectDialog)
             {
                 case (BwAppMessageType.Values.RequestSelectAuthorize, true):
-                    route = RouteToRequestSignIn;
+                    route = Routes.PathFor<RequestSignInPage>();
                     break;
                 case (BwAppMessageType.Values.RequestSignHeaders, true):
-                    route = RouteToRequestSignHeaders;
+                    route = Routes.PathFor<RequestSignHeadersPage>();
                     break;
                 case (BwAppMessageType.Values.RequestNotifyUserOfUpdate, _):
-                    route = RouteToIndex;
+                    route = Routes.PathFor<Index>();
                     break;
                 default:
                     logger.LogWarning("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
@@ -183,7 +183,7 @@
 
         // Fully authenticated and connected - navigate to Dashboard
         // logger.LogInformation("RedirectIfNeeded: No re-route conditions detected, navigating to Dashboard");
-        NavigateIfNeeded(RouteToDashboard);
+        NavigateIfNeeded(Routes.PathFor<DashboardPage>());
     }
 
     public void Dispose()

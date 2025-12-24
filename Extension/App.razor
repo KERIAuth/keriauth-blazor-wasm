@@ -88,7 +88,7 @@
         await appBwMessagingService.Initialize(tabIdParam ?? "");
 
         // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to index.html with force reload for redirection, e.g. to UnlockPage
-        if (!appCache.IsAuthenticated && !(AppConfig.PagesNotRequiringAuth.Contains("/" + navManager.ToBaseRelativePath(navManager.Uri))))
+        if (!appCache.IsAuthenticated && Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
         {
             // This situation may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
             // Navigate to InitialUri (e.g. index.html, indexInPopup.html, indexInSidePanel ...) with forced reload since we are in an unknown App load state.

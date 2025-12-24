@@ -27,7 +27,7 @@
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(RouteToIndex))" Class="justify-end" data-testid="next">Next</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<Index>()))" Class="justify-end" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
 
@@ -39,7 +39,7 @@
         if (res.IsSuccess)
         {
             await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.IdentifiersList is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0]);
-            navManager.NavigateTo(AppConfig.RouteToIndex);
+            navManager.NavigateTo(Routes.PathFor<Index>());
         }
     }
 

@@ -39,7 +39,7 @@
         var newOnboardState = appCache.MyOnboardState with { IsWelcomed = true };
         await storageService.SetItem<OnboardState>(newOnboardState);
         logger.LogInformation("AcknowledgeWelcome set onboardState");
-        navManager.NavigateTo(RouteToIndex);
+        navManager.NavigateTo(Routes.PathFor<Index>());
         return;
     }
 }

@@ -64,7 +64,7 @@
 			};
 		_ = await storageService.SetItem<OnboardState>(newOnboardState);
 		StateHasChanged();
-		navManager.NavigateTo(RouteToIndex);
+		navManager.NavigateTo(Routes.PathFor<Index>());
 	}
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
