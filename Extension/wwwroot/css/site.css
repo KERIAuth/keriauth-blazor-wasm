@@ -2,13 +2,20 @@
     /* Override MudBlazor variables here */
     --bt-appbar-height: 4.5rem;
     --bt-buttontray-height: 4.3rem;
-    --bt-chatbox-height: 4.3rem;
 }
 
 .mud-appbar .mud-toolbar-appbar {
     /* Fixed height. We don't want Mudblazor default of changing height depending on media width */
     height: var(--bt-appbar-height);
     padding:0 0 0 0;
+}
+
+.bt-appbar {
+    height: var(--bt-appbar-height);
+    border-bottom: 1px solid teal;
+    box-shadow: none;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .mud-button {
@@ -116,23 +123,14 @@
     padding-top: 0;
 }
 
-.bt-chat-group-header {
-    align-items: center;
-    gap: 0;
-    padding-right: 0.28rem;
-    padding-top: 0.57rem;
-}
 
-.bt-chaticon {
-    margin-left: 0;
-    margin-right: 0.57rem;
-}
 
 .bt-button-tray {
     justify-content: flex-end;
     padding-left: 1rem;
     padding-right: 1rem;
     padding-bottom: 0.5rem;
+    padding-top: 0.5rem;
     height: var(--bt-buttontray-height);
 }
 
@@ -144,9 +142,6 @@
     height: -webkit-fill-available;
 }
 
-.bt-chatbox {
-    height: var(--bt-chatbox-height);
-}
 
 .bt-stack-item {
     justify-content: flex-end;

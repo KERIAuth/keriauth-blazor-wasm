@@ -244,8 +244,8 @@
 
 <MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
     <!-- APP BAR -->
-    <MudAppBar Elevation="0" Class="px-0" Style="height:var(--bt-appbar-height);">
-        <MudStack Style="height:inherit; width: 100%; padding:0.5rem 0.5rem 0.5rem 0.5rem;" Class="d-flex pt-2" Row="true">
+    <MudAppBar Class="bt-appbar">
+        <MudStack Style="height:inherit; width: 100%; padding:0.5rem 0.5rem 0.5rem 0.25rem;" Class="d-flex pt-2" Row="true">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleMenuDrawer" Style="background-color:transparent;" data-testid="menuHamburger" />
 
             <!-- Logo and Title -->
@@ -340,8 +340,8 @@
 
     <!-- MENU DRAWER AND MAIN CONTENT -->
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:calc(var(--mud-appbar-height) + 0.5rem); position:absolute; width:inherit; display:flex;">
-        <MudDrawer id="MudDrawer" @bind-Open="IsMenuDrawerOpen" Elevation="0" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
-            <MudNavMenu Style="Background: var(--mud-palette-appbar-background); height:calc(100vh - var(--mud-appbar-height)); overflow-y:auto; padding-left:0.25rem;">
+        <MudDrawer Style="background: var(--mud-palette-appbar-background);" id="MudDrawer" @bind-Open="IsMenuDrawerOpen" Elevation="0" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
+            <MudNavMenu Style="height:calc(100vh - var(--mud-appbar-height) - 0.5rem); overflow-y:auto;">
                 <MudNavLink Href="@(Routes.PathFor<DashboardPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<IdentifiersPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>

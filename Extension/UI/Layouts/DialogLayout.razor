@@ -12,8 +12,8 @@
 
 <CascadingValue Value="this">
     <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
-        <MudAppBar Elevation="0" Class="px-0" Style="height:var(--bt-appbar-height);">
-            <MudStack Style="height:inherit; width: 100%; padding-bottom:0.571rem;" Class="d-flex pt-2" Row="true">
+        <MudAppBar Class="bt-appbar">
+            <MudStack Style="height:inherit; width: 100%; padding-bottom:0.571rem;" Class="d-flex pt-2 pl-2" Row="true">
                  <MudButton Href="@(Routes.PathFor<Extension.UI.Pages.Index>())" Class="bt-logo-button">
                     <img src="images/logo512.png" alt="Icon" style="width: 1.714rem; height: 1.714rem;" />
                     <MudText Style="margin-left:0.5rem; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>

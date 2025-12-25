@@ -5,7 +5,7 @@
 {
     <MudStack Row>
         <MudText Class="mt-2">from</MudText>
-        <MudPaper Elevation="0" Class="my-2" Style="width:100%; background:#ffffff20; border-radius: 1.071rem;">
+        <MudPaper Elevation="0" Class="my-2" Style="width:100%; background:transparent; border-radius: 0.5rem; border:1px solid darkslategray">
             <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0; max-width:35.714rem; width:fit-content; overflow:hidden; padding-left:0.357rem;">
                 <MudStack Row Style="white-space:nowrap; width:inherit" Spacing="0">
                     @if (ActiveTab.FavIconUrl is not null)
@@ -16,11 +16,11 @@
                     {
                         <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Primary" Class="bt-favicon" />
                     }
-                    <MudText Class="bt-text-ellipsis" Style="font-weight: bold; color:white !important;">
+                    <MudText Class="bt-text-ellipsis" Style="font-weight: bold; ">
                         @ActiveTab.Title
                     </MudText>
                 </MudStack>
-                <MudText Class="bt-text-ellipsis" Style="margin-left:1.429rem; color:white !important;">
+                <MudText Class="bt-text-ellipsis" Style="margin-left:1.429rem; ">
                     @ActiveTab.Url
                 </MudText>
             </MudStack>
