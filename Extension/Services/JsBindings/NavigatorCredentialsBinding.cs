@@ -1,4 +1,4 @@
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentResults;
@@ -169,7 +169,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
                     "This authenticator does not support resident keys (passkeys).");
             }
 
-            _logger.LogWarning(
+            _logger.LogInformation(
                 "WebAuthn credential created - CredentialId: {CredentialId}, Transports: [{Transports}], " +
                 "AuthenticatorAttachment requested: {AuthenticatorAttachment}",
                 result.CredentialId,
@@ -210,7 +210,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
                     "This authenticator did not return PRF results. It may not support the PRF extension.");
             }
 
-            _logger.LogWarning(
+            _logger.LogInformation(
                 "WebAuthn assertion successful - CredentialId: {CredentialId}, PRF output length: {PrfLength} bytes",
                 result.CredentialId,
                 result.PrfOutputBase64 is not null ? Convert.FromBase64String(result.PrfOutputBase64).Length : 0);

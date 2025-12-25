@@ -1,4 +1,4 @@
-using FluentResults;
+﻿using FluentResults;
 using Extension.Models;
 using Extension.Models.Storage;
 using Extension.Services.Crypto;
@@ -228,7 +228,7 @@ public class WebauthnService : IWebauthnService {
 
             // Log transports for each credential to help diagnose passkey selection
             for (int i = 0; i < passkeys.Count; i++) {
-                _logger.LogWarning(
+                _logger.LogInformation(
                     "Authentication: Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
                     i,
                     passkeys[i].Name ?? "(unnamed)",
@@ -330,7 +330,7 @@ public class WebauthnService : IWebauthnService {
             var prfSalt = ComputePrfSalt(profileId);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
-            _logger.LogWarning(
+            _logger.LogInformation(
                 "Testing specific passkey - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
                 passkey.Name ?? "(unnamed)",
                 passkey.CredentialBase64,
@@ -395,9 +395,9 @@ public class WebauthnService : IWebauthnService {
             var credentialIds = passkeys.Select(a => a.CredentialBase64).ToList();
             var transportsPerCredential = passkeys.Select(a => a.Transports).ToList();
 
-            _logger.LogWarning("Testing all {Count} passkeys with stored transports", passkeys.Count);
+            _logger.LogInformation("Testing all {Count} passkeys with stored transports", passkeys.Count);
             foreach (var pk in passkeys) {
-                _logger.LogWarning(
+                _logger.LogInformation(
                     "  - Name: {Name}, CredentialId: {CredentialId}, Stored Transports: [{Transports}]",
                     pk.Name ?? "(unnamed)",
                     pk.CredentialBase64,

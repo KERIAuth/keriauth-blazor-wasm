@@ -151,10 +151,10 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 function extractAaguidFromAuthenticatorData(authData: ArrayBuffer): string {
     const bytes = new Uint8Array(authData);
 
-    console.warn(`[navigatorCredentialsShim] extractAaguid - authData length: ${bytes.length} bytes`);
+    console.log(`[navigatorCredentialsShim] extractAaguid - authData length: ${bytes.length} bytes`);
 
     if (bytes.length < 37) {
-        console.warn(`[navigatorCredentialsShim] extractAaguid - authData too short for flags check`);
+        console.log(`[navigatorCredentialsShim] extractAaguid - authData too short for flags check`);
         return '00000000-0000-0000-0000-000000000000';
     }
 
@@ -163,16 +163,16 @@ function extractAaguidFromAuthenticatorData(authData: ArrayBuffer): string {
     const hasAttestedCredentialData = (flags & 0x40) !== 0;
     const hasExtensions = (flags & 0x80) !== 0;
 
-    console.warn(`[navigatorCredentialsShim] extractAaguid - flags: 0x${flags.toString(16)}, ` +
+    console.log(`[navigatorCredentialsShim] extractAaguid - flags: 0x${flags.toString(16)}, ` +
         `AT=${hasAttestedCredentialData}, ED=${hasExtensions}`);
 
     if (!hasAttestedCredentialData) {
-        console.warn(`[navigatorCredentialsShim] extractAaguid - AT flag not set, no attested credential data`);
+        console.log(`[navigatorCredentialsShim] extractAaguid - AT flag not set, no attested credential data`);
         return '00000000-0000-0000-0000-000000000000';
     }
 
     if (bytes.length < 55) {
-        console.warn(`[navigatorCredentialsShim] extractAaguid - authData too short for AAGUID (need 55, have ${bytes.length})`);
+        console.log(`[navigatorCredentialsShim] extractAaguid - authData too short for AAGUID (need 55, have ${bytes.length})`);
         return '00000000-0000-0000-0000-000000000000';
     }
 
@@ -185,7 +185,7 @@ function extractAaguidFromAuthenticatorData(authData: ArrayBuffer): string {
         .join('');
 
     const aaguid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-    console.warn(`[navigatorCredentialsShim] extractAaguid - extracted AAGUID: ${aaguid}`);
+    console.log(`[navigatorCredentialsShim] extractAaguid - extracted AAGUID: ${aaguid}`);
 
     return aaguid;
 }
@@ -277,12 +277,12 @@ export async function createCredential(
     let aaguid = '00000000-0000-0000-0000-000000000000';
     if (typeof response.getAuthenticatorData === 'function') {
         const authData = response.getAuthenticatorData();
-        console.warn(`[navigatorCredentialsShim] createCredential - using getAuthenticatorData()`);
+        console.log(`[navigatorCredentialsShim] createCredential - using getAuthenticatorData()`);
         aaguid = extractAaguidFromAuthenticatorData(authData);
     } else {
         // Fallback: parse attestationObject (CBOR encoded)
         // The attestationObject contains authData which has the AAGUID
-        console.warn(`[navigatorCredentialsShim] createCredential - getAuthenticatorData() not available, trying attestationObject`);
+        console.log(`[navigatorCredentialsShim] createCredential - getAuthenticatorData() not available, trying attestationObject`);
         try {
             // attestationObject is CBOR-encoded, authData is at a known offset after the "authData" key
             // For simplicity, we'll try to find the authData within the attestationObject
@@ -336,14 +336,14 @@ export async function createCredential(
             console.warn(`[navigatorCredentialsShim] createCredential - failed to parse attestationObject:`, e);
         }
     }
-    console.warn(`[navigatorCredentialsShim] createCredential - AAGUID: ${aaguid}`);
+    console.log(`[navigatorCredentialsShim] createCredential - AAGUID: ${aaguid}`);
 
     if (typeof response.getTransports === 'function') {
         transports = response.getTransports() || [];
     }
 
     // Log what the browser returned for transports
-    console.warn(
+    console.log(
         `[navigatorCredentialsShim] createCredential - getTransports() returned: [${transports.join(', ')}], ` +
         `authenticatorAttachment requested: ${options.authenticatorAttachment ?? '(none/null)'}`
     );
