@@ -12,14 +12,14 @@
 
 <CascadingValue Value="this">
     <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
-        <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
-            <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
-                 <MudButton Href="@(Routes.PathFor<Extension.UI.Pages.Index>())" Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
-                    <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
-                    <MudText Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
+        <MudAppBar Elevation="0" Class="px-0" Style="height:var(--bt-appbar-height);">
+            <MudStack Style="height:inherit; width: 100%; padding-bottom:0.571rem;" Class="d-flex pt-2" Row="true">
+                 <MudButton Href="@(Routes.PathFor<Extension.UI.Pages.Index>())" Class="bt-logo-button">
+                    <img src="images/logo512.png" alt="Icon" style="width: 1.714rem; height: 1.714rem;" />
+                    <MudText Style="margin-left:0.5rem; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">KeriAuth</MudText>
                 </MudButton>
 
-                <MudStack Row="true" Style="margin-left:16px; display:flex; align-items:center;">
+                <MudStack Row="true" Class="ml-4 d-flex align-center">
                     <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
                         @TimeoutText.Text
                     </MudText>
@@ -27,7 +27,7 @@
                 <MudSpacer />
             </MudStack>
         </MudAppBar>
-        <MudMainContent Class="bt-main-content" Style="left:0; top:61px;">
+        <MudMainContent Class="bt-main-content" Style="left:0; top:4.357rem;">
             <MudContainer MaxWidth="MaxWidth.Large" Style="height:inherit; min-height:inherit; padding-left:0; padding-right:0;">
                 @Body
             </MudContainer>
@@ -83,6 +83,6 @@
 
 <style>
     #DialogLayout {
-        margin: 0px;
+        margin: 0;
     }
 </style>

@@ -82,8 +82,8 @@
             </MudStack>
             @if (WWebsites is not null && WWebsites.Any())
             {
-                <MudPaper>
-                    <MudTable Items="WWebsites" Hover="false" Striped="true">
+                <MudPaper Elevation="0">
+                    <MudTable Elevation="0" Items="WWebsites" Hover="false" Striped="true">
                         <HeaderContent>
                             <MudTh Style="width: 65%; white-space: normal; font-weight:600;">Website</MudTh>
                             <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Identifier</MudTh>
@@ -96,7 +96,7 @@
                             <MudTd DataLabel="Identifier">
                                 @if (context.RememberedPrefixOrNothing is not null)
                                 {
-                                    <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Class="bt-identicon" />
                                 }
                             </MudTd>
                             <!--

@@ -338,9 +338,9 @@
                 to cryptographically sign HTTP Request Headers with the key material of the identifier you selected for this site when you signed in to it.
                 The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
             </MudText>
-            <MudText Style="margin-top:10px;"><b>Signing Identifier</b></MudText>
+            <MudText Class="mt-2"><b>Signing Identifier</b></MudText>
             <MudStack Row Class="pl-1" Style="align-items:center;">
-                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
                 <MudText>@WebsiteConfiguredAlias</MudText>
             </MudStack>
                 <MudStack Row>
@@ -348,7 +348,7 @@
                 </MudStack>
                 @if (IsDetailShown)
                 {
-                    <MudPaper Style="margin-left:48px">
+                    <MudPaper Elevation="0" Class="ml-12">
                         <table class="non-responsive-table">
                             <thead style="text-align:left;">
                                 <tr>
@@ -368,7 +368,7 @@
                         </table>
                     </MudPaper>
                 }
-                <MudCheckBox Label="Always auto-sign Http Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 28px;" />
+                <MudCheckBox Label="Always auto-sign Http Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 2rem;" />
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">

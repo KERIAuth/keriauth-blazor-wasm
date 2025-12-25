@@ -48,7 +48,7 @@
                                       Margin="Margin.Dense"
                                       Immediate="true"
                                       Class="mx-2"
-                                      Style="max-width: 300px;"
+                                      Style="max-width: 21.429rem;"
                                       @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveProviderName(); })" />
                         <MudIconButton Icon="@Icons.Material.Filled.Check"
                                        Color="Color.Success"
@@ -83,7 +83,7 @@
                                       Margin="Margin.Dense"
                                       Immediate="true"
                                       Class="mx-2"
-                                      Style="max-width: 300px;"
+                                      Style="max-width: 21.429rem;"
                                       @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveConnectionName(); })" />
                         <MudIconButton Icon="@Icons.Material.Filled.Check"
                                        Color="Color.Success"
@@ -106,11 +106,11 @@
                 @if (keriaConnectConfig is not null && keriaConnectConfig.ClientAidPrefix is not null && keriaConnectConfig.AgentAidPrefix is not null)
                 {
                     <MudStack Row Style="align-items: center;">
-                        <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(keriaConnectConfig.ClientAidPrefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                        <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(keriaConnectConfig.ClientAidPrefix)" Class="bt-identicon" />
                         <MudText Style="overflow-wrap: anywhere;"><b>Client AID Prefix:</b><br />@keriaConnectConfig.ClientAidPrefix</MudText>
                     </MudStack>
                     <MudStack Row Style="align-items: center;">
-                        <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(keriaConnectConfig.AgentAidPrefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                        <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(keriaConnectConfig.AgentAidPrefix)" Class="bt-identicon" />
                         <MudText Style="overflow-wrap: anywhere;"><b>Agent AID Prefix:</b><br />@keriaConnectConfig.AgentAidPrefix</MudText>
                     </MudStack>
                 }

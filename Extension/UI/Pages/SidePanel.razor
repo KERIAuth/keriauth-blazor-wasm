@@ -11,35 +11,34 @@
 @inject IJSRuntime JSRuntime;
 
 <div class="text-container">
-    <MudAppBar Elevation="2" Style="padding-left: 0px; padding-right: 0px; height:var(--bt-appbar-height);">
-        <MudStack Style="height:inherit; width: 100%; padding-bottom:8px;" Class="d-flex pt-2" Row="true">
-            <MudButton Href="@(Routes.PathFor<Index>())"
-                Style="padding: 10px; height:fit-content; align-self:center; border:none; border-radius:16px; background:#00000020;">
-                <img src="images/logo512.png" alt="Icon" style="width: 24px; height: 24px;" />
+    <MudAppBar Elevation="0" Class="px-0" Style="height:var(--bt-appbar-height);">
+        <MudStack Style="height:inherit; width: 100%; padding-bottom:0.571rem;" Class="d-flex pt-2" Row="true">
+            <MudButton Href="@(Routes.PathFor<Index>())" Class="bt-logo-button">
+                <img src="images/logo512.png" alt="Icon" style="width: 1.714rem; height: 1.714rem;" />
                 <MudText
-                    Style="margin-left:7px; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps; ">
+                    Style="margin-left:0.5rem; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps; ">
                     KeriAuth</MudText>
             </MudButton>
 
             @if (activeTab?.Url is not null)
             {
                 <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Color="Color.Primary"
-                    Style="align-self:center; padding:0;" />
-                <MudButton 
-                    Style="padding: 10px; height:47px; align-self:center; border:none; border-radius:16px; background:#00000020;">
-                    <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0px; max-width:500px; width:fit-content; overflow:hidden;">
+                    Class="align-self-center pa-0" />
+                <MudButton
+                    Style="padding: 0.714rem; height:3.357rem; align-self:center; border:none; border-radius:1.143rem; background:#00000020;">
+                    <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0; max-width:35.714rem; width:fit-content; overflow:hidden;">
                         <MudStack Row Style="white-space:nowrap; width:inherit" Spacing="0">
                             @if (activeTab.FavIconUrl is not null) {
-                                <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px; align-self:center; margin-right:4px;" />
+                                <MudImage Src="@activeTab.FavIconUrl" Alt="Favicon" Class="bt-favicon" />
                             }
                             else {
-                                <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Primary" Style="width: 16px; height: 16px; align-self:center; margin-right:4px;" />
+                                <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Primary" Class="bt-favicon" />
                             }
-                            <MudText Style="height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; font-weight: bold; overflow:hidden; color:white !important;">
+                            <MudText Class="bt-text-ellipsis" Style="font-weight: bold; color:white !important;">
                                 @activeTab.Title
                             </MudText>
                         </MudStack>
-                        <MudText Style="margin-left:20px; height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; color:white !important;">
+                        <MudText Class="bt-text-ellipsis" Style="margin-left:1.429rem; color:white !important;">
                             @domain
                         </MudText>
                     </MudStack>

@@ -297,7 +297,7 @@
 
                 @if (isCustomSettingsShown)
                 {
-                    <MudPaper Class="mt-0 pt-0 ml-16" Elevation="1">
+                    <MudPaper Elevation="0" Class="mt-0 pt-0 ml-16">
                         <MudStack Class="pa-4">
                             <MudText Typo="Typo.subtitle1"><strong>Registration Settings</strong> (ordered by impact on provider selection)</MudText>
 
@@ -334,9 +334,9 @@
                                     <MudList Dense="true" T="string" Class="ml-2">
                                         @foreach (var hint in _selectedHints)
                                         {
-                                            <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                            <MudListItem Style="background:var(--mud-palette-background); height:2.286rem; width:fit-content;">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center">
-                                                    <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
+                                                    <MudText Typo="Typo.body2" Style="width: 6.786rem;">@hint</MudText>
                                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Primary" Disabled="@IsFirstHint(hint)" OnClick="() => MoveHintUp(hint)" />
                                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Primary" Disabled="@IsLastHint(hint)" OnClick="() => MoveHintDown(hint)" />
                                                     <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Primary" OnClick="() => RemoveHint(hint)" />
@@ -355,9 +355,9 @@
                                     <MudList Dense="true" T="string" Class="ml-2">
                                         @foreach (var hint in AvailableHints)
                                         {
-                                            <MudListItem Style="background:var(--mud-palette-background); height:32px; width:fit-content;">
+                                            <MudListItem Style="background:var(--mud-palette-background); height:2.286rem; width:fit-content;">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center">
-                                                    <MudText Typo="Typo.body2" Style="width: 95px;">@hint</MudText>
+                                                    <MudText Typo="Typo.body2" Style="width: 6.786rem;">@hint</MudText>
                                                     <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="() => AddHint(hint)" />
                                                 </MudStack>
                                             </MudListItem>
@@ -400,7 +400,7 @@
                     </MudPaper>
                 }
 
-                <MudExpansionPanels Class="mt-4">
+                <MudExpansionPanels Elevation="0" Class="mt-4">
                     <MudExpansionPanel Text="More information...">
                         <MudStack>
                             <MudText Style="font-weight:bold;">What do I need?</MudText>

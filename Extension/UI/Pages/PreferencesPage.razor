@@ -115,9 +115,9 @@
                 <MudText Class="bt-pref-group-label0">
                     Theme
                 </MudText>
-                <MudStack Row="true" Style="margin-left:20px;">
+                <MudStack Row="true" Class="ml-5">
                     <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" Class="mt-2"></MudIcon>
-                    <MudSwitch Value="IsDarkTheme" id="asdfasdf" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-6" Style="margin-bottom: 0px !important; margin-left: 5px;" />
+                    <MudSwitch Value="IsDarkTheme" id="asdfasdf" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 mb-0 ml-1" />
                     <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" Class="mt-2"></MudIcon>
                 </MudStack>
             </MudStack>
@@ -126,7 +126,7 @@
                 <MudText Class="bt-pref-group-label0">
                     Menu Mode
                 </MudText>
-                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                <MudStack Row="false" Class="ml-5" Style="width:14.286rem;">
                     <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
                         {
@@ -134,7 +134,7 @@
                         }
                     </MudSelect>
                 </MudStack>
-                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                <MudStack Row="false" Class="ml-5" Style="width:14.286rem;">
                     <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInSidePanel" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVISP(a)" Label="In SidePanel" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInSidePanel)))
                         {
@@ -148,7 +148,7 @@
                 <MudText Class="bt-pref-group-label0">
                     Inactivity Timeout
                 </MudText>
-                <MudStack Row="false" Style="width:200px; margin-left:20px;">
+                <MudStack Row="false" Class="ml-5" Style="width:14.286rem;">
                     @*
                         // TODO P3 perf: update so the change is on mouse-up, not on mouse-move or click
                     *@
@@ -162,13 +162,13 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
-        <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Style="justify-content:left; margin-left:30px;">Reset to Default</MudButton>
+        <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Class="ml-8" Style="justify-content:left;">Reset to Default</MudButton>
     </MudStack>
 </div>
 
 <style>
     .bt-pref-radiogroup {
-        padding-left: 60px;
+        padding-left: 4.286rem;
     }
 
     .bt-pref-radio {
@@ -176,20 +176,20 @@
 
     .bt-pref-group-label0 {
         font-weight: bold;
-        padding-top: 16px;
+        padding-top: 1.143rem;
     }
 
     .bt-pref-group-label1 {
-        padding-left: 10px;
+        padding-left: 0.714rem;
     }
 
     .bt-pref-group-label2 {
-        padding-left: 40px;
+        padding-left: 2.857rem;
     }
 
     .bt-pref-stack1 {
         width: auto;
-        margin-left: 20px;
+        margin-left: 1.429rem;
         gap: 0;
     }
 </style>

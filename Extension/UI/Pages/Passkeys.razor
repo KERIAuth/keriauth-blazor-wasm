@@ -242,7 +242,7 @@
                     {
                         @foreach (var pk in MyStoredPasskeys.Passkeys)
                         {
-                            <MudCard>
+                            <MudCard Elevation="0">
                                 <MudCardContent Class="pb-0 mb-0">
                                     @{
                                         var iconUrl = GetPasskeyIcon(pk);
@@ -267,7 +267,7 @@
                                     @{
                                         var isConsistent = IsConsistentWithCurrentPasscode(pk);
                                     }
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="margin-top:8px;">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
                                         <MudIcon Icon="@(isConsistent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
                                                  Color="@(isConsistent ? Color.Success : Color.Error)"
                                                  Size="Size.Small" />
@@ -275,8 +275,8 @@
                                             Consistent with current passcode
                                         </MudText>
                                     </MudStack>
-                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small; margin-top:8px;">Transports:</MudText>
-                                    <MudStack Row="true" Style="flex-wrap:wrap; gap:4px; margin-left:8px;">
+                                    <MudText Color="Color.Secondary" Class="mt-2" Style="font-weight:100; font-size:small;">Transports:</MudText>
+                                    <MudStack Row="true" Class="ml-2" Style="flex-wrap:wrap; gap:0.286rem;">
                                         @foreach (var transport in AllTransports)
                                         {
                                             var credId = pk.CredentialBase64;

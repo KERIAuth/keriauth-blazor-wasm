@@ -322,7 +322,7 @@
                     {
                         <MudSelectItem T="string" Value="aid.Prefix" Class="@getIdentifierItemClass(aid.Prefix)">
                             <MudStack Row Style="align-items:center;">
-                                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(aid.Prefix) ViewBox="0 0 100 100" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden; margin-top: 3px;" />
+                                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(aid.Prefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
                                 <div class="bt-sad-2" style="display:contents;">
                                     <MudText Typo="Typo.subtitle2" Color="Color.Primary">@aid.Name</MudText>
                                 </div>
@@ -339,11 +339,11 @@
             <MudStack Class="gap-0">
                 <MudText Class="mt-4" Typo="Typo.h6">Credential</MudText>
                 <MudStack Class="ml-0" Style="gap:0;">
-                    <MudPaper Class="pa-0 mr-0">
+                    <MudPaper Elevation="0" Class="pa-0 mr-0">
                         <!-- Display Selected Credential -->
                         @if (!IsCredListExpanded)
                         {
-                            <MudPaper Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded">
+                            <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded">
                                 @if (SelectedCredentialOrNothing is null)
                                 {
                                     <div style="width:100%; align-content:center;">

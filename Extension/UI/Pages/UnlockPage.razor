@@ -286,7 +286,7 @@
                     <span style="font-style:italic; font-size:initial;">@taglineText</span>
                 </MudText>
             </MudStack>
-            <MudStack Style="justify-content: end; min-height:48px; flex-shrink: 0; align-self: stretch;" Class="gap-0">
+            <MudStack Style="justify-content: end; min-height:3.429rem; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                 @if (ShouldUsePasskey)
                 {
                     <MudText>
@@ -295,7 +295,7 @@
                 }
                 else // passcode
                 {
-                    <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 80px;">
+                    <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 5.714rem;">
                         <MudTextField Label="Passcode" @ref="passcodeField" OnKeyDown="@HandleKeyDown"
                                       InputType="InputType.Password" @bind-Value="@unlockPasscodeModel.Passcode" HelperText="&nbsp;"
                                       ErrorText="&nbsp;" For="@(() => unlockPasscodeModel.Passcode)" Immediate="true"
@@ -317,7 +317,7 @@
             </MudButton>
             <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
                        Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
-                Unlock with Passkey
+                Unlock
             </MudButton>
         }
         else

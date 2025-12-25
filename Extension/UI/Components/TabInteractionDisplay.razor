@@ -4,23 +4,23 @@
 @if (ActiveTab?.Url is not null)
 {
     <MudStack Row>
-        <MudText Style="margin-top:7px;">from</MudText>
-        <MudPaper Elevation="0" Style="width:100%; background:#ffffff20; margin-top:8px; margin-bottom:8px; border-radius: 15px 15px 15px 15px">
-            <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0px; max-width:500px; width:fit-content; overflow:hidden; padding-left:5px;">
+        <MudText Class="mt-2">from</MudText>
+        <MudPaper Elevation="0" Class="my-2" Style="width:100%; background:#ffffff20; border-radius: 1.071rem;">
+            <MudStack AlignItems=MudBlazor.AlignItems.Start Spacing="1" Style="gap:0; max-width:35.714rem; width:fit-content; overflow:hidden; padding-left:0.357rem;">
                 <MudStack Row Style="white-space:nowrap; width:inherit" Spacing="0">
                     @if (ActiveTab.FavIconUrl is not null)
                     {
-                        <MudImage Src="@ActiveTab.FavIconUrl" Alt="Favicon" Style="width: 16px; height: 16px; align-self:center; margin-right:4px;" />
+                        <MudImage Src="@ActiveTab.FavIconUrl" Alt="Favicon" Class="bt-favicon" />
                     }
                     else
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Primary" Style="width: 16px; height: 16px; align-self:center; margin-right:4px;" />
+                        <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Primary" Class="bt-favicon" />
                     }
-                    <MudText Style="height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; font-weight: bold; overflow:hidden; color:white !important;">
+                    <MudText Class="bt-text-ellipsis" Style="font-weight: bold; color:white !important;">
                         @ActiveTab.Title
                     </MudText>
                 </MudStack>
-                <MudText Style="margin-left:20px; height: 1.5em; text-overflow: ellipsis; text-wrap: nowrap; color:white !important;">
+                <MudText Class="bt-text-ellipsis" Style="margin-left:1.429rem; color:white !important;">
                     @ActiveTab.Url
                 </MudText>
             </MudStack>

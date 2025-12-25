@@ -146,11 +146,11 @@
             @foreach (Aid aid in MyIdentifiers)
             {
                 <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifierPage>() + aid.Prefix)">
-                    <MudCard Class="py-0 my-1">
+                    <MudCard Elevation="0" Class="py-0 my-1">
                         <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
                             <MudTooltip Text="Set Identifier as active" Delay="1000">
                                 <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
-                                    <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                    <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Class="bt-identicon" />
                                 </MudButton>
                             </MudTooltip>
                             <MudText Typo="Typo.h6">@aid.Name</MudText>

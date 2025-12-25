@@ -1,13 +1,14 @@
 ﻿:root {
     /* Override MudBlazor variables here */
-    --appbar-height: 64px;
-    --bt-buttontray-height: 60px;
-    --bt-chatbox-height: 60px;
+    --bt-appbar-height: 4.5rem;
+    --bt-buttontray-height: 4.3rem;
+    --bt-chatbox-height: 4.3rem;
 }
 
 .mud-appbar .mud-toolbar-appbar {
     /* Fixed height. We don't want Mudblazor default of changing height depending on media width */
-    height: var(--appbar-height);
+    height: var(--bt-appbar-height);
+    padding:0 0 0 0;
 }
 
 .mud-button {
@@ -55,7 +56,7 @@
 }
 
 .bt-sad-2 {
-    margin-left: 12px;
+    margin-left: 0.86rem;
     min-width: 100%;
     display: flex;
     align-items: center;
@@ -70,8 +71,8 @@
 }
 
 .bt-sad-5 {
-    padding-left: 8px;
-    padding-right: 8px;
+    padding-left: 0.57rem;
+    padding-right: 0.57rem;
     padding-top: 0;
     padding-top: 0;
 }
@@ -79,7 +80,7 @@
 .bt-sad-6 {
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 195px;
+    width: 13.93rem;
 }
 
 .bt-sad-8 {
@@ -93,15 +94,15 @@
 
 /* bt-main is used in on many pages, typically with the preceeding classes: d-flex flex-column??? gap-3 d-flex */
 .bt-main {
-    height: calc(100vh - var(--appbar-height) - var(--bt-buttontray-height));
+    height: calc(100vh - var(--bt-appbar-height) - var(--bt-buttontray-height));
     overflow-y: auto;
-    padding-left: 16px;
-    padding-right: 0px; /* so that scrollbars hug right edge */
-    padding-top: 10px;
+    padding-left: 1.14rem;
+    padding-right: 0; /* so that scrollbars hug right edge */
+    padding-top: 0.71rem;
 }
 
 .bt-main-inside-scroll {
-    padding-right: 16px;
+    padding-right: 1.14rem;
     width: 100%;
 }
 
@@ -113,20 +114,20 @@
 .bt-chat-group-header {
     align-items: center;
     gap: 0;
-    padding-right: 4px;
-    padding-top: 8px;
+    padding-right: 0.28rem;
+    padding-top: 0.57rem;
 }
 
 .bt-chaticon {
-    margin-left: 0px;
-    margin-right: 8px;
+    margin-left: 0;
+    margin-right: 0.57rem;
 }
 
 .bt-button-tray {
     justify-content: flex-end;
-    padding-left: 15px;
-    padding-right: 15px;
-    padding-bottom: 15px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 0.5rem;
     height: var(--bt-buttontray-height);
 }
 
@@ -144,10 +145,10 @@
 
 .bt-stack-item {
     justify-content: flex-end;
-    padding-left: 15px;
-    padding-right: 15px;
+    padding-left: 1.07rem;
+    padding-right: 1.07rem;
     align-items: center;
-    height: 48px;
+    height: 3.429rem;
 }
 
 .bt-identicon {
@@ -155,23 +156,41 @@
     border-color: black;
     border-width: 2px;
     border-radius: 50%;
-    width: 35px;
-    height: 35px;
+    width: 2.5rem;
+    height: 2.5rem;
+    overflow: hidden;
+}
+
+.bt-logo-button {
+    align-self: center;
+}
+
+.bt-favicon {
+    width: 1.14rem;
+    height: 1.14rem;
+    align-self: center;
+    margin-right: 0.28rem;
+}
+
+.bt-text-ellipsis {
+    height: 1.5em;
+    text-overflow: ellipsis;
+    text-wrap: nowrap;
     overflow: hidden;
 }
 
 .bt-info-icon {
-    height: 15px;
+    height: 1.07rem;
     color: lightslategray;
     position: relative;
-    top: 10px;
+    top: 0.71rem;
 }
 
 .bt-terms-section {
     border-style: solid none solid none;
     border-width: 2px;
     position: relative;
-    margin-right:16px;
+    margin-right: 1.14rem;
 }
 
 .bt-terms-button {
@@ -179,8 +198,8 @@
     justify-content: right;
     position: relative;
     border-radius: unset;
-    top: 55px;
-    margin-top: -55px;
+    top: 3.93rem;
+    margin-top: -3.93rem;
     z-index: 999;
 }
 

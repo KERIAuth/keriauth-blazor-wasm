@@ -453,7 +453,7 @@
                 <MudStack Row Class="pb-3">
                     <MudTooltip Text="Set Identifier as active" Delay="1000">
                         <MudButton OnClick="async () => await SetActiveAid(Prefix)">
-                            <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                            <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Class="bt-identicon" />
                         </MudButton>
                     </MudTooltip>
                     <MudStack Style="width:100%; word-break: break-all">
@@ -465,7 +465,7 @@
                                               Variant="Variant.Outlined"
                                               Margin="Margin.Dense"
                                               Immediate="true"
-                                              Style="max-width: 300px;" />
+                                              Style="max-width: 21.429rem;" />
                                 <MudIconButton Icon="@Icons.Material.Filled.Check"
                                                Color="Color.Success"
                                                Size="Size.Small"
@@ -498,7 +498,7 @@
 
                 <!-- TODO P3 intentionally not displayed until features are implemented -->
                 <div>
-                    <MudExpansionPanels MultiExpansion>
+                    <MudExpansionPanels Elevation="0" MultiExpansion>
                         <MudExpansionPanel Class="my-3">
                             <TitleContent>
                                 <MudText>
@@ -510,7 +510,7 @@
                                 {
                                     <MudText>This identifier's signing authority is delegated from:</MudText>
                                     <MudStack Row AlignItems="AlignItems.Center" Class="mt-2">
-                                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(delegator)" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(delegator)" Class="bt-identicon" />
                                         <Ellipsis StringContent="@delegator" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
                                     </MudStack>
                                 }
@@ -539,7 +539,7 @@
                                     </TitleContent>
                                     <ChildContent>
                                         <MudText>Threshold = @signingThreshold</MudText>
-                                        <MudTable Items="@signingKeys">
+                                        <MudTable Elevation="0" Items="@signingKeys">
                                             <HeaderContent>
                                                 <MudTh Class="py-0 my-0">Group</MudTh>
                                                 <MudTh Class="py-0 my-0">Group Threshold</MudTh>
@@ -555,7 +555,7 @@
                                                     @{
                                                         // TODO P3 could we know in advance what the aid would be?
                                                     }
-                                                    <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                                    <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Class="bt-identicon" />
                                                 </MudTd>
                                                 <MudTd Class="py-0 my-0">
                                                     <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
@@ -573,7 +573,7 @@
                                         @if (delegatees.Any())
                                         {
                                             <MudText>You delegated signing authority to @delegatees.Count() delegatee(s).</MudText>
-                                            <MudTable Items="@delegatees" Hover="true" Dense="true" Class="mt-2">
+                                            <MudTable Elevation="0" Items="@delegatees" Hover="true" Dense="true" Class="mt-2">
                                                 <HeaderContent>
                                                     <MudTh Class="py-0 my-0">Identicon</MudTh>
                                                     <MudTh Class="py-0 my-0">Name</MudTh>
@@ -581,7 +581,7 @@
                                                 </HeaderContent>
                                                 <RowTemplate>
                                                     <MudTd Class="py-0 my-0">
-                                                        <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                                        <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Class="bt-identicon" />
                                                     </MudTd>
                                                     <MudTd Class="py-0 my-0">@context.Name</MudTd>
                                                     <MudTd Class="py-0 my-0">
@@ -606,7 +606,7 @@
                                     </TitleContent>
                                     <ChildContent>
                                         <MudText>Total Threshold = @nextThreshold</MudText>
-                                        <MudTable Items="@nextKeys">
+                                        <MudTable Elevation="0" Items="@nextKeys">
                                             <HeaderContent>
                                                 <MudTh Class="py-0 my-0">Group</MudTh>
                                                 <MudTh Class="py-0 my-0">Group Threshold</MudTh>
@@ -620,7 +620,7 @@
                                                 <MudTd Class="py-0 my-0">@context.GroupThreshold</MudTd>
                                                 <MudTd Class="py-0 my-0">@context.Weight / @context.GroupThreshold</MudTd>
                                                 <MudTd Class="py-0 my-0">
-                                                    <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                                    <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Class="bt-identicon" />
                                                 </MudTd>
                                                 <MudTd Class="py-0 my-0">
                                                     <Ellipsis StringContent="@context.PubKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
@@ -644,14 +644,14 @@
                                         <MudText>Witness Threshold = @witnessThreshold</MudText>
                                         @if (witnesses.Any())
                                         {
-                                            <MudTable Items="@witnesses">
+                                            <MudTable Elevation="0" Items="@witnesses">
                                                 <HeaderContent>
                                                     <MudTh Class="py-0 my-0">Identicon</MudTh>
                                                     <MudTh Class="py-0 my-0">Public Key</MudTh>
                                                 </HeaderContent>
                                                 <RowTemplate>
                                                     <MudTd Class="py-0 my-0">
-                                                        <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Style="border-style:solid; border-color:black; border-width:2px; border-radius:50%; width:35px; height:35px; overflow:hidden;" />
+                                                        <MudIcon ViewBox="0 0 100 100" Icon="@context.Identicon" Class="bt-identicon" />
                                                     </MudTd>
                                                     <MudTd Class="py-0 my-0">
                                                         <Ellipsis StringContent="@context.PublicKey" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
@@ -681,7 +681,7 @@
                                 <MudText>Key Events (@keyEventsList.Count())</MudText>
                             </TitleContent>
                             <ChildContent>
-                                <MudTable Items="@keyEventsList.Reverse()">
+                                <MudTable Elevation="0" Items="@keyEventsList.Reverse()">
                                     <HeaderContent>
                                         <MudTh Class="py-0 my-0">Sequence</MudTh>
                                         <MudTh Class="py-0 my-0">Event Type</MudTh>

@@ -459,13 +459,13 @@
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
-        <MudStack Style="min-width: 340px; width:100%; margin-right:16px;">
+        <MudStack Style="min-width: 24.286rem; width:100%; margin-right:1.143rem;">
             <MudText Typo="Typo.h6">Connect with KERI Agent Service (KERIA)</MudText>
 
             <MudText Typo="Typo.h6">Service</MudText>
             <MudStack Class="ml-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudText Style="min-width: 120px;">Provider Preset</MudText>
+                    <MudText Style="min-width: 8.571rem;">Provider Preset</MudText>
                     <MudSelect T="Preset" @bind-Value="@PresetChoice" Style="flex-grow: 1;">
                         @foreach (var preset in presetAgents)
                         {
@@ -474,14 +474,14 @@
                     </MudSelect>
                 </MudStack>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudText Style="min-width: 120px;">Agent URL</MudText>
+                    <MudText Style="min-width: 8.571rem;">Agent URL</MudText>
                     <MudTextField @bind-Value="@urlModel.AdminUrl"
                                   For="@(() => urlModel.AdminUrl)"
                                   Immediate="true"
                                   Style="flex-grow: 1;" />
                 </MudStack>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudText Style="min-width: 120px;">Boot URL</MudText>
+                    <MudText Style="min-width: 8.571rem;">Boot URL</MudText>
                     <MudTextField Required="!IsUsingExistingPasscode"
                                   @bind-Value="@urlModel.BootUrl"
                                   For="@(() => urlModel.BootUrl)"
@@ -492,7 +492,7 @@
 
             <MudText Typo="Typo.h6">Your Passcode</MudText>
             <MudStack Class="ml-4">
-                <MudRadioGroup T="Boolean" Style="margin-left:-16px;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
+                <MudRadioGroup T="Boolean" Style="margin-left:-1.143rem;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
                     </MudRadio>
@@ -503,7 +503,7 @@
                 @if (IsUsingExistingPasscode)
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudText Style="min-width: 120px;">Passcode</MudText>
+                        <MudText Style="min-width: 8.571rem;">Passcode</MudText>
                         <MudTextField T="string"
                                       InputType="InputType.Password"
                                       Value="@configuredPasscodeModel.Passcode"
@@ -518,12 +518,12 @@
                 }
                 else // create a new passcode
                 {
-                    <MudText Style="min-width: 120px;">A new random passcode has been placed on your clipboard</MudText>
-                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-16px; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
+                    <MudText Style="min-width: 8.571rem;">A new random passcode has been placed on your clipboard</MudText>
+                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-1.143rem; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
                     @if (IsPasscodeCopyConfirmed)
                     {
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudText Style="min-width: 120px;">Confirm your passcode</MudText>
+                            <MudText Style="min-width: 8.571rem;">Confirm your passcode</MudText>
                             <MudTextField T="string"
                                           InputType="InputType.Password"
                                           Value="@configuredPasscodeModel.Passcode"
