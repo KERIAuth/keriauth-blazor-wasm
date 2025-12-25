@@ -225,10 +225,7 @@
     <MudStack Class="bt-main">
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
-                <MudStack Row="true">
-                    <MudText Typo="Typo.h6">Passkeys</MudText>
-                    <MudText Typo="Typo.h6">@CountLabel</MudText>
-                </MudStack>
+                <MudText Class="bt-page-title">Passkeys  @CountLabel</MudText>
                 @if (HasPasskeys)
                 {
                     <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2" Style="font-size:small;">

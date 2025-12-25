@@ -361,16 +361,16 @@
                 @switch (RequestedSignInMode)
                 {
                     case SignInMode.Identifier:
-                        <MudText Typo="Typo.h6">Request to Sign In with Identifier</MudText>
+                        <MudText Class="bt-page-title">Request to Sign In with Identifier</MudText>
                         break;
                     case SignInMode.Credential:
-                        <MudText Typo="Typo.h6">Request to Sign In with Credential</MudText>
+                        <MudText Class="bt-page-title">Request to Sign In with Credential</MudText>
                         break;
                     case SignInMode.Prompt:
-                        <MudText Typo="Typo.h6">Request to Sign In</MudText>
+                        <MudText Class="bt-page-title">Request to Sign In</MudText>
                         break;
                     default:
-                        <MudText Typo="Typo.h6">Unsupported SignIn Mode: @RequestedSignInMode</MudText>
+                        <MudText Class="bt-page-title">Unsupported SignIn Mode: @RequestedSignInMode</MudText>
                         break;
                 }
                 @if (ActiveTab is not null)
