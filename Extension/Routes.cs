@@ -76,6 +76,7 @@ public static class Routes
         [typeof(NewReleasePage)] = new("New Release", "/NewRelease.html", RequiresAuth: false),
         [typeof(ConfigurePage)] = new("Configure", "/Configure.html", RequiresAuth: false),
         [typeof(OfferPasskeyPage)] = new("Offer Passkey", "/OfferPasskey.html", RequiresAuth: false),
+        [typeof(GettingStartedPage)] = new("Getting Started", "/GettingStarted.html", RequiresAuth: false),
         [typeof(UnlockPage)] = new("Unlock", "/Unlock.html", RequiresAuth: false,
             Icons.Material.Filled.LockOpen, Color.Surface),
         [typeof(PreferencesPage)] = new("Preferences", "/ManagePreferences.html", RequiresAuth: false,

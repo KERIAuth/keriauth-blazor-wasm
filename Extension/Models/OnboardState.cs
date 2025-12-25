@@ -23,5 +23,9 @@ namespace Extension.Models {
 
         [JsonPropertyName("PrivacyAgreedHash")]
         public int PrivacyAgreedHash { get; init; }
+
+        [JsonPropertyName("ShowedGettingStarted")]
+        public bool ShowedGettingStarted { get; init; }
+
     }
 }

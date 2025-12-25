@@ -145,6 +145,12 @@
             return;
         }
 
+        if (!appCache.ShowedGettingStarted)
+        {
+            NavigateIfNeeded(Routes.PathFor<GettingStartedPage>());
+            return;
+        }
+
         // Check for pending BW→App requests that require App UI interaction
         if (pendingRequest is not null)
         {
