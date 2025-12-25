@@ -8,7 +8,7 @@
 <MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@appCache.MyPreferences.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
-<MudSnackbarProvider Style="z-index:9999" />
+<MudSnackbarProvider Style="z-index:9999; position:absolute;" />
 
 <CascadingValue Value="this">
     <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">

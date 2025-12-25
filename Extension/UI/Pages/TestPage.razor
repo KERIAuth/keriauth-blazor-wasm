@@ -9,6 +9,7 @@
 @inject ILogger<PreferencesPage> logger
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @using System.Linq.Expressions
+@inject ISnackbar snackbar
 
 @implements IDisposable
 
@@ -97,6 +98,7 @@
                 <MudLink Href="@(Routes.PathFor<UnlockPage>())" Target="_self">Unlock</MudLink>
                 <MudLink Href="@(Routes.PathFor<ConnectingPage>())" Target="_self">Connecting</MudLink>
             </MudStack>
+            <MudButton Variant="Variant.Outlined" OnClick='@(async () => snackbar.Add("testing testing testing testing testing testing testing done"))'>Snackbar</MudButton>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
