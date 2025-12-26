@@ -203,10 +203,6 @@ namespace Extension.Services.SignifyService {
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
 
-        public Task<Result<IList<Challenge>>> GetChallenges() {
-            return Task.FromResult(Result.Fail<IList<Challenge>>("Not implemented"));
-        }
-
         public Task<Result<IList<Contact>>> GetContacts() {
             return Task.FromResult(Result.Fail<IList<Contact>>("Not implemented"));
         }
@@ -700,108 +696,95 @@ namespace Extension.Services.SignifyService {
 
         // ===================== Registry and Additional Operations =====================
 
-        public async Task<Result<List<RecursiveDictionary>>> ListRegistries(string name) {
+        public async Task<Result<List<Registry>>> ListRegistries(string name) {
             try {
                 var jsonString = await _binding.RegistriesListAsync(name);
                 if (jsonString is null) {
-                    return Result.Fail<List<RecursiveDictionary>>("ListRegistries returned null");
+                    return Result.Fail<List<Registry>>("ListRegistries returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<List<RecursiveDictionary>>("Failed to deserialize Registries list");
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Registry>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Registry>>("Failed to deserialize Registries list");
                 }
-                var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("ListRegistries: Exception: {e}", e);
-                return Result.Fail<List<RecursiveDictionary>>("ListRegistries: Exception: " + e);
+                return Result.Fail<List<Registry>>("ListRegistries: Exception: " + e);
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> CreateRegistry(string name, string registryName, int? toad = null, bool noBackers = false, List<string>? baks = null, string? nonce = null) {
+        public async Task<Result<Registry>> CreateRegistry(CreateRegistryArgs args) {
             try {
-                var args = new {
-                    name,
-                    registryName,
-                    toad,
-                    noBackers,
-                    baks,
-                    nonce
-                };
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
                 var jsonString = await _binding.RegistriesCreateAsync(argsJson);
                 if (jsonString is null) {
-                    return Result.Fail<RecursiveDictionary>("CreateRegistry returned null");
+                    return Result.Fail<Registry>("CreateRegistry returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Registry creation result");
+                var result = System.Text.Json.JsonSerializer.Deserialize<Registry>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Registry>("Failed to deserialize Registry creation result");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("CreateRegistry: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("CreateRegistry: Exception: " + e);
+                return Result.Fail<Registry>("CreateRegistry: Exception: " + e);
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> IssueCredential(string name, CredentialData args) {
+        public async Task<Result<IssueCredentialResult>> IssueCredential(string name, CredentialData args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
                 var jsonString = await _binding.CredentialsIssueAsync(name, argsJson);
                 if (jsonString is null) {
-                    return Result.Fail<RecursiveDictionary>("IssueCredential returned null");
+                    return Result.Fail<IssueCredentialResult>("IssueCredential returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Credential issuance result");
+                var result = System.Text.Json.JsonSerializer.Deserialize<IssueCredentialResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IssueCredentialResult>("Failed to deserialize Credential issuance result");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("IssueCredential: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("IssueCredential: Exception: " + e);
+                return Result.Fail<IssueCredentialResult>("IssueCredential: Exception: " + e);
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> RevokeCredential(string name, string said, string? datetime = null) {
+        public async Task<Result<RevokeCredentialResult>> RevokeCredential(string name, string said, string? datetime = null) {
             try {
                 var jsonString = await _binding.CredentialsRevokeAsync(name, said, datetime);
                 if (jsonString is null) {
-                    return Result.Fail<RecursiveDictionary>("RevokeCredential returned null");
+                    return Result.Fail<RevokeCredentialResult>("RevokeCredential returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Credential revocation result");
+                var result = System.Text.Json.JsonSerializer.Deserialize<RevokeCredentialResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<RevokeCredentialResult>("Failed to deserialize Credential revocation result");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("RevokeCredential: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("RevokeCredential: Exception: " + e);
+                return Result.Fail<RevokeCredentialResult>("RevokeCredential: Exception: " + e);
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> GetCredentialState(string ri, string said) {
+        public async Task<Result<CredentialState>> GetCredentialState(string ri, string said) {
             try {
                 var jsonString = await _binding.CredentialsStateAsync(ri, said);
                 if (jsonString is null) {
-                    return Result.Fail<RecursiveDictionary>("GetCredentialState returned null");
+                    return Result.Fail<CredentialState>("GetCredentialState returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Credential state");
+                var result = System.Text.Json.JsonSerializer.Deserialize<CredentialState>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<CredentialState>("Failed to deserialize Credential state");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("GetCredentialState: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("GetCredentialState: Exception: " + e);
+                return Result.Fail<CredentialState>("GetCredentialState: Exception: " + e);
             }
         }
 
@@ -819,41 +802,39 @@ namespace Extension.Services.SignifyService {
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> GetSchema(string said) {
+        public async Task<Result<Schema>> GetSchema(string said) {
             try {
                 var jsonString = await _binding.SchemasGetAsync(said);
                 if (jsonString is null) {
-                    return Result.Fail<RecursiveDictionary>("GetSchema returned null");
+                    return Result.Fail<Schema>("GetSchema returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Schema");
+                var result = System.Text.Json.JsonSerializer.Deserialize<Schema>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Schema>("Failed to deserialize Schema");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("GetSchema: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("GetSchema: Exception: " + e);
+                return Result.Fail<Schema>("GetSchema: Exception: " + e);
             }
         }
 
-        public async Task<Result<List<RecursiveDictionary>>> ListSchemas() {
+        public async Task<Result<List<Schema>>> ListSchemas() {
             try {
                 var jsonString = await _binding.SchemasListAsync();
                 if (jsonString is null) {
-                    return Result.Fail<List<RecursiveDictionary>>("ListSchemas returned null");
+                    return Result.Fail<List<Schema>>("ListSchemas returned null");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<List<RecursiveDictionary>>("Failed to deserialize Schemas list");
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<Schema>>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<Schema>>("Failed to deserialize Schemas list");
                 }
-                var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("ListSchemas: Exception: {e}", e);
-                return Result.Fail<List<RecursiveDictionary>>("ListSchemas: Exception: " + e);
+                return Result.Fail<List<Schema>>("ListSchemas: Exception: " + e);
             }
         }
 
@@ -1167,41 +1148,39 @@ namespace Extension.Services.SignifyService {
 
         // ===================== KeyStates Operations =====================
 
-        public async Task<Result<RecursiveDictionary>> GetKeyState(string prefix) {
+        public async Task<Result<KeyState>> GetKeyState(string prefix) {
             try {
                 var jsonString = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.KeyStatesGetAsync(prefix, ct),
                     TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
                 );
                 if (jsonString is null || jsonString.IsFailed) {
-                    return Result.Fail<RecursiveDictionary>("GetKeyState returned null or failed");
+                    return Result.Fail<KeyState>("GetKeyState returned null or failed");
                 }
 
-                // Log raw response for debugging
                 if (string.IsNullOrEmpty(jsonString.Value)) {
-                    return Result.Fail<RecursiveDictionary>("GetKeyState returned empty value");
+                    return Result.Fail<KeyState>("GetKeyState returned empty value");
                 }
 
-                logger.LogInformation("GetKeyState raw response (first 500 chars): {response}",
+                logger.LogDebug("GetKeyState raw response (first 500 chars): {response}",
                     jsonString.Value.Substring(0, Math.Min(500, jsonString.Value.Length)));
 
                 // GetKeyState returns an array with a single key state object
-                var resultArray = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
+                var resultArray = System.Text.Json.JsonSerializer.Deserialize<List<KeyState>>(jsonString.Value, jsonSerializerOptions);
                 if (resultArray is null || resultArray.Count == 0) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState or array is empty");
+                    return Result.Fail<KeyState>("Failed to deserialize KeyState or array is empty");
                 }
 
                 // Extract the first (and typically only) key state from the array
-                var result = RecursiveDictionary.FromObjectDictionary(resultArray[0]);
-                return Result.Ok(result);
+                return Result.Ok(resultArray[0]);
             }
             catch (Exception e) {
                 logger.LogWarning("GetKeyState: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("GetKeyState: Exception: " + e);
+                return Result.Fail<KeyState>("GetKeyState: Exception: " + e);
             }
         }
 
-        public async Task<Result<List<RecursiveDictionary>>> ListKeyStates(List<string> prefixes) {
+        public async Task<Result<List<KeyState>>> ListKeyStates(List<string> prefixes) {
             try {
                 var prefixesJson = System.Text.Json.JsonSerializer.Serialize(prefixes, jsonSerializerOptions);
                 var jsonString = await TimeoutHelper.WithTimeout<string>(
@@ -1209,25 +1188,24 @@ namespace Extension.Services.SignifyService {
                     TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
                 );
                 if (jsonString is null || jsonString.IsFailed) {
-                    return Result.Fail<List<RecursiveDictionary>>("ListKeyStates returned null or failed");
+                    return Result.Fail<List<KeyState>>("ListKeyStates returned null or failed");
                 }
                 if (string.IsNullOrEmpty(jsonString.Value)) {
-                    return Result.Fail<List<RecursiveDictionary>>("ListKeyStates returned empty value");
+                    return Result.Fail<List<KeyState>>("ListKeyStates returned empty value");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString.Value, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<List<RecursiveDictionary>>("Failed to deserialize KeyStates list");
+                var result = System.Text.Json.JsonSerializer.Deserialize<List<KeyState>>(jsonString.Value, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<List<KeyState>>("Failed to deserialize KeyStates list");
                 }
-                var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("ListKeyStates: Exception: {e}", e);
-                return Result.Fail<List<RecursiveDictionary>>("ListKeyStates: Exception: " + e);
+                return Result.Fail<List<KeyState>>("ListKeyStates: Exception: " + e);
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> QueryKeyState(string prefix, string? sn = null, RecursiveDictionary? anchor = null) {
+        public async Task<Result<Operation>> QueryKeyState(string prefix, string? sn = null, RecursiveDictionary? anchor = null) {
             try {
                 var anchorJson = anchor != null ? System.Text.Json.JsonSerializer.Serialize(anchor.ToDictionary(), jsonSerializerOptions) : null;
                 var jsonString = await TimeoutHelper.WithTimeout<string>(
@@ -1235,48 +1213,123 @@ namespace Extension.Services.SignifyService {
                     TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
                 );
                 if (jsonString is null || jsonString.IsFailed) {
-                    return Result.Fail<RecursiveDictionary>("QueryKeyState returned null or failed");
+                    return Result.Fail<Operation>("QueryKeyState returned null or failed");
                 }
                 if (string.IsNullOrEmpty(jsonString.Value)) {
-                    return Result.Fail<RecursiveDictionary>("QueryKeyState returned empty value");
+                    return Result.Fail<Operation>("QueryKeyState returned empty value");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
-                if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize KeyState query result");
+                var result = System.Text.Json.JsonSerializer.Deserialize<Operation>(jsonString.Value, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Operation>("Failed to deserialize KeyState query result");
                 }
-                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
                 logger.LogWarning("QueryKeyState: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("QueryKeyState: Exception: " + e);
+                return Result.Fail<Operation>("QueryKeyState: Exception: " + e);
             }
         }
 
         // ===================== Config Operations =====================
 
-        public async Task<Result<RecursiveDictionary>> GetAgentConfig() {
+        public async Task<Result<AgentConfig>> GetAgentConfig() {
             try {
                 var jsonString = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.ConfigGetAsync(ct),
                     TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
                 );
                 if (jsonString is null || jsonString.IsFailed) {
-                    return Result.Fail<RecursiveDictionary>("GetAgentConfig returned null or failed");
+                    return Result.Fail<AgentConfig>("GetAgentConfig returned null or failed");
                 }
                 if (string.IsNullOrEmpty(jsonString.Value)) {
-                    return Result.Fail<RecursiveDictionary>("GetAgentConfig returned empty value");
+                    return Result.Fail<AgentConfig>("GetAgentConfig returned empty value");
                 }
-                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Value, jsonSerializerOptions);
+                var result = System.Text.Json.JsonSerializer.Deserialize<AgentConfig>(jsonString.Value, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<AgentConfig>("Failed to deserialize Agent config");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetAgentConfig: Exception: {e}", e);
+                return Result.Fail<AgentConfig>("GetAgentConfig: Exception: " + e);
+            }
+        }
+
+        // ===================== Challenges Operations =====================
+
+        public async Task<Result<Challenge>> GenerateChallenge(int strength = 128) {
+            try {
+                var jsonString = await _binding.ChallengesGenerateAsync(strength);
+                if (jsonString is null) {
+                    return Result.Fail<Challenge>("GenerateChallenge returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Challenge>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Challenge>("Failed to deserialize Challenge");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GenerateChallenge: Exception: {e}", e);
+                return Result.Fail<Challenge>("GenerateChallenge: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> RespondToChallenge(string name, string recipient, List<string> words) {
+            try {
+                var wordsJson = System.Text.Json.JsonSerializer.Serialize(words, jsonSerializerOptions);
+                var jsonString = await _binding.ChallengesRespondAsync(name, recipient, wordsJson);
+                if (jsonString is null) {
+                    return Result.Fail<RecursiveDictionary>("RespondToChallenge returned null");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString, jsonSerializerOptions);
                 if (resultDict is null) {
-                    return Result.Fail<RecursiveDictionary>("Failed to deserialize Agent config");
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize challenge response");
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
             catch (Exception e) {
-                logger.LogWarning("GetAgentConfig: Exception: {e}", e);
-                return Result.Fail<RecursiveDictionary>("GetAgentConfig: Exception: " + e);
+                logger.LogWarning("RespondToChallenge: Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("RespondToChallenge: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<Operation>> VerifyChallenge(string source, List<string> words) {
+            try {
+                var wordsJson = System.Text.Json.JsonSerializer.Serialize(words, jsonSerializerOptions);
+                var jsonString = await _binding.ChallengesVerifyAsync(source, wordsJson);
+                if (jsonString is null) {
+                    return Result.Fail<Operation>("VerifyChallenge returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<Operation>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<Operation>("Failed to deserialize verify challenge result");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("VerifyChallenge: Exception: {e}", e);
+                return Result.Fail<Operation>("VerifyChallenge: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<ChallengeRespondedResult>> ChallengeResponded(string source, string said) {
+            try {
+                var jsonString = await _binding.ChallengesRespondedAsync(source, said);
+                if (jsonString is null) {
+                    return Result.Fail<ChallengeRespondedResult>("ChallengeResponded returned null");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<ChallengeRespondedResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<ChallengeRespondedResult>("Failed to deserialize challenge responded result");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("ChallengeResponded: Exception: {e}", e);
+                return Result.Fail<ChallengeRespondedResult>("ChallengeResponded: Exception: " + e);
             }
         }
     }

@@ -57,6 +57,12 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("op")] Operation Op
     );
 
+    public record RevokeCredentialResult(
+        [property: JsonPropertyName("rev")] Serder Rev,
+        [property: JsonPropertyName("anc")] Serder Anc,
+        [property: JsonPropertyName("op")] Operation Op
+    );
+
     public record CredentialState(
         [property: JsonPropertyName("vn")] List<int> Vn,
         [property: JsonPropertyName("i")] string I,

@@ -1,4 +1,4 @@
-﻿using FluentResults;
+using FluentResults;
 // using Extension.Models;
 using Extension.Helper;
 using Extension.Services.SignifyService.Models;
@@ -33,7 +33,6 @@ namespace Extension.Services.SignifyService {
         Task<Result<IList<Ipex>>> GetIpex();
         Task<Result<IList<Registry>>> GetRegistries();
         Task<Result<IList<Schema>>> GetSchemas();
-        Task<Result<IList<Challenge>>> GetChallenges();
         Task<Result<IList<Contact>>> GetContacts();
         Task<Result<IList<Notification>>> GetNotifications();
         Task<Result<IList<Escrow>>> GetEscrows();
@@ -60,8 +59,8 @@ namespace Extension.Services.SignifyService {
         Task<Result<Operation>> WaitForOperation(Operation operation, Dictionary<string, object>? options = null);
 
         // ===================== Registry Management =====================
-        Task<Result<List<RecursiveDictionary>>> ListRegistries(string name);
-        Task<Result<RecursiveDictionary>> CreateRegistry(string name, string registryName, int? toad = null, bool noBackers = false, List<string>? baks = null, string? nonce = null);
+        Task<Result<List<Registry>>> ListRegistries(string name);
+        Task<Result<Registry>> CreateRegistry(CreateRegistryArgs args);
 
         // ===================== Contact Management =====================
         Task<Result<List<Contact>>> ListContacts(string? group = null, string? filterField = null, string? filterValue = null);
@@ -70,15 +69,15 @@ namespace Extension.Services.SignifyService {
         Task<Result<Contact>> UpdateContact(string prefix, ContactInfo info);
         Task<Result> DeleteContact(string prefix);
 
-        // ===================== Additional Credential Operations =====================
-        Task<Result<RecursiveDictionary>> IssueCredential(string name, CredentialData args);
-        Task<Result<RecursiveDictionary>> RevokeCredential(string name, string said, string? datetime = null);
-        Task<Result<RecursiveDictionary>> GetCredentialState(string ri, string said);
+        // ===================== Credential Operations =====================
+        Task<Result<IssueCredentialResult>> IssueCredential(string name, CredentialData args);
+        Task<Result<RevokeCredentialResult>> RevokeCredential(string name, string said, string? datetime = null);
+        Task<Result<CredentialState>> GetCredentialState(string ri, string said);
         Task<Result> DeleteCredential(string said);
 
         // ===================== Schemas Operations =====================
-        Task<Result<RecursiveDictionary>> GetSchema(string said);
-        Task<Result<List<RecursiveDictionary>>> ListSchemas();
+        Task<Result<Schema>> GetSchema(string said);
+        Task<Result<List<Schema>>> ListSchemas();
 
         // ===================== Notifications Operations =====================
         Task<Result<List<RecursiveDictionary>>> ListNotifications(int? start = null, int? endIndex = null);
@@ -105,11 +104,40 @@ namespace Extension.Services.SignifyService {
         Task<Result<RecursiveDictionary>> GetKeyEvents(string prefix);
 
         // ===================== KeyStates Operations =====================
-        Task<Result<RecursiveDictionary>> GetKeyState(string prefix);
-        Task<Result<List<RecursiveDictionary>>> ListKeyStates(List<string> prefixes);
-        Task<Result<RecursiveDictionary>> QueryKeyState(string prefix, string? sn = null, RecursiveDictionary? anchor = null);
+        Task<Result<KeyState>> GetKeyState(string prefix);
+        Task<Result<List<KeyState>>> ListKeyStates(List<string> prefixes);
+        Task<Result<Operation>> QueryKeyState(string prefix, string? sn = null, RecursiveDictionary? anchor = null);
 
         // ===================== Config Operations =====================
-        Task<Result<RecursiveDictionary>> GetAgentConfig();
+        Task<Result<AgentConfig>> GetAgentConfig();
+
+        // ===================== Challenges Operations =====================
+        /// <summary>
+        /// Generate a random challenge word list based on BIP39.
+        /// </summary>
+        /// <param name="strength">Challenge strength in bits (128 for 12 words, 256 for 24 words)</param>
+        Task<Result<Challenge>> GenerateChallenge(int strength = 128);
+
+        /// <summary>
+        /// Respond to a challenge by signing a message with the list of words.
+        /// </summary>
+        /// <param name="name">Name or alias of the identifier</param>
+        /// <param name="recipient">Prefix of the recipient of the response</param>
+        /// <param name="words">List of challenge words to embed in signed response</param>
+        Task<Result<RecursiveDictionary>> RespondToChallenge(string name, string recipient, List<string> words);
+
+        /// <summary>
+        /// Ask Agent to verify a given sender signed the provided words.
+        /// </summary>
+        /// <param name="source">Prefix of the identifier that was challenged</param>
+        /// <param name="words">List of challenge words to check for</param>
+        Task<Result<Operation>> VerifyChallenge(string source, List<string> words);
+
+        /// <summary>
+        /// Mark challenge response as signed and accepted.
+        /// </summary>
+        /// <param name="source">Prefix of the identifier that was challenged</param>
+        /// <param name="said">qb64 AID of exn message representing the signed response</param>
+        Task<Result<ChallengeRespondedResult>> ChallengeResponded(string source, string said);
     }
 }

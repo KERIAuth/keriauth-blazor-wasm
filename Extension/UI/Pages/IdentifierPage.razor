@@ -53,7 +53,7 @@
     }
 
     // Key state data from KERI
-    RecursiveDictionary? keyStateData;
+    KeyState? keyStateData;
     RecursiveDictionary? keyEventsData;
 
     IEnumerable<Element> signingKeys = new List<Element>();
@@ -184,17 +184,16 @@
         try
         {
             // Parse signing keys (current keys)
-            var keysValue = keyStateData.GetByPath("k");
-            if (keysValue?.List != null)
+            if (keyStateData.K != null)
             {
                 var keysList = new List<Element>();
-                for (int i = 0; i < keysValue.List.Count; i++)
+                for (int i = 0; i < keyStateData.K.Count; i++)
                 {
-                    var key = keysValue.List[i].StringValue ?? "";
+                    var key = keyStateData.K[i];
                     keysList.Add(new Element
                     {
                         Group = 1,
-                        GroupThreshold = keysValue.List.Count,
+                        GroupThreshold = keyStateData.K.Count,
                         Weight = 1,
                         Identicon = Helper.Identicon.MakeIdenticon(key),
                         PubKey = key
@@ -204,21 +203,19 @@
             }
 
             // Parse signing threshold (kt)
-            var ktValue = keyStateData.GetByPath("kt");
-            signingThreshold = ktValue?.StringValue ?? ktValue?.IntegerValue?.ToString() ?? "0";
+            signingThreshold = keyStateData.Kt?.ToString() ?? "0";
 
             // Parse next keys (n)
-            var nextKeysValue = keyStateData.GetByPath("n");
-            if (nextKeysValue?.List != null)
+            if (keyStateData.N != null)
             {
                 var nextKeysList = new List<Element>();
-                for (int i = 0; i < nextKeysValue.List.Count; i++)
+                for (int i = 0; i < keyStateData.N.Count; i++)
                 {
-                    var key = nextKeysValue.List[i].StringValue ?? "";
+                    var key = keyStateData.N[i];
                     nextKeysList.Add(new Element
                     {
                         Group = 1,
-                        GroupThreshold = nextKeysValue.List.Count,
+                        GroupThreshold = keyStateData.N.Count,
                         Weight = 1,
                         Identicon = Helper.Identicon.MakeIdenticon(key),
                         PubKey = key
@@ -228,17 +225,14 @@
             }
 
             // Parse next threshold (nt)
-            var ntValue = keyStateData.GetByPath("nt");
-            nextThreshold = ntValue?.StringValue ?? ntValue?.IntegerValue?.ToString() ?? "0";
+            nextThreshold = keyStateData.Nt?.ToString() ?? "0";
 
             // Parse witnesses (b)
-            var witnessesValue = keyStateData.GetByPath("b");
-            if (witnessesValue?.List != null)
+            if (keyStateData.B != null)
             {
                 var witnessList = new List<WitnessInfo>();
-                foreach (var witness in witnessesValue.List)
+                foreach (var witnessKey in keyStateData.B)
                 {
-                    var witnessKey = witness.StringValue ?? "";
                     witnessList.Add(new WitnessInfo
                     {
                         PublicKey = witnessKey,
@@ -249,12 +243,13 @@
             }
 
             // Parse witness threshold (bt)
-            var btValue = keyStateData.GetByPath("bt");
-            witnessThreshold = (int)(btValue?.IntegerValue ?? 0);
+            if (int.TryParse(keyStateData.Bt, out var btValue))
+            {
+                witnessThreshold = btValue;
+            }
 
             // Parse delegator (di)
-            var diValue = keyStateData.GetByPath("di");
-            delegator = diValue?.StringValue;
+            delegator = keyStateData.Di;
             if (!string.IsNullOrEmpty(delegator))
             {
                 logger.LogInformation("This identifier is delegated by: {delegator}", delegator);

@@ -1859,7 +1859,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             var registry = registriesResult.Value[0]; // Use first registry
-            var registryId = registry.GetValueOrDefault("regk")?.ToString() ?? "";
+            var registryId = registry.Regk;
 
             if (string.IsNullOrEmpty(registryId)) {
                 logger.LogWarning("BW HandleCreateDataAttestation: registry ID is empty for AID {AidName}", aidName);
