@@ -1,0 +1,351 @@
+@page "/RequestSignData.html"
+@layout Layouts.DialogLayout
+
+@using Extension.Services.Storage
+@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics
+@using System.Linq
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Web
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
+@using Extension.Models.Messages.CsBw
+@using Extension.Services
+@using Extension.Services.JsBindings
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using FluentResults
+@using MudBlazor
+@using static Extension.AppConfig
+@using WebExtensions.Net.Runtime
+@using WebExtensions.Net.Tabs
+@using BrowserTab = WebExtensions.Net.Tabs.Tab
+
+@implements IAsyncDisposable
+
+@inject IStorageService storageService
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@using static Extension.Helper.PreviousPage
+@inject ILogger<RequestSignDataPage> logger
+@inject ISignifyClientService signifyClientService
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+@inject IWebsiteConfigService websiteConfigService
+@inject IStorageService storageService
+@inject IAppBwMessagingService appBwMessagingService
+@inject IPendingBwAppRequestService pendingBwAppRequestService
+@inject AppCache appCache
+@inject IJSRuntime jsRuntime
+@inject ISignifyClientBinding signifyClientBinding
+@inject IWebExtensionsApi webExtensionsApi
+
+@code {
+    [CascadingParameter] public DialogLayout? Layout { get; set; }
+
+    // fields and types
+    private MudButton? signDataButton;
+
+    // properties
+
+    public BrowserTab? ActiveTab { get; set; }
+    /// <summary>
+    /// The original requestId from the web page that initiated this sign-data request.
+    /// This must be returned in replies so the page can correlate the response.
+    /// </summary>
+    public string PageRequestId { get; set; } = "";
+    public int TabId { get; set; } = -1;
+    string? SelectedPrefix { get; set; }
+    string? SelectedAlias { get; set; }
+    RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
+    bool IsInitialized { get; set; }
+    /// <summary>
+    /// Tracks whether a reply (success or cancel) has been sent to the page.
+    /// Used to avoid sending duplicate cancel messages on dispose.
+    /// </summary>
+    bool HasRepliedToPage { get; set; } = false;
+    string OriginStr { get; set; } = "unset";
+
+    /// <summary>
+    /// The message from the requesting page to display to user.
+    /// </summary>
+    string? RequestMessage { get; set; }
+
+    /// <summary>
+    /// The data items to be signed.
+    /// </summary>
+    string[] DataItems { get; set; } = [];
+
+    // computed properties
+    bool IsSignDisabled => SelectedPrefix is null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+
+        // Get the pending request from storage (set by BackgroundWorker before opening popup)
+        var pendingRequest = appCache.NextPendingBwAppRequest;
+        if (pendingRequest?.Type != BwAppMessageType.Values.RequestSignData)
+        {
+            logger.LogError("OnInitializedAsync: No pending RequestSignData request found");
+            return;
+        }
+
+        OriginStr = pendingRequest.TabUrl ?? "unknown";
+        var payload = pendingRequest.GetPayload<RequestSignDataPayload>();
+        if (payload is null)
+        {
+            logger.LogError("OnInitializedAsync: Failed to deserialize pending request payload to RequestSignDataPayload");
+            return;
+        }
+
+        // Extract values from the pending request payload
+        // pageRequestId is the original request ID from the web page - must be returned in replies
+        PageRequestId = pendingRequest.RequestId;
+        TabId = payload.TabId;
+        RequestMessage = payload.Message;
+        DataItems = payload.Items;
+
+        logger.LogInformation("OnInitializedAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}, itemCount={ItemCount}",
+            PageRequestId, TabId, payload.Origin, DataItems.Length);
+
+        // Get the active tab
+        ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
+
+        IsInitialized = true;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await SetSignDataFocus();
+        }
+    }
+
+    async Task SetSignDataFocus()
+    {
+        if (signDataButton is not null)
+        {
+            logger.LogInformation("setting focus on Sign Data button");
+            await signDataButton.FocusAsync();
+        }
+    }
+
+    /// <summary>
+    /// Sign the data items with the selected identifier.
+    /// </summary>
+    async Task<Result> SignData(string pageRequestIdParam)
+    {
+        if (TabId <= 0)
+        {
+            var error = new ValidationError("TabId", "Invalid tab ID");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
+        }
+
+        if (SelectedPrefix is null || SelectedAlias is null)
+        {
+            var error = new ValidationError("Selection", "Identifier selection is incomplete");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
+        }
+
+        try
+        {
+            logger.LogInformation("SignData: Signing {ItemCount} items with identifier {Prefix}", DataItems.Length, SelectedPrefix);
+
+            // Call signify-ts to sign the data items
+            var dataItemsJson = JsonSerializer.Serialize(DataItems);
+            var signResultJson = await signifyClientBinding.SignDataAsync(SelectedAlias, dataItemsJson);
+
+            logger.LogDebug("SignData: signResultJson={Result}", signResultJson);
+
+            // Parse the result
+            var signResult = JsonSerializer.Deserialize<SignDataResult>(signResultJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (signResult is null)
+            {
+                var error = new ValidationError("SignData", "Failed to parse sign data result");
+                snackbar.Add(error.Message, Severity.Error);
+                return Result.Fail(error);
+            }
+
+            // Send the signed data back to the BackgroundWorker
+            var message = new AppBwReplySignDataMessage(TabId, OriginStr, PageRequestId, signResult);
+            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            HasRepliedToPage = true;
+
+            // Clear the pending request now that sign is complete
+            await ClearPendingRequestAsync();
+            await Layout!.ReturnToPriorUI();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to sign data");
+            snackbar.Add($"Failed to sign data: {ex.Message}", Severity.Error);
+            return Result.Fail(new JavaScriptInteropError("SignData", ex.Message, ex));
+        }
+    }
+
+    async Task Cancel(MouseEventArgs _)
+    {
+        logger.LogInformation("Cancel: User initiated cancel for pageRequestId={PageRequestId}", PageRequestId);
+
+        var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User canceled sign-data");
+        try
+        {
+            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            HasRepliedToPage = true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Cancel: Failed to send cancel message to BackgroundWorker");
+            // Continue to clear pending request and close popup even if message send failed
+        }
+
+        await Layout!.ReturnToPriorUI();
+        return;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // If user closes popup without previously clicking Sign or Cancel,
+        // send a cancel reply to the page so it's not left waiting
+        if (!HasRepliedToPage && TabId > 0 && !string.IsNullOrEmpty(PageRequestId))
+        {
+            logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", PageRequestId);
+            try
+            {
+                var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User closed sign-data dialog");
+                await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "DisposeAsync: Failed to send cancel message to BackgroundWorker");
+            }
+        }
+
+        // Clear pending request if user closes popup without explicit action
+        await ClearPendingRequestAsync();
+    }
+
+    /// <summary>
+    /// Clears the pending request from storage using the pageRequestId captured during initialization.
+    /// This ensures we clear the correct request even if multiple requests are queued.
+    /// </summary>
+    async Task ClearPendingRequestAsync()
+    {
+        if (string.IsNullOrEmpty(PageRequestId))
+        {
+            logger.LogWarning("ClearPendingRequestAsync: No pageRequestId available to clear");
+            return;
+        }
+
+        logger.LogInformation("ClearPendingRequestAsync: Clearing pending request, pageRequestId={PageRequestId}", PageRequestId);
+        var result = await pendingBwAppRequestService.RemoveRequestAsync(PageRequestId);
+        if (result.IsFailed)
+        {
+            logger.LogError("ClearPendingRequestAsync: Failed to remove request - {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
+        }
+    }
+
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing) value)
+    {
+        logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
+        SelectedPrefix = value.selectedPrefix;
+        SelectedAlias = value.selectedAlias;
+        SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
+        StateHasChanged();
+        await SetSignDataFocus();
+    }
+
+    private async Task SignDataHandler()
+    {
+        var result = await SignData(PageRequestId);
+        if (result.IsFailed)
+        {
+            logger.LogError("Sign-data failed: {error}", result.Errors.FirstOrDefault()?.Message);
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Code == "NumpadEnter")
+        {
+            await SignDataHandler();
+        }
+    }
+}
+
+@if (IsInitialized)
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <MudText Class="bt-page-title">Request to Sign Data</MudText>
+
+                @if (ActiveTab is not null)
+                {
+                    <TabInteractionDisplay ActiveTab=@ActiveTab />
+                }
+                else
+                {
+                    <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
+                }
+
+                @if (!string.IsNullOrEmpty(RequestMessage))
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-4 mb-2">
+                        <MudText Typo="Typo.body2">@RequestMessage</MudText>
+                    </MudAlert>
+                }
+
+                <MudText Class="mt-4 mb-2"><b>Data items to sign (@DataItems.Length):</b></MudText>
+                <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 150px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
+                    @foreach (var item in DataItems)
+                    {
+                        <MudText Typo="Typo.body2" Style="font-family: monospace; word-break: break-all;">@item</MudText>
+                    }
+                </MudPaper>
+
+                <MudText Class="mt-4 mb-2"><b>Select identifier to sign with:</b></MudText>
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+            </div>
+        </MudStack>
+
+        <MudStack Row="true" class="bt-button-tray">
+            <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" OnClick=Cancel>Cancel</MudButton>
+            <MudButton @ref="signDataButton"
+                       StartIcon="@Icons.Material.Filled.Draw"
+                       Disabled="IsSignDisabled"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="SignDataHandler"
+                       @onkeydown="HandleKeyDown">
+                Sign Data
+            </MudButton>
+        </MudStack>
+    </div>
+}
+
+<style>
+    .mud-select .mud-select-input .mud-input-slot {
+        height: auto;
+    }
+
+    .selected-item {
+        border-left: 4px solid blue;
+    }
+</style>

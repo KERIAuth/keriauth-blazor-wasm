@@ -66,6 +66,8 @@ public static class Routes
         [typeof(ConnectingPage)] = new("Connecting", "/Connecting.html", RequiresAuth: true),
         [typeof(RequestSignInPage)] = new("Request Sign In", "/RequestSignIn.html", RequiresAuth: true),
         [typeof(RequestSignHeadersPage)] = new("Request Sign Headers", "/RequestSignHeaders.html", RequiresAuth: true),
+        [typeof(RequestSignDataPage)] = new("Request Sign Data", "/RequestSignData.html", RequiresAuth: true),
+        [typeof(RequestCreateCredentialPage)] = new("Request Create Credential", "/RequestCreateCredential.html", RequiresAuth: true),
         [typeof(AddPasskeyPage)] = new("Add Passkey", "/AddPasskey.html", RequiresAuth: true),
 
         // Index pages (no auth) - Index.razor handles multiple routes

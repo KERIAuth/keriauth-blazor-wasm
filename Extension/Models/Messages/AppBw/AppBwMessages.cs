@@ -94,6 +94,8 @@ namespace Extension.Models.Messages.AppBw {
             public const string ReplyIdentifier = "AppBw.ReplyIdentifier";
             public const string ReplyAid = "AppBw.ReplyAid";
             public const string ReplyApprovedSignHeaders = "AppBw.ReplyApprovedSignHeaders";
+            public const string ReplySignData = "AppBw.ReplySignData";
+            public const string ReplyCreateCredential = "AppBw.ReplyCreateCredential";
             public const string AppClosed = "AppBw.AppClosed";
             public const string UserActivity = "AppBw.UserActivity";
             public const string RequestAddIdentifier = "AppBw.RequestAddIdentifier";
@@ -114,6 +116,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType ReplyIdentifier { get; } = new(Values.ReplyIdentifier);
         public static AppBwMessageType ReplyAid { get; } = new(Values.ReplyAid);
         public static AppBwMessageType ReplyApprovedSignHeaders { get; } = new(Values.ReplyApprovedSignHeaders);
+        public static AppBwMessageType ReplySignData { get; } = new(Values.ReplySignData);
+        public static AppBwMessageType ReplyCreateCredential { get; } = new(Values.ReplyCreateCredential);
         public static AppBwMessageType AppClosed { get; } = new(Values.AppClosed);
         public static AppBwMessageType UserActivity { get; } = new(Values.UserActivity);
         public static AppBwMessageType RequestAddIdentifier { get; } = new(Values.RequestAddIdentifier);
@@ -157,6 +161,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.ReplyApprovedSignHeaders:
                     result = ReplyApprovedSignHeaders;
+                    return true;
+                case Values.ReplySignData:
+                    result = ReplySignData;
+                    return true;
+                case Values.ReplyCreateCredential:
+                    result = ReplyCreateCredential;
                     return true;
                 case Values.AppClosed:
                     result = AppClosed;
@@ -284,5 +294,64 @@ namespace Extension.Models.Messages.AppBw {
     public record AppBwResponseToBwRequestMessage : AppBwMessage<object> {
         public AppBwResponseToBwRequestMessage(int tabId, string? tabUrl, string requestId, object? responsePayload)
             : base(AppBwMessageType.ResponseToBwRequest, tabId, tabUrl, requestId, responsePayload) { }
+    }
+
+    /// <summary>
+    /// A single signed data item containing the original data and its signature.
+    /// </summary>
+    public record SignDataResultItem(
+        [property: JsonPropertyName("data")] string Data,
+        [property: JsonPropertyName("signature")] string Signature
+    );
+
+    /// <summary>
+    /// Result of signing data items, containing the AID prefix and array of signed items.
+    /// Matches the polaris-web SignDataResult interface.
+    /// </summary>
+    public record SignDataResult(
+        [property: JsonPropertyName("aid")] string Aid,
+        [property: JsonPropertyName("items")] SignDataResultItem[] Items
+    );
+
+    /// <summary>
+    /// Reply message containing signed data results.
+    /// Used when user approves signing data items with their identifier.
+    /// </summary>
+    public record AppBwReplySignDataMessage : AppBwMessage<SignDataResult> {
+        public AppBwReplySignDataMessage(int tabId, string? tabUrl, string requestId, SignDataResult signDataResult)
+            : base(AppBwMessageType.ReplySignData, tabId, tabUrl, requestId, signDataResult) { }
+    }
+
+    /// <summary>
+    /// Payload sent from App to BackgroundWorker when user approves credential creation.
+    /// Contains the selected identifier and the credential data to be attested.
+    /// BackgroundWorker will use this to issue the credential via signify-ts.
+    /// </summary>
+    public record CreateCredentialApprovalPayload(
+        [property: JsonPropertyName("aidName")] string AidName,
+        [property: JsonPropertyName("aidPrefix")] string AidPrefix,
+        [property: JsonPropertyName("credData")] object CredData,
+        [property: JsonPropertyName("schemaSaid")] string SchemaSaid
+    );
+
+    /// <summary>
+    /// Result of creating a data attestation credential.
+    /// Matches the polaris-web CreateCredentialResult interface.
+    /// Contains the ACDC, issuance event (iss), anchor event (anc), and operation (op).
+    /// </summary>
+    public record CreateCredentialResult(
+        [property: JsonPropertyName("acdc")] RecursiveDictionary Acdc,
+        [property: JsonPropertyName("iss")] RecursiveDictionary Iss,
+        [property: JsonPropertyName("anc")] RecursiveDictionary Anc,
+        [property: JsonPropertyName("op")] RecursiveDictionary Op
+    );
+
+    /// <summary>
+    /// Reply message containing the created credential result.
+    /// Used when user approves creating a data attestation credential.
+    /// </summary>
+    public record AppBwReplyCreateCredentialMessage : AppBwMessage<CreateCredentialResult> {
+        public AppBwReplyCreateCredentialMessage(int tabId, string? tabUrl, string requestId, CreateCredentialResult createCredentialResult)
+            : base(AppBwMessageType.ReplyCreateCredential, tabId, tabUrl, requestId, createCredentialResult) { }
     }
 }

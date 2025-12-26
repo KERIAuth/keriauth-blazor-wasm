@@ -58,6 +58,10 @@ namespace Extension.Models.Messages.BwApp {
             public const string RequestSelectAuthorize = "BwApp.RequestSelectAuthorize";
             /// <summary>Request App to show SignHeaders UI for user to approve signing.</summary>
             public const string RequestSignHeaders = "BwApp.RequestSignHeaders";
+            /// <summary>Request App to show SignData UI for user to select identifier and sign data.</summary>
+            public const string RequestSignData = "BwApp.RequestSignData";
+            /// <summary>Request App to show CreateCredential UI for user to approve data attestation credential creation.</summary>
+            public const string RequestCreateCredential = "BwApp.RequestCreateCredential";
             /// <summary>Request App to notify user of extension update.</summary>
             public const string RequestNotifyUserOfUpdate = "BwApp.RequestNotifyUserOfUpdate";
         }
@@ -73,6 +77,8 @@ namespace Extension.Models.Messages.BwApp {
         public static BwAppMessageType ForwardedMessage { get; } = new(Values.ForwardedMessage);
         public static BwAppMessageType RequestSelectAuthorize { get; } = new(Values.RequestSelectAuthorize);
         public static BwAppMessageType RequestSignHeaders { get; } = new(Values.RequestSignHeaders);
+        public static BwAppMessageType RequestSignData { get; } = new(Values.RequestSignData);
+        public static BwAppMessageType RequestCreateCredential { get; } = new(Values.RequestCreateCredential);
         public static BwAppMessageType RequestNotifyUserOfUpdate { get; } = new(Values.RequestNotifyUserOfUpdate);
 
         /// <summary>
@@ -113,6 +119,12 @@ namespace Extension.Models.Messages.BwApp {
                     return true;
                 case Values.RequestSignHeaders:
                     result = RequestSignHeaders;
+                    return true;
+                case Values.RequestSignData:
+                    result = RequestSignData;
+                    return true;
+                case Values.RequestCreateCredential:
+                    result = RequestCreateCredential;
                     return true;
                 case Values.RequestNotifyUserOfUpdate:
                     result = RequestNotifyUserOfUpdate;

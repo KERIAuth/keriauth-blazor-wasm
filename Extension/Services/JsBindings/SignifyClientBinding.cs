@@ -109,6 +109,16 @@ public interface ISignifyClientBinding {
     ValueTask<string> ChallengesRespondAsync(string name, string recipient, string wordsJson, CancellationToken cancellationToken = default);
     ValueTask<string> ChallengesVerifyAsync(string source, string wordsJson, CancellationToken cancellationToken = default);
     ValueTask<string> ChallengesRespondedAsync(string source, string said, CancellationToken cancellationToken = default);
+
+    // ===================== Arbitrary Data Signing =====================
+    /// <summary>
+    /// Sign arbitrary data strings with an identifier
+    /// </summary>
+    /// <param name="aidName">Name or prefix of the identifier to sign with</param>
+    /// <param name="dataItemsJson">JSON array of UTF-8 strings to sign</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>JSON string of SignDataResult with aid prefix and signed items</returns>
+    ValueTask<string> SignDataAsync(string aidName, string dataItemsJson, CancellationToken cancellationToken = default);
 }
 
 [SupportedOSPlatform("browser")]
@@ -354,4 +364,14 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public ValueTask<string> ChallengesRespondedAsync(string source, string said, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("challengesResponded", cancellationToken, source, said);
+
+    // ===================== Arbitrary Data Signing =====================
+
+    public async ValueTask<string> SignDataAsync(string aidName, string dataItemsJson, CancellationToken cancellationToken = default) {
+        var dataItems = System.Text.Json.JsonSerializer.Deserialize<string[]>(dataItemsJson);
+        _logger.LogDebug("SignDataAsync: aidName={AidName}, itemCount={ItemCount}", aidName, dataItems?.Length ?? 0);
+        var result = await Module.InvokeAsync<string>("signData", cancellationToken, aidName, dataItems);
+        _logger.LogDebug("SignDataAsync result: {Result}", result);
+        return result;
+    }
 }

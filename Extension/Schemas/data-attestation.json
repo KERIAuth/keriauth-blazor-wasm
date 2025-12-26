@@ -1,0 +1,115 @@
+{
+  "$id": "EJxFPpyDRV-W6O2Vtjdy2K90ltWmQK8l1jePw5YOo_Ft",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Data Attestation",
+  "description": "Data attestation enables verifiable attestation of the data(cryptographic digest) by the Issuer",
+  "type": "object",
+  "credentialType": "DataAttestation",
+  "version": "1.0.0",
+  "required": [
+    "v",
+    "d",
+    "i",
+    "ri",
+    "s",
+    "a"
+  ],
+  "properties": {
+    "v": {
+      "description": "Version",
+      "type": "string"
+    },
+    "d": {
+      "description": "Credential SAID",
+      "type": "string"
+    },
+    "i": {
+      "description": "Issuer AID",
+      "type": "string"
+    },
+    "ri": {
+      "description": "Credential status registry",
+      "type": "string"
+    },
+    "s": {
+      "description": "Schema SAID",
+      "type": "string"
+    },
+    "a": {
+      "$id": "EI8qxQC1_PL25lTLRLwkrijM_VJofc1zsLPjvjqNyuls",
+      "description": "Attributes block",
+      "type": "object",
+      "properties": {
+        "d": {
+          "description": "Attributes block SAID",
+          "type": "string"
+        },
+        "dt": {
+          "description": "Issuance datetime, ISO-8601 datetime string",
+          "format": "date-time",
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "description": "CESR-encoded digest of the data."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "d",
+        "dt",
+        "digest"
+      ]
+    },
+    "e": {
+      "oneOf": [
+        {
+          "description": "Edges block SAID",
+          "type": "string"
+        },
+        {
+          "$id": "EMEXQmfeEwDtyTVrF1EtRQWJvM-Wnd6kNzocJA-dbHEA",
+          "description": "Edges detail",
+          "type": "object",
+          "required": [
+            "d",
+            "issuer"
+          ],
+          "properties": {
+            "d": {
+              "description": "Edges section SAID",
+              "type": "string"
+            },
+            "issuer": {
+              "description": "Edge credential that proves the identity of the issuer.",
+              "type": "object",
+              "properties": {
+                "n": {
+                  "description": "SAID of a credential that proves the identity of the issuer",
+                  "type": "string"
+                },
+                "s": {
+                  "description": "SAID of credential schema that proves the identity of the issuer",
+                  "type": "string"
+                },
+                "o": {
+                  "description": "Operator indicating issuer AID of this ACDC MUST be the Issuee AID of the node this Edge points to.",
+                  "type": "string",
+                  "const": "I2I"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "n",
+                "s",
+                "o"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

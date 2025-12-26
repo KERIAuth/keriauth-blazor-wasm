@@ -1168,3 +1168,73 @@ export const challengesResponded = async (source: string, said: string): Promise
         { Source: source, SAID: said }
     );
 };
+
+// ===================== Arbitrary Data Signing =====================
+
+/**
+ * Result item for signed data
+ */
+interface SignDataResultItem {
+    data: string;
+    signature: string;
+}
+
+/**
+ * Result of signing data items
+ */
+interface SignDataResult {
+    aid: string;
+    items: SignDataResultItem[];
+}
+
+/**
+ * Sign arbitrary data strings with an identifier
+ * @param aidName - Name or prefix of the identifier to sign with
+ * @param dataItems - Array of UTF-8 strings to sign
+ * @returns JSON string of SignDataResult with aid prefix and signed items
+ */
+export const signData = async (aidName: string, dataItems: string[]): Promise<string> => {
+    return withClientOperation(
+        'signData',
+        async (client) => {
+            // Get the identifier
+            const hab = await client.identifiers().get(aidName);
+            if (!hab) {
+                throw new Error(`Identifier '${aidName}' not found`);
+            }
+
+            // Get the keeper (signer) for this identifier
+            const keeper = client.manager!.get(hab);
+            if (!keeper) {
+                throw new Error(`No keeper available for identifier '${aidName}'`);
+            }
+
+            // Sign each data item
+            const signedItems: SignDataResultItem[] = [];
+            for (const dataItem of dataItems) {
+                // Convert string to Uint8Array
+                const encoder = new TextEncoder();
+                const dataBytes = encoder.encode(dataItem);
+
+                // Sign the data - keeper.sign returns an array of signature strings
+                const sigs = await keeper.sign(dataBytes);
+
+                // Use the first signature (for non-multisig identifiers)
+                const signature = sigs.length > 0 ? sigs[0] : '';
+
+                signedItems.push({
+                    data: dataItem,
+                    signature: signature
+                });
+            }
+
+            const result: SignDataResult = {
+                aid: hab.prefix,
+                items: signedItems
+            };
+
+            return result;
+        },
+        { AIDName: aidName, ItemCount: dataItems.length }
+    );
+};

@@ -43,7 +43,8 @@
       "Bash(echo:*)",
       "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet restore:*)",
       "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet build:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

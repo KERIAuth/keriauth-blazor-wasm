@@ -149,6 +149,12 @@
                     case BwAppMessageType.Values.RequestSignHeaders:
                         navManager.NavigateTo(Routes.PathFor<RequestSignHeadersPage>());
                         break;
+                    case BwAppMessageType.Values.RequestSignData:
+                        navManager.NavigateTo(Routes.PathFor<RequestSignDataPage>());
+                        break;
+                    case BwAppMessageType.Values.RequestCreateCredential:
+                        navManager.NavigateTo(Routes.PathFor<RequestCreateCredentialPage>());
+                        break;
                     default:
                         logger.LogWarning("HandleBwRequests: Unhandled pendingRequest Type={type}", pendingRequest.Type);
                         break;
