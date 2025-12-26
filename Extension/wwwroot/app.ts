@@ -543,24 +543,6 @@ export async function beforeStart(
                             'main flow'
                         );
                     }
-
-                    // TODO P1: Explore SidePanel integration for future versions
-                    /*
-                    console.log('app.ts: action.onClicked handler evaluating sidePanel actions...');
-                    // TODO P1: If user prefernce to use SidePanel..
-                    await chrome.sidePanel.setPanelBehavior({
-                        openPanelOnActionClick: true,
-                    });
-                    await chrome.sidePanel.setOptions({
-                        enabled: true,
-                        path: 'indexInSidePanel.html'
-                    });
-                    await chrome.sidePanel.open({
-                        tabId: -1,
-                        windowId: -1
-                    })
-                    */
-
                 } catch (error: any) {
                     console.error('app.ts: Error in action.onClicked handler:', error);
                 }
