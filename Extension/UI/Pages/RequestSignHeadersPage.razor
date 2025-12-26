@@ -64,6 +64,8 @@
     string RequestId { get; set; } = "";
     int TabId { get; set; } = -1;
     string PayloadJson { get; set; } = "";
+    string RequestUrl { get; set; } = "";
+    string RequestMethod { get; set; } = "GET";
     Dictionary<string, string> HeadersDict { get; set; } = new();
     bool IsInitialized { get; set; }
     bool IsExpanded { get; set; }
@@ -77,9 +79,7 @@
     public BrowserTab? ActiveTab { get; set; }
 
     // reactive properties
-    public bool HasSafeHttpRequestMethod => HeadersDict.Any(header =>
-       string.Equals(header.Key, "method", StringComparison.OrdinalIgnoreCase) &&
-       SafeMethods.Contains(header.Value));
+    public bool HasSafeHttpRequestMethod => SafeMethods.Contains(RequestMethod);
     bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
     bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
@@ -115,12 +115,19 @@
         RequestId = pendingRequest.RequestId;
         TabId = payload.TabId;
         ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
+        RequestUrl = payload.Url;
+        RequestMethod = payload.Method;
         HeadersDict = payload.Headers;
         PayloadJson = JsonSerializer.Serialize(payload.Headers);
         WebsiteConfiguredPrefix = payload.RememberedPrefix ?? "unknown";
 
-        logger.LogInformation("OnInitializedAsync: requestId={RequestId}, tabId={TabId}, origin={Origin}",
-            RequestId, TabId, payload.Origin);
+        logger.LogInformation("OnInitializedAsync: requestId={RequestId}, tabId={TabId}, origin={Origin}, url={Url}, method={Method}, headersCount={HeadersCount}",
+            RequestId, TabId, payload.Origin, RequestUrl, RequestMethod, HeadersDict?.Count ?? 0);
+        if (HeadersDict != null && HeadersDict.Count > 0) {
+            foreach (var kvp in HeadersDict) {
+                logger.LogDebug("OnInitializedAsync: header[{Key}]={Value}", kvp.Key, kvp.Value);
+            }
+        }
 
         LoadIdentifiersFromCache();
         await RefreshFromWebsiteConfig();
@@ -299,7 +306,7 @@
     //
     private async Task ApproveRequestHandler()
     {
-        var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, HeadersDict, WebsiteConfiguredPrefix, true);
+        var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, OriginStr, RequestUrl, RequestMethod, HeadersDict, WebsiteConfiguredPrefix);
         await appBwMessagingService.SendToBackgroundWorkerAsync(message);
 
         // Clear the pending request now that approval is complete
@@ -338,13 +345,20 @@
                 to cryptographically sign HTTP Request Headers with the key material of the identifier you selected for this site when you signed in to it.
                 The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
             </MudText>
-            <MudText Class="mt-2"><b>Signing Identifier</b></MudText>
+            <MudText Class="mt-2"><b>Request to Sign</b></MudText>
+            <MudPaper Elevation="0" Class="ml-4 pa-2" Style="background-color: var(--mud-palette-background-grey);">
+                <MudText><b>Method:</b> @RequestMethod</MudText>
+                <MudText Style="word-break: break-all;"><b>URL:</b> @RequestUrl</MudText>
+            </MudPaper>
+            <MudText Class="mt-4"><b>Signing Identifier</b></MudText>
             <MudStack Row Class="pl-1" Style="align-items:center;">
                 <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
                 <MudText>@WebsiteConfiguredAlias</MudText>
             </MudStack>
+            @if (HeadersDict.Count > 0)
+            {
                 <MudStack Row>
-                <MudCheckBox Label="Show Input Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
+                    <MudCheckBox Label="Show Additional Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
                 </MudStack>
                 @if (IsDetailShown)
                 {
@@ -368,6 +382,7 @@
                         </table>
                     </MudPaper>
                 }
+            }
                 <MudCheckBox Label="Always auto-sign Http Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 2rem;" />
         </div>
     </MudStack>

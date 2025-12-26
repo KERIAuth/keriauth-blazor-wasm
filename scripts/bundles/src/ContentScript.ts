@@ -310,12 +310,15 @@ async function handleWindowMessage(event: MessageEvent<IPageMessageData>): Promi
                     // Log headers for POLARIS_SIGN_REQUEST
                     const signRequestMessage = event.data as Polaris.MessageData<Polaris.SignRequestArgs>;
                     if (event.data.type === CsBwMsgEnum.POLARIS_SIGN_REQUEST) {
+                        console.log('KeriAuthCs SIGN_REQUEST payload:', JSON.stringify(signRequestMessage.payload));
                         if (signRequestMessage.payload?.headers) {
-                            console.log('KeriAuthCs payload headers: ');
+                            console.log('KeriAuthCs SIGN_REQUEST headers:', JSON.stringify(signRequestMessage.payload.headers));
                             const headers = signRequestMessage.payload.headers;
-                            for (const [key, value] of Object.keys(headers)) {
-                                console.log(` ${key}: ${value}`);
+                            for (const key of Object.keys(headers)) {
+                                console.log(`  KeriAuthCs header: ${key} = ${headers[key]}`);
                             }
+                        } else {
+                            console.log('KeriAuthCs SIGN_REQUEST: no headers in payload');
                         }
                     }
                     await sendMessageToBW(signRequestMessage);

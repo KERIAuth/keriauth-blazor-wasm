@@ -214,15 +214,6 @@ namespace Extension.Models.Messages.AppBw {
     }
 
     /// <summary>
-    /// Payload for sign approval reply message.
-    /// </summary>
-    public record AppBwReplySignPayload1(
-        [property: JsonPropertyName("headersDict")] Dictionary<string, string> HeadersDict,
-        [property: JsonPropertyName("prefix")] string Prefix,
-        [property: JsonPropertyName("isApproved")] bool IsApproved
-    );
-
-    /// <summary>
     /// Payload for approved sign request.
     /// Contains all information needed to sign an HTTP request.
     /// </summary>
@@ -235,11 +226,12 @@ namespace Extension.Models.Messages.AppBw {
     );
 
     /// <summary>
-    /// Reply message from App containing user's sign approval or reject.
+    /// Reply message from App containing user's sign approval or rejection.
+    /// Contains the URL, method, headers, and identifier prefix needed for signing.
     /// </summary>
-    public record AppBwReplySignMessage : AppBwMessage<AppBwReplySignPayload1> {
-        public AppBwReplySignMessage(int tabId, string? tabUrl, string requestId, Dictionary<string, string> headersDict, string prefix, bool isApproved)
-            : base(AppBwMessageType.ReplyApprovedSignHeaders, tabId, tabUrl, requestId, payload: new AppBwReplySignPayload1(headersDict, prefix, isApproved)) { }
+    public record AppBwReplySignMessage : AppBwMessage<AppBwReplySignPayload2> {
+        public AppBwReplySignMessage(int tabId, string? tabUrl, string requestId, string origin, string url, string method, Dictionary<string, string> headers, string prefix)
+            : base(AppBwMessageType.ReplyApprovedSignHeaders, tabId, tabUrl, requestId, payload: new AppBwReplySignPayload2(origin, url, method, headers, prefix)) { }
     }
 
     /// <summary>

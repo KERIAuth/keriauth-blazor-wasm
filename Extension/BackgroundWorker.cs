@@ -1142,23 +1142,23 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     }
 
                     try {
-                        // Deserialize payload to AppBwReplySignPayload1
+                        // Deserialize payload to AppBwReplySignPayload2
                         var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
-                        var signPayload = JsonSerializer.Deserialize<AppBwReplySignPayload1>(payloadJson, RecursiveDictionaryJsonOptions);
+                        var signPayload = JsonSerializer.Deserialize<AppBwReplySignPayload2>(payloadJson, RecursiveDictionaryJsonOptions);
 
                         if (signPayload is null) {
-                            logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload1: {payload}", msg.Payload);
+                            logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload2: {payload}", msg.Payload);
                             return null;
                         }
 
-                        logger.LogInformation("Prefix = {prefix}, Approved = {isApproved}, headersDict = {headersDict}",
-                            signPayload.Prefix, signPayload.IsApproved, signPayload.HeadersDict);
+                        logger.LogInformation("ReplyApprovedSignHeaders: origin={origin}, url={url}, method={method}, prefix={prefix}",
+                            signPayload.Origin, signPayload.Url, signPayload.Method, signPayload.Prefix);
 
                         await SignAndSendRequestHeaders(msg.TabUrl, msg.TabId,
-                            new AppBwReplySignMessage(msg.TabId, msg.TabUrl, msg.RequestId, signPayload.HeadersDict, signPayload.Prefix, signPayload.IsApproved));
+                            new AppBwReplySignMessage(msg.TabId, msg.TabUrl, msg.RequestId, signPayload.Origin, signPayload.Url, signPayload.Method, signPayload.Headers, signPayload.Prefix));
                     }
                     catch (Exception ex) {
-                        logger.LogError(ex, "Error deserializing AppBwReplySignPayload1 from payload: {payload}", msg.Payload);
+                        logger.LogError(ex, "Error deserializing AppBwReplySignPayload2 from payload: {payload}", msg.Payload);
                     }
                     return null; // TODO P2 send error message back to Cs?
                 case AppBwMessageType.Values.ReplySignData:
@@ -1461,6 +1461,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Deserialize payload to SignRequestArgs
             var payloadJson = JsonSerializer.Serialize(msg.Payload);
+            logger.LogDebug("BW HandleRequestSignHeadersAsync: payloadJson={PayloadJson}", payloadJson);
             var signRequestPayload = JsonSerializer.Deserialize<SignRequestArgs>(payloadJson, PortMessageJsonOptions);
             if (signRequestPayload == null) {
                 logger.LogWarning("BW HandleRequestSignHeadersAsync: invalid payload");
@@ -1471,12 +1472,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Extract method and url from typed payload
             var method = signRequestPayload.Method ?? "GET";
             var requestUrl = signRequestPayload.Url;
+            var headers = signRequestPayload.Headers;
+            logger.LogInformation("BW HandleRequestSignHeadersAsync: method={Method}, url={Url}, headersCount={HeadersCount}",
+                method, requestUrl, headers?.Count ?? 0);
+            if (headers != null && headers.Count > 0) {
+                foreach (var kvp in headers) {
+                    logger.LogDebug("BW HandleRequestSignHeadersAsync: header[{Key}]={Value}", kvp.Key, kvp.Value);
+                }
+            }
             if (string.IsNullOrEmpty(requestUrl)) {
                 logger.LogWarning("BW HandleRequestSignHeadersAsync: URL is empty");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL must not be empty"));
                 return;
             }
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: method={Method}, url={Url}", method, requestUrl);
 
             // Get or create website config for this origin
             var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
@@ -1541,18 +1549,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg) {
         try {
             InitializeIfNeeded();
-            // Check if connected to KERIA
-            /*
-            var stateResult = await TryGetSignifyClientAsync();
-            if (stateResult.IsFailed) {
-                var connectResult = await TryConnectSignifyClientAsync();
-                if (connectResult.IsFailed) {
-                    logger.LogWarning("BW HandleSignRequestAsync: failed to connect to KERIA: {Error}", connectResult.Errors[0].Message);
-                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Not connected to KERIA: {connectResult.Errors[0].Message}"));
-                    return;
-                }
-            }
-            */
 
             var payload = msg.Payload;
             if (payload is null) {
@@ -1561,76 +1557,56 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var headersDict = payload.HeadersDict;
+            // Extract values from AppBwReplySignPayload2
+            var origin = payload.Origin;
+            var requestUrl = payload.Url;
+            var method = payload.Method;
+            var headers = payload.Headers;
             var prefix = payload.Prefix;
-            var isApproved = payload.IsApproved;
 
-            // create hostAndPort
-            string originDomain = tabUrl;
-            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
-                originDomain = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort) {
-                    originDomain += $":{originUri.Port}";
-                }
-            }
-            logger.LogInformation("origin: {origin}, originDomain: {od}", tabUrl, originDomain);
-
-            // Get AID name for this origin
-            // string? aidName = null;
-            string? rememberedPrefix = null;
-            if (Uri.TryCreate(originDomain, UriKind.Absolute, out var websiteOriginUri)) {
-                var websiteConfigResult = await _websiteConfigService.GetOrCreateWebsiteConfig(websiteOriginUri);
-
-                if (websiteConfigResult.IsSuccess &&
-                    websiteConfigResult.Value.websiteConfig1?.RememberedPrefixOrNothing != null) {
-                    rememberedPrefix = websiteConfigResult.Value.websiteConfig1.RememberedPrefixOrNothing;
-                }
-            }
-
-            if (string.IsNullOrEmpty(rememberedPrefix)) {
-                logger.LogWarning("BW HandleSignRequestAsync: no identifier configured for origin {Origin}", originDomain);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for this origin"));
-                return;
-            }
-
-            var rurl = headersDict.GetValueOrDefault("url") ?? ""; // TODO P2 should return error?
-            var method = headersDict.GetValueOrDefault("method") ?? ""; // TODO P2 should return error?
+            logger.LogInformation("SignAndSendRequestHeaders: origin={origin}, url={url}, method={method}, prefix={prefix}",
+                origin, requestUrl, method, prefix);
 
             // Validate URL is well-formed
-            if (!Uri.IsWellFormedUriString(rurl, UriKind.Absolute)) {
-                logger.LogWarning("BW HandleSignRequestAsync: URL is not well-formed: {Url}", rurl);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is not well-formed"));
+            if (string.IsNullOrEmpty(requestUrl) || !Uri.IsWellFormedUriString(requestUrl, UriKind.Absolute)) {
+                logger.LogWarning("SignAndSendRequestHeaders: URL is empty or not well-formed: {Url}", requestUrl);
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is empty or not well-formed"));
                 return;
             }
 
-            // TODO P2: Check origin permission previously provided by user in website config, and depending on METHOD (get/post ), and ask user if not granted
+            // Validate prefix is provided
+            if (string.IsNullOrEmpty(prefix)) {
+                logger.LogWarning("SignAndSendRequestHeaders: no identifier prefix provided");
+                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for signing"));
+                return;
+            }
 
             // Get generated signed headers from signify-ts
-            var headersDictJson = JsonSerializer.Serialize(headersDict);
+            var headersDictJson = JsonSerializer.Serialize(headers);
 
             var readyRes = await _signifyClientService.Ready();
             if (readyRes.IsFailed) {
-                logger.LogWarning("BW HandleSignRequestAsync: Signify client not ready: {Error}", readyRes.Errors[0].Message);
+                logger.LogWarning("SignAndSendRequestHeaders: Signify client not ready: {Error}", readyRes.Errors[0].Message);
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Signify client not ready: {readyRes.Errors[0].Message}"));
                 return;
             }
 
             var signedHeadersJson = await _signifyClientBinding.GetSignedHeadersAsync(
-                originDomain,
-                rurl,
+                origin,
+                requestUrl,
                 method,
                 headersDictJson,
-                aidName: rememberedPrefix ?? "none_error"
+                aidName: prefix
             );
 
             var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
             if (signedHeaders == null) {
-                logger.LogWarning("BW HandleSignRequestAsync: failed to generate signed headers");
+                logger.LogWarning("SignAndSendRequestHeaders: failed to generate signed headers");
                 await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers"));
                 return;
             }
 
-            logger.LogInformation("BW HandleSignRequestAsync: successfully generated signed headers");
+            logger.LogInformation("SignAndSendRequestHeaders: successfully generated signed headers");
             await SendMessageToTabAsync(tabId, new BwCsMessage(
                 type: BwCsMessageTypes.REPLY,
                 requestId: msg.RequestId,
@@ -1640,8 +1616,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
         catch (Exception ex) {
-            logger.LogError(ex, "Error in HandleSignRequestAsync");
-            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: other exception."));
+            logger.LogError(ex, "Error in SignAndSendRequestHeaders");
+            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: exception occurred."));
             return;
         }
     }
