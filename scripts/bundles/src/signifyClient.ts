@@ -16,13 +16,26 @@ import type {
     Contact,
     ContactInfo,
     CredentialData,
+    CredentialResult,
+    CredentialFilter,
+    CredentialState,
+    IssueCredentialResult,
+    RevokeCredentialResult,
     IpexApplyArgs,
     IpexOfferArgs,
     IpexAgreeArgs,
     IpexGrantArgs,
     IpexAdmitArgs,
     CreateRegistryArgs,
-    Serder
+    Registry,
+    RegistryResult,
+    Schema,
+    Serder,
+    HabState,
+    KeyState,
+    Challenge,
+    AgentConfig,
+    Dict
 } from 'signify-ts';
 
 // eslint-disable-next-line no-duplicate-imports
@@ -37,38 +50,12 @@ export { ready };
 
 // ===================== Type Definitions =====================
 
-// Controller state type (based on signify-ts ClientState)
-interface IControllerState {
-    i: string;      // Client AID Prefix
-    k?: string[];   // Client AID Keys
-    n?: string;     // Client AID Next Keys Digest
-}
+// Note: Most types are now imported directly from signify-ts.
+// The following types extend or supplement signify-ts types for C# interop.
 
-// Controller wrapper interface
-interface IController {
-    state: IControllerState;
-}
-
-// Agent interface
-interface IAgent {
-    i: string;      // Agent AID Prefix
-    et?: string;    // Agent AID Type (e.g., 'dip' for delegated inception)
-    di?: string;    // Agent AID Delegator
-}
-
-// Full client state returned by SignifyClient.state()
-interface IClientState {
-    agent: IAgent | null;
-    controller: IController | null;
-    ridx: number;
-    pidx: number;
-}
-
-// Identifier interface (used by signify-ts)
-export interface IIdentifier {
-    name?: string;
-    prefix: string;
-}
+// Re-export HabState as the primary identifier type
+// HabState from signify-ts includes: name, prefix, transferable, state (KeyState), windexes, icp_dt
+export type { HabState, KeyState, Contact, ContactInfo, CredentialResult, CredentialState, Schema, Registry, Challenge, AgentConfig };
 
 // ===================== Module State =====================
 
@@ -375,11 +362,8 @@ export const getNameByPrefix = async (prefix: string): Promise<string> => {
     const result = await withClientOperation(
         'getNameByPrefix',
         async (client) => {
-            const aid = await client.identifiers().get(prefix) as IIdentifier | undefined;
-            if (!aid) {
-                throw new Error(`Identifier with prefix ${prefix} not found`);
-            }
-            return aid.name ? aid.name : '';
+            const aid: HabState = await client.identifiers().get(prefix);
+            return aid.name ?? '';
         },
         { Prefix: prefix }
     );
@@ -390,16 +374,13 @@ export const getNameByPrefix = async (prefix: string): Promise<string> => {
 /**
  * Get full identifier object by prefix
  * @param prefix - AID prefix
- * @returns JSON string of IIdentifier object
+ * @returns JSON string of HabState object
  */
 export const getIdentifierByPrefix = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'getIdentifierByPrefix',
         async (client) => {
-            const aid = await client.identifiers().get(prefix) as IIdentifier | undefined;
-            if (!aid) {
-                throw new Error(`Identifier with prefix ${prefix} not found`);
-            }
+            const aid: HabState = await client.identifiers().get(prefix);
             return aid;
         },
         { Prefix: prefix }
@@ -410,12 +391,15 @@ export const getIdentifierByPrefix = async (prefix: string): Promise<string> => 
  * Rename an identifier (update its alias/name)
  * @param currentName - Current name/alias of the identifier
  * @param newName - New name/alias for the identifier
- * @returns JSON string of update result
+ * @returns JSON string of HabState after update
  */
 export const renameAID = async (currentName: string, newName: string): Promise<string> => {
     return withClientOperation(
         'renameAID',
-        (client) => client.identifiers().update(currentName, { name: newName }),
+        async (client) => {
+            const aid: HabState = await client.identifiers().update(currentName, { name: newName });
+            return aid;
+        },
         { 'Old name': currentName, 'New name': newName }
     );
 };
@@ -424,13 +408,13 @@ export const renameAID = async (currentName: string, newName: string): Promise<s
 
 /**
  * List all credentials
- * @returns JSON array of credentials
+ * @returns JSON array of CredentialResult objects
  */
 export const getCredentialsList = async (): Promise<string> => {
     return withClientOperation(
         'getCredentialsList',
         async (client) => {
-            const credentials: any = await client.credentials().list();
+            const credentials: CredentialResult[] = await client.credentials().list();
             return credentials;
         },
         { Count: 'retrieved' }
@@ -440,8 +424,8 @@ export const getCredentialsList = async (): Promise<string> => {
 /**
  * Get a specific credential by SAID
  * @param id - Credential SAID
- * @param includeCESR - Include CESR encoding
- * @returns JSON string of the credential (complex object)
+ * @param includeCESR - Include CESR encoding (returns string if true, CredentialResult if false)
+ * @returns JSON string of CredentialResult or CESR string
  */
 export const getCredential = async (
     id: string,
@@ -449,7 +433,15 @@ export const getCredential = async (
 ): Promise<string> => {
     return withClientOperation(
         'getCredential',
-        (client) => client.credentials().get(id, includeCESR as any),
+        async (client) => {
+            if (includeCESR) {
+                const cesrResult: string = await client.credentials().get(id, true);
+                return cesrResult;
+            } else {
+                const credResult: CredentialResult = await client.credentials().get(id, false);
+                return credResult;
+            }
+        },
         { SAID: id, IncludeCESR: includeCESR }
     );
 };
@@ -458,14 +450,15 @@ export const getCredential = async (
  * Issue a new credential
  * @param name - Identifier name
  * @param argsJson - JSON string of CredentialData
- * @returns JSON string of issuance result
+ * @returns JSON string of IssueCredentialResult
  */
 export const credentialsIssue = async (name: string, argsJson: string): Promise<string> => {
     return withClientOperation(
         'credentialsIssue',
         async (client) => {
             const args = JSON.parse(argsJson) as CredentialData;
-            return await client.credentials().issue(name, args);
+            const result: IssueCredentialResult = await client.credentials().issue(name, args);
+            return result;
         },
         { Name: name }
     );
@@ -476,12 +469,15 @@ export const credentialsIssue = async (name: string, argsJson: string): Promise<
  * @param name - Identifier name
  * @param said - Credential SAID
  * @param datetime - Optional datetime for revocation
- * @returns JSON string of revocation result
+ * @returns JSON string of RevokeCredentialResult
  */
 export const credentialsRevoke = async (name: string, said: string, datetime?: string): Promise<string> => {
     return withClientOperation(
         'credentialsRevoke',
-        (client) => client.credentials().revoke(name, said, datetime),
+        async (client) => {
+            const result: RevokeCredentialResult = await client.credentials().revoke(name, said, datetime);
+            return result;
+        },
         { SAID: said }
     );
 };
@@ -490,12 +486,15 @@ export const credentialsRevoke = async (name: string, said: string, datetime?: s
  * Get credential state
  * @param ri - Registry identifier
  * @param said - Credential SAID
- * @returns JSON string of credential state
+ * @returns JSON string of CredentialState
  */
 export const credentialsState = async (ri: string, said: string): Promise<string> => {
     return withClientOperation(
         'credentialsState',
-        (client) => client.credentials().state(ri, said),
+        async (client) => {
+            const state: CredentialState = await client.credentials().state(ri, said);
+            return state;
+        },
         { SAID: said }
     );
 };
@@ -690,7 +689,10 @@ export const operationsWait = async <T = unknown>(
 export const registriesList = async (name: string): Promise<string> => {
     return withClientOperation(
         'registriesList',
-        (client) => client.registries().list(name),
+        async (client) => {
+            const registries: Registry[] = await client.registries().list(name);
+            return registries;
+        },
         { Name: name }
     );
 };
@@ -700,7 +702,10 @@ export const registriesCreate = async (argsJson: string): Promise<string> => {
         'registriesCreate',
         async (client) => {
             const args = JSON.parse(argsJson) as CreateRegistryArgs;
-            return await client.registries().create(args);
+            const result: RegistryResult = await client.registries().create(args);
+            // Return the registry after waiting for operation
+            const registry: Registry = await result.op();
+            return registry;
         }
     );
 };
@@ -708,7 +713,10 @@ export const registriesCreate = async (argsJson: string): Promise<string> => {
 export const registriesRename = async (name: string, registryName: string, newName: string): Promise<string> => {
     return withClientOperation(
         'registriesRename',
-        (client) => client.registries().rename(name, registryName, newName),
+        async (client) => {
+            const registry: Registry = await client.registries().rename(name, registryName, newName);
+            return registry;
+        },
         { 'New name': newName }
     );
 };
@@ -718,14 +726,20 @@ export const registriesRename = async (name: string, registryName: string, newNa
 export const contactsList = async (group?: string, filterField?: string, filterValue?: string): Promise<string> => {
     return withClientOperation(
         'contactsList',
-        (client) => client.contacts().list(group, filterField, filterValue)
+        async (client) => {
+            const contacts: Contact[] = await client.contacts().list(group, filterField, filterValue);
+            return contacts;
+        }
     );
 };
 
 export const contactsGet = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'contactsGet',
-        (client) => client.contacts().get(prefix),
+        async (client) => {
+            const contact: Contact = await client.contacts().get(prefix);
+            return contact;
+        },
         { Prefix: prefix }
     );
 };
@@ -735,7 +749,8 @@ export const contactsAdd = async (prefix: string, infoJson: string): Promise<str
         'contactsAdd',
         async (client) => {
             const info = JSON.parse(infoJson) as ContactInfo;
-            return await client.contacts().add(prefix, info);
+            const contact: Contact = await client.contacts().add(prefix, info);
+            return contact;
         },
         { Prefix: prefix }
     );
@@ -746,7 +761,8 @@ export const contactsUpdate = async (prefix: string, infoJson: string): Promise<
         'contactsUpdate',
         async (client) => {
             const info = JSON.parse(infoJson) as ContactInfo;
-            return await client.contacts().update(prefix, info);
+            const contact: Contact = await client.contacts().update(prefix, info);
+            return contact;
         },
         { Prefix: prefix }
     );
@@ -768,7 +784,10 @@ export const contactsDelete = async (prefix: string): Promise<string> => {
 export const schemasGet = async (said: string): Promise<string> => {
     return withClientOperation(
         'schemasGet',
-        (client) => client.schemas().get(said),
+        async (client) => {
+            const schema: Schema = await client.schemas().get(said);
+            return schema;
+        },
         { SAID: said }
     );
 };
@@ -776,7 +795,10 @@ export const schemasGet = async (said: string): Promise<string> => {
 export const schemasList = async (): Promise<string> => {
     return withClientOperation(
         'schemasList',
-        (client) => client.schemas().list()
+        async (client) => {
+            const schemas: Schema[] = await client.schemas().list();
+            return schemas;
+        }
     );
 };
 
@@ -1063,28 +1085,86 @@ export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: s
 
 /**
  * Get agent configuration
- * @returns JSON string of agent config
+ * @returns JSON string of AgentConfig
  */
 export const configGet = async (): Promise<string> => {
     return withClientOperation(
         'configGet',
-        (client) => client.config().get()
+        async (client) => {
+            const config: AgentConfig = await client.config().get();
+            return config;
+        }
     );
 };
 
 // ===================== Challenges Operations =====================
 
 /**
- * Get challenges resource
- * Note: Full API not documented in signify-ts 0.3.0-rc2 type definitions
- * TODO: Implement specific challenge methods when API is clarified
+ * Generate a random challenge word list based on BIP39
+ * @param strength - Integer representing the strength of the challenge (128 or 256)
+ * @returns JSON string of Challenge with words array
  */
-export const challengesPlaceholder = async (): Promise<string> => {
+export const challengesGenerate = async (strength: number = 128): Promise<string> => {
     return withClientOperation(
-        'challengesPlaceholder',
-        async () => {
-            // Challenges API methods need to be determined from signify-ts source
-            return { message: 'Challenges API - methods not yet defined in signify-ts types' };
-        }
+        'challengesGenerate',
+        async (client) => {
+            const challenge: Challenge = await client.challenges().generate(strength);
+            return challenge;
+        },
+        { Strength: strength }
+    );
+};
+
+/**
+ * Respond to a challenge by signing a message with the list of words
+ * @param name - Name or alias of the identifier
+ * @param recipient - Prefix of the recipient of the response
+ * @param wordsJson - JSON string array of words to embed in signed response
+ * @returns JSON string of response result
+ */
+export const challengesRespond = async (name: string, recipient: string, wordsJson: string): Promise<string> => {
+    return withClientOperation(
+        'challengesRespond',
+        async (client) => {
+            const words = JSON.parse(wordsJson) as string[];
+            const result = await client.challenges().respond(name, recipient, words);
+            return result;
+        },
+        { Name: name, Recipient: recipient }
+    );
+};
+
+/**
+ * Ask Agent to verify a given sender signed the provided words
+ * @param source - Prefix of the identifier that was challenged
+ * @param wordsJson - JSON string array of challenge words to check
+ * @returns JSON string of Operation
+ */
+export const challengesVerify = async (source: string, wordsJson: string): Promise<string> => {
+    return withClientOperation(
+        'challengesVerify',
+        async (client) => {
+            const words = JSON.parse(wordsJson) as string[];
+            const op: Operation<unknown> = await client.challenges().verify(source, words);
+            return op;
+        },
+        { Source: source }
+    );
+};
+
+/**
+ * Mark challenge response as signed and accepted
+ * @param source - Prefix of the identifier that was challenged
+ * @param said - qb64 AID of exn message representing the signed response
+ * @returns JSON string of response result
+ */
+export const challengesResponded = async (source: string, said: string): Promise<string> => {
+    return withClientOperation(
+        'challengesResponded',
+        async (client) => {
+            const response = await client.challenges().responded(source, said);
+            return { ok: response.ok, status: response.status };
+        },
+        { Source: source, SAID: said }
     );
 };

@@ -103,6 +103,12 @@ public interface ISignifyClientBinding {
 
     // ===================== Config Operations =====================
     ValueTask<string> ConfigGetAsync(CancellationToken cancellationToken = default);
+
+    // ===================== Challenges Operations =====================
+    ValueTask<string> ChallengesGenerateAsync(int strength, CancellationToken cancellationToken = default);
+    ValueTask<string> ChallengesRespondAsync(string name, string recipient, string wordsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> ChallengesVerifyAsync(string source, string wordsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> ChallengesRespondedAsync(string source, string said, CancellationToken cancellationToken = default);
 }
 
 [SupportedOSPlatform("browser")]
@@ -334,4 +340,18 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public ValueTask<string> ConfigGetAsync(CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("configGet", cancellationToken);
+
+    // ===================== Challenges Operations =====================
+
+    public ValueTask<string> ChallengesGenerateAsync(int strength, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("challengesGenerate", cancellationToken, strength);
+
+    public ValueTask<string> ChallengesRespondAsync(string name, string recipient, string wordsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("challengesRespond", cancellationToken, name, recipient, wordsJson);
+
+    public ValueTask<string> ChallengesVerifyAsync(string source, string wordsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("challengesVerify", cancellationToken, source, wordsJson);
+
+    public ValueTask<string> ChallengesRespondedAsync(string source, string said, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("challengesResponded", cancellationToken, source, said);
 }
