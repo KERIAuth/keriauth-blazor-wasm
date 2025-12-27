@@ -393,10 +393,10 @@
                         </MudStack>
                         break;
                     case SignInMode.Identifier:
-                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                         break;
                     case SignInMode.Credential:
-                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                         break;
                     default:
                         <MudText>Unsupported SignInMode: @RequestedSignInMode</MudText>
