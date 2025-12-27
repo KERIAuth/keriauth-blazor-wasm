@@ -226,7 +226,7 @@ export const bootAndConnect = async (
     passcode: string
 ): Promise<string> => {
     _client = null;
-    ready();
+    await ready();
     console.debug('signifyClient: bootAndConnect: creating client...');
 
     // TODO P2: Consider raising Tier for production use
@@ -267,7 +267,7 @@ export const connect = async (agentUrl: string, passcode: string): Promise<strin
 
     // TODO P2: Consider raising Tier for production use
     _client = null;
-    ready();
+    await ready();
     _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
     console.debug('signifyClient: connect: created client...');
 
