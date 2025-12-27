@@ -320,12 +320,19 @@
         // Clear the pending request now that approval is complete
         await ClearPendingRequestAsync();
 
-        if (Layout is not null)
+        try
         {
-            await Layout.ClosePopupAsync();
+            // Clear the pending request now that SignHeaders is complete
+            await ClearPendingRequestAsync();
+            await Layout!.ReturnToPriorUI();
+            // maybe unreachable if popup closes
+            return;
         }
-        // unreachable
-       return;
+        catch (Exception ex)
+        {
+            logger.LogError("Failed to send SignHeaders response: {error}", ex.Message);
+            return;;
+        }
     }
     
     //
