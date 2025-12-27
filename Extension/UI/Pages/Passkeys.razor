@@ -226,14 +226,6 @@
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
                 <MudText Class="bt-page-title">Passkeys  @CountLabel</MudText>
-                @if (HasPasskeys)
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2" Style="font-size:small;">
-                        <b>Transport priority:</b> Passkeys with "internal" transport (e.g., Windows Hello, Touch ID)
-                        are prioritized by the browser during authentication. To prefer a USB security key, uncheck
-                        "internal" on platform passkeys or use the per-passkey "Test" button.
-                    </MudAlert>
-                }
                 <MudStack Class="pt-4">
                     @if (MyStoredPasskeys.Passkeys.Any())
                     {
@@ -284,6 +276,13 @@
                                                          Style="margin:0; padding:0;" />
                                         }
                                     </MudStack>
+                                    @if (pk.Transports.Contains("internal"))
+                                    {
+                                        <MudText Color="Color.Secondary" Class="mt-2 ml-2" Style="font-weight:100; font-size:small;">
+                                            <b>Note:</b> Passkeys with "internal" transport (e.g., Windows Hello, Touch ID)
+                                            are prioritized by the browser. To prefer a USB security key, uncheck "internal".
+                                        </MudText>
+                                    }
                                 </MudCardContent>
                                 <MudCardActions Style="justify-content:flex-end; padding:0;">
                                     <MudButton OnClick="async () => await test(pk.CredentialBase64)">Test</MudButton>
