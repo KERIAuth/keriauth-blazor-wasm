@@ -21,13 +21,14 @@
    Intentionally empty visible content to reduce flickering during navigation.
    This page serves as the routing hub - other pages navigate here when done with their step,
    and RedirectIfNeeded() determines the next appropriate page based on app state.
-*@
+
     <MudContainer id="@this.GetType().Name" Class="bt-body-page" Style="background-color:red;">
         <MudText>Index.razor</MudText>
         <MudPaper Elevation="0" Style="width:100vw; height: 90vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
             <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     </MudContainer>
+*@
 
 @implements IDisposable
 @code {
