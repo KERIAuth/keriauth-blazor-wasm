@@ -58,6 +58,26 @@
     overflow-wrap: break-word;
 }
 
+/* Prevent accidental text selection on interactive control labels */
+.mud-checkbox .mud-typography,
+.mud-radio .mud-typography,
+.mud-button,
+.mud-icon-button,
+.mud-tab,
+.mud-nav-link,
+.mud-list-item,
+.mud-chip,
+.mud-select-item,
+.mud-menu-item,
+.mud-treeview-item,
+.mud-switch .mud-typography,
+.mud-slider .mud-typography {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
 .bt-sad-1 {
     align-items: center;
 }
