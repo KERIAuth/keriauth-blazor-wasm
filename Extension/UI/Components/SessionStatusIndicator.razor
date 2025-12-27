@@ -1,0 +1,107 @@
+@using Extension.UI.Pages
+
+@* Session status indicator component for AppBar - shows timeout countdown, connection status, or lock state *@
+
+<div style="align-items:center; align-content:center; width:2.5rem; height:inherit;"
+     @onmouseenter="() => OnHoverChanged.InvokeAsync(true)"
+     @onmouseleave="() => OnHoverChanged.InvokeAsync(false)">
+
+    @if (IsAuthenticated)
+    {
+        @if (TimeoutInfo.IsShown)
+        {
+            @if (Compact)
+            {
+                <MudText Typo="Typo.caption" Style="@TimeoutInfo.Style">
+                    @TimeoutInfo.Text
+                </MudText>
+            }
+            else
+            {
+                <MudProgressCircular Color="Color.Warning"
+                                     Value="@SessionPercentageRemaining"
+                                     Size="Size.Medium"
+                                     StrokeWidth="5"
+                                     Style="height:inherit; align-content:center;">
+                    <ChildContent>
+                        <MudText Typo="Typo.caption" Color="Color.Warning" Style="padding-top:0.2rem;">
+                            @SessionDurationRemainingSeconds
+                        </MudText>
+                    </ChildContent>
+                </MudProgressCircular>
+            }
+        }
+        else if (IsHovered && !Compact)
+        {
+            <div style="width:inherit; height:inherit; align-content:center; justify-items:center;">
+                <MudText Typo="Typo.body2">@TimeoutTooltip</MudText>
+            </div>
+        }
+        else if (IsIdentifierFetched && !Compact)
+        {
+            <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
+                <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
+                    <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
+                </MudPaper>
+            </MudTooltip>
+        }
+        else if (!Compact)
+        {
+            <MudTooltip Text="Not Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;">
+                <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
+                    <MudIcon Icon="@Icons.Material.Filled.LinkOff" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
+                </MudPaper>
+            </MudTooltip>
+        }
+    }
+    else if (!Compact)
+    {
+        <MudTooltip Text="KERI Auth is locked" Arrow="true" Placement="Placement.Left" Delay="1000">
+            <MudPaper Style="width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-warning)">
+                <MudIcon Icon="@Icons.Material.Filled.Lock" Disabled="@(!IsConfigured)" @onclick="OnLockClick" />
+            </MudPaper>
+        </MudTooltip>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// When true, shows a simplified text-only display (for DialogLayout).
+    /// When false, shows full indicator with icons and progress circle (for MainLayout).
+    /// </summary>
+    [Parameter]
+    public bool Compact { get; set; } = false;
+
+    [Parameter]
+    public bool IsAuthenticated { get; set; }
+
+    [Parameter]
+    public bool IsIdentifierFetched { get; set; }
+
+    [Parameter]
+    public bool IsConfigured { get; set; }
+
+    [Parameter]
+    public bool IsHovered { get; set; }
+
+    [Parameter]
+    public (bool IsShown, string Text, string Style) TimeoutInfo { get; set; }
+
+    [Parameter]
+    public string TimeoutTooltip { get; set; } = "";
+
+    [Parameter]
+    public int SessionPercentageRemaining { get; set; }
+
+    [Parameter]
+    public int SessionDurationRemainingSeconds { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnHoverChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnRefreshConnect { get; set; }
+
+    [Parameter]
+    public EventCallback OnLockClick { get; set; }
+}

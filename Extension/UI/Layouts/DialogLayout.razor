@@ -13,18 +13,23 @@
 <CascadingValue Value="this">
     <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
         <MudAppBar Class="bt-appbar">
-            <MudStack Style="height:inherit; width: 100%; padding-bottom:0.571rem;" Class="d-flex pt-2 pl-2" Row="true">
-                 <MudButton Href="@(Routes.PathFor<Extension.UI.Pages.Index>())" Class="bt-logo-button">
-                    <img src="images/logo512.png" alt="Icon" style="width: 1.714rem; height: 1.714rem;" />
-                    <MudText Style="margin-left:0.5rem; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">Keri Auth</MudText>
-                </MudButton>
-
-                <MudStack Row="true" Class="ml-4 d-flex align-center">
-                    <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
-                        @TimeoutText.Text
-                    </MudText>
-                </MudStack>
+            <MudStack Style="height:inherit; width: 100%; padding:0 0.5rem 0 0.25rem;" Class="d-flex" Row="true">
+                <LogoButton />
+                
                 <MudSpacer />
+
+                <SessionStatusIndicator IsAuthenticated="@appCache.IsAuthenticated"
+                                        IsIdentifierFetched="@appCache.IsIdentifierFetched"
+                                        IsConfigured="@appCache.IsConfigured"
+                                        IsHovered="@isTimeoutHovered"
+                                        TimeoutInfo="@TimeoutText"
+                                        TimeoutTooltip="@TimeoutTooltip"
+                                        SessionPercentageRemaining="@SessionPercentageRemaining"
+                                        SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
+                                        OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
+                                        OnRefreshConnect="@RefreshConnect"
+                                        OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))" />
+
             </MudStack>
         </MudAppBar>
         <MudMainContent Class="bt-main-content" Style="left:0; top:4.357rem;">
