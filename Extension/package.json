@@ -1,7 +1,7 @@
 {
   "name": "keriauth-extension",
   "version": "0.0.1",
-  "description": "KERI Auth Browser Extension - app.ts build only",
+  "description": "KERI Auth Identity Wallet - app.ts build only",
   "main": "index.js",
   "scripts": {
     "build:app": "node ./node_modules/typescript/bin/tsc --project tsconfig.app.json",

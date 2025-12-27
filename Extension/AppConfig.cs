@@ -50,8 +50,8 @@ namespace Extension {
         // Other settings
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
-        public const int ExpectedTermsDigest = 65063442;
-        public const int ExpectedPrivacyDigest = 1373375114;
+        public const int ExpectedTermsDigest = -497501087;
+        public const int ExpectedPrivacyDigest = -120957773;
 
         // Branding and localization
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";

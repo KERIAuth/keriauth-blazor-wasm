@@ -1,7 +1,7 @@
-# KERI Auth Browser Extension
+# KERI Auth Identity Wallet
 [![KERI Auth build](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml/badge.svg)](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml)
 # Overview
-**KERI Auth** is a browser extension designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and roots of trust such as GLEIF's vLEI. 
+**KERI Auth** is an identity wallet packaged as a Chromium browser extension and  designed to accelerate adoption of establishing secure and authentic trust between an individual and website they visit, based on the emerging standards and implementations for decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and roots of trust such as GLEIF's vLEI. 
 
 Together, this comprehensive solution is aimed at greatly reducing security and privacy vulnerabilities with today’s set of internet mechanisms (e.g., federated identity, passwords, SMS 2FA, certificate authority processes, shared secrets, access tokens, and DNS).
 
@@ -34,10 +34,10 @@ For more information, see [https://keriauth.com](https://keriauth.com) and other
 The most recent stable version is available from the [Chrome Web Store](https://chromewebstore.google.com/search/keri%20auth). Or, you can test the most recent [GitHub build action artifact](https://github.com/KERIAuth/keriauth-blazor-wasm/actions?query=is%3Acompleted+branch%3Amain) or your own local build.
 
 ## Runtime Dependencies
-To successfully install and use the KERI Auth browser extension, you need the following:
+To successfully install and use the KERI Auth Identity Wallet, you need the following:
 * **Chromium-based Browser** minimum version as specified in the manifest.json file. Browsers supported include Chrome, Edge, and Brave.
 * **Web page supporting Polaris-web**, a JavaScript API protocol
-* **Connection to KERI Agent Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth browser extension.
+* **Connection to KERI Agent Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth Identity Wallet.
 Over time, we expect many KERIA service providers to be available, including a turn-key self-hosted option.
 KERIA creates a separate agent instance for each Signify client as well as partitions the server’s storage to isolate agent instances from each other.
 The KERIA agent instance does not hold any of the user’s signing keys, as signing is the job for a Signify client, which is KERI Auth in our case.
@@ -50,7 +50,7 @@ The agent instance does hold ACDCs (which may contain PII) as it needs to verify
 
 ### Illustration of Primary Components
 ![KERI Auth Architecture](KERIAuthArchitecture.jpg)
-Figure: KERI Auth Browser Extension Architecture ([source](https://docs.google.com/drawings/d/1xICKkvaJkS4IrOGcj_3GidkKHu1VcIrzGCN_vJSvAv4))
+Figure: KERI Auth Identity Wallet Architecture ([source](https://docs.google.com/drawings/d/1xICKkvaJkS4IrOGcj_3GidkKHu1VcIrzGCN_vJSvAv4))
 
 ### Manifest.json
 * Describes the extension and its minimum permissions. Additional permissions, such as to interact with a specific website, are requested of the user during use.
@@ -190,7 +190,7 @@ See [.github/workflows/dotnet.yml](.github/workflows/dotnet.yml) for details.
   * [vlei-trainings](https://github.com/gleif-IT/vlei-trainings) by GLEIF
 
 * Related Identity Wallets
-  * [Veridian Wallet](https://github.com/cardano-foundation/cf-identity-wallet) by Cardano Foundation and Veridian.id
+  * [Veridian Wallet](https://veridian.id/)
   * [Signify Browser Extension](https://github.com/WebOfTrust/signify-browser-extension) by WebOfTrust
 * Legal Entity Roots of Trust and Credential Verification
   * [Verifiable Legal Entity Identifier (vLEI)](https://www.gleif.org/en/organizational-identity/introducing-the-verifiable-lei-vlei) by Global Legal Entity Identifier Foundation (GLEIF)
