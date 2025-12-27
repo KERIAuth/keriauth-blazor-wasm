@@ -236,7 +236,8 @@ namespace Extension.Services {
 
         private void OnNext(BwAppMessage value) {
             logger.LogDebug("Notifying {count} observers of message type: {type}", observers.Count, value.Type);
-            foreach (var observer in observers) {
+            // Create a snapshot to avoid concurrent modification if callbacks modify subscriptions
+            foreach (var observer in observers.ToArray()) {
                 observer.OnNext(value);
             }
         }
@@ -247,14 +248,16 @@ namespace Extension.Services {
 
         // Helper method to notify observers of an Error
         private void NotifyError(Exception Error) {
-            foreach (var observer in observers) {
+            // Create a snapshot to avoid concurrent modification if callbacks modify subscriptions
+            foreach (var observer in observers.ToArray()) {
                 observer.OnError(Error);
             }
         }
 
         // Helper method to notify observers of completion
         private void Complete() {
-            foreach (var observer in observers) {
+            // Create a snapshot to avoid concurrent modification if callbacks modify subscriptions
+            foreach (var observer in observers.ToArray()) {
                 observer.OnCompleted();
             }
         }

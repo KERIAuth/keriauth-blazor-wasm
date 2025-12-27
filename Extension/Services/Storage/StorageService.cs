@@ -194,8 +194,10 @@ public class StorageService : IStorageService, IDisposable {
             }
 
             if (typedValue != null) {
+                // Create a snapshot to avoid concurrent modification if callbacks modify subscriptions
+                var snapshot = entryList.ToArray();
                 // Notify each observer using its typed callback
-                foreach (var entry in entryList) {
+                foreach (var entry in snapshot) {
                     try {
                         entry.NotifyCallback(typedValue);
                         _logger.LogDebug("Notified observer of {Key} change in {Area}", key, area);
@@ -225,8 +227,10 @@ public class StorageService : IStorageService, IDisposable {
             var defaultValue = Activator.CreateInstance(elementType);
 
             if (defaultValue != null) {
+                // Create a snapshot to avoid concurrent modification if callbacks modify subscriptions
+                var snapshot = entryList.ToArray();
                 // Notify each observer using its typed callback
-                foreach (var entry in entryList) {
+                foreach (var entry in snapshot) {
                     try {
                         entry.NotifyCallback(defaultValue);
                         _logger.LogDebug("Notified observer of {Key} deletion in {Area} with default value", key, area);

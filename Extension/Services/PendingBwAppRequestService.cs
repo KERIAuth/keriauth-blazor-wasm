@@ -261,11 +261,14 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
         _storageSubscription?.Dispose();
         _storageSubscription = null;
 
+        List<IObserver<PendingBwAppRequests>> observersCopy;
         lock (_observers) {
-            foreach (var observer in _observers) {
-                observer.OnCompleted();
-            }
+            observersCopy = [.. _observers];
             _observers.Clear();
+        }
+        // Notify outside of lock to avoid potential deadlocks
+        foreach (var observer in observersCopy) {
+            observer.OnCompleted();
         }
 
         GC.SuppressFinalize(this);

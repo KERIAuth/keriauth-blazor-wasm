@@ -218,7 +218,7 @@ async function sendMessageToBW(msg: Polaris.MessageData<unknown> | ICsBwMsg): Pr
         // Check if extension context was invalidated (typically after extension reload/update)
         const errorMessage = String(error);
         if (errorMessage.includes("Extension context invalidated")) {
-            console.warn("KeriAuthCs→BW: Extension context invalidated (likely due to extension reload/update)");
+            console.log("KeriAuthCs→BW: Extension context invalidated (likely due to extension reload/update)");
 
             // Prompt user to reload the page to get the updated ContentScript
             promptAndReloadPage(
