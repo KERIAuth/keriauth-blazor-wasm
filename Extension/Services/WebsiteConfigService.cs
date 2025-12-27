@@ -91,8 +91,8 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 newList.WebsiteList.Add(websiteConfig);
             }
             else {
-                var newConfig = config with { IsAutoSignSafeHeaders = true };
-                newList.WebsiteList.Add(newConfig);
+                // Preserve existing config for other websites
+                newList.WebsiteList.Add(config);
             }
         }
 
@@ -128,7 +128,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             if (getWebsitesRes.Value is null) {
                 // This is the first website configured. Need to first add the Websites collection
                 // var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false, false)).Validate();
-                websiteConfigList = new WebsiteConfigList(WebsiteList: [new WebsiteConfig(originUri, [], null, null, false, false, true)]);
+                websiteConfigList = new WebsiteConfigList(WebsiteList: [new WebsiteConfig(originUri, [], null, null, false, false, false)]);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed) {
                     // logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
@@ -147,7 +147,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             // logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
             if (websiteConfigOrNothing is null) {
                 logger.LogInformation("Adding websiteConfig for {originUri}", originUri);
-                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, true);
+                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, false);
                 // newWebsiteConfig.Validate();
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);

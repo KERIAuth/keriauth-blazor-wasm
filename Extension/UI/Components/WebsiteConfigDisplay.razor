@@ -39,7 +39,7 @@
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<RecursiveDictionary> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
-    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
 
     protected override async Task OnInitializedAsync()
@@ -122,7 +122,7 @@
                 if (isConfigNew)
                 {
                     SelectedPrefix = appCache.MyPreferences.SelectedPrefix;
-                    ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix, IsAutoSignSafeHeaders = true };
+                    ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
                     await updateWebsiteConfigAndParent(ThisWebsiteConfig);
                     // Note above includes StateHasChanged.
                     return;
@@ -185,7 +185,7 @@
                 RememberedCredSaidOrNothing = null,
                 IsAutoSignInCredential = false,
                 IsAutoSignInIdentifier = false,
-                IsAutoSignSafeHeaders = true
+                IsAutoSignSafeHeaders = false
             };
         logger.LogInformation("updateSelectedPrefix 2");
         // _ = newWebsiteConfig.Validate();
@@ -236,9 +236,6 @@
             {
                 RememberedCredSaidOrNothing = newCredSaidOrNothing,
                 RememberedPrefixOrNothing = SelectedPrefix,
-                IsAutoSignSafeHeaders = IsAutoSignSafeHeaders,
-                IsAutoSignInCredential = true,
-                IsAutoSignInIdentifier = true,
             };
 
         await updateWebsiteConfigAndParent(newWebsiteConfig);

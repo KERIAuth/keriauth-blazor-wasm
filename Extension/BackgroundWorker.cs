@@ -1514,6 +1514,30 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
 
+            // Check if auto-sign is enabled for safe HTTP methods
+            var safeMethods = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "GET", "HEAD", "OPTIONS" };
+            bool isSafeMethod = safeMethods.Contains(method);
+            bool isAutoSignEnabled = websiteConfig.IsAutoSignSafeHeaders;
+
+            if (isSafeMethod && isAutoSignEnabled && !string.IsNullOrEmpty(rememberedPrefix)) {
+                logger.LogInformation("BW HandleRequestSignHeadersAsync: auto-signing safe method {Method} for origin {Origin}", method, origin);
+
+                // Create a synthetic AppBwReplySignMessage to reuse the signing logic
+                var autoSignMessage = new AppBwReplySignMessage(
+                    tabId,
+                    tabUrl,
+                    msg.RequestId ?? Guid.NewGuid().ToString(),
+                    origin,
+                    requestUrl,
+                    method,
+                    signRequestPayload.Headers ?? new Dictionary<string, string>(),
+                    rememberedPrefix
+                );
+
+                await SignAndSendRequestHeaders(tabUrl, tabId, autoSignMessage);
+                return;
+            }
+
             // Create the payload with original CS request details for response routing
             var payload = new RequestSignHeadersPayload(
                 Origin: origin,

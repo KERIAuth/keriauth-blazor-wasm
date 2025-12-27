@@ -81,7 +81,7 @@
     // reactive properties
     public bool HasSafeHttpRequestMethod => SafeMethods.Contains(RequestMethod);
     bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
-    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? true;
+    bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     string WebsiteConfiguredAlias => Identifiers?.Find(x => x.Prefix == WebsiteConfiguredPrefix)?.Name ?? "not configured";
     Preferences Prefs => appCache.MyPreferences;
@@ -103,13 +103,15 @@
             return;
         }
 
-        OriginStr = pendingRequest.TabUrl ?? "unknown";
         var payload = pendingRequest.GetPayload<RequestSignHeadersPayload>();
         if (payload is null)
         {
             logger.LogError("OnInitializedAsync: Failed to deserialize pending request payload to RequestSignHeadersPayload");
             return;
         }
+
+        // Use the origin from payload (the requesting page's origin), not App.InitialUri (which could be the SidePanel URL)
+        OriginStr = payload.Origin;
 
         // Extract values from the pending request payload
         RequestId = pendingRequest.RequestId;
@@ -175,8 +177,14 @@
     {
         try
         {
-            var uri = App.InitialUri;
-            return uri;
+            // Use the origin from the payload (set in OnInitializedAsync), not App.InitialUri
+            // App.InitialUri would be the SidePanel/popup URL, not the requesting page's origin
+            if (string.IsNullOrEmpty(OriginStr) || OriginStr == "unset")
+            {
+                logger.LogWarning("GetOriginUri: OriginStr not set");
+                return null;
+            }
+            return new Uri(OriginStr);
         }
         catch (Exception ex)
         {
