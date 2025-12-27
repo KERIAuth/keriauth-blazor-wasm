@@ -251,7 +251,7 @@
 <MudLayout id="MainLayout" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
     <!-- APP BAR -->
     <MudAppBar Class="bt-appbar">
-        <MudStack Style="height:inherit; width: 100%; padding:0.5rem 0.5rem 0.5rem 0.25rem;" Class="d-flex pt-2" Row="true">
+        <MudStack Style="height:inherit; width: 100%; padding:0 0.5rem 0 0.25rem;" Class="d-flex" Row="true">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleMenuDrawer" Style="background-color:transparent;" data-testid="menuHamburger" />
 
             <!-- Logo and Title -->
@@ -260,16 +260,7 @@
                 <MudText Style="margin-left:0.5rem; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">Keri Auth</MudText>
             </MudButton>
 
-            <!-- Timeout Indicator -->
-            <MudStack Row="true" Class="ml-0" Style="align-items:center; min-width:6.429rem; padding-top:0.286rem"
-                      @onmouseenter="() => isTimeoutHovered = true"
-                      @onmouseleave="() => isTimeoutHovered = false">
-                <MudText Typo="Typo.caption" Style="@TimeoutText.Style">
-                    @(isTimeoutHovered? TimeoutTooltip : TimeoutText.Text)
-                </MudText>
-            </MudStack>
-
-            @*
+            @* // For debugging: Uncomment to confirm AppContext is correctly setting e.g. in popup, sidepanel, tab contexts
             <MudText>
                 AppContext: @App.AppContext.ToString()
             </MudText>
@@ -277,22 +268,47 @@
 
             <MudSpacer />
 
-            <!-- KERIA Connected Indicator -->
-            <div style="align-self:center; height: 2.5rem;">
+            @* Timeout / Connected / Locked indicator *@
+            <div style="align-items:center; align-content:center; width:2.5rem; height:inherit;"
+                 @onmouseenter="() => isTimeoutHovered = true"
+                 @onmouseleave="() => isTimeoutHovered = false">
+
                 @if (appCache.IsAuthenticated)
                 {
-                    @if (appCache.IsIdentifierFetched)
+                    @* TODO P2: could add div with an @onclick here to lock *@
+                    if (TimeoutText.IsShown)
                     {
-                        <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
-                            <MudPaper Style="width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
+                        <MudProgressCircular Color="Color.Warning"
+                                             Value="@SessionPercentageRemaining"
+                                             Size="Size.Medium"
+                                             StrokeWidth="5"
+                                             Style="height:inherit; align-content:center;">
+                            <ChildContent>
+                                <MudText Typo="Typo.caption" Color="Color.Warning" Style="padding-top:0.2rem;">
+                                    @SessionDurationRemainingSeconds
+                                </MudText>
+                            </ChildContent>
+                        </MudProgressCircular>
+                    }
+                    else if (isTimeoutHovered)
+                    {
+                        <div style="width:inherit; height:inherit; align-content:center; justify-items:center;">
+                            <MudText Typo="Typo.body2">@TimeoutTooltip</MudText>
+                        </div>
+                    }
+                    else if (appCache.IsIdentifierFetched)
+                    {
+                        @* TODO P2: hide this visual noise unless refresh is really needed.  KERIA Connected Indicator *@
+                        <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
+                            <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
                                 <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!appCache.IsConfigured)" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
                         </MudTooltip>
                     }
                     else
                     {
-                        <MudTooltip Text="Not Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000">
-                            <MudPaper Style="width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
+                        <MudTooltip Text="Not Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;">
+                            <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
                                 <MudIcon Icon="@Icons.Material.Filled.LinkOff" Disabled="@(!appCache.IsConfigured)" @onclick="async () => await RefreshConnect()" />
                             </MudPaper>
                         </MudTooltip>

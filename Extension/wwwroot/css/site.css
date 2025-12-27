@@ -70,6 +70,7 @@
 .mud-select-item,
 .mud-menu-item,
 .mud-treeview-item,
+.mud-tooltip-root,
 .mud-switch .mud-typography,
 .mud-slider .mud-typography {
     user-select: none;
