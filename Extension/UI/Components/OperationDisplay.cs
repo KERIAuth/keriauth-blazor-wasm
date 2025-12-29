@@ -24,6 +24,7 @@
         }
 
         public void Reset() {
+            Label = String.Empty;
             CompletedSuccessfully = false;
             IsPending = true;
             IsRunning = false;
