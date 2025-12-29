@@ -200,6 +200,7 @@
         StateHasChanged();
     }
 
+    // TODO P2 could return Result to indicate success/failure, and do some DRY then
     async Task UnifiedOnboardingFlow()
     {
         await ResetOps();
@@ -240,6 +241,7 @@
                 const string message = "KERIA service is not reachable";
                 ops1CheckLiveness.SetCompletedWithError(message);
                 snackbar.Add(message, Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -255,6 +257,7 @@
                 string errorMsg = healthStatusResult.Reasons.FirstOrDefault()?.Message ?? "KERIA health check failed";
                 ops2CheckHealth.SetCompletedWithError(errorMsg);
                 snackbar.Add(errorMsg, Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -281,6 +284,7 @@
         {
             logger.LogError("Failed to store partial connection config: {Errors}", string.Join(", ", storePartialConfigResult.Errors));
             snackbar.Add("Failed to store connection configuration", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -305,6 +309,7 @@
         {
             ops3Connect.SetCompletedWithError(connectResult.Reasons.First().Message);
             snackbar.Add($"Connection failed: {connectResult.Reasons.First().Message}", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -327,6 +332,7 @@
         {
             logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storePasscodeResult.Errors));
             snackbar.Add("Failed to store session passcode", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -346,6 +352,7 @@
         {
             logger.LogError("Failed to update connection config: {Errors}", string.Join(", ", storeCompleteConfigResult.Errors));
             snackbar.Add("Failed to update connection configuration", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -364,6 +371,7 @@
         {
             ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
             snackbar.Add($"Failed to retrieve identifiers: {identifiersRes.Reasons.First().Message}", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -383,6 +391,7 @@
             {
                 ops5CreatePersonalAid.SetCompletedWithError(createAidResult.Reasons.First().Message);
                 snackbar.Add($"Failed to create identifier: {createAidResult.Reasons.First().Message}", Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -393,6 +402,7 @@
             if (refreshedIdentifiersRes.IsFailed)
             {
                 snackbar.Add("Failed to refresh identifiers after creation", Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -403,6 +413,7 @@
         if (identifiers.Aids.Count == 0)
         {
             snackbar.Add("No identifiers available after creation", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -416,6 +427,7 @@
         {
             logger.LogError("Failed to store preferences: {Errors}", string.Join(", ", storePreferencesResult.Errors));
             snackbar.Add("Failed to store preferences", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -436,6 +448,7 @@
         {
             logger.LogError("Failed to cache connection info: {Errors}", string.Join(", ", storeConnectionInfoResult.Errors));
             snackbar.Add("Failed to cache connection info", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
