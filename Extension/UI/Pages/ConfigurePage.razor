@@ -478,7 +478,7 @@
             <MudText Typo="Typo.h6">Service</MudText>
             <MudStack Class="ml-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudText Style="min-width: 8.571rem;">Provider Preset</MudText>
+                    <MudText Style="min-width: 8.571rem;">Provider</MudText>
                     <MudSelect T="Preset" @bind-Value="@PresetChoice" Style="flex-grow: 1;">
                         @foreach (var preset in presetAgents)
                         {
@@ -503,14 +503,14 @@
                 </MudStack>
             </MudStack>
 
-            <MudText Class="bt-page-title">Your Passcode</MudText>
+            <MudText Typo="Typo.h6" Class="mt-4">Your Passcode</MudText>
             <MudStack Class="ml-4">
                 <MudRadioGroup T="Boolean" Style="margin-left:-1.143rem;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
                     </MudRadio>
                     <MudRadio Value="true">
-                        Create new
+                        Create new random
                     </MudRadio>
                 </MudRadioGroup>
                 @if (IsUsingExistingPasscode)

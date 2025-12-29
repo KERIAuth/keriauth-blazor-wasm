@@ -24,13 +24,14 @@
         }
 
         public void Reset() {
-            Label = String.Empty;
+            Label = InitialLabel;
             CompletedSuccessfully = false;
             IsPending = true;
             IsRunning = false;
             ErrorMessage = String.Empty;
         }
 
+        public string InitialLabel { get; private set; } = label;
         public string Label { get; private set; } = label;
         public string SuccessLabel { get; init; } = successLabel;
         public bool CompletedSuccessfully { get; private set; }
