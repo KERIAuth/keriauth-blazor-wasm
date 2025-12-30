@@ -336,44 +336,43 @@
             <MudStack Class="gap-0">
                 <MudText Class="mt-4" Typo="Typo.h6">Credential</MudText>
                 <MudStack Class="ml-0" Style="gap:0;">
-                    <MudPaper Elevation="0" Class="pa-0 mr-0">
-                        <!-- Display Selected Credential -->
-                        @if (!IsCredListExpanded)
-                        {
-                            <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded">
-                                @if (SelectedCredentialOrNothing is null)
-                                {
-                                    <div style="width:100%; align-content:center;">
-                                        <MudText Class="ml-3">Select</MudText>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <CredentialCardGeneric credential="@SelectedCredentialOrNothing" IsDense=true DisplayDetail="@CredentialCardGeneric.CredDetail.Minimal" />
-                                }
-                                <MudSpacer />
-                                <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
-                            </MudPaper>
-                        }
-                        else
-                        {
-                            if (IssueeCredentials is not null && IssueeCredentials.Any())
+                    <!-- Display Selected Credential or Selection List -->
+                    @if (!IsCredListExpanded)
+                    {
+                        <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded" Style="cursor: pointer;">
+                            @if (SelectedCredentialOrNothing is null)
                             {
-                                <MudList Dense="true" T="RecursiveDictionary">
-                                    @foreach (RecursiveDictionary credential in IssueeCredentials)
-                                    {
-                                        <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@getCredentialItemClass(credential)">
-                                            <CredentialCardGeneric credential="@credential" IsDense=true DisplayDetail="@CredentialCardGeneric.CredDetail.Minimal" />
-                                        </MudListItem>
-                                    }
-                                </MudList>
+                                <div style="width:100%; align-content:center;">
+                                    <MudText Class="ml-3">Select</MudText>
+                                </div>
                             }
                             else
                             {
-                                <MudText>No credentials issued to this identifier.</MudText>
+                                <CredentialPanelCompact Credential="@SelectedCredentialOrNothing" IsSelected="true" />
                             }
+                            <MudSpacer />
+                            <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        @if (IssueeCredentials is not null && IssueeCredentials.Any())
+                        {
+                            <MudStack Spacing="1">
+                                @foreach (RecursiveDictionary credential in IssueeCredentials)
+                                {
+                                    var isSelected = credential == SelectedCredentialOrNothing;
+                                    <div @onclick="async () => await updateSelectedCredential(credential)" style="cursor: pointer;">
+                                        <CredentialPanelCompact Credential="@credential" IsSelected="@isSelected" />
+                                    </div>
+                                }
+                            </MudStack>
                         }
-                    </MudPaper>
+                        else
+                        {
+                            <MudText>No credentials issued to this identifier.</MudText>
+                        }
+                    }
                     @if (IsAutoSignShown)
                     {
                         <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />

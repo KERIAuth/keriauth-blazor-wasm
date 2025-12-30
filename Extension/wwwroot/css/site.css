@@ -238,3 +238,42 @@
         all: revert;
         margin-top: 0.5em;
     }
+
+/* Credential Panel Styles */
+.credential-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.credential-panel {
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    border: 1px solid rgba(0,0,0,0.08);
+}
+
+.mud-theme-dark .credential-panel {
+    border: 1px solid rgba(255,255,255,0.12);
+}
+
+.credential-panel .mud-expand-panel {
+    box-shadow: var(--mud-elevation-2);
+}
+
+.credential-panel .mud-expand-panel-header {
+    padding: 0;
+}
+
+.selected-credential {
+    border-color: var(--mud-palette-primary);
+    border-width: 2px;
+}
+
+.credential-compact {
+    border: 1px solid rgba(0,0,0,0.08);
+}
+
+.mud-theme-dark .credential-compact {
+    border: 1px solid rgba(255,255,255,0.12);
+}
