@@ -257,7 +257,7 @@
             // logger.LogWarning("returned from Authenticate. pausing...");
             if (appCache.MyKeriaConnectConfig.AdminUrl is null)
             {
-                throw new IndexOutOfRangeException("KERI Agent AdminUrl is not configured");
+                throw new IndexOutOfRangeException("KERIA AdminUrl is not configured");
             }
             // expect navigation to ConnectingPage via Index
             navManager.NavigateTo(Routes.PathFor<Index>());

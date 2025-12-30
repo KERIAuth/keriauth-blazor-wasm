@@ -57,7 +57,7 @@ public static class Routes
             Icons.Material.Filled.Web, Color.Surface),
         [typeof(Passkeys)] = new("Passkeys", "/Passkeys.html", RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
-        [typeof(KeriAgentServicePage)] = new("KERI Agent", "/KeriAgentService.html", RequiresAuth: true,
+        [typeof(KeriAgentServicePage)] = new("KERIA Cloud Service", "/KeriAgentService.html", RequiresAuth: true,
             Icons.Material.Outlined.PeopleOutline, Color.Surface),
 
         // Detail pages (auth required, no menu). Trailing / if route has parameter

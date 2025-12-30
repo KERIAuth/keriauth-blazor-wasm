@@ -11,7 +11,7 @@ The KERI Auth 1.0 release is under development and targets the features below.
 From the end user’s perspective, the extension enables the user to create and manage their own stable identifiers (KERI AIDs) with signing keys, and credentials. It can utilize credentials issued by the website owner and/or other issuers they trust.
 V1.0 target features include:
 * Create a random passcode
-* Configure a connection with a KERI Agent Service of your choosing
+* Configure a connection with a KERIA Cloud Service of your choosing
 * Create one or more KERI identifiers
 * Select your current KERI identifier
 * View credentials issued to your selected identifier
@@ -37,7 +37,7 @@ The most recent stable version is available from the [Chrome Web Store](https://
 To successfully install and use the KERI Auth Identity Wallet, you need the following:
 * **Chromium-based Browser** minimum version as specified in the manifest.json file. Browsers supported include Chrome, Edge, and Brave.
 * **Web page supporting Polaris-web**, a JavaScript API protocol
-* **Connection to KERI Agent Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth Identity Wallet.
+* **Connection to KERIA Cloud Service**. [KERIA]((https://github.com/weboftrust/keria)) is a multi-tenant service that provides infrastructure for one or more Signify clients such as the KERI Auth Identity Wallet.
 Over time, we expect many KERIA service providers to be available, including a turn-key self-hosted option.
 KERIA creates a separate agent instance for each Signify client as well as partitions the server’s storage to isolate agent instances from each other.
 The KERIA agent instance does not hold any of the user’s signing keys, as signing is the job for a Signify client, which is KERI Auth in our case.
@@ -183,13 +183,13 @@ See [.github/workflows/dotnet.yml](.github/workflows/dotnet.yml) for details.
   * [signify-ts](https://github.com/webOfTrust/signify-ts/) by WebOfTrust
   * [polaris-web](https://github.com/WebOfTrust/polaris-web) by WebOfTrust
 
-* KERI Agent Service
+* KERIA Cloud Service
   * [keria](https://github.com/WebOfTrust/keria) by WebOfTrust
 
 * Technical Training
   * [vlei-trainings](https://github.com/gleif-IT/vlei-trainings) by GLEIF
 
-* Related Identity Wallets
+* Other Notable Identity Wallets
   * [Veridian Wallet](https://veridian.id/)
   * [Signify Browser Extension](https://github.com/WebOfTrust/signify-browser-extension) by WebOfTrust
 * Legal Entity Roots of Trust and Credential Verification

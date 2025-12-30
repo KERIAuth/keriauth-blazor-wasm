@@ -48,7 +48,7 @@
         var connectRes = await signifyClientService.Connect(appCache.MyKeriaConnectConfig.AdminUrl!, appCache.MyPasscodeModel.Passcode, appCache.MyKeriaConnectConfig.BootUrl, false);
         if (connectRes is null || connectRes.IsFailed)
         {
-            var openWalletError = "Could not connect to KERI Agent";
+            var openWalletError = "Could not connect to KERIA Cloud Service";
             snackbar.Add(openWalletError, Severity.Error);
             logger.LogWarning(openWalletError);
             return Result.Fail(openWalletError);
@@ -58,14 +58,14 @@
             // Confirm Client and Agent AIDs are as expected from initial connection response
             if (connectRes.Value.Controller?.State?.I != appCache.MyKeriaConnectConfig.ClientAidPrefix)
             {
-                var msg = "Connected KERI Agent Client AID does not match expected value";
+                var msg = "Connected KERIA Client AID does not match expected value";
                 logger.LogError(msg);
                 snackbar.Add(msg, Severity.Error);
                 return Result.Fail(msg);
             }
             if (connectRes.Value.Agent?.I != appCache.MyKeriaConnectConfig.AgentAidPrefix)
             {
-                var msg = "Connected KERI Agent AID does not match expected value";
+                var msg = "Connected KERIA AID does not match expected value";
                 logger.LogError(msg);
                 snackbar.Add(msg, Severity.Error);
                 return Result.Fail(msg);
@@ -96,7 +96,7 @@
             // Assure AppCache is updated before next re-route via index page load
             await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
 
-            logger.LogInformation("Connected to KERI Agent");
+            logger.LogInformation("Connected to KERIA");
             return Result.Ok();
         }
     }

@@ -319,7 +319,7 @@
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
                     <MudNavLink Href="@(Routes.PathFor<Passkeys>())" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<PreferencesPage>())" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href="@(Routes.PathFor<KeriAgentServicePage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERI Agent</MudNavLink>
+                    <MudNavLink Href="@(Routes.PathFor<KeriAgentServicePage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Config</MudNavLink>
                     @if (appCache.IsAuthenticated)
                     {
                         <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>

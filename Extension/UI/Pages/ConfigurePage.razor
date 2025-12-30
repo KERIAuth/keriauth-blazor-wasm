@@ -52,8 +52,8 @@
 
     // fields
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
-    static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERI Agent Service liveness", "Established KERIA connection");
-    static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
+    static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
+    static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
     static readonly OperationDisplay ops3Connect = new OperationDisplay("Connecting", "Connected");
     static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
     static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
@@ -473,7 +473,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <MudStack Style="min-width: 24.286rem; width:100%; margin-right:1.143rem;">
-            <MudText Class="bt-page-title">Connect with KERI Agent Service (KERIA)</MudText>
+            <MudText Class="bt-page-title">Connect with KERIA Cloud Service</MudText>
 
             <MudText Typo="Typo.h6">Service</MudText>
             <MudStack Class="ml-4">
