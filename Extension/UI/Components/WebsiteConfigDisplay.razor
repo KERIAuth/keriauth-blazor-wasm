@@ -33,11 +33,11 @@
     WebsiteConfig? ThisWebsiteConfig { get; set; }
     List<RecursiveDictionary>? CredentialsDict { get; set; }
 
-    // reactive properties
+    // computed properties
     // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
     RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
-    List<RecursiveDictionary> FilteredCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
+    List<RecursiveDictionary> IssueeCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
@@ -349,7 +349,7 @@
                                 }
                                 else
                                 {
-                                    <CredentialDisplay credential="@SelectedCredentialOrNothing" displayDetail="@CredentialDisplay.CredDetail.Typical" />
+                                    <CredentialCardGeneric credential="@SelectedCredentialOrNothing" IsDense=true DisplayDetail="@CredentialCardGeneric.CredDetail.Minimal" />
                                 }
                                 <MudSpacer />
                                 <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
@@ -357,13 +357,13 @@
                         }
                         else
                         {
-                            if (FilteredCredentials is not null && FilteredCredentials.Any())
+                            if (IssueeCredentials is not null && IssueeCredentials.Any())
                             {
                                 <MudList Dense="true" T="RecursiveDictionary">
-                                    @foreach (RecursiveDictionary credential in FilteredCredentials)
+                                    @foreach (RecursiveDictionary credential in IssueeCredentials)
                                     {
                                         <MudListItem OnClick="async () => await updateSelectedCredential(credential)" Class="@getCredentialItemClass(credential)">
-                                            <CredentialDisplay credential="@credential" />
+                                            <CredentialCardGeneric credential="@credential" IsDense=true DisplayDetail="@CredentialCardGeneric.CredDetail.Minimal" />
                                         </MudListItem>
                                     }
                                 </MudList>
