@@ -84,7 +84,6 @@ public static class Routes
         [typeof(PreferencesPage)] = new("Preferences", "/ManagePreferences.html", RequiresAuth: false,
             Icons.Material.Filled.SettingsApplications, Color.Surface),
         [typeof(TermsPage)] = new("Terms", "/Terms.html", RequiresAuth: false),
-        [typeof(PrivacyPage)] = new("Privacy", "/Privacy.html", RequiresAuth: false),
         [typeof(SidePanel)] = new("SidePanel", "/sidepanel.html", RequiresAuth: false),
         [typeof(DeletePage)] = new("Delete Config", "/Delete.html", RequiresAuth: false,
             Icons.Material.Filled.DeleteForever, Color.Surface),

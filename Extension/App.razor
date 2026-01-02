@@ -56,26 +56,6 @@
 
         await VerifyTermsAndPrivacyDigests();
 
-        // Subscribe to and handle messages from background worker via messaging service
-        /*
-        appBwMessagingService.Subscribe(
-            onNext: (message) =>
-            {
-                logger.LogWarning("App from BW/MessagingService: type={type}, requestId={requestId}", message.Type, message.RequestId);
-                // Handle specific message types if needed
-                // For now, just log
-            },
-            onError: (error) =>
-            {
-                logger.LogError(error, "Error from BW messaging service");
-            },
-            onCompleted: () =>
-            {
-                logger.LogInformation("BW messaging service completed");
-            }
-        );
-        */
-
         // TODO P2 is tabId or any query param needed? If not, remove this logic.
         // Capture initial URI from which the app was loaded. This may contain query parameters we need.
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
@@ -101,6 +81,9 @@
         logger.LogInformation("OnInitializedAsync complete");
     }
 
+    public static int CurrentTermsDigest;
+    public static int CurrentPrivacyDigest;
+
     // Verify that the Terms and Privacy HTML files match expected hash digests. If not, developer needs to update expected digests in AppConfig.
     private async Task VerifyTermsAndPrivacyDigests()
     {
@@ -108,17 +91,20 @@
         const string privacyUrlPath = "content/privacy.html";
         var termsMarkup = new MarkupString(NormalizeContent(await http.GetStringAsync(termsUrlPath)));
         var privacyMarkup = new MarkupString(NormalizeContent(await http.GetStringAsync(privacyUrlPath)));
-        int termsDigest = DeterministicHash.ComputeHash(termsMarkup.Value);
-        int privacyDigest = DeterministicHash.ComputeHash(privacyMarkup.Value);
-        if (termsDigest != AppConfig.ExpectedTermsDigest)
+        CurrentTermsDigest = DeterministicHash.ComputeHash(termsMarkup.Value);
+        CurrentPrivacyDigest = DeterministicHash.ComputeHash(privacyMarkup.Value);
+        if (CurrentTermsDigest != AppConfig.ExpectedTermsDigest)
         {
-            logger.LogError($"termsHash {termsDigest} does not match expected {AppConfig.ExpectedTermsDigest}");
+            logger.LogError($"CurrentTermsDigest {CurrentTermsDigest} does not match expected {AppConfig.ExpectedTermsDigest}.  Needs updating!");
+            await Task.Delay(10000); // Pause to ensure developer sees the error in logs);
         }
-        if (privacyDigest != AppConfig.ExpectedPrivacyDigest)
+        if (CurrentPrivacyDigest != AppConfig.ExpectedPrivacyDigest)
         {
-            logger.LogError($"privacyHash {privacyDigest} does not match expected {AppConfig.ExpectedPrivacyDigest}");
+            logger.LogError($"CurrentPrivacyDigest {CurrentPrivacyDigest} does not match expected {AppConfig.ExpectedPrivacyDigest}  Needs updating!");
+            await Task.Delay(10000); // Pause to ensure developer sees the error in logs);
         }
     }
+
 
     /// <summary>
     /// Reads the extension context from globalThis.__EXT_CONTEXT__ set in the HTML page.
