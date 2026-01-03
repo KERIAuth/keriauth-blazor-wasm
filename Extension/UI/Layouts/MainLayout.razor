@@ -164,14 +164,12 @@
 
     async Task Lock()
     {
-        // logger.LogInformation("Locking application - clearing KERIA session records");
         await sessionManager.ClearKeriaSessionRecordsAsync();
         await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
     }
 
     async Task Unlock()
     {
-        // logger.LogInformation("Unlocking application - navigating to Unlock page");
         navManager.NavigateTo(Routes.PathFor<UnlockPage>());
     }
 
@@ -326,7 +324,7 @@
                     }
                     else
                     {
-                        <MudNavLink OnClick=Unlock Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
+                        <MudNavLink Href="@(Routes.PathFor<UnlockPage>())" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
                     }
                     <MudNavLink Href="@(Routes.PathFor<DeletePage>())" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<TestPage>())" Icon="@Icons.Material.Filled.TempleBuddhist" IconColor="Color.Surface">Test</MudNavLink>
