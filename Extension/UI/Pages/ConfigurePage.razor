@@ -60,6 +60,7 @@
     // TODO P2 load presets from AppConfig or external source
     static List<Preset> presetAgents = new List<Preset>
     {
+        new Preset("KERI Auth Test Cloud", "https://keria.cloud.keriauth.com", "https://keria-boot.cloud.keriauth.com"),
         new Preset("localhost", AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl),
         new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
         new Preset("Custom", "", "")

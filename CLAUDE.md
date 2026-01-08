@@ -63,19 +63,13 @@ export async function beforeStart(
 ): Promise<void> {
     const mode = blazorBrowserExtension.BrowserExtension.Mode;
 
+    // Static import of libsodium-polyfill at top of file (runs before beforeStart)
+    // signifyClient is lazy-loaded by C# services when needed
+    // WebAuthn modules (navigatorCredentialsShim, aesGcmCrypto) loaded via JsModuleLoader
+
     if (mode === 'Background') {
-        // Load modules for BackgroundWorker
-        await Promise.all([
-            import('./scripts/esbuild/signifyClient.js'),
-            // ... other modules
-        ]);
-    } else if (mode === 'Standard' || mode === 'Debug') {
-        // Load modules for App (includes WebAuthn)
-        await Promise.all([
-            import('./scripts/esbuild/signifyClient.js'),
-            import('./scripts/es6/webauthnCredentialWithPRF.js'),
-            // ... other modules
-        ]);
+        // Set up browser event listeners for BackgroundWorker
+        // ...
     }
 }
 ```
@@ -189,7 +183,7 @@ blazor.webassembly.js
   ↓
 app.ts beforeStart(mode='Standard'/'Debug')
   ↓ Detects mode
-  ↓ Loads App modules (signifyClient, webauthnCredentialWithPRF, etc.)
+  ↓ Loads libsodium-polyfill statically; other modules lazy-loaded by C#
   ↓ Modules cached in App's runtime
   ↓ Returns control
   ↓

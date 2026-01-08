@@ -129,9 +129,8 @@ var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("WASM host built");
 
 // Load JavaScript ES modules via JsModuleLoader
-// Some modules (storageHelper, webauthnCredentialWithPRF) are statically imported in app.ts
-// and cached by the browser before Blazor starts
-// Other modules (signifyClient) are lazy-loaded here to avoid libsodium initialization issues
+// libsodium-polyfill is statically imported in app.ts before Blazor starts
+// Other modules (signifyClient, navigatorCredentialsShim) are lazy-loaded to avoid initialization issues
 logger.LogInformation("Loading JavaScript modules via JsModuleLoader...");
 // Console.WriteLine("Program.cs: Loading JavaScript modules via JsModuleLoader...");
 

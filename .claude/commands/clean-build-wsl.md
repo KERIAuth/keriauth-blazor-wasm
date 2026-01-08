@@ -90,8 +90,8 @@ Expected files in `scripts/es6/`:
 * index.js
 * ExCsInterfaces.js
 * storage-models.js
-* webauthnCredentialWithPRF.js
 * libsodium-polyfill.js
+* navigatorCredentialsShim.js
 
 If any files are missing, the TypeScript build failed silently. Check for errors and rebuild.
 

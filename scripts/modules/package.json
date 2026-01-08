@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch --preserveWatchOutput",
-    "clean": "node -e \"const fs=require('fs');const path=require('path');const dir='../../Extension/wwwroot/scripts/es6';['webauthnCredentialWithPRF','libsodium-polyfill'].forEach(f=>{['.js','.js.map','.d.ts','.d.ts.map'].forEach(ext=>{try{fs.unlinkSync(path.join(dir,f+ext))}catch{}})});try{fs.unlinkSync('./dist/tsconfig.modules.tsbuildinfo')}catch{}\"",
+    "clean": "node -e \"const fs=require('fs');const path=require('path');const dir='../../Extension/wwwroot/scripts/es6';['libsodium-polyfill','navigatorCredentialsShim','aesGcmCrypto','setExtContext','userActivityListener'].forEach(f=>{['.js','.js.map','.d.ts','.d.ts.map'].forEach(ext=>{try{fs.unlinkSync(path.join(dir,f+ext))}catch{}})});try{fs.unlinkSync('./dist/tsconfig.modules.tsbuildinfo')}catch{}\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

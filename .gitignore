@@ -427,12 +427,17 @@ obj/
 /.vs
 .vs/
 # Generated JavaScript/TypeScript files
+# TypeScript compiled output in wwwroot/scripts/ - source is in scripts/ workspace
 /Extension/wwwroot/scripts/es6/*.js
 /Extension/wwwroot/scripts/es6/*.js.map
 /Extension/wwwroot/scripts/es6/*.d.ts
+/Extension/wwwroot/scripts/es6/*.ts
 /Extension/wwwroot/scripts/esbuild/*.js
 /Extension/wwwroot/scripts/esbuild/*.js.map
 /Extension/wwwroot/scripts/esbuild/*.d.ts
+/Extension/wwwroot/scripts/esbuild/*.ts
+/Extension/wwwroot/scripts/types/*.ts
+/Extension/wwwroot/scripts/types/*.d.ts
 /Extension/dist/wwwroot/scripts/es6/
 /Extension/dist/wwwroot/scripts/esbuild/
 /Extension/wwwroot/app.js
