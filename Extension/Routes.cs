@@ -57,7 +57,7 @@ public static class Routes
             Icons.Material.Filled.Web, Color.Surface),
         [typeof(Passkeys)] = new("Passkeys", "/Passkeys.html", RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
-        [typeof(KeriAgentServicePage)] = new("KERI Agent", "/KeriAgentService.html", RequiresAuth: true,
+        [typeof(KeriAgentServicePage)] = new("KERIA Cloud Service", "/KeriAgentService.html", RequiresAuth: true,
             Icons.Material.Outlined.PeopleOutline, Color.Surface),
 
         // Detail pages (auth required, no menu). Trailing / if route has parameter
@@ -84,7 +84,6 @@ public static class Routes
         [typeof(PreferencesPage)] = new("Preferences", "/ManagePreferences.html", RequiresAuth: false,
             Icons.Material.Filled.SettingsApplications, Color.Surface),
         [typeof(TermsPage)] = new("Terms", "/Terms.html", RequiresAuth: false),
-        [typeof(PrivacyPage)] = new("Privacy", "/Privacy.html", RequiresAuth: false),
         [typeof(SidePanel)] = new("SidePanel", "/sidepanel.html", RequiresAuth: false),
         [typeof(DeletePage)] = new("Delete Config", "/Delete.html", RequiresAuth: false,
             Icons.Material.Filled.DeleteForever, Color.Surface),

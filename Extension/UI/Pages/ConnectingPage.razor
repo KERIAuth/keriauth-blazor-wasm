@@ -11,36 +11,68 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ISignifyClientService signifyClientService
-@inject ISnackbar snackbar
 @inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudStack Row="true">
-                <MudText Class="bt-page-title">Connecting to KERIA Service...</MudText>
+                <MudText Class="bt-page-title">@(_connectionFailed ? "Connection Failed" : "Connecting to KERIA Service...")</MudText>
             </MudStack>
-            <div style="height: 70vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
-                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
-            </div>
+            @if (_connectionFailed)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_errorMessage</MudAlert>
+            }
+            else
+            {
+                <div style="height: 70vh; background-color:transparent; align-items:center; justify-content: center; display:flex;">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+                </div>
+            }
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer></MudSpacer>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<Index>()))" Class="justify-end" data-testid="next">Next</MudButton>
+        @if (_connectionFailed)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@RetryConnection" Class="justify-end" data-testid="retry">Retry</MudButton>
+        }
     </MudStack>
 </div>
 
 @code {
+    private bool _connectionFailed;
+    private string _errorMessage = string.Empty;
+
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync");
+        await AttemptConnection();
+    }
+
+    private async Task AttemptConnection()
+    {
+        _connectionFailed = false;
+        _errorMessage = string.Empty;
+        StateHasChanged();
+
         var res = await ConnectAndFetchIdentifiers();
         if (res.IsSuccess)
         {
             await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.IdentifiersList is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0]);
             navManager.NavigateTo(Routes.PathFor<Index>());
         }
+        else
+        {
+            _connectionFailed = true;
+            _errorMessage = res.Errors.FirstOrDefault()?.Message ?? "An unknown error occurred";
+            StateHasChanged();
+        }
+    }
+
+    private async Task RetryConnection()
+    {
+        await AttemptConnection();
     }
 
     private async Task<Result> ConnectAndFetchIdentifiers()
@@ -48,8 +80,7 @@
         var connectRes = await signifyClientService.Connect(appCache.MyKeriaConnectConfig.AdminUrl!, appCache.MyPasscodeModel.Passcode, appCache.MyKeriaConnectConfig.BootUrl, false);
         if (connectRes is null || connectRes.IsFailed)
         {
-            var openWalletError = "Could not connect to KERI Agent";
-            snackbar.Add(openWalletError, Severity.Error);
+            var openWalletError = "Could not connect to KERIA Cloud Service";
             logger.LogWarning(openWalletError);
             return Result.Fail(openWalletError);
         }
@@ -58,16 +89,14 @@
             // Confirm Client and Agent AIDs are as expected from initial connection response
             if (connectRes.Value.Controller?.State?.I != appCache.MyKeriaConnectConfig.ClientAidPrefix)
             {
-                var msg = "Connected KERI Agent Client AID does not match expected value";
+                var msg = "Connected KERIA Client AID does not match expected value";
                 logger.LogError(msg);
-                snackbar.Add(msg, Severity.Error);
                 return Result.Fail(msg);
             }
             if (connectRes.Value.Agent?.I != appCache.MyKeriaConnectConfig.AgentAidPrefix)
             {
-                var msg = "Connected KERI Agent AID does not match expected value";
+                var msg = "Connected KERIA AID does not match expected value";
                 logger.LogError(msg);
-                snackbar.Add(msg, Severity.Error);
                 return Result.Fail(msg);
             }
 
@@ -90,13 +119,12 @@
             {
                 var msg = "Failed to store KERI connection info";
                 logger.LogError("{msg}: {Errors}", msg, string.Join(", ", setResult.Errors));
-                snackbar.Add(msg, Severity.Error);
                 return Result.Fail(msg);
             }
             // Assure AppCache is updated before next re-route via index page load
             await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
 
-            logger.LogInformation("Connected to KERI Agent");
+            logger.LogInformation("Connected to KERIA");
             return Result.Ok();
         }
     }

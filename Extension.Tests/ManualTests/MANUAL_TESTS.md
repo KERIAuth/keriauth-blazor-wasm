@@ -40,6 +40,13 @@
 1. In Chrome's Extension page, hit Refresh (assuming a developer load)
 - [ ] Expected: see Welcome page and New Version info
 
+#### With updated Privacy Policy and/or Terms of Use
+1. Prerequisite: Install and onboard a version of the extension
+1. Simulate a condition where a new Privacy Policy or ToU exists, by modifying the stored OnboardState.PrivacyAgreedHash or .TosAgreedHash value.
+1. Or, create a new version of the extension with updated Privacy Policy and/or Terms of Use
+1. Restart the extension
+- [ ] Expected: On startup, after the NewRelease page, you should be navigated to Terms page, requiring re-acceptance
+
 #### Without version change
 - [ ] Expected: see the Welcome page
 		

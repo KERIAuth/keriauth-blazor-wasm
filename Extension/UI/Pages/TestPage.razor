@@ -58,10 +58,10 @@
             new BoolItem(() => appCache.IsKeriaInitialConnectSuccess, null, 5),
             new BoolItem(() => appCache.IsKeriaConfigValidated, null, 6),
             new BoolItem(() => appCache.IsProductOnboarded, null, 6),
-            new BoolItem(() => appCache.IsPrivacyAgreed, null, 7),
+            new BoolItem(() => appCache.IsCurrentPrivacyAgreed, null, 7),
             new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 8),
             new BoolItem(() => appCache.IsPrivacyHashExpected, null, 8),
-            new BoolItem(() => appCache.IsTosAgreed, null, 7),
+            new BoolItem(() => appCache.IsCurrentTosAgreed, null, 7),
             new BoolItem(() => appCache.IsTosAgreedUtc, null, 8),
             new BoolItem(() => appCache.IsTosHashExpected, null, 8),
             new BoolItem(() => appCache.IsInstallAcknowledged, null , 7),
@@ -93,7 +93,6 @@
                 <MudLink Href="@(Routes.PathFor<WelcomePage>())" Target="_self">Welcome</MudLink>
                 <MudLink Href="@(Routes.PathFor<NewReleasePage>())" Target="_self">Release</MudLink>
                 <MudLink Href="@(Routes.PathFor<TermsPage>())" Target="_self">Terms</MudLink>
-                <MudLink Href="@(Routes.PathFor<PrivacyPage>())" Target="_self">Privacy</MudLink>
                 <MudLink Href="@(Routes.PathFor<ConfigurePage>())" Target="_self">Configure</MudLink>
                 <MudLink Href="@(Routes.PathFor<UnlockPage>())" Target="_self">Unlock</MudLink>
                 <MudLink Href="@(Routes.PathFor<ConnectingPage>())" Target="_self">Connecting</MudLink>

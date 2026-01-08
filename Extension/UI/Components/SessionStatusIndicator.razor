@@ -1,4 +1,4 @@
-@using Extension.UI.Pages
+﻿@using Extension.UI.Pages
 
 @* Session status indicator component for AppBar - shows timeout countdown, connection status, or lock state *@
 
@@ -39,7 +39,7 @@
         }
         else if (IsIdentifierFetched && !Compact)
         {
-            <MudTooltip Text="Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
+            <MudTooltip Text="Connected to KERIA Cloud Service" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
                 <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
                     <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
                 </MudPaper>
@@ -47,7 +47,7 @@
         }
         else if (!Compact)
         {
-            <MudTooltip Text="Not Connected to KERI Agent" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;">
+            <MudTooltip Text="Not Connected to KERIA Cloud Service" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;">
                 <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
                     <MudIcon Icon="@Icons.Material.Filled.LinkOff" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
                 </MudPaper>

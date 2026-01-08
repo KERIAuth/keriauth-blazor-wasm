@@ -189,18 +189,23 @@
         public bool IsProductOnboarded =>
             MyOnboardState.IsWelcomed &&
             MyOnboardState.InstallVersionAcknowledged is not null &&
-            IsTosAgreed &&
-            IsPrivacyAgreed;
-        public bool IsTosAgreed =>
+            IsCurrentTosAndPrivacyAgreed;
+
+        public bool IsCurrentTosAndPrivacyAgreed =>
+            IsTosHashExpected &&
+            IsPrivacyHashExpected;
+
+        public bool IsCurrentTosAgreed =>
             IsTosAgreedUtc &&
             IsTosHashExpected;
         public bool IsTosAgreedUtc => MyOnboardState.TosAgreedUtc is not null;
-        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsDigest;
-        public bool IsPrivacyAgreed =>
+        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsDigest && AppConfig.ExpectedTermsDigest == App.CurrentTermsDigest;
+        public bool IsCurrentPrivacyAgreed =>
             IsPrivacyAgreedUtc &&
             IsPrivacyHashExpected;
         public bool IsPrivacyAgreedUtc => MyOnboardState.PrivacyAgreedUtc is not null;
-        public bool IsPrivacyHashExpected => MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyDigest;
+        public bool IsPrivacyHashExpected =>  MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyDigest && AppConfig.ExpectedPrivacyDigest == App.CurrentPrivacyDigest;
+        public bool IsTermsAndPrivacyAgreed => IsCurrentTosAgreed && IsCurrentPrivacyAgreed;
         public bool IsInstallAcknowledged =>
             MyOnboardState.IsWelcomed &&
             IsInstalledVersionAcknowledged;

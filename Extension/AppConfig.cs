@@ -12,7 +12,7 @@ namespace Extension {
         // Request/Response messaging configuration
         public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
 
-        // KERI agent connection settings
+        // KERIA connection settings
         public const string LocalhostKeriaConnectAlias = "localhost";
         public const string LocalhostKeriaAdminUrl = "http://localhost:3901";
         public const string LocalhostKeriaBootUrl = "http://localhost:3903";
@@ -51,7 +51,7 @@ namespace Extension {
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
         public const int ExpectedTermsDigest = -497501087;
-        public const int ExpectedPrivacyDigest = -120957773;
+        public const int ExpectedPrivacyDigest = 529864982;
 
         // Branding and localization
         public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";

@@ -1,100 +1,209 @@
 ﻿@page "/Terms.html"
 @using Extension.Services.Storage
-
-@using Extension.Helper
 @using Extension.Models
-@using Extension.Services
-@using Extension
-@using Extension.Services.SignifyService
-@using Extension.Services.SignifyService.Models
-@using static Extension.Helper.PreviousPage
-@using static Extension.AppConfig;
-@using static Extension.Services.SignifyService.SignifyServiceConfig
 @using Extension.Utilities
-@using FluentResults
-@using JsBind.Net
-@using JsBind.Net.Configurations
-@using System.Diagnostics;
-@using System.Text.Json;
-@using System.Text.Json.Nodes
-@using Blazor.BrowserExtension
-@using WebExtensions.Net
-@using WebExtensions.Net.Runtime
-@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
-@using JsonSerializer = System.Text.Json.JsonSerializer
-@using static System.Net.WebRequestMethods
-@using System.ComponentModel.DataAnnotations
-@using System.Linq
-@using System.Text
-@using System.Security.Cryptography
+@using static Extension.AppConfig
 
 @inject IStorageService storageService
 @inject ILogger<TermsPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
-@inject IJSRuntime js
-@inject ISignifyClientService signifyClientService
-@inject ISnackbar snackbar
-@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+@inject AppCache appCache
+
+@*
+    Terms & Privacy acknowledgement is shown AFTER initial onboarding (Welcome, NewRelease)
+    but BEFORE first product use (Configure interacting with KERIA, etc.).
+    Rationale: users have context for what the product does and what data
+    is involved, making consent informed, intentional, and legally strong.
+*@
 
 @code {
-	// fields
-	const string termsUrlPath = "content/terms.html";
-	static MarkupString termsMarkup = new("Placeholder for Terms of Use");
-	private MudButton? nextButton;
+    // Content paths
+    const string TermsUrlPath = "content/terms.html";
+    const string PrivacyUrlPath = "content/privacy.html";
 
-	// properties
-	bool IsTermsAgreed { get; set; } = true; // TODO P2 temporary for testing
+    // Loaded content
+    string _termsContent = "";
+    string _privacyContent = "";
 
-	// reactive properties
-    int termsMarkupHash => DeterministicHash.ComputeHash(termsMarkup.Value);
+    // Computed hashes
+    int TermsHash => DeterministicHash.ComputeHash(_termsContent);
+    int PrivacyHash => DeterministicHash.ComputeHash(_privacyContent);
 
-	protected override async Task OnInitializedAsync()
-	{
-		logger.LogInformation("OnInitializedAsync");
-		termsMarkup = new MarkupString(await http.GetStringAsync(termsUrlPath));
-	}
+    // UI state
+    bool _isAcknowledged = false;
+    bool _isLoading = true;
+    bool _shouldFocusCheckbox = false;
+    bool _shouldFocusContinueButton = false;
+    private MudButton? _continueButton;
+    private ElementReference _acknowledgedCheckbox;
 
-	private async Task OnTermsAgreed()
-	{
-        var newOnboardState = appCache.MyOnboardState with
-			{
-				TosAgreedHash = termsMarkupHash,
-				TosAgreedUtc = DateTime.UtcNow,
-			};
-		_ = await storageService.SetItem<OnboardState>(newOnboardState);
-		StateHasChanged();
-		navManager.NavigateTo(Routes.PathFor<Index>());
-	}
+    // Re-consent detection
+    bool HasPreviousAgreement => appCache.MyOnboardState.TosAgreedUtc is not null || appCache.MyOnboardState.PrivacyAgreedUtc is not null;
+    DateTime? PreviousAgreementDate => appCache.MyOnboardState.TosAgreedUtc ?? appCache.MyOnboardState.PrivacyAgreedUtc;
 
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    bool TermsNeedsReConsent => HasPreviousAgreement && !appCache.IsCurrentTosAgreed;
+    bool PrivacyNeedsReConsent => HasPreviousAgreement && !appCache.IsCurrentPrivacyAgreed;
+    bool NeedsReConsent => TermsNeedsReConsent || PrivacyNeedsReConsent;
+
+    string ReConsentMessage
     {
-        if (isFirstRender && nextButton is not null)
-            // TODO P2 remove after testing, if explicit accept is expected
-            await nextButton.FocusAsync();
+        get
+        {
+            if (!NeedsReConsent || PreviousAgreementDate is null) return "";
+
+            var dateStr = PreviousAgreementDate.Value.ToString("MMMM d, yyyy");
+
+            if (TermsNeedsReConsent && PrivacyNeedsReConsent)
+                return $"Although you previously agreed to the Terms of Use and Privacy Policy (as of {dateStr}), these were since updated.";
+            else if (TermsNeedsReConsent)
+                return $"Although you previously agreed to the Terms of Use and Privacy Policy (as of {dateStr}), the Terms of Use was since updated.";
+            else
+                return $"Although you previously agreed to the Terms of Use and Privacy Policy (as of {dateStr}), the Privacy Policy was since updated.";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+
+        // Load both documents for hash computation
+        try
+        {
+            var termsTask = http.GetStringAsync(TermsUrlPath);
+            var privacyTask = http.GetStringAsync(PrivacyUrlPath);
+
+            await Task.WhenAll(termsTask, privacyTask);
+
+            _termsContent = termsTask.Result;
+            _privacyContent = privacyTask.Result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load terms or privacy content");
+        }
+
+        _isLoading = false;
+        _shouldFocusCheckbox = true;
+    }
+
+    private void OnAcknowledgedChanged(ChangeEventArgs e)
+    {
+        _isAcknowledged = (bool)(e.Value ?? false);
+        if (_isAcknowledged)
+        {
+            _shouldFocusContinueButton = true;
+        }
+    }
+
+    private async Task OnContinue()
+    {
+        var now = DateTime.UtcNow;
+
+        // TODO P2: Consider additionally storing or sending this agreement to a server
+        // for audit purposes, including user identifier, agreement versions, and timestamp.
+
+        var newOnboardState = appCache.MyOnboardState with
+        {
+            TosAgreedHash = TermsHash,
+            TosAgreedUtc = now,
+            PrivacyAgreedHash = PrivacyHash,
+            PrivacyAgreedUtc = now,
+        };
+
+        _ = await storageService.SetItem<OnboardState>(newOnboardState);
+        logger.LogInformation("Terms and Privacy agreement recorded at {Timestamp}", now);
+
+        navManager.NavigateTo(Routes.PathFor<Index>());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusCheckbox)
+        {
+            _shouldFocusCheckbox = false;
+            await _acknowledgedCheckbox.FocusAsync();
+        }
+
+        if (_shouldFocusContinueButton && _continueButton is not null)
+        {
+            _shouldFocusContinueButton = false;
+            await _continueButton.FocusAsync();
+        }
     }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main">
-        <MudStack Style="min-width: 24.286rem; width:100%; margin-right:1.143rem;">
-            <MudText Class="bt-page-title">Please review and agree to the Terms of Use</MudText>
-			<MudStack Style="gap:0;">
-				<MudStack Class="d-flex bt-terms-section">
-					<MudIconButton Icon="@Icons.Material.Filled.Print" Variant="Variant.Text" Href="@termsUrlPath" Target="_blank" Class="bt-terms-button" />
-					<div class="bt-terms-markup">
-						@(termsMarkup)
-					</div>
-				</MudStack>
-				<MudDivider />
-				<MudStack class="d-flex mt-5 justify-end" Style="align-items:center;">
-					<MudCheckBox @bind-Value="IsTermsAgreed" data-testid="tosCheckbox" Style="color:var(--mud-palette-primary)">I accept the terms of this Agreement</MudCheckBox>
-				</MudStack>
-			</MudStack>
-		</MudStack>
-	</div>
-	<MudStack Row="true" class="bt-button-tray">
-		<MudSpacer></MudSpacer>
-		<MudButton @ref="nextButton" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsTermsAgreed)" OnClick="@(() => OnTermsAgreed())" Class="justify-end" data-testid="next">Next</MudButton>
-	</MudStack>
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Class="bt-page-title">Review & Accept Terms</MudText>
+
+            @if (_isLoading)
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" Class="mt-4" />
+            }
+            else
+            {
+                <MudStack Class="mt-4" Spacing="4">
+                    @if (NeedsReConsent)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            @ReConsentMessage
+                        </MudAlert>
+                    }
+
+                    <MudText>
+                        Before continuing, please review and accept our Terms of Use and Privacy Policy.
+                    </MudText>
+
+                    <MudStack Spacing="2" Class="mt-2">
+                        <MudLink Href="@TermsUrlPath" Target="terms" Typo="Typo.body1" Color="Color.Primary" Style="display: inline-flex;">
+                            Terms of Use
+                            <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Class="ml-1" Style="align-self: baseline;" />
+                        </MudLink>
+                        <MudLink Href="@PrivacyUrlPath" Target="privacy" Typo="Typo.body1" Color="Color.Primary" Style="display: inline-flex;">
+                            Privacy Policy
+                            <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Class="ml-1" Style="align-self: baseline;" />
+                        </MudLink>
+                    </MudStack>
+
+                    <MudDivider Class="my-2" />
+
+                    @* Use native checkbox so we can reliably set keyboard focus via ElementReference.FocusAsync().
+                       MudCheckBox<bool> does not expose FocusAsync(), and focusing a wrapper is less precise for UX/accessibility. *@
+                    <label class="mud-typography mud-typography-body1"
+                           style="display:flex; align-items:center; gap:.6rem; cursor:pointer; user-select:none;">
+                        <input type="checkbox"
+                               @ref="_acknowledgedCheckbox"
+                               data-testid="termsCheckbox"
+                               checked="@_isAcknowledged"
+                               @onchange="OnAcknowledgedChanged"
+                               style="width: 1.05rem; height: 1.05rem; accent-color: var(--mud-palette-primary);" />
+                        <span style="color: var(--mud-palette-text-primary);">
+                            I have read and agree to the Terms of Use and Privacy Policy
+                        </span>
+                    </label>
+
+                    @if (_isAcknowledged)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            By selecting Continue below, you confirm that you have read and agree to our Terms of Use and Privacy Policy.
+                        </MudText>
+                    }
+                </MudStack>
+            }
+        </div>
+    </MudStack>
+
+    <MudStack Row="true" Class="bt-button-tray">
+        <MudSpacer />
+        <MudButton @ref="_continueButton"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(!_isAcknowledged)"
+                   OnClick="@OnContinue"
+                   data-testid="continue">
+            Continue
+        </MudButton>
+    </MudStack>
 </div>

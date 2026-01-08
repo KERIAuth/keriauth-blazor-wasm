@@ -18,7 +18,7 @@
 
     // properties
 
-   
+
     int NumWebsites { get; set; } = 0;
     List<RecursiveDictionary> Credentials = [];
 
@@ -98,10 +98,17 @@
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:0.714rem;">
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<KeriAgentServicePage>())">KERI Agent</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<KeriAgentServicePage>())">KERIA</MudLink>
                         </MudText>
                         <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
-                            <MudIcon Icon="@Icons.Material.Filled.Check" Color=KeriaConnectStatusColor Class="bt-home-status-icon"></MudIcon>
+                            @if (appCache.IsConnectedToKeria)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Link" Color=Color.Success Class="bt-home-status-icon"></MudIcon>
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" Color=Color.Error Class="bt-home-status-icon"></MudIcon>
+                            }
                             <MudText Typo="Typo.body1">@KeriaConnectStatusText</MudText>
                         </div>
                     </MudStack>
@@ -161,16 +168,16 @@
     }
 
     .bt-home-status-number {
-        padding-left:0.929rem;
+        padding-left: 0.929rem;
     }
 
     .bt-home-status-icon {
-        margin-left:0.357rem;
-        margin-right:1.286rem;
-        padding-left:0;
+        margin-left: 0.357rem;
+        margin-right: 1.286rem;
+        padding-left: 0;
     }
 
     .bt-home-background-box {
-        border-radius:0.857rem;
+        border-radius: 0.857rem;
     }
 </style>

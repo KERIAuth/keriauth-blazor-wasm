@@ -66,9 +66,6 @@
 
   <!-- Content Files -->
   <ItemGroup>
-    <Content Update="Pages\PrivacyPage.razor">
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
     <Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
     <Content Update="wwwroot\content\terms.html" CopyToOutputDirectory="Always" />
     <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />

@@ -52,8 +52,8 @@
 
     // fields
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
-    static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERI Agent Service liveness", "Established KERIA connection");
-    static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERI Agent Service health", "Confirmed healthy connection");
+    static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
+    static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
     static readonly OperationDisplay ops3Connect = new OperationDisplay("Connecting", "Connected");
     static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
     static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
@@ -64,6 +64,7 @@
         new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
         new Preset("Custom", "", "")
     };
+    private MudTextField<string>? _newPasscodeTextField;
     WebExtensionsApi? webExtensionsApi;
     Preset _presetChoice = presetAgents[0];
     UrlModel urlModel = new UrlModel()
@@ -78,6 +79,7 @@
     // properties
     KeriaConnectConfig? KeriaConnectConfig { get; set; }
     string RandomPasscode { get; set; } = "";
+    bool IsRandomPasscodeRevealed { get; set; } = false;
     bool IsPasscodeCopyConfirmed { get; set; }
     bool IsUsingExistingPasscode { get; set; } = true;
     bool IsProcessing { get; set; }
@@ -155,7 +157,10 @@
         configuredPasscodeModel.Passcode = value;
         if (value.Length == 21)
         {
-            _focusTarget = FocusTarget.Connect;
+            if (IsUsingExistingPasscode || value == RandomPasscode && IsPasscodeCopyConfirmed)
+            {
+                _focusTarget = FocusTarget.ConfirmPasscode;
+            }
             StateHasChanged();
         }
     }
@@ -185,7 +190,7 @@
         configuredPasscodeModel.Passcode = "";
         IsPasscodeCopyConfirmed = false;
         await ResetOps();
-        await js.InvokeVoidAsync("navigator.clipboard.writeText", RandomPasscode);
+        // intentionally NOT copying to clipboard since the user may prefer to only write it down manually due to security concerns
     }
 
     async Task ResetOps()
@@ -200,6 +205,7 @@
         StateHasChanged();
     }
 
+    // TODO P2 could return Result to indicate success/failure, and do some DRY then
     async Task UnifiedOnboardingFlow()
     {
         await ResetOps();
@@ -240,6 +246,7 @@
                 const string message = "KERIA service is not reachable";
                 ops1CheckLiveness.SetCompletedWithError(message);
                 snackbar.Add(message, Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -255,6 +262,7 @@
                 string errorMsg = healthStatusResult.Reasons.FirstOrDefault()?.Message ?? "KERIA health check failed";
                 ops2CheckHealth.SetCompletedWithError(errorMsg);
                 snackbar.Add(errorMsg, Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -281,6 +289,7 @@
         {
             logger.LogError("Failed to store partial connection config: {Errors}", string.Join(", ", storePartialConfigResult.Errors));
             snackbar.Add("Failed to store connection configuration", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -305,6 +314,7 @@
         {
             ops3Connect.SetCompletedWithError(connectResult.Reasons.First().Message);
             snackbar.Add($"Connection failed: {connectResult.Reasons.First().Message}", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -327,6 +337,7 @@
         {
             logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storePasscodeResult.Errors));
             snackbar.Add("Failed to store session passcode", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -346,6 +357,7 @@
         {
             logger.LogError("Failed to update connection config: {Errors}", string.Join(", ", storeCompleteConfigResult.Errors));
             snackbar.Add("Failed to update connection configuration", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -364,6 +376,7 @@
         {
             ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
             snackbar.Add($"Failed to retrieve identifiers: {identifiersRes.Reasons.First().Message}", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -383,6 +396,7 @@
             {
                 ops5CreatePersonalAid.SetCompletedWithError(createAidResult.Reasons.First().Message);
                 snackbar.Add($"Failed to create identifier: {createAidResult.Reasons.First().Message}", Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -393,6 +407,7 @@
             if (refreshedIdentifiersRes.IsFailed)
             {
                 snackbar.Add("Failed to refresh identifiers after creation", Severity.Error);
+                await Task.Delay(6000);
                 IsProcessing = false;
                 return;
             }
@@ -403,6 +418,7 @@
         if (identifiers.Aids.Count == 0)
         {
             snackbar.Add("No identifiers available after creation", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -416,6 +432,7 @@
         {
             logger.LogError("Failed to store preferences: {Errors}", string.Join(", ", storePreferencesResult.Errors));
             snackbar.Add("Failed to store preferences", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -436,6 +453,7 @@
         {
             logger.LogError("Failed to cache connection info: {Errors}", string.Join(", ", storeConnectionInfoResult.Errors));
             snackbar.Add("Failed to cache connection info", Severity.Error);
+            await Task.Delay(6000);
             IsProcessing = false;
             return;
         }
@@ -455,17 +473,22 @@
 
         logger.LogInformation("UnifiedOnboardingFlow completed successfully, navigating to passkey offer");
     }
+
+    private async Task SelectNewPasscodeText(MouseEventArgs args)
+    {
+        await _newPasscodeTextField!.SelectAsync();
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main">
+    <div class="d-flex gap-2 bt-main">
         <MudStack Style="min-width: 24.286rem; width:100%; margin-right:1.143rem;">
-            <MudText Class="bt-page-title">Connect with KERI Agent Service (KERIA)</MudText>
+            <MudText Class="bt-page-title">Connect with KERIA Cloud Service</MudText>
 
             <MudText Typo="Typo.h6">Service</MudText>
             <MudStack Class="ml-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudText Style="min-width: 8.571rem;">Provider Preset</MudText>
+                    <MudText Style="min-width: 8.571rem;">Provider</MudText>
                     <MudSelect T="Preset" @bind-Value="@PresetChoice" Style="flex-grow: 1;">
                         @foreach (var preset in presetAgents)
                         {
@@ -490,14 +513,14 @@
                 </MudStack>
             </MudStack>
 
-            <MudText Class="bt-page-title">Your Passcode</MudText>
+            <MudText Typo="Typo.h6" Class="mt-4">Your Passcode</MudText>
             <MudStack Class="ml-4">
-                <MudRadioGroup T="Boolean" Style="margin-left:-1.143rem;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
+                <MudRadioGroup T="Boolean" Style="margin-left:-0.9rem;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
                     </MudRadio>
                     <MudRadio Value="true">
-                        Create new
+                        Create new random
                     </MudRadio>
                 </MudRadioGroup>
                 @if (IsUsingExistingPasscode)
@@ -518,13 +541,27 @@
                 }
                 else // create a new passcode
                 {
-                    <MudText Style="min-width: 8.571rem;">A new random passcode has been placed on your clipboard</MudText>
-                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-1.143rem; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText Style="min-width: 8.571rem;">Generated random passcode</MudText>
+                        <MudTextField @ref="_newPasscodeTextField" InputType="@(IsRandomPasscodeRevealed ? InputType.Text : InputType.Password)"
+                                      @bind-Value="@RandomPasscode"
+                                      ReadOnly="true"
+                                      Class="pl-1"
+                                      Immediate="true"
+                                      @onclick="SelectNewPasscodeText"
+                                      Style="min-width:15rem;" />
+                        <MudTooltip Text="@(IsRandomPasscodeRevealed ? "Hide passcode" : "Reveal passcode")">
+                            <MudIconButton Icon="@(IsRandomPasscodeRevealed? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                           OnClick="@(() => IsRandomPasscodeRevealed = !IsRandomPasscodeRevealed)" />
+                        </MudTooltip>
+                    </MudStack>
+                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-0.9rem; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
                     @if (IsPasscodeCopyConfirmed)
                     {
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudText Style="min-width: 8.571rem;">Confirm your passcode</MudText>
                             <MudTextField T="string"
+                                          Class="pl-1"
                                           InputType="InputType.Password"
                                           Value="@configuredPasscodeModel.Passcode"
                                           ValueChanged="@OnPasscodeChanged"
@@ -541,7 +578,7 @@
                         }
                         else if (!string.IsNullOrEmpty(configuredPasscodeModel.Passcode))
                         {
-                            <MudText Color="Color.Error">Passcode does not match</MudText>
+                            <MudText Color="Color.Error">Passcodes do not match</MudText>
                         }
                     }
                 }

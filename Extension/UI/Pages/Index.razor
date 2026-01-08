@@ -88,14 +88,9 @@
             NavigateIfNeeded(Routes.PathFor<NewReleasePage>());
             return;
         }
-        if (!appCache.IsTosAgreed)
+        if (!appCache.IsCurrentTosAndPrivacyAgreed)
         {
             NavigateIfNeeded(Routes.PathFor<TermsPage>());
-            return;
-        }
-        if (!appCache.IsPrivacyAgreed)
-        {
-            NavigateIfNeeded(Routes.PathFor<PrivacyPage>());
             return;
         }
         // Passing above conditions must equate to IsProductOnboarded
