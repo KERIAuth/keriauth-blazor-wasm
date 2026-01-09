@@ -52,7 +52,8 @@
       "Bash(cmd /c \"cd c:\\s\\k\\kbw\\scripts\\bundles && npm run build\")",
       "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm run build 2>&1\")",
       "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && call npm run build\")",
-      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm.cmd run build\")"
+      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm.cmd run build\")",
+      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts\\bundles && npm.cmd run build 2>&1\")"
     ],
     "deny": [],
     "ask": []

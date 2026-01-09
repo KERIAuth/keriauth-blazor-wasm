@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL: Building This Project
+
+**ALWAYS use slash commands to build this project.** Direct npm/dotnet commands do not work reliably in Claude Code's bash shell due to Windows path handling issues.
+
+- **`/build-windows`** - Incremental build after code changes (TypeScript + C#)
+- **`/clean-build-windows`** - Full clean build (use when dependencies change or builds fail)
+
+**Never run these directly** - they will fail or produce incomplete results:
+- `npm run build`
+- `dotnet build`
+- `cmd /c "cd ... && npm run build"`
+
 ## Architecture Overview
 
 This is a KERI Auth browser extension built with:
