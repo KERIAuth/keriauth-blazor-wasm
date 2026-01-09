@@ -214,6 +214,55 @@ const createIpexSubmitMethod = (
 // ===================== Connection & Initialization =====================
 
 /**
+ * Helper to sleep for a specified duration
+ */
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Helper to wait for agent to be ready to accept authenticated requests.
+ * This verifies the agent is fully operational by making an authenticated request.
+ * @param client - SignifyClient instance
+ * @param maxRetries - Maximum number of retry attempts
+ * @param initialDelayMs - Initial delay between retries in milliseconds
+ */
+const waitForAgentReady = async (
+    client: SignifyClient,
+    maxRetries: number = 5,
+    initialDelayMs: number = 500
+): Promise<void> => {
+    let delayMs = initialDelayMs;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            // Try to list identifiers as a readiness check
+            // This uses authenticated requests which will fail if agent isn't ready
+            console.debug(`signifyClient: waitForAgentReady - attempt ${attempt}/${maxRetries}, making GET /identifiers request...`);
+            const result = await client.identifiers().list();
+            console.debug(`signifyClient: waitForAgentReady - agent ready on attempt ${attempt}, found ${result?.aids?.length ?? 0} identifiers`);
+            return;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.debug(`signifyClient: waitForAgentReady - attempt ${attempt}/${maxRetries} failed: ${errorMessage}`);
+
+            const isLastAttempt = attempt === maxRetries;
+            if (isLastAttempt) {
+                console.error('signifyClient: waitForAgentReady - agent not ready after max retries');
+                console.error('signifyClient: waitForAgentReady - last error:', error);
+                // Log diagnostic info
+                console.error('signifyClient: waitForAgentReady - controller.pre:', client.controller?.pre);
+                console.error('signifyClient: waitForAgentReady - agent.pre:', client.agent?.pre);
+                throw new Error(`Agent not ready after ${maxRetries} attempts. Last error: ${errorMessage}`);
+            }
+
+            console.debug(`signifyClient: waitForAgentReady - retrying in ${delayMs}ms...`);
+            await sleep(delayMs);
+            // Exponential backoff: double the delay for next attempt, max 10 seconds
+            delayMs = Math.min(delayMs * 2, 10000);
+        }
+    }
+};
+
+/**
  * Boot and connect a SignifyClient instance
  * @param agentUrl - KERIA agent URL
  * @param bootUrl - Boot URL for initialization
@@ -228,19 +277,161 @@ export const bootAndConnect = async (
     _client = null;
     await ready();
     console.debug('signifyClient: bootAndConnect: creating client...');
+    console.debug('signifyClient: bootAndConnect: passcode length:', passcode.length);
+    console.debug('signifyClient: bootAndConnect: passcode first char:', passcode[0]);
 
     // TODO P2: Consider raising Tier for production use
     _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
 
+    // Log the controller prefix derived from the passcode
+    // This should match what the server expects
+    console.debug('signifyClient: bootAndConnect: controller prefix (from bran):', _client.controller?.pre);
+
     try {
-        console.debug('signifyClient: booting...');
-        const bootedSignifyClient = await _client.boot();
-        if (!bootedSignifyClient.ok) {
-            throw new Error('Boot operation failed');
+        // Step 1: Boot the agent
+        console.debug('signifyClient: booting to', bootUrl);
+        const bootResponse = await _client.boot();
+        const bootStatus = bootResponse.status;
+        const bootStatusText = bootResponse.statusText;
+        console.debug('signifyClient: boot response:', bootStatus, bootStatusText);
+
+        if (!bootResponse.ok) {
+            const bootError = await bootResponse.text().catch(() => 'Unknown boot error');
+            throw new Error(`Boot operation failed with status ${bootStatus}: ${bootError}`);
         }
+        console.debug('signifyClient: boot successful');
+
+        // Step 2: Wait for cloud agent to initialize
+        // Cloud KERIA may need time to set up the delegated agent
+        console.debug('signifyClient: waiting 3s for agent initialization...');
+        await sleep(3000);
+
+        // Step 3: Connect - this creates the controller/agent objects and calls approveDelegation
+        // Note: signify-ts always calls approveDelegation() due to checking ee.s which is always 0
         console.debug('signifyClient: connecting...');
-        // TODO P2: if _bootedSignifyClient contains updated client info, use it and no need to connect again?
         await _client.connect();
+
+        // Log state after connect
+        console.debug('signifyClient: connect completed');
+        console.debug('signifyClient: controller.pre:', _client.controller?.pre);
+        console.debug('signifyClient: controller.ridx:', _client.controller?.ridx);
+        console.debug('signifyClient: agent.pre:', _client.agent?.pre);
+        console.debug('signifyClient: agent.anchor:', _client.agent?.anchor);
+        console.debug('signifyClient: authn exists:', !!_client.authn);
+
+        // Log the signing key that will be used for authenticated requests
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const signerVerferQb64 = (_client.controller as any)?.signer?.verfer?.qb64;
+        console.debug('signifyClient: controller signer public key (local):', signerVerferQb64);
+
+        // Step 4: Fetch and compare server's key state with local
+        console.debug('signifyClient: fetching server state to compare keys...');
+        try {
+            const serverStateRes = await fetch(`${agentUrl}/agent/${_client.controller?.pre}`);
+            const serverState = await serverStateRes.json();
+            console.debug('signifyClient: server controller state:', JSON.stringify(serverState.controller, null, 2));
+            console.debug('signifyClient: server controller keys:', serverState.controller?.state?.k);
+            console.debug('signifyClient: local controller key:', signerVerferQb64);
+
+            // Check if keys match
+            const serverKey = serverState.controller?.state?.k?.[0];
+            if (serverKey && serverKey !== signerVerferQb64) {
+                console.error('signifyClient: KEY MISMATCH! Server key:', serverKey, 'Local key:', signerVerferQb64);
+            } else if (serverKey === signerVerferQb64) {
+                console.debug('signifyClient: Keys match ✓');
+            } else {
+                console.warn('signifyClient: Could not find server key to compare');
+            }
+        } catch (stateError) {
+            console.warn('signifyClient: Could not fetch server state for comparison:', stateError);
+        }
+
+        // Step 5: Wait for server to propagate state
+        console.debug('signifyClient: waiting 2s for server state propagation...');
+        await sleep(2000);
+
+        // Step 6: Log the authn object details for debugging
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const authnAny = _client.authn as any;
+        console.debug('signifyClient: authn._csig (controller signer):', authnAny?._csig);
+        console.debug('signifyClient: authn._csig.verfer.qb64:', authnAny?._csig?.verfer?.qb64);
+        console.debug('signifyClient: authn._verfer (agent verfer):', authnAny?._verfer);
+        console.debug('signifyClient: authn._verfer.qb64:', authnAny?._verfer?.qb64);
+
+        // Compare agent verfer with server agent state
+        console.debug('signifyClient: agent.pre:', _client.agent?.pre);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        console.debug('signifyClient: agent.verfer.qb64 (from Agent object):', (_client.agent as any)?.verfer?.qb64);
+
+        // Fetch agent state directly to compare
+        try {
+            const agentStateRes = await fetch(`${agentUrl}/agent/${_client.controller?.pre}`);
+            const agentState = await agentStateRes.json();
+            console.debug('signifyClient: server agent state.k:', agentState.agent?.k);
+            console.debug('signifyClient: server agent state (full):', JSON.stringify(agentState.agent, null, 2));
+
+            // Check if the agent verfer matches what server returned
+            const serverAgentKey = agentState.agent?.k?.[0];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const localAgentVerfer = (_client.agent as any)?.verfer?.qb64;
+            if (serverAgentKey && serverAgentKey !== localAgentVerfer) {
+                console.error('signifyClient: AGENT KEY MISMATCH! Server agent key:', serverAgentKey, 'Local agent verfer:', localAgentVerfer);
+            } else if (serverAgentKey === localAgentVerfer) {
+                console.debug('signifyClient: Agent keys match ✓');
+            } else {
+                console.warn('signifyClient: Could not compare agent keys');
+            }
+        } catch (agentStateError) {
+            console.warn('signifyClient: Could not fetch agent state:', agentStateError);
+        }
+
+        // Step 7: Make a direct diagnostic fetch to see what headers are being sent
+        console.debug('signifyClient: making diagnostic authenticated request...');
+        try {
+            // Create headers exactly as SignifyClient.fetch() does
+            const diagHeaders = new Headers();
+            diagHeaders.set('Signify-Resource', _client.controller?.pre || '');
+            diagHeaders.set('Signify-Timestamp', new Date().toISOString().replace('Z', '000+00:00'));
+            diagHeaders.set('Content-Type', 'application/json');
+
+            console.debug('signifyClient: diagnostic - headers before signing:', Object.fromEntries(diagHeaders.entries()));
+
+            // Sign the headers
+            const signedHeaders = _client.authn?.sign(diagHeaders, 'GET', '/identifiers');
+            console.debug('signifyClient: diagnostic - headers after signing:', signedHeaders ? Object.fromEntries(signedHeaders.entries()) : 'null');
+
+            // Log individual signature headers
+            console.debug('signifyClient: diagnostic - Signature-Input:', signedHeaders?.get('Signature-Input'));
+            console.debug('signifyClient: diagnostic - Signature:', signedHeaders?.get('Signature'));
+
+            // Output curl command for manual testing
+            const curlCmd = `curl -v -X GET "${agentUrl}/identifiers" \\
+  -H "Content-Type: application/json" \\
+  -H "Signify-Resource: ${signedHeaders?.get('Signify-Resource')}" \\
+  -H "Signify-Timestamp: ${signedHeaders?.get('Signify-Timestamp')}" \\
+  -H "Signature-Input: ${signedHeaders?.get('Signature-Input')}" \\
+  -H "Signature: ${signedHeaders?.get('Signature')}"`;
+            console.log('signifyClient: CURL COMMAND (copy and run immediately - signature expires quickly):');
+            console.log(curlCmd);
+
+            // Make an actual diagnostic request and log full response
+            console.debug('signifyClient: diagnostic - making actual fetch with signed headers...');
+            const diagRes = await fetch(`${agentUrl}/identifiers`, {
+                method: 'GET',
+                headers: signedHeaders || diagHeaders
+            });
+            console.debug('signifyClient: diagnostic - response status:', diagRes.status);
+            console.debug('signifyClient: diagnostic - response headers:', Object.fromEntries(diagRes.headers.entries()));
+            const diagBody = await diagRes.text();
+            console.debug('signifyClient: diagnostic - response body:', diagBody);
+        } catch (diagError) {
+            console.error('signifyClient: diagnostic signing failed:', diagError);
+        }
+
+        // Step 8: Verify the agent is ready for authenticated requests
+        console.debug('signifyClient: verifying agent readiness...');
+        await waitForAgentReady(_client, 10, 2000);  // 10 retries, 2 second initial delay, exponential backoff
+
     } catch (error) {
         console.error('signifyClient: client could not boot then connect', error);
         _client = null;
@@ -248,7 +439,7 @@ export const bootAndConnect = async (
     }
 
     const state = await getState();
-    console.debug('signifyClient: bootAndConnect: connected');
+    console.debug('signifyClient: bootAndConnect: connected and ready');
 
     return objectToJson({ success: true, state: JSON.parse(state) });
 };

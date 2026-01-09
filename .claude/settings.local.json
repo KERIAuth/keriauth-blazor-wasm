@@ -44,7 +44,15 @@
       "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet restore:*)",
       "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet build:*)",
       "Bash(grep:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm run build\")",
+      "Bash(powershell -Command \"cd c:\\s\\k\\kbw\\scripts; npm run build 2>&1\")",
+      "Bash(cmd.exe /c \"cd c:\\s\\k\\kbw\\scripts && npm run build\")",
+      "Bash(cmd /c \"cd c:\\s\\k\\kbw\\scripts && npm run build\")",
+      "Bash(cmd /c \"cd c:\\s\\k\\kbw\\scripts\\bundles && npm run build\")",
+      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm run build 2>&1\")",
+      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && call npm run build\")",
+      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm.cmd run build\")"
     ],
     "deny": [],
     "ask": []
