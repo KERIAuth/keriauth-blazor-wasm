@@ -3,6 +3,7 @@
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Utilities
+@using Extension.UI.Components
 
 @inject IStorageService storageService
 @inject ILogger<ConfigurePage> logger
@@ -12,9 +13,11 @@
 @inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+@inject AppCache appCache  // subscribed to via SubscribeToAppCache()
 @using FluentResults
 @using Extension.Helper
+
+@implements IAsyncDisposable
 
 @code {
     // TODO P2 restructure as a record?
@@ -53,11 +56,13 @@
 
     // fields
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
-    static readonly OperationDisplay ops1CheckLiveness = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
-    static readonly OperationDisplay ops2CheckHealth = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
-    static readonly OperationDisplay ops3Connect = new OperationDisplay("Connecting", "Connected");
-    static readonly OperationDisplay ops4ListAids = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
-    static readonly OperationDisplay ops5CreatePersonalAid = new OperationDisplay("Creating personal identifier", "Created new identifier");
+
+    // Operation displays - instance properties for proper state isolation per page instance
+    OperationDisplay Ops1CheckLiveness { get; set; } = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
+    OperationDisplay Ops2CheckHealth { get; set; } = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
+    OperationDisplay Ops3Connect { get; set; } = new OperationDisplay("Connecting", "Connected");
+    OperationDisplay Ops4ListAids { get; set; } = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
+    OperationDisplay Ops5CreatePersonalAid { get; set; } = new OperationDisplay("Creating personal identifier", "Created new identifier");
     // TODO P2 load presets from AppConfig or external source
     static List<Preset> presetAgents = new List<Preset>
     {
@@ -77,6 +82,7 @@
     PasscodeFormModel configuredPasscodeModel = new PasscodeFormModel();
     private MudButton? nextButton;
     private MudButton? connectButton;
+    private MudButton? resetButton;
 
     // properties
     KeriaConnectConfig? KeriaConnectConfig { get; set; }
@@ -87,6 +93,12 @@
     bool IsProcessing { get; set; }
     bool IsConnected { get; set; }
     bool IsReadyForNext { get; set; }
+
+    // Ratcheting gates - prevent backtracking during configuration flow
+    // Gate 1: Set when Connect is clicked, disables Provider/URL fields
+    bool IsFlowStarted { get; set; }
+    // Gate 2: Set when passcode is used in Connect call, disables passcode fields
+    bool IsPasscodeUsed { get; set; }
     Preset PresetChoice
     {
         get
@@ -122,16 +134,53 @@
     string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you have established KERIA connection passcode)" : "Boot URL";
 
     // Focus state - determines which element should have focus
-    enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next }
+    enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next, Reset }
     FocusTarget _focusTarget = FocusTarget.Passcode;
     bool ShouldFocusPasscode => _focusTarget == FocusTarget.Passcode && IsUsingExistingPasscode;
     bool ShouldFocusConfirmPasscode => _focusTarget == FocusTarget.ConfirmPasscode && !IsUsingExistingPasscode && IsPasscodeCopyConfirmed;
     bool ShouldFocusConnect => _focusTarget == FocusTarget.Connect;
 
 
+    // Track previous config state to detect external changes
+    // TODO P1 just use appCache.IsConfigured directly in OnAppCacheChanged?
+    // bool _previousHadConfig = false;
+
     protected override async Task OnInitializedAsync()
     {
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+
+        // Subscribe to appCache changes to detect external storage modifications
+        await this.SubscribeToAppCache(appCache, OnAppCacheChanged);
+
+        // Initialize tracking of previous config state
+        // _previousHadConfig = appCache.IsConfigured;
+    }
+
+    /// <summary>
+    /// Called when appCache changes. Detects if KeriaConnectConfig was cleared externally
+    /// (e.g., by session timeout, Delete Config, or another page) and resets local state.
+    /// </summary>
+    async Task OnAppCacheChanged()
+    {
+        /*
+        bool currentHasConfig = appCache.IsConfigured;
+
+        // If we previously had a config but now we don't, storage was cleared externally
+        if (_previousHadConfig && !currentHasConfig)
+        {
+            logger.LogInformation("OnAppCacheChanged: KeriaConnectConfig was cleared externally, resetting local state");
+            ResetLocalState();
+            }
+
+        _previousHadConfig = currentHasConfig;
+        await InvokeAsync(StateHasChanged);
+        */
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -146,6 +195,11 @@
         {
             _focusTarget = FocusTarget.None;
             await nextButton.FocusAsync();
+        }
+        else if (_focusTarget == FocusTarget.Reset && resetButton is not null)
+        {
+            _focusTarget = FocusTarget.None;
+            await resetButton.FocusAsync();
         }
         else if (_focusTarget == FocusTarget.Passcode || _focusTarget == FocusTarget.ConfirmPasscode)
         {
@@ -213,18 +267,18 @@
         // clear in case radio is toggled after passcode is copied, entered
         configuredPasscodeModel.Passcode = "";
         IsPasscodeCopyConfirmed = false;
-        await ResetOps();
+        // ResetOps();
         // intentionally NOT copying to clipboard since the user may prefer to only write it down manually due to security concerns
     }
 
-    async Task ResetOps()
+    void ResetOps()
     {
         IsProcessing = false;
-        ops1CheckLiveness.Reset();
-        ops2CheckHealth.Reset();
-        ops3Connect.Reset();
-        ops4ListAids.Reset();
-        ops5CreatePersonalAid.Reset();
+        Ops1CheckLiveness.Reset();
+        Ops2CheckHealth.Reset();
+        Ops3Connect.Reset();
+        Ops4ListAids.Reset();
+        Ops5CreatePersonalAid.Reset();
         IsReadyForNext = false;
         StateHasChanged();
     }
@@ -232,9 +286,12 @@
     // TODO P2 could return Result to indicate success/failure, and do some DRY then
     async Task UnifiedOnboardingFlow()
     {
-        await ResetOps();
+        ResetOps();
         logger.LogInformation("UnifiedOnboardingFlow starting...");
         IsProcessing = true;
+
+        // Ratchet Gate 1: Lock Provider/URL fields once flow starts
+        IsFlowStarted = true;
         StateHasChanged();
 
         // Validate preconditions
@@ -257,7 +314,7 @@
         if (IsValidBootURL)
         {
             // Check if BootUrl is reachable
-            ops1CheckLiveness.SetIsRunning();
+            Ops1CheckLiveness.SetIsRunning();
             StateHasChanged();
 
             var baseUri = new Uri(urlModel.BootUrl!);
@@ -268,29 +325,33 @@
             if (!healthCheckResult.IsSuccess)
             {
                 const string message = "KERIA service is not reachable";
-                ops1CheckLiveness.SetCompletedWithError(message);
+                Ops1CheckLiveness.SetCompletedWithError(message);
                 snackbar.Add(message, Severity.Error);
                 await Task.Delay(6000);
                 IsProcessing = false;
+                _focusTarget = FocusTarget.Reset;
+                StateHasChanged();
                 return;
             }
-            ops1CheckLiveness.SetCompletedWithoutErrors();
+            Ops1CheckLiveness.SetCompletedWithoutErrors();
 
             // Check if KERIA is reporting as healthy
-            ops2CheckHealth.SetIsRunning();
+            Ops2CheckHealth.SetIsRunning();
             StateHasChanged();
             var httpClientService2 = new HttpClientService(new HttpClient());
             var healthStatusResult = await httpClientService2.GetJsonAsync<String>(healthUriBuilder.Uri.ToString());
             if (!healthStatusResult.IsSuccess || healthStatusResult.Value.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 string errorMsg = healthStatusResult.Reasons.FirstOrDefault()?.Message ?? "KERIA health check failed";
-                ops2CheckHealth.SetCompletedWithError(errorMsg);
+                Ops2CheckHealth.SetCompletedWithError(errorMsg);
                 snackbar.Add(errorMsg, Severity.Error);
                 await Task.Delay(6000);
                 IsProcessing = false;
+                _focusTarget = FocusTarget.Reset;
+                StateHasChanged();
                 return;
             }
-            ops2CheckHealth.SetCompletedWithoutErrors();
+            Ops2CheckHealth.SetCompletedWithoutErrors();
             // await Task.Delay(100);
         }
 
@@ -315,6 +376,8 @@
             snackbar.Add("Failed to store connection configuration", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
@@ -322,9 +385,11 @@
         await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfig.PasscodeHash != 0]);
 
         // Step 3: Connect to KERIA
-        ops3Connect.SetIsRunning();
+        Ops3Connect.SetIsRunning();
+
+        // Ratchet Gate 2: Lock passcode fields once passcode is used for connection
+        IsPasscodeUsed = true;
         StateHasChanged();
-        // await Task.Delay(100);
 
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
         var connectResult = await signifyClientService.Connect(
@@ -336,13 +401,15 @@
 
         if (connectResult.IsFailed)
         {
-            ops3Connect.SetCompletedWithError(connectResult.Reasons.First().Message);
+            Ops3Connect.SetCompletedWithError(connectResult.Reasons.First().Message);
             snackbar.Add($"Connection failed: {connectResult.Reasons.First().Message}", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
-        ops3Connect.SetCompletedWithoutErrors();
+        Ops3Connect.SetCompletedWithoutErrors();
 
         // Extract agent and client prefixes from Connect result
         string clientAidPrefix = connectResult.Value.Controller!.State!.I;
@@ -363,6 +430,8 @@
             snackbar.Add("Failed to store session passcode", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
@@ -383,6 +452,8 @@
             snackbar.Add("Failed to update connection configuration", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
@@ -391,40 +462,44 @@
         KeriaConnectConfig = completeConfig;
 
         // Step 6: Get Identifiers
-        ops4ListAids.SetIsRunning();
+        Ops4ListAids.SetIsRunning();
         StateHasChanged();
         // await Task.Delay(100);
 
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {
-            ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
+            Ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
             snackbar.Add($"Failed to retrieve identifiers: {identifiersRes.Reasons.First().Message}", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
         var identifiers = identifiersRes.Value;
-        ops4ListAids.SetCompletedWithoutErrors();
+        Ops4ListAids.SetCompletedWithoutErrors();
         // await Task.Delay(100);
 
         // Step 7: Create identifier if none exist
         if (identifiers.Aids.Count == 0)
         {
-            ops5CreatePersonalAid.SetIsRunning();
+            Ops5CreatePersonalAid.SetIsRunning();
             StateHasChanged();
 
             var createAidResult = await signifyClientService.RunCreateAid("Alias1");
             if (createAidResult.IsFailed)
             {
-                ops5CreatePersonalAid.SetCompletedWithError(createAidResult.Reasons.First().Message);
+                Ops5CreatePersonalAid.SetCompletedWithError(createAidResult.Reasons.First().Message);
                 snackbar.Add($"Failed to create identifier: {createAidResult.Reasons.First().Message}", Severity.Error);
                 await Task.Delay(6000);
                 IsProcessing = false;
+                _focusTarget = FocusTarget.Reset;
+                StateHasChanged();
                 return;
             }
-            ops5CreatePersonalAid.SetCompletedWithoutErrors();
+            Ops5CreatePersonalAid.SetCompletedWithoutErrors();
 
             // Re-fetch identifiers after creating
             var refreshedIdentifiersRes = await signifyClientService.GetIdentifiers();
@@ -433,6 +508,8 @@
                 snackbar.Add("Failed to refresh identifiers after creation", Severity.Error);
                 await Task.Delay(6000);
                 IsProcessing = false;
+                _focusTarget = FocusTarget.Reset;
+                StateHasChanged();
                 return;
             }
             identifiers = refreshedIdentifiersRes.Value;
@@ -444,6 +521,8 @@
             snackbar.Add("No identifiers available after creation", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
@@ -458,6 +537,8 @@
             snackbar.Add("Failed to store preferences", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
@@ -479,6 +560,8 @@
             snackbar.Add("Failed to cache connection info", Severity.Error);
             await Task.Delay(6000);
             IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
+            StateHasChanged();
             return;
         }
 
@@ -489,7 +572,7 @@
         await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria]);
 
         IsConnected = true;
-        IsProcessing = false;
+        // IsProcessing = false;
         snackbar.Add("Connection to KERIA Service successful", Severity.Success);
 
         _focusTarget = FocusTarget.Next;
@@ -502,6 +585,106 @@
     {
         await _newPasscodeTextField!.SelectAsync();
     }
+
+    /// <summary>
+    /// Resets the configuration by clearing KeriaConnectConfig from Local storage,
+    /// clearing Session storage (PasscodeModel, KeriaConnectionInfo), and resetting
+    /// all local page state to defaults. This allows the user to start fresh.
+    /// </summary>
+    async Task ResetConfiguration()
+    {
+        logger.LogInformation("ResetConfiguration: Clearing storage and resetting page state");
+
+        // Note, not clearing all of session, since readiness of BW is tied to session existence.
+        // Clear Session storage (PasscodeModel and KeriaConnectionInfo)
+        var removePasscodeResult = await storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
+        if (removePasscodeResult.IsFailed)
+        {
+            logger.LogWarning("Failed to remove PasscodeModel: {Errors}", string.Join(", ", removePasscodeResult.Errors));
+        }
+
+        var removeConnectionInfoResult = await storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
+        if (removeConnectionInfoResult.IsFailed)
+        {
+            logger.LogWarning("Failed to remove KeriaConnectionInfo: {Errors}", string.Join(", ", removeConnectionInfoResult.Errors));
+        }
+
+        // Wait for appCache to reflect the cleared state
+        /*
+        await appCache.WaitForAppCache([
+            () => !appCache.IsConfigured,
+            () => !appCache.IsSessionPasscodeSet
+        ]);
+        */
+
+        // Clear KeriaConnectConfig from Local storage
+        var removeConfigResult = await storageService.RemoveItem<KeriaConnectConfig>(StorageArea.Local);
+        if (removeConfigResult.IsFailed)
+        {
+            logger.LogError("Failed to remove KeriaConnectConfig: {Errors}", string.Join(", ", removeConfigResult.Errors));
+            snackbar.Add("Failed to clear configuration", Severity.Error);
+            return;
+        }
+
+        // Wait for appCache to reflect the cleared updates
+        await appCache.WaitForAppCache([
+            () => appCache.IsProductOnboarded,
+            () => !appCache.IsConfigured
+        // () => !appCache.IsSessionPasscodeSet
+        // () => string.IsNullOrWhiteSpace(appCache.MyKeriaConnectionInfo.Config.AdminUrl)
+        ]);
+
+        // Reset local page state to defaults
+        ResetLocalState();
+        StateHasChanged(); // TODO P1 code smell
+        logger.LogInformation("ResetConfiguration: Complete");
+        // snackbar.Add("KERIA Connection Reset", Severity.Info);
+    }
+
+    /// <summary>
+    /// Resets all local page state to default values.
+    /// Called by ResetConfiguration and can be called when appCache detects external storage changes.
+    /// </summary>
+    void ResetLocalState()
+    {
+        // Reset to default preset
+        _presetChoice = defaultPreset;
+        urlModel = new UrlModel()
+        {
+            AdminUrl = defaultPreset.AgentUrl,
+            BootUrl = defaultPreset.BootUrl
+        };
+
+        // Reset passcode state
+        configuredPasscodeModel = new PasscodeFormModel();
+        RandomPasscode = "";
+        IsRandomPasscodeRevealed = false;
+        IsPasscodeCopyConfirmed = false;
+        IsUsingExistingPasscode = true;
+
+        // Reset ratchet gates
+        IsFlowStarted = false;
+        IsPasscodeUsed = false;
+
+        // Reset progress state
+        IsProcessing = false;
+        IsConnected = false;
+        IsReadyForNext = false;
+        KeriaConnectConfig = null;
+
+        // Reset operation displays
+        // ops1CheckLiveness.Reset();
+        // ops2CheckHealth.Reset();
+        // ops3Connect.Reset();
+        // ops4ListAids.Reset();
+        // ops5CreatePersonalAid.Reset();
+        ResetOps();
+
+        // Reset focus
+        _focusTarget = FocusTarget.Passcode;
+
+        StateHasChanged();
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -513,7 +696,7 @@
             <MudStack Class="ml-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudText Style="min-width: 8.571rem;">Provider</MudText>
-                    <MudSelect T="Preset" @bind-Value="@PresetChoice" Style="flex-grow: 1;">
+                    <MudSelect T="Preset" @bind-Value="@PresetChoice" Disabled="@IsFlowStarted" Style="flex-grow: 1;">
                         @foreach (var preset in presetAgents)
                         {
                             <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>
@@ -525,6 +708,7 @@
                     <MudTextField @bind-Value="@urlModel.AdminUrl"
                                   For="@(() => urlModel.AdminUrl)"
                                   Immediate="true"
+                                  Disabled="@IsFlowStarted"
                                   Style="flex-grow: 1;" />
                 </MudStack>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -533,13 +717,14 @@
                                   @bind-Value="@urlModel.BootUrl"
                                   For="@(() => urlModel.BootUrl)"
                                   Immediate="true"
+                                  Disabled="@IsFlowStarted"
                                   Style="flex-grow: 1;" />
                 </MudStack>
             </MudStack>
 
             <MudText Typo="Typo.h6" Class="mt-4">Your Passcode</MudText>
             <MudStack Class="ml-4">
-                <MudRadioGroup T="Boolean" Style="margin-left:-0.9rem;" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
+                <MudRadioGroup T="Boolean" Value="@(!IsUsingExistingPasscode)" Style="margin-left:-0.9rem;" Disabled="@IsPasscodeUsed" ValueChanged="async (bool v) => await SetIsNewAccount(v)">
                     <MudRadio Value="false">
                         Use existing
                     </MudRadio>
@@ -558,10 +743,11 @@
                                       OnKeyDown="@HandlePasscodeKeyDown"
                                       For="@(() => configuredPasscodeModel.Passcode)"
                                       Immediate="true"
+                                      Disabled="@IsPasscodeUsed"
                                       AutoFocus="@ShouldFocusPasscode"
                                       Style="flex-grow: 1;" />
                     </MudStack>
-                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured)" Color="Color.Primary">Connect</MudButton>
+                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured || IsPasscodeUsed)" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
                 {
@@ -570,16 +756,18 @@
                         <MudTextField @ref="_newPasscodeTextField" InputType="@(IsRandomPasscodeRevealed? InputType.Text: InputType.Password)"
                                       @bind-Value="@RandomPasscode"
                                       ReadOnly="true"
+                                      Disabled="@IsPasscodeUsed"
                                       Class="pl-1"
                                       Immediate="true"
                                       @onclick="SelectNewPasscodeText"
                                       Style="min-width:15rem;" />
                         <MudTooltip Text="@(IsRandomPasscodeRevealed ? "Hide passcode" : "Reveal passcode")">
                             <MudIconButton Icon="@(IsRandomPasscodeRevealed? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                           Disabled="@IsPasscodeUsed"
                                            OnClick="@(() => IsRandomPasscodeRevealed = !IsRandomPasscodeRevealed)" />
                         </MudTooltip>
                     </MudStack>
-                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-0.9rem; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
+                    <MudCheckBox T="bool" Value="IsPasscodeCopyConfirmed" Disabled="@IsPasscodeUsed" ValueChanged="@OnPasscodeCopyConfirmedChanged" Style="margin-left:-0.9rem; overflow-wrap:break-word;">I have copied and stored this passcode in a secure place</MudCheckBox>
                     @if (IsPasscodeCopyConfirmed)
                     {
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -592,13 +780,14 @@
                                           OnKeyDown="@HandlePasscodeKeyDown"
                                           For="@(() => configuredPasscodeModel.Passcode)"
                                           Immediate="true"
+                                          Disabled="@IsPasscodeUsed"
                                           AutoFocus="@ShouldFocusConfirmPasscode"
                                           Style="flex-grow: 1;" />
                         </MudStack>
                         @if (configuredPasscodeModel.Passcode == RandomPasscode)
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                            <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(IsKeriaConfigured || !IsValidNewInfo)" Color="Color.Primary">Connect</MudButton>
+                            <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(IsKeriaConfigured || !IsValidNewInfo || IsPasscodeUsed)" Color="Color.Primary">Connect</MudButton>
                         }
                         else if (!string.IsNullOrEmpty(configuredPasscodeModel.Passcode))
                         {
@@ -614,21 +803,21 @@
                 <MudStack Class="ml-4">
                     @if (IsValidBootURL)
                     {
-                        <OperationDisplayComponent ops="@ops1CheckLiveness"></OperationDisplayComponent>
-                        <OperationDisplayComponent ops="@ops2CheckHealth"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@Ops1CheckLiveness"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@Ops2CheckHealth"></OperationDisplayComponent>
                     }
-                    <OperationDisplayComponent ops="@ops3Connect"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@ops4ListAids"></OperationDisplayComponent>
-                    @if (ops5CreatePersonalAid.IsRunning || ops5CreatePersonalAid.CompletedSuccessfully || !string.IsNullOrEmpty(ops5CreatePersonalAid.ErrorMessage))
+                    <OperationDisplayComponent ops="@Ops3Connect"></OperationDisplayComponent>
+                    <OperationDisplayComponent ops="@Ops4ListAids"></OperationDisplayComponent>
+                    @if (Ops5CreatePersonalAid.IsRunning || Ops5CreatePersonalAid.CompletedSuccessfully || !string.IsNullOrEmpty(Ops5CreatePersonalAid.ErrorMessage))
                     {
-                        <OperationDisplayComponent ops="@ops5CreatePersonalAid"></OperationDisplayComponent>
+                        <OperationDisplayComponent ops="@Ops5CreatePersonalAid"></OperationDisplayComponent>
                     }
                 </MudStack>
             }
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <!-- Intentionally no back button here -->
+        <MudButton @ref="resetButton" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetConfiguration" data-testid="reset">Reset</MudButton>
         <MudSpacer />
         <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<OfferPasskeyPage>()))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
