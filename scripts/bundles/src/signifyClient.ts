@@ -253,20 +253,23 @@ export const bootAndConnect = async (
 
     try {
         // Boot the agent
-        const bootResponse = await _client.boot();
-        if (!bootResponse.ok) {
+        const bootResponse = await _client.boot().catch((e: Error) => {
+            console.error('signifyClient: boot error', e);
+            if (e.message === 'Failed to fetch') {
+                throw new Error('Failed to boot signify client due to network connectivity', { cause: e });
+            }
+            throw new Error('Failed to boot signify client', { cause: e });
+        });
+
+        // Accept 409 (Conflict) as valid - indicates agent was already booted
+        if (!bootResponse.ok && bootResponse.status !== 409) {
             const bootError = await bootResponse.text().catch(() => 'Unknown boot error');
-            throw new Error(`Boot operation failed with status ${bootResponse.status}: ${bootError}`);
+            console.warn(`signifyClient: Unexpected boot status ${bootResponse.status}: ${bootError}`);
+            throw new Error(`Failed to boot signify client: status ${bootResponse.status}`);
         }
 
-        // Wait for cloud agent to initialize (cloud KERIA needs time to set up the delegated agent)
-        await sleep(3000);
-
         // Connect - creates controller/agent objects and calls approveDelegation
-        await _client.connect();
-
-        // Wait for server to propagate state
-        await sleep(2000);
+        await connectSignifyClient();
 
         // Verify the agent is ready for authenticated requests
         await waitForAgentReady(_client, 10, 2000);
@@ -282,28 +285,80 @@ export const bootAndConnect = async (
 };
 
 /**
+ * Internal helper to connect the signify client with proper error handling
+ */
+const connectSignifyClient = async (): Promise<void> => {
+    if (!_client) {
+        throw new Error('SignifyClient not initialized');
+    }
+
+    await _client.connect().catch((error: unknown) => {
+        if (!(error instanceof Error)) {
+            throw error;
+        }
+
+        // Check for network errors
+        if (error.message === 'Failed to fetch') {
+            throw new Error('Failed to connect signify client due to network connectivity', { cause: error });
+        }
+
+        // Check for 404 - agent not booted
+        const status = error.message.split(' - ')[1];
+        if (status && /404/gi.test(status)) {
+            throw new Error('KERIA agent not booted', { cause: error });
+        }
+
+        // Agent was booted but cannot connect (possibly wrong passcode or corrupted state)
+        throw new Error('Agent booted but cannot connect', { cause: error });
+    });
+};
+
+/** Default retry interval for connection attempts (ms) */
+const DEFAULT_CONNECT_RETRY_INTERVAL = 1000;
+
+/** Maximum number of connection retry attempts */
+const MAX_CONNECT_RETRIES = 5;
+
+/**
  * Connect to an existing SignifyClient (no boot)
  * @param agentUrl - KERIA agent URL
  * @param passcode - 21-character passcode
+ * @param retryInterval - Interval between retry attempts in ms (default: 1000)
+ * @param maxRetries - Maximum number of retry attempts (default: 5)
  * @returns JSON string representation of connection result
  */
-export const connect = async (agentUrl: string, passcode: string): Promise<string> => {
+export const connect = async (
+    agentUrl: string,
+    passcode: string,
+    retryInterval: number = DEFAULT_CONNECT_RETRY_INTERVAL,
+    maxRetries: number = MAX_CONNECT_RETRIES
+): Promise<string> => {
     _client = null;
     await ready();
 
     // TODO P2: Consider raising Tier for production use
     _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
 
-    try {
-        await _client.connect();
-    } catch (error) {
-        console.error('signifyClient: connect failed', error);
-        _client = null;
-        throw error;
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await connectSignifyClient();
+            const state = await getState();
+            return objectToJson({ success: true, state: JSON.parse(state) });
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            console.warn(`signifyClient: connect attempt ${attempt}/${maxRetries} failed`, error);
+
+            if (attempt < maxRetries) {
+                await sleep(retryInterval);
+            }
+        }
     }
 
-    const state = await getState();
-    return objectToJson({ success: true, state: JSON.parse(state) });
+    // All retries exhausted
+    console.error('signifyClient: connect failed after all retries', lastError);
+    _client = null;
+    throw lastError ?? new Error('Connect failed after all retries');
 };
 
 /**

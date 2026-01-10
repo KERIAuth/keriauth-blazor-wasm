@@ -61,8 +61,8 @@
     static List<Preset> presetAgents = new List<Preset>
     {
         new Preset("KERI Auth Test Cloud", "https://keria.cloud.keriauth.com", "https://keria-boot.cloud.keriauth.com"),
+        new Preset("Veridian Testnet", "https://keria.veridian.dandelion.link", "https://keria-boot.veridian.dandelion.link"),
         new Preset("localhost", AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl),
-        new Preset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
         new Preset("Custom", "", "")
     };
     private MudTextField<string>? _newPasscodeTextField;
@@ -472,7 +472,7 @@
         _focusTarget = FocusTarget.Next;
         StateHasChanged();
 
-        logger.LogInformation("UnifiedOnboardingFlow completed successfully, navigating to passkey offer");
+        logger.LogInformation("UnifiedOnboardingFlow completed successfully");
     }
 
     private async Task SelectNewPasscodeText(MouseEventArgs args)
@@ -544,7 +544,7 @@
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center">
                         <MudText Style="min-width: 8.571rem;">Generated random passcode</MudText>
-                        <MudTextField @ref="_newPasscodeTextField" InputType="@(IsRandomPasscodeRevealed ? InputType.Text : InputType.Password)"
+                        <MudTextField @ref="_newPasscodeTextField" InputType="@(IsRandomPasscodeRevealed? InputType.Text: InputType.Password)"
                                       @bind-Value="@RandomPasscode"
                                       ReadOnly="true"
                                       Class="pl-1"
