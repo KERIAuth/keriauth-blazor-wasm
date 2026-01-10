@@ -14,6 +14,7 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 @using FluentResults
+@using Extension.Helper
 
 @code {
     // TODO P2 restructure as a record?
@@ -155,6 +156,28 @@
 
     void OnPasscodeChanged(string value)
     {
+        // Check if pasted value is an 18-word BIP39 recovery phrase
+        if (IsUsingExistingPasscode && !string.IsNullOrWhiteSpace(value))
+        {
+            var words = value.Trim().Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 18 && Bip39MnemonicConverter.AreAllValidBip39Words(words))
+            {
+                try
+                {
+                    var convertedPasscode = Bip39MnemonicConverter.ConvertMnemonicToPasscode(words);
+                    configuredPasscodeModel.Passcode = convertedPasscode;
+                    snackbar.Add("Recovery phrase converted to passcode", Severity.Success);
+                    _focusTarget = FocusTarget.Connect;
+                    StateHasChanged();
+                    return;
+                }
+                catch
+                {
+                    // If conversion fails, fall through to normal handling
+                }
+            }
+        }
+
         configuredPasscodeModel.Passcode = value;
         if (value.Length == 21)
         {

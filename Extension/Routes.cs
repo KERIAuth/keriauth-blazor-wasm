@@ -57,6 +57,8 @@ public static class Routes
             Icons.Material.Filled.Web, Color.Surface),
         [typeof(Passkeys)] = new("Passkeys", "/Passkeys.html", RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
+        [typeof(MnemonicPage)] = new("Mnemonic", "/Mnemonic.html", RequiresAuth: true,
+            Icons.Material.Filled.Key, Color.Surface),
         [typeof(KeriAgentServicePage)] = new("KERIA Cloud Service", "/KeriAgentService.html", RequiresAuth: true,
             Icons.Material.Outlined.PeopleOutline, Color.Surface),
 

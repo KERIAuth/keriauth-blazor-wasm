@@ -4,6 +4,7 @@
 @using Extension.Services.Storage
 @using Extension.Models.Storage
 @using Extension.Utilities
+@using Extension.Helper
 
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
@@ -26,10 +27,20 @@
     string[] errors = { };
     PasscodeFormModel unlockPasscodeModel = new PasscodeFormModel();
     MudTextField<string>? passcodeField;
+    MudTextField<string>? recoveryWordField;
     MudButton? unlockWithPasskeyButton;
+    MudButton? recoveryUnlockButton;
     string openWalletError = string.Empty;
     // KeriaConnectConfig keriaConnectConfig = new();
     private string taglineText = taglineAlternatives[0];
+
+    // Recovery phrase state
+    private bool _isRecoveryMode = false;
+    private string _currentWordInput = "";
+    private List<string> _enteredWords = new();
+    private bool _recoveryPhraseValid = false;
+    private string _recoveryError = "";
+    private const int RequiredWordCount = 18;
     private static string[] taglineAlternatives =
     {
 // authentic
@@ -108,6 +119,15 @@
     };
     string TimeoutNotice => "locked after " + TimeoutDuration + " of inactivity";
 
+    // Recovery phrase reactive properties
+    IEnumerable<string> MatchingWords => string.IsNullOrEmpty(_currentWordInput) || _currentWordInput.Length < 3
+        ? Enumerable.Empty<string>()
+        : Bip39EnglishWordList.Words
+            .Where(w => w.StartsWith(_currentWordInput.ToLowerInvariant()))
+            .Take(6);
+    bool HasMatchingWords => MatchingWords.Any();
+    bool CanUndo => _enteredWords.Count > 0;
+    bool IsRecoveryComplete => _enteredWords.Count == RequiredWordCount;
 
     protected override async Task OnInitializedAsync()
     {
@@ -133,7 +153,18 @@
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
         // logger.LogInformation("OnAfterRenderAsync");
-        if (ShouldUsePasskey)
+        if (_isRecoveryMode)
+        {
+            if (_recoveryPhraseValid && recoveryUnlockButton is not null)
+            {
+                await recoveryUnlockButton.FocusAsync();
+            }
+            else if (recoveryWordField is not null && !IsRecoveryComplete)
+            {
+                await recoveryWordField.FocusAsync();
+            }
+        }
+        else if (ShouldUsePasskey)
         {
             if (unlockWithPasskeyButton is not null)
             {
@@ -272,67 +303,322 @@
             return;
         }
     }
+
+    // Recovery phrase methods
+    void EnterRecoveryMode()
+    {
+        _isRecoveryMode = true;
+        _enteredWords.Clear();
+        _currentWordInput = "";
+        _recoveryPhraseValid = false;
+        _recoveryError = "";
+        StateHasChanged();
+    }
+
+    void ExitRecoveryMode()
+    {
+        _isRecoveryMode = false;
+        _enteredWords.Clear();
+        _currentWordInput = "";
+        _recoveryPhraseValid = false;
+        _recoveryError = "";
+        StateHasChanged();
+    }
+
+    void OnWordInputChanged(string value)
+    {
+        _currentWordInput = value;
+
+        // Check for pasted multi-word phrase
+        if (!string.IsNullOrEmpty(value) && value.Contains(' '))
+        {
+            HandlePastedPhrase(value);
+            return;
+        }
+
+        StateHasChanged();
+    }
+
+    void HandlePastedPhrase(string pastedText)
+    {
+        var words = pastedText
+            .ToLowerInvariant()
+            .Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => Bip39EnglishWordList.Words.Contains(w))
+            .Take(RequiredWordCount)
+            .ToList();
+
+        if (words.Count > 0)
+        {
+            // Replace all existing words with pasted words
+            _enteredWords = words;
+            _currentWordInput = "";
+            ValidateRecoveryPhrase();
+        }
+    }
+
+    async Task HandleRecoveryWordKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !string.IsNullOrWhiteSpace(_currentWordInput))
+        {
+            var word = _currentWordInput.ToLowerInvariant().Trim();
+            if (Bip39EnglishWordList.Words.Contains(word))
+            {
+                AddWord(word);
+            }
+            else if (MatchingWords.Count() == 1)
+            {
+                // Auto-complete if only one match
+                AddWord(MatchingWords.First());
+            }
+        }
+    }
+
+    void AddWord(string word)
+    {
+        if (_enteredWords.Count >= RequiredWordCount) return;
+
+        _enteredWords.Add(word);
+        _currentWordInput = "";
+        ValidateRecoveryPhrase();
+    }
+
+    void UndoLastWord()
+    {
+        if (_enteredWords.Count > 0)
+        {
+            _enteredWords.RemoveAt(_enteredWords.Count - 1);
+            _recoveryPhraseValid = false;
+            _recoveryError = "";
+            StateHasChanged();
+        }
+    }
+
+    void ValidateRecoveryPhrase()
+    {
+        _recoveryError = "";
+        _recoveryPhraseValid = false;
+
+        if (_enteredWords.Count != RequiredWordCount)
+        {
+            return;
+        }
+
+        try
+        {
+            // Convert mnemonic to passcode
+            var passcode = Bip39MnemonicConverter.ConvertMnemonicToPasscode(_enteredWords.ToArray());
+
+            // Check hash against stored config
+            var computedHash = DeterministicHash.ComputeHash(passcode);
+            if (computedHash == appCache.MyKeriaConnectConfig.PasscodeHash)
+            {
+                _recoveryPhraseValid = true;
+                _recoveryError = "";
+            }
+            else
+            {
+                _recoveryPhraseValid = false;
+                _recoveryError = "Cannot unlock with this recovery phrase per the stored configuration.";
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            _recoveryPhraseValid = false;
+            _recoveryError = $"Invalid recovery phrase: {ex.Message}";
+        }
+    }
+
+    async Task HandleRecoveryUnlock()
+    {
+        if (!_recoveryPhraseValid || _enteredWords.Count != RequiredWordCount)
+        {
+            return;
+        }
+
+        try
+        {
+            var passcode = Bip39MnemonicConverter.ConvertMnemonicToPasscode(_enteredWords.ToArray());
+            await UnlockWithPasscode(passcode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to unlock with recovery phrase");
+            snackbar.Add("Failed to unlock with recovery phrase", Severity.Error);
+        }
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-3 bt-main" style="justify-content:center;">
-        <MudStack Class="d-flex justify-center pa-0" Style="text-align:center; flex-direction: column;">
-            <MudStack Style="flex: 1; display:flex; justify-content: center; align-items: center;">
-                <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png">
-                </MudImage>
-                <MudText Typo="Typo.h5">
-                    <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">Keri Auth</span>
-                    <br />
-                    <span style="font-style:italic; font-size:initial;">@taglineText</span>
-                </MudText>
-            </MudStack>
-            <MudStack Style="justify-content: end; min-height:3.429rem; flex-shrink: 0; align-self: stretch;" Class="gap-0">
-                @if (ShouldUsePasskey)
-                {
-                    <MudText>
-                        @NumberPasskeysLabel
-                    </MudText>
-                }
-                else // passcode
-                {
-                    <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 5.714rem;">
-                        <MudTextField Label="Passcode" @ref="passcodeField" OnKeyDown="@HandleKeyDown"
-                                      InputType="InputType.Password" @bind-Value="@unlockPasscodeModel.Passcode" HelperText="&nbsp;"
-                                      ErrorText="&nbsp;" For="@(() => unlockPasscodeModel.Passcode)" Immediate="true"
-                                      @onfocus="SelectAllText" />
-                    </MudForm>
-                }
-                <MudText Class="pt-3" Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
-            </MudStack>
-        </MudStack>
-    </div>
+    @if (_isRecoveryMode)
+    {
+        <!-- Recovery Phrase Mode -->
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <MudText Class="bt-page-title">Unlock with Recovery Phrase</MudText>
 
-    <MudStack Row="true" class="bt-button-tray">
-        <MudSpacer />
-        @if (ShouldUsePasskey)
-        {
-            <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
-                       OnClick="async () => await SetIsPasskeyUsePreferred(false)">
-                Use passcode
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Enter your 18-word recovery phrase to unlock. Type at least 3 characters to see suggestions.
+                </MudText>
+
+                <!-- Word input with Undo button -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-4">
+                    <MudTextField @ref="recoveryWordField"
+                                  Label="@($"Word {_enteredWords.Count + 1} of {RequiredWordCount}")"
+                                  Value="_currentWordInput"
+                                  ValueChanged="@((string v) => OnWordInputChanged(v))"
+                                  OnKeyDown="HandleRecoveryWordKeyDown"
+                                  Immediate="true"
+                                  Disabled="@IsRecoveryComplete"
+                                  Style="flex: 1;"
+                                  Placeholder="Type a word..." />
+                    <MudTooltip Text="Undo last word">
+                        <MudIconButton Icon="@Icons.Material.Filled.Undo"
+                                       Color="Color.Secondary"
+                                       Disabled="@(!CanUndo)"
+                                       OnClick="UndoLastWord" />
+                    </MudTooltip>
+                </MudStack>
+
+                <!-- Word suggestions -->
+                @if (HasMatchingWords && !IsRecoveryComplete)
+                {
+                    <MudStack Row="true" Class="mt-2" Style="flex-wrap: wrap; gap: 0.5rem;">
+                        @foreach (var word in MatchingWords)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined"
+                                     OnClick="() => AddWord(word)"
+                                     Style="cursor: pointer;">
+                                @word
+                            </MudChip>
+                        }
+                    </MudStack>
+                }
+
+                <!-- Entered words grid -->
+                @if (_enteredWords.Any())
+                {
+                    <MudPaper Class="mt-4 pa-3" Elevation="1">
+                        <MudGrid Spacing="2">
+                            @for (int i = 0; i < _enteredWords.Count; i++)
+                            {
+                                var wordNumber = i + 1;
+                                var word = _enteredWords[i];
+                                <MudItem xs="4">
+                                    <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined"
+                                             Style="width: 100%; justify-content: flex-start; font-family: monospace;">
+                                        <span style="color: var(--mud-palette-text-secondary); min-width: 1.5rem; display: inline-block;">@wordNumber.</span>
+                                        @word
+                                    </MudChip>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+                }
+
+                <!-- Validation status -->
+                @if (IsRecoveryComplete)
+                {
+                    @if (_recoveryPhraseValid)
+                    {
+                        <MudAlert Severity="Severity.Success" Class="mt-3" Dense="true">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" />
+                                <MudText>Recovery phrase verified. Click Unlock to continue.</MudText>
+                            </MudStack>
+                        </MudAlert>
+                    }
+                    else if (!string.IsNullOrEmpty(_recoveryError))
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.Cancel" />
+                                <MudText>@_recoveryError</MudText>
+                            </MudStack>
+                        </MudAlert>
+                    }
+                }
+            </div>
+        </MudStack>
+
+        <MudStack Row="true" class="bt-button-tray">
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="ExitRecoveryMode">
+                Cancel
             </MudButton>
-            <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
-                       Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
+            <MudSpacer />
+            <MudButton @ref="recoveryUnlockButton"
+                       Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="@(!_recoveryPhraseValid)"
+                       OnClick="HandleRecoveryUnlock">
                 Unlock
             </MudButton>
-        }
-        else
-        {
-            @if (CanUsePasskey)
+        </MudStack>
+    }
+    else
+    {
+        <!-- Normal Unlock Mode -->
+        <div class="d-flex gap-3 bt-main" style="justify-content:center;">
+            <MudStack Class="d-flex justify-center pa-0" Style="text-align:center; flex-direction: column;">
+                <MudStack Style="flex: 1; display:flex; justify-content: center; align-items: center;">
+                    <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png">
+                    </MudImage>
+                    <MudText Typo="Typo.h5">
+                        <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">Keri Auth</span>
+                        <br />
+                        <span style="font-style:italic; font-size:initial;">@taglineText</span>
+                    </MudText>
+                </MudStack>
+                <MudStack Style="justify-content: end; min-height:3.429rem; flex-shrink: 0; align-self: stretch;" Class="gap-0">
+                    @if (ShouldUsePasskey)
+                    {
+                        <MudText>
+                            @NumberPasskeysLabel
+                        </MudText>
+                    }
+                    else // passcode
+                    {
+                        <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 5.714rem;">
+                            <MudTextField Label="Passcode" @ref="passcodeField" OnKeyDown="@HandleKeyDown"
+                                          InputType="InputType.Password" @bind-Value="@unlockPasscodeModel.Passcode" HelperText="&nbsp;"
+                                          ErrorText="&nbsp;" For="@(() => unlockPasscodeModel.Passcode)" Immediate="true"
+                                          @onfocus="SelectAllText" />
+                        </MudForm>
+                    }
+                    <MudText Class="pt-3" Style="color: var(--mud-palette-action-disabled);">@TimeoutNotice</MudText>
+                </MudStack>
+            </MudStack>
+        </div>
+
+        <MudStack Row="true" class="bt-button-tray">
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="EnterRecoveryMode">
+                Recover
+            </MudButton>
+            <MudSpacer />
+            @if (ShouldUsePasskey)
             {
-                <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
-                           OnClick="() => SetIsPasskeyUsePreferred(true)">
-                    Use Passkey
+                <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
+                           OnClick="async () => await SetIsPasskeyUsePreferred(false)">
+                    Use passcode
+                </MudButton>
+                <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
+                           Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
+                    Unlock
                 </MudButton>
             }
-            <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length != 21)" Class="bt-button-wrap"
-                       Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
-                Unlock
-            </MudButton>
-        }
-    </MudStack>
+            else
+            {
+                @if (CanUsePasskey)
+                {
+                    <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
+                               OnClick="() => SetIsPasskeyUsePreferred(true)">
+                        Use Passkey
+                    </MudButton>
+                }
+                <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length != 21)" Class="bt-button-wrap"
+                           Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
+                    Unlock
+                </MudButton>
+            }
+        </MudStack>
+    }
 </div>

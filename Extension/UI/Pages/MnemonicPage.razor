@@ -1,0 +1,216 @@
+﻿@page "/Mnemonic.html"
+@layout Layouts.MainLayout
+@inherits AuthenticatedPageBase
+@implements IDisposable
+
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Services
+@using static Extension.Helper.PreviousPage
+
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ILogger<MnemonicPage> logger
+@inject ISnackbar snackbar
+@inject AppCache appCache
+
+@code {
+    // State
+    private string[] _mnemonicWords = Array.Empty<string>();
+    private bool _isRevealed = false;
+    private bool _hasConfirmedSaved = false;
+    private bool _isCopied = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger.LogInformation("OnInitializedAsync");
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
+
+        await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
+
+        // Generate mnemonic from current passcode
+        GenerateMnemonic();
+    }
+
+    private void GenerateMnemonic()
+    {
+        var passcode = appCache.MyPasscodeModel.Passcode;
+        if (string.IsNullOrEmpty(passcode) || passcode.Length != 21)
+        {
+            logger.LogWarning("Invalid passcode length for mnemonic generation");
+            return;
+        }
+
+        try
+        {
+            _mnemonicWords = Bip39MnemonicConverter.ConvertPasscodeToMnemonic(passcode);
+            logger.LogInformation("Generated {WordCount}-word mnemonic", _mnemonicWords.Length);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to generate mnemonic from passcode");
+            snackbar.Add("Failed to generate recovery phrase", Severity.Error);
+        }
+    }
+
+    private void ToggleReveal()
+    {
+        _isRevealed = !_isRevealed;
+        if (!_isRevealed)
+        {
+            _isCopied = false;
+        }
+    }
+
+    private async Task CopyToClipboard()
+    {
+        if (_mnemonicWords.Length == 0) return;
+
+        var phrase = string.Join(" ", _mnemonicWords);
+        try
+        {
+            await js.InvokeVoidAsync("navigator.clipboard.writeText", phrase);
+            _isCopied = true;
+            snackbar.Add("Recovery phrase copied to clipboard", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to copy to clipboard");
+            snackbar.Add("Failed to copy to clipboard", Severity.Error);
+        }
+    }
+
+    private void OnConfirmToggled(bool value)
+    {
+        _hasConfirmedSaved = value;
+    }
+
+    private async Task Done()
+    {
+        await GoBack(js);
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudText Class="bt-page-title">Recovery Phrase</MudText>
+
+            <MudAlert Severity="Severity.Warning" Class="mt-4" Dense="true">
+                <strong>Keep this phrase secure!</strong> Anyone with these words can access your account.
+                Never share it or enter it on untrusted websites.
+            </MudAlert>
+
+            <MudText Class="mt-4" Typo="Typo.body2" Color="Color.Secondary">
+                Your 18-word recovery phrase is derived from your passcode. You can use either
+                the 21-character passcode or these 18 words to recover your account.
+            </MudText>
+
+            @if (!_isRevealed)
+            {
+                <MudPaper Class="mt-4 pa-4" Elevation="0" Style="background: var(--mud-palette-background-grey); text-align: center;">
+                    <MudIcon Icon="@Icons.Material.Filled.VisibilityOff" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+                        Recovery phrase is hidden
+                    </MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3"
+                               StartIcon="@Icons.Material.Filled.Visibility" OnClick="ToggleReveal">
+                        Reveal Phrase
+                    </MudButton>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Class="mt-4 pa-4" Elevation="1">
+                    <MudGrid Spacing="2">
+                        @for (int i = 0; i < _mnemonicWords.Length; i++)
+                        {
+                            var wordNumber = i + 1;
+                            var word = _mnemonicWords[i];
+                            <MudItem xs="4">
+                                <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined"
+                                         Style="width: 100%; justify-content: flex-start; font-family: monospace;">
+                                    <span style="color: var(--mud-palette-text-secondary); min-width: 1.5rem; display: inline-block;">@wordNumber.</span>
+                                    @word
+                                </MudChip>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudStack Row="true" Class="mt-4" Justify="Justify.Center" Spacing="2">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.VisibilityOff" OnClick="ToggleReveal">
+                            Hide
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="@(_isCopied ? Color.Success : Color.Primary)"
+                                   StartIcon="@(_isCopied ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)"
+                                   OnClick="CopyToClipboard">
+                            @(_isCopied ? "Copied" : "Copy All")
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+
+                <MudCheckBox T="bool" Value="_hasConfirmedSaved" ValueChanged="OnConfirmToggled"
+                             Color="Color.Primary" Class="mt-4">
+                    <MudText Typo="Typo.body2">
+                        I have securely saved my recovery phrase
+                    </MudText>
+                </MudCheckBox>
+            }
+
+            <MudExpansionPanels Elevation="0" Class="mt-4">
+                <MudExpansionPanel Text="More information...">
+                    <MudStack Spacing="2">
+                        <MudText Style="font-weight:bold;">What is a recovery phrase?</MudText>
+                        <MudText Typo="Typo.body2">
+                            A recovery phrase (also called a seed phrase or mnemonic) is a human-readable
+                            representation of your passcode. It follows the BIP-39 standard used by
+                            cryptocurrency wallets.
+                        </MudText>
+
+                        <MudText Style="font-weight:bold;" Class="mt-2">When should I use this?</MudText>
+                        <MudText Typo="Typo.body2">
+                            Use these 18 words as an alternative to your 21-character passcode when
+                            recovering your account. Some users find words easier to write down and
+                            verify than a random character string.
+                        </MudText>
+
+                        <MudText Style="font-weight:bold;" Class="mt-2">How should I store it?</MudText>
+                        <MudList T="string" Dense="true">
+                            <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                                Write it down on paper and store in a secure location
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.CheckCircle">
+                                Consider using a metal backup for fire/water resistance
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error">
+                                Do not store in plain text on your computer or cloud storage
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error">
+                                Do not take a screenshot or photo
+                            </MudListItem>
+                        </MudList>
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text"
+                       OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@(!_hasConfirmedSaved && _isRevealed)"
+                   OnClick="Done">
+            Done
+        </MudButton>
+    </MudStack>
+</div>
