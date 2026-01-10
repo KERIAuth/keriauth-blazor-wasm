@@ -58,11 +58,12 @@
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
 
     // Operation displays - instance properties for proper state isolation per page instance
-    OperationDisplay Ops1CheckLiveness { get; set; } = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
-    OperationDisplay Ops2CheckHealth { get; set; } = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
-    OperationDisplay Ops3Connect { get; set; } = new OperationDisplay("Connecting", "Connected");
-    OperationDisplay Ops4ListAids { get; set; } = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
-    OperationDisplay Ops5CreatePersonalAid { get; set; } = new OperationDisplay("Creating personal identifier", "Created new identifier");
+    OperationDisplay Ops1CheckLiveness { get; } = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
+    OperationDisplay Ops2CheckHealth { get; } = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
+    OperationDisplay Ops3Connect { get; } = new OperationDisplay("Connecting", "Connected");
+    OperationDisplay Ops4ListAids { get; } = new OperationDisplay("Retrieving your identifiers", "Retrieved identifiers");
+    OperationDisplay Ops5CreatePersonalAid { get; } = new OperationDisplay("Creating personal identifier", "Created new identifier");
+    OperationDisplay Ops6AllDone { get; } = new OperationDisplay("Press Next to continue", "Press Next to continue");
     // TODO P2 load presets from AppConfig or external source
     static List<Preset> presetAgents = new List<Preset>
     {
@@ -99,6 +100,12 @@
     bool IsFlowStarted { get; set; }
     // Gate 2: Set when passcode is used in Connect call, disables passcode fields
     bool IsPasscodeUsed { get; set; }
+
+    // Flow step tracking - drives reactive operation state rendering
+    enum FlowStep { NotStarted, Ops1, Ops2, Ops3, Ops4, Ops5, Done, Failed }
+    FlowStep _currentStep = FlowStep.NotStarted;
+    int? _failedAtStep = null; // Track which step failed for error display
+    string? _errorMessage = null; // Error message for failed step
     Preset PresetChoice
     {
         get
@@ -133,6 +140,46 @@
     bool IsKeriaConfigured => (KeriaConnectConfig is not null) && KeriaConnectConfig.ValidateConfiguration().IsSuccess;
     string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you have established KERIA connection passcode)" : "Boot URL";
 
+    // Computed operation states based on current flow step
+    // Each operation shows: InvisibleInactive (not applicable), Pending (waiting), Running (current), CompletedSuccess, or uses stored error state
+    OperationState Ops1State => ComputeOpState(1, IsValidBootURL);
+    OperationState Ops2State => ComputeOpState(2, IsValidBootURL);
+    OperationState Ops3State => ComputeOpState(3, true);
+    OperationState Ops4State => ComputeOpState(4, true);
+    OperationState Ops5State => ComputeOpState(5, !IsUsingExistingPasscode && !_ops5Skipped);
+    OperationState Ops6State => _currentStep == FlowStep.Done ? OperationState.CompletedSuccess : (_currentStep != FlowStep.NotStarted ? OperationState.Pending : OperationState.InvisibleInactive);
+
+    bool _ops5Skipped = false; // Set when existing account has identifiers
+
+    OperationState ComputeOpState(int opNumber, bool isApplicable)
+    {
+        if (!isApplicable || _currentStep == FlowStep.NotStarted)
+            return OperationState.InvisibleInactive;
+
+        int currentStepNumber = _currentStep switch
+        {
+            FlowStep.Ops1 => 1,
+            FlowStep.Ops2 => 2,
+            FlowStep.Ops3 => 3,
+            FlowStep.Ops4 => 4,
+            FlowStep.Ops5 => 5,
+            FlowStep.Done => 6,
+            FlowStep.Failed => _failedAtStep ?? 0,
+            _ => 0
+        };
+
+        if (_currentStep == FlowStep.Failed && _failedAtStep == opNumber)
+            return OperationState.CompletedFailed;
+
+        if (opNumber < currentStepNumber || _currentStep == FlowStep.Done)
+            return OperationState.CompletedSuccess;
+
+        if (opNumber == currentStepNumber && _currentStep != FlowStep.Failed)
+            return OperationState.Running;
+
+        return OperationState.Pending;
+    }
+
     // Focus state - determines which element should have focus
     enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next, Reset }
     FocusTarget _focusTarget = FocusTarget.Passcode;
@@ -140,20 +187,12 @@
     bool ShouldFocusConfirmPasscode => _focusTarget == FocusTarget.ConfirmPasscode && !IsUsingExistingPasscode && IsPasscodeCopyConfirmed;
     bool ShouldFocusConnect => _focusTarget == FocusTarget.Connect;
 
-
-    // Track previous config state to detect external changes
-    // TODO P1 just use appCache.IsConfigured directly in OnAppCacheChanged?
-    // bool _previousHadConfig = false;
-
     protected override async Task OnInitializedAsync()
     {
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
         // Subscribe to appCache changes to detect external storage modifications
         await this.SubscribeToAppCache(appCache, OnAppCacheChanged);
-
-        // Initialize tracking of previous config state
-        // _previousHadConfig = appCache.IsConfigured;
     }
 
     /// <summary>
@@ -274,13 +313,43 @@
     void ResetOps()
     {
         IsProcessing = false;
-        Ops1CheckLiveness.Reset();
-        Ops2CheckHealth.Reset();
-        Ops3Connect.Reset();
-        Ops4ListAids.Reset();
-        Ops5CreatePersonalAid.Reset();
+        _currentStep = FlowStep.NotStarted;
+        _failedAtStep = null;
+        _errorMessage = null;
+        _ops5Skipped = false;
         IsReadyForNext = false;
-        StateHasChanged();
+    }
+
+    void SetFlowFailed(int stepNumber, string errorMessage)
+    {
+        // Log full error for debugging, but sanitize for UI display
+        logger.LogError("Flow failed at step {Step}: {Error}", stepNumber, errorMessage);
+
+        _currentStep = FlowStep.Failed;
+        _failedAtStep = stepNumber;
+        _errorMessage = SanitizeErrorForDisplay(errorMessage);
+        IsProcessing = false;
+        _focusTarget = FocusTarget.Reset;
+    }
+
+    /// <summary>
+    /// Extracts user-friendly error message, removing stack traces and technical details.
+    /// </summary>
+    static string SanitizeErrorForDisplay(string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(errorMessage))
+            return "An error occurred";
+
+        // Find the first occurrence of " at " which typically starts a stack trace
+        var atIndex = errorMessage.IndexOf(" at ", StringComparison.Ordinal);
+        if (atIndex > 0)
+            errorMessage = errorMessage[..atIndex].Trim();
+
+        // Also handle "Error:" prefix pattern like "Error: Agent booted but cannot connect"
+        if (errorMessage.StartsWith("Error: ", StringComparison.OrdinalIgnoreCase))
+            errorMessage = errorMessage[7..];
+
+        return errorMessage;
     }
 
     // TODO P2 could return Result to indicate success/failure, and do some DRY then
@@ -292,7 +361,7 @@
 
         // Ratchet Gate 1: Lock Provider/URL fields once flow starts
         IsFlowStarted = true;
-        StateHasChanged();
+        // TODO P2 scroll div into view
 
         // Validate preconditions
         if (!(IsValidNewInfo || IsKeriaConfigured))
@@ -313,9 +382,7 @@
         // Step 1: Check KERIA liveness (if BootUrl is provided)
         if (IsValidBootURL)
         {
-            // Check if BootUrl is reachable
-            Ops1CheckLiveness.SetIsRunning();
-            StateHasChanged();
+            _currentStep = FlowStep.Ops1;
 
             var baseUri = new Uri(urlModel.BootUrl!);
             var healthUri = new Uri(baseUri, "health");
@@ -324,72 +391,52 @@
             var healthCheckResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!healthCheckResult.IsSuccess)
             {
-                const string message = "KERIA service is not reachable";
-                Ops1CheckLiveness.SetCompletedWithError(message);
-                snackbar.Add(message, Severity.Error);
-                await Task.Delay(6000);
-                IsProcessing = false;
-                _focusTarget = FocusTarget.Reset;
-                StateHasChanged();
+                SetFlowFailed(1, "KERIA service is not reachable");
                 return;
             }
-            Ops1CheckLiveness.SetCompletedWithoutErrors();
 
-            // Check if KERIA is reporting as healthy
-            Ops2CheckHealth.SetIsRunning();
-            StateHasChanged();
+            // Step 2: Check if KERIA is reporting as healthy
+            _currentStep = FlowStep.Ops2;
             var httpClientService2 = new HttpClientService(new HttpClient());
             var healthStatusResult = await httpClientService2.GetJsonAsync<String>(healthUriBuilder.Uri.ToString());
             if (!healthStatusResult.IsSuccess || healthStatusResult.Value.StatusCode != System.Net.HttpStatusCode.OK)
             {
-                string errorMsg = healthStatusResult.Reasons.FirstOrDefault()?.Message ?? "KERIA health check failed";
-                Ops2CheckHealth.SetCompletedWithError(errorMsg);
-                snackbar.Add(errorMsg, Severity.Error);
-                await Task.Delay(6000);
-                IsProcessing = false;
-                _focusTarget = FocusTarget.Reset;
-                StateHasChanged();
+                SetFlowFailed(2, healthStatusResult.Reasons.FirstOrDefault()?.Message ?? "KERIA health check failed");
                 return;
             }
-            Ops2CheckHealth.SetCompletedWithoutErrors();
-            // await Task.Delay(100);
         }
 
-        // Step 2: Store partial KeriaConnectConfig with passcodeHash
-        // Use 'with' expression to preserve IsStored from skeleton record created by BackgroundWorker
+        // Store partial KeriaConnectConfig with passcodeHash
+        // Explicitly set IsStored = true to ensure it's persisted correctly
         int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
-        var partialConfig = appCache.MyKeriaConnectConfig with
-        {
-            ProviderName = _presetChoice.ProviderName,
-            Alias = _presetChoice.ProviderName, // Use provider name as default alias
-            AdminUrl = urlModel.AdminUrl,
-            BootUrl = urlModel.BootUrl,
-            PasscodeHash = passcodeHash,
-            ClientAidPrefix = null, // will be set after Connect
-            AgentAidPrefix = null   // will be set after Connect
-        };
+        var partialConfig = new KeriaConnectConfig(
+            providerName: _presetChoice.ProviderName,
+            adminUrl: urlModel.AdminUrl,
+            bootUrl: urlModel.BootUrl,
+            passcodeHash: passcodeHash,
+            clientAidPrefix: null, // will be set after Connect
+            agentAidPrefix: null,  // will be set after Connect
+            isStored: true
+        ) { Alias = _presetChoice.ProviderName };
 
         var storePartialConfigResult = await storageService.SetItem<KeriaConnectConfig>(partialConfig);
         if (storePartialConfigResult.IsFailed)
         {
             logger.LogError("Failed to store partial connection config: {Errors}", string.Join(", ", storePartialConfigResult.Errors));
-            snackbar.Add("Failed to store connection configuration", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(3, "Failed to store connection configuration");
             return;
         }
 
         // Wait for AppCache to reflect the partial config
+        // Waiting for MyKeriaConnectConfig.PasscodeHash != 0 (current: {Hash})", appCache.MyKeriaConnectConfig.PasscodeHash);
         await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfig.PasscodeHash != 0]);
+        // MyKeriaConnectConfig.PasscodeHash check passed
 
         // Step 3: Connect to KERIA
-        Ops3Connect.SetIsRunning();
+        _currentStep = FlowStep.Ops3;
 
         // Ratchet Gate 2: Lock passcode fields once passcode is used for connection
         IsPasscodeUsed = true;
-        StateHasChanged();
 
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
         var connectResult = await signifyClientService.Connect(
@@ -401,21 +448,15 @@
 
         if (connectResult.IsFailed)
         {
-            Ops3Connect.SetCompletedWithError(connectResult.Reasons.First().Message);
-            snackbar.Add($"Connection failed: {connectResult.Reasons.First().Message}", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(3, connectResult.Reasons.First().Message);
             return;
         }
-        Ops3Connect.SetCompletedWithoutErrors();
 
         // Extract agent and client prefixes from Connect result
         string clientAidPrefix = connectResult.Value.Controller!.State!.I;
         string agentAidPrefix = connectResult.Value.Agent!.I;
 
-        // Step 4: Store PasscodeModel to Session storage
+        // Store PasscodeModel to Session storage
         var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
         var passcodeModel = new PasscodeModel
         {
@@ -427,18 +468,20 @@
         if (storePasscodeResult.IsFailed)
         {
             logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storePasscodeResult.Errors));
-            snackbar.Add("Failed to store session passcode", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(3, "Failed to store session passcode");
             return;
         }
 
         // Wait for PasscodeModel to be reflected in AppCache
-        await appCache.WaitForAppCache([() => appCache.IsSessionPasscodeSet, () => appCache.IsSessionNotExpired]);
+        // Waiting for IsSessionPasscodeSet (current: {Value})", appCache.IsSessionPasscodeSet);
+        await appCache.WaitForAppCache([() => appCache.IsSessionPasscodeSet]);
+        // IsSessionPasscodeSet check passed
 
-        // Step 5: Update KeriaConnectConfig with complete information
+        // Waiting for IsSessionNotExpired (current: {Value})", appCache.IsSessionNotExpired);
+        await appCache.WaitForAppCache([() => appCache.IsSessionNotExpired]);
+        // IsSessionNotExpired check passed
+
+        // Update KeriaConnectConfig with complete information
         var completeConfig = partialConfig with
         {
             ClientAidPrefix = clientAidPrefix,
@@ -449,80 +492,59 @@
         if (storeCompleteConfigResult.IsFailed)
         {
             logger.LogError("Failed to update connection config: {Errors}", string.Join(", ", storeCompleteConfigResult.Errors));
-            snackbar.Add("Failed to update connection configuration", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(3, "Failed to update connection configuration");
             return;
         }
 
         // Wait for complete config to be reflected in AppCache
+        // Waiting for IsConfigured (current: {Value})", appCache.IsConfigured);
         await appCache.WaitForAppCache([() => appCache.IsConfigured]);
+        // IsConfigured check passed
         KeriaConnectConfig = completeConfig;
 
-        // Step 6: Get Identifiers
-        Ops4ListAids.SetIsRunning();
-        StateHasChanged();
-        // await Task.Delay(100);
+        // Step 4: Get Identifiers
+        _currentStep = FlowStep.Ops4;
 
         var identifiersRes = await signifyClientService.GetIdentifiers();
         if (identifiersRes.IsFailed)
         {
-            Ops4ListAids.SetCompletedWithError(identifiersRes.Reasons.First().Message);
-            snackbar.Add($"Failed to retrieve identifiers: {identifiersRes.Reasons.First().Message}", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(4, identifiersRes.Reasons.First().Message);
             return;
         }
 
         var identifiers = identifiersRes.Value;
-        Ops4ListAids.SetCompletedWithoutErrors();
-        // await Task.Delay(100);
 
-        // Step 7: Create identifier if none exist
+        // Step 5: Create identifier if none exist
         if (identifiers.Aids.Count == 0)
         {
-            Ops5CreatePersonalAid.SetIsRunning();
-            StateHasChanged();
+            _currentStep = FlowStep.Ops5;
 
             var createAidResult = await signifyClientService.RunCreateAid("Alias1");
             if (createAidResult.IsFailed)
             {
-                Ops5CreatePersonalAid.SetCompletedWithError(createAidResult.Reasons.First().Message);
-                snackbar.Add($"Failed to create identifier: {createAidResult.Reasons.First().Message}", Severity.Error);
-                await Task.Delay(6000);
-                IsProcessing = false;
-                _focusTarget = FocusTarget.Reset;
-                StateHasChanged();
+                SetFlowFailed(5, createAidResult.Reasons.First().Message);
                 return;
             }
-            Ops5CreatePersonalAid.SetCompletedWithoutErrors();
 
             // Re-fetch identifiers after creating
             var refreshedIdentifiersRes = await signifyClientService.GetIdentifiers();
             if (refreshedIdentifiersRes.IsFailed)
             {
-                snackbar.Add("Failed to refresh identifiers after creation", Severity.Error);
-                await Task.Delay(6000);
-                IsProcessing = false;
-                _focusTarget = FocusTarget.Reset;
-                StateHasChanged();
+                SetFlowFailed(5, "Failed to refresh identifiers after creation");
                 return;
             }
             identifiers = refreshedIdentifiersRes.Value;
         }
+        else
+        {
+            // Existing account with identifiers - skip Ops5
+            _ops5Skipped = true;
+        }
 
-        // Step 8: Store Preferences with SelectedPrefix
+        // Store Preferences with SelectedPrefix
         if (identifiers.Aids.Count == 0)
         {
-            snackbar.Add("No identifiers available after creation", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(5, "No identifiers available after creation");
             return;
         }
 
@@ -534,18 +556,16 @@
         if (storePreferencesResult.IsFailed)
         {
             logger.LogError("Failed to store preferences: {Errors}", string.Join(", ", storePreferencesResult.Errors));
-            snackbar.Add("Failed to store preferences", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(5, "Failed to store preferences");
             return;
         }
 
         // Wait for Preferences to be reflected in AppCache
+        // Waiting for SelectedPrefix (current: '{Value}')", appCache.MyPreferences.SelectedPrefix);
         await appCache.WaitForAppCache([() => !string.IsNullOrWhiteSpace(appCache.MyPreferences.SelectedPrefix)]);
+        // SelectedPrefix check passed
 
-        // Step 9: Store KeriaConnectionInfo to Session storage
+        // Store KeriaConnectionInfo to Session storage
         var connectionInfo = new KeriaConnectionInfo
         {
             Config = completeConfig,
@@ -557,23 +577,22 @@
         if (storeConnectionInfoResult.IsFailed)
         {
             logger.LogError("Failed to cache connection info: {Errors}", string.Join(", ", storeConnectionInfoResult.Errors));
-            snackbar.Add("Failed to cache connection info", Severity.Error);
-            await Task.Delay(6000);
-            IsProcessing = false;
-            _focusTarget = FocusTarget.Reset;
-            StateHasChanged();
+            SetFlowFailed(5, "Failed to cache connection info");
             return;
         }
 
         // Wait for KeriaConnectionInfo to be reflected in AppCache
+        // Waiting for MyKeriaConnectionInfo.Config.PasscodeHash != 0 (current: {Hash})", appCache.MyKeriaConnectionInfo.Config.PasscodeHash);
         await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
+        // MyKeriaConnectionInfo.Config.PasscodeHash check passed
 
-        // Step 10: Final confirmation and navigation
+        // Final confirmation and navigation
+        // Waiting for IsConnectedToKeria (current: {Value})", appCache.IsConnectedToKeria);
         await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria]);
+        // IsConnectedToKeria check passed
 
+        _currentStep = FlowStep.Done;
         IsConnected = true;
-        // IsProcessing = false;
-        snackbar.Add("Connection to KERIA Service successful", Severity.Success);
 
         _focusTarget = FocusTarget.Next;
         StateHasChanged();
@@ -627,6 +646,7 @@
         }
 
         // Wait for appCache to reflect the cleared updates
+        // TODO P1 confirm compound assertions work in WaitForAppCache
         await appCache.WaitForAppCache([
             () => appCache.IsProductOnboarded,
             () => !appCache.IsConfigured
@@ -682,8 +702,6 @@
 
         // Reset focus
         _focusTarget = FocusTarget.Passcode;
-
-        StateHasChanged();
     }
 }
 
@@ -797,21 +815,16 @@
                 }
             </MudStack>
 
-            @if (IsProcessing || IsConnected)
+            @if (IsFlowStarted)
             {
                 <MudText Typo="Typo.h6" Class="mt-4">Connection</MudText>
                 <MudStack Class="ml-4">
-                    @if (IsValidBootURL)
-                    {
-                        <OperationDisplayComponent ops="@Ops1CheckLiveness"></OperationDisplayComponent>
-                        <OperationDisplayComponent ops="@Ops2CheckHealth"></OperationDisplayComponent>
-                    }
-                    <OperationDisplayComponent ops="@Ops3Connect"></OperationDisplayComponent>
-                    <OperationDisplayComponent ops="@Ops4ListAids"></OperationDisplayComponent>
-                    @if (Ops5CreatePersonalAid.IsRunning || Ops5CreatePersonalAid.CompletedSuccessfully || !string.IsNullOrEmpty(Ops5CreatePersonalAid.ErrorMessage))
-                    {
-                        <OperationDisplayComponent ops="@Ops5CreatePersonalAid"></OperationDisplayComponent>
-                    }
+                    <OperationDisplayComponent ops="@Ops1CheckLiveness" StateOverride="@Ops1State" ErrorMessage="@(_failedAtStep == 1 ? _errorMessage : null)" />
+                    <OperationDisplayComponent ops="@Ops2CheckHealth" StateOverride="@Ops2State" ErrorMessage="@(_failedAtStep == 2 ? _errorMessage : null)" />
+                    <OperationDisplayComponent ops="@Ops3Connect" StateOverride="@Ops3State" ErrorMessage="@(_failedAtStep == 3 ? _errorMessage : null)" />
+                    <OperationDisplayComponent ops="@Ops4ListAids" StateOverride="@Ops4State" ErrorMessage="@(_failedAtStep == 4 ? _errorMessage : null)" />
+                    <OperationDisplayComponent ops="@Ops5CreatePersonalAid" StateOverride="@Ops5State" ErrorMessage="@(_failedAtStep == 5 ? _errorMessage : null)" />
+                    <OperationDisplayComponent ops="@Ops6AllDone" StateOverride="@Ops6State" />
                 </MudStack>
             }
         </MudStack>

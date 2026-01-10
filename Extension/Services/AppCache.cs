@@ -234,6 +234,7 @@
         /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
         /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
         // TODO P2: adjust default timeouts as needed based on real-world performance
+        // TODO P1 confirm compound assertions (multiple items in list) work correctly
         public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
             if (assertions is null || assertions.Count == 0) {
                 _logger.LogWarning("WaitForAppCache called with no assertions");

@@ -1,37 +1,70 @@
-﻿@using System.Diagnostics.CodeAnalysis
+@using System.Diagnostics.CodeAnalysis
 
-@inject NavigationManager navManager
-
-<MudStack Row="true" Class="mb-2">
-	@{
-		Debug.Assert(ops is not null);
-	}
-	@if (ops.CompletedSuccessfully)
-	{
-		<MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
-	}
-	@if (ops.IsPending && ops.IsRunning && !ops.CompletedSuccessfully)
-	{
-		<MudProgressCircular Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGray.Lighten3};")" Indeterminate="true" />
-	}
-	@if (!ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully)
-	{
-		<MudIcon Icon="@Icons.Material.Filled.RemoveCircle" Color="Color.Error" />
-	}
-	@if (ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully)
-	{
-		<MudIcon Icon="@Icons.Material.Filled.Pending" Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGray.Lighten3};")" />
-	}
-	<MudText>@ops.Label</MudText>
-</MudStack>
-@if (!ops.IsPending && !ops.IsRunning && !ops.CompletedSuccessfully && !string.IsNullOrWhiteSpace(ops.ErrorMessage))
-{
-	<MudAlert NoIcon="true" Severity="Severity.Error" ShowCloseIcon>@ops.ErrorMessage</MudAlert>
-	<MudLink Class="mt-2" OnClick='() => navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>())'>Refresh</MudLink>
+@{
+	var effectiveState = StateOverride ?? ops.State;
 }
+
+@if (effectiveState != OperationState.InvisibleInactive)
+{
+	<div style="@GetVisibilityStyle(effectiveState)">
+		<MudStack Row="true" Class="mb-2">
+			@switch (effectiveState)
+			{
+				case OperationState.CompletedSuccess:
+					<MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+					break;
+				case OperationState.Running:
+					<MudProgressCircular Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGray.Lighten3};")" Indeterminate="true" />
+					break;
+				case OperationState.CompletedFailed:
+					<MudIcon Icon="@Icons.Material.Filled.RemoveCircle" Color="Color.Error" />
+					break;
+				case OperationState.Pending:
+				case OperationState.DisplayedHidden:
+					<MudIcon Icon="@Icons.Material.Filled.Pending" Style="@($"height:20px;width:20px;margin-left: 1px; color:{Colors.BlueGray.Lighten3};")" />
+					break;
+			}
+			<MudText>@GetDisplayLabel(effectiveState)</MudText>
+		</MudStack>
+		@if (effectiveState == OperationState.CompletedFailed && !string.IsNullOrWhiteSpace(ErrorMessage ?? ops.ErrorMessage))
+		{
+			<MudAlert NoIcon="true" Severity="Severity.Error" ShowCloseIcon>@(ErrorMessage ?? ops.ErrorMessage)</MudAlert>
+		}
+	</div>
+}
+
 @code {
 	[Parameter]
 	[NotNull]
-	// Intentionally nullable to avoid compiler warning about not being initialized
 	public OperationDisplay? ops { get; init; }
+
+	/// <summary>
+	/// Optional state override. When provided, takes precedence over ops.State.
+	/// Enables reactive state computation from parent component.
+	/// </summary>
+	[Parameter]
+	public OperationState? StateOverride { get; set; }
+
+	/// <summary>
+	/// Optional error message override. When provided, takes precedence over ops.ErrorMessage.
+	/// </summary>
+	[Parameter]
+	public string? ErrorMessage { get; set; }
+
+	private string GetVisibilityStyle(OperationState state) => state switch
+	{
+		OperationState.DisplayedHidden => "visibility: hidden;",
+		_ => string.Empty
+	};
+
+	private string GetDisplayLabel(OperationState state) => state switch
+	{
+		OperationState.Pending => ops.PendingLabel,
+		OperationState.Running => ops.RunningLabel,
+		OperationState.CompletedSuccess => ops.SuccessLabel,
+		OperationState.CompletedFailed => string.IsNullOrEmpty(ErrorMessage ?? ops.ErrorMessage)
+			? $"{ops.PendingLabel} - Failed"
+			: (ErrorMessage ?? ops.ErrorMessage),
+		_ => ops.PendingLabel
+	};
 }

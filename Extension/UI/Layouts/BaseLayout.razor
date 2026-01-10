@@ -96,7 +96,7 @@
     {
         // Ensure that AppCache is fully initialized before proceeding
         // helping assure critical records are loaded (and usually stored) before UI interaction
-
+        // TODO P1 confirm compound assertions work in WaitForAppCache
         var isAppCacheReady = await appCache.WaitForAppCache([
             // () => appCache.IsInitialized,
             () => appCache.MyPreferences.IsStored,
