@@ -41,7 +41,6 @@
         [Url(ErrorMessage = "Enter KERIA Agent Admin URL")]
         public string AdminUrl { get; set; } = presetAgents[0].AgentUrl;
 
-        // TODO P2 see potential password needed for the boot endpoint: https://github.com/WebOfTrust/keria/issues/327
         public string? BootUrl { get; set; } = presetAgents[0].BootUrl;
     }
 
@@ -352,7 +351,6 @@
         return errorMessage;
     }
 
-    // TODO P2 could return Result to indicate success/failure, and do some DRY then
     async Task UnifiedOnboardingFlow()
     {
         ResetOps();
