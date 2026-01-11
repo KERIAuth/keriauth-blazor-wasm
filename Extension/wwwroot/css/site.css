@@ -277,3 +277,113 @@
 .mud-theme-dark .credential-compact {
     border: 1px solid rgba(255,255,255,0.12);
 }
+
+/* Print styles for multi-page printing */
+@media print {
+    /* Reset positioning and viewport constraints on root containers */
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+    }
+
+    /* MudLayout has position:absolute and viewport sizing - reset for print */
+    .mud-layout,
+    #MainLayout {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        width: auto !important;
+    }
+
+    /* MudDrawerContainer has fixed positioning and calc heights */
+    .mud-drawer-container,
+    #MudDrawerContainer {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        top: auto !important;
+        display: block !important;
+    }
+
+    /* MudMainContent needs to flow naturally */
+    .mud-main-content,
+    .bt-main-content {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        left: auto !important;
+        width: auto !important;
+    }
+
+    /* MudContainer inside main content */
+    .mud-main-content .mud-container {
+        height: auto !important;
+        min-height: auto !important;
+    }
+
+    /* Remove fixed heights and allow content to flow naturally */
+    .bt-main {
+        height: auto !important;
+        overflow: visible !important;
+        padding-right: 1.14rem; /* Restore padding since no scrollbar needed */
+    }
+
+    .bt-body-page {
+        height: auto !important;
+        min-height: auto !important;
+    }
+
+    .bt-main-inside-scroll {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* Hide navigation elements not needed in print */
+    .bt-button-tray {
+        display: none !important;
+    }
+
+    /* Show AppBar but reset positioning for print flow */
+    .mud-appbar,
+    .bt-appbar {
+        position: static !important;
+    }
+
+    .mud-drawer,
+    #MudDrawer {
+        display: none !important;
+    }
+
+    /* Hide snackbar/toasts in print */
+    .mud-snackbar-provider,
+    .mud-snackbar,
+    .mud-popover-provider {
+        display: none !important;
+    }
+
+    /* Hide overlays */
+    .mud-overlay {
+        display: none !important;
+    }
+
+    /* Ensure images don't break across pages and fit within margins */
+    img, .mud-image {
+        max-width: 100% !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Prevent page breaks inside list items */
+    .mud-list-item {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Keep headings with following content */
+    .bt-page-title,
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+        break-after: avoid;
+    }
+}
