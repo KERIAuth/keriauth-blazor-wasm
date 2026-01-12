@@ -85,6 +85,32 @@ namespace Extension.Models.Messages.CsBw {
         public const string GET_CREDENTIAL = "/signify/credential/get";
     }
 
+    /// <summary>
+    /// Internal message types from ContentScript to BackgroundWorker (not from web page).
+    /// These are used for extension-internal communication.
+    /// </summary>
+    public static class CsInternalMessageTypes {
+        /// <summary>
+        /// Sent by ContentScript when it initializes to notify service worker it's ready.
+        /// This message is handled by app.ts (JavaScript) to update the tab's icon.
+        /// The C# BackgroundWorker should ignore this message - no processing needed.
+        /// </summary>
+        public const string CS_READY = "cs-ready";
+    }
+
+    /// <summary>
+    /// Message sent by ContentScript to notify the service worker that it has initialized.
+    /// This allows the service worker to update the tab's icon to indicate the content script is active.
+    ///
+    /// Note: This message is handled entirely in app.ts (JavaScript layer) before Blazor starts.
+    /// The C# BackgroundWorker receives this message but should ignore it - the icon update
+    /// has already been handled by the JavaScript onMessage listener in app.ts.
+    /// </summary>
+    public record CsReadyMessage {
+        [JsonPropertyName("type")]
+        public string Type { get; init; } = CsInternalMessageTypes.CS_READY;
+    }
+
     /*
     /// <summary>
     /// Message types originating from App (popup/tab/sidepanel).

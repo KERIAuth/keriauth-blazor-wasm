@@ -13,8 +13,10 @@ import {
     type ICsPageMsgData,
     type ICsPageMsgDataData,
     type ICsBwMsg,
+    type ICsReadyMessage,
     CsPageMsgTag,
     CsBwMsgEnum,
+    CsInternalMsgEnum,
     BwCsMsgEnum,
     type Polaris
 } from '@keriauth/types';
@@ -84,6 +86,16 @@ window.addEventListener('popstate', (event) => {
 // Add listener for when DOMContentLoaded. Logging if helpful for debugging issues.
 document.addEventListener('DOMContentLoaded', (event) => {
     console.info(`KeriAuthCs ${event.type}`);
+});
+
+// Notify the service worker that this content script is ready.
+// This handles the race condition where the service worker starts before
+// content scripts are ready (e.g., after browser restart with restored tabs).
+// The service worker listens for this message to update the tab's icon.
+const csReadyMessage: ICsReadyMessage = { type: CsInternalMsgEnum.CS_READY };
+chrome.runtime.sendMessage(csReadyMessage).catch(() => {
+    // Ignore errors - service worker may not be ready yet, which is fine.
+    // The service worker will ping us later via onActivated/onUpdated handlers.
 });
 
 

@@ -702,9 +702,122 @@ export async function beforeStart(
                 }
             });
 
-            chrome.runtime.onInstalled.addListener(async () => {
-                // TODO P2: Implement migration/cleanup logic here
-                // Optional: migration/cleanup if you change CS ids or structure between versions.
+            // ==================================================================================
+            // SERVICE WORKER STARTUP INITIALIZATION
+            // ==================================================================================
+            //
+            // When the service worker starts, we need to initialize icon state for the active tab.
+            // This handles cases where:
+            // - Extension was reloaded/reinstalled (content script context invalidated)
+            // - Browser was restarted or resumed from suspend
+            // - Service worker was awakened from idle
+            //
+            // Without this initialization, the icon would remain in default state until
+            // the user switches tabs or navigates, which is confusing UX.
+            //
+            // ==================================================================================
+
+            /**
+             * Initialize icon state for a specific tab.
+             * Checks for registered content script and pings to determine active state.
+             * @param tabId The tab ID to initialize
+             * @param tabUrl The tab URL
+             */
+            const initializeTabIconState = async (tabId: number, tabUrl: string): Promise<void> => {
+                // Skip unsupported URL schemes (chrome://, about:, etc.)
+                if (!isSupportedUrlScheme(tabUrl)) {
+                    await updateIconForTab(tabId, false);
+                    return;
+                }
+
+                // Check if we have a registered content script for this origin
+                const hasScript = await hasRegisteredContentScript(tabUrl);
+                if (!hasScript) {
+                    console.log(`app.ts: No registered content script for ${tabUrl}`);
+                    await updateIconForTab(tabId, false);
+                    return;
+                }
+
+                console.log(`app.ts: Found registered content script for ${tabUrl}, pinging...`);
+
+                // Try to ping the content script
+                try {
+                    const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+                    const isActive = pingResponse?.ok === true;
+                    console.log(`app.ts: Content script ping result for tab ${tabId}: ${isActive ? 'active' : 'not responding'}`);
+                    await updateIconForTab(tabId, isActive);
+                } catch {
+                    // Content script registered but not responding
+                    // This is expected after extension reload - CS context is invalidated
+                    console.log(`app.ts: Content script registered but not responding for tab ${tabId} (may need page reload)`);
+                    await updateIconForTab(tabId, false);
+                }
+            };
+
+            /**
+             * Initialize icon state for the current active tab on service worker startup.
+             * Queries registered content scripts and pings them to determine active state.
+             */
+            const initializeActiveTabState = async (): Promise<void> => {
+                try {
+                    // Get the currently active tab in the focused window
+                    // Note: lastFocusedWindow handles cases where currentWindow may not be set
+                    // (e.g., during browser startup before a window is focused)
+                    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+
+                    if (!activeTab?.id || !activeTab.url) {
+                        console.log('app.ts: No active tab found during initialization');
+                        return;
+                    }
+
+                    console.log(`app.ts: Initializing state for active tab ${activeTab.id}: ${activeTab.url}`);
+                    await initializeTabIconState(activeTab.id, activeTab.url);
+                } catch (error) {
+                    console.error('app.ts: Error during active tab initialization:', error);
+                }
+            };
+
+            // Run initialization asynchronously (don't block beforeStart completion)
+            initializeActiveTabState();
+
+            // ==================================================================================
+            // CONTENT SCRIPT READY HANDLER
+            // ==================================================================================
+            //
+            // Content scripts send a 'cs-ready' message when they initialize.
+            // This handles the race condition where the service worker starts before
+            // content scripts are ready (e.g., after browser restart with restored tabs).
+            // The content script announces itself, and we update the icon accordingly.
+            //
+            // ==================================================================================
+
+            chrome.runtime.onMessage.addListener((message, sender, _sendResponse) => {
+                // Note: 'cs-ready' is defined in CsInternalMsgEnum.CS_READY (@keriauth/types)
+                // We use the literal here to avoid adding build dependencies to app.ts
+                if (message?.type === 'cs-ready') {
+                    const tabId = sender.tab?.id;
+                    if (tabId) {
+                        console.log(`app.ts: Content script ready in tab ${tabId}`);
+                        updateIconForTab(tabId, true);
+                    }
+                    return false; // No async response needed
+                }
+                // Let other listeners handle other message types
+                return false;
+            });
+
+            // ==================================================================================
+            // EXTENSION INSTALL/UPDATE/RELOAD HANDLER
+            // ==================================================================================
+
+            chrome.runtime.onInstalled.addListener(async (details) => {
+                console.log('app.ts: onInstalled event:', details.reason);
+
+                // On extension install, update, or reload, initialize the active tab's icon state.
+                // We intentionally only handle the active tab to maintain minimal permissions.
+                // Other tabs will have their icons updated when the user switches to them
+                // (via onActivated) or when they navigate (via onUpdated).
+                await initializeActiveTabState();
             });
             break;
         default:
