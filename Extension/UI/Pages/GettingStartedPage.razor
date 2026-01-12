@@ -62,37 +62,76 @@
                 </MudText>
                 <MudList T="string" Dense="true">
                     <MudListItem>
-                        <MudText><b>Pin the extension:</b> Click the puzzle piece icon (Extensions) in your browser toolbar, then click the pin icon next to KERI Auth to keep it visible.</MudText>
-                        <MudImage Src="/images/getting-started/pinextensionactionicon.png" Style="width:30rem" />
-                        <MudImage Src="/images/getting-started/pinnedextensionactionicon.png" Style="width:30rem" />
+                        <MudText>
+                            <b>1. Pin the extension:</b>
+                            From your browser toolbar,
+                            click the puzzle piece icon (Extensions) in the upper-right area of your browser toolbar,
+                            then click the pin icon next to KERI Auth to keep it visible.
+                        </MudText>
+                        <MudImage Src="/images/getting-started/pinextensionactionicon.png" Class="bt-page-image" />
+                        <MudText>
+                            
+                            Notice the KERI Auth icon will now on the toolbar.
+                        </MudText>
+                        <MudImage Src="/images/getting-started/pinnedextensionactionicon.png" Class="bt-page-image" />
                     </MudListItem>
                     <MudListItem>
-                        <MudText><b>Watch the icon status:</b> Grey = no page connection, Cyan = connected to page.</MudText>
+                        <MudText><b>2. Notice the extension's icon color:</b> The icon color or adnorments will indicate whether it is connected with the the active tab. <em>Cyan</em> indicates connected, <em>Grey</em> indicates not connected.</MudText>
+                        <!-- TODO P2 : Add images for icon status when available -->
                     </MudListItem>
                     <MudListItem>
-                        <MudText><b>Interact with a website page:</b> Pages that implement the Polaris-web interfaces may interact with KERI Auth after the user clicks on the extension icon, providing your permission for KERI Auth and the page to interact.</MudText>
-                        <MudImage Src="/images/getting-started/keriauthhasrequestedadditionalpermissions.png" Style="width:30rem" />
-                        <MudImage Src="/images/getting-started/reloadthepagetoactivate.png" Style="width:30rem" />
+                        <MudText>
+                            <b>3. Interact with a website page:</b> Pages that are compatible with the Polaris-web or other KERI-specific interfaces may interact with KERI Auth after you complete these steps after loading the page:
+                            <br />
+                            a) Click on the extension icon,
+                            <br />
+                            b) If you haven't previously granted permission for the page to interact with KERI Auth, a prompt will appear requesting your permission for KERI Auth to interact with the page.
+                        </MudText>
+                        <MudImage Src="/images/getting-started/keriauthhasrequestedadditionalpermissions.png" Class="bt-page-image" />
+                        <MudText>
+                            c) After granting permission, the page may prompt you to reload it to complete the connection.
+                        </MudText>
+                        <MudImage Src="/images/getting-started/reloadthepagetoactivate.png" Class="bt-page-image" />
+                        <MudText>
+                            After reloading, KERI Auth should now be connected to the page, and indicate this by the icon color changing to Cyan.
+                            The browser (current profile) will remember the permission just granted for this domain for future interactions, unless you change it via the extension's action icon context menu.
+                        </MudText>
                     </MudListItem>
+
                     <MudListItem>
-                        <MudText><b>Multiple user interface contexts:</b> Tab, Popup, and SidePanel. The Tab ("options") or SidePanel mode can be launched via the KERI Auth icon context menu.</MudText>
-                        <MudImage Src="/images/getting-started/examplepopup.png" Style="width:20rem" />
-                        <MudImage Src="/images/getting-started/examplesidepanelinteraction.png" Style="width:20rem" />
-                        <MudImage Src="/images/getting-started/examplesidepanelnoninteraction.png" Style="width:20rem" />
-                        <MudImage Src="/images/getting-started/exampleactioncontextmenu.png" Style="width:20rem" />
-                        <MudImage Src="/images/getting-started/examplefulltab.png" Style="width:20rem" />
+                        <MudText>
+                            <b>4. Multiple user interface contexts:</b>
+                            KERI Auth's own pages may appear in one of three contexts: its own Tab(s), the browser's SidePanel, or KERI Auth's Action Popup.
+                        </MudText>
+                        <MudText>
+                            You've likely currently seeing the <strong>Tab</strong> context now, as this is launched on initial install and configuration.
+                        </MudText>
+                        <MudImage Src="/images/getting-started/examplefulltab.png" Class="bt-page-image" />
+
+                        <MudText>
+                            You can also launch this later via the KERI Auth icon context menu by selecting "Options".
+                        </MudText>
+                        <MudImage Src="/images/getting-started/exampleactioncontextmenu.png" Class="bt-page-image" />
+                        <MudText>
+                            The <strong>SidePanel</strong> is launched by the action icon context menu as well, and provides a persistent view while browsing and can be used for you to process requests from the page. You may close the SidePanel via the action context menu or a browser icon (varies by browser).
+                        </MudText>
+
+                        <MudImage Src="/images/getting-started/examplesidepanelnoninteraction.png" Class="bt-page-image" />
+                        <MudImage Src="/images/getting-started/examplesidepanelinteraction.png" Class="bt-page-image" />
+                        <MudText>
+                            The <strong>Action Popup</strong> will appear if the extension receives a request from the page, and it is used when interacting with a page if the SidePanel is not open.
+                        </MudText>
+                        <MudImage Src="/images/getting-started/examplepopup.png" Class="bt-page-image" />
+
+
                     </MudListItem>
+
                     <MudListItem>
-                        <MudText><b>Try the SidePanel:</b> Right-click the extension icon and select "Open side panel" for a persistent view while browsing.</MudText>
+                        <MudText><b>5. Open and explore the menu</b> from KERI Auth's Tab or SidePanel, use the upper-left icon to access your Identifiers, Credentials, Preferences, and more.</MudText>
                     </MudListItem>
+
                     <MudListItem>
-                        <MudText><b>Popup:</b> When interacting with a page, KERI Auth may use the Popup if the SidePanel is not open.</MudText>
-                    </MudListItem>
-                    <MudListItem>
-                        <MudText><b>Open the menu</b> from KERI Auth's Tab or SidePanel, use the upper-left icon to access your Identifiers, Credentials, Preferences, and more.</MudText>
-                    </MudListItem>
-                    <MudListItem>
-                        <MudText><b>Session auto-locks</b> after inactivity. You'll be prompted to re-enter your passcode or registered passkey to unlock.</MudText>
+                        <MudText><b>6. Session auto-locks</b> after inactivity. You can adjust the inactivity timeout duration via the Preferences menu. You'll be prompted to re-enter your passcode or registered passkey to unlock.</MudText>
                     </MudListItem>
                 </MudList>
                 <MudText>
@@ -107,3 +146,26 @@
         <MudButton Variant="Variant.Filled" @ref="buttonRef" Color="Color.Primary" OnClick="@NavigateToNextAsync" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
+<style>
+    #GettingStartedPage .bt-main {
+        <!--
+        flex-direction: column;
+        height: calc(100vh - 130px);
+        padding: 1rem;
+        -->
+    }
+
+    #GettingStartedPage .bt-main-inside-scroll {
+        <!--
+        overflow-y: auto;
+        flex-grow: 1;
+        -->
+    }
+
+    .bt-page-image  {
+        width: 100%;
+        max-width: 30rem;
+        padding: 0.5rem;
+        display: block;
+    }
+</style>
