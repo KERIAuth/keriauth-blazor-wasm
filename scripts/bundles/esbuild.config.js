@@ -196,6 +196,13 @@ const builds = [
         // Will use IIFE format from sharedOptions
     },
     {
+        name: 'ContentScriptMain',
+        entryPoints: ['src/ContentScriptMain.ts'],
+        outfile: path.join(OUTPUT_DIR, 'ContentScriptMain.js'),
+        plugins: [keriAuthTypesAlias]
+        // Will use IIFE format from sharedOptions - runs in MAIN world
+    },
+    {
         name: 'demo1',
         entryPoints: ['src/demo1.ts'],
         outfile: path.join(OUTPUT_DIR, 'demo1.js'),

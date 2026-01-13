@@ -461,15 +461,27 @@ export async function beforeStart(
 
                             // Register persistent content script
                             try {
-                                await chrome.scripting.registerContentScripts([{
-                                    id: scriptId,
-                                    js: ["scripts/esbuild/ContentScript.js"],
-                                    matches: MATCHES,
-                                    runAt: "document_idle",
-                                    allFrames: true,
-                                    world: "ISOLATED",
-                                    persistAcrossSessions: true,
-                                }]);
+                                await chrome.scripting.registerContentScripts([
+                                    // TODO P2 DRY
+                                    {
+                                        id: scriptId,
+                                        js: ["scripts/esbuild/ContentScript.js"],
+                                        matches: MATCHES,
+                                        runAt: "document_idle",
+                                        allFrames: true,
+                                        world: "ISOLATED",
+                                        persistAcrossSessions: true,
+                                    },
+                                    {
+                                        id: scriptId + "-world",
+                                        js: ["scripts/esbuild/ContentScriptMain.js"],
+                                        matches: MATCHES,
+                                        runAt: "document_idle",
+                                        allFrames: true,
+                                        world: "MAIN",
+                                        persistAcrossSessions: true,
+                                    }
+                                ]);
                                 console.log("app.ts: Registered persistent content script:", scriptId);
                             } catch (error) {
                                 console.error("app.ts: ERROR in chrome.scripting.registerContentScripts() [contentScriptAlreadyActive branch]:", error);
@@ -508,20 +520,54 @@ export async function beforeStart(
                             return;
                         }
 
+                        let oneShotWorldResult;
+                        try {
+                            oneShotWorldResult = await chrome.scripting.executeScript({
+                                target: { tabId: tab.id },
+                                files: ["scripts/esbuild/ContentScriptMain.js"],
+                                injectImmediately: false,
+                                world: "MAIN",
+                            });
+                            console.log("app.ts: One-shot World injection completed successfully");
+                        } catch (error) {
+                            console.error("app.ts: ERROR in chrome.scripting.executeScript() [one-shot World injection]:", error);
+                            throw error;
+                        }
+
+                        if (!oneShotResult?.[0]?.documentId) {
+                            console.error("app.ts: One-shot injection failed.", oneShotResult);
+                            return;
+                        }
+
                         await updateIconForTab(tab.id, true);
 
                         // 6) Register a persistent content script for this origin
                         // Note: May encounter race condition with onAdded listener (see comment below)
                         try {
-                            await chrome.scripting.registerContentScripts([{
-                                id: scriptId,
-                                js: ["scripts/esbuild/ContentScript.js"],
-                                matches: MATCHES,          // derived from the tab's origin
-                                runAt: "document_idle",    // or "document_start"/"document_end"
-                                allFrames: true,
-                                world: "ISOLATED",
-                                persistAcrossSessions: true, // default is true
-                            }]);
+                            const MATCHES = matchPatternsFromTabUrl(tab.url);
+                            await chrome.scripting.registerContentScripts([
+                                // TODO P2 DRY
+                                {
+                                    id: scriptId,
+                                    js: ["scripts/esbuild/ContentScript.js"],
+                                    matches: MATCHES,          // derived from the tab's origin
+                                    runAt: "document_idle",    // or "document_start"/"document_end"
+                                    allFrames: true,
+                                    world: "ISOLATED",
+                                    persistAcrossSessions: true, // default is true
+                                },
+
+                                {
+                                    id: scriptId + "-world",
+                                    js: ["scripts/esbuild/ContentScriptMain.js"],
+                                    matches: MATCHES,
+                                    runAt: "document_idle", // or "document_start"/"document_end"
+                                    allFrames: true,
+                                    world: "MAIN",
+                                    persistAcrossSessions: true,
+                                }
+
+                            ]);
                             console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
                         } catch (error: any) {
                             // Handle race condition: onAdded listener may have already registered the script
@@ -611,15 +657,28 @@ export async function beforeStart(
                             // Continue to check tabs - may need reload if CS not active
                         } else {
                             // Scenario #7: Need to register the script
-                            await chrome.scripting.registerContentScripts([{
-                                id: scriptId,
-                                js: ["scripts/esbuild/ContentScript.js"],
-                                matches: [matchPattern],
-                                runAt: "document_idle",
-                                allFrames: true,
-                                world: "ISOLATED",
-                                persistAcrossSessions: true,
-                            }]);
+
+                            // TODO P2 DRY
+                            await chrome.scripting.registerContentScripts([
+                                {
+                                    id: scriptId,
+                                    js: ["scripts/esbuild/ContentScript.js"],
+                                    matches: [matchPattern],
+                                    runAt: "document_idle",
+                                    allFrames: true,
+                                    world: "ISOLATED",
+                                    persistAcrossSessions: true,
+                                },
+                                {
+                                    id: scriptId + "-world",
+                                    js: ["scripts/esbuild/ContentScriptMain.js"],
+                                    matches: [matchPattern],
+                                    runAt: "document_idle", // or "document_start"/"document_end"
+                                    allFrames: true,
+                                    world: "MAIN",
+                                    persistAcrossSessions: true,
+                                }
+                            ]);
                             console.log(`app.ts: Registered persistent content script for ${hostWithPort}`);
                         }
 
