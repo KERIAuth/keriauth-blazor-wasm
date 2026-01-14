@@ -867,6 +867,7 @@ When making changes, prioritize in this order:
 **Manual Browser Testing**:
 - **Why required**: Extension UI/UX, service worker behavior, and chrome.* APIs cannot be fully automated
 - **When**: After significant changes to BackgroundWorker, ContentScript, or UI flows
+- See MANUAL_TESTS.md for detailed steps
 
 ### What to Test (Priority Order)
 
