@@ -186,6 +186,191 @@
 1. On Configure page, select "New Passcode"
 1. ...
 
+# Tab-Extension Permission and Content Script Tests
+
+These tests verify the permission grant flow, content script injection, and icon state management.
+Tests are ordered by causality - earlier test failures help identify root causes for later failures.
+
+## A. Content Script Ping Response
+**Purpose**: Verify the fundamental content script communication mechanism works.
+
+1. Prerequisite: Have a tab with an active content script (permission previously granted, page loaded)
+2. Open DevTools on the service worker
+3. In console, run: `chrome.tabs.query({active: true, currentWindow: true}, tabs => chrome.tabs.sendMessage(tabs[0].id, {type: 'ping'}, r => console.log(r)))`
+
+    Expected:
+    - [ ] Response is `{ok: true}`
+
+## B. Content Script Ready Message
+**Purpose**: Verify content script announces itself on initialization.
+
+1. Open DevTools on the service worker, enable "Preserve log"
+2. Grant permission to a new site and reload the page
+3. Check service worker console
+
+    Expected:
+    - [ ] Log shows "Content script ready in tab X"
+    - [ ] Icon changes to active (colored) state
+
+## C. Fresh Site Permission Grant (Action Button Click)
+**Purpose**: Verify the complete permission grant flow for a new site.
+
+1. Navigate to a site without prior permission (e.g., `http://localhost:8080`)
+2. Click the extension action button
+3. Accept the permission prompt
+
+    Expected:
+    - [ ] Permission prompt appears
+    - [ ] After acceptance, one-shot content script injected
+    - [ ] Persistent content script registered
+    - [ ] Reload prompt appears
+    - [ ] After reload, icon shows active (colored) state
+    - [ ] Page can communicate with extension
+
+## D. Pre-Granted Permission (Action Button Click)
+**Purpose**: Verify flow when permission was previously granted but script not registered.
+
+1. Prerequisite: Site has permission but content script was unregistered
+2. Click the extension action button
+
+    Expected:
+    - [ ] No permission prompt (already granted)
+    - [ ] Content script registered
+    - [ ] Reload prompt appears
+    - [ ] After reload, icon shows active state
+
+## E. Already Active Site (Action Button Click)
+**Purpose**: Verify no action when content script is already active.
+
+1. Prerequisite: Site has active content script (icon is colored)
+2. Click the extension action button
+
+    Expected:
+    - [ ] No prompts appear
+    - [ ] Icon remains active (colored)
+    - [ ] Service worker log shows "Content script is active and responding"
+
+## F. Stale Content Script Detection (Action Button Click)
+**Purpose**: Verify detection of orphaned content script after extension reload.
+
+1. Prerequisite: Site has active content script
+2. Reload extension via chrome://extensions
+3. Click the extension action button on the same tab
+
+    Expected:
+    - [ ] Reload prompt appears ("needs to refresh the connection")
+    - [ ] Icon shows inactive (grey) state until reload
+    - [ ] After page reload, icon shows active state
+
+## G. Icon State on Tab Activation
+**Purpose**: Verify icon updates when switching between tabs.
+
+1. Open two tabs: one with permission (Tab A), one without (Tab B)
+2. Ensure Tab A has active content script (reload if needed)
+3. Switch between tabs
+
+    Expected:
+    - [ ] When Tab A is active: icon shows active (colored) state
+    - [ ] When Tab B is active: icon shows inactive (grey) state
+
+## H. Icon State on Page Navigation
+**Purpose**: Verify icon updates when page finishes loading.
+
+1. Have a tab with permission granted
+2. Navigate to the permitted site
+3. Wait for page load complete
+
+    Expected:
+    - [ ] Icon shows active (colored) state after page load
+    - [ ] Service worker log shows ping succeeded
+
+## I. Permission Removal via Context Menu
+**Purpose**: Verify cleanup when permission is removed.
+
+1. Prerequisite: Site has active content script
+2. Right-click extension icon → remove permission for site
+3. Accept reload prompt (if shown)
+
+    Expected:
+    - [ ] Content script unregistered
+    - [ ] Icon shows inactive (grey) state
+    - [ ] Reload prompt appears
+    - [ ] After reload, content script no longer present
+
+## J. Extension Reload Recovery
+**Purpose**: Verify state recovery after extension reload.
+
+1. Prerequisite: Site has active content script
+2. Go to chrome://extensions
+3. Click reload button on the extension
+4. Return to the tab with the site
+
+    Expected:
+    - [ ] Icon shows inactive (grey) state (content script context invalidated)
+    - [ ] Clicking action button offers reload prompt
+    - [ ] After page reload, icon shows active state
+    - [ ] Content script functions correctly
+
+## K. Browser Restart Recovery
+**Purpose**: Verify state recovery after browser restart with restored tabs.
+
+1. Prerequisite: Site has active content script
+2. Close entire browser (with session restore enabled)
+3. Reopen browser (tabs restore)
+
+    Expected:
+    - [ ] Tab is restored
+    - [ ] Content script re-injects automatically (registered script persists)
+    - [ ] Icon shows active (colored) state
+    - [ ] `cs-ready` message received by service worker
+    - [ ] Page can communicate with extension without manual action
+
+## L. Browser Resume from Suspend
+**Purpose**: Verify state recovery after machine suspend/resume.
+
+1. Prerequisite: Site has active content script
+2. Suspend machine (sleep/hibernate)
+3. Resume machine
+
+    Expected:
+    - [ ] Icon shows correct state for active tab
+    - [ ] Content script remains functional
+    - [ ] No user action required
+
+## M. New Tab with Permitted URL
+**Purpose**: Verify new tabs to permitted sites get content script.
+
+1. Prerequisite: Permission granted for a site
+2. Open a new tab and navigate to the permitted site
+
+    Expected:
+    - [ ] Content script injected automatically (registered script)
+    - [ ] Icon shows active (colored) state after page load
+    - [ ] `cs-ready` message received by service worker
+
+## N. Unsupported URL Schemes
+**Purpose**: Verify graceful handling of chrome://, about:, etc.
+
+1. Navigate to `chrome://extensions` or `about:blank`
+2. Observe icon state
+
+    Expected:
+    - [ ] Icon shows inactive (grey) state
+    - [ ] No errors in service worker console
+    - [ ] Clicking action button does nothing (no permission prompt)
+
+## O. Service Worker Startup Initialization
+**Purpose**: Verify icon state is correct immediately after service worker starts.
+
+1. Open DevTools on service worker, enable "Preserve log"
+2. Navigate to a site with active content script
+3. Force service worker restart: chrome://serviceworker-internals → Stop → Start
+4. Check icon state immediately
+
+    Expected:
+    - [ ] Log shows "Initializing state for active tab"
+    - [ ] Icon shows correct state (active if CS responding, inactive otherwise)
+
 # Webauthn Authenticator ("Passkey") Tests
 
 ## A. Register and Test Webauthn Authenticator
@@ -201,6 +386,9 @@
 ## F. Multiple Webauthn Authenticators
 
 ## G. Webauthn Authenticator on Different Browsers/Devices
+
+# See also
+ManualTest.md in this folder for detailed step-by-step happy-path test cases.
 
 
 

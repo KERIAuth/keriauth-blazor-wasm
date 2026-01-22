@@ -1034,6 +1034,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("BW←CS: {Type}", msg.Type);
 
             switch (msg.Type) {
+                case CsInternalMessageTypes.CS_READY:
+                    // ContentScript sends this message when it initializes to notify the service worker.
+                    // The icon update is already handled by app.ts (JavaScript layer) which has its own
+                    // chrome.runtime.onMessage listener that runs before this C# handler.
+                    // We explicitly ignore it here - no C# processing needed.
+                    logger.LogDebug("Ignoring cs-ready message from ContentScript (icon update handled by app.ts)");
+                    return;
+
                 case CsBwMessageTypes.INIT:
                     // TODO P3 ContentScript is initializing - send READY response?
                     break;

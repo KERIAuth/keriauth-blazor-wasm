@@ -8,6 +8,22 @@ export interface ICsBwMsg {
     payload?: object
 }
 
+// Internal message types from ContentScript to BackgroundWorker (not from web page).
+// These are used for extension-internal communication.
+export enum CsInternalMsgEnum {
+    /** Sent by ContentScript when it initializes to notify service worker it's ready */
+    CS_READY = 'cs-ready'
+}
+
+/**
+ * Message sent by ContentScript to notify the service worker that it has initialized.
+ * This allows the service worker to update the tab's icon to indicate the content script is active.
+ * Handled entirely in app.ts (JavaScript) - the C# BackgroundWorker ignores this message.
+ */
+export interface ICsReadyMessage {
+    type: CsInternalMsgEnum.CS_READY;
+}
+
 // Message types from Page to CS, which may be then forwarded to the extension BackgroundWorker.  Aka "EVENT_TYPE" in the polaris-web code."
 export enum CsBwMsgEnum {
     POLARIS_SIGNIFY_EXTENSION = 'signify-extension',
