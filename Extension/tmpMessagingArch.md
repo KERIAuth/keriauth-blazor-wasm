@@ -1,14 +1,14 @@
-# Messaging Architecture (MV3 + Extension SPA + C# WASM Background Worker)
+# Port-Based Messaging Architecture
 
-This document defines the **port-based messaging architecture** for a Chrome Manifest V3 (MV3) extension where:
+This document defines the **port-based messaging architecture** for the KERI Auth browser extension where:
 
-* **Content Scripts (CS)** run in web pages
-* **Extension SPA** runs as an **extension page** (popup, side panel, or extension tab)
-* **Background Worker (BW)** is implemented in **C# WebAssembly (WASM)** instead of JavaScript/TypeScript
+* **Content Scripts (CS)** run in web pages (TypeScript, bundled via esbuild)
+* **Extension App** runs as popup, side panel, or extension tab (C# Blazor WASM)
+* **BackgroundWorker (BW)** is a service worker implemented in C# WASM
 
 The design provides:
 
-* Reliable **lifecycle detection** (cleanup when SPA or tabs close)
+* Reliable **lifecycle detection** (cleanup when App or tabs close)
 * **Multi-tab and multi-frame isolation**
 * Deterministic **routing and session management**
 * Robustness against **MV3 service worker suspension/restart**
@@ -17,21 +17,20 @@ The design provides:
 
 ## 1. High-Level Goals
 
-1. **Direct SPA ↔ BW communication**
-   The SPA is an extension page and connects directly to the Background Worker using `chrome.runtime.connect()`. There is **no SPA ↔ Content Script messaging**.
+1. **Direct App ↔ BW communication**
+   The App is an extension page and connects directly to the BackgroundWorker using `chrome.runtime.connect()`. There is **no App ↔ Content Script messaging**.
 
 2. **Per-tab isolation**
    Each tab (and optionally each frame) is treated as its own session.
 
 3. **Lifecycle awareness**
    The BW must be able to detect when:
-
    * A popup/side panel closes
    * A tab closes or navigates
    * A content script is destroyed
 
 4. **MV3 compatibility**
-   The BW may be suspended and restarted by Chrome. The system must recover cleanly via re-handshake.
+   The BW may be suspended and restarted by Chrome. The system must recover cleanly via re-handshake and storage-backed persistence.
 
 ---
 
@@ -39,29 +38,29 @@ The design provides:
 
 ### Content Script (CS)
 
-* Injected into matching web pages
+* Injected dynamically into web pages via `chrome.scripting.executeScript()`
 * One instance per tab + frame
-* Opens a **long-lived port** to the Background Worker
+* Opens a **long-lived port** to the BackgroundWorker **immediately on injection**
+* Written in **TypeScript** (bundled to `Extension/wwwroot/scripts/esbuild/ContentScript.js`)
 
-### Extension SPA (App)
+### Extension App
 
 * Runs as:
-
   * Popup
   * Side panel
   * Extension tab
-* Opens a **long-lived port** to the Background Worker
+* Opens a **long-lived port** to the BackgroundWorker
 * Explicitly attaches itself to a specific tab session
+* Written in **C# Blazor WASM** (uses WebExtensions.Net for browser APIs)
 
-### Background Worker (BW)
+### BackgroundWorker (BW)
 
-* Implemented in **C# WASM**
+* Implemented in **C# WASM** (BackgroundWorker.cs)
 * Hosts the authoritative **session registry and router**
-* Listens for port connections from CS and App
+* Listens for port connections from CS and App via `WebExtensions.Runtime.OnConnect`
 * Routes messages between them
 * Cleans up state on disconnect or tab removal
-
-> Note: Code examples in this document may appear in TypeScript-like pseudocode for clarity, but the **actual BW implementation is in C# WASM** and must map these concepts to its runtime and bindings.
+* **Persists pending requests to session storage** for service worker restart resilience
 
 ---
 
@@ -76,18 +75,16 @@ Use **fixed, human-readable names**:
 | Context        | Port Name |
 | -------------- | --------- |
 | Content Script | `"cs"`    |
-| Extension SPA  | `"app"`   |
+| Extension App  | `"app"`   |
 
 ### Uniqueness
 
 Uniqueness is handled at the **application level**, not by port names:
 
 * Content Scripts are identified by:
-
   * `tabId`
   * `frameId`
-* SPA instances are identified by:
-
+* App instances are identified by:
   * A randomly generated `instanceId`
 
 ---
@@ -98,134 +95,233 @@ All communication uses a **single, strongly typed envelope**.
 
 This contract must be implemented in:
 
-* TypeScript (CS + SPA)
-* C# (BW WASM)
+* **TypeScript** (ContentScript only)
+* **C#** (BackgroundWorker and App)
 
-### Envelope Definition
+### Envelope Definition (TypeScript)
 
 ```ts
-export type ContextKind = 'content-script' | 'extension-spa';
+export type ContextKind = 'content-script' | 'extension-app';
 
 export type Envelope =
   | { t: 'HELLO'; context: ContextKind; instanceId: string; tabId?: number; frameId?: number }
   | { t: 'READY'; sessionId: string }
   | { t: 'ATTACH_TAB'; tabId: number; frameId?: number }
   | { t: 'DETACH_TAB' }
-  | { t: 'EVENT'; sessionId: string; name: string; data?: any }
-  | { t: 'RPC_REQ'; sessionId: string; id: string; method: string; params?: any }
-  | { t: 'RPC_RES'; sessionId: string; id: string; ok: boolean; result?: any; error?: string };
+  | { t: 'EVENT'; sessionId: string; name: string; data?: unknown }
+  | { t: 'RPC_REQ'; sessionId: string; id: string; method: string; params?: unknown }
+  | { t: 'RPC_RES'; sessionId: string; id: string; ok: boolean; result?: unknown; error?: string };
+```
+
+### Envelope Definition (C#)
+
+```csharp
+public enum ContextKind { ContentScript, ExtensionApp }
+
+public abstract record PortMessage(string T);
+
+public record HelloMessage(ContextKind Context, string InstanceId, int? TabId = null, int? FrameId = null)
+    : PortMessage("HELLO");
+
+public record ReadyMessage(string SessionId) : PortMessage("READY");
+
+public record AttachTabMessage(int TabId, int? FrameId = null) : PortMessage("ATTACH_TAB");
+
+public record DetachTabMessage() : PortMessage("DETACH_TAB");
+
+public record EventMessage(string SessionId, string Name, object? Data = null) : PortMessage("EVENT");
+
+public record RpcRequest(string SessionId, string Id, string Method, object? Params = null)
+    : PortMessage("RPC_REQ");
+
+public record RpcResponse(string SessionId, string Id, bool Ok, object? Result = null, string? Error = null)
+    : PortMessage("RPC_RES");
 ```
 
 ### Rules
 
 1. Every port **must send `HELLO` immediately after connecting**
 2. BW responds with `READY { sessionId }`
-3. SPA must send `ATTACH_TAB` before sending any routed messages
+3. App must send `ATTACH_TAB` before sending any routed messages
 4. All routed messages include a `sessionId`
 
 ---
 
 ## 5. Session Model (BW)
 
-The Background Worker maintains an in-memory session registry.
+The BackgroundWorker maintains an in-memory session registry.
 
 ### Identifiers
 
-* **Tab Key** = `tabId:frameId`
-* **SessionId** = random UUID generated by BW
+* **Tab Key** = `{tabId}:{frameId}`
+* **SessionId** = random GUID generated by BW
 
-### Session Structure (Logical Model)
+### Session Structure (C#)
 
-```text
-Session
-├─ sessionId
-├─ tabId
-├─ frameId
-├─ contentScriptPort
-├─ attachedSpaPorts[]
-├─ createdAt
-└─ state (optional, minimal, ephemeral)
+```csharp
+public record Session {
+    public required Guid SessionId { get; init; }
+    public required int TabId { get; init; }
+    public required int FrameId { get; init; }
+    public Port? ContentScriptPort { get; set; }
+    public List<Port> AttachedAppPorts { get; } = [];
+    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
+}
 ```
 
-### Maps (Conceptual)
+### Registry (C#)
 
-```text
-TabKey → Session
-SPA InstanceId → Attached Session
-Port → Session
+```csharp
+// Primary lookup by tab key
+private readonly ConcurrentDictionary<string, Session> _sessionsByTabKey = new();
+
+// App instance tracking
+private readonly ConcurrentDictionary<string, (Session Session, Port Port)> _appByInstanceId = new();
+
+// Port to session reverse lookup
+private readonly ConcurrentDictionary<Port, Session> _portToSession = new();
 ```
-
-In C# WASM, this should be implemented using dictionaries keyed by:
-
-* `string tabKey = $"{tabId}:{frameId}"`
-* `Guid sessionId`
 
 ---
 
 ## 6. Connection Lifecycle
 
-### 6.1 Content Script Startup
+### 6.1 Content Script Startup (TypeScript)
 
-1. Generate `instanceId = UUID`
-2. `connect({ name: "cs" })`
-3. Send:
+ContentScript connects **immediately on injection**:
 
-```json
-{ "t": "HELLO", "context": "content-script", "instanceId": "..." }
+```ts
+// ContentScript.ts - runs immediately on injection
+const instanceId = crypto.randomUUID();
+const port = chrome.runtime.connect({ name: 'cs' });
+
+// Send HELLO immediately
+port.postMessage({
+    t: 'HELLO',
+    context: 'content-script',
+    instanceId
+});
+
+// Wait for READY response
+port.onMessage.addListener((msg) => {
+    if (msg.t === 'READY') {
+        console.log('Session established:', msg.sessionId);
+        // Store sessionId for future messages
+    }
+});
+
+port.onDisconnect.addListener(() => {
+    console.log('Port disconnected');
+    // Handle reconnection if needed
+});
 ```
 
-4. BW:
+BW handling:
+* Reads `tabId` and `frameId` from `port.Sender`
+* Creates or reuses a session
+* Responds with `READY { sessionId }`
 
-   * Reads `tabId` and `frameId` from `port.sender`
-   * Creates or reuses a session
-   * Responds:
+---
 
-```json
-{ "t": "READY", "sessionId": "..." }
+### 6.2 App Startup (C# Blazor)
+
+The App uses WebExtensions.Net for port management:
+
+```csharp
+public class AppPortService : IAsyncDisposable {
+    private readonly IWebExtensionsApi _webExtensions;
+    private readonly IJSRuntime _jsRuntime;
+    private Port? _port;
+    private string? _sessionId;
+    private readonly string _instanceId = Guid.NewGuid().ToString();
+
+    public async Task ConnectAsync() {
+        // Connect to BackgroundWorker
+        var connectInfo = new ConnectInfo { Name = "app" };
+        _port = await _webExtensions.Runtime.Connect(connectInfo: connectInfo);
+
+        // Set up message listener
+        _port.OnMessage.AddListener(OnMessageReceived);
+        _port.OnDisconnect.AddListener(OnDisconnected);
+
+        // Send HELLO
+        await PostMessageAsync(new HelloMessage(
+            ContextKind.ExtensionApp,
+            _instanceId
+        ));
+    }
+
+    public async Task AttachToTabAsync(int tabId, int? frameId = null) {
+        await PostMessageAsync(new AttachTabMessage(tabId, frameId));
+    }
+
+    // NOTE: WebExtensions.Net Port class doesn't have PostMessage method
+    // Must use IJSRuntime to call port.postMessage() on the JS object
+    private async Task PostMessageAsync(PortMessage message) {
+        // _port is a JsBind.Net object reference to the JS port
+        await _jsRuntime.InvokeVoidAsync(
+            "postMessageToPort",
+            _port,
+            message
+        );
+    }
+}
+```
+
+**Required JS helper** (in `app.ts`):
+
+```ts
+// Helper for C# to call postMessage on Port objects
+window.postMessageToPort = (port: chrome.runtime.Port, message: unknown) => {
+    port.postMessage(message);
+};
 ```
 
 ---
 
-### 6.2 SPA Startup
+### 6.3 App Tab Attachment Flow
 
-1. Generate `instanceId = UUID`
-2. `connect({ name: "app" })`
-3. Send:
+> **OPEN ISSUE**: For popup specifically, should it auto-attach to the tab it was opened from rather than querying the active tab? The originating tab info may be available via `chrome.tabs.getCurrent()` or could be passed from the action click event in `app.ts`. This would be more reliable than `tabs.query({ active: true })` which could return a different tab if the user switches tabs quickly.
 
-```json
-{ "t": "HELLO", "context": "extension-spa", "instanceId": "..." }
+1. App connects and sends `HELLO`
+2. App queries active tab:
+
+```csharp
+var tabs = await _webExtensions.Tabs.Query(new QueryInfo {
+    Active = true,
+    CurrentWindow = true
+});
+var activeTab = tabs.FirstOrDefault();
 ```
 
-4. Query active tab:
+3. App sends `ATTACH_TAB`:
 
-```ts
-const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+```csharp
+await AttachToTabAsync(activeTab.Id ?? 0, frameId: 0);
 ```
 
-5. Attach to tab:
-
-```json
-{ "t": "ATTACH_TAB", "tabId": 123, "frameId": 0 }
-```
-
-6. BW binds SPA port to the session for that tab
+4. BW binds App port to the session for that tab
 
 ---
 
 ## 7. Routing Rules
 
-### SPA → CS
+### App → CS
 
-1. SPA sends `RPC_REQ` or `EVENT`
-2. BW looks up session by SPA attachment
-3. BW forwards message to session’s CS port
+1. App sends `RPC_REQ` or `EVENT`
+2. BW looks up session by App attachment
+3. BW forwards message to session's CS port
 
-### CS → SPA
+### CS → App
 
 1. CS sends `RPC_REQ` or `EVENT`
-2. BW routes to all SPA ports attached to that session
-
+2. BW routes to all App ports attached to that session
    * Typically only one (popup or side panel)
+
+### BW-Initiated Messages
+
+1. BW sends message to specific session
+2. Message delivered to both CS port and attached App ports (as appropriate)
 
 ---
 
@@ -233,30 +329,29 @@ const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
 ### Port Disconnect
 
-When `port.onDisconnect` fires:
+When `port.OnDisconnect` fires:
 
-* If CS port:
-
+* **If CS port:**
   * Remove CS from session
-  * If no SPA attached → destroy session
+  * If no App attached → destroy session
+  * TODO P2: Consider adding a grace period before session destruction to handle CS navigation/reload scenarios
 
-* If SPA port:
-
-  * Detach SPA from session
+* **If App port:**
+  * Detach App from session
   * Session remains alive as long as CS exists
 
 ### Tab Closed
 
-BW must listen to:
+BW must listen to `chrome.tabs.onRemoved` (already implemented):
 
-```ts
-chrome.tabs.onRemoved
+```csharp
+WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
+
+private async Task OnTabRemovedAsync(int tabId, RemoveInfo removeInfo) {
+    // Destroy all sessions for that tabId
+    // Disconnect attached App ports
+}
 ```
-
-On removal:
-
-* Destroy all sessions for that `tabId`
-* Disconnect attached SPA ports
 
 This guarantees cleanup even if disconnect events are delayed.
 
@@ -266,143 +361,191 @@ This guarantees cleanup even if disconnect events are delayed.
 
 Each tab gets its own session:
 
-```text
+```
 Tab 1 → Session A
 Tab 2 → Session B
 ```
 
-SPA explicitly chooses which tab to control via `ATTACH_TAB`.
+App explicitly chooses which tab to control via `ATTACH_TAB`.
 
-Optional UI pattern:
-
-* Dropdown listing open tabs
-* User can switch sessions dynamically
+**Dynamic tab switching** (optional UI pattern):
+* Dropdown listing open tabs with active sessions
+* User can switch sessions dynamically by sending `DETACH_TAB` then `ATTACH_TAB` to new tab
 
 ---
 
-## 10. MV3 Service Worker Suspension Strategy
+## 10. Service Worker Restart Strategy
 
-### Recommendation
+### Approach: Storage-Backed Persistence + Re-Handshake
 
-**Stateless BW + deterministic re-handshake**
+The current pattern of persisting pending requests to session storage is preserved:
 
-### Why
+1. **Pending requests stored in session storage** via `IPendingBwAppRequestService`
+2. **All contexts reconnect** and resend `HELLO` after SW restart
+3. **App resends `ATTACH_TAB`**
+4. **BW reconstructs session map** from active ports
+5. **App queries session storage** for pending requests (existing pattern continues to work)
+
+### Why Hybrid Approach
 
 * MV3 may suspend or restart the worker at any time
-* In-memory state is not reliable
+* In-memory state (port references) is lost on restart
+* Storage persistence ensures pending requests survive
+* App can detect pending requests via storage subscription even before BW sends runtime message
 
-### Pattern
+### Storage Model (existing)
 
-1. All contexts reconnect and resend `HELLO`
-2. SPA resends `ATTACH_TAB`
-3. BW reconstructs session map from active ports
-
-### Persistence (Optional)
-
-If needed:
-
-* Use `chrome.storage.session` for ephemeral state
-* Use `chrome.storage.local` only for durable, minimal configuration
-
-Avoid persisting full session state.
+```csharp
+public record PendingBwAppRequest {
+    public required string RequestId { get; init; }
+    public required string Type { get; init; }
+    public object? Payload { get; init; }
+    public DateTime CreatedAtUtc { get; init; }
+    public int? TabId { get; init; }
+    public string? TabUrl { get; init; }
+}
+```
 
 ---
 
-## 11. C# WASM Implementation Notes
+## 11. WebExtensions.Net Port API Notes
 
-### Port Bindings
+### Available in WebExtensions.Net
 
-Your C# WASM layer must expose bindings equivalent to:
+| API | Supported | Notes |
+|-----|-----------|-------|
+| `Runtime.Connect()` | Yes | Returns `Port` object |
+| `Runtime.OnConnect` | Yes | Event for incoming connections |
+| `Port.OnMessage` | Yes | Event for receiving messages |
+| `Port.OnDisconnect` | Yes | Event for disconnect detection |
+| `Port.Disconnect` | Yes | Action to close the port |
+| `Port.Name` | Yes | Port name string |
+| `Port.Sender` | Yes | MessageSender with tabId, frameId |
 
-* `chrome.runtime.onConnect`
-* `port.postMessage`
-* `port.onMessage`
-* `port.onDisconnect`
-* `chrome.tabs.onRemoved`
+### Requires IJSRuntime Helper
 
-### Data Structures
+| API | Notes |
+|-----|-------|
+| `Port.postMessage()` | Not in WebExtensions.Net; use JS helper |
 
-Recommended C# structures:
+**JS Helper Implementation:**
 
-```csharp
-Dictionary<string, Session> SessionsByTabKey;
-Dictionary<Guid, SpaConnection> SpaByInstance;
-Dictionary<object, Guid> PortToSession;
+```ts
+// Extension/wwwroot/app.ts
+declare global {
+    interface Window {
+        postMessageToPort: (port: chrome.runtime.Port, message: unknown) => void;
+    }
+}
+
+window.postMessageToPort = (port, message) => {
+    port.postMessage(message);
+};
 ```
 
-Where:
+**C# Usage:**
 
-* `string tabKey = $"{tabId}:{frameId}"`
-* `Guid` is `sessionId`
-
-### Threading Model
-
-Ensure all routing and dictionary access is serialized through:
-
-* A single-threaded event loop
-  OR
-* Proper locking (if your WASM runtime is multi-threaded)
+```csharp
+await _jsRuntime.InvokeVoidAsync("postMessageToPort", _port, message);
+```
 
 ---
 
 ## 12. Manifest Requirements
 
+**No changes required.** The current manifest already supports this architecture:
+
 ```json
 {
-  "permissions": ["tabs"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "content/BackgroundWorker.js",
+    "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["contentScript.js"]
-    }
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    ...
   ]
 }
 ```
 
-> The SPA requires `tabs` permission to query and attach to the active tab.
+* Content scripts are dynamically injected via `scripting` permission
+* `activeTab` provides tab access when user clicks extension icon
+* No additional permissions needed for port-based messaging
 
 ---
 
-## 13. Testing Checklist
+## 13. Migration Strategy
+
+### Phase 1: Add Port Infrastructure
+
+1. Create C# port message types (`PortMessage` records)
+2. Add JS helper for `postMessageToPort`
+3. Create `IPortService` interface and implementations for BW and App
+4. Add `OnConnect` handler in BackgroundWorker
+
+### Phase 2: ContentScript Migration
+
+1. Update ContentScript.ts to use port-based messaging
+2. Connect immediately on injection
+3. Send HELLO and wait for READY
+4. Route all page messages through port
+
+### Phase 3: App Migration
+
+1. Create `AppPortService` in App
+2. Connect on App startup
+3. Migrate `AppBwMessagingService` to use port
+4. Maintain backward compatibility during transition
+
+### Phase 4: Cleanup
+
+1. Remove old `sendMessage`-based code paths
+2. Update tests
+3. Remove deprecated message types
+
+---
+
+## 14. Testing Checklist
 
 ### Single Tab
 
-* Open SPA
-* Verify session created
-* Send RPC from SPA → CS
-* Receive response
+- [ ] Open App (popup/sidepanel/tab)
+- [ ] Verify session created
+- [ ] Send RPC from App → CS
+- [ ] Receive response
 
 ### Multiple Tabs
 
-* Open two tabs
-* Inject CS in both
-* Attach SPA to tab A
-* Verify only tab A receives messages
+- [ ] Open two tabs with CS injected
+- [ ] Attach App to tab A
+- [ ] Verify only tab A receives App messages
+- [ ] Switch to tab B, verify routing updates
 
 ### Lifecycle
 
-* Close popup → SPA port disconnects → session remains
-* Close tab → CS port disconnects → session destroyed
+- [ ] Close popup → App port disconnects → session remains
+- [ ] Close tab → CS port disconnects → session destroyed
+- [ ] App detects pending request via storage subscription
 
-### Restart
+### Service Worker Restart
 
-* Reload extension
-* Open tab and SPA
-* Verify HELLO/ATTACH_TAB rebuilds sessions
+- [ ] Trigger SW restart (navigate away, wait for idle timeout)
+- [ ] Open tab and App
+- [ ] Verify HELLO/ATTACH_TAB rebuilds sessions
+- [ ] Verify pending requests survive and are processed
 
 ---
 
-## 14. Summary
+## 15. Summary
 
 This architecture provides:
 
 * Clean separation of concerns
 * Strong lifecycle handling
 * Multi-tab correctness
-* MV3 resilience
-* A clear mapping between JavaScript ports and a **C# WASM-based Background Worker router**
+* MV3 resilience via storage-backed persistence
+* A clear mapping between JavaScript ports and **C# WASM-based BackgroundWorker/App**
 
-It is suitable for high-assurance identity wallets, cryptographic workflows, and advanced multi-context coordination in modern Chrome extensions.
+The design preserves the existing storage-based persistence pattern while adding port-based messaging for reliable lifecycle detection and cleaner bidirectional communication.
