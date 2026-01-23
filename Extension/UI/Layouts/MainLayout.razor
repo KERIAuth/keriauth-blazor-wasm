@@ -1,6 +1,5 @@
 ﻿@inherits BaseLayout
 
-@using Extension.Models.Messages.BwApp
 @using Extension.Models.Storage
 @using Extension.Services
 @using Extension.Services.Storage
@@ -127,38 +126,6 @@
         if (manifestJsonElement.TryGetProperty("version_name", out JsonElement version_nameElement) && version_nameElement.ValueKind == JsonValueKind.String)
         {
             version_name = version_nameElement.ToString();
-        }
-    }
-
-    override protected async Task HandleBwRequests()
-    {
-        // This will be invoked from BaseLayout's OnAppCacheChanged handler after any AppCache change.
-        // If App is in SidePanel context and there is a pending BwAppRequest, navigate to the appropriate page.
-        if (App.IsInSidePanel)
-        {
-            var pendingRequest = appCache.NextPendingBwAppRequest;
-            if (pendingRequest is not null)
-            {
-                logger.LogInformation("HandleBwRequests: pendingRequest Type={type}, RequestId={requestId}", pendingRequest.Type, pendingRequest.RequestId);
-                switch (pendingRequest.Type)
-                {
-                    case BwAppMessageType.Values.RequestSelectAuthorize:
-                        navManager.NavigateTo(Routes.PathFor<RequestSignInPage>());
-                        break;
-                    case BwAppMessageType.Values.RequestSignHeaders:
-                        navManager.NavigateTo(Routes.PathFor<RequestSignHeadersPage>());
-                        break;
-                    case BwAppMessageType.Values.RequestSignData:
-                        navManager.NavigateTo(Routes.PathFor<RequestSignDataPage>());
-                        break;
-                    case BwAppMessageType.Values.RequestCreateCredential:
-                        navManager.NavigateTo(Routes.PathFor<RequestCreateCredentialPage>());
-                        break;
-                    default:
-                        logger.LogWarning("HandleBwRequests: Unhandled pendingRequest Type={type}", pendingRequest.Type);
-                        break;
-                }
-            }
         }
     }
 
