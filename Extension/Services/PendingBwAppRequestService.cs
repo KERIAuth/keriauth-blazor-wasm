@@ -47,17 +47,19 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
 
             var current = getResult.Value ?? PendingBwAppRequests.Empty;
 
-            // Log warning if there are already pending requests (initial implementation handles one at a time)
+            // Log warning if there are already pending requests - we replace them with the new one
             if (current.Count > 0) {
-                // TODO P1 either support multiple requests or don't.
-                _logger.LogWarning(
-                    "AddRequestAsync: Adding request when {Count} already pending. " +
-                    "Current implementation may not process all requests correctly.",
-                    current.Count);
+                foreach (var existingRequest in current.Requests) {
+                    _logger.LogWarning(
+                        "AddRequestAsync: Replacing existing request requestId={ExistingRequestId}, type={ExistingType}, " +
+                        "createdAtUtc={CreatedAtUtc} with new request requestId={NewRequestId}, type={NewType}",
+                        existingRequest.RequestId, existingRequest.Type, existingRequest.CreatedAtUtc,
+                        request.RequestId, request.Type);
+                }
             }
 
-            // Add new request
-            var updated = current.WithRequest(request);
+            // Replace with only the new request (single pending request at a time)
+            var updated = new PendingBwAppRequests { Requests = [request] };
 
             // Save to storage
             var setResult = await _storageService.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
@@ -65,9 +67,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 return Result.Fail(setResult.Errors);
             }
 
-            _logger.LogDebug(
-                "AddRequestAsync: Request added, total pending={Count}",
-                updated.Count);
+            _logger.LogDebug("AddRequestAsync: Request added successfully");
 
             return Result.Ok();
         }

@@ -1121,9 +1121,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             object? transformedPayload = msg.Payload; // Default to original payload
 
 
-            // TODO P1 tmp clear all pending requests
-            logger.LogWarning("Clearing all pending BwApp requests (temporary)");
-            await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
+            // TODO P1 tmp clear all pending requests except user activity messages (for timeout extension)
+            if (msg.Type != AppBwMessageType.Values.UserActivity) {
+                // logger.LogWarning("Clearing all pending BwApp requests (temporary)");
+                // await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
+            }
 
             switch (msg.Type) {
                 case AppBwMessageType.Values.ReplyAid:

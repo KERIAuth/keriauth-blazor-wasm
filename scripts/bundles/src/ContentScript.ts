@@ -237,7 +237,7 @@ async function sendMessageToBW(msg: Polaris.MessageData<unknown> | ICsBwMsg): Pr
                 "The KERI Auth extension has been updated or reloaded.\n" +
                 "Actions needed:\n" +
                 "1) Click OK to reload this page. In some cases, you may need to close the tab.\n\n" +
-                "2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the KERI Auth extension for easier access.\n" +
+                "2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the KERI Auth extension for easier access.\n\n" +
                 "3) Click the KERI Auth extension action button to re-authorize this site."
             );
         } else {

@@ -1,5 +1,4 @@
 ﻿@inherits LayoutComponentBase
-@using Extension.Models.Messages.BwApp
 @using Extension.Services.Storage
 @using System.Reactive.Linq
 
@@ -86,40 +85,36 @@
 
     protected async Task HandleBwRequests()
     {
-        // Only process pending requests when the session is unlocked.
-        // If locked, let Index.razor's routing logic handle navigation (which will show UnlockPage).
-        if (!appCache.IsSessionUnlocked)
+        // Navigate to Index (the routing hub) when there's a pending request that needs handling.
+        // Index.razor's RedirectIfNeeded() centralizes all routing decisions, preventing race conditions
+        // between multiple navigation sources (BaseLayout, ConnectingPage, etc.).
+
+        if (!App.IsInSidePanel)
         {
             return;
         }
 
-        // If App is in SidePanel context and there is a pending BwAppRequest, navigate to the appropriate page.
-        if (App.IsInSidePanel)
+        if (!appCache.IsSessionUnlocked || !appCache.IsConnectedToKeria)
         {
-            var pendingRequest = appCache.NextPendingBwAppRequest;
-            if (pendingRequest is not null)
-            {
-                logger.LogInformation("HandleBwRequests: pendingRequest Type={type}, RequestId={requestId}", pendingRequest.Type, pendingRequest.RequestId);
-                switch (pendingRequest.Type)
-                {
-                    case BwAppMessageType.Values.RequestSelectAuthorize:
-                        navManager.NavigateTo(Routes.PathFor<RequestSignInPage>());
-                        break;
-                    case BwAppMessageType.Values.RequestSignHeaders:
-                        navManager.NavigateTo(Routes.PathFor<RequestSignHeadersPage>());
-                        break;
-                    case BwAppMessageType.Values.RequestSignData:
-                        navManager.NavigateTo(Routes.PathFor<RequestSignDataPage>());
-                        break;
-                    case BwAppMessageType.Values.RequestCreateCredential:
-                        navManager.NavigateTo(Routes.PathFor<RequestCreateCredentialPage>());
-                        break;
-                    default:
-                        logger.LogWarning("HandleBwRequests: Unhandled pendingRequest Type={type}", pendingRequest.Type);
-                        break;
-                }
-            }
+            return;
         }
+
+        var pendingRequest = appCache.NextPendingBwAppRequest;
+        if (pendingRequest is null)
+        {
+            return;
+        }
+
+        // Don't navigate if already on a request handling page - let the page handle it
+        var uri = navManager.Uri;
+        if (uri.Contains("RequestSign") || uri.Contains("RequestCreate"))
+        {
+            return;
+        }
+
+        logger.LogInformation("HandleBwRequests: Navigating to Index for routing, pendingRequest Type={type}, RequestId={requestId}",
+            pendingRequest.Type, pendingRequest.RequestId);
+        navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>());
     }
 
     protected async Task RefreshConnect()
