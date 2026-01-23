@@ -160,7 +160,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 logger.LogError("OnInstalledAsync: SignifyClientService is NOT ready: {Errors}", string.Join("; ", readyRes.Errors.Select(e => e.Message)));
             }
 
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
             _ = UninstallUrl;
 
             await CreateContextMenuItemsAsync();
@@ -174,7 +174,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     break;
                 case OnInstalledReason.BrowserUpdate:
                 default:
-                    logger.LogInformation("OnInstalledAsyncUnhandled install reason: {Reason}", details.Reason);
+                    // TODO P2 more carefully handle these other Installed reasons
+                    // BwReadyState already set by EnsureInitializedAsync above
+                    logger.LogInformation("OnInstalledAsync: Unhandled install reason: {Reason}", details.Reason);
                     break;
             }
         }
@@ -185,25 +187,44 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
 
-    // Ensure initialization is performed only once
-    [JSInvokable]
-    public static void InitializeIfNeeded() {
-        /*
-        if (isInitialized) {
-            logger.LogInformation("BackgroundWorker already initialized, skipping");
-            return;
+    /// <summary>
+    /// Ensures BackgroundWorker is initialized when no lifecycle event fires.
+    /// This handles the edge case where an extension is disabled and re-enabled
+    /// from chrome://extensions/ - neither OnInstalled nor OnStartup fires in that scenario.
+    ///
+    /// Checks session storage for BwReadyState and sets it if missing or stale.
+    /// Safe to call multiple times - will only perform initialization once per SW lifetime.
+    /// </summary>
+    private async Task EnsureInitializedAsync() {
+        try {
+            // Check if BwReadyState is already set in session storage
+            var result = await _storageService.GetItem<BwReadyState>(StorageArea.Session);
+
+            if (result.IsSuccess && result.Value?.IsInitialized == true) {
+                // Already initialized - nothing to do
+                logger.LogDebug("EnsureInitializedAsync: BwReadyState already set, skipping initialization");
+                return;
+            }
+
+            // BwReadyState not set - this service worker needs to initialize
+            logger.LogInformation("EnsureInitializedAsync: BwReadyState not found or not initialized - performing initialization");
+
+            // Ensure skeleton storage records exist
+            await InitializeStorageDefaultsAsync();
+
+            // Extend session if unlocked (restores session timeout alarm)
+            await _sessionManager.ExtendIfUnlockedAsync();
+
+            // Signal to App that BackgroundWorker initialization is complete
+            await SetBwReadyStateAsync();
+
+            logger.LogInformation("EnsureInitializedAsync: Initialization complete");
         }
-        logger.LogInformation("BackgroundWorker initializing...");
-        // TODO P2 Perform any necessary initialization tasks here
-        // e.g., load settings, initialize services, etc.
-
-        // reload javascript modules, such as signifyClient
-        // _jsModuleLoader.LoadAllModulesAsync().AsTask().Wait();
-
-        isInitialized = true;
-        logger.LogInformation("BackgroundWorker initialization complete.");
-        return;
-        */
+        catch (Exception ex) {
+            logger.LogError(ex, "EnsureInitializedAsync: Error during initialization - attempting to set BwReadyState anyway");
+            // Still try to set BwReadyState so App doesn't timeout
+            await SetBwReadyStateAsync();
+        }
     }
 
     // onStartup fires when Chrome launches with a profile (not incognito) that has the extension installed
@@ -215,19 +236,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("OnStartupAsync event handler called");
             logger.LogInformation("Browser startup detected - reinitializing background worker");
 
-            // Clear BwReadyState first to prevent App from using stale flag
+            // Clear BwReadyState first to force re-initialization on browser startup
+            // (session storage may have persisted from previous browser session)
             await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
-
-            InitializeIfNeeded();
-
-            // Ensure skeleton storage records exist (may have been cleared or corrupted)
-            await InitializeStorageDefaultsAsync();
-
-            await _sessionManager.ExtendIfUnlockedAsync();
-
-            // Signal to App that BackgroundWorker initialization is complete
-            await SetBwReadyStateAsync();
-
+            await EnsureInitializedAsync();
             logger.LogInformation("Background worker reinitialized on browser startup");
         }
         catch (Exception ex) {
@@ -246,7 +258,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation("OnMessageAsync event handler called");
 
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
 
             // SECURITY: Validate message origin to prevent subdomain attacks
             // Only messages from the extension itself or explicitly permitted origins are allowed
@@ -349,7 +361,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public async Task OnAlarmAsync(BrowserAlarm alarm) {
         try {
             logger.LogInformation("OnAlarmAsync: '{AlarmName}' fired", alarm.Name);
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
             switch (alarm.Name) {
                 case AppConfig.SessionManagerAlarmName:
                     // Delegate to SessionManager
@@ -375,7 +387,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation("OnActionClickedAsync event handler called");
 
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
 
             // Validate tab information
             if (tab is null || string.IsNullOrEmpty(tab.Url)) {
@@ -453,7 +465,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation("OnTabRemovedAsync event handler called");
 
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
 
             logger.LogInformation("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}",
                 tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
@@ -484,7 +496,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnSuspendAsync() {
         try {
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
             // TODO P2 needs implementation
             ;
         }
@@ -498,7 +510,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnSuspendCanceledAsync() {
         try {
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
             // TODO P2 needs implementation
             ;
         }
@@ -510,17 +522,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // onInstall fires when the extension is installed
     private async Task OnInstalledInstallAsync() {
         try {
-            // Clear BwReadyState first to prevent App from using stale flag
+            // Clear BwReadyState first to force fresh initialization
             await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
 
-            InitializeIfNeeded();
-
-            // Create skeleton storage records for Preferences and OnboardState
-            // KeriaConnectConfig is NOT created here - it requires user-provided URLs
-            await InitializeStorageDefaultsAsync();
-
-            // Signal to App that BackgroundWorker initialization is complete
-            await SetBwReadyStateAsync();
+            await EnsureInitializedAsync();
 
             var installUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
@@ -637,7 +642,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     public async Task OnContextMenuClickedAsync(MenusOnClickData info, BrowserTab tab) {
         try {
             logger.LogInformation("Context menu clicked: {MenuItemId}", info.MenuItemId);
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
 
             switch (info.MenuItemId.Value) {
                 case "demo1":
@@ -701,13 +706,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;
             logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
-            // Clear BwReadyState first to prevent App from using stale flag
+            // Clear BwReadyState first to force fresh initialization after update
             await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
 
-            InitializeIfNeeded();
+            // TODO P2: EnsureInitializedAsync handles: storage defaults (may need migration), session manager, and BwReadyState
 
-            // Ensure skeleton storage records exist (may need migration for new version)
-            await InitializeStorageDefaultsAsync();
+            await EnsureInitializedAsync();
 
             // Create pending request for App to notify user of update
             var updatePayload = new Models.Messages.BwApp.Requests.RequestNotifyUserOfUpdatePayload(
@@ -724,9 +728,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 CreatedAtUtc = DateTime.UtcNow
             };
             await _pendingBwAppRequestService.AddRequestAsync(pendingRequest);
-
-            // Signal to App that BackgroundWorker initialization is complete
-            await SetBwReadyStateAsync();
 
             var updateUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
@@ -1577,7 +1578,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg) {
         try {
-            InitializeIfNeeded();
+            await EnsureInitializedAsync();
 
             var payload = msg.Payload;
             if (payload is null) {
