@@ -361,10 +361,12 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Sets the extension action icon to locked variant using pre-created locked icon files.
+    /// TODO P2: TBD Sets the extension action icon to locked variant using pre-created locked icon files.
     /// Icon files to be created: logoB016-locked.png, logoB032-locked.png, logoB048-locked.png, logoB128-locked.png
     /// </summary>
     private async Task SetLockIconAsync() {
+        _logger.LogInformation("Not setting lock icon for now");
+        /*
         try {
             await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = unicodeLockIcon });
             _logger.LogInformation("Lock icon set");
@@ -372,6 +374,7 @@ public class SessionManager : IDisposable {
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to set lock icon");
         }
+        */
     }
 
     /// <summary>

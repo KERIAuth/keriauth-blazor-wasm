@@ -748,10 +748,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleLockAppMessageAsync() {
         try {
             logger.LogInformation("HandleLockAppMessageAsync called");
-            logger.LogInformation("Lock app message received - app should be locked");
-
             // The InactivityTimerService handles the actual locking logic
-            logger.LogInformation("App lock request processed");
             return;
         }
         catch (Exception ex) {

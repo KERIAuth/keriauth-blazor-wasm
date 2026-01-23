@@ -97,18 +97,25 @@
         // Ensure that AppCache is fully initialized before proceeding
         // helping assure critical records are loaded (and usually stored) before UI interaction
         // TODO P1 confirm compound assertions work in WaitForAppCache
-        var isAppCacheReady = await appCache.WaitForAppCache([
-            // () => appCache.IsInitialized,
-            () => appCache.MyPreferences.IsStored,
-            () => appCache.MyOnboardState.IsStored,
-            () => appCache.MyKeriaConnectConfig.IsStored,
+        bool isAppCacheReady;
+
+        // () => appCache.IsInitialized,
+        logger.LogInformation("AssertHydratedCache: MyPreferences.IsStored");
+        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyPreferences.IsStored], 10000,100);
+        logger.LogInformation("AssertHydratedCache: {b}", isAppCacheReady);
+        logger.LogInformation("AssertHydratedCache: MyOnboardState.IsStored");
+        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyOnboardState.IsStored], 10000, 100);
+        logger.LogInformation("AssertHydratedCache: {b}", isAppCacheReady);
+        // logger.LogInformation("AssertHydratedCache: MyKeriaConnectConfig.IsStored");
+        // isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfig.IsStored], 10000, 100);
+        // logger.LogInformation("AssertHydratedCache: {b}", isAppCacheReady);
             // () => appCache.MyKeriaConnectionInfo is not null,
             // () => appCache.MyPasscodeModel is not null
-        ], 5000, 100);
+
         // TODO P2: Make timeout duration configurable?
         if (!isAppCacheReady)
         {
-            logger.LogError("BaseLayout OnInitializedAsync: AppCache not ready after waiting.");
+            logger.LogError("AssertHydratedCache: AppCache not ready after waiting.");
             snackbar.Add("Application error: AppCache not ready.", Severity.Error);
             // Optionally, throw or navigate to an error page or take other actions
         }

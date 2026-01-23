@@ -100,7 +100,7 @@ public class WebauthnService : IWebauthnService {
 
             // Notify user of step 1 success
             await _jsRuntime.InvokeVoidAsync("alert",
-                "Step 1 of 2 creating passkey successful. Now, we'll confirm this authenticator and OS are sufficiently capable.");
+                "Step 1 of 2 creating passkey successful. Now, we'll confirm this authenticator and platform are sufficiently capable.");
 
             // Step 2: Get assertion to derive encryption key
             var getOptions = new GetCredentialOptions {

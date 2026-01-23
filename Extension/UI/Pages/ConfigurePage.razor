@@ -629,13 +629,16 @@
         // Wait for appCache to reflect the cleared state
         /*
         await appCache.WaitForAppCache([
-            () => !appCache.IsConfigured,
-            () => !appCache.IsSessionPasscodeSet
+        () => !appCache.IsConfigured,
+                () => !appCache.IsSessionPasscodeSet
         ]);
         */
 
-        // Clear KeriaConnectConfig from Local storage
-        var removeConfigResult = await storageService.RemoveItem<KeriaConnectConfig>(StorageArea.Local);
+        // Reset KeriaConnectConfig in Local storage
+        var removeConfigResult = await storageService.SetItem<KeriaConnectConfig>(new KeriaConnectConfig()
+        {
+            IsStored = false
+        }, StorageArea.Local);
         if (removeConfigResult.IsFailed)
         {
             logger.LogError("Failed to remove KeriaConnectConfig: {Errors}", string.Join(", ", removeConfigResult.Errors));
@@ -644,13 +647,14 @@
         }
 
         // Wait for appCache to reflect the cleared updates
-        // TODO P1 confirm compound assertions work in WaitForAppCache
-        await appCache.WaitForAppCache([
-            () => appCache.IsProductOnboarded,
-            () => !appCache.IsConfigured
+        // TODO P1 confirm compound assertions work in WaitForAppCache, then use that syntax here.
+        logger.LogInformation("ResetConfiguration: waiting for appCache.IsProductOnboarded");
+        await appCache.WaitForAppCache([() => appCache.IsProductOnboarded]);
+        logger.LogInformation("ResetConfiguration: waiting to assure !appCache.IsKeriaConfigValidated");
+        await appCache.WaitForAppCache([() => !appCache.IsKeriaConfigValidated]);
         // () => !appCache.IsSessionPasscodeSet
         // () => string.IsNullOrWhiteSpace(appCache.MyKeriaConnectionInfo.Config.AdminUrl)
-        ]);
+        
 
         // Reset local page state to defaults
         ResetLocalState();
