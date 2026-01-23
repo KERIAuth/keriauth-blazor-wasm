@@ -14,6 +14,7 @@ using Extension.Models.Messages.Polaris;
 using Extension.Models.Storage;
 using Extension.Services;
 using Extension.Services.JsBindings;
+using Extension.Services.Port;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
@@ -95,6 +96,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
+        WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
         // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
         // WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
@@ -115,6 +117,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ISignifyClientBinding _signifyClientBinding;
     private readonly SessionManager _sessionManager;
     private readonly ChromeSidePanel _chromeSidePanel;
+    private readonly IBwPortService _portService;
 
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
@@ -128,7 +131,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IPendingBwAppRequestService pendingBwAppRequestService,
         IDemo1Binding demo1Binding,
         ISchemaService schemaService,
-        SessionManager sessionManager) {
+        SessionManager sessionManager,
+        IBwPortService portService) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -143,6 +147,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
         _sessionManager = sessionManager;
         _chromeSidePanel = new ChromeSidePanel(_jsRuntimeAdapter);
+        _portService = portService;
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -186,6 +191,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    /// <summary>
+    /// Handles incoming port connections from ContentScript and App.
+    /// Delegates to IBwPortService for PortSession management.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnConnectAsync(WebExtensions.Net.Runtime.Port port) {
+        try {
+            logger.LogInformation("OnConnectAsync: Port connected, name={Name}", port.Name);
+            await _portService.HandleConnectAsync(port);
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "OnConnectAsync: Error handling port connection");
+        }
+    }
 
     /// <summary>
     /// Ensures BackgroundWorker is initialized when no lifecycle event fires.
@@ -217,6 +236,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
+
+            // Notify ContentScripts to reconnect their ports after service worker restart
+            await _portService.NotifyContentScriptsOfRestartAsync();
 
             logger.LogInformation("EnsureInitializedAsync: Initialization complete");
         }
@@ -470,8 +492,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation("Tab removed: {TabId}, WindowId: {WindowId}, WindowClosing: {WindowClosing}",
                 tabId, removeInfo?.WindowId, removeInfo?.IsWindowClosing);
 
-            // NOTE: No cleanup needed with runtime.sendMessage approach
-            // All message handling is stateless - no connection tracking required
+            // Clean up port sessions associated with this tab
+            await _portService.HandleTabRemovedAsync(tabId);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error handling tab removal");

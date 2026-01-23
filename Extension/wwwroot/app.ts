@@ -34,6 +34,17 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 // Make modules available globally for debugging
 (globalThis as any).appModules = {};  // WebAuthn modules loaded dynamically by JsModuleLoader
 
+// Helper for C# to call postMessage on Port objects (WebExtensions.Net lacks postMessage method)
+// See tmpMessagingArch.md Section 11 for architecture details
+declare global {
+    interface Window {
+        postMessageToPort: (port: chrome.runtime.Port, message: unknown) => void;
+    }
+}
+window.postMessageToPort = (port, message) => {
+    port.postMessage(message);
+};
+
 const CS_ID_PREFIX = 'keriauth-cs';
 
 // Type definitions for Blazor Browser Extension types

@@ -55,7 +55,9 @@
       "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm.cmd run build\")",
       "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts\\bundles && npm.cmd run build 2>&1\")",
       "Skill(build-windows)",
-      "Skill(build-windows:*)"
+      "Skill(build-windows:*)",
+      "Skill(clean-build-windows)",
+      "Skill(clean-build-windows:*)"
     ],
     "deny": [],
     "ask": []

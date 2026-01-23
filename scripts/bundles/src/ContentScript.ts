@@ -18,7 +18,16 @@ import {
     CsBwMsgEnum,
     CsInternalMsgEnum,
     BwCsMsgEnum,
-    type Polaris
+    type Polaris,
+    type PortMessage,
+    type ReadyMessage,
+    type RpcResponse,
+    type EventMessage,
+    createCsHelloMessage,
+    createRpcRequest,
+    isReadyMessage,
+    isRpcResponse,
+    isEventMessage
 } from '@keriauth/types';
 
 // Type for messages from the page (combines polaris-web messages and CS-specific messages)
@@ -31,6 +40,20 @@ type IPageMessageData =
     | (Polaris.MessageData<Polaris.ConfigureVendorArgs> & { source?: string })
     | (Polaris.MessageData<null> & { source?: string })
     | ICsPageMsgData<unknown>;
+
+// Port-based messaging state
+let port: chrome.runtime.Port | null = null;
+let portSessionId: string | null = null;
+let isPortReady = false;
+const instanceId = crypto.randomUUID();
+const messageQueue: Array<{ method: string; params?: unknown }> = [];
+const pendingRpcCallbacks = new Map<string, {
+    resolve: (value: unknown) => void;
+    reject: (reason: unknown) => void;
+}>();
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY_MS = 100;
 
 /*
  * This section is evaluated on document-start, as specified in the extension manifest.
@@ -55,7 +78,7 @@ console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.r
 // Add a listener for messages from the web page
 window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
 
-// Listen for messages from BackgroundWorker (responses to our sendMessage calls)
+// Listen for messages from BackgroundWorker (ping, SW_RESTARTED, and legacy responses)
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // Respond to ping messages from the service worker to detect if content script is already injected
     if (msg?.type === 'ping') {
@@ -63,17 +86,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return true; // keep channel open if needed
     }
 
-    // Handle messages from BackgroundWorker
+    // Handle SW_RESTARTED message - reconnect port after service worker restart
+    if (msg?.type === 'SW_RESTARTED') {
+        console.log('KeriAuthCs: Received SW_RESTARTED, reconnecting port...');
+        // Reset state and reconnect
+        port = null;
+        portSessionId = null;
+        isPortReady = false;
+        reconnectAttempts = 0;
+        connectPort();
+        return false;
+    }
+
+    // Handle messages from BackgroundWorker (legacy sendMessage responses)
     if (msg && typeof msg === 'object' && 'type' in msg) {
-        // TODO P2 messages here could be from BW or App. Clarify which in log. Ignore ones from App, which we don't want to talk directly to CS.
-        console.log('KeriAuthCs from BW or App (via onMessage):', msg);
+        console.log('KeriAuthCs from BW (via onMessage):', msg);
         handleMsgFromBW(msg as Polaris.MessageData<unknown>);
         return false; // don't keep channel open for caller
     } else {
-        // TODO P2: do a better job of knowing which are truely from BW versus other sources like App.  Then quietly ignore non-BW messages.
-        // See AppBwMessageTypes for the list
-        console.log('KeriAuthCs message from BW or App ignored (via onMessage):', msg, sender, sendResponse.toString());
-        // Return false for other messages to allow other listeners to handle them
+        // Quietly ignore other messages (likely from App)
         return false; // don't keep channel open for caller
     }
 });
@@ -88,16 +119,182 @@ document.addEventListener('DOMContentLoaded', (event) => {
     console.info(`KeriAuthCs ${event.type}`);
 });
 
-// Notify the service worker that this content script is ready.
-// This handles the race condition where the service worker starts before
-// content scripts are ready (e.g., after browser restart with restored tabs).
-// The service worker listens for this message to update the tab's icon.
-const csReadyMessage: ICsReadyMessage = { type: CsInternalMsgEnum.CS_READY };
-chrome.runtime.sendMessage(csReadyMessage).catch(() => {
-    // Ignore errors - service worker may not be ready yet, which is fine.
-    // The service worker will ping us later via onActivated/onUpdated handlers.
-});
+// Connect to BackgroundWorker using port-based messaging
+connectPort();
 
+/**
+ * Establish a port connection to the BackgroundWorker
+ * Sends HELLO message and waits for READY response
+ */
+function connectPort(): void {
+    try {
+        console.log('KeriAuthCs: Connecting to BackgroundWorker via port...');
+
+        // Create port connection
+        port = chrome.runtime.connect({ name: 'content-script' });
+
+        // Set up message listener
+        port.onMessage.addListener(handlePortMessage);
+
+        // Set up disconnect listener
+        port.onDisconnect.addListener(handlePortDisconnect);
+
+        // Send HELLO message
+        const helloMessage = createCsHelloMessage(instanceId);
+        port.postMessage(helloMessage);
+
+        console.log('KeriAuthCs: HELLO sent to BackgroundWorker', { instanceId });
+    } catch (error) {
+        console.error('KeriAuthCs: Failed to connect port:', error);
+        scheduleReconnect();
+    }
+}
+
+/**
+ * Handle messages received from BackgroundWorker via port
+ */
+function handlePortMessage(message: PortMessage): void {
+    console.log('KeriAuthCs←BW (port):', message);
+
+    if (isReadyMessage(message)) {
+        handleReadyMessage(message);
+    } else if (isRpcResponse(message)) {
+        handleRpcResponse(message);
+    } else if (isEventMessage(message)) {
+        handleEventMessage(message);
+    } else {
+        console.warn('KeriAuthCs: Unknown port message type:', message);
+    }
+}
+
+/**
+ * Handle READY message from BackgroundWorker
+ */
+function handleReadyMessage(message: ReadyMessage): void {
+    portSessionId = message.portSessionId;
+    isPortReady = true;
+    reconnectAttempts = 0; // Reset on successful connection
+
+    console.log('KeriAuthCs: Port ready, portSessionId:', portSessionId);
+
+    // Process any queued messages
+    while (messageQueue.length > 0) {
+        const queued = messageQueue.shift()!;
+        sendRpcRequest(queued.method, queued.params);
+    }
+
+    // Notify the page that the extension is ready
+    postMessageToPageSignifyExtension();
+}
+
+/**
+ * Handle RPC_RES messages from BackgroundWorker
+ */
+function handleRpcResponse(message: RpcResponse): void {
+    const callback = pendingRpcCallbacks.get(message.id);
+    if (callback) {
+        pendingRpcCallbacks.delete(message.id);
+        if (message.error) {
+            callback.reject(new Error(message.error));
+        } else {
+            callback.resolve(message.result);
+        }
+    } else {
+        // Route as a regular BW message for backward compatibility
+        const legacyMessage: Polaris.MessageData<unknown> = {
+            type: message.error ? BwCsMsgEnum.REPLY : BwCsMsgEnum.REPLY,
+            requestId: message.id,
+            data: message.result,
+            error: message.error
+        };
+        handleMsgFromBW(legacyMessage);
+    }
+}
+
+/**
+ * Handle EVENT messages from BackgroundWorker
+ */
+function handleEventMessage(message: EventMessage): void {
+    // Convert to legacy format and route through existing handler
+    const legacyMessage: Polaris.MessageData<unknown> = {
+        type: message.name,
+        requestId: '', // EventMessage doesn't have a requestId
+        data: message.data
+    };
+    handleMsgFromBW(legacyMessage);
+}
+
+/**
+ * Handle port disconnect
+ */
+function handlePortDisconnect(): void {
+    const error = chrome.runtime.lastError;
+    console.log('KeriAuthCs: Port disconnected', error?.message || '');
+
+    port = null;
+    portSessionId = null;
+    isPortReady = false;
+
+    // Check if extension was invalidated
+    if (error?.message?.includes('Extension context invalidated')) {
+        console.log('KeriAuthCs: Extension context invalidated - prompting reload');
+        promptAndReloadPage(
+            "The KERI Auth extension has been updated or reloaded.\n" +
+            "Actions needed:\n" +
+            "1) Click OK to reload this page. In some cases, you may need to close the tab.\n\n" +
+            "2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the KERI Auth extension for easier access.\n\n" +
+            "3) Click the KERI Auth extension action button to re-authorize this site."
+        );
+        return;
+    }
+
+    // Attempt reconnection for other disconnects (e.g., service worker restart)
+    scheduleReconnect();
+}
+
+/**
+ * Schedule a reconnection attempt with exponential backoff
+ */
+function scheduleReconnect(): void {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.warn('KeriAuthCs: Max reconnect attempts reached');
+        return;
+    }
+
+    reconnectAttempts++;
+    const delay = RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts - 1);
+    console.log(`KeriAuthCs: Scheduling reconnect attempt ${reconnectAttempts} in ${delay}ms`);
+
+    setTimeout(() => {
+        connectPort();
+    }, delay);
+}
+
+/**
+ * Send an RPC request via port
+ */
+function sendRpcRequest(method: string, params?: unknown): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+        if (!isPortReady || !port || !portSessionId) {
+            // Queue the message if not ready
+            console.log('KeriAuthCs: Port not ready, queueing message:', method);
+            messageQueue.push({ method, params });
+            // Don't reject - the message will be sent when port is ready
+            // For now, resolve with undefined (caller should handle async response)
+            resolve(undefined);
+            return;
+        }
+
+        const request = createRpcRequest(portSessionId, method, params);
+
+        // Store callback for response
+        pendingRpcCallbacks.set(request.id, { resolve, reject });
+
+        // Send via port
+        port.postMessage(request);
+        console.log('KeriAuthCs→BW (port):', request);
+    });
+}
 
 /**
  * Send a message from the content script to the web page
@@ -217,14 +414,35 @@ function promptAndReloadPage(message: string): boolean {
 }
 
 /**
- * Send message to BackgroundWorker using runtime.sendMessage
+ * Send message to BackgroundWorker using port-based messaging
+ * Falls back to runtime.sendMessage if port is not connected
  * @param msg Message to send, either polaris-web protocol or internal CS-BW message
  */
 async function sendMessageToBW(msg: Polaris.MessageData<unknown> | ICsBwMsg): Promise<void> {
-    console.info('KeriAuthCs→BW: sendMessage:', msg);
+    console.info('KeriAuthCs→BW:', msg);
+
+    // Use port-based messaging when available
+    if (isPortReady && port && portSessionId) {
+        // Send as RPC request via port
+        const method = msg.type;
+        const params = {
+            ...msg,
+            requestId: msg.requestId || crypto.randomUUID()
+        };
+
+        try {
+            await sendRpcRequest(method, params);
+        } catch (error) {
+            console.error('KeriAuthCs→BW: Port send failed:', error);
+            throw error;
+        }
+        return;
+    }
+
+    // Fall back to sendMessage for backward compatibility or when port not ready
+    console.info('KeriAuthCs→BW: Port not ready, using sendMessage fallback');
     try {
         const response = await chrome.runtime.sendMessage(msg);
-        // console.log('KeriAuthCs→BW: sendMessage:', msg);
         // Response handling can be added here if needed
     } catch (error) {
         // Check if extension context was invalidated (typically after extension reload/update)

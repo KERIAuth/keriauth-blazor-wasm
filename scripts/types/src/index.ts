@@ -3,6 +3,7 @@
 
 export * from './ExCsInterfaces.js';
 export * from './storage-models.js';
+export * from './PortMessages.js';
 
 // Re-export Polaris types as a namespace (type-only export - no JavaScript generated)
 export type * as Polaris from './polaris-web-client.js';

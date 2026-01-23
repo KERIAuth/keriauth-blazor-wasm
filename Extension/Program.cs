@@ -3,6 +3,7 @@ using Extension;
 using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
+using Extension.Services.Port;
 using Extension.Services.SignifyService;
 using Extension.Services.Storage;
 using Microsoft.AspNetCore.Components.Web;
@@ -80,6 +81,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<SessionManager>();
             builder.Services.AddSingleton<IBwAppMessagingService, BwAppMessagingService>();
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
+            builder.Services.AddSingleton<IBwPortService, BwPortService>();
             break;
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:
@@ -91,6 +93,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<IUserActivityService, UserActivityService>();
             builder.Services.AddSingleton<SessionManager>();
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
+            builder.Services.AddSingleton<IAppPortService, AppPortService>();
             break;
     }
 });
