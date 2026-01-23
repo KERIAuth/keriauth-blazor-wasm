@@ -87,6 +87,10 @@ Uniqueness is handled at the **application level**, not by port names:
 * App instances are identified by:
   * A randomly generated `instanceId`
 
+### Port IDs
+
+When a port connects, the BW generates a unique **port ID** (e.g., `Guid.NewGuid().ToString()`) to track the port internally. This port ID is used as dictionary keys in the registry instead of the `Port` object itself, which cannot reliably serve as a dictionary key across JS interop boundaries.
+
 ---
 
 ## 4. Message Contract
@@ -116,27 +120,54 @@ export type Envelope =
 ### Envelope Definition (C#)
 
 ```csharp
+using System.Text.Json.Serialization;
+
 public enum ContextKind { ContentScript, ExtensionApp }
 
-public abstract record PortMessage(string T);
+public abstract record PortMessage(
+    [property: JsonPropertyName("t")] string T
+);
 
-public record HelloMessage(ContextKind Context, string InstanceId, int? TabId = null, int? FrameId = null)
-    : PortMessage("HELLO");
+public record HelloMessage(
+    [property: JsonPropertyName("context")] ContextKind Context,
+    [property: JsonPropertyName("instanceId")] string InstanceId,
+    [property: JsonPropertyName("tabId")] int? TabId = null,
+    [property: JsonPropertyName("frameId")] int? FrameId = null
+) : PortMessage("HELLO");
 
-public record ReadyMessage(string PortSessionId, int? TabId = null, int? FrameId = null)
-    : PortMessage("READY");
+public record ReadyMessage(
+    [property: JsonPropertyName("portSessionId")] string PortSessionId,
+    [property: JsonPropertyName("tabId")] int? TabId = null,
+    [property: JsonPropertyName("frameId")] int? FrameId = null
+) : PortMessage("READY");
 
-public record AttachTabMessage(int TabId, int? FrameId = null) : PortMessage("ATTACH_TAB");
+public record AttachTabMessage(
+    [property: JsonPropertyName("tabId")] int TabId,
+    [property: JsonPropertyName("frameId")] int? FrameId = null
+) : PortMessage("ATTACH_TAB");
 
 public record DetachTabMessage() : PortMessage("DETACH_TAB");
 
-public record EventMessage(string PortSessionId, string Name, object? Data = null) : PortMessage("EVENT");
+public record EventMessage(
+    [property: JsonPropertyName("portSessionId")] string PortSessionId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("data")] object? Data = null
+) : PortMessage("EVENT");
 
-public record RpcRequest(string PortSessionId, string Id, string Method, object? Params = null)
-    : PortMessage("RPC_REQ");
+public record RpcRequest(
+    [property: JsonPropertyName("portSessionId")] string PortSessionId,
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("method")] string Method,
+    [property: JsonPropertyName("params")] object? Params = null
+) : PortMessage("RPC_REQ");
 
-public record RpcResponse(string PortSessionId, string Id, bool Ok, object? Result = null, string? Error = null)
-    : PortMessage("RPC_RES");
+public record RpcResponse(
+    [property: JsonPropertyName("portSessionId")] string PortSessionId,
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("ok")] bool Ok,
+    [property: JsonPropertyName("result")] object? Result = null,
+    [property: JsonPropertyName("error")] string? Error = null
+) : PortMessage("RPC_RES");
 ```
 
 ### Rules
@@ -145,6 +176,12 @@ public record RpcResponse(string PortSessionId, string Id, bool Ok, object? Resu
 2. BW responds with `READY { portSessionId }`
 3. App must send `ATTACH_TAB` before sending any routed messages
 4. All routed messages include a `portSessionId`
+
+### Reliability
+
+Port messaging within Chrome extensions is considered **reliable** - messages are delivered in order and do not require acknowledgment or timeout logic. The `port.onDisconnect` event provides definitive notification when a port is closed.
+
+Unlike network-based RPC which requires timeouts and retry logic, port-based messaging between extension components (CS, BW, App) operates within Chrome's internal messaging system and does not suffer from network-related failures.
 
 ---
 
@@ -168,8 +205,8 @@ public record PortSession {
     public required Guid PortSessionId { get; init; }
     public int? TabId { get; init; }  // null for non-tab-scoped sessions
     public int? FrameId { get; init; }
-    public Port? ContentScriptPort { get; set; }
-    public List<Port> AttachedAppPorts { get; } = [];
+    public string? ContentScriptPortId { get; set; }  // Use port ID, not Port object
+    public List<string> AttachedAppPortIds { get; } = [];  // Use port IDs
     public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
 }
 ```
@@ -181,11 +218,16 @@ public record PortSession {
 private readonly ConcurrentDictionary<string, PortSession> _portSessionsByTabKey = new();
 
 // App instance tracking
-private readonly ConcurrentDictionary<string, (PortSession PortSession, Port Port)> _appsByInstanceId = new();
+private readonly ConcurrentDictionary<string, (PortSession PortSession, string PortId)> _appsByInstanceId = new();
 
-// Port to port session reverse lookup
-private readonly ConcurrentDictionary<Port, PortSession> _portsToPortSession = new();
+// Port ID to port session reverse lookup (use generated IDs, not Port objects as keys)
+private readonly ConcurrentDictionary<string, PortSession> _portIdToPortSession = new();
+
+// Port ID to Port object (for sending messages)
+private readonly ConcurrentDictionary<string, Port> _portsById = new();
 ```
+
+**Note:** Port objects should not be used as dictionary keys because their equality semantics may not be reliable across JS interop boundaries. Instead, generate a unique port ID when a port connects and use that string as the key.
 
 ---
 
@@ -323,6 +365,49 @@ await AttachToTabAsync(readyMessage.TabId ?? 0, frameId: 0);
 
 **Note:** For extension tabs (not popups), `TabId` in READY will be null since they aren't associated with a web page tab.
 
+### 6.4 ATTACH_TAB Failure Handling
+
+`ATTACH_TAB` **must fail** if no port session exists for the specified tab. This can happen when:
+- The tab has no content script injected
+- The content script has not yet connected (timing issue)
+- The tab was closed before App attached
+
+**BW handling:**
+
+```csharp
+private async Task HandleAttachTab(string appPortId, AttachTabMessage msg) {
+    var tabKey = $"{msg.TabId}:{msg.FrameId ?? 0}";
+
+    if (!_portSessionsByTabKey.TryGetValue(tabKey, out var portSession)) {
+        // Send error response - no port session for this tab
+        await SendErrorAsync(appPortId, "ATTACH_FAILED",
+            $"No port session exists for tab {msg.TabId}. Content script may not be injected.");
+        return;
+    }
+
+    // Attach App to the port session
+    portSession.AttachedAppPortIds.Add(appPortId);
+    _appsByInstanceId[instanceId] = (portSession, appPortId);
+}
+```
+
+### 6.5 SidePanel Tab Association
+
+When the SidePanel opens to handle a pending request (e.g., `RequestSignInPage`), the request stored in `PendingBwAppRequest` already contains the `TabId` of the originating tab:
+
+```csharp
+public record PendingBwAppRequest {
+    public required string RequestId { get; init; }
+    public required string Type { get; init; }
+    public object? Payload { get; init; }
+    public int? TabId { get; init; }  // Tab that initiated the request
+    public string? TabUrl { get; init; }
+    // ...
+}
+```
+
+The App retrieves this from session storage and uses it for `ATTACH_TAB`, ensuring it attaches to the correct tab even if the user has switched tabs since the request was created.
+
 ---
 
 ## 7. Routing Rules
@@ -391,10 +476,22 @@ App explicitly chooses which tab to control via `ATTACH_TAB`.
 
 **Active tab change handling:**
 
-When the user switches tabs while the App (especially SidePanel) is showing tab-specific UI:
-1. BW listens to `chrome.tabs.onActivated`
-2. BW notifies attached App ports of the tab change
-3. App (BaseLayout/DialogLayout) reactively dismisses or updates UI that's no longer relevant to the active tab
+When the user switches tabs while the App (especially SidePanel) is showing tab-specific UI, the App subscribes directly to `chrome.tabs.onActivated` via WebExtensions.Net:
+
+```csharp
+// In App (e.g., BaseLayout.razor or a service)
+_webExtensions.Tabs.OnActivated.AddListener(OnActiveTabChanged);
+
+private async Task OnActiveTabChanged(ActiveInfo activeInfo) {
+    if (_attachedTabId.HasValue && activeInfo.TabId != _attachedTabId) {
+        // User switched away from the tab we're showing UI for
+        // Dismiss tab-specific UI or navigate to a neutral page
+        await DismissTabSpecificUI();
+    }
+}
+```
+
+Extension pages (popup, sidepanel, extension tab) have direct access to Chrome extension APIs, so the App can subscribe to browser events without needing BW to relay them.
 
 This prevents scenarios where SidePanel shows a sign-in request for Tab A while Tab B is now active.
 
@@ -411,6 +508,72 @@ The current pattern of persisting pending requests to session storage is preserv
 3. **App resends `ATTACH_TAB`**
 4. **BW reconstructs port session map** from active ports
 5. **App queries session storage** for pending requests (existing pattern continues to work)
+
+### Content Script Reconnection
+
+When the service worker restarts, all existing port connections are severed. Content Scripts must detect this and re-establish their ports.
+
+**Challenge:** Since ports are initiated by CS, the restarted BW cannot directly notify CS to reconnect (no port exists yet).
+
+**Solution:** BW sends a simple `sendMessage` (not port-based) to trigger CS reconnection:
+
+```csharp
+// BackgroundWorker.cs - after SW restart during initialization
+private async Task NotifyContentScriptsToReconnect() {
+    // Send a broadcast message to all tabs that may have content scripts
+    // CS listens for this via chrome.runtime.onMessage
+    var tabs = await _webExtensions.Tabs.Query(new QueryInfo());
+    foreach (var tab in tabs) {
+        try {
+            await _webExtensions.Tabs.SendMessage(tab.Id!.Value, new { type = "SW_RESTARTED" });
+        } catch {
+            // Tab may not have CS injected - ignore
+        }
+    }
+}
+```
+
+**ContentScript.ts handling:**
+
+```ts
+// Listen for SW restart notification (in addition to port messaging)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'SW_RESTARTED') {
+        console.log('Service worker restarted, re-establishing port');
+        reconnectPort();
+        sendResponse({ ok: true });
+    }
+    return false;
+});
+
+function reconnectPort() {
+    // Close existing port if any
+    port?.disconnect();
+
+    // Re-establish connection
+    port = chrome.runtime.connect({ name: 'cs' });
+    port.postMessage({
+        t: 'HELLO',
+        context: 'content-script',
+        instanceId
+    });
+    // ... set up listeners as before
+}
+```
+
+**Port disconnect detection (alternative/complementary):**
+
+CS can also detect SW restart via `port.onDisconnect`:
+
+```ts
+port.onDisconnect.addListener(() => {
+    if (chrome.runtime.lastError) {
+        console.log('Port disconnected, likely SW restart:', chrome.runtime.lastError);
+        // Attempt reconnection after brief delay
+        setTimeout(reconnectPort, 100);
+    }
+});
+```
 
 ### Why Hybrid Approach
 
@@ -573,6 +736,20 @@ The following existing INIT/READY message types use `sendMessage` and should be 
 - [ ] Open tab and App
 - [ ] Verify HELLO/ATTACH_TAB rebuilds port sessions
 - [ ] Verify pending requests survive and are processed
+- [ ] Verify CS receives SW_RESTARTED message and reconnects
+
+### Error Cases
+
+- [ ] ATTACH_TAB to tab without CS → receive error response
+- [ ] ATTACH_TAB to closed tab → receive error response
+- [ ] App switches to tab B while showing UI for tab A → UI dismissed/updated
+
+### Active Tab Change
+
+- [ ] SidePanel shows request for Tab A
+- [ ] User switches to Tab B
+- [ ] Verify SidePanel detects change via `chrome.tabs.onActivated`
+- [ ] Verify tab-specific UI is dismissed or updated
 
 ---
 
