@@ -264,6 +264,42 @@ export async function beforeStart(
                 }
             };
 
+            /**
+             * Opens the action popup if no popup or sidepanel is already open.
+             * Must be called with a user gesture context (e.g., from action click handler).
+             */
+            const openPopupIfNotOpen = async (): Promise<void> => {
+                try {
+                    // Check if popup or sidepanel is already open
+                    const contexts = await chrome.runtime.getContexts({
+                        contextTypes: ['POPUP', 'SIDE_PANEL']
+                    });
+
+                    if (contexts.length > 0) {
+                        console.log("app.ts: Popup or sidepanel already open, skipping openPopup");
+                        return;
+                    }
+
+                    // Set the popup URL (required before openPopup when no default_popup in manifest)
+                    await chrome.action.setPopup({ popup: '/indexInPopup.html' });
+
+                    // Open the popup
+                    try {
+                        await chrome.action.openPopup();
+                        console.log("app.ts: Popup opened successfully");
+                    } catch (error) {
+                        // openPopup() sometimes throws even on success
+                        console.debug("app.ts: openPopup() threw (may still have succeeded):", error);
+                    }
+
+                    // Clear the popup setting so future clicks trigger onClicked event
+                    await chrome.action.setPopup({ popup: '' });
+
+                } catch (error) {
+                    console.error("app.ts: Error in openPopupIfNotOpen:", error);
+                }
+            };
+
             chrome.tabs.onActivated.addListener(async (activeInfo) => {
                 // Get tab info to check URL before attempting to ping
                 let tab: chrome.tabs.Tab | undefined;
@@ -420,9 +456,11 @@ export async function beforeStart(
                         try {
                             const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
                             if (pingResponse?.ok) {
-                                // Scenario #4: Content script is active and responding - no action needed
+                                // Scenario #4: Content script is active and responding
                                 console.log("app.ts: Content script is active and responding");
                                 await updateIconForTab(tab.id, true);
+                                // Open popup for user interaction (if not already open)
+                                await openPopupIfNotOpen();
                                 return;
                             }
                         } catch (error) {
