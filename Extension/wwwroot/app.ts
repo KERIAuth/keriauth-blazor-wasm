@@ -421,7 +421,10 @@ export async function beforeStart(
                     // 1) Compute per-origin match patterns from the clicked tab
                     const MATCHES = matchPatternsFromTabUrl(tab.url);
                     if (MATCHES.length === 0) {
-                        console.log("app.ts: Unsupported or restricted URL scheme; not registering persistence.", tab.url);
+                        // Tab URL doesn't support content scripts (chrome-extension:, about:blank, etc.)
+                        // Still open the popup so user can interact with the extension
+                        console.log("app.ts: Unsupported or restricted URL scheme; opening popup without content script setup.", tab.url);
+                        await openPopupIfNotOpen();
                         return;
                     }
 
