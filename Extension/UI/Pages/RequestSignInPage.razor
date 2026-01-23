@@ -75,6 +75,12 @@
 
     // computed properties
     bool IsSignInDisabled => (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null));
+    /// <summary>
+    /// Reactively checks if this page's pending request has been cleared from AppCache.
+    /// Returns true if PageRequestId is empty or no longer matches the next pending request.
+    /// </summary>
+    bool IsPendingRequestCleared => string.IsNullOrEmpty(PageRequestId) ||
+        appCache.NextPendingBwAppRequest?.RequestId != PageRequestId;
 
 
     protected override async Task OnInitializedAsync()
@@ -238,15 +244,6 @@
     {
         logger.LogInformation("Cancel: User initiated cancel for pageRequestId={PageRequestId}", PageRequestId);
 
-        /*
-        if (tabId == -1) // Chrome uses -1 to mean “no tab” or “not associated with a tab.”
-        {
-            logger.LogWarning("Cannot cancel - invalid tab ID");
-            // TODO P2: ? Still clear the pending request even if we can't send cancel message
-            // await ClearPendingRequestAsync();
-            }
-        */
-
         var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User canceled sign-in");
         try
         {
@@ -259,19 +256,22 @@
             // Continue to clear pending request and close popup even if message send failed
         }
 
-        logger.LogInformation("Cancel: Waiting for AppCache update");
-        // BackgroundWorker will clear pending requests on receiving cancel message
+        // Clear pending request BEFORE navigation to prevent Index.razor from re-routing back here
+        logger.LogInformation("Cancel: Clearing pending request before navigation");
+        await ClearPendingRequestAsync();
 
-        // TODO P2 could tweak timeout/wait params
-        // await appCache.WaitForAppCache([() => appCache.IsNotWaitingOnPendingRequests], 10000, 200);
-
-        // logger.LogInformation("Cancel: done waiting for AppCache update");
+        // Wait for AppCache to reflect the cleared request (prevents race with Index.razor routing)
+        var waitResult = await appCache.WaitForAppCache([() => !appCache.HasPendingBwAppRequests], 3000, 100);
+        if (!waitResult)
+        {
+            logger.LogWarning("Cancel: AppCache did not clear pending requests within timeout, proceeding anyway");
+        }
+        else
+        {
+            logger.LogInformation("Cancel: AppCache confirmed no pending requests");
+        }
 
         await Layout!.ReturnToPriorUI();
-
-        // TODO P2 make this configurable debug option, to dwell on a dialog before closing
-        // logger.LogWarning("Cancel: Reached end of Cancel method. Waiting a long time now for debugging.....");
-        // await Task.Delay(1000000);
         return;
     }
 

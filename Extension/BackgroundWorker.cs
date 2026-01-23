@@ -811,10 +811,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Store the pending request for App to retrieve, then uses SidePanel if already open, otherwise action popup for the specified tab. 
+    /// Store the pending request for App to retrieve, then uses SidePanel if already open, otherwise action popup for the specified tab.
     /// The App will read the pending request from storage and route to the appropriate page.
     /// </summary>
     /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
+    // TODO P1: Implement port connection (chrome.runtime.onConnect/onDisconnect) to reliably detect
+    // Popup closure and clean up orphaned pending requests when popup closes before sending any message.
     private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest) {
         try {
             logger.LogInformation("BW UseActionPopup: type={Type}, requestId={RequestId}, tabId={TabId}",
@@ -1121,11 +1123,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             object? transformedPayload = msg.Payload; // Default to original payload
 
 
-            // TODO P1 tmp clear all pending requests except user activity messages (for timeout extension)
-            if (msg.Type != AppBwMessageType.Values.UserActivity) {
-                // logger.LogWarning("Clearing all pending BwApp requests (temporary)");
-                // await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
-            }
 
             switch (msg.Type) {
                 case AppBwMessageType.Values.ReplyAid:
@@ -1148,6 +1145,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         logger.LogWarning("TabUrl is null for {t}: {msg}", msg.Type, msg);
                         return null;
                     }
+
+                    // Clear pending request before processing (early return case)
+                    logger.LogInformation("BW: Clearing pending request for ReplyApprovedSignHeaders, requestId={RequestId}", msg.RequestId);
+                    await _pendingBwAppRequestService.RemoveRequestAsync(msg.RequestId);
 
                     try {
                         // Deserialize payload to AppBwReplySignPayload2
@@ -1231,6 +1232,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
                     contentScriptMessageType = msg.Type;
                     break; // will forward
+            }
+
+            // Clear pending request from storage since we're about to send the reply
+            // This ensures cleanup happens even if the popup/sidepanel closes abruptly
+            if (!string.IsNullOrEmpty(msg.RequestId))
+            {
+                logger.LogInformation("BW: Clearing pending request after reply, requestId={RequestId}", msg.RequestId);
+                var clearResult = await _pendingBwAppRequestService.RemoveRequestAsync(msg.RequestId);
+                if (clearResult.IsFailed)
+                {
+                    logger.LogWarning("BW: Failed to clear pending request {RequestId}: {Error}",
+                        msg.RequestId, clearResult.Errors.Count > 0 ? clearResult.Errors[0].Message : "Unknown error");
+                }
             }
 
             // Create OutboundMessage for forwarding to ContentScript
@@ -1821,6 +1835,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task<object?> HandleCreateCredentialApprovalAsync(AppBwMessage<object> msg) {
         try {
             logger.LogInformation("BW HandleCreateCredentialApproval: Processing credential creation approval");
+
+            // Clear pending request early (this method returns directly, doesn't fall through to common cleanup)
+            if (!string.IsNullOrEmpty(msg.RequestId))
+            {
+                logger.LogInformation("BW: Clearing pending request for ReplyCreateCredential, requestId={RequestId}", msg.RequestId);
+                await _pendingBwAppRequestService.RemoveRequestAsync(msg.RequestId);
+            }
 
             // Deserialize the approval payload
             var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
