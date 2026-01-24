@@ -13,7 +13,9 @@
 @inject IJSRuntime js
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject ILogger<PreferencesPage> logger
-@inject IAppBwMessagingService appBwMessagingService
+@inject IAppPortService appPortService
+
+@using Extension.Services.Port
 
 @implements IDisposable
 
@@ -71,7 +73,7 @@
         // Notify BW so it can reset its inactivity timer with new value?
         // Or, does BW know to treat any Prefs change as user activity?
         var message = new AppBwUserActivityMessage();
-        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        await appPortService.SendToBackgroundWorkerAsync(message);
     }
 
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)

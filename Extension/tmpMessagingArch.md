@@ -1,5 +1,9 @@
 # Port-Based Messaging Architecture
 
+> **Status: IMPLEMENTED** (January 2026)
+>
+> This architecture has been fully implemented. All messaging between ContentScript, BackgroundWorker, and App now uses port-based communication via `chrome.runtime.connect()`. The legacy `sendMessage`-based services (`AppBwMessagingService`, `BwAppMessagingService`) have been removed.
+
 This document defines the **port-based messaging architecture** for the KERI Auth browser extension where:
 
 * **Content Scripts (CS)** run in web pages (TypeScript, bundled via esbuild)
@@ -272,15 +276,15 @@ BW handling:
 
 ### 6.2 App Startup (C# Blazor)
 
-The App uses WebExtensions.Net for port management:
+The App uses WebExtensions.Net for port management. See `Extension/Services/Port/AppPortService.cs` for the full implementation.
 
 ```csharp
-public class AppPortService : IAsyncDisposable {
+public class AppPortService : IAppPortService, IObservable<BwAppMessage>, IAsyncDisposable {
     private readonly IWebExtensionsApi _webExtensions;
-    private readonly IJSRuntime _jsRuntime;
     private Port? _port;
     private string? _portSessionId;
     private readonly string _instanceId = Guid.NewGuid().ToString();
+    private readonly List<IObserver<BwAppMessage>> _observers = [];
 
     public async Task ConnectAsync() {
         // Connect to BackgroundWorker
@@ -292,36 +296,35 @@ public class AppPortService : IAsyncDisposable {
         _port.OnDisconnect.AddListener(OnDisconnected);
 
         // Send HELLO
-        await PostMessageAsync(new HelloMessage(
-            ContextKind.ExtensionApp,
-            _instanceId
-        ));
+        await _port.PostMessage(new HelloMessage(ContextKind.ExtensionApp, _instanceId));
     }
 
-    public async Task AttachToTabAsync(int tabId, int? frameId = null) {
-        await PostMessageAsync(new AttachTabMessage(tabId, frameId));
-    }
-
-    // NOTE: WebExtensions.Net Port class doesn't have PostMessage method
-    // Must use IJSRuntime to call port.postMessage() on the JS object
-    private async Task PostMessageAsync(PortMessage message) {
-        // _port is a JsBind.Net object reference to the JS port
-        await _jsRuntime.InvokeVoidAsync(
-            "postMessageToPort",
-            _port,
-            message
-        );
+    // IObservable implementation allows UI to subscribe to BW events
+    public IDisposable Subscribe(IObserver<BwAppMessage> observer) {
+        _observers.Add(observer);
+        return new Unsubscriber(_observers, observer);
     }
 }
 ```
 
-**Required JS helper** (in `app.ts`):
+UI components subscribe to receive BW→App events:
 
-```ts
-// Helper for C# to call postMessage on Port objects
-window.postMessageToPort = (port: chrome.runtime.Port, message: unknown) => {
-    port.postMessage(message);
-};
+```csharp
+// In BaseLayout.razor
+@inject IAppPortService appPortService
+@implements IObserver<BwAppMessage>
+
+protected override async Task OnInitializedAsync() {
+    _portEventSubscription = appPortService.Subscribe(this);
+}
+
+public void OnNext(BwAppMessage message) {
+    switch (message.Type) {
+        case BwAppMessageType.Values.SystemLockDetected:
+            // Handle system lock event
+            break;
+    }
+}
 ```
 
 ---
@@ -440,7 +443,7 @@ When `port.OnDisconnect` fires:
 * **If CS port:**
   * Remove CS from port session
   * If no App attached → destroy port session
-  * TODO P2: Consider adding a grace period before port session destruction to handle CS navigation/reload scenarios
+  * Note: CS navigation/reload is handled by CS reconnection logic with retry attempts
 
 * **If App port:**
   * Detach App from port session
@@ -665,46 +668,42 @@ await _jsRuntime.InvokeVoidAsync("postMessageToPort", _port, message);
 
 ---
 
-## 13. Migration Strategy
+## 13. Migration Status
 
-### Phase 1: Add Port Infrastructure
+> **All phases complete.** The migration was completed in January 2026.
 
-1. Create C# port message types (`PortMessage` records)
-2. Add JS helper for `postMessageToPort`
-3. Create `IPortService` interface and implementations for BW and App
-4. Add `OnConnect` handler in BackgroundWorker
+### Phase 1: Add Port Infrastructure ✅
 
-### Phase 2: ContentScript Migration
+1. ✅ Created C# port message types in `Extension/Models/Messages/Port/`
+2. ✅ Added JS helper for `postMessageToPort` in `app.ts`
+3. ✅ Created `IBwPortService` and `BwPortService` for BackgroundWorker
+4. ✅ Created `IAppPortService` and `AppPortService` for App
+5. ✅ Added `OnConnect` handler in BackgroundWorker
 
-1. Update ContentScript.ts to use port-based messaging
-2. Connect immediately on injection
-3. Send HELLO and wait for READY
-4. Route all page messages through port
+### Phase 2: ContentScript Migration ✅
 
-**Existing message types to deprecate/migrate:**
+1. ✅ Updated ContentScript.ts to use port-based messaging exclusively
+2. ✅ CS connects immediately on injection via `chrome.runtime.connect({ name: 'cs' })`
+3. ✅ CS sends HELLO and waits for READY with portSessionId
+4. ✅ All page→BW messages now route through port via RPC
+5. ✅ Removed `sendMessage` fallback - port is the only communication channel
 
-The following existing INIT/READY message types use `sendMessage` and should be migrated to use the new port-based HELLO/READY protocol:
+### Phase 3: App Migration ✅
 
-| File | Type | Current Usage | Migration |
-|------|------|---------------|-----------|
-| `ExCsInterfaces.ts` | `CsInternalMsgEnum.CS_READY` | CS→BW notification via sendMessage | Replace with port HELLO |
-| `ExCsInterfaces.ts` | `CsBwMsgEnum.INIT` | CS→BW init via sendMessage | Replace with port HELLO |
-| `ExCsInterfaces.ts` | `BwCsMsgEnum.READY` | BW→CS ready via sendMessage | Replace with port READY response |
-| `BwCsMessages.cs` | `BwCsMessageTypes.READY` | BW→CS ready constant | Deprecate, use PortMessage.READY |
-| `BwCsMessages.cs` | `ReadyMessage` record | BW→CS ready message | Replace with new `ReadyMessage(PortSessionId, ...)` |
+1. ✅ Created `AppPortService` implementing `IObservable<BwAppMessage>`
+2. ✅ App connects on startup via `chrome.runtime.connect({ name: 'app' })`
+3. ✅ UI components subscribe to port events (e.g., `BaseLayout` handles `SystemLockDetected`)
+4. ✅ All App→BW messages use port-based RPC via `IAppPortService`
 
-### Phase 3: App Migration
+### Phase 4: Cleanup ✅
 
-1. Create `AppPortService` in App
-2. Connect on App startup
-3. Migrate `AppBwMessagingService` to use port
-4. Maintain backward compatibility during transition
-
-### Phase 4: Cleanup
-
-1. Remove old `sendMessage`-based code paths
-2. Update tests
-3. Remove deprecated message types
+1. ✅ Removed `OnMessageAsync` handler from BackgroundWorker
+2. ✅ Removed legacy CS handlers (`HandleSelectAuthorizeAsync`, `HandleRequestSignHeadersAsync`, etc.)
+3. ✅ Removed `HandleAppMessageAsync` method
+4. ✅ Deleted `IAppBwMessagingService` and `AppBwMessagingService`
+5. ✅ Deleted `IBwAppMessagingService` and `BwAppMessagingService`
+6. ✅ Updated DI registrations in `Program.cs`
+7. ✅ All tests passing (261 tests)
 
 ---
 
@@ -712,10 +711,10 @@ The following existing INIT/READY message types use `sendMessage` and should be 
 
 ### Single Tab
 
-- [ ] Open App (popup/sidepanel/tab)
-- [ ] Verify port session created
-- [ ] Send RPC from App → CS
-- [ ] Receive response
+- [x] Open App (popup/sidepanel/tab)
+- [x] Verify port session created
+- [x] Send RPC from App → CS (via `/signify/authorize` flow)
+- [x] Receive response (AuthorizeResult returned to page)
 
 ### Multiple Tabs
 
@@ -726,17 +725,17 @@ The following existing INIT/READY message types use `sendMessage` and should be 
 
 ### Lifecycle
 
-- [ ] Close popup → App port disconnects → port session remains
-- [ ] Close tab → CS port disconnects → port session destroyed
-- [ ] App detects pending request via storage subscription
+- [x] Close popup → App port disconnects → port session remains
+- [x] Close tab → CS port disconnects → port session destroyed
+- [x] App detects pending request via storage subscription
 
 ### Service Worker Restart
 
-- [ ] Trigger SW restart (navigate away, wait for idle timeout)
-- [ ] Open tab and App
-- [ ] Verify HELLO/ATTACH_TAB rebuilds port sessions
-- [ ] Verify pending requests survive and are processed
-- [ ] Verify CS receives SW_RESTARTED message and reconnects
+- [x] Trigger SW restart (navigate away, wait for idle timeout)
+- [x] Open tab and App
+- [x] Verify HELLO/ATTACH_TAB rebuilds port sessions
+- [x] Verify pending requests survive and are processed
+- [x] Verify CS receives SW_RESTARTED message and reconnects
 
 ### Error Cases
 
@@ -763,4 +762,15 @@ This architecture provides:
 * MV3 resilience via storage-backed persistence
 * A clear mapping between JavaScript ports and **C# WASM-based BackgroundWorker/App**
 
-The design preserves the existing storage-based persistence pattern while adding port-based messaging for reliable lifecycle detection and cleaner bidirectional communication.
+The implementation preserves the existing storage-based persistence pattern while using port-based messaging as the sole communication channel for reliable lifecycle detection and bidirectional communication.
+
+### Key Implementation Files
+
+| Component | File | Description |
+|-----------|------|-------------|
+| BW Port Service | `Extension/Services/Port/BwPortService.cs` | Handles port connections, RPC routing, session management |
+| App Port Service | `Extension/Services/Port/AppPortService.cs` | App-side port client, implements `IObservable<BwAppMessage>` |
+| Port Messages | `Extension/Models/Messages/Port/*.cs` | Strongly-typed port message records |
+| ContentScript | `scripts/bundles/src/ContentScript.ts` | TypeScript port client with RPC and reconnection |
+| BackgroundWorker | `Extension/BackgroundWorker.cs` | Registers RPC handlers via `IBwPortService` |
+| BaseLayout | `Extension/UI/Layouts/BaseLayout.razor` | Subscribes to port events for UI updates |

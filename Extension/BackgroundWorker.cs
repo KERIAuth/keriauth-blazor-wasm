@@ -11,6 +11,7 @@ using Extension.Models.Messages.Common;
 using Extension.Models.Messages.CsBw;
 using Extension.Models.Messages.ExCs;
 using Extension.Models.Messages.Polaris;
+using Extension.Models.Messages.Port;
 using Extension.Models.Storage;
 using Extension.Services;
 using Extension.Services.JsBindings;
@@ -81,7 +82,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     private readonly IStorageService _storageService;
     private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
-    private readonly IBwAppMessagingService _bwAppMessagingService;
     private readonly IPendingBwAppRequestService _pendingBwAppRequestService;
     private readonly IDemo1Binding _demo1Binding;
     private readonly ISchemaService _schemaService;
@@ -100,7 +100,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
-        WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
+        // Note: OnMessage handler removed - all CS/App messaging now uses port-based communication via OnConnect
         WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
         // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
@@ -132,7 +132,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService,
-        IBwAppMessagingService bwAppMessagingService,
         IPendingBwAppRequestService pendingBwAppRequestService,
         IDemo1Binding demo1Binding,
         ISchemaService schemaService,
@@ -147,13 +146,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         _storageService = storageService;
         _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
-        _bwAppMessagingService = bwAppMessagingService;
         _pendingBwAppRequestService = pendingBwAppRequestService;
         _schemaService = schemaService;
         _webExtensionsApi = new WebExtensionsApi(_jsRuntimeAdapter);
         _sessionManager = sessionManager;
         _chromeSidePanel = new ChromeSidePanel(_jsRuntimeAdapter);
         _portService = portService;
+
+        // Register RPC handlers for port-based messaging
+        _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);
+        _portService.RegisterAppRpcHandler(HandleAppRpcAsync);
+        _portService.RegisterEventHandler(HandlePortEventAsync);
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -290,127 +293,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             logger.LogError(ex, "Error handling onStartup event");
             throw;
         }
-    }
-
-    // onMessage fires when extension parts or external apps send messages.
-    // Typical use: Coordination, data requests.
-    // Returns: Response to send back to the message sender (or null)
-    // The browser-polyfill supports Promise returns from onMessage handlers,
-    // allowing the sender's SendMessage to receive this return value.
-    // [JSInvokable]
-    public async Task<object?> OnMessageAsync(object messageObj, WebExtensions.Net.Runtime.MessageSender sender)
-    {
-        try
-        {
-            logger.LogInformation("OnMessageAsync event handler called");
-
-            await EnsureInitializedAsync();
-
-            // SECURITY: Validate message origin to prevent subdomain attacks
-            // Only messages from the extension itself or explicitly permitted origins are allowed
-            var isValidSender = await ValidateMessageSenderAsync(sender, messageObj);
-            if (!isValidSender)
-            {
-                logger.LogWarning("OnMessageAsync: Message from invalid sender ignored. Sender URL: {Url}, ID: {Id}", sender.Url, sender.Id);
-                return null;
-            }
-
-            // Try to deserialize as InboundMessage
-            var messageJson = JsonSerializer.Serialize(messageObj);
-            logger.LogDebug("OnMessageAsync messageJson: {MessageJson}", messageJson);
-            var inboundMsg = JsonSerializer.Deserialize<ToBwMessage>(messageJson, PortMessageJsonOptions);
-
-            if (inboundMsg?.Type != null)
-            {
-                logger.LogInformation("Message received: {Type} from {Url}", inboundMsg.Type, sender.Url);
-
-                // Check if message is from extension (App) or from content script
-                var isFromExtension = sender.Url?.StartsWith($"chrome-extension://{WebExtensions.Runtime.Id}", StringComparison.OrdinalIgnoreCase) ?? false;
-
-                // Messages from App
-                if (isFromExtension)
-                {
-                    logger.LogInformation("App->BW msgJson: {j}", messageJson);
-
-                    // Deserialize to non-generic AppBwMessage (has JsonElement? Payload for two-phase deserialization)
-                    var baseAppMsg = JsonSerializer.Deserialize<AppBwMessage>(messageJson, PortMessageJsonOptions);
-                    if (baseAppMsg is null || string.IsNullOrEmpty(baseAppMsg.Type))
-                    {
-                        logger.LogWarning("Failed to deserialize AppBwMessage or missing type");
-                        await HandleUnknownMessageActionAsync("unknown");
-                        return null;
-                    }
-
-                    // Validate message type is known
-                    if (!AppBwMessageType.TryParse(baseAppMsg.Type, out _))
-                    {
-                        logger.LogWarning("Unknown AppBwMessageType: {Type}", baseAppMsg.Type);
-                        await HandleUnknownMessageActionAsync(baseAppMsg.Type);
-                        return null;
-                    }
-
-                    await _sessionManager.ExtendIfUnlockedAsync();
-
-                    // Convert to typed message using RecursiveDictionaryJsonOptions for payload deserialization
-                    var appMsg = baseAppMsg.ToTyped<object>(RecursiveDictionaryJsonOptions);
-
-                    logger.LogInformation("AppMessage deserialized - Type: {Type}, TabId: {TabId}, TabUrl: {TabUrl}",
-                        appMsg.Type, appMsg.TabId, appMsg.TabUrl);
-
-                    var response = await HandleAppMessageAsync(appMsg);
-                    return response;
-                }
-                else
-                {
-                    // Handle ContentScript messages (from web pages)
-                    var contentScriptMsg = JsonSerializer.Deserialize<CsBwMessage>(messageJson, PortMessageJsonOptions);
-                    if (contentScriptMsg != null)
-                    {
-                        // Note: intentionally not extending SessionExpirationTimer here, to effectively prevent a malicious page sending messages via ContentScript from keeping the session alive
-                        // await _sessionManager.ExtendIfUnlockedAsync();
-                        await HandleContentScriptMessageAsync(contentScriptMsg, sender);
-                        return null;
-                    }
-                }
-
-                // Try to deserialize as RuntimeMessage (internal extension messages)
-                var message = JsonSerializer.Deserialize<RuntimeMessage>(messageJson);
-
-                if (message?.Action != null)
-                {
-                    logger.LogInformation("Runtime message received: {Action} from {SenderId}", message.Action, sender?.Id);
-
-                    switch (message.Action)
-                    {
-                        case "resetInactivityTimer":
-                            // await ResetInactivityTimerAsync();
-                            break;
-                        case LockAppAction:
-                            await HandleLockAppMessageAsync();
-                            break;
-                        case SystemLockDetectedAction:
-                            await HandleSystemLockDetectedAsync();
-                            break;
-                        default:
-                            await HandleUnknownMessageActionAsync(message.Action);
-                            break;
-                    }
-                    return null;
-                }
-            }
-            else
-            {
-                logger.LogWarning("Failed to deserialize InboundMessage.Type {MessageJson}", messageJson);
-                return null;
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error handling runtime message");
-            return null;
-        }
-
-        return null;
     }
 
     // onAlarm fires at a scheduled interval/time.
@@ -894,22 +776,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             logger.LogInformation("HandleSystemLockDetectedAsync called");
             logger.LogWarning("System lock/suspend/hibernate detected in background worker");
 
-            // Send lock message to all connected tabs/apps
+            // Lock the session immediately for security
+            await _sessionManager.LockSessionAsync();
+            logger.LogInformation("Session locked due to system lock detection");
+
+            // Broadcast lock event to all connected apps via ports
+            // Note: Apps will also detect session lock via storage change,
+            // but this provides immediate notification
             try
             {
-                await _webExtensionsApi.Runtime.SendMessage(new { action = LockAppAction });
-                logger.LogInformation("Sent LockApp message due to system lock detection");
+                await _portService.BroadcastEventToAllAppsAsync(
+                    BwAppMessageType.Values.SystemLockDetected,
+                    new { reason = "system_lock" });
+                logger.LogInformation("Broadcasted SystemLockDetected event to all apps via ports");
             }
             catch (Exception ex)
             {
-                logger.LogInformation(ex, "Could not send LockApp message (expected if no pages open)");
+                logger.LogWarning(ex, "Could not broadcast SystemLockDetected event (expected if no apps connected)");
             }
-            return;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error handling system lock detection");
-            return;
         }
     }
 
@@ -1016,29 +904,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         catch (Exception ex)
         {
             logger.LogError(ex, "BW UseActionPopup");
-        }
-    }
-
-    /// <summary>
-    /// Sends a message to a ContentScript in a specific tab using runtime.sendMessage.
-    /// </summary>
-    /// <param name="tabId">The tab ID to send the message to</param>
-    /// <param name="message">The message to send</param>
-    private async Task SendMessageToTabAsync(int tabId, object message)
-    {
-        try
-        {
-            // Serialize with RecursiveDictionaryConverter to preserve field ordering for CESR/SAID
-            var messageJson = JsonSerializer.Serialize(message, RecursiveDictionaryJsonOptions);
-            logger.LogInformation("BW→CS (tab {TabId}): {Message}", tabId, messageJson);
-
-            // Deserialize back to object for WebExtensions API while preserving ordering
-            var messageToSend = JsonSerializer.Deserialize<object>(messageJson, RecursiveDictionaryJsonOptions);
-            await WebExtensions.Tabs.SendMessage(tabId, messageToSend);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error sending message to tab {TabId}", tabId);
         }
     }
 
@@ -1195,269 +1060,816 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     }
 
     /// <summary>
-    /// Handles messages from ContentScript sent via runtime.sendMessage.
-    /// These may include polaris-web protocol messages and other messages from CS, and routes them appropriately.
+    /// Handles RPC requests from ContentScript via port-based messaging.
+    /// Routes the request to the appropriate handler based on the RPC method.
     /// </summary>
-    /// <param name="msg">The ContentScript message</param>
-    /// <param name="sender">Message sender information</param>
-    /// <returns>Response object to send back to ContentScript</returns>
-    private async Task HandleContentScriptMessageAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender)
+    private async Task HandleContentScriptRpcAsync(string portId, PortSession? portSession, RpcRequest request)
     {
+        logger.LogInformation("BW←CS (port RPC): method={Method}, id={Id}, portId={PortId}",
+            request.Method, request.Id, portId);
+
+        if (portSession is null)
+        {
+            logger.LogWarning("HandleContentScriptRpcAsync: No PortSession for portId={PortId}", portId);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "No PortSession found for this port");
+            return;
+        }
+
+        if (!portSession.TabId.HasValue)
+        {
+            logger.LogWarning("HandleContentScriptRpcAsync: No TabId in PortSession for portId={PortId}", portId);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "No TabId associated with this port");
+            return;
+        }
+
+        var tabId = portSession.TabId.Value;
+        var tabUrl = portSession.TabUrl;
+
+        // Extract origin from tab URL
+        string origin = "unknown";
+        if (tabUrl is not null && Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri))
+        {
+            origin = $"{originUri.Scheme}://{originUri.Host}";
+            if (!originUri.IsDefaultPort)
+            {
+                origin += $":{originUri.Port}";
+            }
+        }
+
+        // Route based on method
         try
         {
-            logger.LogInformation("BW←CS: {Type}", msg.Type);
-
-            switch (msg.Type)
+            switch (request.Method)
             {
-                case CsInternalMessageTypes.CS_READY:
-                    // ContentScript sends this message when it initializes to notify the service worker.
-                    // The icon update is already handled by app.ts (JavaScript layer) which has its own
-                    // chrome.runtime.onMessage listener that runs before this C# handler.
-                    // We explicitly ignore it here - no C# processing needed.
-                    logger.LogDebug("Ignoring cs-ready message from ContentScript (icon update handled by app.ts)");
-                    return;
-
-                case CsBwMessageTypes.INIT:
-                    // TODO P3 ContentScript is initializing - send READY response?
-                    break;
-
-                case CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL:
-                // TODO P2 Implement credential selection vs generic authorize
-                case CsBwMessageTypes.SELECT_AUTHORIZE_AID:
-                // TODO P2 Implement AID selection vs generic authorize
                 case CsBwMessageTypes.AUTHORIZE:
-                    var tabId = sender?.Tab?.Id ?? -1;
-                    if (tabId == -1)
-                    {
-                        logger.LogWarning("BW←CS: No tab ID found for authorize request");
-                        return;
-                    }
-                    await HandleSelectAuthorizeAsync(msg, sender);
+                case CsBwMessageTypes.SELECT_AUTHORIZE_AID:
+                case CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL:
+                    await HandleSelectAuthorizeRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
                     return;
 
                 case CsBwMessageTypes.SIGN_REQUEST:
-                    await HandleRequestSignHeadersAsync(msg, sender);
-                    return;
-
-                case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
-                    // Send the extension ID, although this may be redundantas ContentScript can get it via chrome.runtime.id
-                    // TODO P2 Add REPLY?
-                    /*
-                    return new {
-                        type = BwCsMessageTypes.REPLY,
-                        requestId = msg.RequestId,
-                        payload = new { extensionId = WebExtensions.Runtime.Id }
-                    };
-                    */
-                    logger.LogWarning("BW←CS: {Type} not yet implemented", msg.Type);
-                    return;
-
-                case CsBwMessageTypes.CREATE_DATA_ATTESTATION:
-                    await HandleCreateDataAttestationAsync(msg, sender);
+                    await HandleSignRequestRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
                     return;
 
                 case CsBwMessageTypes.SIGN_DATA:
-                    await HandleSignDataAsync(msg, sender);
+                    await HandleSignDataRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
                     return;
-                case CsBwMessageTypes.CLEAR_SESSION:
-                case CsBwMessageTypes.CONFIGURE_VENDOR:
-                case CsBwMessageTypes.GET_CREDENTIAL:
-                case CsBwMessageTypes.GET_SESSION_INFO:
+
+                case CsBwMessageTypes.CREATE_DATA_ATTESTATION:
+                    await HandleCreateDataAttestationRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
+                    return;
+
                 case CsBwMessageTypes.SIGNIFY_EXTENSION:
+                case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
+                    // Return extension ID directly
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new { extensionId = WebExtensions.Runtime.Id });
+                    return;
+
+                case CsBwMessageTypes.CLEAR_SESSION:
+                case CsBwMessageTypes.GET_SESSION_INFO:
+                    // Not implemented - respond with error
+                    logger.LogWarning("BW←CS (port RPC): method not implemented: {Method}", request.Method);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        errorMessage: $"Method not implemented: {request.Method}");
+                    return;
 
                 default:
-                    logger.LogWarning("BW←CS: Unknown message type: {Type}", msg.Type);
+                    logger.LogWarning("BW←CS (port RPC): Unknown method: {Method}", request.Method);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        errorMessage: $"Unknown method: {request.Method}");
                     return;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error handling ContentScript message");
-            return; // new ErrorReplyMessage(msg.RequestId, $"Error: {ex.Message}");
+            logger.LogError(ex, "Error handling ContentScript RPC: method={Method}", request.Method);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Handles strongly-typed messages from App (popup/tab/sidepanel).
-    /// These messages are typically replies that need to be forwarded to ContentScript.
-    /// The App includes the TabId in the message so we know which ContentScript to forward to.
-    ///
-    /// IMPORTANT: Message type transformation happens here.
-    /// App→BW message types (e.g., /KeriAuth/signify/replyCredential) are transformed to
-    /// BW→CS message types (e.g., /signify/reply) to maintain separate contracts.
+    /// Handles RPC requests from App (popup/tab/sidepanel) via port-based messaging.
+    /// These are typically replies to BW requests or App-initiated actions.
     /// </summary>
-    /// <param name="msg">The strongly-typed AppBwMessage with TabId indicating target tab</param>
-    /// <returns>Response object to send back to the App, or null for fire-and-forget messages</returns>
-    private async Task<object?> HandleAppMessageAsync(AppBwMessage<object> msg)
+    private async Task HandleAppRpcAsync(string portId, PortSession? portSession, RpcRequest request)
     {
+        logger.LogInformation("BW←App (port RPC): method={Method}, id={Id}, portId={PortId}",
+            request.Method, request.Id, portId);
+
         try
         {
-            logger.LogInformation("BW←App: Received message type {Type} from App with tabId {TabId} msg: {msg}", msg.Type, msg.TabId, msg);
+            // Parse the RPC params to extract AppBwMessage fields
+            // AppPortService sends: { type, requestId, tabId, tabUrl, payload }
+            if (request.Params is not JsonElement paramsElement)
+            {
+                logger.LogWarning("BW←App (port RPC): Params is not JsonElement");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid params format");
+                return;
+            }
 
-            // Transform App message type to ContentScript message type
-            // App uses /KeriAuth/signify/replyCredential or /KeriAuth/signify/replyAID
-            // ContentScript expects /signify/reply with polaris-web AuthorizeResult payload
-            string contentScriptMessageType;
-            string? errorStr = null;
-            object? transformedPayload = msg.Payload; // Default to original payload
+            // Extract common fields
+            var tabId = paramsElement.TryGetProperty("tabId", out var tabIdProp) ? tabIdProp.GetInt32() : 0;
+            var tabUrl = paramsElement.TryGetProperty("tabUrl", out var tabUrlProp) ? tabUrlProp.GetString() : null;
+            var requestId = paramsElement.TryGetProperty("requestId", out var reqIdProp) ? reqIdProp.GetString() : null;
+            var payload = paramsElement.TryGetProperty("payload", out var payloadProp) ? payloadProp : (JsonElement?)null;
 
+            logger.LogInformation("BW←App (port RPC): Parsed params - tabId={TabId}, tabUrl={TabUrl}, requestId={RequestId}",
+                tabId, tabUrl, requestId);
 
+            // Extend session on App activity
+            await _sessionManager.ExtendIfUnlockedAsync();
 
-            switch (msg.Type)
+            // Route based on method (which is the message type)
+            switch (request.Method)
             {
                 case AppBwMessageType.Values.ReplyAid:
                 case AppBwMessageType.Values.ReplyCredential:
-                    contentScriptMessageType = BwCsMessageTypes.REPLY;
-                    // Transform AuthorizeResult (with Aid) to BwCsAuthorizeResultPayload (with identifier)
-                    // to conform to polaris-web AuthorizeResult interface
-                    transformedPayload = TransformToPolariWebAuthorizeResult(msg.Payload);
-                    break;
+                    await HandleAppReplyAuthorizeRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    return;
+
                 case AppBwMessageType.Values.ReplyApprovedSignHeaders:
-                    if (msg.Payload is null)
-                    {
-                        logger.LogWarning("Payload is null for {t}: {msg}", msg.Type, msg);
-                        return null;
-                    }
-                    if (msg.RequestId is null)
-                    {
-                        logger.LogWarning("RequestId is null for {t}: {msg}", msg.Type, msg);
-                        return null;
-                    }
-                    if (msg.TabUrl is null)
-                    {
-                        logger.LogWarning("TabUrl is null for {t}: {msg}", msg.Type, msg);
-                        return null;
-                    }
+                    await HandleAppReplySignHeadersRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    return;
 
-                    // Clear pending request before processing (early return case)
-                    logger.LogInformation("BW: Clearing pending request for ReplyApprovedSignHeaders, requestId={RequestId}", msg.RequestId);
-                    await _pendingBwAppRequestService.RemoveRequestAsync(msg.RequestId);
-
-                    try
-                    {
-                        // Deserialize payload to AppBwReplySignPayload2
-                        var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
-                        var signPayload = JsonSerializer.Deserialize<AppBwReplySignPayload2>(payloadJson, RecursiveDictionaryJsonOptions);
-
-                        if (signPayload is null)
-                        {
-                            logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload2: {payload}", msg.Payload);
-                            return null;
-                        }
-
-                        logger.LogInformation("ReplyApprovedSignHeaders: origin={origin}, url={url}, method={method}, prefix={prefix}",
-                            signPayload.Origin, signPayload.Url, signPayload.Method, signPayload.Prefix);
-
-                        await SignAndSendRequestHeaders(msg.TabUrl, msg.TabId,
-                            new AppBwReplySignMessage(msg.TabId, msg.TabUrl, msg.RequestId, signPayload.Origin, signPayload.Url, signPayload.Method, signPayload.Headers, signPayload.Prefix));
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Error deserializing AppBwReplySignPayload2 from payload: {payload}", msg.Payload);
-                    }
-                    return null; // TODO P2 send error message back to Cs?
                 case AppBwMessageType.Values.ReplySignData:
-                    contentScriptMessageType = BwCsMessageTypes.REPLY;
-                    // Transform SignDataResult to polaris-web format (already matches)
-                    // SignDataResult { aid, items[] } -> same format expected by polaris-web
-                    try
-                    {
-                        var signDataPayloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
-                        var signDataResult = JsonSerializer.Deserialize<SignDataResult>(signDataPayloadJson, RecursiveDictionaryJsonOptions);
-                        if (signDataResult is null)
-                        {
-                            logger.LogWarning("Could not deserialize payload to SignDataResult: {payload}", msg.Payload);
-                            contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
-                            errorStr = "Failed to process sign-data result";
-                        }
-                        else
-                        {
-                            transformedPayload = signDataResult;
-                            logger.LogInformation("BW←App: ReplySignData received, aid={Aid}, itemCount={Count}",
-                                signDataResult.Aid, signDataResult.Items?.Length ?? 0);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Error deserializing SignDataResult from payload: {payload}", msg.Payload);
-                        contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
-                        errorStr = "Error processing sign-data result";
-                    }
-                    break;
+                    await HandleAppReplySignDataRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    return;
+
                 case AppBwMessageType.Values.ReplyCreateCredential:
-                    // User approved credential creation - issue the credential via signify-ts
-                    return await HandleCreateCredentialApprovalAsync(msg);
-                case AppBwMessageType.Values.ReplyError:
-                    contentScriptMessageType = BwCsMessageTypes.REPLY;
-                    errorStr = "An error ocurred in the KERI Auth app";
-                    break; // will forward
+                    await HandleAppReplyCreateCredentialRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    return;
+
                 case AppBwMessageType.Values.ReplyCanceled:
-                    contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED;
-                    errorStr = "User canceled or rejected request";
-                    // TODO P2 need to look at contents of the following? AppBwReplyCanceledMessage: AppBwMessage
-                    break; // will forward
+                case AppBwMessageType.Values.ReplyError:
                 case AppBwMessageType.Values.AppClosed:
-                    // Notify BwAppMessagingService to fail any pending requests
-                    _bwAppMessagingService.HandleAppClosed(msg.TabId);
-                    contentScriptMessageType = BwCsMessageTypes.REPLY_CANCELED; // sic
-                    errorStr = "The KERI Auth app was closed";
-                    break; // will forward
+                    await HandleAppReplyCanceledRpcAsync(portId, request, tabId, tabUrl, requestId, request.Method);
+                    return;
+
                 case AppBwMessageType.Values.UserActivity:
-                    logger.LogInformation("BW←App: USER_ACTIVITY message received, updating session expiration if applicable");
-                    await _sessionManager.ExtendIfUnlockedAsync();
-                    return null;
+                    // Session already extended above, just acknowledge
+                    logger.LogDebug("BW←App (port RPC): USER_ACTIVITY processed");
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+                    return;
+
                 case AppBwMessageType.Values.RequestAddIdentifier:
-                    return await HandleRequestAddIdentifierAsync(msg);
+                    await HandleAppRequestAddIdentifierRpcAsync(portId, request, tabId, tabUrl, payload);
+                    return;
+
                 case AppBwMessageType.Values.ResponseToBwRequest:
-                    // App is responding to a BW-initiated request
-                    if (msg.RequestId is not null)
-                    {
-                        logger.LogInformation("BW←App: received ResponseToBwRequest ... handling");
-                        _bwAppMessagingService.HandleResponseFromApp(msg.RequestId, msg.Payload);
-                    }
-                    else
-                    {
-                        logger.LogWarning("BW←App: ResponseToBwRequest received without requestId");
-                    }
-                    return null;
+                    // Legacy BW→App request/response pattern - not used with port-based messaging
+                    logger.LogInformation("BW←App (port RPC): ResponseToBwRequest received for requestId={RequestId} (legacy path)", requestId);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+                    return;
+
                 default:
-                    logger.LogWarning("BW←App: Unknown App message type {Type}, using as-is", msg.Type);
-                    contentScriptMessageType = msg.Type;
-                    break; // will forward
+                    logger.LogWarning("BW←App (port RPC): Unknown method: {Method}", request.Method);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        errorMessage: $"Unknown method: {request.Method}");
+                    return;
             }
-
-            // Clear pending request from storage since we're about to send the reply
-            // This ensures cleanup happens even if the popup/sidepanel closes abruptly
-            if (!string.IsNullOrEmpty(msg.RequestId))
-            {
-                logger.LogInformation("BW: Clearing pending request after reply, requestId={RequestId}", msg.RequestId);
-                var clearResult = await _pendingBwAppRequestService.RemoveRequestAsync(msg.RequestId);
-                if (clearResult.IsFailed)
-                {
-                    logger.LogWarning("BW: Failed to clear pending request {RequestId}: {Error}",
-                        msg.RequestId, clearResult.Errors.Count > 0 ? clearResult.Errors[0].Message : "Unknown error");
-                }
-            }
-
-            // Create OutboundMessage for forwarding to ContentScript
-            var forwardMsg = new BwCsMessage(
-                type: contentScriptMessageType,
-                requestId: msg.RequestId,
-                data: transformedPayload,
-                error: errorStr
-            );
-
-            // Forward the message to ContentScript on the specified tab
-            logger.LogInformation("BW→CS: Forwarding message type {Type} (transformed from {OriginalType}) to tab {TabId}",
-                contentScriptMessageType, msg.Type, msg.TabId);
-            await SendMessageToTabAsync(msg.TabId, forwardMsg);
-            return null;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error forwarding App message to ContentScript");
-            return null;
+            logger.LogError(ex, "Error handling App RPC: method={Method}", request.Method);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Handles ReplyAid and ReplyCredential RPC from App.
+    /// Transforms to polaris-web format and forwards to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplyAuthorizeRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
+    {
+        logger.LogInformation("HandleAppReplyAuthorizeRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (requestId is null)
+        {
+            logger.LogWarning("HandleAppReplyAuthorizeRpcAsync: Missing requestId");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing requestId");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess)
+            {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        // Transform payload to polaris-web format
+        object? transformedPayload = null;
+        if (payload.HasValue)
+        {
+            var payloadObj = JsonSerializer.Deserialize<object>(payload.Value.GetRawText(), RecursiveDictionaryJsonOptions);
+            transformedPayload = TransformToPolariWebAuthorizeResult(payloadObj);
+        }
+
+        // Route response to ContentScript via port
+        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
+        {
+            logger.LogInformation("BW→CS (port): Sending RPC response for authorize, requestId={RequestId}", requestId);
+            await _portService.SendRpcResponseAsync(
+                pendingRequest.PortId,
+                pendingRequest.PortSessionId,
+                pendingRequest.RpcRequestId ?? requestId,
+                result: transformedPayload);
+        }
+        else
+        {
+            logger.LogWarning("BW→CS: No port info for authorize response, requestId={RequestId}. Response not sent.", requestId);
+        }
+
+        // Acknowledge the App RPC
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+    }
+
+    /// <summary>
+    /// Handles ReplyApprovedSignHeaders RPC from App.
+    /// Signs the headers and forwards the result to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplySignHeadersRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
+    {
+        logger.LogInformation("HandleAppReplySignHeadersRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (payload is null || requestId is null || tabUrl is null)
+        {
+            logger.LogWarning("HandleAppReplySignHeadersRpcAsync: Missing required fields");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing required fields");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info BEFORE clearing
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess)
+            {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        try
+        {
+            // Deserialize payload to AppBwReplySignPayload2
+            var signPayload = JsonSerializer.Deserialize<AppBwReplySignPayload2>(payload.Value.GetRawText(), RecursiveDictionaryJsonOptions);
+
+            if (signPayload is null)
+            {
+                logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload2");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid sign payload");
+                return;
+            }
+
+            logger.LogInformation("ReplyApprovedSignHeaders: origin={Origin}, url={Url}, method={Method}",
+                signPayload.Origin, signPayload.Url, signPayload.Method);
+
+            // Sign and send - this will forward the result to CS
+            await SignAndSendRequestHeaders(tabUrl, tabId,
+                new AppBwReplySignMessage(tabId, tabUrl, requestId, signPayload.Origin, signPayload.Url, signPayload.Method, signPayload.Headers, signPayload.Prefix),
+                pendingRequest?.PortId,
+                pendingRequest?.PortSessionId,
+                pendingRequest?.RpcRequestId);
+
+            // Acknowledge the App RPC
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling sign headers");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles ReplySignData RPC from App.
+    /// Forwards the signed data result to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplySignDataRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
+    {
+        logger.LogInformation("HandleAppReplySignDataRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (requestId is null)
+        {
+            logger.LogWarning("HandleAppReplySignDataRpcAsync: Missing requestId");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing requestId");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess)
+            {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        object? transformedPayload = null;
+        string? errorStr = null;
+
+        if (payload.HasValue)
+        {
+            try
+            {
+                var signDataResult = JsonSerializer.Deserialize<SignDataResult>(payload.Value.GetRawText(), RecursiveDictionaryJsonOptions);
+                if (signDataResult is not null)
+                {
+                    transformedPayload = signDataResult;
+                    logger.LogInformation("ReplySignData: aid={Aid}, itemCount={Count}",
+                        signDataResult.Aid, signDataResult.Items?.Length ?? 0);
+                }
+                else
+                {
+                    errorStr = "Failed to process sign-data result";
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error deserializing SignDataResult");
+                errorStr = "Error processing sign-data result";
+            }
+        }
+
+        // Route response to ContentScript
+        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
+        {
+            logger.LogInformation("BW→CS (port): Sending RPC response for sign-data, requestId={RequestId}", requestId);
+            await _portService.SendRpcResponseAsync(
+                pendingRequest.PortId,
+                pendingRequest.PortSessionId,
+                pendingRequest.RpcRequestId ?? requestId,
+                result: errorStr is null ? transformedPayload : null,
+                errorMessage: errorStr);
+        }
+        else
+        {
+            logger.LogWarning("BW→CS: No port info for sign-data response, requestId={RequestId}. Response not sent.", requestId);
+        }
+
+        // Acknowledge the App RPC
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+    }
+
+    /// <summary>
+    /// Handles ReplyCreateCredential RPC from App.
+    /// Issues the credential via signify-ts and forwards the result to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplyCreateCredentialRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
+    {
+        logger.LogInformation("HandleAppReplyCreateCredentialRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (requestId is null || payload is null)
+        {
+            logger.LogWarning("HandleAppReplyCreateCredentialRpcAsync: Missing required fields");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing required fields");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess)
+            {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        // Reconstruct AppBwMessage for HandleCreateCredentialApprovalAsync
+        var appMsg = new AppBwMessage<object>(
+            type: AppBwMessageType.Values.ReplyCreateCredential,
+            tabId: tabId,
+            tabUrl: tabUrl,
+            requestId: requestId,
+            payload: JsonSerializer.Deserialize<object>(payload.Value.GetRawText(), RecursiveDictionaryJsonOptions)
+        );
+
+        // Delegate to handler with port info for routing
+        await HandleCreateCredentialApprovalAsync(appMsg,
+            pendingRequest?.PortId, pendingRequest?.PortSessionId, pendingRequest?.RpcRequestId);
+
+        // Acknowledge the App RPC
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+    }
+
+    /// <summary>
+    /// Handles ReplyCanceled, ReplyError, and AppClosed RPC from App.
+    /// Forwards cancel/error to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, string messageType)
+    {
+        logger.LogInformation("HandleAppReplyCanceledRpcAsync: type={Type}, tabId={TabId}, requestId={RequestId}",
+            messageType, tabId, requestId);
+
+        string errorStr = messageType switch
+        {
+            AppBwMessageType.Values.ReplyError => "An error occurred in the KERI Auth app",
+            AppBwMessageType.Values.AppClosed => "The KERI Auth app was closed",
+            _ => "User canceled or rejected request"
+        };
+
+        // Get and clear pending request
+        PendingBwAppRequest? pendingRequest = null;
+        if (!string.IsNullOrEmpty(requestId))
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess)
+            {
+                pendingRequest = pendingResult.Value;
+            }
+            await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+        }
+
+        // Route response to ContentScript
+        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
+        {
+            logger.LogInformation("BW→CS (port): Sending cancel RPC response, requestId={RequestId}", requestId);
+            await _portService.SendRpcResponseAsync(
+                pendingRequest.PortId,
+                pendingRequest.PortSessionId,
+                pendingRequest.RpcRequestId ?? requestId ?? "",
+                errorMessage: errorStr);
+        }
+        else
+        {
+            logger.LogWarning("BW→CS: No port info for cancel response, requestId={RequestId}. Response not sent.", requestId);
+        }
+
+        // Acknowledge the App RPC
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+    }
+
+    /// <summary>
+    /// Handles RequestAddIdentifier RPC from App.
+    /// Creates a new identifier via signify-ts and returns the result.
+    /// </summary>
+    private async Task HandleAppRequestAddIdentifierRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, JsonElement? payload)
+    {
+        logger.LogInformation("HandleAppRequestAddIdentifierRpcAsync");
+
+        try
+        {
+            // Reconstruct AppBwMessage for existing handler
+            var appMsg = new AppBwMessage<object>(
+                type: AppBwMessageType.Values.RequestAddIdentifier,
+                tabId: tabId,
+                tabUrl: tabUrl,
+                requestId: request.Id,
+                payload: payload.HasValue
+                    ? JsonSerializer.Deserialize<object>(payload.Value.GetRawText(), RecursiveDictionaryJsonOptions)
+                    : null
+            );
+
+            // Delegate to existing handler
+            var result = await HandleRequestAddIdentifierAsync(appMsg);
+
+            // Return result via RPC response
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: result);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating identifier");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles EVENT messages from ContentScript or App (fire-and-forget notifications).
+    /// Events don't require a response - they're used for notifications like user activity.
+    /// </summary>
+    private async Task HandlePortEventAsync(string portId, PortSession? portSession, Models.Messages.Port.EventMessage eventMessage)
+    {
+        logger.LogInformation("BW←Port (EVENT): name={Name}, portId={PortId}", eventMessage.Name, portId);
+
+        switch (eventMessage.Name)
+        {
+            case AppBwMessageType.Values.UserActivity:
+                // Extend session on user activity
+                logger.LogDebug("User activity event received, extending session");
+                await _sessionManager.ExtendIfUnlockedAsync();
+                break;
+
+            case AppBwMessageType.Values.AppClosed:
+                // App closed notification - handle cleanup if needed
+                logger.LogInformation("App closed event received from portId={PortId}", portId);
+                // Port disconnect will handle cleanup
+                break;
+
+            default:
+                logger.LogDebug("Unhandled event: name={Name}", eventMessage.Name);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Handles authorize RPC request from ContentScript.
+    /// Creates a pending request and opens the popup/sidepanel for user interaction.
+    /// </summary>
+    private async Task HandleSelectAuthorizeRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin)
+    {
+        logger.LogInformation("HandleSelectAuthorizeRpcAsync: method={Method}, tabId={TabId}, origin={Origin}",
+            request.Method, tabId, origin);
+
+        // Extract requestId from params if present, otherwise use RPC request ID
+        string? originalRequestId = null;
+        if (request.Params is JsonElement paramsElement && paramsElement.TryGetProperty("requestId", out var reqIdProp))
+        {
+            originalRequestId = reqIdProp.GetString();
+        }
+        originalRequestId ??= request.Id;
+
+        // Create the payload with original CS request details for response routing
+        var payload = new RequestSelectAuthorizePayload(
+            Origin: origin,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: request.Method,
+            OriginalPayload: request.Params
+        );
+
+        // Create pending request for App - store port info for response routing
+        var pendingRequest = new PendingBwAppRequest
+        {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestSelectAuthorize,
+            Payload = payload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            // Store port routing info for response
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+        // Response will be sent when App replies via HandleAppRpcAsync
+    }
+
+    /// <summary>
+    /// Handles sign-request RPC from ContentScript.
+    /// </summary>
+    private async Task HandleSignRequestRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin)
+    {
+        logger.LogInformation("HandleSignRequestRpcAsync: tabId={TabId}, origin={Origin}", tabId, origin);
+
+        if (tabUrl is null)
+        {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Tab URL is required for sign-request");
+            return;
+        }
+
+        // Extract requestId and payload from params
+        string? originalRequestId = null;
+        SignRequestArgs? signRequestPayload = null;
+
+        if (request.Params is JsonElement paramsElement)
+        {
+            if (paramsElement.TryGetProperty("requestId", out var reqIdProp))
+            {
+                originalRequestId = reqIdProp.GetString();
+            }
+            if (paramsElement.TryGetProperty("payload", out var payloadProp))
+            {
+                signRequestPayload = JsonSerializer.Deserialize<SignRequestArgs>(payloadProp.GetRawText(), PortMessageJsonOptions);
+            }
+            else
+            {
+                // Params might be the payload directly
+                signRequestPayload = JsonSerializer.Deserialize<SignRequestArgs>(paramsElement.GetRawText(), PortMessageJsonOptions);
+            }
+        }
+
+        originalRequestId ??= request.Id;
+
+        if (signRequestPayload is null)
+        {
+            logger.LogWarning("HandleSignRequestRpcAsync: invalid payload");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for sign-request");
+            return;
+        }
+
+        var method = signRequestPayload.Method ?? "GET";
+        var requestUrl = signRequestPayload.Url;
+        var headers = signRequestPayload.Headers;
+
+        if (string.IsNullOrEmpty(requestUrl))
+        {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "URL must not be empty");
+            return;
+        }
+
+        // Get or create website config for this origin
+        var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
+        if (getOrCreateWebsiteRes.IsFailed)
+        {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Failed to get or create website config");
+            return;
+        }
+
+        WebsiteConfig websiteConfig = getOrCreateWebsiteRes.Value.websiteConfig1;
+        string? rememberedPrefix = websiteConfig.RememberedPrefixOrNothing;
+
+        if (rememberedPrefix is null)
+        {
+            var prefsResult = await _storageService.GetItem<Preferences>();
+            rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
+                ? prefsResult.Value.SelectedPrefix
+                : AppConfig.DefaultPreferences.SelectedPrefix;
+        }
+
+        // Create pending request for sign headers
+        var signPayload = new RequestSignHeadersPayload(
+            Origin: origin,
+            Url: requestUrl,
+            Method: method,
+            Headers: headers ?? new Dictionary<string, string>(),
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.SIGN_REQUEST,
+            RememberedPrefix: rememberedPrefix
+        );
+
+        var pendingRequest = new PendingBwAppRequest
+        {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestSignHeaders,
+            Payload = signPayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+    }
+
+    /// <summary>
+    /// Handles sign-data RPC from ContentScript.
+    /// </summary>
+    private async Task HandleSignDataRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin)
+    {
+        logger.LogInformation("HandleSignDataRpcAsync: tabId={TabId}, origin={Origin}", tabId, origin);
+
+        // Extract requestId and payload from params
+        string? originalRequestId = null;
+        SignDataArgs? signDataPayload = null;
+
+        if (request.Params is JsonElement paramsElement)
+        {
+            if (paramsElement.TryGetProperty("requestId", out var reqIdProp))
+            {
+                originalRequestId = reqIdProp.GetString();
+            }
+            if (paramsElement.TryGetProperty("payload", out var payloadProp))
+            {
+                signDataPayload = JsonSerializer.Deserialize<SignDataArgs>(payloadProp.GetRawText(), PortMessageJsonOptions);
+            }
+            else
+            {
+                signDataPayload = JsonSerializer.Deserialize<SignDataArgs>(paramsElement.GetRawText(), PortMessageJsonOptions);
+            }
+        }
+
+        originalRequestId ??= request.Id;
+
+        if (signDataPayload is null || signDataPayload.Items is null || signDataPayload.Items.Length == 0)
+        {
+            logger.LogWarning("HandleSignDataRpcAsync: invalid payload - no items");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for sign-data: items required");
+            return;
+        }
+
+        var requestSignDataPayload = new RequestSignDataPayload(
+            Origin: origin,
+            Message: signDataPayload.Message,
+            Items: signDataPayload.Items,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.SIGN_DATA
+        );
+
+        var pendingRequest = new PendingBwAppRequest
+        {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestSignData,
+            Payload = requestSignDataPayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+    }
+
+    /// <summary>
+    /// Handles create-data-attestation RPC from ContentScript.
+    /// </summary>
+    private async Task HandleCreateDataAttestationRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin)
+    {
+        logger.LogInformation("HandleCreateDataAttestationRpcAsync: tabId={TabId}, origin={Origin}", tabId, origin);
+
+        // Extract requestId and payload from params
+        string? originalRequestId = null;
+        CreateDataAttestationPayload? createPayload = null;
+
+        if (request.Params is JsonElement paramsElement)
+        {
+            if (paramsElement.TryGetProperty("requestId", out var reqIdProp))
+            {
+                originalRequestId = reqIdProp.GetString();
+            }
+            if (paramsElement.TryGetProperty("payload", out var payloadProp))
+            {
+                createPayload = JsonSerializer.Deserialize<CreateDataAttestationPayload>(payloadProp.GetRawText(), PortMessageJsonOptions);
+            }
+            else
+            {
+                createPayload = JsonSerializer.Deserialize<CreateDataAttestationPayload>(paramsElement.GetRawText(), PortMessageJsonOptions);
+            }
+        }
+
+        originalRequestId ??= request.Id;
+
+        if (createPayload is null)
+        {
+            logger.LogWarning("HandleCreateDataAttestationRpcAsync: invalid payload");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for create-data-attestation");
+            return;
+        }
+
+        var requestPayload = new RequestCreateCredentialPayload(
+            Origin: origin,
+            CredData: createPayload.CredData,
+            SchemaSaid: createPayload.SchemaSaid,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.CREATE_DATA_ATTESTATION
+        );
+
+        var pendingRequest = new PendingBwAppRequest
+        {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestCreateCredential,
+            Payload = requestPayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
     }
 
     /// <summary>
@@ -1606,227 +2018,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         }
     }
 
-    /// <summary>
-    /// Handles SELECT_AUTHORIZE message via runtime.sendMessage instead of port.
-    /// Creates a pending BW→App request and opens the action popup for user to select an identifier.
-    /// </summary>
-    private async Task HandleSelectAuthorizeAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender)
+    private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg,
+        string? portId = null, string? portSessionId = null, string? rpcRequestId = null)
     {
-        try
+        // Helper to send response via port
+        async Task SendResponseAsync(object? result, string? error)
         {
-            logger.LogInformation("BW HandleSelectAuthorize: {Message}", JsonSerializer.Serialize(msg));
-
-            if (sender?.Tab?.Id == null)
+            if (portId is not null && portSessionId is not null)
             {
-                logger.LogWarning("BW HandleSelectAuthorize: no tabId found");
-                return;
+                // Route via port
+                await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId ?? msg.RequestId ?? "",
+                    result: error is null ? result : null, errorMessage: error);
             }
-
-            var tabId = sender.Tab.Id.Value;
-            var tabUrl = sender.Url;
-
-            // Extract origin from tab URL
-            string origin = "unknown";
-            if (tabUrl is not null && Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri))
+            else
             {
-                origin = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort)
-                {
-                    origin += $":{originUri.Port}";
-                }
+                logger.LogWarning("BW→CS: No port info for sign-headers response, requestId={RequestId}. Response not sent.", msg.RequestId);
             }
-
-            logger.LogInformation("BW HandleSelectAuthorize: tabId={TabId}, origin={Origin}", tabId, origin);
-
-            // Create the payload with original CS request details for response routing
-            var payload = new RequestSelectAuthorizePayload(
-                Origin: origin,
-                TabId: tabId,
-                TabUrl: tabUrl,
-                OriginalRequestId: msg.RequestId,
-                OriginalType: msg.Type,
-                OriginalPayload: msg.Payload
-            );
-
-            // Create pending request for App - use original requestId so it's returned in the reply
-            var pendingRequest = new PendingBwAppRequest
-            {
-                RequestId = msg.RequestId ?? Guid.NewGuid().ToString(),
-                Type = BwAppMessageType.Values.RequestSelectAuthorize,
-                Payload = payload,
-                CreatedAtUtc = DateTime.UtcNow,
-                TabId = tabId,
-                TabUrl = tabUrl
-            };
-
-            await UseSidePanelOrActionPopupAsync(pendingRequest);
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error in HandleSelectAuthorize");
-        }
-    }
 
-    /// <summary>
-    /// Handles sign request via runtime.sendMessage.
-    /// Creates a pending BW→App request and opens the action popup for user to approve signing.
-    /// </summary>
-    private async Task HandleRequestSignHeadersAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender)
-    {
-        try
-        {
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: {Message}", JsonSerializer.Serialize(msg));
-
-            if (sender?.Tab?.Id == null)
-            {
-                logger.LogError("BW HandleRequestSignHeadersAsync: no tabId found");
-                return; // don't have tabId to send error back to user/caller
-            }
-
-            int tabId = sender.Tab.Id.Value;
-            var tabUrl = sender.Url;
-            if (tabUrl is null)
-            {
-                logger.LogWarning("BW HandleRequestSignHeadersAsync: sender URL is null");
-                return;
-            }
-
-            // Extract origin (scheme://host:port) from the tab's URL
-            string origin = "";
-            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri))
-            {
-                origin = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort)
-                {
-                    origin += $":{originUri.Port}";
-                }
-            }
-            // TODO P2 validate origin against allowed patterns / permissions
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: tabId={TabId}, origin={Origin}", tabId, origin);
-
-            // Deserialize payload to SignRequestArgs
-            var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            logger.LogDebug("BW HandleRequestSignHeadersAsync: payloadJson={PayloadJson}", payloadJson);
-            var signRequestPayload = JsonSerializer.Deserialize<SignRequestArgs>(payloadJson, PortMessageJsonOptions);
-            if (signRequestPayload == null)
-            {
-                logger.LogWarning("BW HandleRequestSignHeadersAsync: invalid payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
-                return;
-            }
-
-            // Extract method and url from typed payload
-            var method = signRequestPayload.Method ?? "GET";
-            var requestUrl = signRequestPayload.Url;
-            var headers = signRequestPayload.Headers;
-            logger.LogInformation("BW HandleRequestSignHeadersAsync: method={Method}, url={Url}, headersCount={HeadersCount}",
-                method, requestUrl, headers?.Count ?? 0);
-            if (headers != null && headers.Count > 0)
-            {
-                foreach (var kvp in headers)
-                {
-                    logger.LogDebug("BW HandleRequestSignHeadersAsync: header[{Key}]={Value}", kvp.Key, kvp.Value);
-                }
-            }
-            if (string.IsNullOrEmpty(requestUrl))
-            {
-                logger.LogWarning("BW HandleRequestSignHeadersAsync: URL is empty");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL must not be empty"));
-                return;
-            }
-
-            // Get or create website config for this origin
-            var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
-            if (getOrCreateWebsiteRes.IsFailed)
-            {
-                logger.LogWarning("BW HandleRequestSignHeadersAsync: failed to get or create website config for origin {Origin}: {Error}",
-                    origin, string.Join("; ", getOrCreateWebsiteRes.Errors.Select(e => e.Message)));
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to get or create website config"));
-                return;
-            }
-            WebsiteConfig websiteConfig = getOrCreateWebsiteRes.Value.websiteConfig1;
-            string? rememberedPrefix = websiteConfig.RememberedPrefixOrNothing ?? null;
-            if (rememberedPrefix is null)
-            {
-                logger.LogInformation("BW HandleRequestSignHeadersAsync: no identifier was configured for origin {Origin}, so using user's currently selected prefix", origin);
-
-                var prefsResult = await _storageService.GetItem<Preferences>();
-
-                rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
-                    ? prefsResult.Value.SelectedPrefix
-                    : AppConfig.DefaultPreferences.SelectedPrefix;
-                // TODO P1 check whether this is for only this origin or all origins?
-                var res = await _websiteConfigService.Update(websiteConfig with { RememberedPrefixOrNothing = rememberedPrefix });
-                if (res.IsFailed)
-                {
-                    logger.LogWarning("BW HandleRequestSignHeadersAsync: failed to update website config with remembered prefix for origin {Origin}: {Error}",
-                        origin, string.Join("; ", res.Errors.Select(e => e.Message)));
-                    await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to update website config with remembered prefix"));
-                    return;
-                }
-            }
-
-            // Check if auto-sign is enabled for safe HTTP methods
-            var safeMethods = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "GET", "HEAD", "OPTIONS" };
-            bool isSafeMethod = safeMethods.Contains(method);
-            bool isAutoSignEnabled = websiteConfig.IsAutoSignSafeHeaders;
-
-            if (isSafeMethod && isAutoSignEnabled && !string.IsNullOrEmpty(rememberedPrefix))
-            {
-                logger.LogInformation("BW HandleRequestSignHeadersAsync: auto-signing safe method {Method} for origin {Origin}", method, origin);
-
-                // Create a synthetic AppBwReplySignMessage to reuse the signing logic
-                var autoSignMessage = new AppBwReplySignMessage(
-                    tabId,
-                    tabUrl,
-                    msg.RequestId ?? Guid.NewGuid().ToString(),
-                    origin,
-                    requestUrl,
-                    method,
-                    signRequestPayload.Headers ?? new Dictionary<string, string>(),
-                    rememberedPrefix
-                );
-
-                await SignAndSendRequestHeaders(tabUrl, tabId, autoSignMessage);
-                return;
-            }
-
-            // Create the payload with original CS request details for response routing
-            var payload = new RequestSignHeadersPayload(
-                Origin: origin,
-                Url: requestUrl,
-                Method: method,
-                Headers: signRequestPayload.Headers ?? new Dictionary<string, string>(),
-                TabId: tabId,
-                TabUrl: tabUrl,
-                OriginalRequestId: msg.RequestId,
-                OriginalType: msg.Type,
-                OriginalPayload: msg.Payload,
-                RememberedPrefix: rememberedPrefix
-            );
-
-            // Create pending request for App - use original requestId so it's returned in the reply
-            var pendingRequest = new PendingBwAppRequest
-            {
-                RequestId = msg.RequestId ?? Guid.NewGuid().ToString(),
-                Type = BwAppMessageType.Values.RequestSignHeaders,
-                Payload = payload,
-                CreatedAtUtc = DateTime.UtcNow,
-                TabId = tabId,
-                TabUrl = tabUrl
-            };
-
-            await UseSidePanelOrActionPopupAsync(pendingRequest);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error in HandleRequestSignHeadersAsync");
-        }
-    }
-
-
-    private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg)
-    {
         try
         {
             await EnsureInitializedAsync();
@@ -1835,7 +2044,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (payload is null)
             {
                 logger.LogError("SignAndSendRequestHeaders: could not parse payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}"));
+                await SendResponseAsync(null, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}");
                 return;
             }
 
@@ -1853,7 +2062,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (string.IsNullOrEmpty(requestUrl) || !Uri.IsWellFormedUriString(requestUrl, UriKind.Absolute))
             {
                 logger.LogWarning("SignAndSendRequestHeaders: URL is empty or not well-formed: {Url}", requestUrl);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "URL is empty or not well-formed"));
+                await SendResponseAsync(null, "URL is empty or not well-formed");
                 return;
             }
 
@@ -1861,7 +2070,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (string.IsNullOrEmpty(prefix))
             {
                 logger.LogWarning("SignAndSendRequestHeaders: no identifier prefix provided");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "No identifier configured for signing"));
+                await SendResponseAsync(null, "No identifier configured for signing");
                 return;
             }
 
@@ -1872,7 +2081,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (readyRes.IsFailed)
             {
                 logger.LogWarning("SignAndSendRequestHeaders: Signify client not ready: {Error}", readyRes.Errors[0].Message);
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"Signify client not ready: {readyRes.Errors[0].Message}"));
+                await SendResponseAsync(null, $"Signify client not ready: {readyRes.Errors[0].Message}");
                 return;
             }
 
@@ -1888,203 +2097,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (signedHeaders == null)
             {
                 logger.LogWarning("SignAndSendRequestHeaders: failed to generate signed headers");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Failed to generate signed headers"));
+                await SendResponseAsync(null, "Failed to generate signed headers");
                 return;
             }
 
             logger.LogInformation("SignAndSendRequestHeaders: successfully generated signed headers");
-            await SendMessageToTabAsync(tabId, new BwCsMessage(
-                type: BwCsMessageTypes.REPLY,
-                requestId: msg.RequestId,
-                data: new { headers = signedHeaders },
-                error: null
-            ));
+            await SendResponseAsync(new { headers = signedHeaders }, null);
             return;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in SignAndSendRequestHeaders");
-            await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, $"SignAndSendRequestHeaders: exception occurred."));
-            return;
-        }
-    }
-
-    /// <summary>
-    /// Handles sign-data request from ContentScript.
-    /// Creates a pending BW→App request and opens the popup for user to select an identifier and approve signing.
-    /// </summary>
-    private async Task HandleSignDataAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender)
-    {
-        try
-        {
-            logger.LogInformation("BW HandleSignData: {Message}", JsonSerializer.Serialize(msg));
-
-            if (sender?.Tab?.Id == null)
-            {
-                logger.LogError("BW HandleSignData: no tabId found");
-                return; // don't have tabId to send errorStr back
-            }
-
-            var tabId = sender.Tab.Id.Value;
-            var tabUrl = sender.Url ?? "unknown";
-
-            // Extract origin domain from URL
-            string origin = tabUrl;
-            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri))
-            {
-                origin = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort)
-                {
-                    origin += $":{originUri.Port}";
-                }
-            }
-
-            logger.LogInformation("BW HandleSignData: tabId={TabId}, origin={Origin}", tabId, origin);
-
-            // Deserialize payload to SignDataArgs
-            var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var signDataArgs = JsonSerializer.Deserialize<SignDataArgs>(payloadJson, PortMessageJsonOptions);
-
-            if (signDataArgs == null)
-            {
-                logger.LogWarning("BW HandleSignData: invalid payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
-                return;
-            }
-
-            // Create the payload with original CS request details for response routing
-            var requestPayload = new RequestSignDataPayload(
-                Origin: origin,
-                Message: signDataArgs.Message,
-                Items: signDataArgs.Items,
-                TabId: tabId,
-                TabUrl: tabUrl,
-                OriginalRequestId: msg.RequestId,
-                OriginalType: msg.Type,
-                OriginalPayload: msg.Payload
-            );
-
-            // Create pending request for App - use original requestId so it's returned in the reply
-            var pendingRequest = new PendingBwAppRequest
-            {
-                RequestId = msg.RequestId ?? Guid.NewGuid().ToString(),
-                Type = BwAppMessageType.Values.RequestSignData,
-                Payload = requestPayload,
-                CreatedAtUtc = DateTime.UtcNow,
-                TabId = tabId,
-                TabUrl = tabUrl
-            };
-
-            await UseSidePanelOrActionPopupAsync(pendingRequest);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error in HandleSignData");
-            var errorMsg = "BW HandleSignData: exception occurred";
-            logger.LogWarning("{m}", errorMsg);
-            if (sender?.Tab?.Id is not null)
-            {
-                var tabId = sender.Tab.Id.Value;
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, errorMsg));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Handles data attestation credential creation request from ContentScript.
-    /// Creates a credential based on provided credData and schemaSaid.
-    /// </summary>
-    private async Task HandleCreateDataAttestationAsync(CsBwMessage msg, WebExtensions.Net.Runtime.MessageSender? sender)
-    {
-        try
-        {
-            logger.LogInformation("BW HandleCreateDataAttestation: {Message}", JsonSerializer.Serialize(msg));
-
-            if (sender?.Tab?.Id == null)
-            {
-                logger.LogError("BW HandleCreateDataAttestation: no tabId found");
-                return;
-            }
-
-            var tabId = sender.Tab.Id.Value;
-            var tabUrl = sender.Url ?? "unknown";
-
-            // Extract origin domain from URL
-            string origin = tabUrl;
-            if (Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri))
-            {
-                origin = $"{originUri.Scheme}://{originUri.Host}";
-                if (!originUri.IsDefaultPort)
-                {
-                    origin += $":{originUri.Port}";
-                }
-            }
-
-            logger.LogInformation("BW HandleCreateDataAttestation: tabId={TabId}, origin={Origin}", tabId, origin);
-
-            // Deserialize payload using specific type
-            var payloadJson = JsonSerializer.Serialize(msg.Payload);
-            var payload = JsonSerializer.Deserialize<CreateDataAttestationPayload>(payloadJson, PortMessageJsonOptions);
-
-            if (payload == null)
-            {
-                logger.LogWarning("BW HandleCreateDataAttestation: invalid payload");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Invalid payload"));
-                return;
-            }
-
-            // Validate required fields
-            if (payload.CredData == null || payload.CredData.Count == 0)
-            {
-                logger.LogWarning("BW HandleCreateDataAttestation: credData is empty or missing");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Credential data not specified"));
-                return;
-            }
-
-            if (string.IsNullOrEmpty(payload.SchemaSaid))
-            {
-                logger.LogWarning("BW HandleCreateDataAttestation: schemaSaid is empty or missing");
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, "Schema SAID not specified"));
-                return;
-            }
-
-            // Create the payload with original CS request details for response routing
-            // Preserve credData as-is (object) to maintain CESR/SAID ordering
-            var requestPayload = new RequestCreateCredentialPayload(
-                Origin: origin,
-                CredData: payload.CredData,
-                SchemaSaid: payload.SchemaSaid,
-                TabId: tabId,
-                TabUrl: tabUrl,
-                OriginalRequestId: msg.RequestId,
-                OriginalType: msg.Type,
-                OriginalPayload: msg.Payload
-            );
-
-            // Create pending request for App - use original requestId so it's returned in the reply
-            var pendingRequest = new PendingBwAppRequest
-            {
-                RequestId = msg.RequestId ?? Guid.NewGuid().ToString(),
-                Type = BwAppMessageType.Values.RequestCreateCredential,
-                Payload = requestPayload,
-                CreatedAtUtc = DateTime.UtcNow,
-                TabId = tabId,
-                TabUrl = tabUrl
-            };
-
-            await UseSidePanelOrActionPopupAsync(pendingRequest);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error in HandleCreateDataAttestation");
-            var msg2 = "BW HandleCreateDataAttestation: exception occurred";
-            logger.LogWarning("{m}", msg2);
-            if (sender?.Tab?.Id is not null)
-            {
-                var tabId = sender.Tab.Id.Value;
-                await SendMessageToTabAsync(tabId, new ErrorReplyMessage(msg.RequestId, msg2));
-            }
-
+            await SendResponseAsync(null, $"SignAndSendRequestHeaders: exception occurred.");
             return;
         }
     }
@@ -2093,18 +2117,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles user approval of credential creation from App.
     /// Issues the credential using signify-ts and sends the result to ContentScript.
     /// </summary>
-    private async Task<object?> HandleCreateCredentialApprovalAsync(AppBwMessage<object> msg)
+    private async Task HandleCreateCredentialApprovalAsync(AppBwMessage<object> msg,
+        string? portId = null, string? portSessionId = null, string? rpcRequestId = null)
     {
+        // Helper to send response via port
+        async Task SendResponseAsync(object? result, string? error)
+        {
+            if (portId is not null && portSessionId is not null)
+            {
+                await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId ?? msg.RequestId ?? "",
+                    result: error is null ? result : null, errorMessage: error);
+            }
+            else
+            {
+                logger.LogWarning("BW→CS: No port info for create-credential response, requestId={RequestId}. Response not sent.", msg.RequestId);
+            }
+        }
+
         try
         {
             logger.LogInformation("BW HandleCreateCredentialApproval: Processing credential creation approval");
-
-            // Clear pending request early (this method returns directly, doesn't fall through to common cleanup)
-            if (!string.IsNullOrEmpty(msg.RequestId))
-            {
-                logger.LogInformation("BW: Clearing pending request for ReplyCreateCredential, requestId={RequestId}", msg.RequestId);
-                await _pendingBwAppRequestService.RemoveRequestAsync(msg.RequestId);
-            }
 
             // Deserialize the approval payload
             var payloadJson = JsonSerializer.Serialize(msg.Payload, RecursiveDictionaryJsonOptions);
@@ -2113,8 +2145,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (approvalPayload is null)
             {
                 logger.LogWarning("BW HandleCreateCredentialApproval: Could not deserialize approval payload");
-                await SendMessageToTabAsync(msg.TabId, new ErrorReplyMessage(msg.RequestId, "Invalid approval payload"));
-                return null;
+                await SendResponseAsync(null, "Invalid approval payload");
+                return;
             }
 
             var aidName = approvalPayload.AidName;
@@ -2129,9 +2161,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (registriesResult.IsFailed || registriesResult.Value.Count == 0)
             {
                 logger.LogWarning("BW HandleCreateCredentialApproval: no registry found for AID {AidName}", aidName);
-                await SendMessageToTabAsync(msg.TabId, new ErrorReplyMessage(msg.RequestId,
-                    "No credential registry found for this identifier. Please create a registry first."));
-                return null;
+                await SendResponseAsync(null, "No credential registry found for this identifier. Please create a registry first.");
+                return;
             }
 
             var registry = registriesResult.Value[0]; // Use first registry
@@ -2140,8 +2171,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             if (string.IsNullOrEmpty(registryId))
             {
                 logger.LogWarning("BW HandleCreateCredentialApproval: registry ID is empty for AID {AidName}", aidName);
-                await SendMessageToTabAsync(msg.TabId, new ErrorReplyMessage(msg.RequestId, "Invalid registry configuration"));
-                return null;
+                await SendResponseAsync(null, "Invalid registry configuration");
+                return;
             }
 
             // Verify schema exists, and if not, try to load it via OOBI
@@ -2253,9 +2284,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             {
                 logger.LogWarning("BW HandleCreateCredentialApproval: failed to issue credential: {Error}",
                     issueResult.Errors[0].Message);
-                await SendMessageToTabAsync(msg.TabId, new ErrorReplyMessage(msg.RequestId,
-                    $"Failed to issue credential: {issueResult.Errors[0].Message}"));
-                return null;
+                await SendResponseAsync(null, $"Failed to issue credential: {issueResult.Errors[0].Message}");
+                return;
             }
 
             var credential = issueResult.Value;
@@ -2271,22 +2301,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 op = credential.Op
             };
 
-            // Send credential back to ContentScript
-            await SendMessageToTabAsync(msg.TabId, new BwCsMessage(
-                type: BwCsMessageTypes.REPLY,
-                requestId: msg.RequestId,
-                data: createCredentialResult,
-                error: null
-            ));
-
-            return null;
+            // Send credential back to ContentScript via port
+            logger.LogInformation("BW→CS (port): Sending create-credential response, requestId={RequestId}", msg.RequestId);
+            await SendResponseAsync(createCredentialResult, null);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in HandleCreateCredentialApproval");
-            await SendMessageToTabAsync(msg.TabId, new ErrorReplyMessage(msg.RequestId,
-                "Failed to create credential: " + ex.Message));
-            return null;
+            await SendResponseAsync(null, "Failed to create credential: " + ex.Message);
         }
     }
 

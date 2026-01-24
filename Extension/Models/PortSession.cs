@@ -24,6 +24,11 @@ public record PortSession {
     public int? FrameId { get; init; }
 
     /// <summary>
+    /// URL of the tab when the ContentScript connected. May be updated on reconnection.
+    /// </summary>
+    public string? TabUrl { get; set; }
+
+    /// <summary>
     /// Port ID of the ContentScript connection. Null if CS not yet connected.
     /// Note: We use port IDs (strings) rather than Port objects because Port objects
     /// cannot reliably serve as dictionary keys across JS interop boundaries.

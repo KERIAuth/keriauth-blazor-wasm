@@ -52,6 +52,26 @@ public record PendingBwAppRequest {
     public string? TabUrl { get; init; }
 
     /// <summary>
+    /// Port ID for routing the response via port-based messaging.
+    /// When set, response should be sent via BwPortService.SendRpcResponseAsync instead of sendMessage.
+    /// </summary>
+    [JsonPropertyName("portId")]
+    public string? PortId { get; init; }
+
+    /// <summary>
+    /// PortSession ID for the response routing.
+    /// </summary>
+    [JsonPropertyName("portSessionId")]
+    public string? PortSessionId { get; init; }
+
+    /// <summary>
+    /// RPC request ID for correlating the response.
+    /// Different from RequestId when the original CS request had its own requestId.
+    /// </summary>
+    [JsonPropertyName("rpcRequestId")]
+    public string? RpcRequestId { get; init; }
+
+    /// <summary>
     /// Gets the payload deserialized to the specified type.
     /// Handles both direct type match and JsonElement deserialization (after storage round-trip).
     /// </summary>

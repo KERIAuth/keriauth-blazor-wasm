@@ -2,16 +2,17 @@
 @using Extension.Models.Messages.AppBw
 @using Extension.Services
 @using Extension.Services.JsBindings
+@using Extension.Services.Port
 @using Extension.Utilities
 @using WebExtensions.Net.Runtime
 @inject NavigationManager navManager
 @inject ILogger<App> logger
-@inject IAppBwMessagingService appBwMessagingService
+@inject IAppPortService appPortService
 @inject AppCache appCache
 @inject HttpClient http
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 
-@implements IDisposable
+@implements IAsyncDisposable
 
 @code {
     // Fields
@@ -61,11 +62,11 @@
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
         logger.LogInformation("InitialUri: {u}", InitialUri.ToString());
 
-        // Extract tabId from query string if present, otherwise use null
-        var query = System.Web.HttpUtility.ParseQueryString(InitialUri.Query);
-        var tabIdParam = query["tabId"];
-        // Initialize messaging service with BackgroundWorker
-        await appBwMessagingService.Initialize(tabIdParam ?? "");
+        // Connect to BackgroundWorker via port-based messaging
+        // This replaces the legacy sendMessage-based appBwMessagingService.Initialize()
+        await appPortService.ConnectAsync();
+        logger.LogInformation("Connected to BackgroundWorker via port, portSessionId={PortSessionId}, originTabId={OriginTabId}",
+            appPortService.PortSessionId, appPortService.OriginTabId);
 
         // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to index.html with force reload for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated && Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
@@ -159,9 +160,10 @@
         return content.TrimStart('\uFEFF').Replace("\r\n", "\n");
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         this.UnsubscribeFromAppCache();
+        await appPortService.DisposeAsync();
         GC.SuppressFinalize(this);
     }
 }

@@ -1,6 +1,11 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Extension.Helper;
+using Extension.Models.Messages.AppBw;
+using Extension.Models.Messages.BwApp;
+using Extension.Models.Messages.Common;
 using Extension.Models.Messages.Port;
+using FluentResults;
 using Microsoft.JSInterop;
 using WebExtensions.Net;
 
@@ -8,8 +13,10 @@ namespace Extension.Services.Port;
 
 /// <summary>
 /// Service for managing port connection from App (popup/tab/sidepanel) to BackgroundWorker.
+/// Implements IObservable&lt;BwAppMessage&gt; to allow reactive subscription to incoming BW messages.
 /// </summary>
-public class AppPortService : IAppPortService {
+public class AppPortService : IAppPortService
+{
     private readonly ILogger<AppPortService> _logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IWebExtensionsApi _webExtensionsApi;
@@ -18,12 +25,22 @@ public class AppPortService : IAppPortService {
     private readonly string _instanceId = Guid.NewGuid().ToString();
     private TaskCompletionSource<ReadyMessage>? _connectTcs;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<RpcResponse>> _pendingRpcRequests = new();
+    private readonly List<IObserver<BwAppMessage>> _observers = [];
     private bool _disposed;
 
-    // JSON serialization options
-    private static readonly JsonSerializerOptions JsonOptions = new() {
+    // JSON serialization options for port messages
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true
+    };
+
+    // JSON serialization options for AppBw messages with nested credential structures
+    private static readonly JsonSerializerOptions MessageJsonOptions = new()
+    {
+        MaxDepth = 128,
+        PropertyNameCaseInsensitive = true,
+        Converters = { new RecursiveDictionaryConverter() }
     };
 
     // Default timeout for RPC requests
@@ -32,7 +49,8 @@ public class AppPortService : IAppPortService {
     public AppPortService(
         ILogger<AppPortService> logger,
         IJSRuntime jsRuntime,
-        IWebExtensionsApi webExtensionsApi) {
+        IWebExtensionsApi webExtensionsApi)
+    {
         _logger = logger;
         _jsRuntime = jsRuntime;
         _webExtensionsApi = webExtensionsApi;
@@ -46,8 +64,10 @@ public class AppPortService : IAppPortService {
     public event EventHandler<PortMessage>? MessageReceived;
     public event EventHandler? Disconnected;
 
-    public async Task ConnectAsync() {
-        if (IsConnected) {
+    public async Task ConnectAsync()
+    {
+        if (IsConnected)
+        {
             _logger.LogDebug("ConnectAsync called but already connected");
             return;
         }
@@ -57,15 +77,19 @@ public class AppPortService : IAppPortService {
         // Create TaskCompletionSource for READY response
         _connectTcs = new TaskCompletionSource<ReadyMessage>();
 
-        try {
+        try
+        {
             // Connect to BackgroundWorker using port name
             // Runtime.Connect returns Port directly (not Task<Port>)
-            _port = _webExtensionsApi.Runtime.Connect("extension-app");
+            // Note: Must use ConnectInfo object - passing string directly is interpreted as extensionId
+            var connectInfo = new WebExtensions.Net.Runtime.ConnectInfo { Name = "extension-app" };
+            _port = _webExtensionsApi.Runtime.Connect(connectInfo: connectInfo);
 
             // Set up message listener with explicit delegate type to resolve ambiguity
             // WebExtensions.Net OnMessage expects: Func<object, MessageSender, Action<object>, bool>
             Func<object, WebExtensions.Net.Runtime.MessageSender, Action<object>, bool> onMessageHandler =
-                (object message, WebExtensions.Net.Runtime.MessageSender sender, Action<object> sendResponse) => {
+                (object message, WebExtensions.Net.Runtime.MessageSender sender, Action<object> sendResponse) =>
+                {
                     _ = HandlePortMessageAsync(message);
                     return false; // Don't keep channel open
                 };
@@ -73,13 +97,15 @@ public class AppPortService : IAppPortService {
 
             // Set up disconnect listener with explicit delegate type
             // WebExtensions.Net OnDisconnect expects: Action<Port>
-            Action<WebExtensions.Net.Runtime.Port> onDisconnectHandler = (WebExtensions.Net.Runtime.Port disconnectedPort) => {
+            Action<WebExtensions.Net.Runtime.Port> onDisconnectHandler = (WebExtensions.Net.Runtime.Port disconnectedPort) =>
+            {
                 HandleDisconnect();
             };
             _port.OnDisconnect.AddListener(onDisconnectHandler);
 
             // Send HELLO message
-            var helloMessage = new HelloMessage {
+            var helloMessage = new HelloMessage
+            {
                 Context = ContextKind.ExtensionApp,
                 InstanceId = _instanceId,
                 TabId = null,
@@ -102,29 +128,35 @@ public class AppPortService : IAppPortService {
             _logger.LogInformation("Connected to BackgroundWorker, portSessionId={PortSessionId}, originTabId={OriginTabId}",
                 PortSessionId, OriginTabId);
         }
-        catch (OperationCanceledException) {
+        catch (OperationCanceledException)
+        {
             _logger.LogError("ConnectAsync timed out waiting for READY");
             DisconnectInternal();
             throw new TimeoutException("Failed to receive READY from BackgroundWorker within timeout");
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "ConnectAsync failed");
             DisconnectInternal();
             throw;
         }
-        finally {
+        finally
+        {
             _connectTcs = null;
         }
     }
 
-    public async Task AttachToTabAsync(int tabId, int? frameId = null) {
-        if (!IsConnected || string.IsNullOrEmpty(PortSessionId)) {
+    public async Task AttachToTabAsync(int tabId, int? frameId = null)
+    {
+        if (!IsConnected || string.IsNullOrEmpty(PortSessionId))
+        {
             throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
         }
 
         _logger.LogInformation("Attaching to tab {TabId}, frameId={FrameId}", tabId, frameId);
 
-        var attachMessage = new AttachTabMessage {
+        var attachMessage = new AttachTabMessage
+        {
             TabId = tabId,
             FrameId = frameId
         };
@@ -137,8 +169,10 @@ public class AppPortService : IAppPortService {
         _logger.LogInformation("Attached to tab {TabId}", tabId);
     }
 
-    public async Task DetachFromTabAsync() {
-        if (!IsConnected || AttachedTabId == null) {
+    public async Task DetachFromTabAsync()
+    {
+        if (!IsConnected || AttachedTabId == null)
+        {
             _logger.LogDebug("DetachFromTabAsync: Not attached to any tab");
             return;
         }
@@ -151,21 +185,26 @@ public class AppPortService : IAppPortService {
         AttachedTabId = null;
     }
 
-    public async Task SendMessageAsync(PortMessage message) {
-        if (!IsConnected || _port == null) {
+    public async Task SendMessageAsync(PortMessage message)
+    {
+        if (!IsConnected || _port == null)
+        {
             throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
         }
 
         await SendMessageInternalAsync(message);
     }
 
-    public async Task<RpcResponse> SendRpcRequestAsync(string method, object? parameters = null, TimeSpan? timeout = null) {
-        if (!IsConnected || string.IsNullOrEmpty(PortSessionId)) {
+    public async Task<RpcResponse> SendRpcRequestAsync(string method, object? parameters = null, TimeSpan? timeout = null)
+    {
+        if (!IsConnected || string.IsNullOrEmpty(PortSessionId))
+        {
             throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
         }
 
         var requestId = Guid.NewGuid().ToString();
-        var rpcRequest = new RpcRequest {
+        var rpcRequest = new RpcRequest
+        {
             PortSessionId = PortSessionId,
             Id = requestId,
             Method = method,
@@ -175,12 +214,15 @@ public class AppPortService : IAppPortService {
         return await SendRpcRequestInternalAsync(rpcRequest, timeout ?? DefaultRpcTimeout);
     }
 
-    public async Task SendEventAsync(string eventName, object? data = null) {
-        if (!IsConnected || string.IsNullOrEmpty(PortSessionId)) {
+    public async Task SendEventAsync(string eventName, object? data = null)
+    {
+        if (!IsConnected || string.IsNullOrEmpty(PortSessionId))
+        {
             throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
         }
 
-        var eventMessage = new EventMessage {
+        var eventMessage = new EventMessage
+        {
             PortSessionId = PortSessionId,
             Name = eventName,
             Data = data
@@ -189,55 +231,70 @@ public class AppPortService : IAppPortService {
         await SendMessageAsync(eventMessage);
     }
 
-    private async Task<RpcResponse> SendRpcRequestInternalAsync(RpcRequest rpcRequest, TimeSpan timeout) {
+    private async Task<RpcResponse> SendRpcRequestInternalAsync(RpcRequest rpcRequest, TimeSpan timeout)
+    {
         var requestId = rpcRequest.Id;
 
         var tcs = new TaskCompletionSource<RpcResponse>();
         _pendingRpcRequests[requestId] = tcs;
 
-        try {
+        try
+        {
             await SendMessageInternalAsync(rpcRequest);
 
             using var cts = new CancellationTokenSource(timeout);
-            cts.Token.Register(() => {
-                if (_pendingRpcRequests.TryRemove(requestId, out var removed)) {
+            cts.Token.Register(() =>
+            {
+                if (_pendingRpcRequests.TryRemove(requestId, out var removed))
+                {
                     removed.TrySetCanceled();
                 }
             });
 
             return await tcs.Task;
         }
-        catch (OperationCanceledException) {
+        catch (OperationCanceledException)
+        {
             _logger.LogWarning("RPC request timed out: {RequestId}", requestId);
             throw new TimeoutException($"RPC request timed out: {requestId}");
         }
-        finally {
+        finally
+        {
             _pendingRpcRequests.TryRemove(requestId, out _);
         }
     }
 
-    private async Task SendMessageInternalAsync(object message) {
-        if (_port == null) {
+    private Task SendMessageInternalAsync<T>(T message) where T : PortMessage
+    {
+        if (_port == null)
+        {
             throw new InvalidOperationException("Port is not connected");
         }
 
-        try {
-            // Use the postMessageToPort helper defined in app.ts
-            await _jsRuntime.InvokeVoidAsync("postMessageToPort", _port, message);
-            _logger.LogDebug("Sent port message: {Type}", message.GetType().Name);
+        try
+        {
+            // Use the Port's built-in PostMessage method from WebExtensions.Net
+            // PostMessage is synchronous - it queues the message for delivery
+            _port.PostMessage(message);
+            _logger.LogDebug("Sent port message: type={Type}", message.T);
+            return Task.CompletedTask;
         }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Failed to send port message");
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send port message: type={Type}", message.T);
             throw;
         }
     }
 
-    private async Task HandlePortMessageAsync(object messageObj) {
-        try {
+    private async Task HandlePortMessageAsync(object messageObj)
+    {
+        try
+        {
             var messageJson = JsonSerializer.Serialize(messageObj, JsonOptions);
             var baseMsg = JsonSerializer.Deserialize<JsonElement>(messageJson, JsonOptions);
 
-            if (!baseMsg.TryGetProperty("t", out var typeElement)) {
+            if (!baseMsg.TryGetProperty("t", out var typeElement))
+            {
                 _logger.LogWarning("Port message missing 't' property");
                 return;
             }
@@ -245,7 +302,8 @@ public class AppPortService : IAppPortService {
             var messageType = typeElement.GetString();
             _logger.LogDebug("Port message received: type={Type}", messageType);
 
-            switch (messageType) {
+            switch (messageType)
+            {
                 case "READY":
                     HandleReadyMessage(messageJson);
                     break;
@@ -263,15 +321,19 @@ public class AppPortService : IAppPortService {
                     break;
             }
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error handling port message");
         }
     }
 
-    private void HandleReadyMessage(string messageJson) {
-        try {
+    private void HandleReadyMessage(string messageJson)
+    {
+        try
+        {
             var readyMessage = JsonSerializer.Deserialize<ReadyMessage>(messageJson, JsonOptions);
-            if (readyMessage == null) {
+            if (readyMessage == null)
+            {
                 _logger.LogError("Failed to deserialize READY message");
                 return;
             }
@@ -285,16 +347,20 @@ public class AppPortService : IAppPortService {
             // Raise event
             MessageReceived?.Invoke(this, readyMessage);
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error handling READY message");
             _connectTcs?.TrySetException(ex);
         }
     }
 
-    private void HandleRpcResponse(string messageJson) {
-        try {
+    private void HandleRpcResponse(string messageJson)
+    {
+        try
+        {
             var rpcResponse = JsonSerializer.Deserialize<RpcResponse>(messageJson, JsonOptions);
-            if (rpcResponse == null) {
+            if (rpcResponse == null)
+            {
                 _logger.LogError("Failed to deserialize RPC_RES message");
                 return;
             }
@@ -303,42 +369,63 @@ public class AppPortService : IAppPortService {
                 rpcResponse.Id, rpcResponse.Error);
 
             // Complete the pending request
-            if (_pendingRpcRequests.TryRemove(rpcResponse.Id, out var tcs)) {
+            if (_pendingRpcRequests.TryRemove(rpcResponse.Id, out var tcs))
+            {
                 tcs.TrySetResult(rpcResponse);
-            } else {
+            }
+            else
+            {
                 _logger.LogWarning("No pending request found for id={Id}", rpcResponse.Id);
             }
 
             // Raise event
             MessageReceived?.Invoke(this, rpcResponse);
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error handling RPC_RES message");
         }
     }
 
-    private void HandleEventMessage(string messageJson) {
-        try {
+    private void HandleEventMessage(string messageJson)
+    {
+        try
+        {
             var eventMessage = JsonSerializer.Deserialize<EventMessage>(messageJson, JsonOptions);
-            if (eventMessage == null) {
+            if (eventMessage == null)
+            {
                 _logger.LogError("Failed to deserialize EVENT message");
                 return;
             }
 
             _logger.LogDebug("EVENT received: name={Name}", eventMessage.Name);
 
-            // Raise event
+            // Raise event for PortMessage subscribers
             MessageReceived?.Invoke(this, eventMessage);
+
+            // Convert to BwAppMessage and notify IObservable subscribers
+            // This allows components using reactive patterns to receive BW messages
+            var bwAppMessage = new BwAppMessage(
+                eventMessage.Name,
+                null, // EVENT messages don't have a requestId
+                eventMessage.Data,
+                null  // No error
+            );
+            NotifyObservers(bwAppMessage);
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error handling EVENT message");
         }
     }
 
-    private void HandleErrorMessage(string messageJson) {
-        try {
+    private void HandleErrorMessage(string messageJson)
+    {
+        try
+        {
             var errorMessage = JsonSerializer.Deserialize<ErrorMessage>(messageJson, JsonOptions);
-            if (errorMessage == null) {
+            if (errorMessage == null)
+            {
                 _logger.LogError("Failed to deserialize ERROR message");
                 return;
             }
@@ -349,12 +436,14 @@ public class AppPortService : IAppPortService {
             // Raise event
             MessageReceived?.Invoke(this, errorMessage);
         }
-        catch (Exception ex) {
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error handling ERROR message");
         }
     }
 
-    private void HandleDisconnect() {
+    private void HandleDisconnect()
+    {
         _logger.LogInformation("Port disconnected");
 
         IsConnected = false;
@@ -364,7 +453,8 @@ public class AppPortService : IAppPortService {
         _port = null;
 
         // Cancel any pending requests
-        foreach (var kvp in _pendingRpcRequests) {
+        foreach (var kvp in _pendingRpcRequests)
+        {
             kvp.Value.TrySetCanceled();
         }
         _pendingRpcRequests.Clear();
@@ -376,12 +466,16 @@ public class AppPortService : IAppPortService {
         Disconnected?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DisconnectInternal() {
-        if (_port != null) {
-            try {
+    private void DisconnectInternal()
+    {
+        if (_port != null)
+        {
+            try
+            {
                 _port.Disconnect();
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogDebug(ex, "Error during port disconnect");
             }
             _port = null;
@@ -393,14 +487,184 @@ public class AppPortService : IAppPortService {
         AttachedTabId = null;
     }
 
-    public async ValueTask DisposeAsync() {
-        if (_disposed) {
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
             return;
         }
         _disposed = true;
+
+        // Notify observers of completion
+        foreach (var observer in _observers.ToArray())
+        {
+            observer.OnCompleted();
+        }
+        _observers.Clear();
 
         DisconnectInternal();
         await Task.CompletedTask; // Satisfy async requirement
         GC.SuppressFinalize(this);
     }
+
+    #region IObservable<BwAppMessage> Implementation
+
+    /// <summary>
+    /// Subscribe to receive BwAppMessage notifications from BackgroundWorker.
+    /// </summary>
+    public IDisposable Subscribe(IObserver<BwAppMessage> observer)
+    {
+        if (!_observers.Contains(observer))
+        {
+            _observers.Add(observer);
+        }
+        return new Unsubscriber(_observers, observer);
+    }
+
+    /// <summary>
+    /// Notify all observers of a new BwAppMessage.
+    /// </summary>
+    private void NotifyObservers(BwAppMessage message)
+    {
+        _logger.LogDebug("Notifying {Count} observers of message type: {Type}", _observers.Count, message.Type);
+        foreach (var observer in _observers.ToArray())
+        {
+            observer.OnNext(message);
+        }
+    }
+
+    /// <summary>
+    /// Helper class for managing observer unsubscription.
+    /// </summary>
+    private sealed class Unsubscriber(List<IObserver<BwAppMessage>> observers, IObserver<BwAppMessage> observer) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (observer != null && observers.Contains(observer))
+            {
+                observers.Remove(observer);
+            }
+        }
+    }
+
+    #endregion
+
+    #region AppBwMessage Compatibility Methods
+
+    /// <summary>
+    /// Sends a strongly-typed message from App to BackgroundWorker (fire-and-forget).
+    /// Converts the AppBwMessage to an RPC request format.
+    /// </summary>
+    public async Task SendToBackgroundWorkerAsync<TPayload>(AppBwMessage<TPayload> message)
+    {
+        _logger.LogInformation("SendToBackgroundWorkerAsync: type={Type}, tabId={TabId}",
+            message.Type, message.TabId);
+
+        if (!IsConnected || string.IsNullOrEmpty(PortSessionId))
+        {
+            throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+        }
+
+        // Convert AppBwMessage to RPC request format
+        // The method is the message type, params contains the full message
+        var rpcParams = new
+        {
+            type = message.Type,
+            requestId = message.RequestId,
+            tabId = message.TabId,
+            tabUrl = message.TabUrl,
+            payload = message.Payload
+        };
+
+        try
+        {
+            // Send as fire-and-forget RPC (don't await the response)
+            await SendRpcRequestAsync(message.Type, rpcParams);
+            _logger.LogInformation("SendToBackgroundWorkerAsync sent: type={Type}", message.Type);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SendToBackgroundWorkerAsync failed: type={Type}", message.Type);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Sends a strongly-typed message from App to BackgroundWorker and awaits a response.
+    /// Converts the AppBwMessage to an RPC request and deserializes the response.
+    /// </summary>
+    public async Task<Result<TResponse?>> SendRequestAsync<TPayload, TResponse>(
+        AppBwMessage<TPayload> message,
+        TimeSpan? timeout = null) where TResponse : class, IResponseMessage
+    {
+
+        timeout ??= DefaultRpcTimeout;
+
+        _logger.LogInformation("SendRequestAsync: type={Type}, tabId={TabId}, timeout={Timeout}",
+            message.Type, message.TabId, timeout);
+
+        if (!IsConnected || string.IsNullOrEmpty(PortSessionId))
+        {
+            return Result.Fail<TResponse?>("Not connected. Call ConnectAsync first.");
+        }
+
+        try
+        {
+            // Convert AppBwMessage to RPC request format
+            var rpcParams = new
+            {
+                type = message.Type,
+                requestId = message.RequestId,
+                tabId = message.TabId,
+                tabUrl = message.TabUrl,
+                payload = message.Payload
+            };
+
+            var response = await SendRpcRequestAsync(message.Type, rpcParams, timeout);
+
+            if (!response.Ok || response.Error is not null)
+            {
+                _logger.LogWarning("SendRequestAsync failed: error={Error}", response.Error);
+                return Result.Fail<TResponse?>(response.Error ?? "RPC request failed");
+            }
+
+            // Deserialize the result to the expected response type
+            if (response.Result is null)
+            {
+                _logger.LogWarning("SendRequestAsync received null result");
+                return Result.Fail<TResponse?>("Received null result from BackgroundWorker");
+            }
+
+            // Handle JsonElement result from deserialization
+            if (response.Result is JsonElement jsonElement)
+            {
+                var responseJson = jsonElement.GetRawText();
+                var typedResponse = JsonSerializer.Deserialize<TResponse>(responseJson, MessageJsonOptions);
+                _logger.LogInformation("SendRequestAsync deserialized response: {Type}", typeof(TResponse).Name);
+                return Result.Ok(typedResponse);
+            }
+
+            // Try to serialize and deserialize for other object types
+            var resultJson = JsonSerializer.Serialize(response.Result, MessageJsonOptions);
+            var deserializedResponse = JsonSerializer.Deserialize<TResponse>(resultJson, MessageJsonOptions);
+            return Result.Ok(deserializedResponse);
+        }
+        catch (TimeoutException)
+        {
+            _logger.LogWarning("SendRequestAsync timed out after {Timeout}", timeout);
+            return Result.Fail<TResponse?>($"Request timed out after {timeout.Value.TotalSeconds} seconds");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "SendRequestAsync failed to deserialize response");
+            return Result.Fail<TResponse?>($"Failed to deserialize response: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SendRequestAsync failed");
+            return Result.Fail<TResponse?>($"Request failed: {ex.Message}");
+        }
+    }
+
+    #endregion
 }

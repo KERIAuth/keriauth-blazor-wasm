@@ -8,8 +8,8 @@ using FluentResults;
 /// Direction: BackgroundWorker → App
 ///
 /// Usage:
-/// - BackgroundWorker: Call AddRequestAsync() to queue a request, await response via BwAppMessagingService
-/// - App: Subscribe to OnRequestsChanged, process requests, send response via AppBwResponseToBwRequestMessage
+/// - BackgroundWorker: Call AddRequestAsync() to queue a request, await response via port-based RPC
+/// - App: Subscribe to OnRequestsChanged, process requests, send response via IAppPortService
 ///
 /// Storage: Uses chrome.storage.session for persistence across service worker restarts.
 /// </summary>

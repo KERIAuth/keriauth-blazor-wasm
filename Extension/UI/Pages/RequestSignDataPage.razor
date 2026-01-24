@@ -17,6 +17,7 @@
 @using Extension.Models.Messages.CsBw
 @using Extension.Services
 @using Extension.Services.JsBindings
+@using Extension.Services.Port
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using FluentResults
@@ -38,7 +39,7 @@
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
-@inject IAppBwMessagingService appBwMessagingService
+@inject IAppPortService appPortService
 @inject IPendingBwAppRequestService pendingBwAppRequestService
 @inject AppCache appCache
 @inject IJSRuntime jsRuntime
@@ -183,7 +184,7 @@
 
             // Send the signed data back to the BackgroundWorker
             var message = new AppBwReplySignDataMessage(TabId, OriginStr, PageRequestId, signResult);
-            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            await appPortService.SendToBackgroundWorkerAsync(message);
             HasRepliedToPage = true;
 
             // Clear the pending request now that sign is complete
@@ -206,7 +207,7 @@
         var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User canceled sign-data");
         try
         {
-            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            await appPortService.SendToBackgroundWorkerAsync(message);
             HasRepliedToPage = true;
         }
         catch (Exception ex)
@@ -229,7 +230,7 @@
             try
             {
                 var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User closed sign-data dialog");
-                await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+                await appPortService.SendToBackgroundWorkerAsync(message);
             }
             catch (Exception ex)
             {

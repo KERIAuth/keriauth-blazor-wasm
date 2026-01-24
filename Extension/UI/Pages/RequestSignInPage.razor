@@ -17,6 +17,7 @@
 @using Extension.Models.Messages.CsBw
 @using Extension.Services
 @using Extension.Services.JsBindings
+@using Extension.Services.Port
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using FluentResults
@@ -38,7 +39,7 @@
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
-@inject IAppBwMessagingService appBwMessagingService
+@inject IAppPortService appPortService
 @inject IPendingBwAppRequestService pendingBwAppRequestService
 @inject AppCache appCache
 @inject IJSRuntime jsRuntime
@@ -182,7 +183,7 @@
                     Credential: null
                 );
                 var identifierMessage = new AppBwReplyAidMessage(TabId, OriginStr, PageRequestId, identifierResult);
-                await appBwMessagingService.SendToBackgroundWorkerAsync(identifierMessage);
+                await appPortService.SendToBackgroundWorkerAsync(identifierMessage);
                 HasRepliedToPage = true;
                 break;
 
@@ -216,7 +217,7 @@
                     Credential: authorizeResultCredential
                 );
                 var credentialMessage = new AppBwReplyAidMessage(TabId, OriginStr, PageRequestId, authorizeResult);
-                await appBwMessagingService.SendToBackgroundWorkerAsync(credentialMessage);
+                await appPortService.SendToBackgroundWorkerAsync(credentialMessage);
                 HasRepliedToPage = true;
                 break;
 
@@ -247,7 +248,7 @@
         var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User canceled sign-in");
         try
         {
-            await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+            await appPortService.SendToBackgroundWorkerAsync(message);
             HasRepliedToPage = true;
         }
         catch (Exception ex)
@@ -285,7 +286,7 @@
             try
             {
                 var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, "User closed sign-in dialog (popup or SidePanel dialog");
-                await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+                await appPortService.SendToBackgroundWorkerAsync(message);
             }
             catch (Exception ex)
             {

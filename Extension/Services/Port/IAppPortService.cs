@@ -1,11 +1,16 @@
+using Extension.Models.Messages.AppBw;
+using Extension.Models.Messages.BwApp;
+using Extension.Models.Messages.Common;
 using Extension.Models.Messages.Port;
+using FluentResults;
 
 namespace Extension.Services.Port;
 
 /// <summary>
 /// Service interface for managing port connection from App (popup/tab/sidepanel) to BackgroundWorker.
+/// Implements IObservable&lt;BwAppMessage&gt; to allow reactive subscription to incoming BW messages.
 /// </summary>
-public interface IAppPortService : IAsyncDisposable {
+public interface IAppPortService : IAsyncDisposable, IObservable<BwAppMessage> {
     /// <summary>
     /// Connects to the BackgroundWorker and completes the HELLO/READY handshake.
     /// </summary>
@@ -79,4 +84,25 @@ public interface IAppPortService : IAsyncDisposable {
     /// Event raised when the port is disconnected.
     /// </summary>
     event EventHandler? Disconnected;
+
+    /// <summary>
+    /// Sends a strongly-typed message from App to BackgroundWorker (fire-and-forget).
+    /// This is a convenience wrapper that converts AppBwMessage to RPC format.
+    /// </summary>
+    /// <typeparam name="TPayload">The payload type for the message.</typeparam>
+    /// <param name="message">The message to send.</param>
+    Task SendToBackgroundWorkerAsync<TPayload>(AppBwMessage<TPayload> message);
+
+    /// <summary>
+    /// Sends a strongly-typed message from App to BackgroundWorker and awaits a response.
+    /// This is a convenience wrapper that converts AppBwMessage to RPC format.
+    /// </summary>
+    /// <typeparam name="TPayload">The payload type for the request message.</typeparam>
+    /// <typeparam name="TResponse">The expected response type from BackgroundWorker.</typeparam>
+    /// <param name="message">The request message to send.</param>
+    /// <param name="timeout">Optional timeout (defaults to 30 seconds).</param>
+    /// <returns>Result containing the response or failure information.</returns>
+    Task<Result<TResponse?>> SendRequestAsync<TPayload, TResponse>(
+        AppBwMessage<TPayload> message,
+        TimeSpan? timeout = null) where TResponse : class, IResponseMessage;
 }

@@ -13,6 +13,7 @@
 @using Extension.Models.Messages.BwApp.Requests
 @using Extension.Models.Storage
 @using Extension.Services
+@using Extension.Services.Port
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig
@@ -38,7 +39,7 @@
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
-@inject IAppBwMessagingService appBwMessagingService
+@inject IAppPortService appPortService
 @inject IPendingBwAppRequestService pendingBwAppRequestService
 @inject IJSRuntime jsRuntime
 @inject IJSRuntime js
@@ -260,7 +261,7 @@
     async Task Cancel()
     {
         var message = new AppBwReplyCanceledMessage(TabId, OriginStr, RequestId, "User cancelled sign request");
-        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        await appPortService.SendToBackgroundWorkerAsync(message);
 
         // Clear the pending request now that cancel is complete
         await ClearPendingRequestAsync();
@@ -315,7 +316,7 @@
     private async Task ApproveRequestHandler()
     {
         var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, OriginStr, RequestUrl, RequestMethod, HeadersDict, WebsiteConfiguredPrefix);
-        await appBwMessagingService.SendToBackgroundWorkerAsync(message);
+        await appPortService.SendToBackgroundWorkerAsync(message);
 
         // Clear the pending request now that approval is complete
         await ClearPendingRequestAsync();

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Extension.Helper;
 using Extension.Models;
 using Extension.Models.Messages.Port;
 using Microsoft.JSInterop;
@@ -28,11 +29,23 @@ public class BwPortService : IBwPortService
     // Pending popup context - tab ID from OnActionClicked
     private int? _pendingPopupTabId;
 
-    // JSON serialization options
+    // RPC request handlers - registered by BackgroundWorker
+    private RpcRequestHandler? _contentScriptRpcHandler;
+    private RpcRequestHandler? _appRpcHandler;
+
+    // Event handler - registered by BackgroundWorker
+    private PortEventMessageHandler? _eventHandler;
+
+    // Track which ports are ContentScript vs App (by portId)
+    private readonly ConcurrentDictionary<string, bool> _portIsContentScript = new();
+
+    // JSON serialization options for port messages with nested credential structures
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        MaxDepth = 128, // Handle deeply nested vLEI credential structures
+        Converters = { new RecursiveDictionaryConverter() }
     };
 
     public BwPortService(
@@ -142,6 +155,9 @@ public class BwPortService : IBwPortService
 
         if (hello.Context == ContextKind.ContentScript)
         {
+            // Track this port as ContentScript
+            _portIsContentScript[portId] = true;
+
             // ContentScript connects: create or get PortSession for tab
             var tabId = port.Sender?.Tab?.Id;
             var frameId = port.Sender?.FrameId;
@@ -159,13 +175,15 @@ public class BwPortService : IBwPortService
                 {
                     PortSessionId = Guid.NewGuid(),
                     TabId = tabId,
-                    FrameId = frameId
+                    FrameId = frameId,
+                    TabUrl = port.Sender?.Url
                 };
                 _portSessionsById[newSession.PortSessionId] = newSession;
                 return newSession;
             });
 
             portSession.ContentScriptPortId = portId;
+            portSession.TabUrl = port.Sender?.Url; // Update URL in case it changed
             _portIdToPortSession[portId] = portSession;
 
             _logger.LogInformation("ContentScript PortSession established: portSessionId={PortSessionId}, tabKey={TabKey}",
@@ -182,6 +200,9 @@ public class BwPortService : IBwPortService
         }
         else
         {
+            // Track this port as App (not ContentScript)
+            _portIsContentScript[portId] = false;
+
             // App connects: create non-tab-scoped PortSession
             portSession = new PortSession
             {
@@ -273,19 +294,53 @@ public class BwPortService : IBwPortService
             return;
         }
 
-        _logger.LogDebug("RPC_REQ received: method={Method}, id={Id}, portId={PortId}",
+        _logger.LogInformation("RPC_REQ received: method={Method}, id={Id}, portId={PortId}",
             rpcRequest.Method, rpcRequest.Id, portId);
 
-        // TODO: Route RPC request to appropriate handler based on method
-        // For now, send a placeholder error response
-        var response = new RpcResponse
+        // Get the PortSession for context
+        _portIdToPortSession.TryGetValue(portId, out var portSession);
+
+        // Determine if this is from ContentScript or App
+        var isFromContentScript = _portIsContentScript.TryGetValue(portId, out var isCs) && isCs;
+
+        // Select the appropriate handler
+        var handler = isFromContentScript ? _contentScriptRpcHandler : _appRpcHandler;
+
+        if (handler is null)
         {
-            PortSessionId = rpcRequest.PortSessionId,
-            Id = rpcRequest.Id,
-            Ok = false,
-            Error = "RPC routing not yet implemented"
-        };
-        await SendToPortAsync(portId, response);
+            _logger.LogWarning("No RPC handler registered for {Source}, portId={PortId}",
+                isFromContentScript ? "ContentScript" : "App", portId);
+            var errorResponse = new RpcResponse
+            {
+                PortSessionId = rpcRequest.PortSessionId,
+                Id = rpcRequest.Id,
+                Ok = false,
+                Error = "No handler registered for this request type"
+            };
+            await SendToPortAsync(portId, errorResponse);
+            return;
+        }
+
+        try
+        {
+            // Call the registered handler - it's responsible for sending the response
+            await handler(portId, portSession, rpcRequest);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in RPC handler for method={Method}, portId={PortId}",
+                rpcRequest.Method, portId);
+
+            // Send error response if handler threw
+            var errorResponse = new RpcResponse
+            {
+                PortSessionId = rpcRequest.PortSessionId,
+                Id = rpcRequest.Id,
+                Ok = false,
+                Error = $"Handler error: {ex.Message}"
+            };
+            await SendToPortAsync(portId, errorResponse);
+        }
     }
 
     private async Task HandleEventAsync(string portId, string messageJson)
@@ -299,7 +354,25 @@ public class BwPortService : IBwPortService
 
         _logger.LogDebug("EVENT received: name={Name}, portId={PortId}", eventMsg.Name, portId);
 
-        // TODO: Route event to appropriate handler based on name
+        // Get port session for the event
+        _portIdToPortSession.TryGetValue(portId, out var portSession);
+
+        // Route to registered handler
+        if (_eventHandler is not null)
+        {
+            try
+            {
+                await _eventHandler(portId, portSession, eventMsg);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling event: name={Name}", eventMsg.Name);
+            }
+        }
+        else
+        {
+            _logger.LogWarning("No event handler registered for event: name={Name}", eventMsg.Name);
+        }
     }
 
     private async Task HandleDisconnectAsync(string portId)
@@ -431,26 +504,33 @@ public class BwPortService : IBwPortService
         return session;
     }
 
-    public async Task SendToPortAsync(string portId, object message)
+    public Task SendToPortAsync<T>(string portId, T message) where T : PortMessage
     {
         if (!_portsById.TryGetValue(portId, out var port))
         {
             _logger.LogWarning("SendToPortAsync: port not found for portId={PortId}", portId);
-            return;
+            return Task.CompletedTask;
         }
 
         try
         {
-            await _jsRuntime.InvokeVoidAsync("postMessageToPort", port, message);
-            _logger.LogDebug("Message sent to portId={PortId}", portId);
+            // Pre-serialize the message using our JsonOptions to handle RecursiveDictionary
+            // and deeply nested structures. Then deserialize to JsonElement which
+            // WebExtensions.Net can serialize without custom converters.
+            var serialized = JsonSerializer.Serialize(message, JsonOptions);
+            var jsonElement = JsonSerializer.Deserialize<JsonElement>(serialized);
+
+            port.PostMessage(jsonElement);
+            _logger.LogDebug("Message sent to portId={PortId}, type={Type}", portId, message.T);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending message to portId={PortId}", portId);
         }
+        return Task.CompletedTask;
     }
 
-    public async Task SendToContentScriptAsync(string portSessionId, object message)
+    public async Task SendToContentScriptAsync<T>(string portSessionId, T message) where T : PortMessage
     {
         var portSession = GetPortSession(portSessionId);
         if (portSession is null)
@@ -468,7 +548,7 @@ public class BwPortService : IBwPortService
         await SendToPortAsync(portSession.ContentScriptPortId, message);
     }
 
-    public async Task SendToAppsAsync(string portSessionId, object message)
+    public async Task SendToAppsAsync<T>(string portSessionId, T message) where T : PortMessage
     {
         var portSession = GetPortSession(portSessionId);
         if (portSession is null)
@@ -487,5 +567,153 @@ public class BwPortService : IBwPortService
     {
         _pendingPopupTabId = tabId;
         _logger.LogDebug("Set pending popup tabId={TabId}", tabId);
+    }
+
+    public void RegisterContentScriptRpcHandler(RpcRequestHandler handler)
+    {
+        _contentScriptRpcHandler = handler;
+        _logger.LogInformation("ContentScript RPC handler registered");
+    }
+
+    public void RegisterAppRpcHandler(RpcRequestHandler handler)
+    {
+        _appRpcHandler = handler;
+        _logger.LogInformation("App RPC handler registered");
+    }
+
+    public void RegisterEventHandler(PortEventMessageHandler handler)
+    {
+        _eventHandler = handler;
+        _logger.LogInformation("Event handler registered");
+    }
+
+    public async Task SendRpcResponseAsync(string portId, string portSessionId, string requestId, object? result = null, string? errorMessage = null)
+    {
+        var response = new RpcResponse
+        {
+            PortSessionId = portSessionId,
+            Id = requestId,
+            Ok = errorMessage is null,
+            Result = result,
+            Error = errorMessage
+        };
+
+        _logger.LogDebug("Sending RPC response: id={RequestId}, ok={Ok}, error={Error}",
+            requestId, response.Ok, errorMessage ?? "null");
+
+        await SendToPortAsync(portId, response);
+    }
+
+    public async Task SendEventToContentScriptAsync(string portSessionId, string eventName, object? data = null)
+    {
+        var portSession = GetPortSession(portSessionId);
+        if (portSession is null)
+        {
+            _logger.LogWarning("SendEventToContentScriptAsync: PortSession not found for portSessionId={PortSessionId}", portSessionId);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(portSession.ContentScriptPortId))
+        {
+            _logger.LogWarning("SendEventToContentScriptAsync: No ContentScript port for portSessionId={PortSessionId}", portSessionId);
+            return;
+        }
+
+        var eventMessage = new EventMessage
+        {
+            PortSessionId = portSessionId,
+            Name = eventName,
+            Data = data
+        };
+
+        await SendToPortAsync(portSession.ContentScriptPortId, eventMessage);
+    }
+
+    public async Task SendEventToAppsAsync(string portSessionId, string eventName, object? data = null)
+    {
+        var portSession = GetPortSession(portSessionId);
+        if (portSession is null)
+        {
+            _logger.LogWarning("SendEventToAppsAsync: PortSession not found for portSessionId={PortSessionId}", portSessionId);
+            return;
+        }
+
+        var eventMessage = new EventMessage
+        {
+            PortSessionId = portSessionId,
+            Name = eventName,
+            Data = data
+        };
+
+        foreach (var appPortId in portSession.AttachedAppPortIds)
+        {
+            await SendToPortAsync(appPortId, eventMessage);
+        }
+    }
+
+    public PortSession? GetPortSessionByPortId(string portId)
+    {
+        _portIdToPortSession.TryGetValue(portId, out var session);
+        return session;
+    }
+
+    public bool HasActivePortSessionForTab(int tabId, int frameId = 0)
+    {
+        var tabKey = $"{tabId}:{frameId}";
+        if (_portSessionsByTabKey.TryGetValue(tabKey, out var session))
+        {
+            return session.HasContentScript;
+        }
+        return false;
+    }
+
+    public async Task BroadcastEventToAllAppsAsync(string eventName, object? data = null)
+    {
+        _logger.LogInformation("Broadcasting event to all apps: name={EventName}", eventName);
+
+        // Collect all unique app port IDs across all port sessions
+        var appPortIds = new HashSet<string>();
+        foreach (var portSession in _portSessionsById.Values)
+        {
+            foreach (var appPortId in portSession.AttachedAppPortIds)
+            {
+                appPortIds.Add(appPortId);
+            }
+        }
+
+        // Also include any app ports that may not be attached to a specific tab session
+        // (e.g., extension options page, standalone tabs)
+        foreach (var (portId, isContentScript) in _portIsContentScript)
+        {
+            if (!isContentScript)
+            {
+                appPortIds.Add(portId);
+            }
+        }
+
+        _logger.LogDebug("Broadcasting to {Count} app ports", appPortIds.Count);
+
+        foreach (var appPortId in appPortIds)
+        {
+            try
+            {
+                // Get the port session ID for this app (may be empty if not attached)
+                _portIdToPortSession.TryGetValue(appPortId, out var portSession);
+                var portSessionId = portSession?.PortSessionId.ToString() ?? "";
+
+                var eventMessage = new EventMessage
+                {
+                    PortSessionId = portSessionId,
+                    Name = eventName,
+                    Data = data
+                };
+
+                await SendToPortAsync(appPortId, eventMessage);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send event to app port: portId={PortId}", appPortId);
+            }
+        }
     }
 }

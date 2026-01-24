@@ -1,5 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using Extension.Services.Storage
+@using Extension.Services.Port
+@using Extension.Models.Messages.BwApp
 @using System.Reactive.Linq
 
 @inject HttpClient http
@@ -11,13 +13,16 @@
 @inject ISignifyClientService signifyClientService
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject IUserActivityService userActivityService
+@inject IAppPortService appPortService
 
 @implements IAsyncDisposable
+@implements IObserver<BwAppMessage>
 
 <!-- Note that @Body and other body content will be provided by specialized layouts inheriting from this BaseLayout -->
 @code {
     protected Timer? appBarRefreshTimer;
     protected bool isTimeoutHovered = false;
+    private IDisposable? _portEventSubscription;
 
     // Session timeout properties - available to all layouts
     protected TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
@@ -52,6 +57,9 @@
         {
             await userActivityService.StartListeningAsync();
         }
+
+        // Subscribe to port events from BackgroundWorker (e.g., SystemLockDetected)
+        _portEventSubscription = appPortService.Subscribe(this);
     }
 
     protected virtual async Task HandleAppCacheChanged()
@@ -181,8 +189,57 @@
     public virtual async ValueTask DisposeAsync()
     {
         this.UnsubscribeFromAppCache();
+        _portEventSubscription?.Dispose();
         appBarRefreshTimer?.Dispose();
         userActivityService.StopListening();
         GC.SuppressFinalize(this);
     }
+
+    #region IObserver<BwAppMessage> Implementation
+
+    /// <summary>
+    /// Called when BackgroundWorker sends an event via port.
+    /// Handles system-wide events like lock notifications.
+    /// </summary>
+    public void OnNext(BwAppMessage message)
+    {
+        logger.LogDebug("BaseLayout received BwAppMessage: type={Type}", message.Type);
+
+        switch (message.Type)
+        {
+            case BwAppMessageType.Values.SystemLockDetected:
+                logger.LogInformation("System lock detected event received - session will be locked");
+                // The actual session lock is handled by BackgroundWorker clearing the session storage.
+                // AppCache will detect the storage change and HandleAppCacheChanged will navigate to unlock page.
+                // This event provides immediate notification for any additional UI feedback if needed.
+                InvokeAsync(() =>
+                {
+                    snackbar.Add("Session locked due to system lock", Severity.Info);
+                    StateHasChanged();
+                });
+                break;
+
+            case BwAppMessageType.Values.LockApp:
+                logger.LogInformation("LockApp event received");
+                // Same handling as SystemLockDetected
+                InvokeAsync(StateHasChanged);
+                break;
+
+            default:
+                logger.LogDebug("Unhandled BwAppMessage type: {Type}", message.Type);
+                break;
+        }
+    }
+
+    public void OnError(Exception error)
+    {
+        logger.LogError(error, "Error in port event subscription");
+    }
+
+    public void OnCompleted()
+    {
+        logger.LogDebug("Port event subscription completed");
+    }
+
+    #endregion
 }

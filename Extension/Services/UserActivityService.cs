@@ -1,4 +1,5 @@
 ﻿using Extension.Models.Messages.AppBw;
+using Extension.Services.Port;
 using Microsoft.JSInterop;
 
 namespace Extension.Services;
@@ -16,7 +17,7 @@ namespace Extension.Services;
 /// </summary>
 public class UserActivityService : IUserActivityService {
     private readonly IJSRuntime _jsRuntime;
-    private readonly IAppBwMessagingService _messagingService;
+    private readonly IAppPortService _portService;
     private readonly ILogger<UserActivityService> _logger;
 
     // State
@@ -28,10 +29,10 @@ public class UserActivityService : IUserActivityService {
 
     public UserActivityService(
         IJSRuntime jsRuntime,
-        IAppBwMessagingService messagingService,
+        IAppPortService portService,
         ILogger<UserActivityService> logger) {
         _jsRuntime = jsRuntime;
-        _messagingService = messagingService;
+        _portService = portService;
         _logger = logger;
     }
 
@@ -135,7 +136,7 @@ public class UserActivityService : IUserActivityService {
 
         try {
             var message = new AppBwUserActivityMessage();
-            await _messagingService.SendToBackgroundWorkerAsync(message);
+            await _portService.SendToBackgroundWorkerAsync(message);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, "UserActivityService: Failed to send USER_ACTIVITY message");
