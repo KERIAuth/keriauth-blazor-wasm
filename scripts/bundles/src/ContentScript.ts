@@ -42,7 +42,7 @@ import {
     if ('ServiceWorkerGlobalScope' in globalThis) {
         // We're in a service worker - do not initialize
         // This is expected when BackgroundWorker.js imports this file
-        console.log('ContentScript: Running in ServiceWorker context, skipping initialization');
+        console.log('KeriAuthCs Running in ServiceWorker context, skipping initialization');
         return;
     }
 
@@ -89,10 +89,10 @@ import {
     }
     (globalThis as unknown as Record<string, boolean>)[KEY] = true;
 
-    console.log('KeriAuthCs initializing');
+    console.log('KeriAuthCs: initializing');
     const currentOrigin = window.location.origin;
-    console.log('KeriAuthCs currentOrigin:', currentOrigin);
-    console.log('KeriAuthCs extension:', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
+    console.log('KeriAuthCs: currentOrigin:', currentOrigin);
+    console.log('KeriAuthCs: ', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
     // Add a listener for messages from the web page
     window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
@@ -580,15 +580,15 @@ import {
                         // Log headers for POLARIS_SIGN_REQUEST
                         const signRequestMessage = event.data as Polaris.MessageData<Polaris.SignRequestArgs>;
                         if (event.data.type === CsBwMsgEnum.POLARIS_SIGN_REQUEST) {
-                            console.log('KeriAuthCs SIGN_REQUEST payload:', JSON.stringify(signRequestMessage.payload));
+                            console.log('KeriAuthCs: SIGN_REQUEST payload:', JSON.stringify(signRequestMessage.payload));
                             if (signRequestMessage.payload?.headers) {
-                                console.log('KeriAuthCs SIGN_REQUEST headers:', JSON.stringify(signRequestMessage.payload.headers));
+                                console.log('KeriAuthCs: SIGN_REQUEST headers ', JSON.stringify(signRequestMessage.payload.headers));
                                 const headers = signRequestMessage.payload.headers;
                                 for (const key of Object.keys(headers)) {
                                     console.log(`  KeriAuthCs header: ${key} = ${headers[key]}`);
                                 }
                             } else {
-                                console.log('KeriAuthCs SIGN_REQUEST: no headers in payload');
+                                console.log('KeriAuthCs: SIGN_REQUEST: no headers in payload');
                             }
                         }
                         await sendMessageToBW(signRequestMessage);

@@ -43,9 +43,6 @@
     {
         logger.LogInformation("OnInitializedAsync");
 
-        // Read the extension context from globalThis.__EXT_CONTEXT__ set in the HTML page
-        await ReadAppContextAsync();
-
         // Initialize AppCache - this internally waits for BackgroundWorker to complete
         // initialization before reading storage values, ensuring storage defaults exist
         // and expired sessions are cleared.
