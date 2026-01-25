@@ -1,0 +1,7 @@
+{
+  "t": "HELLO",
+  "context": "content-script",
+  "instanceId": "test-instance-id-12345",
+  "tabId": 42,
+  "frameId": 0
+}

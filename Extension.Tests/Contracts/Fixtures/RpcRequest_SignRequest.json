@@ -1,0 +1,13 @@
+{
+  "t": "RPC_REQ",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-003",
+  "method": "/signify/sign-request",
+  "params": {
+    "url": "https://api.example.com/resource",
+    "method": "POST",
+    "headers": {
+      "content-type": "application/json"
+    }
+  }
+}

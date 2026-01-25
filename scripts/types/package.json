@@ -8,10 +8,14 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch --preserveWatchOutput",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:contracts": "vitest run --dir src/__tests__/contracts",
     "clean": "node -e \"const fs=require('fs');const p='../../Extension/wwwroot/scripts/es6';['index','ExCsInterfaces','storage-models'].forEach(b=>{['.js','.js.map','.d.ts','.d.ts.map'].forEach(e=>{try{fs.unlinkSync(p+'/'+b+e)}catch{}})});try{fs.unlinkSync('./dist/tsconfig.types.tsbuildinfo')}catch{}\""
   },
   "devDependencies": {
     "typescript": "^5.4.2",
-    "chrome-types": "^0.1.372"
+    "chrome-types": "^0.1.372",
+    "vitest": "^2.1.0"
   }
 }

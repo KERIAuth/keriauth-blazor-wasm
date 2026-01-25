@@ -123,7 +123,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     private bool HandleRuntimeOnMessageAsync(object arg1, MessageSender sender, Action<object> action) {
         // TODO P2: implement
         // may be useful to wake up the service worker from idle inactive state
-        logger.LogWarning("HandleRuntimeOnMessageAsync called");
+        logger.LogWarning("HandleRuntimeOnMessageAsync called {a}", arg1);
         // throw new NotImplementedException();
         return true;
     }

@@ -1,0 +1,13 @@
+{
+  "t": "RPC_REQ",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-002",
+  "method": "/signify/sign-data",
+  "params": {
+    "message": "Sign the following data",
+    "items": [
+      "data item 1",
+      "data item 2"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "t": "RPC_REQ",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-004",
+  "method": "/signify/credential/create/data-attestation",
+  "params": {
+    "credData": {
+      "field1": "value1",
+      "field2": 123
+    },
+    "schemaSaid": "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+  }
+}

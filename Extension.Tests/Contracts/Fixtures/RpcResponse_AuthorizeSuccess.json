@@ -1,0 +1,11 @@
+{
+  "t": "RPC_RES",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-001",
+  "ok": true,
+  "result": {
+    "identifier": {
+      "prefix": "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c"
+    }
+  }
+}

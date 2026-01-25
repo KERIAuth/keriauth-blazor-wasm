@@ -1,0 +1,15 @@
+{
+  "Authorize": "/signify/authorize",
+  "SelectAuthorizeAid": "/signify/authorize/aid",
+  "SelectAuthorizeCredential": "/signify/authorize/credential",
+  "SignData": "/signify/sign-data",
+  "SignRequest": "/signify/sign-request",
+  "CreateDataAttestation": "/signify/credential/create/data-attestation",
+  "GetCredential": "/signify/credential/get",
+  "ConfigureVendor": "/signify/configure-vendor",
+  "SignifyExtension": "signify-extension",
+  "SignifyExtensionClient": "signify-extension-client",
+  "GetSessionInfo": "/signify/get-session-info",
+  "ClearSession": "/signify/clear-session",
+  "Init": "init"
+}

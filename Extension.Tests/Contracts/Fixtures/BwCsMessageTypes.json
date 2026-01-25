@@ -1,0 +1,8 @@
+{
+  "Ready": "ready",
+  "Reply": "/signify/reply",
+  "ReplyCanceled": "reply_canceled",
+  "ReplyCredential": "/KeriAuth/signify/replyCredential",
+  "FromBackgroundWorker": "fromBackgroundWorker",
+  "AppClosed": "app_closed"
+}

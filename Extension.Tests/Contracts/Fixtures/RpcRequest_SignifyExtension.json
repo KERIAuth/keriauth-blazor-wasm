@@ -1,0 +1,6 @@
+{
+  "t": "RPC_REQ",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-005",
+  "method": "signify-extension"
+}

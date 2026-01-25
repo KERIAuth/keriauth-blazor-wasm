@@ -1,0 +1,19 @@
+{
+  "t": "RPC_RES",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-003",
+  "ok": true,
+  "result": {
+    "aid": "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+    "items": [
+      {
+        "data": "data item 1",
+        "signature": "0BAg..."
+      },
+      {
+        "data": "data item 2",
+        "signature": "0BCh..."
+      }
+    ]
+  }
+}

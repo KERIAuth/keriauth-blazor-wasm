@@ -161,9 +161,9 @@ import {
 
             // Send HELLO message
             const helloMessage = createCsHelloMessage(instanceId);
+            console.log('KeriAuthCs→BW: HELLO', helloMessage);
             port.postMessage(helloMessage);
 
-            console.log('KeriAuthCs→BW: HELLO', { instanceId });
         } catch (error) {
             console.error('KeriAuthCs: Failed to connect port:', error);
             scheduleReconnect();
@@ -174,7 +174,7 @@ import {
      * Handle messages received from BackgroundWorker via port
      */
     function handlePortMessage(message: PortMessage): void {
-        console.log('KeriAuthCs←BW: ', message);
+        console.log('KeriAuthCs←BW: ', message.t, message);
 
         if (isReadyMessage(message)) {
             handleReadyMessage(message);

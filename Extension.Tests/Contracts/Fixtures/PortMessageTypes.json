@@ -1,0 +1,10 @@
+{
+  "Hello": "HELLO",
+  "Ready": "READY",
+  "AttachTab": "ATTACH_TAB",
+  "DetachTab": "DETACH_TAB",
+  "Event": "EVENT",
+  "RpcRequest": "RPC_REQ",
+  "RpcResponse": "RPC_RES",
+  "Error": "ERROR"
+}

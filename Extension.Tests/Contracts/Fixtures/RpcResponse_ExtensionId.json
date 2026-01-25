@@ -1,0 +1,9 @@
+{
+  "t": "RPC_RES",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-005",
+  "ok": true,
+  "result": {
+    "extensionId": "abcdefghijklmnopqrstuvwxyz123456"
+  }
+}

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using Extension.Helper;
 using Extension.Models;
@@ -107,19 +107,20 @@ public class BwPortService : IBwPortService
 
             switch (messageType)
             {
-                case "HELLO":
+                case PortMessageTypes.Hello:
                     await HandleHelloAsync(portId, messageJson);
                     break;
-                case "ATTACH_TAB":
+                case PortMessageTypes.AttachTab:
                     await HandleAttachTabAsync(portId, messageJson);
                     break;
-                case "DETACH_TAB":
+                case PortMessageTypes.DetachTab:
                     HandleDetachTab(portId);
                     break;
-                case "RPC_REQ":
+                case PortMessageTypes.RpcRequest:
+                case CsBwPortMessageTypes.RpcRequest:  // Directional variant for log clarity
                     await HandleRpcRequestAsync(portId, messageJson);
                     break;
-                case "EVENT":
+                case PortMessageTypes.Event:
                     await HandleEventAsync(portId, messageJson);
                     break;
                 default:
@@ -598,7 +599,7 @@ public class BwPortService : IBwPortService
             Error = errorMessage
         };
 
-        _logger.LogDebug("Sending RPC response: id={RequestId}, ok={Ok}, error={Error}",
+        _logger.LogInformation("Sending RPC response: id={RequestId}, ok={Ok}, error={Error}",
             requestId, response.Ok, errorMessage ?? "null");
 
         await SendToPortAsync(portId, response);

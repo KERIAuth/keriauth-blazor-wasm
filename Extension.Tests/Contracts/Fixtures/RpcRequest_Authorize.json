@@ -1,0 +1,9 @@
+{
+  "t": "RPC_REQ",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-001",
+  "method": "/signify/authorize",
+  "params": {
+    "message": "Please authorize this action"
+  }
+}

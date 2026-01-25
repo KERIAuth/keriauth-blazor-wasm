@@ -1,0 +1,7 @@
+{
+  "t": "RPC_RES",
+  "portSessionId": "port-session-abc123",
+  "id": "rpc-request-id-004",
+  "ok": false,
+  "error": "User canceled the operation"
+}

@@ -1,0 +1,5 @@
+{
+  "t": "ERROR",
+  "code": "ATTACH_FAILED",
+  "message": "Failed to attach to tab: tab not found"
+}

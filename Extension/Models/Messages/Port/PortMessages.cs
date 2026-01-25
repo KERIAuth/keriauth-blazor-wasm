@@ -173,3 +173,28 @@ public static class PortErrorCodes {
     public const string InvalidMessage = "INVALID_MESSAGE";
     public const string SessionNotFound = "SESSION_NOT_FOUND";
 }
+
+/// <summary>
+/// Generic port message type discriminators.
+/// </summary>
+public static class PortMessageTypes {
+    public const string Hello = "HELLO";
+    public const string Ready = "READY";
+    public const string AttachTab = "ATTACH_TAB";
+    public const string DetachTab = "DETACH_TAB";
+    public const string Event = "EVENT";
+    public const string RpcRequest = "RPC_REQ";
+    public const string RpcResponse = "RPC_RES";
+    public const string Error = "ERROR";
+}
+
+/// <summary>
+/// Directional port message type discriminators for CS→BW communication.
+/// These help identify message direction in logs.
+/// </summary>
+public static class CsBwPortMessageTypes {
+    /// <summary>RPC request from ContentScript to BackgroundWorker</summary>
+    public const string RpcRequest = "CS_BW_RPC_REQ";
+    /// <summary>RPC response from BackgroundWorker to ContentScript</summary>
+    public const string RpcResponse = "BW_CS_RPC_RES";
+}
