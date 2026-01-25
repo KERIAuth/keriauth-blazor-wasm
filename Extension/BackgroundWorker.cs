@@ -117,6 +117,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         //   Parameters: message (any), sender (MessageSender), sendResponse (function)
         // TODO P2 chrome.webRequest.onBeforeRequest // (network/page events)
         //   Parameters: details - Object with requestId, url, method, frameId, tabId, type, timeStamp, requestBody
+        WebExtensions.Runtime.OnMessage.AddListener(HandleRuntimeOnMessageAsync);
+    }
+
+    private bool HandleRuntimeOnMessageAsync(object arg1, MessageSender sender, Action<object> action) {
+        // TODO P2: implement
+        // may be useful to wake up the service worker from idle inactive state
+        logger.LogWarning("HandleRuntimeOnMessageAsync called");
+        // throw new NotImplementedException();
+        return true;
     }
 
     private readonly ISignifyClientBinding _signifyClientBinding;

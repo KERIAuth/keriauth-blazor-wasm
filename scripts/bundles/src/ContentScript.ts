@@ -110,7 +110,7 @@ import {
 
         // Handle SW_RESTARTED message - reconnect port after service worker restart
         if (msg?.type === 'SW_RESTARTED') {
-            console.log('KeriAuthCs: Received SW_RESTARTED, reconnecting port...');
+            console.log('KeriAuthCs←BW: Received SW_RESTARTED, reconnecting port...');
             // Reset state and reconnect
             port = null;
             portSessionId = null;
@@ -145,6 +145,11 @@ import {
         try {
             console.log('KeriAuthCs: Connecting to BackgroundWorker via port...');
 
+            // TODO P0: tmp
+            console.log('KeriAuthCs→BW: WAKE_UP_TMP');
+            chrome.runtime.sendMessage("WAKE_UP_TMP"); // fire and forget, to wake up SW
+            
+
             // Create port connection
             port = chrome.runtime.connect(undefined, {name: 'content-script'});
 
@@ -158,7 +163,7 @@ import {
             const helloMessage = createCsHelloMessage(instanceId);
             port.postMessage(helloMessage);
 
-            console.log('KeriAuthCs: HELLO sent to BackgroundWorker', { instanceId });
+            console.log('KeriAuthCs→BW: HELLO', { instanceId });
         } catch (error) {
             console.error('KeriAuthCs: Failed to connect port:', error);
             scheduleReconnect();
@@ -169,7 +174,7 @@ import {
      * Handle messages received from BackgroundWorker via port
      */
     function handlePortMessage(message: PortMessage): void {
-        console.log('KeriAuthCs←BW (port):', message);
+        console.log('KeriAuthCs←BW: ', message);
 
         if (isReadyMessage(message)) {
             handleReadyMessage(message);
@@ -326,7 +331,7 @@ import {
 
             // Send via port
             port.postMessage(request);
-            console.log('KeriAuthCs→BW (port):', request);
+            console.log('KeriAuthCs→BW: ', request);
         });
     }
 
@@ -454,7 +459,7 @@ import {
      * @param msg Message to send, either polaris-web protocol or internal CS-BW message
      */
     async function sendMessageToBW(msg: Polaris.MessageData<unknown> | ICsBwMsg): Promise<void> {
-        console.info('KeriAuthCs→BW:', msg);
+        console.info('KeriAuthCs→BW: ', msg);
 
         // Port must be ready - no fallback to sendMessage
         if (!isPortReady || !port || !portSessionId) {
