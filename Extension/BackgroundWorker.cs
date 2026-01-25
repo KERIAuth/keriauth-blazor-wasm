@@ -1139,10 +1139,31 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
                 case CsBwMessageTypes.CLEAR_SESSION:
                 case CsBwMessageTypes.GET_SESSION_INFO:
-                    // Not implemented - respond with error
-                    logger.LogWarning("BW←CS (port RPC): method not implemented: {Method}", request.Method);
+                    // Sessions not implemented - respond with specific error
+                    logger.LogWarning("BW←CS (port RPC): sessions not implemented: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                        errorMessage: $"Method not implemented: {request.Method}");
+                        errorMessage: "Sessions not supported");
+                    return;
+
+                case CsBwMessageTypes.GET_CREDENTIAL:
+                    // Not implemented yet - respond with specific error
+                    logger.LogWarning("BW←CS (port RPC): GetCredential not implemented: {Method}", request.Method);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        errorMessage: "GetCredential not implemented");
+                    return;
+
+                case CsBwMessageTypes.CONFIGURE_VENDOR:
+                    // Not implemented - respond with specific error
+                    logger.LogWarning("BW←CS (port RPC): ConfigureVendor not implemented: {Method}", request.Method);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        errorMessage: "ConfigureVendor not supported");
+                    return;
+
+                case CsBwMessageTypes.INIT:
+                    // Legacy method - respond with specific error
+                    logger.LogWarning("BW←CS (port RPC): Init is legacy/not implemented: {Method}", request.Method);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        errorMessage: "Init method is deprecated");
                     return;
 
                 default:

@@ -3,6 +3,8 @@
  * These types match the C# records in Extension/Models/Messages/Port/PortMessages.cs
  */
 
+import { CsBwPortMessageTypes } from './CsBwRpcMethods.js';
+
 /**
  * Context types for port connections.
  */
@@ -88,9 +90,10 @@ export interface EventMessage {
 
 /**
  * RPC_REQ message for request-response patterns.
+ * Accepts both generic ('RPC_REQ') and directional ('CS_BW_RPC_REQ') discriminators.
  */
 export interface RpcRequest {
-    t: typeof PortMessageTypes.RpcRequest;
+    t: typeof PortMessageTypes.RpcRequest | typeof CsBwPortMessageTypes.RpcRequest;
     portSessionId: string;
     id: string;
     method: string;
@@ -99,9 +102,10 @@ export interface RpcRequest {
 
 /**
  * RPC_RES message sent in reply to an RpcRequest.
+ * Accepts both generic ('RPC_RES') and directional ('BW_CS_RPC_RES') discriminators.
  */
 export interface RpcResponse {
-    t: typeof PortMessageTypes.RpcResponse;
+    t: typeof PortMessageTypes.RpcResponse | typeof CsBwPortMessageTypes.RpcResponse;
     portSessionId: string;
     id: string;
     ok: boolean;
@@ -147,16 +151,18 @@ export function isReadyMessage(msg: PortMessage): msg is ReadyMessage {
 
 /**
  * Type guard for RpcRequest.
+ * Recognizes both generic ('RPC_REQ') and directional ('CS_BW_RPC_REQ') discriminators.
  */
 export function isRpcRequest(msg: PortMessage): msg is RpcRequest {
-    return msg.t === PortMessageTypes.RpcRequest;
+    return msg.t === PortMessageTypes.RpcRequest || msg.t === CsBwPortMessageTypes.RpcRequest;
 }
 
 /**
  * Type guard for RpcResponse.
+ * Recognizes both generic ('RPC_RES') and directional ('BW_CS_RPC_RES') discriminators.
  */
 export function isRpcResponse(msg: PortMessage): msg is RpcResponse {
-    return msg.t === PortMessageTypes.RpcResponse;
+    return msg.t === PortMessageTypes.RpcResponse || msg.t === CsBwPortMessageTypes.RpcResponse;
 }
 
 /**
@@ -205,15 +211,21 @@ export function createAppHelloMessage(instanceId: string): HelloMessage {
 
 /**
  * Helper to create an RpcRequest.
+ * @param portSessionId The port session ID
+ * @param method The RPC method name
+ * @param params Optional method parameters
+ * @param id Optional request ID (auto-generated if not provided)
+ * @param discriminator Optional message discriminator (defaults to 'RPC_REQ', use CsBwPortMessageTypes.RpcRequest for CS→BW)
  */
 export function createRpcRequest(
     portSessionId: string,
     method: string,
     params?: unknown,
-    id?: string
+    id?: string,
+    discriminator: typeof PortMessageTypes.RpcRequest | typeof CsBwPortMessageTypes.RpcRequest = PortMessageTypes.RpcRequest
 ): RpcRequest {
     return {
-        t: PortMessageTypes.RpcRequest,
+        t: discriminator,
         portSessionId,
         id: id ?? crypto.randomUUID(),
         method,
@@ -223,14 +235,19 @@ export function createRpcRequest(
 
 /**
  * Helper to create a success RpcResponse.
+ * @param portSessionId The port session ID
+ * @param id The request ID being responded to
+ * @param result Optional result data
+ * @param discriminator Optional message discriminator (defaults to 'RPC_RES', use CsBwPortMessageTypes.RpcResponse for BW→CS)
  */
 export function createRpcSuccessResponse(
     portSessionId: string,
     id: string,
-    result?: unknown
+    result?: unknown,
+    discriminator: typeof PortMessageTypes.RpcResponse | typeof CsBwPortMessageTypes.RpcResponse = PortMessageTypes.RpcResponse
 ): RpcResponse {
     return {
-        t: PortMessageTypes.RpcResponse,
+        t: discriminator,
         portSessionId,
         id,
         ok: true,
@@ -240,14 +257,19 @@ export function createRpcSuccessResponse(
 
 /**
  * Helper to create an error RpcResponse.
+ * @param portSessionId The port session ID
+ * @param id The request ID being responded to
+ * @param error The error message
+ * @param discriminator Optional message discriminator (defaults to 'RPC_RES', use CsBwPortMessageTypes.RpcResponse for BW→CS)
  */
 export function createRpcErrorResponse(
     portSessionId: string,
     id: string,
-    error: string
+    error: string,
+    discriminator: typeof PortMessageTypes.RpcResponse | typeof CsBwPortMessageTypes.RpcResponse = PortMessageTypes.RpcResponse
 ): RpcResponse {
     return {
-        t: PortMessageTypes.RpcResponse,
+        t: discriminator,
         portSessionId,
         id,
         ok: false,

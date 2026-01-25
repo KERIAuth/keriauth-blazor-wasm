@@ -128,10 +128,18 @@ public record RpcRequest : PortMessage {
 
 /// <summary>
 /// RPC response message sent in reply to an RpcRequest.
+/// Supports both generic ('RPC_RES') and directional ('BW_CS_RPC_RES') discriminators.
 /// </summary>
 public record RpcResponse : PortMessage {
     [JsonPropertyName("t")]
-    public override string T => "RPC_RES";
+    public override string T => Discriminator;
+
+    /// <summary>
+    /// The message type discriminator value. Defaults to generic 'RPC_RES'.
+    /// Set to CsBwPortMessageTypes.RpcResponse for BW→CS responses.
+    /// </summary>
+    [JsonIgnore]
+    public string Discriminator { get; init; } = PortMessageTypes.RpcResponse;
 
     [JsonPropertyName("portSessionId")]
     public required string PortSessionId { get; init; }

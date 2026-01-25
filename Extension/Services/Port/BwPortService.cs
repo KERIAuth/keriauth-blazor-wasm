@@ -313,6 +313,7 @@ public class BwPortService : IBwPortService
                 isFromContentScript ? "ContentScript" : "App", portId);
             var errorResponse = new RpcResponse
             {
+                Discriminator = isFromContentScript ? CsBwPortMessageTypes.RpcResponse : PortMessageTypes.RpcResponse,
                 PortSessionId = rpcRequest.PortSessionId,
                 Id = rpcRequest.Id,
                 Ok = false,
@@ -335,6 +336,7 @@ public class BwPortService : IBwPortService
             // Send error response if handler threw
             var errorResponse = new RpcResponse
             {
+                Discriminator = isFromContentScript ? CsBwPortMessageTypes.RpcResponse : PortMessageTypes.RpcResponse,
                 PortSessionId = rpcRequest.PortSessionId,
                 Id = rpcRequest.Id,
                 Ok = false,
@@ -590,8 +592,12 @@ public class BwPortService : IBwPortService
 
     public async Task SendRpcResponseAsync(string portId, string portSessionId, string requestId, object? result = null, string? errorMessage = null)
     {
+        // Use directional discriminator when responding to ContentScript
+        var isFromContentScript = _portIsContentScript.TryGetValue(portId, out var isCs) && isCs;
+
         var response = new RpcResponse
         {
+            Discriminator = isFromContentScript ? CsBwPortMessageTypes.RpcResponse : PortMessageTypes.RpcResponse,
             PortSessionId = portSessionId,
             Id = requestId,
             Ok = errorMessage is null,

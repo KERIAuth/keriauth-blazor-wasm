@@ -12,11 +12,8 @@
 import {
     type ICsPageMsgData,
     type ICsPageMsgDataData,
-    type ICsBwMsg,
-    type ICsReadyMessage,
     CsPageMsgTag,
     CsBwMsgEnum,
-    CsInternalMsgEnum,
     BwCsMsgEnum,
     type Polaris,
     type PortMessage,
@@ -27,7 +24,8 @@ import {
     createRpcRequest,
     isReadyMessage,
     isRpcResponse,
-    isEventMessage
+    isEventMessage,
+    CsBwPortMessageTypes
 } from '@keriauth/types';
 
 // CONTEXT GUARD: ContentScript should only run in web page context, not in service worker.
@@ -324,7 +322,8 @@ import {
                 return;
             }
 
-            const request = createRpcRequest(portSessionId, method, params);
+            // Use directional discriminator for CS→BW messages
+            const request = createRpcRequest(portSessionId, method, params, undefined, CsBwPortMessageTypes.RpcRequest);
 
             // Store callback for response
             pendingRpcCallbacks.set(request.id, { resolve, reject });
@@ -458,7 +457,7 @@ import {
      * Throws an error if port is not connected - no sendMessage fallback.
      * @param msg Message to send, either polaris-web protocol or internal CS-BW message
      */
-    async function sendMessageToBW(msg: Polaris.MessageData<unknown> | ICsBwMsg): Promise<void> {
+    async function sendMessageToBW(msg: Polaris.MessageData<unknown>): Promise<void> {
         console.info('KeriAuthCs→BW: ', msg);
 
         // Port must be ready - no fallback to sendMessage
@@ -497,7 +496,8 @@ import {
             throw new Error('Port not connected');
         }
 
-        const request = createRpcRequest(portSessionId, method, params);
+        // Use directional discriminator for CS→BW messages
+        const request = createRpcRequest(portSessionId, method, params, undefined, CsBwPortMessageTypes.RpcRequest);
 
         // Store mapping for response routing back to page
         rpcIdToPageRequestId.set(request.id, originalRequestId);
