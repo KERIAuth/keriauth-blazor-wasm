@@ -17,7 +17,7 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'"
   },
   "default_locale": "en",
-  "description": "Authenticate with decentralized identifiers and credentials, rooted in KERI and GLEIF vLEIs.",
+  "description": "Authenticate with keys you control and credentials issued from verifiable legal entities, leveraging KERI, ACDC, and GLEIF vLEIs.",
   "host_permissions": [],
   "icons": {
     "16": "images/logo016.png",
