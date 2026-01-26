@@ -35,6 +35,51 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 (globalThis as any).appModules = {};  // WebAuthn modules loaded dynamically by JsModuleLoader
 
 
+// TODO P1: having this listener here may help keep the service-worker active?
+console.log("App.ts registering runtime.onConnect listener");
+chrome.runtime.onConnect.addListener((port) => {
+    console.log("App.ts connected on port:", port.name);
+
+    port.onMessage.addListener((msg) => {
+        console.log("App.ts received via port:", msg);
+
+        if (msg.type === "hello") {
+            port.postMessage({
+                type: "welcome from app.ts",
+                time: Date.now()
+            });
+        }
+    });
+
+    port.onDisconnect.addListener(() => {
+        console.log("App.ts: Port disconnected:", port.name);
+    });
+});
+
+// TODO P1: having this listener here may help keep the service-worker active?
+console.log("App.ts registering window.sendMessage listener");
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log("App.ts received runtime message: ", message, "sender: ", sender)
+    
+    if (message.type === 'SW_RESTARTED') {
+        console.log('Service worker restarted ???? , re-establishing port ????');
+        // reconnectPort();
+        sendResponse({ ok: true });  
+    }
+      // IMPORTANT warning: if two listeners return true (to keep channel open for responses), the sendRespond receipt becomes nondeterministic
+      // See other listener here in app.ts and in BackgroundWorker (WebExtensions.Runtime.OnMessage.AddListener(...))
+    return false;
+});
+
+
+
+
+
+
+
+
+
+
 const CS_ID_PREFIX = 'keriauth-cs';
 
 // Type definitions for Blazor Browser Extension types
@@ -845,6 +890,8 @@ export async function beforeStart(
                     return false; // No async response needed
                 }
                 // Let other listeners handle other message types
+                // IMPORTANT: if you might respond asynchronously, return true. However, only one such listener should!
+                // See also BackgroundWorker.cs for similar listener (WebExtensions.Runtime.OnMessage.AddListener(...))
                 return false;
             });
 

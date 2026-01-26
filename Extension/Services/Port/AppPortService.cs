@@ -28,21 +28,6 @@ public class AppPortService : IAppPortService
     private readonly List<IObserver<BwAppMessage>> _observers = [];
     private bool _disposed;
 
-    // JSON serialization options for port messages
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
-
-    // JSON serialization options for AppBw messages with nested credential structures
-    private static readonly JsonSerializerOptions MessageJsonOptions = new()
-    {
-        MaxDepth = 128,
-        PropertyNameCaseInsensitive = true,
-        Converters = { new RecursiveDictionaryConverter() }
-    };
-
     // Default timeout for RPC requests
     private static readonly TimeSpan DefaultRpcTimeout = TimeSpan.FromSeconds(30);
 
@@ -290,8 +275,8 @@ public class AppPortService : IAppPortService
     {
         try
         {
-            var messageJson = JsonSerializer.Serialize(messageObj, JsonOptions);
-            var baseMsg = JsonSerializer.Deserialize<JsonElement>(messageJson, JsonOptions);
+            var messageJson = JsonSerializer.Serialize(messageObj, JsonOptions.CamelCase);
+            var baseMsg = JsonSerializer.Deserialize<JsonElement>(messageJson, JsonOptions.CamelCase);
 
             if (!baseMsg.TryGetProperty("t", out var typeElement))
             {
@@ -331,7 +316,7 @@ public class AppPortService : IAppPortService
     {
         try
         {
-            var readyMessage = JsonSerializer.Deserialize<ReadyMessage>(messageJson, JsonOptions);
+            var readyMessage = JsonSerializer.Deserialize<ReadyMessage>(messageJson, JsonOptions.CamelCase);
             if (readyMessage == null)
             {
                 _logger.LogError("Failed to deserialize READY message");
@@ -358,7 +343,7 @@ public class AppPortService : IAppPortService
     {
         try
         {
-            var rpcResponse = JsonSerializer.Deserialize<RpcResponse>(messageJson, JsonOptions);
+            var rpcResponse = JsonSerializer.Deserialize<RpcResponse>(messageJson, JsonOptions.CamelCase);
             if (rpcResponse == null)
             {
                 _logger.LogError("Failed to deserialize RPC_RES message");
@@ -391,7 +376,7 @@ public class AppPortService : IAppPortService
     {
         try
         {
-            var eventMessage = JsonSerializer.Deserialize<EventMessage>(messageJson, JsonOptions);
+            var eventMessage = JsonSerializer.Deserialize<EventMessage>(messageJson, JsonOptions.CamelCase);
             if (eventMessage == null)
             {
                 _logger.LogError("Failed to deserialize EVENT message");
@@ -423,7 +408,7 @@ public class AppPortService : IAppPortService
     {
         try
         {
-            var errorMessage = JsonSerializer.Deserialize<ErrorMessage>(messageJson, JsonOptions);
+            var errorMessage = JsonSerializer.Deserialize<ErrorMessage>(messageJson, JsonOptions.CamelCase);
             if (errorMessage == null)
             {
                 _logger.LogError("Failed to deserialize ERROR message");
@@ -639,14 +624,14 @@ public class AppPortService : IAppPortService
             if (response.Result is JsonElement jsonElement)
             {
                 var responseJson = jsonElement.GetRawText();
-                var typedResponse = JsonSerializer.Deserialize<TResponse>(responseJson, MessageJsonOptions);
+                var typedResponse = JsonSerializer.Deserialize<TResponse>(responseJson, JsonOptions.PortMessaging);
                 _logger.LogInformation("SendRequestAsync deserialized response: {Type}", typeof(TResponse).Name);
                 return Result.Ok(typedResponse);
             }
 
             // Try to serialize and deserialize for other object types
-            var resultJson = JsonSerializer.Serialize(response.Result, MessageJsonOptions);
-            var deserializedResponse = JsonSerializer.Deserialize<TResponse>(resultJson, MessageJsonOptions);
+            var resultJson = JsonSerializer.Serialize(response.Result, JsonOptions.PortMessaging);
+            var deserializedResponse = JsonSerializer.Deserialize<TResponse>(resultJson, JsonOptions.PortMessaging);
             return Result.Ok(deserializedResponse);
         }
         catch (TimeoutException)

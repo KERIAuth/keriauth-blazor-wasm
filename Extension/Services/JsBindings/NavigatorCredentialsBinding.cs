@@ -1,6 +1,7 @@
 ﻿using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Extension.Helper;
 using FluentResults;
 using Microsoft.JSInterop;
 
@@ -131,11 +132,6 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
     private readonly IJsModuleLoader _moduleLoader;
     private readonly ILogger<NavigatorCredentialsBinding> _logger;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     public NavigatorCredentialsBinding(
         IJsModuleLoader moduleLoader,
         ILogger<NavigatorCredentialsBinding> logger) {
@@ -149,7 +145,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
         CreateCredentialOptions options,
         CancellationToken cancellationToken = default) {
         try {
-            var optionsJson = JsonSerializer.Serialize(options, JsonOptions);
+            var optionsJson = JsonSerializer.Serialize(options, JsonOptions.CamelCaseOmitNull);
             _logger.LogDebug("Creating WebAuthn credential with options: {Options}", optionsJson);
 
             var result = await Module.InvokeAsync<CredentialCreationResult>(
@@ -196,7 +192,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
         GetCredentialOptions options,
         CancellationToken cancellationToken = default) {
         try {
-            var optionsJson = JsonSerializer.Serialize(options, JsonOptions);
+            var optionsJson = JsonSerializer.Serialize(options, JsonOptions.CamelCaseOmitNull);
             _logger.LogDebug("Getting WebAuthn assertion with options: {Options}", optionsJson);
 
             var result = await Module.InvokeAsync<CredentialAssertionResult>(

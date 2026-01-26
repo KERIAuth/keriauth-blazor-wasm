@@ -2,6 +2,7 @@
 
 using System.Text;
 using System.Text.Json;
+using Extension.Helper;
 using Extension.Models;
 using FluentResults;
 using JsBind.Net;
@@ -33,12 +34,6 @@ public class StorageService : IStorageService, IDisposable {
     // Single global callback for ALL storage areas (chrome.storage.onChanged fires once for all areas)
     private Action<object, string>? _globalCallback;
     private bool _listenerRegistered;
-
-    private static readonly JsonSerializerOptions JsonOptions = new() {
-        PropertyNameCaseInsensitive = true,
-        IncludeFields = true,
-        PropertyNamingPolicy = null, // Preserve PascalCase from C# properties
-    };
 
     public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
 
@@ -109,13 +104,13 @@ public class StorageService : IStorageService, IDisposable {
 
             if (changes is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object) {
                 changesDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                    jsonElement.GetRawText(), JsonOptions);
+                    jsonElement.GetRawText(), JsonOptions.Storage);
             }
             else if (changes is IDictionary<string, object> dict) {
                 // Convert to JsonElement dictionary for uniform processing
                 changesDict = dict.ToDictionary(
                     kvp => kvp.Key,
-                    kvp => kvp.Value is JsonElement je ? je : JsonSerializer.SerializeToElement(kvp.Value, JsonOptions)
+                    kvp => kvp.Value is JsonElement je ? je : JsonSerializer.SerializeToElement(kvp.Value, JsonOptions.Storage)
                 );
             }
             else {
@@ -187,7 +182,7 @@ public class StorageService : IStorageService, IDisposable {
             // Deserialize newValue to appropriate type
             object? typedValue = null;
             if (newValue is JsonElement jsonElement) {
-                typedValue = JsonSerializer.Deserialize(jsonElement.GetRawText(), elementType, JsonOptions);
+                typedValue = JsonSerializer.Deserialize(jsonElement.GetRawText(), elementType, JsonOptions.Storage);
             }
             else {
                 typedValue = newValue;
@@ -271,7 +266,7 @@ public class StorageService : IStorageService, IDisposable {
             var jsonElement = await GetFromStorageArea(area, key);
 
             if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(key), out var element)) {
-                var value = JsonSerializer.Deserialize<T>(element, JsonOptions);
+                var value = JsonSerializer.Deserialize<T>(element, JsonOptions.Storage);
                 _logger.LogDebug("Retrieved {Key} from {Area} storage", key, area);
                 return Result.Ok<T?>(value);
             }
@@ -360,7 +355,7 @@ public class StorageService : IStorageService, IDisposable {
         if (validation.IsFailed) return validation;
 
         try {
-            var data = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(backupJson, JsonOptions);
+            var data = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(backupJson, JsonOptions.Storage);
             if (data == null) {
                 return Result.Fail(new StorageError("Invalid backup JSON: deserialized to null"));
             }

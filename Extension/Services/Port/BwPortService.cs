@@ -39,15 +39,6 @@ public class BwPortService : IBwPortService
     // Track which ports are ContentScript vs App (by portId)
     private readonly ConcurrentDictionary<string, bool> _portIsContentScript = new();
 
-    // JSON serialization options for port messages with nested credential structures
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        MaxDepth = 128, // Handle deeply nested vLEI credential structures
-        Converters = { new RecursiveDictionaryConverter() }
-    };
-
     public BwPortService(
         ILogger<BwPortService> logger,
         IJSRuntime jsRuntime,
@@ -93,8 +84,8 @@ public class BwPortService : IBwPortService
     {
         try
         {
-            var messageJson = JsonSerializer.Serialize(messageObj, JsonOptions);
-            var baseMsg = JsonSerializer.Deserialize<JsonElement>(messageJson, JsonOptions);
+            var messageJson = JsonSerializer.Serialize(messageObj, JsonOptions.PortMessaging);
+            var baseMsg = JsonSerializer.Deserialize<JsonElement>(messageJson, JsonOptions.PortMessaging);
 
             if (!baseMsg.TryGetProperty("t", out var typeElement))
             {
@@ -136,7 +127,7 @@ public class BwPortService : IBwPortService
 
     private async Task HandleHelloAsync(string portId, string messageJson)
     {
-        var hello = JsonSerializer.Deserialize<HelloMessage>(messageJson, JsonOptions);
+        var hello = JsonSerializer.Deserialize<HelloMessage>(messageJson, JsonOptions.PortMessaging);
         if (hello is null)
         {
             _logger.LogWarning("Failed to deserialize HELLO message from portId={PortId}", portId);
@@ -231,7 +222,7 @@ public class BwPortService : IBwPortService
 
     private async Task HandleAttachTabAsync(string portId, string messageJson)
     {
-        var attach = JsonSerializer.Deserialize<AttachTabMessage>(messageJson, JsonOptions);
+        var attach = JsonSerializer.Deserialize<AttachTabMessage>(messageJson, JsonOptions.PortMessaging);
         if (attach is null)
         {
             _logger.LogWarning("Failed to deserialize ATTACH_TAB message from portId={PortId}", portId);
@@ -288,7 +279,7 @@ public class BwPortService : IBwPortService
 
     private async Task HandleRpcRequestAsync(string portId, string messageJson)
     {
-        var rpcRequest = JsonSerializer.Deserialize<RpcRequest>(messageJson, JsonOptions);
+        var rpcRequest = JsonSerializer.Deserialize<RpcRequest>(messageJson, JsonOptions.PortMessaging);
         if (rpcRequest is null)
         {
             _logger.LogWarning("Failed to deserialize RPC_REQ message from portId={PortId}", portId);
@@ -348,7 +339,7 @@ public class BwPortService : IBwPortService
 
     private async Task HandleEventAsync(string portId, string messageJson)
     {
-        var eventMsg = JsonSerializer.Deserialize<EventMessage>(messageJson, JsonOptions);
+        var eventMsg = JsonSerializer.Deserialize<EventMessage>(messageJson, JsonOptions.PortMessaging);
         if (eventMsg is null)
         {
             _logger.LogWarning("Failed to deserialize EVENT message from portId={PortId}", portId);
@@ -520,7 +511,7 @@ public class BwPortService : IBwPortService
             // Pre-serialize the message using our JsonOptions to handle RecursiveDictionary
             // and deeply nested structures. Then deserialize to JsonElement which
             // WebExtensions.Net can serialize without custom converters.
-            var serialized = JsonSerializer.Serialize(message, JsonOptions);
+            var serialized = JsonSerializer.Serialize(message, JsonOptions.PortMessaging);
             var jsonElement = JsonSerializer.Deserialize<JsonElement>(serialized);
 
             port.PostMessage(jsonElement);

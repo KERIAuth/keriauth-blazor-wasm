@@ -170,10 +170,7 @@
             logger.LogDebug("SignData: signResultJson={Result}", signResultJson);
 
             // Parse the result
-            var signResult = JsonSerializer.Deserialize<SignDataResult>(signResultJson, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+            var signResult = JsonSerializer.Deserialize<SignDataResult>(signResultJson, JsonOptions.Default);
 
             if (signResult is null)
             {

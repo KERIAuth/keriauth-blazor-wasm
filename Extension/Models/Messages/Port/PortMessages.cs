@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using Extension.Helper;
 
 namespace Extension.Models.Messages.Port;
 
@@ -124,6 +126,22 @@ public record RpcRequest : PortMessage {
     [JsonPropertyName("params")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Params { get; init; }
+
+    /// <summary>
+    /// Deserializes Params to the specified type.
+    /// Returns null if Params is null or deserialization fails.
+    /// </summary>
+    /// <typeparam name="T">The target type for deserialization</typeparam>
+    /// <returns>The deserialized params, or null if unavailable or invalid</returns>
+    public T? GetParams<T>() where T : class {
+        if (Params is null) return null;
+        if (Params is JsonElement el) {
+            return JsonSerializer.Deserialize<T>(el.GetRawText(), JsonOptions.Default);
+        }
+        // If already deserialized to correct type
+        if (Params is T typed) return typed;
+        return null;
+    }
 }
 
 /// <summary>

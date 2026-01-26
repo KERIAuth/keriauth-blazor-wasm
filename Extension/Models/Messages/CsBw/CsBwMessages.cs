@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 using Extension.Models.Messages.Common;
+using Polaris = Extension.Models.Messages.Polaris;
 
 namespace Extension.Models.Messages.CsBw {
     /// <summary>
@@ -49,6 +50,43 @@ namespace Extension.Models.Messages.CsBw {
     public record CreateDataAttestationPayload(
         [property: JsonPropertyName("credData")] Dictionary<string, object> CredData,
         [property: JsonPropertyName("schemaSaid")] string SchemaSaid
+    );
+
+    // =========================================================================
+    // Typed RPC Params Records
+    // Used with RpcRequest.GetParams<T>() for type-safe param extraction.
+    // =========================================================================
+
+    /// <summary>
+    /// RPC params for sign-request method.
+    /// </summary>
+    public record SignRequestRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] Polaris.SignRequestArgs? Payload
+    );
+
+    /// <summary>
+    /// RPC params for sign-data method.
+    /// </summary>
+    public record SignDataRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] Polaris.SignDataArgs? Payload
+    );
+
+    /// <summary>
+    /// RPC params for create-data-attestation method.
+    /// </summary>
+    public record CreateDataAttestationRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] CreateDataAttestationPayload? Payload
+    );
+
+    /// <summary>
+    /// RPC params for authorize/aid/credential methods.
+    /// Only contains requestId since payload is optional for these.
+    /// </summary>
+    public record SelectAuthorizeRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId
     );
 
     /// <summary>
