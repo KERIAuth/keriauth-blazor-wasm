@@ -18,7 +18,7 @@
     "libsodium-sumo": "^0.7.15",
     "mathjs": "^12.4.0",
     "signify-polaris-web": "github:weboftrust/polaris-web#7d7dd13",
-    "signify-ts": "github:weboftrust/signify-ts#1a20279b10cdc9a7fb53e121073ccdcae744974c",
+    "signify-ts": "github:weboftrust/signify-ts#62a646f1",
     "structured-headers": "^0.5.0",
     "urlsafe-base64": "^1.0.0"
   },
