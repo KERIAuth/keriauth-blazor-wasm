@@ -37,7 +37,7 @@
                     </MudStack>
                 </MudTooltip>
             </div>
-            <MudText Typo="Typo.h6" Class="pt-4"><b>Service</b></MudText>
+            <MudText Typo="Typo.h6" Class="pt-4"><b>Agency-Level Service</b></MudText>
             <MudStack Class="d-flex justify-center ml-3">
                 <MudStack Row="true" AlignItems=AlignItems.Center>
                     <MudText><b>Provider Alias:</b></MudText>
@@ -67,11 +67,11 @@
                                        OnClick="StartEditProviderName" />
                     }
                 </MudStack>
-                <MudText><b>Admin URL:</b> @keriaConnectConfig.AdminUrl</MudText>
+                <MudText><b>Admin (aka Connect) URL:</b> @keriaConnectConfig.AdminUrl</MudText>
                 <MudText><b>Boot URL:</b> @(keriaConnectConfig.BootUrl ?? "(none)")</MudText>
             </MudStack>
 
-            <MudText Typo="Typo.h6" Class="pt-4"><b>Connection</b></MudText>
+            <MudText Typo="Typo.h6" Class="pt-4"><b>Agent-level Connection</b></MudText>
             <MudStack Class="d-flex justify-center ml-3">
 
                 <MudStack Row="true" AlignItems=AlignItems.Center>

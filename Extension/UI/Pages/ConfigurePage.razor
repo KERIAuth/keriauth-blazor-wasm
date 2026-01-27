@@ -16,6 +16,7 @@
 @inject AppCache appCache  // subscribed to via SubscribeToAppCache()
 @using FluentResults
 @using Extension.Helper
+@using System.Globalization
 
 @implements IAsyncDisposable
 
@@ -415,7 +416,8 @@
             clientAidPrefix: null, // will be set after Connect
             agentAidPrefix: null,  // will be set after Connect
             isStored: true
-        ) { Alias = _presetChoice.ProviderName };
+        )
+        { Alias = "Configured at " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC" };
 
         var storePartialConfigResult = await storageService.SetItem<KeriaConnectConfig>(partialConfig);
         if (storePartialConfigResult.IsFailed)

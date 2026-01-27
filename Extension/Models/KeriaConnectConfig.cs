@@ -7,8 +7,8 @@ namespace Extension.Models {
     public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
         public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, bool isStored = false) {
-            ProviderName = providerName;
-            Alias = ""; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC";
+            ProviderName = providerName;  // Agency Alias
+            Alias = providerName; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC"; // Connection Alias
             AdminUrl = adminUrl;
             BootUrl = bootUrl;
             PasscodeHash = passcodeHash;
