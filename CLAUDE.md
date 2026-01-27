@@ -215,31 +215,28 @@ Typically, this start with the MainLayout.razor and IndexPage.razor component.
 
 ## Message Flow Architecture
 
-The extension uses a multi-layered messaging system with strict boundaries:
+**Port-based messaging** via `chrome.runtime.connect()`. ContentScript (TypeScript), App (Blazor), and BackgroundWorker (C# WASM) use **HELLO→READY→ATTACH_TAB handshake**. PortSessions group CS+App ports per tab. Storage persistence survives MV3 service worker restarts. Key services: `BwPortService`, `AppPortService`.
 
-1. **Web Page ↔ Content Script**: Via polaris-web JavaScript API protocol
-   - Web page calls polaris-web methods
-   - Content script validates and forwards to service worker
-   - See [PAGE-CS-MESSAGES.md](./PAGE-CS-MESSAGES.md) for complete message protocol reference
+**Three messaging boundaries:**
 
-2. **Content Script ↔ Service Worker**: Via chrome.runtime messaging
-   - Messages must include sender tab information
-   - Only active tab messages accepted during authentication
+1. **Web Page ↔ Content Script**: Via polaris-web protocol
+   - See [PAGE-CS-MESSAGES.md](./PAGE-CS-MESSAGES.md) for message protocol reference
 
-3. **Service Worker ↔ Blazor WASM**: Via AppSwMessagingService
-   - Bidirectional communication for UI updates
-   - State synchronization across extension components
+2. **Content Script / App ↔ BackgroundWorker**: Via long-lived ports (`chrome.runtime.connect`)
+   - CS and App each open a port and send HELLO immediately
+   - BW responds with READY containing portSessionId
+   - App sends ATTACH_TAB to bind to a specific tab's port session
+   - All routed messages (RPC_REQ, RPC_RES, EVENT) include portSessionId
 
-4. **Blazor/Service Worker ↔ KERIA**: Via signify-ts library
-   - KERI protocol operations
-   - Credential management
-   - Agent communication
+3. **BackgroundWorker ↔ KERIA**: Via signify-ts library
 
-**Critical**: Messages must be validated at each boundary for security. Never pass sensitive data (passcode, keys) through content script.
+**Key implementation files:**
+- `Extension/Services/Port/BwPortService.cs` - Port connections, RPC routing, session management
+- `Extension/Services/Port/AppPortService.cs` - App-side port client, implements `IObservable<BwAppMessage>`
+- `Extension/Models/Messages/Port/*.cs` - Strongly-typed port message records
+- `scripts/bundles/src/ContentScript.ts` - TypeScript port client with RPC
 
-**Protocol Documentation:**
-- **[PAGE-CS-MESSAGES.md](./PAGE-CS-MESSAGES.md)** - Complete reference for Page ↔ Content Script message protocol
-- **[POLARIS_WEB_COMPLIANCE.md](./POLARIS_WEB_COMPLIANCE.md)** - Polaris-web protocol compliance status
+**Critical**: Never pass sensitive data (passcode, keys) through content script.
 
 ## Session Timeout Management
 
@@ -462,16 +459,14 @@ The build system uses MSBuild properties to control behavior:
 - Contains interfaces shared between TypeScript and C# (ExCsInterfaces.ts, storage-models.ts)
 - Compiled to ES6 modules for browser import
 
-#### Message Types
-Define interfaces for all chrome.runtime messages:
+#### Port Message Types
+Port messages use a discriminated union with `t` field. See `Extension/Models/Messages/Port/PortMessages.cs` for C# definitions:
 
-```typescript
-interface ExtensionMessage {
-  type: string;
-  payload: unknown;
-  sender?: chrome.runtime.MessageSender;
-}
-```
+- `HELLO` - Sent by CS/App on connect to establish PortSession
+- `READY` - BW response with portSessionId
+- `ATTACH_TAB` - App binds to a tab's PortSession
+- `RPC_REQ` / `RPC_RES` - Request-response pattern with method and params
+- `EVENT` - One-way notifications
 
 #### Polaris-Web Integration
 - Follow protocol defined in `signify-polaris-web` package
@@ -881,9 +876,9 @@ When making changes, prioritize in this order:
    - **What**: Mock `IJSRuntime` calls, test timeout/cancellation, verify RecursiveDictionary → JSObject conversion
    - **Edge cases**: null/undefined, empty objects, deeply nested structures
 
-3. **Message Routing & Security Boundaries** (High):
+3. **Port Message Routing & Security Boundaries** (High):
    - **Why**: Security constraints prevent sensitive data from reaching content script
-   - **What**: Validate message handlers respect 4-layer boundary system
+   - **What**: Validate port message handlers respect 3-boundary system (Page↔CS, CS/App↔BW, BW↔KERIA)
    - **Focus**: Ensure passcode never leaves BackgroundWorker context
 
 4. **Storage Service** (Medium):
