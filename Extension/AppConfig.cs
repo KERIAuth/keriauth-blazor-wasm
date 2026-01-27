@@ -20,7 +20,8 @@ namespace Extension {
         // default Preferences
         public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
         public const float MaxInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
-        public const bool DefaultIsDarkTheme = false;
+        // Intentionally random initial IsDarkTheme to improve discoverability
+        public static bool DefaultIsDarkTheme => Random.Shared.Next(2) == 0; // false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInSidePanel = MudBlazor.DrawerVariant.Temporary;
         public const bool DefaultIsPasskeyUsePreferred = true;
@@ -33,7 +34,7 @@ namespace Extension {
         public static readonly List<string> AvailableTransportOptions = ["usb", "nfc", "ble", "internal", "hybrid"];
         public static readonly List<string> AllHints = ["hybrid", "security-key", "client-device"];
 
-        public static readonly Models.Preferences DefaultPreferences = new() {
+        public static Models.Preferences DefaultPreferences => new() {
             InactivityTimeoutMinutes = DefaultInactivityTimeoutMins,
             IsDarkTheme = DefaultIsDarkTheme,
             DrawerVariantInTab = DefaultDrawerVariantInTab,

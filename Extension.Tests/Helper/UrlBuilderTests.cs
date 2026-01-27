@@ -25,7 +25,7 @@ namespace Extension.Tests.Helper {
             // Assert.Contains("key%26with%26special=value%26with%26special", result);
         }
 
-        /* /* TODO P3 adjust code so this test passes
+        /* TODO P3 adjust code so this test passes
         [Fact]
         public void CreateUrlWithEncodedQueryStrings_HandlesEmptyQueryParams()
         {

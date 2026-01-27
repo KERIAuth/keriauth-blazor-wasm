@@ -75,6 +75,7 @@ public class BwPortService : IBwPortService
         {
             _ = HandleDisconnectAsync(portId);
         };
+
         port.OnDisconnect.AddListener(onDisconnectHandler);
 
         await Task.CompletedTask; // Satisfy async method requirement
@@ -395,6 +396,9 @@ public class BwPortService : IBwPortService
             else
             {
                 // App disconnected
+
+                // TODO P1: Clean up orphaned pending requests when Popup or SidePanel closes before sending any Reply message.
+
                 portSession.AttachedAppPortIds.Remove(portId);
                 _logger.LogInformation("App disconnected from portSessionId={PortSessionId}",
                     portSession.PortSessionId);

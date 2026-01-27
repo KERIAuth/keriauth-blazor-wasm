@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Extension.Helper;
@@ -16,7 +16,7 @@ namespace Extension.Helper;
 /// AppPortService used CamelCase for port messages but NOT for credential payloads.
 /// BwPortService used CamelCase for everything including credentials.
 /// Now both use PortMessaging (with CamelCase) for consistency.
-/// TODO: Verify credentials serialize correctly with CamelCase naming policy.
+/// TODO P2: Verify credentials serialize correctly with CamelCase naming policy.
 /// </description>
 /// </item>
 /// <item>

@@ -143,7 +143,7 @@ import {
         try {
             console.log('KeriAuthCs: Connecting to BackgroundWorker via port...');
 
-            // TODO P0: tmp
+            // TODO P1: tmp
             console.log('KeriAuthCs→BW: WAKE_UP_TMP');
             chrome.runtime.sendMessage("WAKE_UP_TMP"); // fire and forget, to wake up SW
             

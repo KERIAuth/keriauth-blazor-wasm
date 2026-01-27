@@ -106,7 +106,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // may be useful to wake up the service worker from idle inactive state
         logger.LogWarning("HandleRuntimeOnMessageAsync called bool: {bool} object: {a}", b, arg1);
         // throw new NotImplementedException();
-        return true;  // TODO P1 returning true here keeps this channel open, so no other such listeners should! See app.ts
+        return true;  // TODO P2 returning true here keeps this channel open, so no other such listeners should! See app.ts
     }
 
     private readonly ISignifyClientBinding _signifyClientBinding;
@@ -733,8 +733,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// The App will read the pending request from storage and route to the appropriate page.
     /// </summary>
     /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
-    // TODO P1: Implement port connection (chrome.runtime.onConnect/onDisconnect) to reliably detect
-    // Popup closure and clean up orphaned pending requests when popup closes before sending any message.
     private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest) {
         try {
             logger.LogInformation("BW UseActionPopup: type={Type}, requestId={RequestId}, tabId={TabId}",
