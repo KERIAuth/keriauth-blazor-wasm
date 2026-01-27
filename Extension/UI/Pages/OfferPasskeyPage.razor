@@ -25,6 +25,14 @@
         }
     }
 
+    void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            DeclineOffer();
+        }
+    }
+
     void AcceptOffer()
     {
         logger.LogInformation("User accepted passkey offer");
@@ -40,7 +48,7 @@
     }
 }
 
-<div id="@this.GetType().Name" class="bt-body-page">
+<div id="@this.GetType().Name" class="bt-body-page" @onkeydown="HandleKeyDown" tabindex="0">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudText Class="bt-page-title">Create a Passkey?</MudText>
