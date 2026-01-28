@@ -598,11 +598,11 @@
             {
                 <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
                            OnClick="async () => await SetIsPasskeyUsePreferred(false)">
-                    Use passcode
+                    Use Passcode
                 </MudButton>
                 <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
                            Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
-                    Unlock
+                    Unlock with Passkey
                 </MudButton>
             }
             else
