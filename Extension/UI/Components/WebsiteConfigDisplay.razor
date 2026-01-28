@@ -313,7 +313,7 @@
     {
         <!-- Select Identifier -->
         <MudStack Class="gap-0">
-            <MudText Class="mt-4" Typo="Typo.h6">Identifier</MudText>
+            <MudText Class="mt-4" Typo="Typo.h6">Profile</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
                 <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)" Placeholder="Select">
                     @foreach (var aid in Identifiers)
@@ -371,7 +371,7 @@
                         }
                         else
                         {
-                            <MudText>No credentials issued to this identifier.</MudText>
+                            <MudText>No credentials issued to this profile.</MudText>
                         }
                     }
                     @if (IsAutoSignShown)

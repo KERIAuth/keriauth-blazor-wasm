@@ -87,14 +87,14 @@
                     <MudTable Elevation="0" Items="WWebsites" Hover="false" Striped="true">
                         <HeaderContent>
                             <MudTh Style="width: 65%; white-space: normal; font-weight:600;">Website</MudTh>
-                            <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Identifier</MudTh>
+                            <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Profile</MudTh>
                             <!-- <MudTh Style="width: 15%; white-space: normal; font-weight:600;">Auto-sign Http Request Headers that have no side effects?</MudTh>
                                 -->
                             <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Edit</MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd DataLabel="Website"><MudLink Href="@context.Origin.OriginalString" Target="@((DeterministicHash.ComputeHash(context.Origin.OriginalString)).ToString())">@context.Origin.OriginalString</MudLink></MudTd>
-                            <MudTd DataLabel="Identifier">
+                            <MudTd DataLabel="Profile">
                                 @if (context.RememberedPrefixOrNothing is not null)
                                 {
                                     <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Class="bt-identicon" />

@@ -358,7 +358,7 @@
                 } 
             <MudText class="mt-6" Typo="Typo.body1">
                 This website is requesting KERI Auth, with your approval,
-                to cryptographically sign HTTP Request Headers with the key material of the identifier you selected for this site when you signed in to it.
+                to cryptographically sign HTTP Request Headers with the key material of the profile you selected for this site when you signed in to it.
                 The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
             </MudText>
             <MudText Class="mt-2"><b>Request to Sign</b></MudText>
@@ -366,7 +366,7 @@
                 <MudText><b>Method:</b> @RequestMethod</MudText>
                 <MudText Style="word-break: break-all;"><b>URL:</b> @RequestUrl</MudText>
             </MudPaper>
-            <MudText Class="mt-4"><b>Signing Identifier</b></MudText>
+            <MudText Class="mt-4"><b>Signing Profile</b></MudText>
             <MudStack Row Class="pl-1" Style="align-items:center;">
                 <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
                 <MudText>@WebsiteConfiguredAlias</MudText>

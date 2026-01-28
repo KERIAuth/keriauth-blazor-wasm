@@ -1,4 +1,4 @@
-﻿@page "/Identifiers.html"
+﻿@page "/Profiles.html"
 @using Extension.Models
 @using Extension.Services.Storage
 @inherits AuthenticatedPageBase
@@ -7,7 +7,7 @@
 @inject IStorageService storageService
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject ILogger<IdentifiersPage> logger
+@inject ILogger<ProfilesPage> logger
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject AppCache appCache
@@ -63,7 +63,7 @@
                 CloseButton = true,
                 Position = DialogPosition.Center,
             };
-        var dialog = await dialogService.ShowAsync<AddIdentifierDialog>("Add Identifier", parameters, options);
+        var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add Profile", parameters, options);
         var result = await dialog.Result;
         if (result is null || result.Canceled)
         {
@@ -75,7 +75,7 @@
             if (string.IsNullOrWhiteSpace(alias))
             {
                 logger.LogWarning("AddIdentifier: alias is empty");
-                snackbar.Add("Identifier alias cannot be empty", Severity.Warning);
+                snackbar.Add("Profile alias cannot be empty", Severity.Warning);
                 return;
             }
 
@@ -105,12 +105,12 @@
                 {
                     // BackgroundWorker returned an error in the response
                     logger.LogWarning("AddIdentifier: Failed - {Error}", addResult.Value.Error);
-                    snackbar.Add(addResult.Value.Error ?? "Failed to add identifier", Severity.Error);
+                    snackbar.Add(addResult.Value.Error ?? "Failed to add profile", Severity.Error);
                 }
                 else
                 {
                     logger.LogInformation("AddIdentifier: Success");
-                    snackbar.Add($"Identifier '{alias}' created successfully", Severity.Success);
+                    snackbar.Add($"Profile '{alias}' created successfully", Severity.Success);
                 }
             }
             finally
@@ -135,7 +135,7 @@
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudStack Row="true">
-                <MudText Class="bt-page-title">Identifiers</MudText>
+                <MudText Class="bt-page-title">Profiles</MudText>
                 <MudText Class="bt-page-title">@CountLabel</MudText>
                 <MudTooltip Delay="0.5"
                             Text="">
@@ -146,10 +146,10 @@
 
             @foreach (Aid aid in MyIdentifiers)
             {
-                <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifierPage>() + aid.Prefix)">
+                <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilePage>() + aid.Prefix)">
                     <MudCard Elevation="0" Class="py-0 my-1">
                         <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
-                            <MudTooltip Text="Set Identifier as active" Delay="1000">
+                            <MudTooltip Text="Set Profile as active" Delay="1000">
                                 <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
                                     <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Class="bt-identicon" />
                                 </MudButton>
@@ -171,6 +171,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Identifier</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Profile</MudButton>
     </MudStack>
 </div>

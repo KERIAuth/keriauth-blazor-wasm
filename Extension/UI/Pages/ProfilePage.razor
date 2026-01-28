@@ -1,4 +1,4 @@
-﻿@page "/Identifier.html/{prefix}"
+﻿@page "/Profile.html/{prefix}"
 @using Extension.Services.Storage
 @inherits AuthenticatedPageBase
 
@@ -6,7 +6,7 @@
 @inject IStorageService storageService
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject ILogger<IdentifierPage> logger
+@inject ILogger<ProfilePage> logger
 @inject ISignifyClientService signifyClientService;
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
@@ -118,13 +118,13 @@
             else
             {
                 logger.LogWarning("Failed to load identifier by prefix: {errors}", result.Errors);
-                snackbar.Add($"Failed to load identifier: {result.Errors.FirstOrDefault()?.Message}", Severity.Error);
+                snackbar.Add($"Failed to load profile: {result.Errors.FirstOrDefault()?.Message}", Severity.Error);
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error loading identifier details");
-            snackbar.Add($"Error loading identifier: {ex.Message}", Severity.Error);
+            snackbar.Add($"Error loading profile: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -394,7 +394,7 @@
             var result = await signifyClientService.RenameAid(currentAid.Name, editedAliasValue);
             if (result.IsSuccess)
             {
-                snackbar.Add($"Renamed identifier from '{currentAid.Name}' to '{editedAliasValue}'", Severity.Success);
+                snackbar.Add($"Renamed profile from '{currentAid.Name}' to '{editedAliasValue}'", Severity.Success);
                 // Reload to get updated data
                 await LoadIdentifierDetails();
                 isEditingAlias = false;
@@ -442,11 +442,11 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Class="bt-page-title">Identifier</MudText>
+            <MudText Class="bt-page-title">Profile</MudText>
             @if (!string.IsNullOrEmpty(Prefix))
             {
                 <MudStack Row Class="pb-3">
-                    <MudTooltip Text="Set Identifier as active" Delay="1000">
+                    <MudTooltip Text="Set Profile as active" Delay="1000">
                         <MudButton OnClick="async () => await SetActiveAid(Prefix)">
                             <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Class="bt-identicon" />
                         </MudButton>
@@ -503,7 +503,7 @@
                             <ChildContent>
                                 @if (!string.IsNullOrEmpty(delegator))
                                 {
-                                    <MudText>This identifier's signing authority is delegated from:</MudText>
+                                    <MudText>This profile's signing authority is delegated from:</MudText>
                                     <MudStack Row AlignItems="AlignItems.Center" Class="mt-2">
                                         <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(delegator)" Class="bt-identicon" />
                                         <Ellipsis StringContent="@delegator" MaxLength="999" IncludeCopyIcon="true"></Ellipsis>
@@ -511,7 +511,7 @@
                                 }
                                 else
                                 {
-                                    <MudText>This identifier is not delegated. It has full signing authority.</MudText>
+                                    <MudText>This profile is not delegated. It has full signing authority.</MudText>
                                 }
                             </ChildContent>
                         </MudExpansionPanel>
@@ -589,7 +589,7 @@
                                         }
                                         else
                                         {
-                                            <MudText>No delegatees. You have not delegated signing authority to any other identifiers.</MudText>
+                                            <MudText>No delegatees. You have not delegated signing authority to any other profiles.</MudText>
                                             <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add Delegatee</MudButton>
                                         }
                                     </ChildContent>

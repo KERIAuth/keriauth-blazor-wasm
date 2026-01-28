@@ -114,7 +114,7 @@
                     </MudStack>
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifiersPage>())">Identifiers</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilesPage>())">Profiles</MudLink>
                         </MudText>
                         <MudText Class="mudtext-half-width-right bt-home-status-number">@IdentifiersCount</MudText>
                     </MudStack>
@@ -130,7 +130,7 @@
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:0.714rem;">
                     <MudStack Row Style="align-items:center;">
                         <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<IdentifierPage>() + SelectedPrefix)">Selected Identifier</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilePage>() + SelectedPrefix)">Selected Profile</MudLink>
                         </MudText>
                         <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:2.714rem;">
                             @if (!string.IsNullOrEmpty(SelectedPrefix))

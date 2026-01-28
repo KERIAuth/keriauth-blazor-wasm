@@ -253,7 +253,7 @@
                 <MudList SelectedValue="ActiveAidObject" Class="bt-sad-4 pa-0">
                     @foreach (var aid in appCache.Aids)
                     {
-                        <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @IdentifiersPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
+                        <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @ProfilesPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">
                                 <MudIcon Icon=@Helper.Identicon.MakeIdenticon(aid.Prefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
                                 <div class="bt-sad-2" style="display:contents;">
@@ -266,7 +266,7 @@
                 </MudList>
                 <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end pr-2">
                     <MudSpacer></MudSpacer>
-                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@(Routes.PathFor<IdentifiersPage>())">Manage Identifiers</MudButton>
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@(Routes.PathFor<ProfilesPage>())">Manage Profiles</MudButton>
                 </MudStack>
             </div>
         </MudOverlay>
@@ -277,7 +277,7 @@
         <MudDrawer Style="background: var(--mud-palette-appbar-background);" id="MudDrawer" @bind-Open="IsMenuDrawerOpen" Elevation="0" ClipMode="DrawerClipMode.Never" Variant="@ActiveDrawerVariant" OpenMiniOnHover="true">
             <MudNavMenu Style="height:calc(100vh - var(--mud-appbar-height) - 0.5rem); overflow-y:auto;">
                 <MudNavLink Href="@(Routes.PathFor<DashboardPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
-                <MudNavLink Href="@(Routes.PathFor<IdentifiersPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Identifiers</MudNavLink>
+                <MudNavLink Href="@(Routes.PathFor<ProfilesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Profiles</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
 

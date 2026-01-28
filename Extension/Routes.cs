@@ -49,7 +49,7 @@ public static class Routes
         // Primary navigation (auth required)
         [typeof(DashboardPage)] = new("Dashboard", "/Dashboard.html", RequiresAuth: true,
             Icons.Material.Filled.Dashboard, Color.Surface),
-        [typeof(IdentifiersPage)] = new("Identifiers", "/Identifiers.html", RequiresAuth: true,
+        [typeof(ProfilesPage)] = new("Profiles", "/Profiles.html", RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
         [typeof(CredentialsPage)] = new("Credentials", "/Credentials.html", RequiresAuth: true,
             Icons.Material.Filled.Badge, Color.Surface),
@@ -63,7 +63,7 @@ public static class Routes
             Icons.Material.Outlined.PeopleOutline, Color.Surface),
 
         // Detail pages (auth required, no menu). Trailing / if route has parameter
-        [typeof(IdentifierPage)] = new("Identifier", "/Identifier.html/", RequiresAuth: true),
+        [typeof(ProfilePage)] = new("Profile", "/Profile.html/", RequiresAuth: true),
         [typeof(WebsitePage)] = new("Website", "/Website.html/", RequiresAuth: true),
         [typeof(ConnectingPage)] = new("Connecting", "/Connecting.html", RequiresAuth: true),
         [typeof(RequestSignInPage)] = new("Request Sign In", "/RequestSignIn.html", RequiresAuth: true),

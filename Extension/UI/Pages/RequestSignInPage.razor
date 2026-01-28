@@ -362,7 +362,7 @@
                 @switch (RequestedSignInMode)
                 {
                     case SignInMode.Identifier:
-                        <MudText Class="bt-page-title">Request to Sign In with Identifier</MudText>
+                        <MudText Class="bt-page-title">Request to Sign In with Profile</MudText>
                         break;
                     case SignInMode.Credential:
                         <MudText Class="bt-page-title">Request to Sign In with Credential</MudText>
@@ -388,8 +388,8 @@
                         <MudStack Class="gap-0">
                             <MudText Class="mt-6"><b>Sign-in method</b></MudText>
                             <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode InputStyle="flex-direction:column; align-items:start;">
-                                <MudRadio Value=@(SignInMode.Identifier)>Identifier only</MudRadio>
-                                <MudRadio Value=@(SignInMode.Credential)>Identifier with Credential</MudRadio>
+                                <MudRadio Value=@(SignInMode.Identifier)>Profile only</MudRadio>
+                                <MudRadio Value=@(SignInMode.Credential)>Profile with Credential</MudRadio>
                             </MudRadioGroup>
                         </MudStack>
                         break;
