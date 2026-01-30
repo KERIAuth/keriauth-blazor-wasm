@@ -116,6 +116,9 @@
         logger.LogInformation("OnInitializedAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}, itemCount={ItemCount}",
             PageRequestId, TabId, payload.Origin, DataItems.Length);
 
+        // TODO P2 move this into component, then pass only the TabId to component
+        ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
+
         IsInitialized = true;
         StateHasChanged();
     }
