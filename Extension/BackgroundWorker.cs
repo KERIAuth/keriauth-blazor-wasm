@@ -1883,9 +1883,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 aidName, aidPrefix, schemaSaid);
 
             // Get registry for this AID
-            var registriesResult = await _signifyClientService.ListRegistries(aidName);
+            var registriesResult = await _signifyClientService.ListRegistries(aidPrefix);
             if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
-                logger.LogWarning("BW HandleCreateCredentialApproval: no registry found for AID {AidName}", aidName);
+                logger.LogWarning("BW HandleCreateCredentialApproval: no registry found for AID {AidName}", aidPrefix);
                 await SendResponseAsync(null, "No credential registry found for this identifier. Please create a registry first.");
                 return;
             }
@@ -1894,7 +1894,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var registryId = registry.Regk;
 
             if (string.IsNullOrEmpty(registryId)) {
-                logger.LogWarning("BW HandleCreateCredentialApproval: registry ID is empty for AID {AidName}", aidName);
+                logger.LogWarning("BW HandleCreateCredentialApproval: registry ID is empty for AID {AidName}", aidPrefix);
                 await SendResponseAsync(null, "Invalid registry configuration");
                 return;
             }
