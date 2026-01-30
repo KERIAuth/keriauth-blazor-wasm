@@ -1,9 +1,9 @@
-@page "/RequestSignData.html"
+﻿@page "/RequestSignData.html"
 @layout Layouts.DialogLayout
 
 @using Extension.Services.Storage
-@using System;
-@using System.Collections.Generic;
+@using System
+@using System.Collections.Generic
 @using System.Diagnostics
 @using System.Linq
 @using System.Text.Json
@@ -116,9 +116,6 @@
         logger.LogInformation("OnInitializedAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}, itemCount={ItemCount}",
             PageRequestId, TabId, payload.Origin, DataItems.Length);
 
-        // Get the active tab
-        ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
-
         IsInitialized = true;
         StateHasChanged();
     }
@@ -165,7 +162,7 @@
 
             // Call signify-ts to sign the data items
             var dataItemsJson = JsonSerializer.Serialize(DataItems);
-            var signResultJson = await signifyClientBinding.SignDataAsync(SelectedAlias, dataItemsJson);
+            var signResultJson = await signifyClientBinding.SignDataAsync(SelectedPrefix, dataItemsJson);
 
             logger.LogDebug("SignData: signResultJson={Result}", signResultJson);
 
@@ -211,6 +208,21 @@
         {
             logger.LogError(ex, "Cancel: Failed to send cancel message to BackgroundWorker");
             // Continue to clear pending request and close popup even if message send failed
+        }
+
+        // TODO P2 DRY: This code is duplicated in DisposeAsync - and other dialog pages. refactor into a shared method
+        // Clear the pending request now that cancel is complete
+        await ClearPendingRequestAsync();
+
+        // Wait for AppCache to reflect the cleared request (prevents race with Index.razor routing)
+        var waitResult = await appCache.WaitForAppCache([() => !appCache.HasPendingBwAppRequests], 3000, 100);
+        if (!waitResult)
+        {
+            logger.LogWarning("Cancel: AppCache did not clear pending requests within timeout, proceeding anyway");
+        }
+        else
+        {
+            logger.LogInformation("Cancel: AppCache confirmed no pending requests");
         }
 
         await Layout!.ReturnToPriorUI();
@@ -305,6 +317,7 @@
 
                 @if (!string.IsNullOrEmpty(RequestMessage))
                 {
+                    <MudText Class="mt-4 mb-2"><b>Message from page:</b></MudText>
                     <MudAlert Severity="Severity.Info" Class="mt-4 mb-2">
                         <MudText Typo="Typo.body2">@RequestMessage</MudText>
                     </MudAlert>
@@ -318,8 +331,8 @@
                     }
                 </MudPaper>
 
-                <MudText Class="mt-4 mb-2"><b>Select profile to sign with:</b></MudText>
-                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="true" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+                <MudText Class="mt-4 mb-2"><b>Select profile to use for signing:</b></MudText>
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
             </div>
         </MudStack>
 

@@ -23,7 +23,6 @@
 
 @code {
     // fields...
-    static public IJSObjectReference? utilModule;
     const string miniWidth = "var(--mud-drawer-mini-width-left)";
     const string openWidth = "var(--mud-drawer-width-left)";
     string version = "";
@@ -31,7 +30,6 @@
 
     // properties...
     bool IsProfilePanelOpen { get; set; }
-    List<ExtensionContext> CurrentExtensionContexts { get; set; } = [];
     bool IsPersistentDrawerOpenInPopup { get; set; }
 
     // computed properties ...
@@ -45,7 +43,6 @@
     static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
-        // TODO P2 consider context (i.e., normal tab, SidePanel, popup) variant if implemented
         (_, DrawerVariant.Mini)
             => $"left: {miniWidth}; width:calc(100vw - {miniWidth}; padding-right: {miniWidth});",
         (_, DrawerVariant.Temporary)
@@ -86,7 +83,7 @@
         set
         {
             // This setter is called by MudDrawer when the overlay is clicked (for Temporary variant).
-            // We need to update the appropriate state based on the context.
+            // Update the appropriate state based on the context.
             if (App.IsInTab)
             {
                 _ = storageService.SetItem<Preferences>(appCache.MyPreferences with { IsPersistentDrawerOpenInTab = value });
@@ -177,13 +174,11 @@
         {
             var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInTab = !IsMenuDrawerOpen };
             await storageService.SetItem<Preferences>(newPrefs);
-            // await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpenInTab == newPrefs.IsPersistentDrawerOpenInTab]);
         }
         else if (App.IsInSidePanel)
         {
             var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInSidePanel = !IsMenuDrawerOpen };
             await storageService.SetItem<Preferences>(newPrefs);
-            // await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel == newPrefs.IsPersistentDrawerOpenInSidePanel]);
         }
         else if (App.IsInPopup)
         {
@@ -300,7 +295,7 @@
                 </MudNavGroup>
 
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
-                    <!-- TODO P4 provide help -->
+                    <!-- TODO P4 provide support help -->
                     <MudNavLink Style="display:none !important;" Href="@Routes.PathFor(ContentPage.Help)" Target="help" Icon="@Icons.Material.Filled.Help" IconColor="Color.Surface">Help</MudNavLink>
                     <MudNavLink Href="@Routes.PathFor(ContentPage.Terms)" Target="terms" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Terms</MudNavLink>
                     <MudNavLink Href="@Routes.PathFor(ContentPage.Privacy)" Target="privacy" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Privacy</MudNavLink>

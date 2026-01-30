@@ -257,6 +257,7 @@
             // Continue to clear pending request and close popup even if message send failed
         }
 
+        // TODO P2 DRY: This code is duplicated in DisposeAsync - and other dialog pages. refactor into a shared method
         // Clear pending request BEFORE navigation to prevent Index.razor from re-routing back here
         logger.LogInformation("Cancel: Clearing pending request before navigation");
         await ClearPendingRequestAsync();

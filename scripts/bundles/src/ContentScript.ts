@@ -354,8 +354,7 @@ import {
             return;
         }
 
-        console.log(`KeriAuthCs←BW: ${message.type}`);
-        console.log(message);
+        console.log(`KeriAuthCs←BW: ${message.type}`, { message });
         switch (message.type) {
             case BwCsMsgEnum.READY:
                 // In the case the user has just clicked on Action Button and provided CS inject permission for first time,
@@ -542,7 +541,7 @@ import {
         }
 
         // handle messages from current page
-        console.log(`KeriAuthCs←Page: type: ${event.data.type} data: ${event.data}`);
+        console.log(`KeriAuthCs←Page: ${event.data.type}`, {event});
         try {
             const requestId = event.data.requestId;
             switch (event.data.type) {

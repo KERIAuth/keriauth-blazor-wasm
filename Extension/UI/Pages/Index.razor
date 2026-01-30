@@ -167,9 +167,15 @@
                 case (BwAppMessageType.Values.RequestNotifyUserOfUpdate, _):
                     route = Routes.PathFor<Index>();
                     break;
+                case (BwAppMessageType.Values.RequestSignData, true):
+                    route = Routes.PathFor<RequestSignDataPage>();
+                    break;
+                case (BwAppMessageType.Values.RequestCreateCredential, true):
+                    route = Routes.PathFor<RequestCreateCredentialPage>();
+                    break;
                 default:
-                    logger.LogWarning("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
-                    route = null;
+                    logger.LogInformation("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
+                    route = Routes.PathFor<RequestUnknownPage>();
                     break;
             }
 

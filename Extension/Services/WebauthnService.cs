@@ -455,6 +455,7 @@ public class WebauthnService : IWebauthnService {
     /// Gets the full StoredPasskeys data including ProfileId.
     /// Creates a new ProfileId if none exists.
     /// </summary>
+    // TODO P2: Rather than creating a new random browser ProfileId here, we should consider using the KERIAConnection combo of ControlerAID and AgentAID, so a given passkey will work the same across contexts and installs
     private async Task<StoredPasskeys> GetStoredPasskeysDataAsync() {
         var result = await _storageService.GetItem<StoredPasskeys>(StorageArea.Local);
         if (result.IsSuccess && result.Value is not null) {

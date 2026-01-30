@@ -263,14 +263,22 @@
         var message = new AppBwReplyCanceledMessage(TabId, OriginStr, RequestId, "User cancelled sign request");
         await appPortService.SendToBackgroundWorkerAsync(message);
 
+        // TODO P2 DRY: This code is duplicated in DisposeAsync - and other dialog pages. refactor into a shared method
         // Clear the pending request now that cancel is complete
         await ClearPendingRequestAsync();
 
-        if (Layout is not null)
+        // Wait for AppCache to reflect the cleared request (prevents race with Index.razor routing)
+        var waitResult = await appCache.WaitForAppCache([() => !appCache.HasPendingBwAppRequests], 3000, 100);
+        if (!waitResult)
         {
-            await Layout.ClosePopupAsync();
+            logger.LogWarning("Cancel: AppCache did not clear pending requests within timeout, proceeding anyway");
         }
-        // unreachable
+        else
+        {
+            logger.LogInformation("Cancel: AppCache confirmed no pending requests");
+        }
+
+        await Layout!.ReturnToPriorUI();
         return;
     }
 

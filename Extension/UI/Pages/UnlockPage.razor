@@ -104,9 +104,9 @@
     // reactive properties
     string NumberPasskeysLabel => StoredPasskeys.Passkeys.Count switch
     {
-        0 => "No passkeys created",
-        1 => "1 passkey available",
-        _ => $"{StoredPasskeys.Passkeys.Count} passkeys available"
+        0 => "No passkeys registered",
+        1 => "1 passkey registered",
+        _ => $"{StoredPasskeys.Passkeys.Count} passkeys registered"
     };
     bool CanUsePasskey => StoredPasskeys.Passkeys.Any();
     bool IsPasskeyUsePreferred => appCache.MyPreferences.IsPasskeyUsePreferred;

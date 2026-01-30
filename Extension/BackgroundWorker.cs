@@ -7,10 +7,8 @@ using Extension.Models.Messages.AppBw.Requests;
 using Extension.Models.Messages.AppBw.Responses;
 using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.BwApp.Requests;
-using Extension.Models.Messages.Common;
 using Extension.Models.Messages.CsBw;
 using Extension.Models.Messages.ExCs;
-using Extension.Models.Messages.Polaris;
 using Extension.Models.Messages.Port;
 using Extension.Models.Storage;
 using Extension.Services;
@@ -970,6 +968,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case CsBwMessageTypes.CREATE_DATA_ATTESTATION:
+                    // TODO P1: log and debug
                     await HandleCreateDataAttestationRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
                     return;
 
