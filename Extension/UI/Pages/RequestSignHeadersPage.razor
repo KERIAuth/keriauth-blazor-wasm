@@ -204,6 +204,8 @@
 
     private async Task ApproveRequestHandler()
     {
+        await BeginActionAsync();
+
         var message = new AppBwReplySignMessage(TabId, OriginStr, PageRequestId, OriginStr, RequestUrl, RequestMethod, HeadersDict, WebsiteConfiguredPrefix);
         await AppPortService.SendToBackgroundWorkerAsync(message);
         MarkAsReplied();

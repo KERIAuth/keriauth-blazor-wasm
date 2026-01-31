@@ -237,13 +237,25 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     }
 
     /// <summary>
+    /// Signals the start of an action that may take time (Cancel, Approve, etc.).
+    /// Shows a spinner overlay after 250ms if the action is still in progress.
+    /// Call this at the beginning of action handlers.
+    /// </summary>
+    protected async Task BeginActionAsync() {
+        if (Layout is not null) {
+            await Layout.BeginActionAsync();
+        }
+    }
+
+    /// <summary>
     /// Combined helper: sends cancel message, clears pending request, waits for cache, and returns to prior UI.
-    /// Use this for Cancel button handlers.
+    /// Use this for Cancel button handlers. Automatically shows spinner if action takes > 250ms.
     /// </summary>
     /// <param name="reason">The reason for cancellation.</param>
     protected async Task CancelAndReturnAsync(string reason) {
         Logger.LogInformation("CancelAndReturnAsync: User initiated cancel for pageRequestId={PageRequestId}", PageRequestId);
 
+        await BeginActionAsync();
         await SendCancelMessageAsync(reason);
         await ClearPendingRequestAsync();
         await WaitForAppCacheClearAsync();

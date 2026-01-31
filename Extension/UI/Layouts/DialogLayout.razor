@@ -2,10 +2,17 @@
 
 @inject IJSRuntime jsRuntime
 @inject AppCache appCache  // Reactive: inherits subscription from BaseLayout
-@inject ILogger<BaseLayout> logger
+@inject ILogger<DialogLayout> logger
 @inject NavigationManager navManager
 
 <MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@appCache.MyPreferences.IsDarkTheme" />
+
+@* Action spinner overlay - shown after delay when action is in progress *@
+@if (ShowActionSpinner) {
+    <div class="action-spinner-overlay">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+    </div>
+}
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999; position:absolute;" />
@@ -41,6 +48,71 @@
 </CascadingValue>
 
 @code {
+    #region Action Spinner
+
+    /// <summary>
+    /// Whether the spinner overlay is currently visible.
+    /// Set to true after SpinnerDelayMs when an action is in progress.
+    /// </summary>
+    public bool ShowActionSpinner { get; private set; }
+
+    /// <summary>
+    /// Whether an action is currently in progress (button clicked, waiting for completion).
+    /// </summary>
+    public bool IsActionInProgress { get; private set; }
+
+    /// <summary>
+    /// Delay in milliseconds before showing the spinner.
+    /// Prevents flashing for fast operations.
+    /// </summary>
+    private const int SpinnerDelayMs = 100;
+
+    private CancellationTokenSource? _spinnerDelayCts;
+
+    /// <summary>
+    /// Call when starting a potentially slow action (Cancel, Approve, etc.).
+    /// Shows spinner after SpinnerDelayMs if action is still in progress.
+    /// </summary>
+    public async Task BeginActionAsync() {
+        if (IsActionInProgress) return;
+
+        IsActionInProgress = true;
+        _spinnerDelayCts = new CancellationTokenSource();
+        StateHasChanged();
+
+        // Start timer to show spinner after delay
+        _ = ShowSpinnerAfterDelayAsync(_spinnerDelayCts.Token);
+        await Task.CompletedTask;
+    }
+
+    private async Task ShowSpinnerAfterDelayAsync(CancellationToken ct) {
+        try {
+            await Task.Delay(SpinnerDelayMs, ct);
+            if (!ct.IsCancellationRequested) {
+                ShowActionSpinner = true;
+                StateHasChanged();
+            }
+        }
+        catch (TaskCanceledException) {
+            // Expected when action completes before delay
+        }
+    }
+
+    /// <summary>
+    /// Call when action completes. Cancels spinner timer and hides spinner.
+    /// Note: Usually not needed since navigation/close will dispose the component.
+    /// </summary>
+    public void EndAction() {
+        _spinnerDelayCts?.Cancel();
+        _spinnerDelayCts?.Dispose();
+        _spinnerDelayCts = null;
+        IsActionInProgress = false;
+        ShowActionSpinner = false;
+        StateHasChanged();
+    }
+
+    #endregion
+
     /// <summary>
     /// Closes the popup window (when DialogLayout is rendered in popup context)
     /// </summary>
@@ -62,6 +134,8 @@
 
     public override async ValueTask DisposeAsync()
     {
+        _spinnerDelayCts?.Cancel();
+        _spinnerDelayCts?.Dispose();
         await base.DisposeAsync();
     }
 
@@ -89,5 +163,18 @@
 <style>
     #DialogLayout {
         margin: 0;
+    }
+
+    .action-spinner-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.7);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 </style>

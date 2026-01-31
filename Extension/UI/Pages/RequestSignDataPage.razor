@@ -87,6 +87,8 @@
     /// </summary>
     async Task<Result> SignData()
     {
+        await BeginActionAsync();
+
         if (TabId <= 0)
         {
             var error = new ValidationError("TabId", "Invalid tab ID");
