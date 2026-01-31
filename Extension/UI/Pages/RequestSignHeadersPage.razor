@@ -1,8 +1,6 @@
-﻿@page "/RequestSignHeaders.html"
+@page "/RequestSignHeaders.html"
 @layout Layouts.DialogLayout
-@using Extension.Services.Storage
-
-@inherits AuthenticatedPageBase
+@inherits Extension.UI.Components.DialogPageBase
 
 @using System.Linq
 @using System.Text.Json
@@ -13,45 +11,19 @@
 @using Extension.Models.Messages.BwApp.Requests
 @using Extension.Models.Storage
 @using Extension.Services
-@using Extension.Services.Port
+@using Extension.Services.Storage
 @using Extension.Services.SignifyService
 @using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig
 @using MudBlazor
 @using FluentResults
-@using System.Web
-@using System.Text.Json.Serialization
-@using System;
-@using System.Collections.Generic;
-@using JsBind.Net
-@using WebExtensions.Net
-@using WebExtensions.Net.Tabs
-@using BrowserTab = WebExtensions.Net.Tabs.Tab
 
-@implements IAsyncDisposable
-
-@inject IStorageService storageService
-@inject NavigationManager navManager
-@using static Extension.Helper.PreviousPage
 @inject ILogger<RequestSignHeadersPage> logger
-@inject ISignifyClientService signifyClientService
-@inject IDialogService dialogService
-@inject ISnackbar snackbar
-@inject IWebsiteConfigService websiteConfigService
 @inject IStorageService storageService
-@inject IAppPortService appPortService
-@inject IPendingBwAppRequestService pendingBwAppRequestService
-@inject IJSRuntime jsRuntime
-@inject IJSRuntime js
-@inject IJsRuntimeAdapter jsRuntimeAdapter
-@inject ISnackbar snackbar
-@inject AppCache appCache // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
-@inject IWebExtensionsApi webExtensionsApi
+@inject IWebsiteConfigService websiteConfigService
 
 @code {
-    [CascadingParameter] public DialogLayout? Layout { get; set; }
-
-    // fields
+    // Page-specific fields
     private MudButton? signRequestButton;
 
     static readonly HashSet<string> SafeMethods = new(StringComparer.OrdinalIgnoreCase)
@@ -61,14 +33,11 @@
         "OPTIONS"
     };
 
-    // properties
-    string RequestId { get; set; } = "";
-    int TabId { get; set; } = -1;
+    // Page-specific properties
     string PayloadJson { get; set; } = "";
     string RequestUrl { get; set; } = "";
     string RequestMethod { get; set; } = "GET";
     Dictionary<string, string> HeadersDict { get; set; } = new();
-    bool IsInitialized { get; set; }
     bool IsExpanded { get; set; }
     enum SignInMode { Credential, Identifier, Prompt }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
@@ -76,56 +45,41 @@
     SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
     string WebsiteConfiguredPrefix { get; set; } = "unknown";
     List<Aid>? Identifiers { get; set; }
-    string OriginStr { get; set; } = "unset";
-    public BrowserTab? ActiveTab { get; set; }
 
-    // reactive properties
+    // Computed properties
     public bool HasSafeHttpRequestMethod => SafeMethods.Contains(RequestMethod);
     bool IsAutoSignIn => ThisWebsiteConfig?.IsAutoSignInCredential ?? false;
     bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     string WebsiteConfiguredAlias => Identifiers?.Find(x => x.Prefix == WebsiteConfiguredPrefix)?.Name ?? "not configured";
-    Preferences Prefs => appCache.MyPreferences;
+    Preferences Prefs => AppCache.MyPreferences;
     string SelectedPrefix => Prefs.SelectedPrefix;
     bool IsDetailShown => Prefs.IsSignRequestDetailShown;
 
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        // Initialize base class for authentication-based render suppression
-        InitializeAppCache(appCache);
-
-        // Get the pending request from storage (set by BackgroundWorker before opening popup)
-        var pendingRequest = appCache.NextPendingBwAppRequest;
-        if (pendingRequest?.Type != BwAppMessageType.Values.RequestSignHeaders)
-        {
-            logger.LogError("OnInitializedAsync: No pending RequestSignHeaders request found");
-            return;
-        }
-
-        var payload = pendingRequest.GetPayload<RequestSignHeadersPayload>();
+        var payload = await InitializeFromPendingRequestAsync<RequestSignHeadersPayload>(
+            BwAppMessageType.Values.RequestSignHeaders);
         if (payload is null)
         {
-            logger.LogError("OnInitializedAsync: Failed to deserialize pending request payload to RequestSignHeadersPayload");
             return;
         }
 
-        // Use the origin from payload (the requesting page's origin), not App.InitialUri (which could be the SidePanel URL)
-        OriginStr = payload.Origin;
+        // Load the active tab for display
+        await LoadActiveTabAsync();
 
-        // Extract values from the pending request payload
-        RequestId = pendingRequest.RequestId;
-        TabId = payload.TabId;
-        ActiveTab = await webExtensionsApi.Tabs.Get(TabId);
+        // Extract page-specific values from the payload
         RequestUrl = payload.Url;
         RequestMethod = payload.Method;
         HeadersDict = payload.Headers;
         PayloadJson = JsonSerializer.Serialize(payload.Headers);
         WebsiteConfiguredPrefix = payload.RememberedPrefix ?? "unknown";
 
-        logger.LogInformation("OnInitializedAsync: requestId={RequestId}, tabId={TabId}, origin={Origin}, url={Url}, method={Method}, headersCount={HeadersCount}",
-            RequestId, TabId, payload.Origin, RequestUrl, RequestMethod, HeadersDict?.Count ?? 0);
+        logger.LogInformation("OnInitializedAsync: url={Url}, method={Method}, headersCount={HeadersCount}",
+            RequestUrl, RequestMethod, HeadersDict?.Count ?? 0);
         if (HeadersDict != null && HeadersDict.Count > 0) {
             foreach (var kvp in HeadersDict) {
                 logger.LogDebug("OnInitializedAsync: header[{Key}]={Value}", kvp.Key, kvp.Value);
@@ -147,7 +101,7 @@
     private void LoadIdentifiersFromCache()
     {
         // Guard against null during session timeout navigation
-        var identifiersList = appCache?.MyKeriaConnectionInfo?.IdentifiersList;
+        var identifiersList = AppCache?.MyKeriaConnectionInfo?.IdentifiersList;
         if (identifiersList is not null && identifiersList.Count > 0 && identifiersList[0].Aids is not null)
         {
             Identifiers = identifiersList[0].Aids.OrderBy(a => a.Name).ToList();
@@ -160,9 +114,6 @@
         }
     }
 
-    //
-    //
-    //
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && signRequestButton is not null)
@@ -171,9 +122,6 @@
         }
     }
 
-    //
-    //
-    //
     Uri? GetOriginUri()
     {
         try
@@ -194,9 +142,6 @@
         }
     }
 
-    //
-    //
-    //
     async Task SetIsDetailShown(bool isDetailShown)
     {
         // TODO P3 IsSignRequestDetailShown should be per website, since not every site should be trusted the same
@@ -204,12 +149,8 @@
         return;
     }
 
-    //
-    //
-    //
     async Task updateIsAutoSignSafeHeaders(bool isChecked)
     {
-        // logger.LogWarning("updateIsAutoSignHeaders: isChecked: {b} WebsiteConfig: {w}", isChecked, ThisWebsiteConfig);
         if (ThisWebsiteConfig is not null && ThisWebsiteConfig.IsAutoSignSafeHeaders != isChecked)
         {
             ThisWebsiteConfig = ThisWebsiteConfig with { IsAutoSignSafeHeaders = isChecked };
@@ -218,22 +159,19 @@
         StateHasChanged();
     }
 
-    //
-    //
-    //
     // TODO P2 DRY with similar method in WebsiteConfigDisplay
     async Task RefreshFromWebsiteConfig()
     {
         var originUri = GetOriginUri();
         if (originUri is null)
         {
-            throw new Exception($"RefreshThisWebsiteConfig: origin must be set.");
+            throw new InvalidOperationException($"RefreshThisWebsiteConfig: origin must be set.");
         }
 
         var getOrCreateWebsiteRes = await websiteConfigService.GetOrCreateWebsiteConfig(originUri);
         if (getOrCreateWebsiteRes.IsFailed)
         {
-            throw new Exception($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
+            throw new InvalidOperationException($"Error from websiteService {getOrCreateWebsiteRes.Errors}");
         }
         var (websiteConfig, isConfigNew) = getOrCreateWebsiteRes.Value;
         ThisWebsiteConfig = websiteConfig;
@@ -254,99 +192,28 @@
         StateHasChanged();
     }
 
-    //
-    //
-    //
-    // 
     async Task Cancel()
     {
-        var message = new AppBwReplyCanceledMessage(TabId, OriginStr, RequestId, "User cancelled sign request");
-        await appPortService.SendToBackgroundWorkerAsync(message);
-
-        // TODO P2 DRY: This code is duplicated in DisposeAsync - and other dialog pages. refactor into a shared method
-        // Clear the pending request now that cancel is complete
-        await ClearPendingRequestAsync();
-
-        // Wait for AppCache to reflect the cleared request (prevents race with Index.razor routing)
-        var waitResult = await appCache.WaitForAppCache([() => !appCache.HasPendingBwAppRequests], 3000, 100);
-        if (!waitResult)
-        {
-            logger.LogWarning("Cancel: AppCache did not clear pending requests within timeout, proceeding anyway");
-        }
-        else
-        {
-            logger.LogInformation("Cancel: AppCache confirmed no pending requests");
-        }
-
-        await Layout!.ReturnToPriorUI();
-        return;
+        await CancelAndReturnAsync("User canceled sign headers request");
     }
 
-    //
-    //
-    //
-    public async ValueTask DisposeAsync()
-    {
-        // Clear pending request if user closes popup without explicit action
-        await ClearPendingRequestAsync();
-        // TODO P4 unsubscribe from services, observables
-    }
-
-    /// <summary>
-    /// Clears any pending RequestSignHeaders request from storage.
-    /// Should be called when user completes or cancels the sign headers flow.
-    /// </summary>
-    // TODO P1: This method fetches NextPendingBwAppRequest each time it's called, which could be
-    // a different request if multiple are queued and one was already cleared. To fix: capture the
-    // requestId when the page initializes (from the pending request that triggered navigation here)
-    // and only clear that specific request, rather than whatever is currently first in the queue.
-    async Task ClearPendingRequestAsync()
-    {
-        var pendingRequest = appCache.NextPendingBwAppRequest;
-        if (pendingRequest?.Type == BwAppMessageType.Values.RequestSignHeaders)
-        {
-            logger.LogInformation("ClearPendingRequestAsync: Clearing pending RequestSignHeaders, requestId={RequestId}", pendingRequest.RequestId);
-            await pendingBwAppRequestService.RemoveRequestAsync(pendingRequest.RequestId);
-        }
-    }
-
-    //
-    //
-    //
     void ToggleExpand()
     {
         IsExpanded = !IsExpanded;
     }
 
-    //
-    //
-    //
     private async Task ApproveRequestHandler()
     {
-        var message = new AppBwReplySignMessage(TabId, OriginStr, RequestId, OriginStr, RequestUrl, RequestMethod, HeadersDict, WebsiteConfiguredPrefix);
-        await appPortService.SendToBackgroundWorkerAsync(message);
+        var message = new AppBwReplySignMessage(TabId, OriginStr, PageRequestId, OriginStr, RequestUrl, RequestMethod, HeadersDict, WebsiteConfiguredPrefix);
+        await AppPortService.SendToBackgroundWorkerAsync(message);
+        MarkAsReplied();
 
         // Clear the pending request now that approval is complete
         await ClearPendingRequestAsync();
-
-        try
-        {
-            // Clear the pending request now that SignHeaders is complete
-            await ClearPendingRequestAsync();
-            await Layout!.ReturnToPriorUI();
-            // maybe unreachable if popup closes
-            return;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError("Failed to send SignHeaders response: {error}", ex.Message);
-            return;;
-        }
+        await WaitForAppCacheClearAsync();
+        await ReturnToPriorUIAsync();
     }
-    
-    //
-    //
-    //
+
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" || e.Code == "NumpadEnter")
@@ -356,73 +223,76 @@
     }
 }
 
-<div id="@this.GetType().Name" class="bt-body-page">
-    <MudStack Class="bt-main">
-        <div class="bt-main-inside-scroll">
-            <MudText Class="bt-page-title">Request to Sign HTTP Request Headers</MudText>
-            @if (ActiveTab is not null)
+@if (IsInitialized)
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <MudText Class="bt-page-title">Request to Sign HTTP Request Headers</MudText>
+                @if (ActiveTab is not null)
                 {
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
-                } 
-            <MudText class="mt-6" Typo="Typo.body1">
-                This website is requesting KERI Auth, with your approval,
-                to cryptographically sign HTTP Request Headers with the key material of the profile you selected for this site when you signed in to it.
-                The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
-            </MudText>
-            <MudText Class="mt-2"><b>Request to Sign</b></MudText>
-            <MudPaper Elevation="0" Class="ml-4 pa-2" Style="background-color: var(--mud-palette-background-grey);">
-                <MudText><b>Method:</b> @RequestMethod</MudText>
-                <MudText Style="word-break: break-all;"><b>URL:</b> @RequestUrl</MudText>
-            </MudPaper>
-            <MudText Class="mt-4"><b>Signing Profile</b></MudText>
-            <MudStack Row Class="pl-1" Style="align-items:center;">
-                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
-                <MudText>@WebsiteConfiguredAlias</MudText>
-            </MudStack>
-            @if (HeadersDict.Count > 0)
-            {
-                <MudStack Row>
-                    <MudCheckBox Label="Show Additional Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
-                </MudStack>
-                @if (IsDetailShown)
-                {
-                    <MudPaper Elevation="0" Class="ml-12">
-                        <table class="non-responsive-table">
-                            <thead style="text-align:left;">
-                                <tr>
-                                    <th class="content-width-col">Key</th>
-                                    <th class="remaining-width-col">Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in HeadersDict)
-                                {
-                                    <tr>
-                                        <td class="content-width-col">@item.Key</td>
-                                        <td class="remaining-width-col">@item.Value</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </MudPaper>
                 }
-            }
+                <MudText class="mt-6" Typo="Typo.body1">
+                    This website is requesting KERI Auth, with your approval,
+                    to cryptographically sign HTTP Request Headers with the key material of the profile you selected for this site when you signed in to it.
+                    The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
+                </MudText>
+                <MudText Class="mt-2"><b>Request to Sign</b></MudText>
+                <MudPaper Elevation="0" Class="ml-4 pa-2" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudText><b>Method:</b> @RequestMethod</MudText>
+                    <MudText Style="word-break: break-all;"><b>URL:</b> @RequestUrl</MudText>
+                </MudPaper>
+                <MudText Class="mt-4"><b>Signing Profile</b></MudText>
+                <MudStack Row Class="pl-1" Style="align-items:center;">
+                    <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
+                    <MudText>@WebsiteConfiguredAlias</MudText>
+                </MudStack>
+                @if (HeadersDict.Count > 0)
+                {
+                    <MudStack Row>
+                        <MudCheckBox Label="Show Additional Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
+                    </MudStack>
+                    @if (IsDetailShown)
+                    {
+                        <MudPaper Elevation="0" Class="ml-12">
+                            <table class="non-responsive-table">
+                                <thead style="text-align:left;">
+                                    <tr>
+                                        <th class="content-width-col">Key</th>
+                                        <th class="remaining-width-col">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in HeadersDict)
+                                    {
+                                        <tr>
+                                            <td class="content-width-col">@item.Key</td>
+                                            <td class="remaining-width-col">@item.Value</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </MudPaper>
+                    }
+                }
                 <MudCheckBox Label="Always auto-sign Http Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 2rem;" />
-        </div>
-    </MudStack>
-    <MudStack Row="true" class="bt-button-tray">
-        <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" @onclick="Cancel">Reject</MudButton>
-        <MudButton @ref="signRequestButton"
-                   StartIcon="@Icons.Material.Filled.Login"
-                   Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   OnClick="ApproveRequestHandler"
-                   @onkeydown="HandleKeyDown">
-            Approve & Sign
-        </MudButton>
-    </MudStack>
-</div>
+            </div>
+        </MudStack>
+        <MudStack Row="true" class="bt-button-tray">
+            <MudSpacer />
+            <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Reject</MudButton>
+            <MudButton @ref="signRequestButton"
+                       StartIcon="@Icons.Material.Filled.Login"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="ApproveRequestHandler"
+                       @onkeydown="HandleKeyDown">
+                Approve & Sign
+            </MudButton>
+        </MudStack>
+    </div>
+}
 
 <style>
     .mud-select .mud-select-input .mud-input-slot {

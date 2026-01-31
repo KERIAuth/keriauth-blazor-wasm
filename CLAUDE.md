@@ -493,6 +493,7 @@ Port messages use a discriminated union with `t` field. See `Extension/Models/Me
 - **Comments**: Use XML docs for public APIs; inline comments for implementation details; avoid regions
 - **Constructors**: Use constructors for setting properties; Avoid using public setters for properties
 - **Dates and Locale**: Use UTC for all date/time values in the backend
+- **Language**: Use American English spelling (e.g., "canceled" not "cancelled", "color" not "colour")
 - **Error Handling**:
   - Use FluentResults pattern with `Result<T>` for method returns; include descriptive error messages
   - Don't use exceptions for control flow, only if absolutely necessary
@@ -844,6 +845,17 @@ When making changes, prioritize in this order:
 3. **Type Safety** - Maintain strong typing across C#/TypeScript boundary
 4. **Performance** - Optimize after functionality is verified
 5. **Code Style** - Apply formatting rules last
+
+## Phased Implementation Work
+
+When working on multi-phase implementation tasks (e.g., refactoring across multiple files, feature rollouts):
+
+1. **Wait for explicit user approval before starting each phase** - Do not automatically proceed to the next phase after completing one
+2. **Phases requiring manual browser testing** - Always stop and wait for user confirmation that testing passed before continuing
+3. **After completing a phase**: Summarize what was done, report test results, and ask "Ready for Phase N?" or similar
+4. **If unit tests pass but manual testing is needed**: Stop and let the user test in the browser before proceeding
+
+This prevents introducing multiple issues simultaneously and ensures the user can verify each phase works correctly before building on it.
 
 ## Testing Strategy
 
