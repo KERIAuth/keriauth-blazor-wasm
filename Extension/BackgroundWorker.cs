@@ -1047,6 +1047,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var tabUrl = paramsElement.TryGetProperty("tabUrl", out var tabUrlProp) ? tabUrlProp.GetString() : null;
             var requestId = paramsElement.TryGetProperty("requestId", out var reqIdProp) ? reqIdProp.GetString() : null;
             var payload = paramsElement.TryGetProperty("payload", out var payloadProp) ? payloadProp : (JsonElement?)null;
+            var error = paramsElement.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : null;
 
             logger.LogInformation("BW←App (port RPC): Parsed params - tabId={TabId}, tabUrl={TabUrl}, requestId={RequestId}",
                 tabId, tabUrl, requestId);
@@ -1076,7 +1077,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppBwMessageType.Values.ReplyCanceled:
                 case AppBwMessageType.Values.ReplyError:
                 case AppBwMessageType.Values.AppClosed:
-                    await HandleAppReplyCanceledRpcAsync(portId, request, tabId, tabUrl, requestId, request.Method);
+                    await HandleAppReplyCanceledRpcAsync(portId, request, tabId, tabUrl, requestId, request.Method, error);
                     return;
 
                 case AppBwMessageType.Values.UserActivity:
@@ -1328,15 +1329,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles ReplyCanceled, ReplyError, and AppClosed RPC from App.
     /// Forwards cancel/error to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, string messageType) {
-        logger.LogInformation("HandleAppReplyCanceledRpcAsync: type={Type}, tabId={TabId}, requestId={RequestId}",
-            messageType, tabId, requestId);
+    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, string messageType, string? errorFromApp) {
+        logger.LogInformation("HandleAppReplyCanceledRpcAsync: type={Type}, tabId={TabId}, requestId={RequestId}, error={Error}",
+            messageType, tabId, requestId, errorFromApp);
 
-        string errorStr = messageType switch {
-            AppBwMessageType.Values.ReplyError => "An error occurred in the KERI Auth app",
-            AppBwMessageType.Values.AppClosed => "The KERI Auth app was closed",
-            _ => "User canceled or rejected request"
-        };
+        // Use the error message from App if provided, otherwise fall back to defaults based on message type
+        string errorStr = !string.IsNullOrEmpty(errorFromApp)
+            ? errorFromApp
+            : messageType switch {
+                AppBwMessageType.Values.ReplyError => "An error occurred in the KERI Auth app",
+                AppBwMessageType.Values.AppClosed => "The KERI Auth app was closed",
+                _ => "User canceled or rejected request"
+            };
 
         // Get and clear pending request
         PendingBwAppRequest? pendingRequest = null;

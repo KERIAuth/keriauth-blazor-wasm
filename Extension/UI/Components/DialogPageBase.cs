@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using WebExtensions.Net;
 using WebExtensions.Net.Tabs;
 using BrowserTab = WebExtensions.Net.Tabs.Tab;
+using TabActiveInfo = WebExtensions.Net.Tabs.ActiveInfo;
 
 namespace Extension.UI.Components;
 
@@ -100,6 +101,18 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     /// </summary>
     protected BrowserTab? ActiveTab { get; set; }
 
+    /// <summary>
+    /// Tracks whether we're currently processing a tab-change cancellation.
+    /// Prevents re-entrancy if multiple tab events fire in quick succession.
+    /// </summary>
+    private bool _isCancelingDueToTabChange;
+
+    /// <summary>
+    /// Reference to the tab activation handler for cleanup in DisposeAsync.
+    /// Only set when running in sidePanel context.
+    /// </summary>
+    private Action<TabActiveInfo>? _tabActivatedHandler;
+
     #endregion
 
     #region Lifecycle Methods
@@ -118,6 +131,9 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     /// Derived classes should call base.DisposeAsync() if overriding.
     /// </summary>
     public virtual async ValueTask DisposeAsync() {
+        // Remove tab activation listener if registered
+        RemoveTabChangeListener();
+
         // If user closes popup without previously clicking an action button,
         // try to send a cancel reply to the page so it's not left waiting.
         // Note: If this fails (port disconnecting), BackgroundWorker.CleanupOrphanedRequestsAsync
@@ -170,6 +186,10 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
 
         Logger.LogInformation("InitializeFromPendingRequestAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}",
             PageRequestId, TabId, OriginStr);
+
+        // Set up tab activation listener for sidePanel context
+        // When user switches to a different tab, cancel this request
+        SetupTabChangeListener();
 
         return payload;
     }
@@ -252,11 +272,12 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
 
     /// <summary>
     /// Combined helper: sends cancel message, clears pending request, waits for cache, and returns to prior UI.
-    /// Use this for Cancel button handlers. Automatically shows spinner if action takes > 250ms.
+    /// Use this for Cancel button handlers or system-triggered cancellations (e.g., tab change).
+    /// Automatically shows spinner if action takes > 250ms.
     /// </summary>
     /// <param name="reason">The reason for cancellation.</param>
     protected async Task CancelAndReturnAsync(string reason) {
-        Logger.LogInformation("CancelAndReturnAsync: User initiated cancel for pageRequestId={PageRequestId}", PageRequestId);
+        Logger.LogInformation("CancelAndReturnAsync: Canceling pageRequestId={PageRequestId}, reason={Reason}", PageRequestId, reason);
 
         await BeginActionAsync();
         await SendCancelMessageAsync(reason);
@@ -283,6 +304,89 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     /// </summary>
     protected void MarkAsReplied() {
         HasRepliedToPage = true;
+    }
+
+    #endregion
+
+    #region Tab Change Detection (SidePanel only)
+
+    /// <summary>
+    /// Sets up a listener for tab activation events when running in sidePanel context.
+    /// When the user switches to a different tab, the pending request is canceled.
+    /// </summary>
+    private void SetupTabChangeListener() {
+        // Only set up tab change listener for sidePanel context
+        // Popups are independent of tab focus, and extension tabs don't need this
+        if (!App.IsInSidePanel) {
+            Logger.LogDebug("SetupTabChangeListener: Not in sidePanel context, skipping tab change listener");
+            return;
+        }
+
+        if (TabId <= 0) {
+            Logger.LogDebug("SetupTabChangeListener: No valid TabId, skipping tab change listener");
+            return;
+        }
+
+        Logger.LogInformation("SetupTabChangeListener: Setting up tab activation listener for TabId={TabId}", TabId);
+
+        _tabActivatedHandler = OnTabActivated;
+        WebExtensionsApi.Tabs.OnActivated.AddListener(_tabActivatedHandler);
+    }
+
+    /// <summary>
+    /// Handles tab activation events. Cancels the request if user switches to a different tab.
+    /// </summary>
+    private void OnTabActivated(TabActiveInfo activeInfo) {
+        // Fire-and-forget async handler (WebExtensions.Net pattern)
+        _ = OnTabActivatedAsync(activeInfo);
+    }
+
+    /// <summary>
+    /// Async handler for tab activation. Cancels and returns if the active tab differs from this request's tab.
+    /// </summary>
+    private async Task OnTabActivatedAsync(TabActiveInfo activeInfo) {
+        // Ignore if already replied, already canceling, or same tab
+        if (HasRepliedToPage || _isCancelingDueToTabChange) {
+            return;
+        }
+
+        if (activeInfo.TabId == TabId) {
+            Logger.LogDebug("OnTabActivatedAsync: Same tab activated (TabId={TabId}), no action needed", TabId);
+            return;
+        }
+
+        Logger.LogInformation(
+            "OnTabActivatedAsync: User switched from TabId={RequestTabId} to TabId={NewTabId}, canceling request",
+            TabId, activeInfo.TabId);
+
+        _isCancelingDueToTabChange = true;
+
+        try {
+            await CancelAndReturnAsync("Request canceled when user navigated to another tab");
+        }
+        catch (Exception ex) {
+            Logger.LogError(ex, "OnTabActivatedAsync: Error during cancel and return");
+        }
+        finally {
+            _isCancelingDueToTabChange = false;
+        }
+    }
+
+    /// <summary>
+    /// Removes the tab activation listener if one was registered.
+    /// </summary>
+    private void RemoveTabChangeListener() {
+        if (_tabActivatedHandler is not null) {
+            Logger.LogDebug("RemoveTabChangeListener: Removing tab activation listener");
+            try {
+                WebExtensionsApi.Tabs.OnActivated.RemoveListener(_tabActivatedHandler);
+            }
+            catch (Exception ex) {
+                // RemoveListener may fail if already removed or context is disposed
+                Logger.LogDebug(ex, "RemoveTabChangeListener: Failed to remove listener (may already be removed)");
+            }
+            _tabActivatedHandler = null;
+        }
     }
 
     #endregion

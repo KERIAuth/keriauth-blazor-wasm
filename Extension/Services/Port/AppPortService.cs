@@ -558,7 +558,8 @@ public class AppPortService : IAppPortService
             requestId = message.RequestId,
             tabId = message.TabId,
             tabUrl = message.TabUrl,
-            payload = message.Payload
+            payload = message.Payload,
+            error = message.Error
         };
 
         try
