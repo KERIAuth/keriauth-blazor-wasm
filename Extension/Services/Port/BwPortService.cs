@@ -17,6 +17,7 @@ public class BwPortService : IBwPortService
     private readonly ILogger<BwPortService> _logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IWebExtensionsApi _webExtensionsApi;
+    private readonly IPendingBwAppRequestService _pendingRequestService;
 
     // Port registry - use port IDs (strings) as keys, not Port objects
     // See tmpMessagingArch.md Section 5 for architecture details
@@ -42,11 +43,13 @@ public class BwPortService : IBwPortService
     public BwPortService(
         ILogger<BwPortService> logger,
         IJSRuntime jsRuntime,
-        IWebExtensionsApi webExtensionsApi)
+        IWebExtensionsApi webExtensionsApi,
+        IPendingBwAppRequestService pendingRequestService)
     {
         _logger = logger;
         _jsRuntime = jsRuntime;
         _webExtensionsApi = webExtensionsApi;
+        _pendingRequestService = pendingRequestService;
     }
 
     public int ActivePortSessionCount => _portSessionsById.Count;
@@ -395,9 +398,8 @@ public class BwPortService : IBwPortService
             }
             else
             {
-                // App disconnected
-
-                // TODO P1: Clean up orphaned pending requests when Popup or SidePanel closes before sending any Reply message.
+                // App disconnected - clean up any orphaned pending requests
+                await CleanupOrphanedRequestsAsync(portSession);
 
                 portSession.AttachedAppPortIds.Remove(portId);
                 _logger.LogInformation("App disconnected from portSessionId={PortSessionId}",
@@ -451,6 +453,190 @@ public class BwPortService : IBwPortService
             }
         }
         _portIdToPortSession.TryRemove(portId, out _);
+    }
+
+    /// <summary>
+    /// Cleans up orphaned pending requests when an App disconnects without sending a reply.
+    /// Sends cancel RPC responses to the ContentScript for any pending requests.
+    /// </summary>
+    /// <remarks>
+    /// Internal visibility for unit testing.
+    /// </remarks>
+    internal async Task CleanupOrphanedRequestsAsync(PortSession portSession)
+    {
+        _logger.LogDebug(
+            "CleanupOrphanedRequestsAsync: Checking for orphaned requests, portSessionId={PortSessionId}, tabId={TabId}",
+            portSession.PortSessionId, portSession.TabId);
+
+        try
+        {
+            var pendingResult = await _pendingRequestService.GetRequestsAsync();
+            if (pendingResult.IsFailed)
+            {
+                _logger.LogWarning("CleanupOrphanedRequestsAsync: Failed to get pending requests: {Errors}",
+                    string.Join(", ", pendingResult.Errors));
+                return;
+            }
+
+            if (pendingResult.Value.IsEmpty)
+            {
+                _logger.LogDebug("CleanupOrphanedRequestsAsync: No pending requests found");
+                return;
+            }
+
+            var pendingRequests = pendingResult.Value.Requests;
+            _logger.LogDebug(
+                "CleanupOrphanedRequestsAsync: Found {Count} pending request(s) to check",
+                pendingRequests.Count);
+
+            // Find requests for this port session that need cleanup
+            foreach (var request in pendingRequests)
+            {
+                // The pending request stores the ContentScript's PortSessionId, but when App disconnects,
+                // we have the App's PortSession which is different. We need to match by:
+                // 1. TabId - if both the App's PortSession and the request have a TabId, match by that
+                // 2. If App's PortSession has no TabId (popup that didn't attach), treat all pending requests
+                //    as potentially orphaned since there should only be one pending request at a time
+                bool isOrphaned;
+                if (portSession.TabId.HasValue && request.TabId.HasValue)
+                {
+                    // Both have TabId - match by TabId
+                    isOrphaned = request.TabId.Value == portSession.TabId.Value;
+                }
+                else if (!portSession.TabId.HasValue)
+                {
+                    // App's PortSession has no TabId (popup that didn't attach to a tab).
+                    // Since only one pending request exists at a time, treat it as orphaned.
+                    // TODO P2: If multiple Apps can be connected simultaneously (e.g., sidepanel + popup),
+                    // this could incorrectly cancel a request being handled by another App. Consider tracking
+                    // which pending request is actively being handled by which App instance.
+                    isOrphaned = true;
+                }
+                else
+                {
+                    // Request has no TabId - shouldn't happen for CS-originated requests, but skip
+                    isOrphaned = false;
+                }
+
+                _logger.LogDebug(
+                    "CleanupOrphanedRequestsAsync: Checking request requestId={RequestId}, " +
+                    "request.TabId={ReqTabId}, portSession.TabId={TabId}, isOrphaned={IsOrphaned}",
+                    request.RequestId, request.TabId, portSession.TabId, isOrphaned);
+
+                if (!isOrphaned)
+                {
+                    continue;
+                }
+
+                _logger.LogInformation(
+                    "CleanupOrphanedRequestsAsync: Found orphaned request requestId={RequestId}, type={Type}, sending cancel to ContentScript",
+                    request.RequestId, request.Type);
+
+                // Send cancel RPC response to ContentScript if we have the port info
+                if (!string.IsNullOrEmpty(request.PortId) &&
+                    !string.IsNullOrEmpty(request.PortSessionId) &&
+                    !string.IsNullOrEmpty(request.RpcRequestId))
+                {
+                    try
+                    {
+                        await SendRpcResponseAsync(
+                            request.PortId,
+                            request.PortSessionId,
+                            request.RpcRequestId,
+                            result: null,
+                            errorMessage: "Dialog closed without response");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Port may already be disconnected, log and continue
+                        _logger.LogWarning(ex,
+                            "CleanupOrphanedRequestsAsync: Failed to send cancel response for requestId={RequestId}",
+                            request.RequestId);
+                    }
+                }
+
+                // Remove the orphaned request from storage
+                var removeResult = await _pendingRequestService.RemoveRequestAsync(request.RequestId);
+                if (removeResult.IsFailed)
+                {
+                    _logger.LogWarning(
+                        "CleanupOrphanedRequestsAsync: Failed to remove request requestId={RequestId}: {Errors}",
+                        request.RequestId, string.Join(", ", removeResult.Errors));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CleanupOrphanedRequestsAsync: Unexpected error cleaning up orphaned requests");
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task CleanupAllPendingRequestsAsync(string errorMessage)
+    {
+        _logger.LogInformation("CleanupAllPendingRequestsAsync: Cleaning up all pending requests with error: {Error}", errorMessage);
+
+        try
+        {
+            var pendingResult = await _pendingRequestService.GetRequestsAsync();
+            if (pendingResult.IsFailed)
+            {
+                _logger.LogWarning("CleanupAllPendingRequestsAsync: Failed to get pending requests: {Errors}",
+                    string.Join(", ", pendingResult.Errors));
+                return;
+            }
+
+            if (pendingResult.Value.IsEmpty)
+            {
+                _logger.LogDebug("CleanupAllPendingRequestsAsync: No pending requests to clean up");
+                return;
+            }
+
+            var pendingRequests = pendingResult.Value.Requests;
+            _logger.LogInformation("CleanupAllPendingRequestsAsync: Found {Count} pending request(s) to clean up", pendingRequests.Count);
+
+            foreach (var request in pendingRequests)
+            {
+                _logger.LogInformation(
+                    "CleanupAllPendingRequestsAsync: Cleaning up request requestId={RequestId}, type={Type}",
+                    request.RequestId, request.Type);
+
+                // Send cancel RPC response to ContentScript if we have the port info
+                if (!string.IsNullOrEmpty(request.PortId) &&
+                    !string.IsNullOrEmpty(request.PortSessionId) &&
+                    !string.IsNullOrEmpty(request.RpcRequestId))
+                {
+                    try
+                    {
+                        await SendRpcResponseAsync(
+                            request.PortId,
+                            request.PortSessionId,
+                            request.RpcRequestId,
+                            result: null,
+                            errorMessage: errorMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "CleanupAllPendingRequestsAsync: Failed to send cancel response for requestId={RequestId}",
+                            request.RequestId);
+                    }
+                }
+
+                // Remove the request from storage
+                var removeResult = await _pendingRequestService.RemoveRequestAsync(request.RequestId);
+                if (removeResult.IsFailed)
+                {
+                    _logger.LogWarning(
+                        "CleanupAllPendingRequestsAsync: Failed to remove request requestId={RequestId}: {Errors}",
+                        request.RequestId, string.Join(", ", removeResult.Errors));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CleanupAllPendingRequestsAsync: Unexpected error");
+        }
     }
 
     public async Task HandleTabRemovedAsync(int tabId)

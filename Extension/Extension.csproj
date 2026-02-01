@@ -24,6 +24,11 @@
 	<GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!-- Allow test project to access internal members -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Extension.Tests" />
+  </ItemGroup>
+
   <!-- Debug and Release Specific Properties -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU' or '$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <TypeScriptTarget>ESNext</TypeScriptTarget>

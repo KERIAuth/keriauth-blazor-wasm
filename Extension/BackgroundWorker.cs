@@ -274,8 +274,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await EnsureInitializedAsync();
             switch (alarm.Name) {
                 case AppConfig.SessionManagerAlarmName:
-                    // Delegate to SessionManager
+                    // Delegate to SessionManager to lock the session
                     await _sessionManager.HandleAlarmAsync(alarm);
+                    // Clean up any pending requests with inactivity message
+                    await _portService.CleanupAllPendingRequestsAsync("KERI Auth locked due to inactivity");
                     return;
                 default:
                     logger.LogWarning("Unknown alarm name: {AlarmName}", alarm.Name);

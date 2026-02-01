@@ -241,20 +241,19 @@ public class DialogPageBaseTests {
     }
 
     [Fact]
-    public async Task DisposeAsync_AlwaysClearsPendingRequest() {
-        // Arrange
+    public async Task DisposeAsync_DoesNotClearPendingRequest_LetBackgroundWorkerHandleIt() {
+        // Arrange - DisposeAsync should NOT clear pending request because:
+        // 1. If SendCancelMessageAsync succeeds, BackgroundWorker.HandleAppReplyCanceledRpcAsync clears it
+        // 2. If SendCancelMessageAsync fails (port disconnecting), BwPortService.CleanupOrphanedRequestsAsync clears it
         _sut.SetState(pageRequestId: "test-request-123", tabId: 42, hasRepliedToPage: true);
-        _mockPendingBwAppRequestService
-            .Setup(x => x.RemoveRequestAsync("test-request-123"))
-            .ReturnsAsync(Result.Ok());
 
         // Act
         await _sut.DisposeAsync();
 
-        // Assert
+        // Assert - pending request should NOT be removed by DisposeAsync
         _mockPendingBwAppRequestService.Verify(
-            x => x.RemoveRequestAsync("test-request-123"),
-            Times.Once);
+            x => x.RemoveRequestAsync(It.IsAny<string>()),
+            Times.Never);
     }
 
     #endregion

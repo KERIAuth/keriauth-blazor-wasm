@@ -119,14 +119,17 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     /// </summary>
     public virtual async ValueTask DisposeAsync() {
         // If user closes popup without previously clicking an action button,
-        // send a cancel reply to the page so it's not left waiting
+        // try to send a cancel reply to the page so it's not left waiting.
+        // Note: If this fails (port disconnecting), BackgroundWorker.CleanupOrphanedRequestsAsync
+        // will detect the orphaned pending request and send the cancel response.
         if (!HasRepliedToPage && TabId > 0 && !string.IsNullOrEmpty(PageRequestId)) {
             Logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", PageRequestId);
             await SendCancelMessageAsync($"User closed {GetType().Name} dialog");
         }
 
-        // Clear pending request if user closes popup without explicit action
-        await ClearPendingRequestAsync();
+        // Don't clear pending request here - let BackgroundWorker handle it.
+        // If SendCancelMessageAsync succeeded, HandleAppReplyCanceledRpcAsync clears it.
+        // If SendCancelMessageAsync failed, CleanupOrphanedRequestsAsync clears it.
 
         GC.SuppressFinalize(this);
     }

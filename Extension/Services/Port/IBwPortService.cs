@@ -174,4 +174,12 @@ public interface IBwPortService {
     /// <param name="frameId">The frame ID (defaults to 0 for main frame).</param>
     /// <returns>True if an active port session exists for the tab, false otherwise.</returns>
     bool HasActivePortSessionForTab(int tabId, int frameId = 0);
+
+    /// <summary>
+    /// Cleans up all pending requests with a custom error message.
+    /// Used when session locks due to inactivity or other session-wide events.
+    /// Sends cancel RPC responses to ContentScripts and removes requests from storage.
+    /// </summary>
+    /// <param name="errorMessage">The error message to send to ContentScripts.</param>
+    Task CleanupAllPendingRequestsAsync(string errorMessage);
 }
