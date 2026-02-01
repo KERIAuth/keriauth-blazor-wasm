@@ -17,24 +17,24 @@ using Xunit;
 using BrowserTab = WebExtensions.Net.Tabs.Tab;
 
 /// <summary>
-/// Unit tests for DialogPageBase.
-/// Tests cover the common request handling patterns shared by dialog pages.
+/// Unit tests for TabDialogPageBase.
+/// Tests cover the common request handling patterns shared by tab dialog pages.
 /// </summary>
-public class DialogPageBaseTests {
+public class TabDialogPageBaseTests {
     private readonly Mock<IAppPortService> _mockAppPortService;
     private readonly Mock<IPendingBwAppRequestService> _mockPendingBwAppRequestService;
     private readonly StubAppCache _stubAppCache;
     private readonly Mock<IWebExtensionsApi> _mockWebExtensionsApi;
-    private readonly Mock<ILogger<DialogPageBase>> _mockLogger;
+    private readonly Mock<ILogger<TabDialogPageBase>> _mockLogger;
     private readonly Mock<DialogLayout> _mockLayout;
     private readonly TestableDialogPage _sut;
 
-    public DialogPageBaseTests() {
+    public TabDialogPageBaseTests() {
         _mockAppPortService = new Mock<IAppPortService>();
         _mockPendingBwAppRequestService = new Mock<IPendingBwAppRequestService>();
         _stubAppCache = new StubAppCache();
         _mockWebExtensionsApi = new Mock<IWebExtensionsApi>();
-        _mockLogger = new Mock<ILogger<DialogPageBase>>();
+        _mockLogger = new Mock<ILogger<TabDialogPageBase>>();
         _mockLayout = new Mock<DialogLayout>();
 
         _sut = new TestableDialogPage {
@@ -367,11 +367,11 @@ public class DialogPageBaseTests {
     }
 
     /// <summary>
-    /// Testable concrete implementation of DialogPageBase.
+    /// Testable concrete implementation of TabDialogPageBase.
     /// Exposes protected methods for testing.
     /// Uses StubAppCache instead of real AppCache.
     /// </summary>
-    private sealed class TestableDialogPage : DialogPageBase {
+    private sealed class TestableDialogPage : TabDialogPageBase {
         private StubAppCache? _stubAppCache;
 
         // Expose setters for injected services (normally set by DI)
@@ -379,7 +379,7 @@ public class DialogPageBaseTests {
         public new IPendingBwAppRequestService PendingBwAppRequestService { set => base.PendingBwAppRequestService = value; }
         public StubAppCache? AppCacheStub { set => _stubAppCache = value; }
         public new IWebExtensionsApi WebExtensionsApi { set => base.WebExtensionsApi = value; }
-        public new ILogger<DialogPageBase> Logger { get => base.Logger; set => base.Logger = value; }
+        public new ILogger<TabDialogPageBase> Logger { get => base.Logger; set => base.Logger = value; }
         public new DialogLayout? Layout { set => base.Layout = value; }
 
         // State setters for test setup

@@ -14,7 +14,7 @@ using TabActiveInfo = WebExtensions.Net.Tabs.ActiveInfo;
 namespace Extension.UI.Components;
 
 /// <summary>
-/// Base class for dialog pages that handle pending requests from BackgroundWorker.
+/// Base class for tab dialog pages that handle pending requests from BackgroundWorker.
 /// Provides common state, services, and lifecycle management for request handling pages.
 ///
 /// Features:
@@ -25,7 +25,7 @@ namespace Extension.UI.Components;
 ///
 /// Usage:
 /// <code>
-/// @inherits DialogPageBase
+/// @inherits TabDialogPageBase
 ///
 /// @code {
 ///     protected override async Task OnInitializedAsync() {
@@ -37,7 +37,7 @@ namespace Extension.UI.Components;
 /// }
 /// </code>
 /// </summary>
-public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
+public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     #region Injected Services
 
     [Inject]
@@ -53,7 +53,7 @@ public abstract class DialogPageBase : AuthenticatedPageBase, IAsyncDisposable {
     protected IWebExtensionsApi WebExtensionsApi { get; set; } = default!;
 
     [Inject]
-    protected ILogger<DialogPageBase> Logger { get; set; } = default!;
+    protected ILogger<TabDialogPageBase> Logger { get; set; } = default!;
 
     #endregion
 
