@@ -50,21 +50,21 @@ public class WebauthnService : IWebauthnService {
         string attestationConveyancePreference,
         List<string> hints) {
         try {
-            // Get profile identifier and compute PRF salt
-            var profileIdResult = await GetProfileIdentifierAsync();
-            if (profileIdResult.IsFailed) {
-                return Result.Fail<string>(profileIdResult.Errors);
+            // Get KERIA connection digest and compute PRF salt
+            var keriaConnectionDigestResult = await GetCurrentKeriaConnectionDigestAsync();
+            if (keriaConnectionDigestResult.IsFailed) {
+                return Result.Fail<string>(keriaConnectionDigestResult.Errors);
             }
-            var profileId = profileIdResult.Value;
-            var prfSalt = ComputePrfSalt(profileId);
+            var keriaConnectionDigest = keriaConnectionDigestResult.Value;
+            var prfSalt = ComputePrfSalt(keriaConnectionDigest);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
-            // Compute user ID from profile identifier
-            var userId = _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId));
+            // Compute user ID from KERIA connection digest
+            var userId = _cryptoService.Sha256(Encoding.UTF8.GetBytes(keriaConnectionDigest));
             var userIdBase64 = Convert.ToBase64String(userId);
 
             // Generate user display name
-            var userName = GenerateUserName(profileId);
+            var userName = GenerateUserName(keriaConnectionDigest);
 
             // Get existing credential IDs to exclude
             var existingPasskeys = await GetValidPasskeysAsync();
@@ -126,7 +126,7 @@ public class WebauthnService : IWebauthnService {
 
             // Derive encryption key from PRF output
             var prfOutput = Convert.FromBase64String(assertionResult.Value.PrfOutputBase64);
-            var encryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+            var encryptionKey = _cryptoService.DeriveKeyFromPrf(keriaConnectionDigest, prfOutput);
 
             // Get passcode from session storage
             var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
@@ -148,13 +148,6 @@ public class WebauthnService : IWebauthnService {
                 _logger.LogError("Passcode encrypt/decrypt verification failed");
                 return Result.Fail<string>("Passcode encryption verification failed");
             }
-
-            // Get PasscodeHash from KeriaConnectConfig
-            var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
-            if (configResult.IsFailed || configResult.Value is null) {
-                return Result.Fail<string>("Could not retrieve KERIA configuration");
-            }
-            var passcodeHash = configResult.Value.PasscodeHash;
 
             // Compute transport intersection between requested and returned transports
             var requestedTransports = GetRequestedTransports(normalizedAttachment);
@@ -183,20 +176,20 @@ public class WebauthnService : IWebauthnService {
                 CredentialBase64 = credential.CredentialId,
                 Transports = effectiveTransports,
                 EncryptedPasscodeBase64 = encryptedPasscodeBase64,
-                PasscodeHash = passcodeHash,
+                KeriaConnectionDigest = keriaConnectionDigest,
                 Aaguid = aaguid,
                 Icon = icon,
                 CreationTime = creationTime,
                 LastUpdatedUtc = creationTime
             };
 
-            // Add to storage (preserving ProfileId)
+            // Add to storage
             var existingData = await GetStoredPasskeysDataAsync();
             var allPasskeys = existingData.Passkeys.ToList();
             allPasskeys.Add(newPasskey);
 
             var storeResult = await _storageService.SetItem(
-                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys, IsStored = true },
+                new StoredPasskeys { Passkeys = allPasskeys, IsStored = true },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
                 _logger.LogError("Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
@@ -221,13 +214,13 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail<string>("No stored passkeys");
             }
 
-            // Get profile identifier and compute PRF salt
-            var profileIdResult = await GetProfileIdentifierAsync();
-            if (profileIdResult.IsFailed) {
-                return Result.Fail<string>(profileIdResult.Errors);
+            // Get KERIA connection digest and compute PRF salt
+            var keriaConnectionDigestResult = await GetCurrentKeriaConnectionDigestAsync();
+            if (keriaConnectionDigestResult.IsFailed) {
+                return Result.Fail<string>(keriaConnectionDigestResult.Errors);
             }
-            var profileId = profileIdResult.Value;
-            var prfSalt = ComputePrfSalt(profileId);
+            var keriaConnectionDigest = keriaConnectionDigestResult.Value;
+            var prfSalt = ComputePrfSalt(keriaConnectionDigest);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             // Build credential options with per-credential transports
@@ -271,7 +264,7 @@ public class WebauthnService : IWebauthnService {
 
             // Derive decryption key
             var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
-            var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+            var decryptionKey = _cryptoService.DeriveKeyFromPrf(keriaConnectionDigest, prfOutput);
 
             // Decrypt passcode
             var encryptedPasscode = Convert.FromBase64String(matchingPasskey.EncryptedPasscodeBase64);
@@ -307,7 +300,7 @@ public class WebauthnService : IWebauthnService {
             }
 
             var storeResult = await _storageService.SetItem(
-                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys, IsStored = true },
+                new StoredPasskeys { Passkeys = allPasskeys, IsStored = true },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
                 return Result.Fail(storeResult.Errors);
@@ -333,13 +326,13 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail("Passkey not found");
             }
 
-            // Get profile identifier and compute PRF salt
-            var profileIdResult = await GetProfileIdentifierAsync();
-            if (profileIdResult.IsFailed) {
-                return Result.Fail(profileIdResult.Errors);
+            // Get KERIA connection digest and compute PRF salt
+            var keriaConnectionDigestResult = await GetCurrentKeriaConnectionDigestAsync();
+            if (keriaConnectionDigestResult.IsFailed) {
+                return Result.Fail(keriaConnectionDigestResult.Errors);
             }
-            var profileId = profileIdResult.Value;
-            var prfSalt = ComputePrfSalt(profileId);
+            var keriaConnectionDigest = keriaConnectionDigestResult.Value;
+            var prfSalt = ComputePrfSalt(keriaConnectionDigest);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             _logger.LogInformation(
@@ -370,7 +363,7 @@ public class WebauthnService : IWebauthnService {
 
             // Verify we can decrypt the passcode
             var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
-            var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+            var decryptionKey = _cryptoService.DeriveKeyFromPrf(keriaConnectionDigest, prfOutput);
             var encryptedPasscode = Convert.FromBase64String(passkey.EncryptedPasscodeBase64);
 
             try {
@@ -380,7 +373,7 @@ public class WebauthnService : IWebauthnService {
             }
             catch (Exception decryptEx) {
                 _logger.LogError(decryptEx, "Test failed - could not decrypt passcode for passkey {Name}", passkey.Name);
-                return Result.Fail("Decryption failed - passkey may have been created with different profile");
+                return Result.Fail("Decryption failed - passkey may have been created with different KERIA connection");
             }
         }
         catch (Exception ex) {
@@ -398,13 +391,13 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail<string>("No stored passkeys");
             }
 
-            // Get profile identifier and compute PRF salt
-            var profileIdResult = await GetProfileIdentifierAsync();
-            if (profileIdResult.IsFailed) {
-                return Result.Fail<string>(profileIdResult.Errors);
+            // Get KERIA connection digest and compute PRF salt
+            var keriaConnectionDigestResult = await GetCurrentKeriaConnectionDigestAsync();
+            if (keriaConnectionDigestResult.IsFailed) {
+                return Result.Fail<string>(keriaConnectionDigestResult.Errors);
             }
-            var profileId = profileIdResult.Value;
-            var prfSalt = ComputePrfSalt(profileId);
+            var keriaConnectionDigest = keriaConnectionDigestResult.Value;
+            var prfSalt = ComputePrfSalt(keriaConnectionDigest);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             // Build credential options with per-credential transports (same as AuthenticateAndDecryptPasscodeAsync)
@@ -447,7 +440,7 @@ public class WebauthnService : IWebauthnService {
 
             // Verify we can decrypt the passcode
             var prfOutput = Convert.FromBase64String(assertion.PrfOutputBase64);
-            var decryptionKey = _cryptoService.DeriveKeyFromPrf(profileId, prfOutput);
+            var decryptionKey = _cryptoService.DeriveKeyFromPrf(keriaConnectionDigest, prfOutput);
             var encryptedPasscode = Convert.FromBase64String(usedPasskey.EncryptedPasscodeBase64);
 
             try {
@@ -458,7 +451,7 @@ public class WebauthnService : IWebauthnService {
             catch (Exception decryptEx) {
                 _logger.LogError(decryptEx, "Test All failed - could not decrypt passcode using passkey {Name}",
                     usedPasskey.Name);
-                return Result.Fail<string>("Decryption failed - passkey may have been created with different profile");
+                return Result.Fail<string>("Decryption failed - passkey may have been created with different KERIA connection");
             }
         }
         catch (Exception ex) {
@@ -469,7 +462,7 @@ public class WebauthnService : IWebauthnService {
 
     /// <summary>
     /// Gets the full StoredPasskeys data from local storage.
-    /// ProfileId is now computed from KeriaConnectConfig, not stored here.
+    /// KeriaConnectionDigest is now computed from KeriaConnectConfig, not stored at collection level.
     /// </summary>
     private async Task<StoredPasskeys> GetStoredPasskeysDataAsync() {
         var result = await _storageService.GetItem<StoredPasskeys>(StorageArea.Local);
@@ -477,42 +470,42 @@ public class WebauthnService : IWebauthnService {
             return result.Value;
         }
 
-        // Return empty structure - ProfileId is computed separately from KeriaConnectConfig
-        return new StoredPasskeys { ProfileId = null, Passkeys = [] };
+        // Return empty structure - KeriaConnectionDigest is computed separately from KeriaConnectConfig
+        return new StoredPasskeys { Passkeys = [] };
     }
 
     /// <summary>
-    /// Gets the profile identifier by computing it from the KeriaConnectConfig.
-    /// The ProfileId is a deterministic SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
+    /// Gets the KERIA connection digest by computing it from the KeriaConnectConfig.
+    /// The KeriaConnectionDigest is a deterministic SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
     /// </summary>
-    private async Task<Result<string>> GetProfileIdentifierAsync() {
+    public async Task<Result<string>> GetCurrentKeriaConnectionDigestAsync() {
         var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
         if (configResult.IsFailed || configResult.Value is null) {
-            return Result.Fail<string>("Could not retrieve KERIA configuration for ProfileId computation");
+            return Result.Fail<string>("Could not retrieve KERIA configuration for KeriaConnectionDigest computation");
         }
-        return ComputeProfileId(configResult.Value);
+        return ComputeKeriaConnectionDigest(configResult.Value);
     }
 
     /// <summary>
-    /// Computes the PRF salt from the profile identifier using SHA-256.
+    /// Computes the PRF salt from the KERIA connection digest using SHA-256.
     /// </summary>
-    private byte[] ComputePrfSalt(string profileId) {
-        return _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId));
+    private byte[] ComputePrfSalt(string keriaConnectionDigest) {
+        return _cryptoService.Sha256(Encoding.UTF8.GetBytes(keriaConnectionDigest));
     }
 
     /// <summary>
-    /// Computes the ProfileId as a hex-encoded SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
-    /// This ensures a deterministic ProfileId based on the KERIA connection configuration.
+    /// Computes the KeriaConnectionDigest as a hex-encoded SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
+    /// This ensures a deterministic KeriaConnectionDigest based on the KERIA connection configuration.
     /// </summary>
-    private Result<string> ComputeProfileId(KeriaConnectConfig config) {
+    private Result<string> ComputeKeriaConnectionDigest(KeriaConnectConfig config) {
         if (string.IsNullOrWhiteSpace(config.ClientAidPrefix)) {
-            return Result.Fail<string>("ClientAidPrefix is required to compute ProfileId");
+            return Result.Fail<string>("ClientAidPrefix is required to compute KeriaConnectionDigest");
         }
         if (string.IsNullOrWhiteSpace(config.AgentAidPrefix)) {
-            return Result.Fail<string>("AgentAidPrefix is required to compute ProfileId");
+            return Result.Fail<string>("AgentAidPrefix is required to compute KeriaConnectionDigest");
         }
         if (config.PasscodeHash == 0) {
-            return Result.Fail<string>("PasscodeHash is required to compute ProfileId");
+            return Result.Fail<string>("PasscodeHash is required to compute KeriaConnectionDigest");
         }
 
         var input = config.ClientAidPrefix + config.AgentAidPrefix + config.PasscodeHash.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -522,11 +515,11 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Generates a user-friendly name for the WebAuthn credential based on profile identifier.
+    /// Generates a user-friendly name for the WebAuthn credential based on KERIA connection digest.
     /// </summary>
-    private string GenerateUserName(string profileId) {
+    private string GenerateUserName(string keriaConnectionDigest) {
         // Generate a 6-digit hash for easy identification
-        var hash = _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId + "fixed"));
+        var hash = _cryptoService.Sha256(Encoding.UTF8.GetBytes(keriaConnectionDigest + "fixed"));
         var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
         var numericValue = Convert.ToInt64(hashHex[..10], 16) % 1000000;
         var sixDigit = numericValue.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);

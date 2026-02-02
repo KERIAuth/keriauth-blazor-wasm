@@ -1,9 +1,10 @@
-using FluentResults;
 using Extension.Models;
+using FluentResults;
 
 namespace Extension.Services;
 
-public interface IWebauthnService {
+public interface IWebauthnService
+{
     /// <summary>
     /// Creates a new WebAuthn passkey, verifies PRF support, encrypts the passcode,
     /// and stores the passkey in storage.
@@ -54,4 +55,11 @@ public interface IWebauthnService {
     /// </summary>
     /// <returns>Success with the name of the passkey that was used, or error with details</returns>
     Task<Result<string>> TestAllPasskeysAsync();
+
+    /// <summary>
+    /// Gets the current ProfileId computed from KeriaConnectConfig.
+    /// ProfileId is SHA256(ClientAidPrefix + AgentAidPrefix + PasscodeHash).
+    /// </summary>
+    /// <returns>The computed ProfileId, or error if config is missing/invalid</returns>
+    Task<Result<string>> GetCurrentProfileIdAsync();
 }

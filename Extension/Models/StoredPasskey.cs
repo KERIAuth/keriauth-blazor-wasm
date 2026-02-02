@@ -9,9 +9,9 @@ namespace Extension.Models;
 public static class StoredPasskeySchema {
     /// <summary>
     /// Current schema version.
-    /// Old registrations (version 1-4 or missing version) are invalid and must be re-created.
+    /// Old registrations (version 1-6 or missing version) are invalid and must be re-created.
     /// </summary>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 7;
 }
 
 public record StoredPasskey {
@@ -40,18 +40,18 @@ public record StoredPasskey {
 
     /// <summary>
     /// Passcode encrypted with AES-GCM using key derived from PRF output.
-    /// Key derivation: SHA256(profileId || prfOutput || "KERI Auth").
+    /// Key derivation: SHA256(keriaConnectionDigest || prfOutput || "KERI Auth").
     /// </summary>
     [JsonPropertyName("EncryptedPasscodeBase64")]
     public required string EncryptedPasscodeBase64 { get; init; }
 
     /// <summary>
-    /// Hash of the passcode at the time of passkey creation.
-    /// Used to detect if the passkey is consistent with the current configuration.
-    /// Copied from KeriaConnectConfig.PasscodeHash during creation.
+    /// Digest of the KERIA connection configuration at the time of passkey creation.
+    /// Computed as SHA256(ClientAidPrefix + AgentAidPrefix + PasscodeHash).
+    /// Used to detect if the passkey is consistent with the current KERIA connection.
     /// </summary>
-    [JsonPropertyName("PasscodeHash")]
-    public required int PasscodeHash { get; init; }
+    [JsonPropertyName("KeriaConnectionDigest")]
+    public required string KeriaConnectionDigest { get; init; }
 
     /// <summary>
     /// AAGUID of the authenticator in UUID format (e.g., "08987058-cadc-4b81-b6e1-30de50dcbe96").

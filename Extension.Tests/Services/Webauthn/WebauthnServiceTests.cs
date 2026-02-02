@@ -48,14 +48,13 @@ public class WebauthnServiceTests {
     public async Task GetStoredPasskeysAsync_UsesLocalStorage() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = "test-profile-id",
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "test-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -82,14 +81,13 @@ public class WebauthnServiceTests {
     public async Task GetStoredPasskeysAsync_FiltersOldSchemaVersions() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = "test-profile-id",
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = 1, // Old version - should be filtered
                     CredentialBase64 = "old-cred",
                     Transports = [],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 },
@@ -98,7 +96,7 @@ public class WebauthnServiceTests {
                     CredentialBase64 = "new-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -143,14 +141,13 @@ public class WebauthnServiceTests {
     public async Task RemovePasskeyAsync_UsesLocalStorage() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = "test-profile-id",
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "cred-to-remove",
                     Transports = ["usb"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -179,14 +176,13 @@ public class WebauthnServiceTests {
     public async Task RemovePasskeyAsync_RemovesMatchingPasskey() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = "test-profile-id",
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "cred-to-keep",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 },
@@ -195,7 +191,7 @@ public class WebauthnServiceTests {
                     CredentialBase64 = "cred-to-remove",
                     Transports = ["usb"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -228,14 +224,13 @@ public class WebauthnServiceTests {
     public async Task RemovePasskeyAsync_Fails_WhenNotFound() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = "test-profile-id",
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "existing-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -257,20 +252,19 @@ public class WebauthnServiceTests {
 
     #endregion
 
-    #region ProfileId Computation Tests
+    #region KeriaConnectionDigest Computation Tests
 
     [Fact]
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenKeriaConfigMissing() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = null,
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "test-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -296,14 +290,13 @@ public class WebauthnServiceTests {
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenClientAidPrefixMissing() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = null,
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "test-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -339,14 +332,13 @@ public class WebauthnServiceTests {
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenAgentAidPrefixMissing() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = null,
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "test-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }
@@ -382,14 +374,13 @@ public class WebauthnServiceTests {
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenPasscodeHashIsZero() {
         // Arrange
         var passkeys = new StoredPasskeys {
-            ProfileId = null,
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
                     CredentialBase64 = "test-cred",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = DateTime.UtcNow
                 }

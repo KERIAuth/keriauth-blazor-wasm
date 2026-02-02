@@ -17,9 +17,9 @@ public class WebauthnModelsTests {
     #region StoredPasskeySchema Tests
 
     [Fact]
-    public void StoredPasskeySchema_CurrentVersion_IsFive() {
-        // Assert - Version 5 is the renamed version from RegisteredAuthenticator
-        Assert.Equal(5, StoredPasskeySchema.CurrentVersion);
+    public void StoredPasskeySchema_CurrentVersion_IsSeven() {
+        // Assert - Version 7 renamed ProfileId to KeriaConnectionDigest and removed PasscodeHash
+        Assert.Equal(7, StoredPasskeySchema.CurrentVersion);
     }
 
     #endregion
@@ -36,7 +36,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "dGVzdC1jcmVkZW50aWFs",
             Transports = ["usb", "internal"],
             EncryptedPasscodeBase64 = "ZW5jcnlwdGVkLXBhc3Njb2Rl",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = now,
             LastUpdatedUtc = now
@@ -64,7 +64,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "abc123",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "encrypted",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow,
             LastUpdatedUtc = DateTime.UtcNow
@@ -91,7 +91,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "abc",
             Transports = [],
             EncryptedPasscodeBase64 = "enc",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
@@ -114,7 +114,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "abc",
             Transports = transports,
             EncryptedPasscodeBase64 = "enc",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
@@ -137,7 +137,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "abc",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
@@ -388,7 +388,6 @@ public class WebauthnModelsTests {
         // Arrange
         var now = DateTime.UtcNow;
         var original = new StoredPasskeys {
-            ProfileId = "test-profile-id",
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
@@ -396,7 +395,7 @@ public class WebauthnModelsTests {
                     CredentialBase64 = "cred1",
                     Transports = ["internal"],
                     EncryptedPasscodeBase64 = "enc1",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = now
                 },
@@ -406,7 +405,7 @@ public class WebauthnModelsTests {
                     CredentialBase64 = "cred2",
                     Transports = ["usb", "nfc"],
                     EncryptedPasscodeBase64 = "enc2",
-                    PasscodeHash = 12345,
+                    KeriaConnectionDigest = "test-keria-connection-digest",
                     Aaguid = "00000000-0000-0000-0000-000000000000",
                     CreationTime = now
                 }
@@ -450,7 +449,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "cred",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
@@ -470,7 +469,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "cred",
             Transports = [],  // Would be missing in actual old data
             EncryptedPasscodeBase64 = "enc",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
@@ -490,7 +489,7 @@ public class WebauthnModelsTests {
             CredentialBase64 = "cred",
             Transports = ["internal"],
             EncryptedPasscodeBase64 = "enc",
-            PasscodeHash = 12345,
+            KeriaConnectionDigest = "test-keria-connection-digest",
             Aaguid = "00000000-0000-0000-0000-000000000000",
             CreationTime = DateTime.UtcNow
         };
@@ -511,7 +510,7 @@ public class WebauthnModelsTests {
                 CredentialBase64 = "old-cred",
                 Transports = [],
                 EncryptedPasscodeBase64 = "old-enc",
-                PasscodeHash = 12345,
+                KeriaConnectionDigest = "test-keria-connection-digest",
                 Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             },
@@ -520,7 +519,7 @@ public class WebauthnModelsTests {
                 CredentialBase64 = "new-cred",
                 Transports = ["internal"],
                 EncryptedPasscodeBase64 = "new-enc",
-                PasscodeHash = 12345,
+                KeriaConnectionDigest = "test-keria-connection-digest",
                 Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             },
@@ -529,7 +528,7 @@ public class WebauthnModelsTests {
                 CredentialBase64 = "another-cred",
                 Transports = ["usb"],
                 EncryptedPasscodeBase64 = "another-enc",
-                PasscodeHash = 12345,
+                KeriaConnectionDigest = "test-keria-connection-digest",
                 Aaguid = "00000000-0000-0000-0000-000000000000",
                 CreationTime = DateTime.UtcNow
             }

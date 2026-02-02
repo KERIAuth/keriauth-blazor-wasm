@@ -35,7 +35,7 @@
     // fields
     // TODO P2: should MyStoredPasskeys be initialized here or only in OnParametersSetAsync? Should it be cached and retrieved from AppCache as needed with a reactive pattern and subscription to appCache?
     StoredPasskeys MyStoredPasskeys = new();
-    int CurrentPasscodeHash = 0;
+    string? CurrentKeriaConnectionDigest = null;
 
     // reactive properties
     string CountLabel => "(" + MyStoredPasskeys.Passkeys.Count.ToString() + ")";
@@ -51,11 +51,11 @@
     {
         logger.LogInformation($"OnParametersSetAsync");
 
-        // Load current PasscodeHash from configuration
-        var configResult = await storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
-        if (configResult.IsSuccess && configResult.Value is not null)
+        // Load current KeriaConnectionDigest computed from KeriaConnectConfig
+        var keriaConnectionDigestResult = await webauthnService.GetCurrentKeriaConnectionDigestAsync();
+        if (keriaConnectionDigestResult.IsSuccess)
         {
-            CurrentPasscodeHash = configResult.Value.PasscodeHash;
+            CurrentKeriaConnectionDigest = keriaConnectionDigestResult.Value;
         }
 
         var result = await webauthnService.GetStoredPasskeysAsync();
@@ -66,8 +66,8 @@
         StateHasChanged();
     }
 
-    bool IsConsistentWithCurrentPasscode(StoredPasskey passkey) =>
-        CurrentPasscodeHash != 0 && passkey.PasscodeHash == CurrentPasscodeHash;
+    bool IsConsistentWithCurrentKeriaConnection(StoredPasskey passkey) =>
+        CurrentKeriaConnectionDigest is not null && passkey.KeriaConnectionDigest == CurrentKeriaConnectionDigest;
 
     async Task AddPasskey()
     {
@@ -256,7 +256,7 @@
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
                                     <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
                                     @{
-                                        var isConsistent = IsConsistentWithCurrentPasscode(pk);
+                                        var isConsistent = IsConsistentWithCurrentKeriaConnection(pk);
                                     }
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
                                         <MudIcon Icon="@(isConsistent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
