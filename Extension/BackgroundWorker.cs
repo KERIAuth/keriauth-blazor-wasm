@@ -664,8 +664,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
-            var newTab = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
-            _optionsTabId = newTab.Id;
+            var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error handling update");

@@ -86,7 +86,8 @@
                         .Select(pk => pk.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
                             ? pk with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
                             : pk)
-                        .ToList()
+                        .ToList(),
+                IsStored = true
             };
         // Use StorageService via type-safe model
         var saveResult = await storageService.SetItem<StoredPasskeys>(updatedPasskeys, StorageArea.Local);
@@ -161,7 +162,8 @@
                 .Select(pk => pk.CredentialBase64 == credentialBase64
                     ? pk with { Transports = currentTransports.ToArray(), LastUpdatedUtc = DateTime.UtcNow }
                     : pk)
-                .ToList()
+                .ToList(),
+            IsStored = true
         };
 
         var saveResult = await storageService.SetItem<StoredPasskeys>(updatedPasskeys, StorageArea.Local);
@@ -261,7 +263,7 @@
                                                  Color="@(isConsistent ? Color.Success : Color.Error)"
                                                  Size="Size.Small" />
                                         <MudText Color="@(isConsistent ? Color.Success : Color.Error)" Style="font-weight:100; font-size:small;">
-                                            Consistent with current passcode
+                                            Consistent with current KERIA Cloud Service connection
                                         </MudText>
                                     </MudStack>
                                     <MudText Color="Color.Secondary" Class="mt-2" Style="font-weight:100; font-size:small;">Transports:</MudText>

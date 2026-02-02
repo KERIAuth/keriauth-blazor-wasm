@@ -9,10 +9,6 @@ namespace Extension.Models;
 public static class StoredPasskeySchema {
     /// <summary>
     /// Current schema version.
-    /// Version 2: Added Transports, SchemaVersion. Changed key derivation from HKDF to SHA-256.
-    /// Version 3: Added PasscodeHash to detect configuration consistency.
-    /// Version 4: Added Aaguid, Icon for descriptive names and visual identification.
-    /// Version 5: Renamed from RegisteredAuthenticator to StoredPasskey (breaking change).
     /// Old registrations (version 1-4 or missing version) are invalid and must be re-created.
     /// </summary>
     public const int CurrentVersion = 5;
@@ -77,6 +73,4 @@ public record StoredPasskey {
 
     [JsonPropertyName("LastUpdatedUtc")]
     public DateTime LastUpdatedUtc { get; init; } = DateTime.UtcNow;
-
-    // TODO P2 create a last successfully used property? Perhaps as a separate structure in storage
 }

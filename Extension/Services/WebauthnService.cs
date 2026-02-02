@@ -51,7 +51,11 @@ public class WebauthnService : IWebauthnService {
         List<string> hints) {
         try {
             // Get profile identifier and compute PRF salt
-            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var profileIdResult = await GetProfileIdentifierAsync();
+            if (profileIdResult.IsFailed) {
+                return Result.Fail<string>(profileIdResult.Errors);
+            }
+            var profileId = profileIdResult.Value;
             var prfSalt = ComputePrfSalt(profileId);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
@@ -192,7 +196,7 @@ public class WebauthnService : IWebauthnService {
             allPasskeys.Add(newPasskey);
 
             var storeResult = await _storageService.SetItem(
-                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys },
+                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys, IsStored = true },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
                 _logger.LogError("Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
@@ -218,7 +222,11 @@ public class WebauthnService : IWebauthnService {
             }
 
             // Get profile identifier and compute PRF salt
-            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var profileIdResult = await GetProfileIdentifierAsync();
+            if (profileIdResult.IsFailed) {
+                return Result.Fail<string>(profileIdResult.Errors);
+            }
+            var profileId = profileIdResult.Value;
             var prfSalt = ComputePrfSalt(profileId);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
@@ -299,7 +307,7 @@ public class WebauthnService : IWebauthnService {
             }
 
             var storeResult = await _storageService.SetItem(
-                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys },
+                new StoredPasskeys { ProfileId = existingData.ProfileId, Passkeys = allPasskeys, IsStored = true },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
                 return Result.Fail(storeResult.Errors);
@@ -326,7 +334,11 @@ public class WebauthnService : IWebauthnService {
             }
 
             // Get profile identifier and compute PRF salt
-            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var profileIdResult = await GetProfileIdentifierAsync();
+            if (profileIdResult.IsFailed) {
+                return Result.Fail(profileIdResult.Errors);
+            }
+            var profileId = profileIdResult.Value;
             var prfSalt = ComputePrfSalt(profileId);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
@@ -387,7 +399,11 @@ public class WebauthnService : IWebauthnService {
             }
 
             // Get profile identifier and compute PRF salt
-            var profileId = await GetOrCreateProfileIdentifierAsync();
+            var profileIdResult = await GetProfileIdentifierAsync();
+            if (profileIdResult.IsFailed) {
+                return Result.Fail<string>(profileIdResult.Errors);
+            }
+            var profileId = profileIdResult.Value;
             var prfSalt = ComputePrfSalt(profileId);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
@@ -452,39 +468,29 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Gets the full StoredPasskeys data including ProfileId.
-    /// Creates a new ProfileId if none exists.
+    /// Gets the full StoredPasskeys data from local storage.
+    /// ProfileId is now computed from KeriaConnectConfig, not stored here.
     /// </summary>
-    // TODO P2: Rather than creating a new random browser ProfileId here, we should consider using the KERIAConnection combo of ControlerAID and AgentAID, so a given passkey will work the same across contexts and installs
     private async Task<StoredPasskeys> GetStoredPasskeysDataAsync() {
         var result = await _storageService.GetItem<StoredPasskeys>(StorageArea.Local);
         if (result.IsSuccess && result.Value is not null) {
-            // Ensure ProfileId exists (migration from old data)
-            if (result.Value.ProfileId is not null) {
-                return result.Value;
-            }
-            // Migrate: add ProfileId to existing data
-            var newProfileId = Guid.NewGuid().ToString();
-            var updatedData = result.Value with { ProfileId = newProfileId };
-            await _storageService.SetItem(updatedData, StorageArea.Local);
-            _logger.LogInformation("Migrated StoredPasskeys with new profile identifier");
-            return updatedData;
+            return result.Value;
         }
 
-        // Create new structure with ProfileId
-        var newId = Guid.NewGuid().ToString();
-        var newData = new StoredPasskeys { ProfileId = newId, Passkeys = [] };
-        await _storageService.SetItem(newData, StorageArea.Local);
-        _logger.LogInformation("Created new StoredPasskeys with profile identifier");
-        return newData;
+        // Return empty structure - ProfileId is computed separately from KeriaConnectConfig
+        return new StoredPasskeys { ProfileId = null, Passkeys = [] };
     }
 
     /// <summary>
-    /// Gets or creates the browser profile identifier stored in local storage.
+    /// Gets the profile identifier by computing it from the KeriaConnectConfig.
+    /// The ProfileId is a deterministic SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
     /// </summary>
-    private async Task<string> GetOrCreateProfileIdentifierAsync() {
-        var data = await GetStoredPasskeysDataAsync();
-        return data.ProfileId!;
+    private async Task<Result<string>> GetProfileIdentifierAsync() {
+        var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
+        if (configResult.IsFailed || configResult.Value is null) {
+            return Result.Fail<string>("Could not retrieve KERIA configuration for ProfileId computation");
+        }
+        return ComputeProfileId(configResult.Value);
     }
 
     /// <summary>
@@ -492,6 +498,27 @@ public class WebauthnService : IWebauthnService {
     /// </summary>
     private byte[] ComputePrfSalt(string profileId) {
         return _cryptoService.Sha256(Encoding.UTF8.GetBytes(profileId));
+    }
+
+    /// <summary>
+    /// Computes the ProfileId as a hex-encoded SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
+    /// This ensures a deterministic ProfileId based on the KERIA connection configuration.
+    /// </summary>
+    private Result<string> ComputeProfileId(KeriaConnectConfig config) {
+        if (string.IsNullOrWhiteSpace(config.ClientAidPrefix)) {
+            return Result.Fail<string>("ClientAidPrefix is required to compute ProfileId");
+        }
+        if (string.IsNullOrWhiteSpace(config.AgentAidPrefix)) {
+            return Result.Fail<string>("AgentAidPrefix is required to compute ProfileId");
+        }
+        if (config.PasscodeHash == 0) {
+            return Result.Fail<string>("PasscodeHash is required to compute ProfileId");
+        }
+
+        var input = config.ClientAidPrefix + config.AgentAidPrefix + config.PasscodeHash.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var hashBytes = _cryptoService.Sha256(Encoding.UTF8.GetBytes(input));
+        var hexString = Convert.ToHexString(hashBytes).ToLowerInvariant();
+        return Result.Ok(hexString);
     }
 
     /// <summary>

@@ -256,4 +256,170 @@ public class WebauthnServiceTests {
     }
 
     #endregion
+
+    #region ProfileId Computation Tests
+
+    [Fact]
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenKeriaConfigMissing() {
+        // Arrange
+        var passkeys = new StoredPasskeys {
+            ProfileId = null,
+            Passkeys = [
+                new StoredPasskey {
+                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                    CredentialBase64 = "test-cred",
+                    Transports = ["internal"],
+                    EncryptedPasscodeBase64 = "enc",
+                    PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
+                    CreationTime = DateTime.UtcNow
+                }
+            ]
+        };
+
+        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
+        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
+            .ReturnsAsync(Result.Fail<KeriaConnectConfig?>("Config not found"));
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.AuthenticateAndDecryptPasscodeAsync();
+
+        // Assert
+        Assert.True(result.IsFailed);
+        Assert.Contains("KERIA configuration", result.Errors[0].Message);
+    }
+
+    [Fact]
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenClientAidPrefixMissing() {
+        // Arrange
+        var passkeys = new StoredPasskeys {
+            ProfileId = null,
+            Passkeys = [
+                new StoredPasskey {
+                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                    CredentialBase64 = "test-cred",
+                    Transports = ["internal"],
+                    EncryptedPasscodeBase64 = "enc",
+                    PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
+                    CreationTime = DateTime.UtcNow
+                }
+            ]
+        };
+
+        var config = new KeriaConnectConfig(
+            providerName: "test",
+            adminUrl: "https://test.com",
+            bootUrl: "https://boot.test.com",
+            passcodeHash: 12345,
+            clientAidPrefix: null,  // Missing
+            agentAidPrefix: "EAgent123",
+            isStored: true
+        );
+
+        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
+        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<KeriaConnectConfig?>(config));
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.AuthenticateAndDecryptPasscodeAsync();
+
+        // Assert
+        Assert.True(result.IsFailed);
+        Assert.Contains("ClientAidPrefix", result.Errors[0].Message);
+    }
+
+    [Fact]
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenAgentAidPrefixMissing() {
+        // Arrange
+        var passkeys = new StoredPasskeys {
+            ProfileId = null,
+            Passkeys = [
+                new StoredPasskey {
+                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                    CredentialBase64 = "test-cred",
+                    Transports = ["internal"],
+                    EncryptedPasscodeBase64 = "enc",
+                    PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
+                    CreationTime = DateTime.UtcNow
+                }
+            ]
+        };
+
+        var config = new KeriaConnectConfig(
+            providerName: "test",
+            adminUrl: "https://test.com",
+            bootUrl: "https://boot.test.com",
+            passcodeHash: 12345,
+            clientAidPrefix: "EClient123",
+            agentAidPrefix: null,  // Missing
+            isStored: true
+        );
+
+        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
+        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<KeriaConnectConfig?>(config));
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.AuthenticateAndDecryptPasscodeAsync();
+
+        // Assert
+        Assert.True(result.IsFailed);
+        Assert.Contains("AgentAidPrefix", result.Errors[0].Message);
+    }
+
+    [Fact]
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenPasscodeHashIsZero() {
+        // Arrange
+        var passkeys = new StoredPasskeys {
+            ProfileId = null,
+            Passkeys = [
+                new StoredPasskey {
+                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
+                    CredentialBase64 = "test-cred",
+                    Transports = ["internal"],
+                    EncryptedPasscodeBase64 = "enc",
+                    PasscodeHash = 12345,
+                    Aaguid = "00000000-0000-0000-0000-000000000000",
+                    CreationTime = DateTime.UtcNow
+                }
+            ]
+        };
+
+        var config = new KeriaConnectConfig(
+            providerName: "test",
+            adminUrl: "https://test.com",
+            bootUrl: "https://boot.test.com",
+            passcodeHash: 0,  // Invalid - zero
+            clientAidPrefix: "EClient123",
+            agentAidPrefix: "EAgent123",
+            isStored: true
+        );
+
+        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
+        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<KeriaConnectConfig?>(config));
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.AuthenticateAndDecryptPasscodeAsync();
+
+        // Assert
+        Assert.True(result.IsFailed);
+        Assert.Contains("PasscodeHash", result.Errors[0].Message);
+    }
+
+    #endregion
 }

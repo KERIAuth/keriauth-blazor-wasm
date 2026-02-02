@@ -1,12 +1,11 @@
-using Extension.Models.Storage;
 using System.Text.Json.Serialization;
+using Extension.Models.Storage;
 
 namespace Extension.Models {
     public record StoredPasskeys : IStorageModel {
         /// <summary>
-        /// A randomly-generated UUID that uniquely identifies this browser profile.
-        /// Combined with PRF output during key derivation to ensure passkeys
-        /// cannot be used in a different browser profile.
+        /// Created initially, derrived from passcode hash, client AID, and agent AID.
+        /// Combined with PRF output during key derivation.
         /// Persists even when all passkeys are removed.
         /// </summary>
         [JsonPropertyName("ProfileId")]
