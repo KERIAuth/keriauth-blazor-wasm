@@ -32,10 +32,6 @@
     "https://*/*",
     "http://localhost/*/*"
   ],
-  "options_ui": {
-    "page": "indexInOptions.html",
-    "open_in_tab": true
-  },
   "permissions": [
     "activeTab",
     "alarms",

@@ -28,8 +28,7 @@ public readonly record struct ContentRoute(
 /// <summary>
 /// Identifies static content pages.
 /// </summary>
-public enum ContentPage
-{
+public enum ContentPage {
     Terms,
     Privacy,
     About,
@@ -42,10 +41,8 @@ public enum ContentPage
 /// <summary>
 /// Centralized route definitions.
 /// </summary>
-public static class Routes
-{
-    public static readonly Dictionary<Type, PageRoute> Pages = new()
-    {
+public static class Routes {
+    public static readonly Dictionary<Type, PageRoute> Pages = new() {
         // Primary navigation (auth required)
         [typeof(DashboardPage)] = new("Dashboard", "/Dashboard.html", RequiresAuth: true,
             Icons.Material.Filled.Dashboard, Color.Surface),
@@ -99,29 +96,23 @@ public static class Routes
     /// Additional paths that don't require auth but aren't separate page types.
     /// Index.razor handles multiple route paths.
     /// </summary>
-    // TODO P2: could move this into some kind of attribute or comment on the PageRoute record, with enum names. See below IndexPaths, Content
     private static readonly HashSet<string> AdditionalPathsNotRequiringAuth =
     [
-        "/indexInTab.html",
-        "/indexInPopup.html",
-        "/indexInSidePanel.html",
-        "/indexInOptions.html",
+        IndexPaths.InTab,
+        IndexPaths.InPopup,
+        IndexPaths.InSidePanel
     ];
 
     /// <summary>
     /// Context-specific Index page paths (all handled by Index.razor).
     /// </summary>
-    public static class IndexPaths
-    {
-        public const string Default = "/index.html";
+    public static class IndexPaths {
         public const string InTab = "/indexInTab.html";
         public const string InPopup = "/indexInPopup.html";
         public const string InSidePanel = "/indexInSidePanel.html";
-        public const string InOptions = "/indexInOptions.html";
     }
 
-    public static readonly Dictionary<ContentPage, ContentRoute> Content = new()
-    {
+    public static readonly Dictionary<ContentPage, ContentRoute> Content = new() {
         [ContentPage.Terms] = new("Terms", "content/terms.html",
             Icons.Material.Filled.StickyNote2, Color.Surface),
         [ContentPage.Privacy] = new("Privacy", "content/privacy.html",

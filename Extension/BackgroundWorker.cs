@@ -64,6 +64,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ISchemaService _schemaService;
     private readonly WebExtensionsApi _webExtensionsApi;
 
+    // Track the "Open in tab" tab ID so we can reuse it (lost on service worker restart, which is fine)
+    private int? _optionsTabId;
+
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
 
@@ -443,7 +446,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
             };
-            var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
+            var newTab = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
+            _optionsTabId = newTab.Id;
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error handling install");
@@ -557,25 +561,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await EnsureInitializedAsync();
 
             switch (info.MenuItemId.Value) {
-                case "demo1":
-                    // Run demo1 via binding (module is statically imported in BackgroundWorker.js)
-                    logger.LogInformation("Running demo1...");
-                    logger.LogInformation("Invoking fullname: {asdf}", nameof(_demo1Binding.RunDemo1Async));
-                    await _demo1Binding.RunDemo1Async();
-                    logger.LogInformation("demo1 completed successfully");
-                    break;
-                case "demo2":
-                    // Run demo2 via binding (module is statically imported in BackgroundWorker.js)
-                    logger.LogInformation("Running demo2...");
-                    logger.LogInformation("Invoking fullname: {asdf}", nameof(_demo1Binding.RunDemo2Async));
-                    await _demo1Binding.RunDemo2Async();
-                    logger.LogInformation("demo2 completed successfully");
-                    break;
-                case "demo3":
-                    var dashboardUrl = _webExtensionsApi.Runtime.GetURL("DashboardPage.html");
-                    await WebExtensions.Tabs.Create(new WebExtensions.Net.Tabs.CreateProperties {
-                        Url = dashboardUrl
-                    });
+                case "launchTab":
+                    await OpenOrFocusOptionsTabAsync();
                     break;
                 default:
                     logger.LogWarning("Unknown menu item clicked: {MenuItemId}", info.MenuItemId);
@@ -589,23 +576,55 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task CreateContextMenuItemsAsync() {
         try {
-            logger.LogInformation("Creating context menu items");
+            logger.LogDebug("Creating context menu items");
 
             await WebExtensions.ContextMenus.RemoveAll();
 
-            // TODO P2: remove this demo item
             WebExtensions.ContextMenus.Create(new() {
-                Id = "demo1",
-
-                Title = "Create test data",
+                Id = "launchTab",
+                Title = "Open in tab",
                 Contexts = [MenusContextType.Action]
             });
 
-            logger.LogInformation("Context menu items created");
+            logger.LogDebug("Context menu items created");
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error creating context menu items");
         }
+    }
+
+    private async Task OpenOrFocusOptionsTabAsync() {
+        var optionsUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
+
+        // Try to reuse existing tab if we have one
+        if (_optionsTabId.HasValue) {
+            try {
+                var existingTab = await WebExtensions.Tabs.Get(_optionsTabId.Value);
+                if (existingTab != null) {
+                    // Tab exists, focus it
+                    await WebExtensions.Tabs.Update(_optionsTabId.Value, new WebExtensions.Net.Tabs.UpdateProperties {
+                        Active = true
+                    });
+                    // Also focus the window containing the tab
+                    if (existingTab.WindowId.HasValue) {
+                        await WebExtensions.Windows.Update(existingTab.WindowId.Value, new WebExtensions.Net.Windows.UpdateInfo {
+                            Focused = true
+                        });
+                    }
+                    return;
+                }
+            }
+            catch {
+                // Tab no longer exists, clear the tracked ID
+                _optionsTabId = null;
+            }
+        }
+
+        // Create a new tab and track its ID
+        var newTab = await WebExtensions.Tabs.Create(new WebExtensions.Net.Tabs.CreateProperties {
+            Url = optionsUrl
+        });
+        _optionsTabId = newTab.Id;
     }
 
     //
@@ -645,7 +664,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
-            var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
+            var newTab = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
+            _optionsTabId = newTab.Id;
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error handling update");
