@@ -2,7 +2,7 @@
 
 @* Session status indicator component for AppBar - shows timeout countdown, connection status, or lock state *@
 
-<div style="align-items:center; align-content:center; width:2.5rem; height:inherit;"
+<div id="SessionStatusIndicator" style="align-items:center; align-content:center; width:2.5rem; height:inherit;"
      @onmouseenter="() => OnHoverChanged.InvokeAsync(true)"
      @onmouseleave="() => OnHoverChanged.InvokeAsync(false)">
 
