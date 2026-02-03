@@ -476,15 +476,19 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Gets the KERIA connection digest by computing it from the KeriaConnectConfig.
-    /// The KeriaConnectionDigest is a deterministic SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
+    /// Gets the KERIA connection digest from the selected configuration in Preferences.
+    /// Returns the SelectedKeriaConnectionDigest directly since it's already computed and stored.
     /// </summary>
     public async Task<Result<string>> GetCurrentKeriaConnectionDigestAsync() {
-        var configResult = await _storageService.GetItem<KeriaConnectConfig>(StorageArea.Local);
-        if (configResult.IsFailed || configResult.Value is null) {
-            return Result.Fail<string>("Could not retrieve KERIA configuration for KeriaConnectionDigest computation");
+        var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
+        if (prefsResult.IsFailed || prefsResult.Value is null) {
+            return Result.Fail<string>("Could not retrieve Preferences for KeriaConnectionDigest");
         }
-        return ComputeKeriaConnectionDigest(configResult.Value);
+        var digest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(digest)) {
+            return Result.Fail<string>("No KERIA configuration selected");
+        }
+        return Result.Ok(digest);
     }
 
     /// <summary>

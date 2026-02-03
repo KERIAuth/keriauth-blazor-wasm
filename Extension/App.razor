@@ -1,8 +1,10 @@
 ﻿@using Extension.Models
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Storage
 @using Extension.Services
 @using Extension.Services.JsBindings
 @using Extension.Services.Port
+@using Extension.Services.Storage
 @using Extension.Utilities
 @using WebExtensions.Net.Runtime
 @inject NavigationManager navManager
@@ -11,6 +13,7 @@
 @inject AppCache appCache
 @inject HttpClient http
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject IStorageService storageService
 
 @implements IAsyncDisposable
 
@@ -50,6 +53,14 @@
         // initialization before reading storage values, ensuring storage defaults exist
         // and expired sessions are cleared.
         await appCache.EnsureInitializedAsync();
+
+        // Clear KeriaConnectionInfo on App startup to force reconnection via ConnectingPage.
+        // On page reload, the JavaScript signify client state is lost even though session storage persists.
+        // Clearing KeriaConnectionInfo ensures IsIdentifierFetched returns false, which routes through
+        // ConnectingPage to properly reconnect the signify client.
+        await storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
+        appCache.ClearKeriaConnectionInfo(); // Sync update so Index.razor sees cleared state immediately
+        logger.LogInformation("Cleared KeriaConnectionInfo to ensure signify client reconnection");
 
         // Subscribe to AppCache for reactivity (StateHasChanged on changes).
         // Navigation logic is handled by Index.razor which serves as the routing hub.

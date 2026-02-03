@@ -292,7 +292,7 @@
                     <MudNavLink Href="@(Routes.PathFor<KeriAgentServicePage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Config</MudNavLink>
                     @if (IsMultiKeriaConfigEnabled)
                     {
-                        <MudNavLink Href="@(Routes.PathFor<ManageKeriAgentServicesPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">Manage KERIA Connections</MudNavLink>
+                        <MudNavLink Href="@(Routes.PathFor<ManageKeriAgentServicesPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">Manage KERIA Configs</MudNavLink>
                     }
                     @if (appCache.IsAuthenticated)
                     {

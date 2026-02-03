@@ -58,12 +58,12 @@
     KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
 
     // Operation displays - instance properties for proper state isolation per page instance
-    OperationDisplay Ops1CheckLiveness { get; } = new OperationDisplay("Checking KERIA Cloud Service liveness", "Established KERIA connection");
-    OperationDisplay Ops2CheckHealth { get; } = new OperationDisplay("Checking KERIA Cloud Service health", "Confirmed healthy connection");
-    OperationDisplay Ops3Connect { get; } = new OperationDisplay("Connecting", "Connected");
+    OperationDisplay Ops1CheckLiveness { get; } = new OperationDisplay("Checking KERIA liveness", "KERIA live");
+    OperationDisplay Ops2CheckHealth { get; } = new OperationDisplay("Checking KERIA health", "... healthy");
+    OperationDisplay Ops3Connect { get; } = new OperationDisplay("Connecting", "... connected");
     OperationDisplay Ops4ListAids { get; } = new OperationDisplay("Retrieving your profiles", "Retrieved profiles");
     OperationDisplay Ops5CreatePersonalAid { get; } = new OperationDisplay("Creating personal profile", "Created new profile");
-    OperationDisplay Ops6AllDone { get; } = new OperationDisplay("Press Next to continue", "Press Next to continue");
+    OperationDisplay Ops6AllDone { get; } = new OperationDisplay("Press Next to continue", "Press Next to continue →");
     // TODO P2 load presets from AppConfig or external source
     static List<Preset> presetAgents = new List<Preset>
     {
@@ -391,7 +391,7 @@
             var healthCheckResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
             if (!healthCheckResult.IsSuccess)
             {
-                SetFlowFailed(1, "KERIA service is not reachable");
+                SetFlowFailed(1, "KERIA cloud service is not reachable");
                 return;
             }
 

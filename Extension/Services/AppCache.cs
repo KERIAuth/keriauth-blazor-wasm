@@ -144,6 +144,22 @@
         }
 
         /// <summary>
+        /// Clears the KERIA connection info synchronously.
+        /// Call this after clearing KeriaConnectionInfo from storage to ensure AppCache
+        /// reflects the change immediately (rather than waiting for async storage observer).
+        /// This ensures IsIdentifierFetched returns false for proper routing through ConnectingPage.
+        /// </summary>
+        public void ClearKeriaConnectionInfo() {
+            MyKeriaConnectionInfo = new KeriaConnectionInfo() {
+                Config = new KeriaConnectConfig(),
+                IdentifiersList = [],
+                AgentPrefix = ""
+            };
+            _logger.LogInformation("AppCache: Cleared KeriaConnectionInfo synchronously");
+            Changed?.Invoke();
+        }
+
+        /// <summary>
         /// True if there are pending BW→App requests awaiting processing.
         /// </summary>
         public bool HasPendingBwAppRequests => !MyPendingBwAppRequests.IsEmpty;

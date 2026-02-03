@@ -2071,12 +2071,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<Result> TryConnectSignifyClientAsync() {
         try {
-            // Get connection config from storage and minimally validate
-            var configResult = await _storageService.GetItem<KeriaConnectConfig>();
-            if (configResult.IsFailed || configResult.Value == null) {
-                return Result.Fail("No KERIA connection configuration found");
+            // Get preferences to find the selected config digest
+            var prefsResult = await _storageService.GetItem<Preferences>();
+            if (prefsResult.IsFailed || prefsResult.Value == null) {
+                return Result.Fail("Preferences not found");
             }
-            var config = configResult.Value;
+            var selectedDigest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+            if (string.IsNullOrEmpty(selectedDigest)) {
+                return Result.Fail("No KERIA configuration selected");
+            }
+
+            // Get KeriaConnectConfigs dictionary and look up the selected config
+            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+            if (configsResult.IsFailed || configsResult.Value == null || !configsResult.Value.IsStored) {
+                return Result.Fail("No KERIA connection configurations found");
+            }
+            if (!configsResult.Value.Configs.TryGetValue(selectedDigest, out var config)) {
+                return Result.Fail($"Selected KERIA configuration not found for digest {selectedDigest}");
+            }
+
             if (string.IsNullOrEmpty(config.AdminUrl)) {
                 return Result.Fail("Admin URL not configured");
             }
