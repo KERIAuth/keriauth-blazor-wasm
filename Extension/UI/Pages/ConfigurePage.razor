@@ -420,7 +420,7 @@
         )
         { Alias = "Configured at " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC" };
 
-        var storePartialConfigResult = await storageService.SetItem<KeriaConnectConfig>(partialConfig);
+        var storePartialConfigResult = await StoreKeriaConnectConfigAsync(partialConfig, setAsSelected: false);
         if (storePartialConfigResult.IsFailed)
         {
             logger.LogError("Failed to store partial connection config: {Errors}", string.Join(", ", storePartialConfigResult.Errors));
@@ -428,10 +428,9 @@
             return;
         }
 
-        // Wait for AppCache to reflect the partial config
-        // Waiting for MyKeriaConnectConfig.PasscodeHash != 0 (current: {Hash})", appCache.MyKeriaConnectConfig.PasscodeHash);
-        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfig.PasscodeHash != 0]);
-        // MyKeriaConnectConfig.PasscodeHash check passed
+        // Wait for AppCache to reflect the partial config in KeriaConnectConfigs
+        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfigs.Configs.Values.Any(c => c.PasscodeHash != 0)]);
+        // KeriaConnectConfigs PasscodeHash check passed
 
         // Step 3: Connect to KERIA
         _currentStep = FlowStep.Ops3;
@@ -489,7 +488,7 @@
             AgentAidPrefix = agentAidPrefix
         };
 
-        var storeCompleteConfigResult = await storageService.SetItem<KeriaConnectConfig>(completeConfig);
+        var storeCompleteConfigResult = await StoreKeriaConnectConfigAsync(completeConfig, setAsSelected: true);
         if (storeCompleteConfigResult.IsFailed)
         {
             logger.LogError("Failed to update connection config: {Errors}", string.Join(", ", storeCompleteConfigResult.Errors));
@@ -497,9 +496,12 @@
             return;
         }
 
-        // Wait for complete config to be reflected in AppCache
-        // Waiting for IsConfigured (current: {Value})", appCache.IsConfigured);
-        await appCache.WaitForAppCache([() => appCache.IsConfigured]);
+        // Wait for complete config to be reflected in AppCache (both KeriaConnectConfigs and Preferences)
+        // Need to wait for both the config dictionary AND the selected digest in preferences
+        await appCache.WaitForAppCache([
+            () => appCache.IsConfigured,
+            () => !string.IsNullOrEmpty(appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest)
+        ]);
         // IsConfigured check passed
         KeriaConnectConfig = completeConfig;
 
@@ -551,7 +553,10 @@
 
         var selectedPrefix = identifiers.Aids.First().Prefix;
         // Use 'with' to preserve existing preferences (theme, timeouts, etc.) when setting SelectedPrefix
-        var preferences = appCache.MyPreferences with { SelectedPrefix = selectedPrefix };
+        var currentPrefs = appCache.MyPreferences;
+        var preferences = currentPrefs with {
+            KeriaPreference = currentPrefs.KeriaPreference with { SelectedPrefix = selectedPrefix }
+        };
 
         var storePreferencesResult = await storageService.SetItem<Preferences>(preferences);
         if (storePreferencesResult.IsFailed)
@@ -637,14 +642,11 @@
         ]);
         */
 
-        // Reset KeriaConnectConfig in Local storage
-        var removeConfigResult = await storageService.SetItem<KeriaConnectConfig>(new KeriaConnectConfig()
-        {
-            IsStored = false
-        }, StorageArea.Local);
+        // Reset KeriaConnectConfigs in Local storage
+        var removeConfigResult = await ClearKeriaConnectConfigsAsync();
         if (removeConfigResult.IsFailed)
         {
-            logger.LogError("Failed to remove KeriaConnectConfig: {Errors}", string.Join(", ", removeConfigResult.Errors));
+            logger.LogError("Failed to remove KeriaConnectConfigs: {Errors}", string.Join(", ", removeConfigResult.Errors));
             snackbar.Add("Failed to clear configuration", Severity.Error);
             return;
         }
@@ -707,6 +709,113 @@
 
         // Reset focus
         _focusTarget = FocusTarget.Passcode;
+    }
+
+    /// <summary>
+    /// Stores a KeriaConnectConfig to the KeriaConnectConfigs dictionary and updates the selected digest in Preferences.
+    /// </summary>
+    /// <param name="config">The config to store</param>
+    /// <param name="setAsSelected">If true, updates Preferences.KeriaPreference.SelectedKeriaConnectionDigest</param>
+    /// <returns>Result indicating success or failure</returns>
+    private async Task<Result> StoreKeriaConnectConfigAsync(KeriaConnectConfig config, bool setAsSelected = true)
+    {
+        // Compute the digest for this config (requires ClientAidPrefix and AgentAidPrefix to be set)
+        string? digest = null;
+        if (!string.IsNullOrEmpty(config.ClientAidPrefix) && !string.IsNullOrEmpty(config.AgentAidPrefix))
+        {
+            var digestResult = KeriaConnectionDigestHelper.Compute(config);
+            if (digestResult.IsFailed)
+            {
+                logger.LogWarning("Could not compute digest for config: {Errors}", string.Join(", ", digestResult.Errors));
+                // Use a temporary key for partial configs (before Connect completes)
+                digest = $"partial_{config.AdminUrl}_{config.PasscodeHash}";
+            }
+            else
+            {
+                digest = digestResult.Value;
+            }
+        }
+        else
+        {
+            // Partial config - use a temporary key
+            digest = $"partial_{config.AdminUrl}_{config.PasscodeHash}";
+        }
+
+        // Get the current KeriaConnectConfigs or create new
+        var existingConfigsResult = await storageService.GetItem<KeriaConnectConfigs>();
+        var configs = existingConfigsResult.IsSuccess && existingConfigsResult.Value is not null && existingConfigsResult.Value.IsStored
+            ? existingConfigsResult.Value
+            : new KeriaConnectConfigs { IsStored = true };
+
+        // Create new dictionary with the updated/added config
+        var newConfigsDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
+
+        // Remove any partial config keys if we now have a complete digest
+        if (!digest.StartsWith("partial_"))
+        {
+            var partialKeys = newConfigsDict.Keys.Where(k => k.StartsWith("partial_")).ToList();
+            foreach (var key in partialKeys)
+            {
+                newConfigsDict.Remove(key);
+            }
+        }
+
+        newConfigsDict[digest] = config;
+
+        var updatedConfigs = configs with { Configs = newConfigsDict };
+        var storeResult = await storageService.SetItem<KeriaConnectConfigs>(updatedConfigs);
+        if (storeResult.IsFailed)
+        {
+            return Result.Fail($"Failed to store KeriaConnectConfigs: {string.Join(", ", storeResult.Errors)}");
+        }
+
+        // Update Preferences with the selected digest if requested and we have a complete digest
+        if (setAsSelected && !digest.StartsWith("partial_"))
+        {
+            var currentPrefs = appCache.MyPreferences;
+            var updatedKeriaPreference = currentPrefs.KeriaPreference with
+            {
+                SelectedKeriaConnectionDigest = digest
+            };
+            var updatedPrefs = currentPrefs with { KeriaPreference = updatedKeriaPreference };
+            var prefsResult = await storageService.SetItem<Preferences>(updatedPrefs);
+            if (prefsResult.IsFailed)
+            {
+                logger.LogWarning("Failed to update SelectedKeriaConnectionDigest in Preferences: {Errors}", string.Join(", ", prefsResult.Errors));
+                // Don't fail the whole operation for this
+            }
+        }
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Clears all KeriaConnectConfigs and resets the selected digest in Preferences.
+    /// </summary>
+    private async Task<Result> ClearKeriaConnectConfigsAsync()
+    {
+        // Clear the KeriaConnectConfigs
+        var emptyConfigs = new KeriaConnectConfigs { IsStored = false, Configs = new Dictionary<string, KeriaConnectConfig>() };
+        var storeResult = await storageService.SetItem<KeriaConnectConfigs>(emptyConfigs);
+        if (storeResult.IsFailed)
+        {
+            return Result.Fail($"Failed to clear KeriaConnectConfigs: {string.Join(", ", storeResult.Errors)}");
+        }
+
+        // Clear the selected digest in Preferences
+        var currentPrefs = appCache.MyPreferences;
+        var updatedKeriaPreference = currentPrefs.KeriaPreference with
+        {
+            SelectedKeriaConnectionDigest = null
+        };
+        var updatedPrefs = currentPrefs with { KeriaPreference = updatedKeriaPreference };
+        var prefsResult = await storageService.SetItem<Preferences>(updatedPrefs);
+        if (prefsResult.IsFailed)
+        {
+            logger.LogWarning("Failed to clear SelectedKeriaConnectionDigest in Preferences: {Errors}", string.Join(", ", prefsResult.Errors));
+        }
+
+        return Result.Ok();
     }
 }
 

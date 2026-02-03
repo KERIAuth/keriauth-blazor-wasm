@@ -1,4 +1,5 @@
-﻿using MudBlazor;
+﻿using Extension.Models;
+using MudBlazor;
 using MudBlazor.Utilities;
 
 namespace Extension {
@@ -45,7 +46,7 @@ namespace Extension {
             IsPersistentDrawerOpenInTab = false,
             IsSignRequestDetailShown = false,
             IsStored = false,
-            SelectedPrefix = String.Empty
+            KeriaPreference = new KeriaPreference()
         };
 
         // Other settings

@@ -7,8 +7,29 @@
         [JsonPropertyName("IsDarkTheme")]
         public bool IsDarkTheme { get; set; } = AppConfig.DefaultIsDarkTheme;
 
-        [JsonPropertyName("SelectedPrefix")]
-        public string SelectedPrefix { get; init; } = String.Empty;
+        /// <summary>
+        /// When true, enables multi-KERIA configuration features throughout the app.
+        /// </summary>
+        [JsonPropertyName("IsMultiKeriaConfigEnabled")]
+        public bool IsMultiKeriaConfigEnabled { get; init; } = true;
+
+        /// <summary>
+        /// When true (and IsMultiKeriaConfigEnabled is true), shows the KERIA selector on the Unlock page.
+        /// </summary>
+        [JsonPropertyName("IsMultiKeriaOnUnlock")]
+        public bool IsMultiKeriaOnUnlock { get; init; } = true;
+
+        /// <summary>
+        /// KERIA-specific preferences including selected connection and AID prefix.
+        /// </summary>
+        [JsonPropertyName("KeriaPreference")]
+        public KeriaPreference KeriaPreference { get; init; } = new();
+
+        /// <summary>
+        /// Backward compatibility - reads SelectedPrefix from KeriaPreference.
+        /// </summary>
+        [JsonIgnore]
+        public string SelectedPrefix => KeriaPreference.SelectedPrefix;
 
         [JsonPropertyName("IsStored")]
         public bool IsStored { get; init; }

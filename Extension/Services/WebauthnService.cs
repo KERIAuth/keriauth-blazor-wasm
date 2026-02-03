@@ -4,6 +4,7 @@ using Extension.Models.Storage;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
 using Extension.Services.Storage;
+using Extension.Utilities;
 using Microsoft.JSInterop;
 using System.Text;
 
@@ -494,25 +495,11 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Computes the KeriaConnectionDigest as a hex-encoded SHA256 hash of ClientAidPrefix + AgentAidPrefix + PasscodeHash.
-    /// This ensures a deterministic KeriaConnectionDigest based on the KERIA connection configuration.
+    /// Computes the KeriaConnectionDigest using the shared helper.
+    /// Delegates to KeriaConnectionDigestHelper.Compute() for consistent digest computation.
     /// </summary>
-    private Result<string> ComputeKeriaConnectionDigest(KeriaConnectConfig config) {
-        if (string.IsNullOrWhiteSpace(config.ClientAidPrefix)) {
-            return Result.Fail<string>("ClientAidPrefix is required to compute KeriaConnectionDigest");
-        }
-        if (string.IsNullOrWhiteSpace(config.AgentAidPrefix)) {
-            return Result.Fail<string>("AgentAidPrefix is required to compute KeriaConnectionDigest");
-        }
-        if (config.PasscodeHash == 0) {
-            return Result.Fail<string>("PasscodeHash is required to compute KeriaConnectionDigest");
-        }
-
-        var input = config.ClientAidPrefix + config.AgentAidPrefix + config.PasscodeHash.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var hashBytes = _cryptoService.Sha256(Encoding.UTF8.GetBytes(input));
-        var hexString = Convert.ToHexString(hashBytes).ToLowerInvariant();
-        return Result.Ok(hexString);
-    }
+    private static Result<string> ComputeKeriaConnectionDigest(KeriaConnectConfig config) =>
+        KeriaConnectionDigestHelper.Compute(config);
 
     /// <summary>
     /// Generates a user-friendly name for the WebAuthn credential based on KERIA connection digest.

@@ -1,5 +1,6 @@
 ﻿@page "/Unlock.html"
 @layout Layouts.MainLayout
+@using Extension.Models
 @using Extension.Services
 @using Extension.Services.Storage
 @using Extension.Models.Storage
@@ -41,6 +42,12 @@
     private bool _recoveryPhraseValid = false;
     private string _recoveryError = "";
     private const int RequiredWordCount = 18;
+
+    // KERIA config selection
+    private const string ManageKeriaConfigsValue = "__MANAGE__";
+    private string _selectedKeriaConfigDigest = "";
+    private List<(string Digest, string Alias)> _availableKeriaConfigItems = new();
+    private Uri? _initialUri;
     private static string[] taglineAlternatives =
     {
 // authentic
@@ -133,11 +140,56 @@
     {
         logger.LogInformation("OnInitializedAsync");
 
+        // Capture initial URI for restart after config change
+        _initialUri = new Uri(navManager.Uri);
+
         await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
+
+        // Initialize KERIA config list - compute digests once at init time to avoid re-computation on each render
+        var configs = appCache.GetAvailableKeriaConfigs();
+        _availableKeriaConfigItems = configs
+            .Select(c => {
+                var digestResult = KeriaConnectionDigestHelper.Compute(c);
+                return (Digest: digestResult.IsSuccess ? digestResult.Value : "", Alias: c.Alias ?? "(unnamed)");
+            })
+            .Where(item => !string.IsNullOrEmpty(item.Digest))
+            .ToList();
+        _selectedKeriaConfigDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest ?? "";
 
         // pick a random tagline
         var rnd = new Random();
         taglineText = taglineAlternatives[rnd.Next(taglineAlternatives.Length)];
+    }
+
+    private bool _isChangingConfig = false;
+
+    private async Task OnKeriaConfigDigestChanged(string digest)
+    {
+        if (_isChangingConfig) return; // Prevent re-entry during config change
+
+        if (digest == ManageKeriaConfigsValue)
+        {
+            navManager.NavigateTo(Routes.PathFor<ManageKeriAgentServicesPage>());
+            return;
+        }
+
+        if (_selectedKeriaConfigDigest != digest)
+        {
+            _isChangingConfig = true;
+            _selectedKeriaConfigDigest = digest;
+
+            var prefs = appCache.MyPreferences;
+            var newKeriaPreference = prefs.KeriaPreference with {
+                SelectedKeriaConnectionDigest = digest
+            };
+            await storageService.SetItem<Preferences>(prefs with {
+                KeriaPreference = newKeriaPreference
+            });
+
+            snackbar.Add("Configuration changed. App will restart in 3 seconds.", Severity.Warning);
+            await Task.Delay(3000);
+            navManager.NavigateTo(_initialUri?.AbsolutePath ?? "/index.html", true);
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -568,6 +620,23 @@
                         <span style="font-style:italic; font-size:initial;">@taglineText</span>
                     </MudText>
                 </MudStack>
+                @if (appCache.MyPreferences.IsMultiKeriaConfigEnabled && appCache.MyPreferences.IsMultiKeriaOnUnlock && _availableKeriaConfigItems.Count > 0)
+                {
+                    <MudStack Style="justify-content: center; align-items: center;" Class="pt-3">
+                        <MudSelect T="string"
+                                   Label="KERIA Cloud Service"
+                                   Value="@_selectedKeriaConfigDigest"
+                                   ValueChanged="OnKeriaConfigDigestChanged"
+                                   Variant="Variant.Outlined"
+                                   Style="max-width: 18rem;">
+                            @foreach (var item in _availableKeriaConfigItems)
+                            {
+                                <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
+                            }
+                            <MudSelectItem Value="@ManageKeriaConfigsValue">Add/Remove KERIA Cloud Service</MudSelectItem>
+                        </MudSelect>
+                    </MudStack>
+                }
                 <MudStack Style="justify-content: end; min-height:3.429rem; flex-shrink: 0; align-self: stretch;" Class="gap-0">
                     @if (ShouldUsePasskey)
                     {

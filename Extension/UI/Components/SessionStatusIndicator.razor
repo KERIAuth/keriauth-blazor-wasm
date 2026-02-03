@@ -39,7 +39,7 @@
         }
         else if (IsIdentifierFetched && !Compact)
         {
-            <MudTooltip Text="Connected to KERIA Cloud Service" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
+            <MudTooltip Text="@ConnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
                 <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
                     <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
                 </MudPaper>
@@ -47,7 +47,7 @@
         }
         else if (!Compact)
         {
-            <MudTooltip Text="Not Connected to KERIA Cloud Service" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;">
+            <MudTooltip Text="@NotConnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;">
                 <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-failure)">
                     <MudIcon Icon="@Icons.Material.Filled.LinkOff" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
                 </MudPaper>
@@ -56,7 +56,7 @@
     }
     else if (!Compact)
     {
-        <MudTooltip Text="KERI Auth is locked" Arrow="true" Placement="Placement.Left" Delay="1000">
+        <MudTooltip Text="@LockedTooltipText" Arrow="true" Placement="Placement.Left" Delay="1000">
             <MudPaper Style="width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-warning)">
                 <MudIcon Icon="@Icons.Material.Filled.Lock" Disabled="@(!IsConfigured)" @onclick="OnLockClick" />
             </MudPaper>
@@ -104,4 +104,22 @@
 
     [Parameter]
     public EventCallback OnLockClick { get; set; }
+
+    [Parameter]
+    public string? KeriaAlias { get; set; }
+
+    [Parameter]
+    public bool IsMultiKeriaConfigEnabled { get; set; }
+
+    private string ConnectedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
+        ? $"Connected to KERIA Cloud Service ({KeriaAlias})"
+        : "Connected to KERIA Cloud Service";
+
+    private string NotConnectedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
+        ? $"Not connected to KERIA Cloud Service ({KeriaAlias})"
+        : "Not connected to KERIA Cloud Service";
+
+    private string LockedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
+        ? $"Locked ({KeriaAlias})"
+        : "Locked";
 }

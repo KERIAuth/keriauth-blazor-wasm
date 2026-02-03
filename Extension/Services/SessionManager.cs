@@ -324,15 +324,35 @@ public class SessionManager : IDisposable {
         }
 
         // 2. Verify passcode hash matches stored hash in KeriaConnectConfig
-        var configRes = await _storageService.GetItem<KeriaConnectConfig>();
-        if (configRes.IsFailed || configRes.Value is null) {
-            _logger.LogWarning("KeriaConnectConfig not stored");
+        // First get preferences to find the selected config digest
+        var prefsRes = await _storageService.GetItem<Preferences>();
+        if (prefsRes.IsFailed || prefsRes.Value is null) {
+            _logger.LogWarning("Preferences not stored");
             return false;
         }
 
-        var storedHash = configRes.Value.PasscodeHash;
+        var selectedDigest = prefsRes.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest)) {
+            _logger.LogWarning("SelectedKeriaConnectionDigest not set in Preferences");
+            return false;
+        }
+
+        // Get the KeriaConnectConfigs dictionary
+        var configsRes = await _storageService.GetItem<KeriaConnectConfigs>();
+        if (configsRes.IsFailed || configsRes.Value is null || !configsRes.Value.IsStored) {
+            _logger.LogWarning("KeriaConnectConfigs not stored");
+            return false;
+        }
+
+        // Look up the selected config by digest
+        if (!configsRes.Value.Configs.TryGetValue(selectedDigest, out var selectedConfig)) {
+            _logger.LogWarning("Selected KeriaConnectConfig not found for digest {Digest}", selectedDigest);
+            return false;
+        }
+
+        var storedHash = selectedConfig.PasscodeHash;
         if (storedHash == 0) {
-            _logger.LogWarning("PasscodeHash not set in KeriaConnectConfig");
+            _logger.LogWarning("PasscodeHash not set in selected KeriaConnectConfig");
             return false;
         }
 

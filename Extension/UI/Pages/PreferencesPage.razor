@@ -3,6 +3,7 @@
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
 @using Extension.Services
+@using Extension.Utilities
 @using System.Reactive.Linq
 @using Extension.Services.Storage
 @using static Extension.AppConfig;
@@ -48,11 +49,30 @@
     bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
     MudBlazor.DrawerVariant DrawerVariantInSidePanel => Prefs.DrawerVariantInSidePanel;
+    bool IsMultiKeriaConfigEnabled => Prefs.IsMultiKeriaConfigEnabled;
+    bool IsMultiKeriaOnUnlock => Prefs.IsMultiKeriaOnUnlock;
+
+    // KERIA config selection
+    private const string ManageKeriaConfigsValue = "__MANAGE__";
+    private string _selectedKeriaConfigDigest = "";
+    private List<(string Digest, string Alias)> _availableKeriaConfigItems = new();
+
     protected override async Task OnInitializedAsync()
     {
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache);
         logger.LogInformation("OnInitializedAsync");
+
+        // Initialize KERIA config list - compute digests once at init time to avoid re-computation on each render
+        var configs = appCache.GetAvailableKeriaConfigs();
+        _availableKeriaConfigItems = configs
+            .Select(c => {
+                var digestResult = KeriaConnectionDigestHelper.Compute(c);
+                return (Digest: digestResult.IsSuccess ? digestResult.Value : "", Alias: c.Alias ?? "(unnamed)");
+            })
+            .Where(item => !string.IsNullOrEmpty(item.Digest))
+            .ToList();
+        _selectedKeriaConfigDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest ?? "";
     }
 
     public void Dispose()
@@ -96,14 +116,46 @@
         await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
     }
 
-    // Reset preferences to default, preserving selected prefix and drawer open states
+    async Task SetAndPersistIsMultiKeriaConfigEnabled(bool isEnabled)
+    {
+        await Persist(Prefs with { IsMultiKeriaConfigEnabled = isEnabled });
+    }
+
+    async Task SetAndPersistIsMultiKeriaOnUnlock(bool isEnabled)
+    {
+        await Persist(Prefs with { IsMultiKeriaOnUnlock = isEnabled });
+    }
+
+    private async Task OnKeriaConfigDigestChanged(string digest)
+    {
+        if (digest == ManageKeriaConfigsValue)
+        {
+            navManager.NavigateTo(Routes.PathFor<ManageKeriAgentServicesPage>());
+            return;
+        }
+
+        if (_selectedKeriaConfigDigest != digest)
+        {
+            _selectedKeriaConfigDigest = digest;
+
+            var newKeriaPreference = Prefs.KeriaPreference with {
+                SelectedKeriaConnectionDigest = digest
+            };
+            await Persist(Prefs with { KeriaPreference = newKeriaPreference });
+            // Note: On PreferencesPage, no restart required - just update selection
+        }
+    }
+
+    // Reset preferences to default, preserving selected prefix, KERIA preferences, and drawer open states
     private async Task ResetToDefault()
     {
         await Persist(AppConfig.DefaultPreferences with
         {
-            SelectedPrefix = Prefs.SelectedPrefix,
+            KeriaPreference = Prefs.KeriaPreference, // Preserve KERIA selection
             IsPersistentDrawerOpenInSidePanel = Prefs.IsPersistentDrawerOpenInSidePanel,
             IsPersistentDrawerOpenInTab = Prefs.IsPersistentDrawerOpenInTab,
+            IsMultiKeriaConfigEnabled = Prefs.IsMultiKeriaConfigEnabled,
+            IsMultiKeriaOnUnlock = Prefs.IsMultiKeriaOnUnlock,
             IsStored = true
         });
     }
@@ -157,6 +209,43 @@
                     <MudSlider T="float" Value="InactivityTimeout" ValueChanged="async (float v) => await SetAndPersistInactivityTimeout(v)" Min="0.5f" Max="AppConfig.MaxInactivityTimeoutMins" Step="0.5f" />
                     <p>@InactivityTimeoutLabel</p>
                 </MudStack>
+            </MudStack>
+
+            <MudStack Row="false">
+                <MudText Class="bt-pref-group-label0">
+                    Optional Features
+                </MudText>
+                <MudStack Row="true" Class="ml-5" AlignItems="AlignItems.Center">
+                    <MudSwitch Value="IsMultiKeriaConfigEnabled"
+                               ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaConfigEnabled(isOn)"
+                               T="bool" Color="Color.Primary" />
+                    <MudText>Enable multiple KERIA Cloud Service configurations</MudText>
+                </MudStack>
+                @if (IsMultiKeriaConfigEnabled)
+                {
+                    <MudStack Row="true" Class="ml-5 mt-2" AlignItems="AlignItems.Center">
+                        <MudSwitch Value="IsMultiKeriaOnUnlock"
+                                   ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaOnUnlock(isOn)"
+                                   T="bool" Color="Color.Primary" />
+                        <MudText>Show KERIA selector on Unlock page</MudText>
+                    </MudStack>
+                    @if (_availableKeriaConfigItems.Count > 0)
+                    {
+                        <MudStack Row="false" Class="ml-5 mt-3" Style="width:18rem;">
+                            <MudSelect T="string"
+                                       Label="KERIA Cloud Service"
+                                       Value="@_selectedKeriaConfigDigest"
+                                       ValueChanged="OnKeriaConfigDigestChanged"
+                                       Variant="Variant.Outlined">
+                                @foreach (var item in _availableKeriaConfigItems)
+                                {
+                                    <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
+                                }
+                                <MudSelectItem Value="@ManageKeriaConfigsValue">Add/Remove KERIA Cloud Service</MudSelectItem>
+                            </MudSelect>
+                        </MudStack>
+                    }
+                }
             </MudStack>
 
         </div>

@@ -77,6 +77,7 @@
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
         private StorageObserver<PasscodeModel>? passcodeModelObserver;
         private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
+        private StorageObserver<KeriaConnectConfigs>? keriaConnectConfigsObserver;
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
         private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
 
@@ -88,7 +89,17 @@
             SessionExpirationUtc = DateTime.MinValue // intentionally expired until set
         };
         public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
-        public KeriaConnectConfig MyKeriaConnectConfig { get; private set; } = DefaultKeriaConnectConfig;
+
+        /// <summary>
+        /// Collection of all KERIA configurations keyed by their KeriaConnectionDigest.
+        /// </summary>
+        public KeriaConnectConfigs MyKeriaConnectConfigs { get; private set; } = new KeriaConnectConfigs();
+
+        /// <summary>
+        /// The currently selected KERIA configuration based on preferences.
+        /// Falls back to DefaultKeriaConnectConfig if no selection or selection not found.
+        /// </summary>
+        public KeriaConnectConfig MyKeriaConnectConfig => GetSelectedKeriaConnectConfig() ?? DefaultKeriaConnectConfig;
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
             // SessionExpirationUtc = DateTime.MinValue,
             Config = new KeriaConnectConfig(),
@@ -105,6 +116,32 @@
 
         // Derived properties ("reactive selectors")
         public string SelectedPrefix => MyPreferences.SelectedPrefix;
+
+        /// <summary>
+        /// Gets a KeriaConnectConfig by its digest from the configs collection.
+        /// </summary>
+        /// <param name="digest">The KeriaConnectionDigest to look up.</param>
+        /// <returns>The config if found, null otherwise.</returns>
+        public KeriaConnectConfig? GetConfigByDigest(string? digest) {
+            if (string.IsNullOrEmpty(digest)) return null;
+            return MyKeriaConnectConfigs.Configs.TryGetValue(digest, out var config) ? config : null;
+        }
+
+        /// <summary>
+        /// Gets the currently selected KeriaConnectConfig based on preferences.
+        /// </summary>
+        /// <returns>The selected config if found, null otherwise.</returns>
+        public KeriaConnectConfig? GetSelectedKeriaConnectConfig() {
+            return GetConfigByDigest(MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest);
+        }
+
+        /// <summary>
+        /// Gets all available KeriaConnectConfigs as a list.
+        /// </summary>
+        /// <returns>List of all configured KERIA connections.</returns>
+        public List<KeriaConnectConfig> GetAvailableKeriaConfigs() {
+            return MyKeriaConnectConfigs.Configs.Values.ToList();
+        }
 
         /// <summary>
         /// True if there are pending BW→App requests awaiting processing.
@@ -271,6 +308,7 @@
             onboardStateStorageObserver?.Dispose();
             passcodeModelObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
+            keriaConnectConfigsObserver?.Dispose();
             keriaConnectionInfoObserver?.Dispose();
             pendingBwAppRequestsObserver?.Dispose();
             _initLock?.Dispose();
@@ -330,15 +368,30 @@
                     null,
                     _logger
                 );
+                // Legacy observer for single KeriaConnectConfig - kept for transition period
+                // MyKeriaConnectConfig is now a computed property from KeriaConnectConfigs
                 keriaConnectConfigObserver = new StorageObserver<KeriaConnectConfig>(
                     storageService,
                     StorageArea.Local,
                     onNext: (value) => {
-                        MyKeriaConnectConfig = value;
-                        _logger.LogInformation("AppCache updated MyKeriaConnectConfig");
+                        // Note: MyKeriaConnectConfig is now computed from KeriaConnectConfigs
+                        // This observer is kept for backward compatibility during transition
+                        _logger.LogInformation("AppCache observed legacy KeriaConnectConfig change");
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing Keria connect config storage"),
+                    onError: ex => _logger.LogError(ex, "Error observing legacy Keria connect config storage"),
+                    null,
+                    _logger
+                );
+                keriaConnectConfigsObserver = new StorageObserver<KeriaConnectConfigs>(
+                    storageService,
+                    StorageArea.Local,
+                    onNext: (value) => {
+                        MyKeriaConnectConfigs = value;
+                        _logger.LogInformation("AppCache updated MyKeriaConnectConfigs: count={Count}", value.Configs.Count);
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, "Error observing KeriaConnectConfigs storage"),
                     null,
                     _logger
                 );
@@ -416,16 +469,27 @@
                 _logger.LogWarning("AppCache: Initial fetch - OnboardState not found or failed, using default");
             }
 
-            // 3. KeriaConnectConfig (may not exist on first run - created by ConfigurePage)
-            var configResult = await storageService.GetItem<KeriaConnectConfig>();
-            if (configResult.IsSuccess && configResult.Value is not null) {
-                MyKeriaConnectConfig = configResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfig loaded (IsStored={IsStored}, AdminUrl={AdminUrl})",
-                    configResult.Value.IsStored, configResult.Value.AdminUrl ?? "(null)");
+            // 3. KeriaConnectConfigs (may not exist on first run - created by ConfigurePage)
+            var configsResult = await storageService.GetItem<KeriaConnectConfigs>();
+            if (configsResult.IsSuccess && configsResult.Value is not null) {
+                MyKeriaConnectConfigs = configsResult.Value;
+                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfigs loaded (count={Count})",
+                    configsResult.Value.Configs.Count);
             }
             else {
-                // leaving default (without IsStored = true)
-                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfig not found (expected on first run)");
+                // leaving default (empty configs)
+                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfigs not found (expected on first run)");
+            }
+
+            // 3b. Legacy KeriaConnectConfig (for backward compatibility during transition)
+            var legacyConfigResult = await storageService.GetItem<KeriaConnectConfig>();
+            if (legacyConfigResult.IsSuccess && legacyConfigResult.Value is not null) {
+                _logger.LogDebug("AppCache: Initial fetch - Legacy KeriaConnectConfig found (AdminUrl={AdminUrl})",
+                    legacyConfigResult.Value.AdminUrl ?? "(null)");
+                // Note: MyKeriaConnectConfig is now computed from KeriaConnectConfigs
+            }
+            else {
+                _logger.LogDebug("AppCache: Initial fetch - Legacy KeriaConnectConfig not found");
             }
 
             // Fetch session-scoped records (Session storage - cleared on browser close)

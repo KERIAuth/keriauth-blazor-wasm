@@ -123,7 +123,11 @@
 
     async Task SetActiveAid(string prefix)
     {
-        await storageService.SetItem<Preferences>(appCache.MyPreferences with { SelectedPrefix = prefix });
+        var prefs = appCache.MyPreferences;
+        var updatedPrefs = prefs with {
+            KeriaPreference = prefs.KeriaPreference with { SelectedPrefix = prefix }
+        };
+        await storageService.SetItem<Preferences>(updatedPrefs);
     }
 
     public void Dispose()

@@ -90,6 +90,7 @@ public static class Routes {
         [typeof(TestPage)] = new("Test", "/Test.html", RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
         [typeof(ReleaseHistoryPage)] = new("Release History", "/ReleaseHistory.html", RequiresAuth: false),
+        [typeof(ManageKeriAgentServicesPage)] = new("Manage KERIA Connections", "/ManageKeriAgentServices.html", RequiresAuth: false),
     };
 
     /// <summary>

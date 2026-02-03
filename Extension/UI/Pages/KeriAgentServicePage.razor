@@ -1,6 +1,7 @@
 ﻿@page "/KeriAgentService.html"
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
+@using Extension.Utilities
 
 @inherits AuthenticatedPageBase
 
@@ -160,11 +161,11 @@
             return;
         }
 
-        // Create a new KeriaConnectConfig with the updated alias
+        // Create a new KeriaConnectConfig with the updated provider name
         var updatedConfig = keriaConnectConfig with { ProviderName = editingProviderName };
 
         // Save to storage
-        var result = await storageService.SetItem<KeriaConnectConfig>(updatedConfig);
+        var result = await UpdateKeriaConnectConfigAsync(updatedConfig);
 
         if (result.IsSuccess)
         {
@@ -203,7 +204,7 @@
         var updatedConfig = keriaConnectConfig with { Alias = editingConnectionName };
 
         // Save to storage
-        var result = await storageService.SetItem<KeriaConnectConfig>(updatedConfig);
+        var result = await UpdateKeriaConnectConfigAsync(updatedConfig);
 
         if (result.IsSuccess)
         {
@@ -216,5 +217,33 @@
         {
             snackbar.Add($"Failed to update Connection Name: {result.Errors.FirstOrDefault()?.Message ?? "Unknown error"}", Severity.Error);
         }
+    }
+
+    /// <summary>
+    /// Updates a KeriaConnectConfig in the KeriaConnectConfigs dictionary.
+    /// </summary>
+    private async Task<Result> UpdateKeriaConnectConfigAsync(KeriaConnectConfig config)
+    {
+        // Compute the digest for this config
+        var digestResult = KeriaConnectionDigestHelper.Compute(config);
+        if (digestResult.IsFailed)
+        {
+            return Result.Fail($"Could not compute digest: {string.Join(", ", digestResult.Errors)}");
+        }
+        var digest = digestResult.Value;
+
+        // Get the current KeriaConnectConfigs
+        var existingConfigsResult = await storageService.GetItem<KeriaConnectConfigs>();
+        if (existingConfigsResult.IsFailed || existingConfigsResult.Value is null || !existingConfigsResult.Value.IsStored)
+        {
+            return Result.Fail("KeriaConnectConfigs not found");
+        }
+
+        var configs = existingConfigsResult.Value;
+        var newConfigsDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
+        newConfigsDict[digest] = config;
+
+        var updatedConfigs = configs with { Configs = newConfigsDict };
+        return await storageService.SetItem<KeriaConnectConfigs>(updatedConfigs);
     }
 }

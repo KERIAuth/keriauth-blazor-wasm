@@ -35,7 +35,9 @@
                                         SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
                                         OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
                                         OnRefreshConnect="@RefreshConnect"
-                                        OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))" />
+                                        OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))"
+                                        KeriaAlias="@KeriaAlias"
+                                        IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
 
             </MudStack>
         </MudAppBar>
@@ -48,6 +50,10 @@
 </CascadingValue>
 
 @code {
+    // Computed properties for SessionStatusIndicator
+    string? KeriaAlias => appCache.GetSelectedKeriaConnectConfig()?.Alias;
+    bool IsMultiKeriaConfigEnabled => appCache.MyPreferences.IsMultiKeriaConfigEnabled;
+
     #region Action Spinner
 
     /// <summary>

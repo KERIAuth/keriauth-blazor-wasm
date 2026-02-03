@@ -40,6 +40,8 @@
         ? ""
         : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
     bool IsIdenticonShown => appCache.IsSessionUnlocked && !string.IsNullOrEmpty(ActivePrefix); //&& !string.IsNullOrEmpty(ActiveAlias);
+    string? KeriaAlias => appCache.GetSelectedKeriaConnectConfig()?.Alias;
+    bool IsMultiKeriaConfigEnabled => appCache.MyPreferences.IsMultiKeriaConfigEnabled;
     static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
     {
@@ -153,7 +155,11 @@
 
     async Task SetActiveAid(string prefix)
     {
-        await storageService.SetItem<Preferences>(appCache.MyPreferences with { SelectedPrefix = prefix });
+        var prefs = appCache.MyPreferences;
+        var updatedPrefs = prefs with {
+            KeriaPreference = prefs.KeriaPreference with { SelectedPrefix = prefix }
+        };
+        await storageService.SetItem<Preferences>(updatedPrefs);
         // await appCache.WaitForAppCache([() => appCache.MyPreferences.SelectedPrefix == prefix]);
         IsProfilePanelOpen = false;
     }
@@ -230,7 +236,9 @@
                 SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
                 OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
                 OnRefreshConnect="@RefreshConnect"
-                OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))" />
+                OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))"
+                KeriaAlias="@KeriaAlias"
+                IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
 
             <!-- Active Identifier Identicon -->
             <div style="align-self:center; height: 2.5rem; padding-right:0.5rem;">
@@ -282,6 +290,10 @@
                     <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<PreferencesPage>())" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<KeriAgentServicePage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Config</MudNavLink>
+                    @if (IsMultiKeriaConfigEnabled)
+                    {
+                        <MudNavLink Href="@(Routes.PathFor<ManageKeriAgentServicesPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">Manage KERIA Connections</MudNavLink>
+                    }
                     @if (appCache.IsAuthenticated)
                     {
                         <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>

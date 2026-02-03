@@ -502,22 +502,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
 
-            // Check and create KeriaConnectConfig skeleton if not exists
-            // Unlike Preferences and OnboardState, KeriaConnectConfig requires user input (KERIA URLs)
+            // Check and create KeriaConnectConfigs skeleton if not exists
+            // Unlike Preferences and OnboardState, KeriaConnectConfigs requires user input (KERIA URLs)
             // so we only create an empty skeleton with IsStored = true. ConfigurePage will update with real values.
-            var configResult = await _storageService.GetItem<KeriaConnectConfig>();
-            if (configResult.IsSuccess && configResult.Value is not null && configResult.Value.IsStored) {
-                logger.LogDebug("InitializeStorageDefaults: KeriaConnectConfig already exists");
+            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+            if (configsResult.IsSuccess && configsResult.Value is not null && configsResult.Value.IsStored) {
+                logger.LogDebug("InitializeStorageDefaults: KeriaConnectConfigs already exists (count={Count})", configsResult.Value.Configs.Count);
             }
             else {
-                var defaultConfig = new KeriaConnectConfig(isStored: true);
-                var setResult = await _storageService.SetItem<KeriaConnectConfig>(defaultConfig);
+                var defaultConfigs = new KeriaConnectConfigs { IsStored = true };
+                var setResult = await _storageService.SetItem<KeriaConnectConfigs>(defaultConfigs);
                 if (setResult.IsFailed) {
-                    logger.LogError("InitializeStorageDefaults: Failed to create KeriaConnectConfig: {Error}",
+                    logger.LogError("InitializeStorageDefaults: Failed to create KeriaConnectConfigs: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
                 }
                 else {
-                    logger.LogInformation("InitializeStorageDefaults: Created skeleton KeriaConnectConfig record");
+                    logger.LogInformation("InitializeStorageDefaults: Created skeleton KeriaConnectConfigs record");
                 }
             }
 

@@ -435,7 +435,10 @@
 
     async Task SetActiveAid(string prefix)
     {
-        await storageService.SetItem<Preferences>(Prefs with { SelectedPrefix = prefix });
+        var updatedPrefs = Prefs with {
+            KeriaPreference = Prefs.KeriaPreference with { SelectedPrefix = prefix }
+        };
+        await storageService.SetItem<Preferences>(updatedPrefs);
     }
 }
 
