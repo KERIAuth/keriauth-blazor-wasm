@@ -103,6 +103,44 @@ namespace Extension.Models.Messages.AppBw {
             /// Response from App to a BW-initiated request.
             /// </summary>
             public const string ResponseToBwRequest = "AppBw.ResponseToBwRequest";
+            /// <summary>
+            /// Request to check KERIA health status.
+            /// </summary>
+            public const string RequestHealthCheck = "AppBw.RequestHealthCheck";
+            /// <summary>
+            /// Request to connect to KERIA.
+            /// </summary>
+            public const string RequestConnect = "AppBw.RequestConnect";
+            /// <summary>
+            /// Request to create a new AID.
+            /// </summary>
+            public const string RequestCreateAid = "AppBw.RequestCreateAid";
+            /// <summary>
+            /// Request to get credentials from KERIA.
+            /// </summary>
+            public const string RequestGetCredentials = "AppBw.RequestGetCredentials";
+            /// <summary>
+            /// App user approved sign-in with AID (and optionally credential SAID).
+            /// BackgroundWorker will dereference the credential and get CESR if needed.
+            /// </summary>
+            public const string ReplyAidApproval = "AppBw.ReplyAidApproval";
+            /// <summary>
+            /// App user approved signing data items with the selected identifier.
+            /// BackgroundWorker will perform the actual signing via signify-ts.
+            /// </summary>
+            public const string ReplySignDataApproval = "AppBw.ReplySignDataApproval";
+            /// <summary>
+            /// Request to get key state for an identifier.
+            /// </summary>
+            public const string RequestGetKeyState = "AppBw.RequestGetKeyState";
+            /// <summary>
+            /// Request to get key events for an identifier.
+            /// </summary>
+            public const string RequestGetKeyEvents = "AppBw.RequestGetKeyEvents";
+            /// <summary>
+            /// Request to rename an AID.
+            /// </summary>
+            public const string RequestRenameAid = "AppBw.RequestRenameAid";
         }
 
         public string Value { get; }
@@ -122,6 +160,15 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType UserActivity { get; } = new(Values.UserActivity);
         public static AppBwMessageType RequestAddIdentifier { get; } = new(Values.RequestAddIdentifier);
         public static AppBwMessageType ResponseToBwRequest { get; } = new(Values.ResponseToBwRequest);
+        public static AppBwMessageType RequestHealthCheck { get; } = new(Values.RequestHealthCheck);
+        public static AppBwMessageType RequestConnect { get; } = new(Values.RequestConnect);
+        public static AppBwMessageType RequestCreateAid { get; } = new(Values.RequestCreateAid);
+        public static AppBwMessageType RequestGetCredentials { get; } = new(Values.RequestGetCredentials);
+        public static AppBwMessageType ReplyAidApproval { get; } = new(Values.ReplyAidApproval);
+        public static AppBwMessageType ReplySignDataApproval { get; } = new(Values.ReplySignDataApproval);
+        public static AppBwMessageType RequestGetKeyState { get; } = new(Values.RequestGetKeyState);
+        public static AppBwMessageType RequestGetKeyEvents { get; } = new(Values.RequestGetKeyEvents);
+        public static AppBwMessageType RequestRenameAid { get; } = new(Values.RequestRenameAid);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -179,6 +226,33 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.ResponseToBwRequest:
                     result = ResponseToBwRequest;
+                    return true;
+                case Values.RequestHealthCheck:
+                    result = RequestHealthCheck;
+                    return true;
+                case Values.RequestConnect:
+                    result = RequestConnect;
+                    return true;
+                case Values.RequestCreateAid:
+                    result = RequestCreateAid;
+                    return true;
+                case Values.RequestGetCredentials:
+                    result = RequestGetCredentials;
+                    return true;
+                case Values.ReplyAidApproval:
+                    result = ReplyAidApproval;
+                    return true;
+                case Values.ReplySignDataApproval:
+                    result = ReplySignDataApproval;
+                    return true;
+                case Values.RequestGetKeyState:
+                    result = RequestGetKeyState;
+                    return true;
+                case Values.RequestGetKeyEvents:
+                    result = RequestGetKeyEvents;
+                    return true;
+                case Values.RequestRenameAid:
+                    result = RequestRenameAid;
                     return true;
                 default:
                     return false;
@@ -346,4 +420,160 @@ namespace Extension.Models.Messages.AppBw {
         public AppBwReplyCreateCredentialMessage(int tabId, string? tabUrl, string requestId, CreateCredentialResult createCredentialResult)
             : base(AppBwMessageType.ReplyCreateCredential, tabId, tabUrl, requestId, createCredentialResult) { }
     }
+
+    #region App→BW Request Payloads for SignifyClientService Operations
+
+    /// <summary>
+    /// Payload for health check request from App to BackgroundWorker.
+    /// </summary>
+    public record HealthCheckRequestPayload(
+        [property: JsonPropertyName("healthUrl")] string HealthUrl
+    );
+
+    /// <summary>
+    /// Response payload for health check request.
+    /// </summary>
+    public record HealthCheckResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for connect request from App to BackgroundWorker.
+    /// </summary>
+    public record ConnectRequestPayload(
+        [property: JsonPropertyName("adminUrl")] string AdminUrl,
+        [property: JsonPropertyName("passcode")] string Passcode,
+        [property: JsonPropertyName("bootUrl")] string? BootUrl,
+        [property: JsonPropertyName("isNewAgent")] bool IsNewAgent,
+        [property: JsonPropertyName("passcodeHash")] int PasscodeHash
+    );
+
+    /// <summary>
+    /// Response payload for connect request.
+    /// Contains the controller and agent prefixes on success.
+    /// </summary>
+    public record ConnectResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("clientAidPrefix")] string? ClientAidPrefix = null,
+        [property: JsonPropertyName("agentAidPrefix")] string? AgentAidPrefix = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for create AID request from App to BackgroundWorker.
+    /// </summary>
+    public record CreateAidRequestPayload(
+        [property: JsonPropertyName("alias")] string Alias
+    );
+
+    /// <summary>
+    /// Response payload for create AID request.
+    /// </summary>
+    public record CreateAidResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("prefix")] string? Prefix = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Response payload for get credentials request.
+    /// Contains list of credentials from KERIA.
+    /// </summary>
+    public record GetCredentialsResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("credentials")] List<RecursiveDictionary>? Credentials = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for AID approval from App to BackgroundWorker.
+    /// App sends the user's selected identifier and optionally a credential SAID.
+    /// BackgroundWorker will dereference the credential and fetch CESR representation if needed.
+    /// </summary>
+    public record AidApprovalPayload(
+        [property: JsonPropertyName("prefix")] string Prefix,
+        [property: JsonPropertyName("alias")] string Alias,
+        [property: JsonPropertyName("credentialSaid")] string? CredentialSaid = null
+    );
+
+    /// <summary>
+    /// Reply message for AID approval (sign-in with identifier and optional credential).
+    /// App sends this when user approves sign-in; BW handles credential dereferencing.
+    /// </summary>
+    public record AppBwReplyAidApprovalMessage : AppBwMessage<AidApprovalPayload> {
+        public AppBwReplyAidApprovalMessage(int tabId, string? tabUrl, string requestId, AidApprovalPayload payload)
+            : base(AppBwMessageType.ReplyAidApproval, tabId, tabUrl, requestId, payload) { }
+    }
+
+    /// <summary>
+    /// Payload for sign-data approval from App to BackgroundWorker.
+    /// App sends the user's selected identifier prefix and the data items to sign.
+    /// BackgroundWorker will perform the actual signing via signify-ts.
+    /// </summary>
+    public record SignDataApprovalPayload(
+        [property: JsonPropertyName("prefix")] string Prefix,
+        [property: JsonPropertyName("dataItems")] string[] DataItems
+    );
+
+    /// <summary>
+    /// Reply message for sign-data approval.
+    /// App sends this when user approves signing data; BW handles the actual signing.
+    /// </summary>
+    public record AppBwReplySignDataApprovalMessage : AppBwMessage<SignDataApprovalPayload> {
+        public AppBwReplySignDataApprovalMessage(int tabId, string? tabUrl, string requestId, SignDataApprovalPayload payload)
+            : base(AppBwMessageType.ReplySignDataApproval, tabId, tabUrl, requestId, payload) { }
+    }
+
+    /// <summary>
+    /// Payload for get key state request from App to BackgroundWorker.
+    /// </summary>
+    public record GetKeyStateRequestPayload(
+        [property: JsonPropertyName("prefix")] string Prefix
+    );
+
+    /// <summary>
+    /// Response payload for get key state request.
+    /// Contains the key state data on success.
+    /// </summary>
+    public record GetKeyStateResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("keyState")] KeyState? KeyState = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for get key events request from App to BackgroundWorker.
+    /// </summary>
+    public record GetKeyEventsRequestPayload(
+        [property: JsonPropertyName("prefix")] string Prefix
+    );
+
+    /// <summary>
+    /// Response payload for get key events request.
+    /// Contains the key events data on success.
+    /// </summary>
+    public record GetKeyEventsResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("keyEvents")] RecursiveDictionary? KeyEvents = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for rename AID request from App to BackgroundWorker.
+    /// </summary>
+    public record RenameAidRequestPayload(
+        [property: JsonPropertyName("currentName")] string CurrentName,
+        [property: JsonPropertyName("newName")] string NewName
+    );
+
+    /// <summary>
+    /// Response payload for rename AID request.
+    /// </summary>
+    public record RenameAidResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    #endregion
 }

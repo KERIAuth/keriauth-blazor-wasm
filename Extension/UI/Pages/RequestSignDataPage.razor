@@ -2,21 +2,16 @@
 @layout Layouts.DialogLayout
 @inherits Extension.UI.Components.TabDialogPageBase
 
-@using System.Text.Json
 @using Extension.Helper
 @using Extension.Models.Messages.AppBw
 @using Extension.Models.Messages.BwApp
 @using Extension.Models.Messages.BwApp.Requests
 @using Extension.Services
-@using Extension.Services.JsBindings
-@using Extension.Services.SignifyService
-@using Extension.Services.SignifyService.Models
 @using FluentResults
 @using MudBlazor
 
 @inject ILogger<RequestSignDataPage> logger
 @inject ISnackbar snackbar
-@inject ISignifyClientBinding signifyClientBinding
 
 @code {
     // Page-specific fields
@@ -105,30 +100,19 @@
 
         try
         {
-            logger.LogInformation("SignData: Signing {ItemCount} items with identifier {Prefix}", DataItems.Length, SelectedPrefix);
+            logger.LogInformation("SignData: Requesting signing of {ItemCount} items with identifier {Prefix}", DataItems.Length, SelectedPrefix);
 
-            // Call signify-ts to sign the data items
-            var dataItemsJson = JsonSerializer.Serialize(DataItems);
-            var signResultJson = await signifyClientBinding.SignDataAsync(SelectedPrefix, dataItemsJson);
-
-            logger.LogDebug("SignData: signResultJson={Result}", signResultJson);
-
-            // Parse the result
-            var signResult = JsonSerializer.Deserialize<SignDataResult>(signResultJson, JsonOptions.Default);
-
-            if (signResult is null)
-            {
-                var error = new ValidationError("SignData", "Failed to parse sign data result");
-                snackbar.Add(error.Message, Severity.Error);
-                return Result.Fail(error);
-            }
-
-            // Send the signed data back to the BackgroundWorker
-            var message = new AppBwReplySignDataMessage(TabId, OriginStr, PageRequestId, signResult);
+            // Send approval with identifier and data items to BackgroundWorker
+            // BackgroundWorker will perform the actual signing via signify-ts
+            var approvalPayload = new SignDataApprovalPayload(
+                Prefix: SelectedPrefix,
+                DataItems: DataItems
+            );
+            var message = new AppBwReplySignDataApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
             await AppPortService.SendToBackgroundWorkerAsync(message);
             MarkAsReplied();
 
-            // Clear the pending request now that sign is complete
+            // Clear the pending request now that approval is sent
             await ClearPendingRequestAsync();
             await WaitForAppCacheClearAsync();
             await ReturnToPriorUIAsync();
@@ -136,8 +120,8 @@
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to sign data");
-            snackbar.Add($"Failed to sign data: {ex.Message}", Severity.Error);
+            logger.LogError(ex, "Failed to send sign-data approval");
+            snackbar.Add($"Failed to send sign-data approval: {ex.Message}", Severity.Error);
             return Result.Fail(new JavaScriptInteropError("SignData", ex.Message, ex));
         }
     }

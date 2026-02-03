@@ -9,14 +9,11 @@
 @using Extension.Models.Messages.BwApp.Requests
 @using Extension.Models.Messages.CsBw
 @using Extension.Services
-@using Extension.Services.JsBindings
-@using Extension.Services.SignifyService
 @using FluentResults
 @using MudBlazor
 
 @inject ILogger<RequestSignInPage> logger
 @inject ISnackbar snackbar
-@inject ISignifyClientBinding signifyClientBinding
 
 @code {
     // Page-specific types
@@ -114,11 +111,13 @@
                     return Result.Fail(error);
                 }
 
-                var identifierResult = new Extension.Models.Messages.AppBw.AuthorizeResult(
-                    Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
-                    Credential: null
+                // Send approval with just identifier info - BackgroundWorker handles the rest
+                var identifierApproval = new AidApprovalPayload(
+                    Prefix: SelectedPrefix,
+                    Alias: SelectedAlias,
+                    CredentialSaid: null
                 );
-                var identifierMessage = new AppBwReplyAidMessage(TabId, OriginStr, PageRequestId, identifierResult);
+                var identifierMessage = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, identifierApproval);
                 await AppPortService.SendToBackgroundWorkerAsync(identifierMessage);
                 MarkAsReplied();
                 break;
@@ -139,20 +138,14 @@
                     return Result.Fail(error);
                 }
 
-                // Get CESR representation of credential
-                var cesr = await signifyClientBinding.GetCredentialAsync(selectedCredentialSaid, true);
-
-                // Pass RecursiveDictionary directly - NEVER serialize/deserialize credentials
-                // RecursiveDictionary preserves CESR/SAID ordering required for verification
-                var authorizeResultCredential = new Extension.Models.Messages.AppBw.AuthorizeResultCredential(
-                    Raw: SelectedCredentialOrNothing,
-                    Cesr: cesr
+                // Send approval with identifier and credential SAID
+                // BackgroundWorker will fetch the credential and CESR representation
+                var credentialApproval = new AidApprovalPayload(
+                    Prefix: SelectedPrefix,
+                    Alias: SelectedAlias,
+                    CredentialSaid: selectedCredentialSaid
                 );
-                var authorizeResult = new Extension.Models.Messages.AppBw.AuthorizeResult(
-                    Aid: new Aid(name: SelectedAlias, prefix: SelectedPrefix, salty: null!),
-                    Credential: authorizeResultCredential
-                );
-                var credentialMessage = new AppBwReplyAidMessage(TabId, OriginStr, PageRequestId, authorizeResult);
+                var credentialMessage = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, credentialApproval);
                 await AppPortService.SendToBackgroundWorkerAsync(credentialMessage);
                 MarkAsReplied();
                 break;

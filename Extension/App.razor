@@ -54,6 +54,7 @@
         // and expired sessions are cleared.
         await appCache.EnsureInitializedAsync();
 
+        /*
         // Clear KeriaConnectionInfo on App startup to force reconnection via ConnectingPage.
         // On page reload, the JavaScript signify client state is lost even though session storage persists.
         // Clearing KeriaConnectionInfo ensures IsIdentifierFetched returns false, which routes through
@@ -61,6 +62,7 @@
         await storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
         appCache.ClearKeriaConnectionInfo(); // Sync update so Index.razor sees cleared state immediately
         logger.LogInformation("Cleared KeriaConnectionInfo to ensure signify client reconnection");
+        */
 
         // Subscribe to AppCache for reactivity (StateHasChanged on changes).
         // Navigation logic is handled by Index.razor which serves as the routing hub.

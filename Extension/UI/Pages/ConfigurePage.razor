@@ -5,15 +5,18 @@
 @using Extension.Utilities
 @using Extension.UI.Components
 
+@using Extension.Services.Port
+@using Extension.Models.Messages.AppBw
+
 @inject IStorageService storageService
 @inject ILogger<ConfigurePage> logger
 @inject HttpClient httpClient
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject ISignifyClientService signifyClientService
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject AppCache appCache  // subscribed to via SubscribeToAppCache()
+@inject IAppPortService appPortService
 @using FluentResults
 @using Extension.Helper
 @using System.Globalization
@@ -388,10 +391,25 @@
             var healthUri = new Uri(baseUri, "health");
             var healthUriBuilder = new UriBuilder(healthUri);
 
-            var healthCheckResult = await signifyClientService.HealthCheck(healthUriBuilder.Uri);
-            if (!healthCheckResult.IsSuccess)
+            // Send health check request to BackgroundWorker via RPC
+            var healthCheckResponse = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestHealthCheck,
+                new { payload = new HealthCheckRequestPayload(healthUriBuilder.Uri.ToString()) });
+
+            if (!healthCheckResponse.Ok)
             {
-                SetFlowFailed(1, "KERIA cloud service is not reachable");
+                SetFlowFailed(1, healthCheckResponse.Error ?? "KERIA cloud service is not reachable");
+                return;
+            }
+
+            // Parse the response payload
+            var healthResult = healthCheckResponse.Result is System.Text.Json.JsonElement healthJsonEl
+                ? System.Text.Json.JsonSerializer.Deserialize<HealthCheckResponsePayload>(healthJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+                : null;
+
+            if (healthResult is null || !healthResult.Success)
+            {
+                SetFlowFailed(1, healthResult?.Error ?? "KERIA cloud service is not reachable");
                 return;
             }
 
@@ -439,22 +457,37 @@
         IsPasscodeUsed = true;
 
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
-        var connectResult = await signifyClientService.Connect(
-            urlModel.AdminUrl,
-            configuredPasscodeModel.Passcode,
-            urlModel.BootUrl,
-            !IsUsingExistingPasscode
-        );
 
-        if (connectResult.IsFailed)
+        // Send connect request to BackgroundWorker via RPC
+        var connectResponse = await appPortService.SendRpcRequestAsync(
+            AppBwMessageType.Values.RequestConnect,
+            new { payload = new ConnectRequestPayload(
+                urlModel.AdminUrl,
+                configuredPasscodeModel.Passcode,
+                urlModel.BootUrl,
+                !IsUsingExistingPasscode,
+                passcodeHash) });
+
+        if (!connectResponse.Ok)
         {
-            SetFlowFailed(3, connectResult.Reasons.First().Message);
+            SetFlowFailed(3, connectResponse.Error ?? "Connect failed");
+            return;
+        }
+
+        // Parse the response payload
+        var connectResult = connectResponse.Result is System.Text.Json.JsonElement connectJsonEl
+            ? System.Text.Json.JsonSerializer.Deserialize<ConnectResponsePayload>(connectJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+            : null;
+
+        if (connectResult is null || !connectResult.Success)
+        {
+            SetFlowFailed(3, connectResult?.Error ?? "Connect failed");
             return;
         }
 
         // Extract agent and client prefixes from Connect result
-        string clientAidPrefix = connectResult.Value.Controller!.State!.I;
-        string agentAidPrefix = connectResult.Value.Agent!.I;
+        string clientAidPrefix = connectResult.ClientAidPrefix!;
+        string agentAidPrefix = connectResult.AgentAidPrefix!;
 
         // Store PasscodeModel to Session storage
         var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
@@ -505,38 +538,64 @@
         // IsConfigured check passed
         KeriaConnectConfig = completeConfig;
 
-        // Step 4: Get Identifiers
+        // Step 4: Get Identifiers (from storage - BW stored them after Connect)
         _currentStep = FlowStep.Ops4;
 
-        var identifiersRes = await signifyClientService.GetIdentifiers();
-        if (identifiersRes.IsFailed)
+        // Wait for identifiers to be available in appCache (stored by BW's Connect handler)
+        var waitSuccess = await appCache.WaitForAppCache([
+            () => appCache.MyKeriaConnectionInfo.IdentifiersList is not null &&
+                  appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
+        ], 30000, 100);
+
+        if (!waitSuccess)
         {
-            SetFlowFailed(4, identifiersRes.Reasons.First().Message);
+            SetFlowFailed(4, "Timed out waiting for identifiers from BackgroundWorker");
             return;
         }
 
-        var identifiers = identifiersRes.Value;
+        var identifiers = appCache.MyKeriaConnectionInfo.IdentifiersList[0];
 
         // Step 5: Create identifier if none exist
         if (identifiers.Aids.Count == 0)
         {
             _currentStep = FlowStep.Ops5;
 
-            var createAidResult = await signifyClientService.RunCreateAid("Alias1");
-            if (createAidResult.IsFailed)
+            // Send create AID request to BackgroundWorker via RPC
+            var createAidResponse = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestCreateAid,
+                new { payload = new CreateAidRequestPayload("Alias1") });
+
+            if (!createAidResponse.Ok)
             {
-                SetFlowFailed(5, createAidResult.Reasons.First().Message);
+                SetFlowFailed(5, createAidResponse.Error ?? "Failed to create identifier");
                 return;
             }
 
-            // Re-fetch identifiers after creating
-            var refreshedIdentifiersRes = await signifyClientService.GetIdentifiers();
-            if (refreshedIdentifiersRes.IsFailed)
+            // Parse the response payload
+            var createAidResult = createAidResponse.Result is System.Text.Json.JsonElement createAidJsonEl
+                ? System.Text.Json.JsonSerializer.Deserialize<CreateAidResponsePayload>(createAidJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+                : null;
+
+            if (createAidResult is null || !createAidResult.Success)
             {
-                SetFlowFailed(5, "Failed to refresh identifiers after creation");
+                SetFlowFailed(5, createAidResult?.Error ?? "Failed to create identifier");
                 return;
             }
-            identifiers = refreshedIdentifiersRes.Value;
+
+            // Wait for identifiers to be updated in appCache (BW updates storage after CreateAid)
+            var waitRefreshSuccess = await appCache.WaitForAppCache([
+                () => appCache.MyKeriaConnectionInfo.IdentifiersList is not null &&
+                      appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0 &&
+                      appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count > 0
+            ], 30000, 100);
+
+            if (!waitRefreshSuccess)
+            {
+                SetFlowFailed(5, "Timed out waiting for refreshed identifiers after creation");
+                return;
+            }
+
+            identifiers = appCache.MyKeriaConnectionInfo.IdentifiersList[0];
         }
         else
         {

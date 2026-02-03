@@ -1,5 +1,7 @@
 ﻿@page "/Connecting.html"
 @using Extension.Services.Storage
+@using Extension.Services.Port
+@using Extension.Models.Messages.AppBw
 
 @using Extension.Utilities
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
@@ -10,7 +12,7 @@
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject ISignifyClientService signifyClientService
+@inject IAppPortService appPortService
 @inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -82,52 +84,78 @@
 
     private async Task<Result> ConnectAndFetchIdentifiers()
     {
-        var connectRes = await signifyClientService.Connect(appCache.MyKeriaConnectConfig.AdminUrl!, appCache.MyPasscodeModel.Passcode, appCache.MyKeriaConnectConfig.BootUrl, false);
-        if (connectRes is null || connectRes.IsFailed)
+        // Send connect request to BackgroundWorker via RPC
+        var connectResponse = await appPortService.SendRpcRequestAsync(
+            AppBwMessageType.Values.RequestConnect,
+            new { payload = new ConnectRequestPayload(
+                appCache.MyKeriaConnectConfig.AdminUrl!,
+                appCache.MyPasscodeModel.Passcode,
+                appCache.MyKeriaConnectConfig.BootUrl,
+                false,
+                appCache.MyKeriaConnectConfig.PasscodeHash) });
+
+        if (!connectResponse.Ok)
         {
-            var openWalletError = "Could not connect to KERIA Cloud Service";
+            var openWalletError = connectResponse.Error ?? "Could not connect to KERIA Cloud Service";
             logger.LogWarning(openWalletError);
             return Result.Fail(openWalletError);
         }
-        else
+
+        // Parse the response payload
+        var connectRes = connectResponse.Result is System.Text.Json.JsonElement jsonEl
+            ? System.Text.Json.JsonSerializer.Deserialize<ConnectResponsePayload>(jsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+            : null;
+
+        if (connectRes is null || !connectRes.Success)
         {
-            // Confirm Client and Agent AIDs are as expected from initial connection response
-            if (connectRes.Value.Controller?.State?.I != appCache.MyKeriaConnectConfig.ClientAidPrefix)
-            {
-                var msg = "Connected KERIA Client AID does not match expected value";
-                logger.LogError(msg);
-                return Result.Fail(msg);
-            }
-            if (connectRes.Value.Agent?.I != appCache.MyKeriaConnectConfig.AgentAidPrefix)
-            {
-                var msg = "Connected KERIA AID does not match expected value";
-                logger.LogError(msg);
-                return Result.Fail(msg);
-            }
+            var openWalletError = connectRes?.Error ?? "Could not connect to KERIA Cloud Service";
+            logger.LogWarning(openWalletError);
+            return Result.Fail(openWalletError);
+        }
 
-            var identifiersRes = await signifyClientService.GetIdentifiers();
-            if (identifiersRes.IsFailed)
-            {
-                throw new IndexOutOfRangeException("expected to retrieve identifiers from GetIdentifiers()");
-            }
-            var identifiers = identifiersRes.Value;
+        // Confirm Client and Agent AIDs are as expected from initial connection response
+        if (connectRes.ClientAidPrefix != appCache.MyKeriaConnectConfig.ClientAidPrefix)
+        {
+            var msg = "Connected KERIA Client AID does not match expected value";
+            logger.LogError(msg);
+            return Result.Fail(msg);
+        }
+        if (connectRes.AgentAidPrefix != appCache.MyKeriaConnectConfig.AgentAidPrefix)
+        {
+            var msg = "Connected KERIA AID does not match expected value";
+            logger.LogError(msg);
+            return Result.Fail(msg);
+        }
 
-            // store updated KeriConnectionInfo in session storage
-            var updatedKeriConnectionInfo = appCache.MyKeriaConnectionInfo with
-            {
-                AgentPrefix = connectRes.Value.Agent!.I,
-                Config = appCache.MyKeriaConnectConfig,
-                IdentifiersList = [identifiers]
-            };
-            var setResult = await storageService.SetItem<KeriaConnectionInfo>(updatedKeriConnectionInfo, StorageArea.Session);
-            if (setResult.IsFailed)
-            {
-                var msg = "Failed to store KERI connection info";
-                logger.LogError("{msg}: {Errors}", msg, string.Join(", ", setResult.Errors));
-                return Result.Fail(msg);
-            }
-            // Assure AppCache is updated before next re-route via index page load
-            await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
+        // BackgroundWorker's Connect handler fetches identifiers and stores them in session storage.
+        // Wait for the storage update to be reflected in appCache.
+        var waitSuccess = await appCache.WaitForAppCache([
+            () => appCache.MyKeriaConnectionInfo.IdentifiersList is not null &&
+                  appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
+        ], 30000, 100);
+
+        if (!waitSuccess)
+        {
+            return Result.Fail("Timed out waiting for identifiers from BackgroundWorker");
+        }
+
+        var identifiers = appCache.MyKeriaConnectionInfo.IdentifiersList[0];
+
+        // Update KeriaConnectionInfo with AgentPrefix and Config (identifiers already set by BW)
+        var updatedKeriConnectionInfo = appCache.MyKeriaConnectionInfo with
+        {
+            AgentPrefix = connectRes.AgentAidPrefix!,
+            Config = appCache.MyKeriaConnectConfig
+        };
+        var setResult = await storageService.SetItem<KeriaConnectionInfo>(updatedKeriConnectionInfo, StorageArea.Session);
+        if (setResult.IsFailed)
+        {
+            var msg = "Failed to store KERI connection info";
+            logger.LogError("{msg}: {Errors}", msg, string.Join(", ", setResult.Errors));
+            return Result.Fail(msg);
+        }
+        // Assure AppCache is updated before next re-route via index page load
+        await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
 
             logger.LogInformation("Connected to KERIA");
             return Result.Ok();

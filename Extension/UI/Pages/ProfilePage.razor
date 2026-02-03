@@ -1,5 +1,8 @@
 ﻿@page "/Profile.html/{prefix}"
 @using Extension.Services.Storage
+@using Extension.Services.Port
+@using Extension.Models.Messages.AppBw
+@using System.Text.Json
 @inherits AuthenticatedPageBase
 
 @inject HttpClient httpClient
@@ -7,7 +10,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<ProfilePage> logger
-@inject ISignifyClientService signifyClientService;
+@inject IAppPortService appPortService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject AppCache appCache
@@ -103,12 +106,25 @@
             IsWaiting = true;
             StateHasChanged();
 
-            var result = await signifyClientService.GetIdentifier(Prefix);
-            if (result.IsSuccess)
+            // Get identifier from cached storage instead of calling signifyClientService
+            var identifiersList = appCache.MyKeriaConnectionInfo?.IdentifiersList;
+            if (identifiersList is null || identifiersList.Count == 0)
             {
-                currentAid = result.Value;
+                logger.LogWarning("No identifiers found in cache");
+                snackbar.Add("No identifiers found", Severity.Error);
+                return;
+            }
+
+            // Find the Aid by prefix in the cached list
+            var aid = identifiersList
+                .SelectMany(ids => ids.Aids)
+                .FirstOrDefault(a => a.Prefix == Prefix);
+
+            if (aid is not null)
+            {
+                currentAid = aid;
                 IsTransferrable = currentAid.Transferable;
-                logger.LogInformation("Loaded identifier: {name} ({prefix})", currentAid.Name, currentAid.Prefix);
+                logger.LogInformation("Loaded identifier from cache: {name} ({prefix})", currentAid.Name, currentAid.Prefix);
 
                 // Load key state and key events
                 await LoadKeyStateData();
@@ -117,8 +133,8 @@
             }
             else
             {
-                logger.LogWarning("Failed to load identifier by prefix: {errors}", result.Errors);
-                snackbar.Add($"Failed to load profile: {result.Errors.FirstOrDefault()?.Message}", Severity.Error);
+                logger.LogWarning("Failed to find identifier by prefix: {prefix}", Prefix);
+                snackbar.Add($"Failed to load profile: identifier not found", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -137,16 +153,29 @@
     {
         try
         {
-            var result = await signifyClientService.GetKeyState(Prefix);
-            if (result.IsSuccess)
+            var response = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetKeyState,
+                new { payload = new GetKeyStateRequestPayload(Prefix) });
+
+            if (!response.Ok)
             {
-                keyStateData = result.Value;
+                logger.LogWarning("Failed to load key state via RPC: {Error}", response.Error);
+                return;
+            }
+
+            var keyStateResult = response.Result is JsonElement jsonEl
+                ? JsonSerializer.Deserialize<GetKeyStateResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (keyStateResult is not null && keyStateResult.Success && keyStateResult.KeyState is not null)
+            {
+                keyStateData = keyStateResult.KeyState;
                 ParseKeyStateData();
                 logger.LogInformation("Loaded key state for {prefix}", Prefix);
             }
             else
             {
-                logger.LogWarning("Failed to load key state: {errors}", result.Errors);
+                logger.LogWarning("Failed to load key state: {Error}", keyStateResult?.Error ?? "Unknown error");
             }
         }
         catch (Exception ex)
@@ -159,16 +188,29 @@
     {
         try
         {
-            var result = await signifyClientService.GetKeyEvents(Prefix);
-            if (result.IsSuccess)
+            var response = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetKeyEvents,
+                new { payload = new GetKeyEventsRequestPayload(Prefix) });
+
+            if (!response.Ok)
             {
-                keyEventsData = result.Value;
+                logger.LogWarning("Failed to load key events via RPC: {Error}", response.Error);
+                return;
+            }
+
+            var keyEventsResult = response.Result is JsonElement jsonEl
+                ? JsonSerializer.Deserialize<GetKeyEventsResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (keyEventsResult is not null && keyEventsResult.Success && keyEventsResult.KeyEvents is not null)
+            {
+                keyEventsData = keyEventsResult.KeyEvents;
                 ParseKeyEventsData();
                 logger.LogInformation("Loaded key events for {prefix}", Prefix);
             }
             else
             {
-                logger.LogWarning("Failed to load key events: {errors}", result.Errors);
+                logger.LogWarning("Failed to load key events: {Error}", keyEventsResult?.Error ?? "Unknown error");
             }
         }
         catch (Exception ex)
@@ -391,8 +433,22 @@
             IsWaiting = true;
             StateHasChanged();
 
-            var result = await signifyClientService.RenameAid(currentAid.Name, editedAliasValue);
-            if (result.IsSuccess)
+            var response = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestRenameAid,
+                new { payload = new RenameAidRequestPayload(currentAid.Name, editedAliasValue) });
+
+            if (!response.Ok)
+            {
+                logger.LogWarning("Failed to rename identifier via RPC: {Error}", response.Error);
+                snackbar.Add($"Failed to rename: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var renameResult = response.Result is JsonElement jsonEl
+                ? JsonSerializer.Deserialize<RenameAidResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (renameResult is not null && renameResult.Success)
             {
                 snackbar.Add($"Renamed profile from '{currentAid.Name}' to '{editedAliasValue}'", Severity.Success);
                 // Reload to get updated data
@@ -401,8 +457,8 @@
             }
             else
             {
-                logger.LogWarning("Failed to rename identifier: {errors}", result.Errors);
-                snackbar.Add($"Failed to rename: {result.Errors.FirstOrDefault()?.Message}", Severity.Error);
+                logger.LogWarning("Failed to rename identifier: {Error}", renameResult?.Error ?? "Unknown error");
+                snackbar.Add($"Failed to rename: {renameResult?.Error ?? "Unknown error"}", Severity.Error);
             }
         }
         catch (Exception ex)

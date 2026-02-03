@@ -1,11 +1,11 @@
 ﻿@using Newtonsoft.Json
 @using Extension.Services.Storage
+@using Extension.Models.Messages.AppBw
 
 @implements IDisposable
 
 @inject ILogger<WebsiteConfigDisplay> logger
 @inject IWebsiteConfigService websiteConfigService
-@inject ISignifyClientService signifyClientService
 @inject IStorageService storageService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
@@ -254,15 +254,49 @@
 
     async Task getCredentials()
     {
-        var res = await signifyClientService.GetCredentials();
-        if (res.IsFailed || res.Value is null)
+        // Fetch credentials from BackgroundWorker via RPC
+        if (!appCache.IsConnectedToKeria)
         {
-            logger.LogError($"Error: {res.Errors}");
+            logger.LogDebug("Not connected to KERIA, skipping credentials fetch");
+            CredentialsDict = [];
+            StateHasChanged();
             return;
         }
-        else
+
+        try
         {
-            CredentialsDict = res.Value;
+            var response = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetCredentials,
+                new { });
+
+            if (!response.Ok)
+            {
+                logger.LogWarning("Failed to fetch credentials via RPC: {Error}", response.Error);
+                CredentialsDict = [];
+                StateHasChanged();
+                return;
+            }
+
+            // Parse the response payload (use PortMessaging for RecursiveDictionary support)
+            var credentialsResult = response.Result is System.Text.Json.JsonElement jsonEl
+                ? System.Text.Json.JsonSerializer.Deserialize<GetCredentialsResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (credentialsResult is not null && credentialsResult.Success && credentialsResult.Credentials is not null)
+            {
+                CredentialsDict = credentialsResult.Credentials;
+                logger.LogInformation("Fetched {Count} credentials via RPC", CredentialsDict.Count);
+            }
+            else
+            {
+                logger.LogWarning("Failed to fetch credentials: {Error}", credentialsResult?.Error ?? "Unknown error");
+                CredentialsDict = [];
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching credentials via RPC");
+            CredentialsDict = [];
         }
         StateHasChanged();
     }

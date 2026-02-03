@@ -1,13 +1,15 @@
 ﻿@page "/Dashboard.html"
 @using Extension.Services.Storage
+@using Extension.Services.Port
+@using Extension.Models.Messages.AppBw
 @inherits AuthenticatedPageBase
 @inject NavigationManager navManager
 @inject IStorageService storageService
 @inject IJSRuntime js
 @inject ILogger<DashboardPage> logger
 @inject IWebsiteConfigService websiteConfigService
-@inject ISignifyClientService signifyClientService
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+@inject IAppPortService appPortService
 
 @implements IDisposable
 
@@ -47,10 +49,6 @@
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
-
-        // TODO P2 Evolve this temporary test into a proper connectivity check that checks and fast-fails if not connected to the underlying module. Or, delete this.
-        var x = await signifyClientService.TestAsync();
-        logger.LogInformation($"TestAsync result: {x.Value}");
     }
 
     protected override async Task OnParametersSetAsync()
@@ -66,19 +64,53 @@
             NumWebsites = 0;
         }
 
-        // Get credentials for the number of credentials
+        // Fetch credentials from BackgroundWorker via RPC
         // TODO P2 See filterCredentials in WebsiteConfigDisplay, and move that into a helper
+        await FetchCredentialsAsync();
+    }
+
+    private async Task FetchCredentialsAsync()
+    {
+        if (!appCache.IsConnectedToKeria)
         {
-            var res = await signifyClientService.GetCredentials();
-            if (res.IsFailed || res.Value is null)
+            logger.LogDebug("Not connected to KERIA, skipping credentials fetch");
+            Credentials = [];
+            return;
+        }
+
+        try
+        {
+            var response = await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetCredentials,
+                new { });
+
+            if (!response.Ok)
             {
-                logger.LogWarning($"Error: {res.Errors}");
+                logger.LogWarning("Failed to fetch credentials via RPC: {Error}", response.Error);
+                Credentials = [];
                 return;
+            }
+
+            // Parse the response payload (use PortMessaging for RecursiveDictionary support)
+            var credentialsResult = response.Result is System.Text.Json.JsonElement jsonEl
+                ? System.Text.Json.JsonSerializer.Deserialize<GetCredentialsResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (credentialsResult is not null && credentialsResult.Success && credentialsResult.Credentials is not null)
+            {
+                Credentials = credentialsResult.Credentials;
+                logger.LogInformation("Fetched {Count} credentials via RPC", Credentials.Count);
             }
             else
             {
-                Credentials = res.Value;
+                logger.LogWarning("Failed to fetch credentials: {Error}", credentialsResult?.Error ?? "Unknown error");
+                Credentials = [];
             }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching credentials via RPC");
+            Credentials = [];
         }
     }
 
