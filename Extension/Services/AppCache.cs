@@ -287,7 +287,6 @@
         /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
         /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
         // TODO P2: adjust default timeouts as needed based on real-world performance
-        // TODO P1 confirm compound assertions (multiple items in list) work correctly
         public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
             if (assertions is null || assertions.Count == 0) {
                 _logger.LogWarning("WaitForAppCache called with no assertions");
@@ -497,6 +496,7 @@
                 _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfigs not found (expected on first run)");
             }
 
+            /*
             // 3b. Legacy KeriaConnectConfig (for backward compatibility during transition)
             var legacyConfigResult = await storageService.GetItem<KeriaConnectConfig>();
             if (legacyConfigResult.IsSuccess && legacyConfigResult.Value is not null) {
@@ -507,6 +507,7 @@
             else {
                 _logger.LogDebug("AppCache: Initial fetch - Legacy KeriaConnectConfig not found");
             }
+            */
 
             // Fetch session-scoped records (Session storage - cleared on browser close)
             // These may not exist if session is locked or browser was restarted

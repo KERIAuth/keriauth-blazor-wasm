@@ -145,6 +145,16 @@
 
         await this.SubscribeToAppCache(appCache);
 
+        // Wait for required appCache data to be loaded from storage before proceeding
+        var dataLoaded = await appCache.WaitForAppCache([
+            () => appCache.MyPreferences.IsStored,
+            () => appCache.MyKeriaConnectConfigs.IsStored
+        ]);
+        if (!dataLoaded) {
+            logger.LogError("Required appCache data failed to load within timeout");
+            throw new InvalidOperationException("Required data did not load in time");
+        }
+
         // Initialize KERIA config list - compute digests once at init time to avoid re-computation on each render
         var configs = appCache.GetAvailableKeriaConfigs();
         _availableKeriaConfigItems = configs
