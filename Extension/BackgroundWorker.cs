@@ -17,6 +17,7 @@ using Extension.Services.Port;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
+using Extension.Utilities;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
@@ -1818,10 +1819,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         logger.LogInformation("Updated existing KeriaConnectionInfo with identifiers");
                     }
                     else {
-                        // KeriaConnectionInfo doesn't exist - create it using data from the connect request and result
-                        // We construct the config directly instead of looking it up, since SelectedKeriaConnectionDigest
-                        // may not be set yet (it's set by ConfigurePage AFTER the connect completes)
-                        var newConfig = new KeriaConnectConfig(
+                        // KeriaConnectionInfo doesn't exist - create it using the digest computed from connect data
+                        // Compute the digest from the connect request/result data
+                        var tempConfig = new KeriaConnectConfig(
                             providerName: null,
                             adminUrl: connectRequest.AdminUrl,
                             bootUrl: connectRequest.BootUrl,
@@ -1830,14 +1830,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             agentAidPrefix: agentAidPrefix,
                             isStored: true
                         );
-
-                        var newConnectionInfo = new KeriaConnectionInfo {
-                            Config = newConfig,
-                            IdentifiersList = [identifiersResult.Value],
-                            AgentPrefix = agentAidPrefix ?? ""
-                        };
-                        await _storageService.SetItem(newConnectionInfo, StorageArea.Session);
-                        logger.LogInformation("Created new KeriaConnectionInfo in session storage using connect request data");
+                        var digestResult = KeriaConnectionDigestHelper.Compute(tempConfig);
+                        if (digestResult.IsFailed) {
+                            logger.LogError("Failed to compute KeriaConnectionDigest: {Errors}", string.Join(", ", digestResult.Errors));
+                        }
+                        else {
+                            var newConnectionInfo = new KeriaConnectionInfo {
+                                KeriaConnectionDigest = digestResult.Value,
+                                IdentifiersList = [identifiersResult.Value]
+                            };
+                            await _storageService.SetItem(newConnectionInfo, StorageArea.Session);
+                            logger.LogInformation("Created new KeriaConnectionInfo in session storage with digest: {Digest}", digestResult.Value);
+                        }
                     }
                 }
                 else {

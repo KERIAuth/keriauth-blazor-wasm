@@ -1,26 +1,26 @@
-﻿using Extension.Helper;
 using Extension.Models.Storage;
 using Extension.Services.SignifyService.Models;
 using System.Text.Json.Serialization;
 
 namespace Extension.Models;
 
+/// <summary>
+/// Session-scoped connection info for the active KERIA connection.
+/// Stores only the digest reference and session-specific data (IdentifiersList).
+/// Configuration details are retrieved via AppCache computed properties using the digest
+/// to look up the full KeriaConnectConfig from KeriaConnectConfigs.
+/// </summary>
 public record KeriaConnectionInfo : IStorageModel {
     /// <summary>
-    /// UTC timestamp when the current session should expire.
-    /// Session expires when current time exceeds this value.
+    /// The KeriaConnectionDigest identifying which KeriaConnectConfig this session is for.
+    /// Must match MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest.
     /// </summary>
-    /*
-    [JsonPropertyName("SessionExpirationUtc")]
-    public required DateTime SessionExpirationUtc { get; init; } = DateTime.MinValue; // important to have an expired default value
-    */
+    [JsonPropertyName("KeriaConnectionDigest")]
+    public required string KeriaConnectionDigest { get; init; }
 
-    [JsonPropertyName("Config")]
-    public required KeriaConnectConfig Config { get; init; }
-
+    /// <summary>
+    /// List of identifiers (AIDs) fetched from KERIA for this session.
+    /// </summary>
     [JsonPropertyName("IdentifiersList")]
     public required List<Identifiers> IdentifiersList { get; init; }
-
-    [JsonPropertyName("AgentPrefix")]
-    public required string AgentPrefix { get; init; }
 }

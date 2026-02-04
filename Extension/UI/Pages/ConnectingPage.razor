@@ -139,26 +139,12 @@
             return Result.Fail("Timed out waiting for identifiers from BackgroundWorker");
         }
 
-        var identifiers = appCache.MyKeriaConnectionInfo.IdentifiersList[0];
+        // BackgroundWorker has already set KeriaConnectionInfo with digest and identifiers
+        // Just verify the digest is present before proceeding
+        await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.KeriaConnectionDigest)]);
 
-        // Update KeriaConnectionInfo with AgentPrefix and Config (identifiers already set by BW)
-        var updatedKeriConnectionInfo = appCache.MyKeriaConnectionInfo with
-        {
-            AgentPrefix = connectRes.AgentAidPrefix!,
-            Config = appCache.MyKeriaConnectConfig
-        };
-        var setResult = await storageService.SetItem<KeriaConnectionInfo>(updatedKeriConnectionInfo, StorageArea.Session);
-        if (setResult.IsFailed)
-        {
-            var msg = "Failed to store KERI connection info";
-            logger.LogError("{msg}: {Errors}", msg, string.Join(", ", setResult.Errors));
-            return Result.Fail(msg);
-        }
-        // Assure AppCache is updated before next re-route via index page load
-        await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.Config.ClientAidPrefix)]);
-
-            logger.LogInformation("Connected to KERIA");
-            return Result.Ok();
-        }
+        logger.LogInformation("Connected to KERIA");
+        return Result.Ok();
+    }
     }
 }

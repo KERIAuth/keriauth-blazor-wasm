@@ -150,7 +150,8 @@
             () => appCache.MyPreferences.IsStored,
             () => appCache.MyKeriaConnectConfigs.IsStored
         ]);
-        if (!dataLoaded) {
+        if (!dataLoaded)
+        {
             logger.LogError("Required appCache data failed to load within timeout");
             throw new InvalidOperationException("Required data did not load in time");
         }
@@ -158,7 +159,8 @@
         // Initialize KERIA config list - compute digests once at init time to avoid re-computation on each render
         var configs = appCache.GetAvailableKeriaConfigs();
         _availableKeriaConfigItems = configs
-            .Select(c => {
+            .Select(c =>
+            {
                 var digestResult = KeriaConnectionDigestHelper.Compute(c);
                 return (Digest: digestResult.IsSuccess ? digestResult.Value : "", Alias: c.Alias ?? "(unnamed)");
             })
@@ -190,10 +192,12 @@
             UpdateRelevantPasskeyCount(); // Update passkey count for new selection
 
             var prefs = appCache.MyPreferences;
-            var newKeriaPreference = prefs.KeriaPreference with {
+            var newKeriaPreference = prefs.KeriaPreference with
+            {
                 SelectedKeriaConnectionDigest = digest
             };
-            await storageService.SetItem<Preferences>(prefs with {
+            await storageService.SetItem<Preferences>(prefs with
+            {
                 KeriaPreference = newKeriaPreference
             });
 
@@ -226,7 +230,9 @@
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        // logger.LogInformation("OnAfterRenderAsync");
+        // Only set focus on first render to avoid stealing focus from MudSelect or other interactive elements
+        if (!isFirstRender) return;
+
         if (_isRecoveryMode)
         {
             if (_recoveryPhraseValid && recoveryUnlockButton is not null)
@@ -642,24 +648,25 @@
                         <span style="font-style:italic; font-size:initial;">@taglineText</span>
                     </MudText>
                 </MudStack>
-                @if (appCache.MyPreferences.IsMultiKeriaConfigEnabled && appCache.MyPreferences.IsMultiKeriaOnUnlock && _availableKeriaConfigItems.Count > 0)
-                {
-                    <MudStack Style="justify-content: center; align-items: center;" Class="pt-3">
-                        <MudSelect T="string"
-                                   Label="KERIA Cloud Service"
-                                   Value="@_selectedKeriaConfigDigest"
-                                   ValueChanged="OnKeriaConfigDigestChanged"
-                                   Variant="Variant.Outlined"
-                                   Style="max-width: 18rem;">
-                            @foreach (var item in _availableKeriaConfigItems)
-                            {
-                                <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
-                            }
-                            <MudSelectItem Value="@ManageKeriaConfigsValue">Add/Remove KERIA Cloud Service</MudSelectItem>
-                        </MudSelect>
-                    </MudStack>
-                }
+
                 <MudStack Style="justify-content: end; min-height:3.429rem; flex-shrink: 0; align-self: stretch;" Class="gap-0">
+                    @if (appCache.MyPreferences.IsMultiKeriaConfigEnabled && appCache.MyPreferences.IsMultiKeriaOnUnlock && _availableKeriaConfigItems.Count > 0)
+                    {
+                        <MudStack Style="justify-content: center; align-items: center;" Class="pt-3">
+                            <MudSelect T="string"
+                                       Label="KERIA Cloud Service"
+                                       Value="@_selectedKeriaConfigDigest"
+                                       ValueChanged="OnKeriaConfigDigestChanged"
+                                       Variant="Variant.Outlined"
+                                       FullWidth="true">
+                                @foreach (var item in _availableKeriaConfigItems)
+                                {
+                                    <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
+                                }
+                                <MudSelectItem Value="@ManageKeriaConfigsValue">Add/Remove KERIA Cloud Service</MudSelectItem>
+                            </MudSelect>
+                        </MudStack>
+                    }
                     @if (ShouldUsePasskey)
                     {
                         <MudText>

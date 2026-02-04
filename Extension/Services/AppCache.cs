@@ -101,11 +101,46 @@
         /// </summary>
         public KeriaConnectConfig MyKeriaConnectConfig => GetSelectedKeriaConnectConfig() ?? DefaultKeriaConnectConfig;
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
-            // SessionExpirationUtc = DateTime.MinValue,
-            Config = new KeriaConnectConfig(),
-            IdentifiersList = [],
-            AgentPrefix = ""
+            KeriaConnectionDigest = "",
+            IdentifiersList = []
         };
+
+        /// <summary>
+        /// Gets the KeriaConnectConfig for the current session by looking up MyKeriaConnectionInfo.KeriaConnectionDigest.
+        /// Returns null if no session or digest not found in configs.
+        /// </summary>
+        public KeriaConnectConfig? SessionKeriaConnectConfig =>
+            GetConfigByDigest(MyKeriaConnectionInfo.KeriaConnectionDigest);
+
+        /// <summary>
+        /// Alias of the KERIA connection for the current session.
+        /// Derived from SessionKeriaConnectConfig lookup.
+        /// </summary>
+        public string? SessionKeriaAlias => SessionKeriaConnectConfig?.Alias;
+
+        /// <summary>
+        /// AdminUrl of the KERIA connection for the current session.
+        /// Derived from SessionKeriaConnectConfig lookup.
+        /// </summary>
+        public string? SessionKeriaAdminUrl => SessionKeriaConnectConfig?.AdminUrl;
+
+        /// <summary>
+        /// ClientAidPrefix of the KERIA connection for the current session.
+        /// Derived from SessionKeriaConnectConfig lookup.
+        /// </summary>
+        public string? SessionKeriaClientAidPrefix => SessionKeriaConnectConfig?.ClientAidPrefix;
+
+        /// <summary>
+        /// AgentAidPrefix of the KERIA connection for the current session.
+        /// Derived from SessionKeriaConnectConfig lookup.
+        /// </summary>
+        public string? SessionKeriaAgentAidPrefix => SessionKeriaConnectConfig?.AgentAidPrefix;
+
+        /// <summary>
+        /// PasscodeHash of the KERIA connection for the current session.
+        /// Derived from SessionKeriaConnectConfig lookup.
+        /// </summary>
+        public int SessionKeriaPasscodeHash => SessionKeriaConnectConfig?.PasscodeHash ?? 0;
 
         /// <summary>
         /// Pending requests from BackgroundWorker awaiting App processing.
@@ -151,12 +186,34 @@
         /// </summary>
         public void ClearKeriaConnectionInfo() {
             MyKeriaConnectionInfo = new KeriaConnectionInfo() {
-                Config = new KeriaConnectConfig(),
-                IdentifiersList = [],
-                AgentPrefix = ""
+                KeriaConnectionDigest = "",
+                IdentifiersList = []
             };
             _logger.LogInformation("AppCache: Cleared KeriaConnectionInfo synchronously");
             Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// Validates that the session's KeriaConnectionDigest matches the selected preference.
+        /// Throws InvalidOperationException if there's a mismatch (indicates session/preference desync).
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown when session digest doesn't match preference.</exception>
+        public void ValidateSessionDigestMatchesPreference() {
+            var sessionDigest = MyKeriaConnectionInfo.KeriaConnectionDigest;
+            var preferenceDigest = MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+
+            // Empty session digest is valid (no active session)
+            if (string.IsNullOrEmpty(sessionDigest)) {
+                return;
+            }
+
+            // If there's an active session, its digest must match the preference
+            if (sessionDigest != preferenceDigest) {
+                _logger.LogError("Session KeriaConnectionDigest '{SessionDigest}' does not match preference '{PreferenceDigest}'",
+                    sessionDigest, preferenceDigest);
+                throw new InvalidOperationException(
+                    $"Session KeriaConnectionDigest '{sessionDigest}' does not match preference '{preferenceDigest}'");
+            }
         }
 
         /// <summary>

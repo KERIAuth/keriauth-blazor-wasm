@@ -631,11 +631,19 @@
         // SelectedPrefix check passed
 
         // Store KeriaConnectionInfo to Session storage
+        // Use the digest from preferences (set earlier in this flow via StoreKeriaConnectConfigAsync)
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest))
+        {
+            logger.LogError("SelectedKeriaConnectionDigest is not set in preferences");
+            SetFlowFailed(5, "Configuration digest not found");
+            return;
+        }
+
         var connectionInfo = new KeriaConnectionInfo
         {
-            Config = completeConfig,
-            IdentifiersList = [identifiers],
-            AgentPrefix = agentAidPrefix
+            KeriaConnectionDigest = selectedDigest,
+            IdentifiersList = [identifiers]
         };
 
         var storeConnectionInfoResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
@@ -647,9 +655,8 @@
         }
 
         // Wait for KeriaConnectionInfo to be reflected in AppCache
-        // Waiting for MyKeriaConnectionInfo.Config.PasscodeHash != 0 (current: {Hash})", appCache.MyKeriaConnectionInfo.Config.PasscodeHash);
-        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.Config.PasscodeHash != 0]);
-        // MyKeriaConnectionInfo.Config.PasscodeHash check passed
+        await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.KeriaConnectionDigest)]);
+        // KeriaConnectionDigest check passed
 
         // Final confirmation and navigation
         // Waiting for IsConnectedToKeria (current: {Value})", appCache.IsConnectedToKeria);
@@ -711,13 +718,12 @@
         }
 
         // Wait for appCache to reflect the cleared updates
-        // TODO P1 confirm compound assertions work in WaitForAppCache, then use that syntax here.
         logger.LogInformation("ResetConfiguration: waiting for appCache.IsProductOnboarded");
         await appCache.WaitForAppCache([() => appCache.IsProductOnboarded]);
         logger.LogInformation("ResetConfiguration: waiting to assure !appCache.IsKeriaConfigValidated");
         await appCache.WaitForAppCache([() => !appCache.IsKeriaConfigValidated]);
         // () => !appCache.IsSessionPasscodeSet
-        // () => string.IsNullOrWhiteSpace(appCache.MyKeriaConnectionInfo.Config.AdminUrl)
+        // () => string.IsNullOrWhiteSpace(appCache.SessionKeriaAdminUrl)
         
 
         // Reset local page state to defaults

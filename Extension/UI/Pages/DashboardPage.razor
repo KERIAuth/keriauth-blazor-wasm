@@ -148,7 +148,7 @@
                             <MudText Typo="Typo.body1">@KeriaConnectStatusText</MudText>
                         </div>
                         <MudText Class="mudtext-half-width-right">
-                            <MudTooltip Text="@appCache.MyKeriaConnectionInfo.Config.Alias">
+                            <MudTooltip Text="@appCache.SessionKeriaAlias">
                                 <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<KeriAgentServicePage>())">KERIA Cloud Service</MudLink>
                             </MudTooltip>
                         </MudText>
