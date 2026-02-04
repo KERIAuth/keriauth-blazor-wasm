@@ -106,7 +106,7 @@
             IsWaiting = true;
             StateHasChanged();
 
-            // Get identifier from cached storage instead of calling signifyClientService
+            // Get identifierList
             var identifiersList = appCache.MyKeriaConnectionInfo?.IdentifiersList;
             if (identifiersList is null || identifiersList.Count == 0)
             {

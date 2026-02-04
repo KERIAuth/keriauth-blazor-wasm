@@ -17,6 +17,7 @@
 
 @code {
     // fields
+    bool _credentialsLoading = true;
 
     // properties
 
@@ -71,10 +72,13 @@
 
     private async Task FetchCredentialsAsync()
     {
+        _credentialsLoading = true;
+
         if (!appCache.IsConnectedToKeria)
         {
             logger.LogDebug("Not connected to KERIA, skipping credentials fetch");
             Credentials = [];
+            _credentialsLoading = false;
             return;
         }
 
@@ -111,6 +115,10 @@
         {
             logger.LogError(ex, "Error fetching credentials via RPC");
             Credentials = [];
+        }
+        finally
+        {
+            _credentialsLoading = false;
         }
     }
 
@@ -177,7 +185,16 @@
                         <MudText Class="mudtext-half-width-left">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<CredentialsPage>())">Credentials</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right bt-home-status-number">@NumCredentialsThisIdentifier</MudText>
+                        <MudText Class="mudtext-half-width-right bt-home-status-number">
+                            @if (_credentialsLoading)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="bt-inline-progress" />
+                            }
+                            else
+                            {
+                                @NumCredentialsThisIdentifier
+                            }
+                        </MudText>
                     </MudStack>
                 </MudStack>
             </MudStack>
@@ -211,5 +228,11 @@
 
     .bt-home-background-box {
         border-radius: 0.857rem;
+    }
+
+    .bt-inline-progress {
+        width: 1em !important;
+        height: 1em !important;
+        vertical-align: middle;
     }
 </style>
