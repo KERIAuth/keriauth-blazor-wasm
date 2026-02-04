@@ -29,11 +29,16 @@
     int? IdentifiersCount => appCache?.MyKeriaConnectionInfo?.IdentifiersList?.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
     // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
     // TODO P2 confirm what we want to show
-    string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected" : appCache.IsAuthenticated ? "Not Connected" : "Locked";
+    string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected to" : appCache.IsAuthenticated ? "Not Connected with" : "Locked. Configured to";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
     List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => appCache.MyPreferences?.SelectedPrefix ?? AppConfig.DefaultPreferences.SelectedPrefix;
+
+    // Pluralized labels (count is shown separately, so just singular/plural here)
+    string ProfilesLabel => IdentifiersCount == 1 ? "Profile" : "Profiles";
+    string WebsitesLabel => NumWebsites == 1 ? "Website" : "Websites";
+    string CredentialsLabel => NumCredentialsThisIdentifier == 1 ? "Credential" : "Credentials";
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? "";
 
@@ -134,58 +139,46 @@
         <div class="bt-main-inside-scroll" style="align-items:center; justify-content: center; display:flex; flex-direction:column;">
             <MudText Class="bt-page-title">Dashboard</MudText>
             <MudStack AlignItems="AlignItems.Center" Class="mudstack-full-width">
-
+                <!-- Independent of selected profile -->
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-background-gray); width: -webkit-fill-available; padding:0.714rem;">
+                    <!-- Connected to KERIA -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<KeriAgentServicePage>())">KERIA Cloud Service</MudLink>
-                        </MudText>
-                        <div Class="mudtext-half-width-right" style="display:flex; align-items:center;">
-                            @if (appCache.IsConnectedToKeria)
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.Link" Color=Color.Success Class="bt-home-status-icon"></MudIcon>
-                            }
-                            else
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.LinkOff" Color=Color.Error Class="bt-home-status-icon"></MudIcon>
-                            }
+                        <div Class="mudtext-half-width-left">
                             <MudText Typo="Typo.body1">@KeriaConnectStatusText</MudText>
                         </div>
-                    </MudStack>
-                    <MudStack Row>
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilesPage>())">Profiles</MudLink>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudTooltip Text="@appCache.MyKeriaConnectionInfo.Config.Alias">
+                                <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<KeriAgentServicePage>())">KERIA Cloud Service</MudLink>
+                            </MudTooltip>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right bt-home-status-number">@IdentifiersCount</MudText>
                     </MudStack>
-
+                    <!-- Profiles -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<WebsitesPage>())">Websites</MudLink>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@IdentifiersCount</MudText>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilesPage>())">@ProfilesLabel</MudLink>
                         </MudText>
-                        <MudText Class="mudtext-half-width-right bt-home-status-number">@NumWebsites</MudText>
+                    </MudStack>
+                    <!-- Websites -->
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumWebsites</MudText>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<WebsitesPage>())">@WebsitesLabel</MudLink>
+                        </MudText>
                     </MudStack>
                 </MudStack>
-
+                <!-- Depending on selected Profile -->
                 <MudStack Class="bt-home-background-box" Style="background: var(--mud-palette-action-default-hover); width: -webkit-fill-available; padding:0.714rem;">
-                    <MudStack Row Style="align-items:center;">
-                        <MudText Class="mudtext-half-width-left">
+                    <!-- Selected Profile -->
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@SelectedAlias</MudText>
+                        <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilePage>() + SelectedPrefix)">Selected Profile</MudLink>
                         </MudText>
-                        <MudStack Class="mudtext-half-width-right" Row Style="align-items: center; min-height:2.714rem;">
-                            @if (!string.IsNullOrEmpty(SelectedPrefix))
-                            {
-                                <MudIcon Icon=@SelectedIdenticon ViewBox="0 0 100 100" Class="bt-identicon" Style="text-align:left; margin-top: 0;" />
-                                <MudText Style="overflow-wrap: anywhere;">@SelectedAlias</MudText>
-                            }
-                        </MudStack>
                     </MudStack>
-
+                    <!-- Credentials -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<CredentialsPage>())">Credentials</MudLink>
-                        </MudText>
-                        <MudText Class="mudtext-half-width-right bt-home-status-number">
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">
                             @if (_credentialsLoading)
                             {
                                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="bt-inline-progress" />
@@ -194,6 +187,9 @@
                             {
                                 @NumCredentialsThisIdentifier
                             }
+                        </MudText>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<CredentialsPage>())">@CredentialsLabel</MudLink>
                         </MudText>
                     </MudStack>
                 </MudStack>
