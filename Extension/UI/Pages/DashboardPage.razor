@@ -54,6 +54,7 @@
         InitializeAppCache(appCache);
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        // TODO P2: Remove redundant StateHasChanged callback - SubscribeToAppCache already calls StateHasChanged automatically
         await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
     }
 
