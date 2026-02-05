@@ -32,29 +32,32 @@
     MudButton? unlockWithPasskeyButton;
     MudButton? recoveryUnlockButton;
     string openWalletError = string.Empty;
-    // KeriaConnectConfig keriaConnectConfig = new();
-    private string taglineText = taglineAlternatives[0];
+    string taglineText = taglineAlternatives[0];
+    // Cached passkey count and label for selected KERIA config
+    PasskeyAvailability _passkeyAvailability;
+    // TODO P2 rename to isFormValid and use field?
+    bool isValid;
 
     // Recovery phrase state
-    private bool _isRecoveryMode = false;
-    private string _currentWordInput = "";
-    private List<string> _enteredWords = new();
-    private bool _recoveryPhraseValid = false;
-    private string _recoveryError = "";
-    private const int RequiredWordCount = 18;
+    bool _isRecoveryMode = false;
+    string _currentWordInput = "";
+    List<string> _enteredWords = new();
+    bool _recoveryPhraseValid = false;
+    string _recoveryError = "";
+    const int RequiredWordCount = 18;
 
     // KERIA config selection
-    private const string ManageKeriaConfigsValue = "__MANAGE__";
-    private string _selectedKeriaConfigDigest = "";
-    private List<(string Digest, string Alias)> _availableKeriaConfigItems = new();
-    private Uri? _initialUri;
-    private static string[] taglineAlternatives =
+    const string ManageKeriaConfigsValue = "__MANAGE__";
+    string _selectedKeriaConfigDigest = "";
+    List<(string Digest, string Alias)> _availableKeriaConfigItems = new();
+    Uri? _initialUri;
+
+    static string[] taglineAlternatives =
     {
 // authentic
 "authentically yours",
 "authentic authority",
 "serious about authenticity",
-
 // secure
 "secure by design",
 "security first",
@@ -62,52 +65,42 @@
 "secure your digital self",
 "secure interactions",
 "secure and verifiable",
-
 // keys
 "your keys for your identity",
 "keys at the edge",
-
 // proof
 "you have the proof",
 "the power to prove",
 "provable identity",
 "proof beyond borders",
 "challenge me",
-
 // credentials
 "credentialed",
-
 // provenance
 "provenance matters",
 "credentials rooted in trust",
-
 // architecture
 "zero trust architecture",
 "decentralized keys & trustworthy credentials",
 
 // org
 "organizational identity",
-
 // trust
 "trustworty interactions",
 "trusted & verifiable",
 "trusted digital identity",
 "trustworthy and secure",
-
 // verifiable
 "verifiable by design",
 "verifiable credentials",
 "verifiable and trustworthy",
 "verifiable and secure",
-
 // identity
 "identity without borders"
 };
 
     // properties
     StoredPasskeys StoredPasskeys { get; set; } = new StoredPasskeys();
-    bool isValid { get; set; }
-    PasskeyAvailability _passkeyAvailability; // Cached passkey count and label for selected KERIA config
 
     // reactive properties
     string NumberPasskeysLabel => _passkeyAvailability.Label;
@@ -215,6 +208,10 @@
                 }
 
                 snackbar.Add("Configuration changed", Severity.Info);
+
+                // Allow MudSelect dropdown to fully collapse before setting focus
+                await Task.Delay(200);
+                await FocusAppropriateElementAsync();
             }
             finally
             {
@@ -234,6 +231,7 @@
         }
     }
 
+    // TODO P2 make this a computed property, since performance isn't critical here
     /// <summary>
     /// Updates the cached passkey availability for the currently selected KERIA connection.
     /// Called when passkeys are loaded or when the selected KERIA config changes.
@@ -248,6 +246,17 @@
         // Only set focus on first render to avoid stealing focus from MudSelect or other interactive elements
         if (!isFirstRender) return;
 
+        // Allow time for the MudSelect and other controls to fully populate before setting focus
+        await Task.Delay(200);
+        await FocusAppropriateElementAsync();
+    }
+
+    /// <summary>
+    /// Sets focus to the appropriate element based on current mode and state.
+    /// Called on first render and after MudSelect config change.
+    /// </summary>
+    private async Task FocusAppropriateElementAsync()
+    {
         if (_isRecoveryMode)
         {
             if (_recoveryPhraseValid && recoveryUnlockButton is not null)
@@ -266,7 +275,7 @@
                 await unlockWithPasskeyButton.FocusAsync();
             }
         }
-        else if (passcodeField is not null)
+        else if (passcodeField is not null && passcodeField.Text?.Length != 21)
         {
             await passcodeField.FocusAsync();
         }
@@ -276,9 +285,11 @@
     {
         throwIfNotConfigured();
         await storageService.SetItem<Preferences>(appCache.MyPreferences with
-        {
-            IsPasskeyUsePreferred = isPasskeyUsePreferred
-        }, StorageArea.Local);
+            {
+                IsPasskeyUsePreferred = isPasskeyUsePreferred
+            }, StorageArea.Local);
+        // await appCache.WaitForAppCache([() => appCache.MyPreferences.IsPasskeyUsePreferred]);
+        await FocusAppropriateElementAsync();
         if (isPasskeyUsePreferred)
         {
             await UnlockWithPasskey();
@@ -292,11 +303,11 @@
             await passcodeField.SelectAsync();
     }
 
-    async Task HandleKeyDown(KeyboardEventArgs args)
+    async Task HandlePasscodeFieldKeyDown(KeyboardEventArgs args)
     {
-        if (args.Key == "Enter")
+        if (args.Key == "Enter" || args.Code == "NumpadEnter")
         {
-            await HandleUnlock();
+            await HandleUnlockWithPasscode();
         }
     }
 
@@ -313,11 +324,9 @@
         return;
     }
 
-    async Task HandleUnlock()
+    async Task HandleUnlockWithPasscode()
     {
-        throwIfNotConfigured();
-        if (unlockPasscodeModel.Passcode is not null)
-            await UnlockWithPasscode(unlockPasscodeModel.Passcode);
+        await UnlockWithPasscode(unlockPasscodeModel.Passcode);
     }
 
     class PasscodeFormModel
@@ -380,7 +389,6 @@
                 // Note: SessionManager will detect PasscodeModel change and schedule alarm
             }
 
-            // logger.LogWarning("returned from Authenticate. pausing...");
             if (appCache.MyKeriaConnectConfig.AdminUrl is null)
             {
                 throw new IndexOutOfRangeException("KERIA AdminUrl is not configured");
@@ -542,6 +550,14 @@
             snackbar.Add("Failed to unlock with recovery phrase", Severity.Error);
         }
     }
+
+    private async Task OnSelectOpenChanged()
+    {
+        // MudSelect collapsed - restore focus to appropriate element
+        await Task.Delay(300); // minor delay to ensure the dropdown collapse animation and other handlers completes
+        await FocusAppropriateElementAsync();
+
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -671,9 +687,10 @@
                             <MudSelect T="string"
                                        Label="KERIA Cloud Service"
                                        Value="@_selectedKeriaConfigDigest"
-                                       ValueChanged="OnKeriaConfigDigestChanged"
                                        Variant="Variant.Outlined"
-                                       FullWidth="true">
+                                       FullWidth="true"
+                                       ValueChanged="OnKeriaConfigDigestChanged"
+                                       OnClose="OnSelectOpenChanged">
                                 @foreach (var item in _availableKeriaConfigItems)
                                 {
                                     <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
@@ -691,7 +708,7 @@
                     else // passcode
                     {
                         <MudForm @ref="form" @bind-IsValid="@isValid" @bind-Errors="@errors" Style="height: 5.714rem;">
-                            <MudTextField Label="Passcode" @ref="passcodeField" OnKeyDown="@HandleKeyDown"
+                            <MudTextField Label="Passcode" @ref="passcodeField" OnKeyDown="@HandlePasscodeFieldKeyDown"
                                           InputType="InputType.Password" @bind-Value="@unlockPasscodeModel.Passcode" HelperText="&nbsp;"
                                           ErrorText="&nbsp;" For="@(() => unlockPasscodeModel.Passcode)" Immediate="true"
                                           @onfocus="SelectAllText" />
@@ -727,8 +744,8 @@
                         Use Passkey
                     </MudButton>
                 }
-                <MudButton Disabled="@(!isValid || unlockPasscodeModel.Passcode.Length != 21)" Class="bt-button-wrap"
-                           Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlock()">
+                <MudButton Disabled="@(!isValid || (unlockPasscodeModel.Passcode?.Length ?? 0) != 21)" Class="bt-button-wrap"
+                           Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlockWithPasscode()">
                     Unlock
                 </MudButton>
             }
