@@ -1,0 +1,164 @@
+@page "/KeriaConfigs.html"
+@layout Layouts.MainLayout
+@using Extension.Models
+@using Extension.Services
+@using Extension.Services.Storage
+@using Extension.Utilities
+@using static Extension.Helper.PreviousPage
+
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject AppCache appCache
+@inject IStorageService storageService
+@inject IWebauthnService webauthnService
+@inject ILogger<KeriaConfigsPage> logger
+
+@implements IDisposable
+
+@code {
+    private StoredPasskeys _storedPasskeys = new();
+
+    // Computed properties (reactive via appCache subscription)
+    List<KeyValuePair<string, KeriaConnectConfig>> ConfigsList =>
+        appCache.MyKeriaConnectConfigs.Configs
+            .OrderBy(kvp => kvp.Value.Alias)
+            .ToList();
+
+    string? SelectedDigest => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+
+    string CountLabel => $"({ConfigsList.Count})";
+
+    bool IsMultiKeriaConfigEnabled => appCache.MyPreferences.IsMultiKeriaConfigEnabled;
+
+    // Get passkey count for a specific config digest
+    int GetPasskeyCount(string digest) =>
+        _storedPasskeys.Passkeys.Count(p => p.KeriaConnectionDigest == digest);
+
+    string GetPasskeyCountLabel(string digest) {
+        var count = GetPasskeyCount(digest);
+        return count switch {
+            0 => "",
+            1 => "1 passkey",
+            _ => $"{count} passkeys"
+        };
+    }
+
+    // Left-edge highlight style for active config
+    static string CardBorderStyle(string? selectedDigest, string configDigest) =>
+        selectedDigest == configDigest
+            ? "border-left: 4px solid var(--mud-palette-primary);"
+            : "border-left: 4px solid transparent;";
+
+    protected override async Task OnInitializedAsync() {
+        await this.SubscribeToAppCache(appCache, async () => {
+            await InvokeAsync(StateHasChanged);
+        });
+
+        // Load passkeys to show count per config
+        var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
+        if (passkeysResult.IsSuccess) {
+            _storedPasskeys = passkeysResult.Value;
+        }
+
+        logger.LogInformation("KeriaConfigsPage OnInitializedAsync");
+    }
+
+    private void NavigateToConfigDetail(string digest) {
+        navManager.NavigateTo($"/KeriaConfig.html/{digest}");
+    }
+
+    private void NavigateToAddConfig() {
+        // For now, navigate to ConfigurePage
+        // Phase 4 will implement proper add flow
+        navManager.NavigateTo(Routes.PathFor<ConfigurePage>());
+    }
+
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Class="bt-page-title">KERIA Cloud Service Connections</MudText>
+                <MudText Class="bt-page-title" Color="Color.Secondary">@CountLabel</MudText>
+                <MudTooltip Delay="500" Text="Manage connections to KERIA Cloud Services">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
+                </MudTooltip>
+            </MudStack>
+
+            @if (ConfigsList.Count == 0)
+            {
+                <MudStack Class="pt-4" Spacing="3">
+                    <MudText Typo="Typo.body1">
+                        No KERIA connections configured.
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Add a connection to get started, or reset all data to start fresh.
+                    </MudText>
+                </MudStack>
+            }
+            else
+            {
+                @foreach (var kvp in ConfigsList)
+                {
+                    var digest = kvp.Key;
+                    var config = kvp.Value;
+                    var isSelected = SelectedDigest == digest;
+                    var passkeyLabel = GetPasskeyCountLabel(digest);
+
+                    <MudCard Elevation="0" Class="py-0 my-1 cursor-pointer" @onclick="() => NavigateToConfigDetail(digest)">
+                        <div class="d-flex align-center" style="@CardBorderStyle(SelectedDigest, digest)">
+                            <MudIcon Icon="@Icons.Material.Filled.Cloud"
+                                     Color="@(isSelected ? Color.Primary : Color.Default)"
+                                     Class="mx-3" />
+                            <MudStack Class="py-2 flex-grow-1" Spacing="0">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudText Typo="Typo.h6">@(config.Alias ?? "(unnamed)")</MudText>
+                                    @if (isSelected)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Active</MudChip>
+                                    }
+                                </MudStack>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@config.AdminUrl</MudText>
+                                @if (!string.IsNullOrEmpty(passkeyLabel))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Tertiary">@passkeyLabel</MudText>
+                                }
+                            </MudStack>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Secondary" Class="mx-2" />
+                        </div>
+                    </MudCard>
+                }
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text"
+                       OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" Color="Color.Error"
+                   OnClick="@(() => navManager.NavigateTo(Routes.PathFor<DeletePage>()))">
+            Reset All
+        </MudButton>
+        @if (IsMultiKeriaConfigEnabled)
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="NavigateToAddConfig">
+                Add Config
+            </MudButton>
+        }
+    </MudStack>
+</div>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .cursor-pointer:hover {
+        background-color: var(--mud-palette-action-default-hover);
+    }
+</style>

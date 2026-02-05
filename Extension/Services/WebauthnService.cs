@@ -67,11 +67,21 @@ public class WebauthnService : IWebauthnService {
             // Generate user display name
             var userName = GenerateUserName(keriaConnectionDigest);
 
-            // Get existing credential IDs to exclude
+            // Get existing credential IDs to exclude - only exclude passkeys for the CURRENT config
+            // Passkeys for other configs have different userIds, so they won't conflict
             var existingPasskeys = await GetValidPasskeysAsync();
-            var excludeCredentialIds = existingPasskeys
+            var passkeysForCurrentConfig = existingPasskeys
+                .Where(p => p.KeriaConnectionDigest == keriaConnectionDigest)
+                .ToList();
+            var excludeCredentialIds = passkeysForCurrentConfig
                 .Select(a => a.CredentialBase64)
                 .ToList();
+
+            _logger.LogDebug(
+                "RegisterAttestStoreAuthenticatorAsync: excludeCount={ExcludeCount} (total passkeys={Total}, for current config={ForConfig})",
+                excludeCredentialIds.Count,
+                existingPasskeys.Count,
+                passkeysForCurrentConfig.Count);
 
             // Normalize authenticatorAttachment - only "platform" and "cross-platform" are valid WebAuthn values
             // "undefined", "all-supported", empty string, or null all mean "no preference"
@@ -208,19 +218,32 @@ public class WebauthnService : IWebauthnService {
 
     public async Task<Result<string>> AuthenticateAndDecryptPasscodeAsync() {
         try {
-            // Get valid passkeys
-            var passkeys = await GetValidPasskeysAsync();
-            if (passkeys.Count == 0) {
-                _logger.LogWarning("No valid stored passkeys found");
-                return Result.Fail<string>("No stored passkeys");
-            }
-
-            // Get KERIA connection digest and compute PRF salt
+            // Get KERIA connection digest first - we need it to filter passkeys
             var keriaConnectionDigestResult = await GetCurrentKeriaConnectionDigestAsync();
             if (keriaConnectionDigestResult.IsFailed) {
                 return Result.Fail<string>(keriaConnectionDigestResult.Errors);
             }
             var keriaConnectionDigest = keriaConnectionDigestResult.Value;
+
+            // Get valid passkeys for the CURRENT config only
+            // Passkeys are tied to their config via PRF salt - using a passkey from a different config
+            // would result in a different PRF output and decryption failure
+            var allPasskeys = await GetValidPasskeysAsync();
+            var passkeys = allPasskeys
+                .Where(p => p.KeriaConnectionDigest == keriaConnectionDigest)
+                .ToList();
+
+            _logger.LogDebug(
+                "AuthenticateAndDecryptPasscodeAsync: passkeysForConfig={ForConfig} (total={Total})",
+                passkeys.Count,
+                allPasskeys.Count);
+
+            if (passkeys.Count == 0) {
+                _logger.LogInformation("No valid stored passkeys found for current config");
+                return Result.Fail<string>("No stored passkeys for this configuration");
+            }
+
+            // Compute PRF salt from current config's digest
             var prfSalt = ComputePrfSalt(keriaConnectionDigest);
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
@@ -231,10 +254,11 @@ public class WebauthnService : IWebauthnService {
             // Log transports for each credential to help diagnose passkey selection
             for (int i = 0; i < passkeys.Count; i++) {
                 _logger.LogInformation(
-                    "Authentication: Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
+                    "Authentication: Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, KeriaDigest: {KeriaDigest}, Transports: [{Transports}]",
                     i,
                     passkeys[i].Name ?? "(unnamed)",
                     passkeys[i].CredentialBase64,
+                    passkeys[i].KeriaConnectionDigest,
                     string.Join(", ", passkeys[i].Transports));
             }
 

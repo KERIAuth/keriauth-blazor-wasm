@@ -252,11 +252,11 @@ public class WebauthnServiceTests {
 
     #endregion
 
-    #region KeriaConnectionDigest Computation Tests
+    #region GetCurrentKeriaConnectionDigestAsync Tests
 
     [Fact]
-    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenKeriaConfigMissing() {
-        // Arrange
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenPreferencesNotFound() {
+        // Arrange - Preferences storage lookup fails
         var passkeys = new StoredPasskeys {
             Passkeys = [
                 new StoredPasskey {
@@ -273,8 +273,8 @@ public class WebauthnServiceTests {
 
         _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
-            .ReturnsAsync(Result.Fail<KeriaConnectConfig?>("Config not found"));
+        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+            .ReturnsAsync(Result.Fail<Preferences?>("Preferences not found"));
 
         var service = CreateService();
 
@@ -283,12 +283,12 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsFailed);
-        Assert.Contains("KERIA configuration", result.Errors[0].Message);
+        Assert.Contains("Preferences", result.Errors[0].Message);
     }
 
     [Fact]
-    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenClientAidPrefixMissing() {
-        // Arrange
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenSelectedKeriaConnectionDigestNull() {
+        // Arrange - SelectedKeriaConnectionDigest is null
         var passkeys = new StoredPasskeys {
             Passkeys = [
                 new StoredPasskey {
@@ -303,20 +303,16 @@ public class WebauthnServiceTests {
             ]
         };
 
-        var config = new KeriaConnectConfig(
-            providerName: "test",
-            adminUrl: "https://test.com",
-            bootUrl: "https://boot.test.com",
-            passcodeHash: 12345,
-            clientAidPrefix: null,  // Missing
-            agentAidPrefix: "EAgent123",
-            isStored: true
-        );
+        var prefs = new Preferences {
+            KeriaPreference = new KeriaPreference {
+                SelectedKeriaConnectionDigest = null  // Not selected
+            }
+        };
 
         _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<KeriaConnectConfig?>(config));
+        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<Preferences?>(prefs));
 
         var service = CreateService();
 
@@ -325,12 +321,12 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsFailed);
-        Assert.Contains("ClientAidPrefix", result.Errors[0].Message);
+        Assert.Contains("keria configuration", result.Errors[0].Message.ToLowerInvariant());
     }
 
     [Fact]
-    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenAgentAidPrefixMissing() {
-        // Arrange
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenSelectedKeriaConnectionDigestEmpty() {
+        // Arrange - SelectedKeriaConnectionDigest is empty string
         var passkeys = new StoredPasskeys {
             Passkeys = [
                 new StoredPasskey {
@@ -345,20 +341,16 @@ public class WebauthnServiceTests {
             ]
         };
 
-        var config = new KeriaConnectConfig(
-            providerName: "test",
-            adminUrl: "https://test.com",
-            bootUrl: "https://boot.test.com",
-            passcodeHash: 12345,
-            clientAidPrefix: "EClient123",
-            agentAidPrefix: null,  // Missing
-            isStored: true
-        );
+        var prefs = new Preferences {
+            KeriaPreference = new KeriaPreference {
+                SelectedKeriaConnectionDigest = ""  // Empty string
+            }
+        };
 
         _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<KeriaConnectConfig?>(config));
+        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<Preferences?>(prefs));
 
         var service = CreateService();
 
@@ -367,40 +359,26 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsFailed);
-        Assert.Contains("AgentAidPrefix", result.Errors[0].Message);
+        Assert.Contains("keria configuration", result.Errors[0].Message.ToLowerInvariant());
     }
 
     [Fact]
-    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenPasscodeHashIsZero() {
-        // Arrange
+    public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenNoStoredPasskeys() {
+        // Arrange - No passkeys stored, but valid preferences
         var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "test-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
+            Passkeys = []
         };
 
-        var config = new KeriaConnectConfig(
-            providerName: "test",
-            adminUrl: "https://test.com",
-            bootUrl: "https://boot.test.com",
-            passcodeHash: 0,  // Invalid - zero
-            clientAidPrefix: "EClient123",
-            agentAidPrefix: "EAgent123",
-            isStored: true
-        );
+        var prefs = new Preferences {
+            KeriaPreference = new KeriaPreference {
+                SelectedKeriaConnectionDigest = "test-digest"
+            }
+        };
 
         _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfig>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<KeriaConnectConfig?>(config));
+        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<Preferences?>(prefs));
 
         var service = CreateService();
 
@@ -409,7 +387,7 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsFailed);
-        Assert.Contains("PasscodeHash", result.Errors[0].Message);
+        Assert.Contains("passkey", result.Errors[0].Message.ToLowerInvariant());
     }
 
     #endregion

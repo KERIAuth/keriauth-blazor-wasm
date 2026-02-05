@@ -150,7 +150,13 @@
         public PendingBwAppRequests MyPendingBwAppRequests { get; private set; } = PendingBwAppRequests.Empty;
 
         // Derived properties ("reactive selectors")
-        public string SelectedPrefix => MyPreferences.SelectedPrefix;
+        /// <summary>
+        /// Gets the selected AID prefix from the current KERIA configuration.
+        /// Each config stores its own SelectedPrefix, so switching configs automatically
+        /// switches to that config's selected identifier.
+        /// Returns null if not connected to KERIA (use IsConnectedToKeria to check first).
+        /// </summary>
+        public string? SelectedPrefix => IsConnectedToKeria ? MyKeriaConnectConfig.SelectedPrefix : null;
 
         /// <summary>
         /// Gets a KeriaConnectConfig by its digest from the configs collection.
@@ -214,6 +220,64 @@
                 throw new InvalidOperationException(
                     $"Session KeriaConnectionDigest '{sessionDigest}' does not match preference '{preferenceDigest}'");
             }
+        }
+
+        /// <summary>
+        /// Validates that the SelectedPrefix exists among the fetched identifiers.
+        /// Only validates when the KeriaConnectionInfo digest matches the selected preference digest,
+        /// ensuring we're comparing against identifiers from the correct config.
+        /// Logs a warning (does not throw) if SelectedPrefix is set but not found among identifiers.
+        /// </summary>
+        /// <returns>True if validation passed or was skipped (no mismatch), false if SelectedPrefix not found.</returns>
+        public bool ValidateSelectedPrefixAmongIdentifiers() {
+            // Only validate when connection info digest matches the selected preference
+            // During config switches, KeriaConnectionInfo may be stale (from previous config)
+            var connectionDigest = MyKeriaConnectionInfo?.KeriaConnectionDigest;
+            var preferenceDigest = MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+
+            if (string.IsNullOrEmpty(connectionDigest)) {
+                // No connection info yet, skip validation
+                return true;
+            }
+
+            if (connectionDigest != preferenceDigest) {
+                // Connection info is from a different config than the selected one
+                // This is expected during config switches - skip validation
+                _logger.LogDebug(
+                    "Skipping SelectedPrefix validation: connection digest '{ConnectionDigest}' != preference digest '{PreferenceDigest}'",
+                    connectionDigest, preferenceDigest);
+                return true;
+            }
+
+            // Get SelectedPrefix directly from the current config (not the property which checks IsConnectedToKeria)
+            var selectedPrefix = MyKeriaConnectConfig.SelectedPrefix;
+
+            // Empty SelectedPrefix is valid (not set yet)
+            if (string.IsNullOrEmpty(selectedPrefix)) {
+                return true;
+            }
+
+            // If no identifiers are fetched, skip validation (will be validated when identifiers arrive)
+            var identifiersList = MyKeriaConnectionInfo?.IdentifiersList;
+            if (identifiersList is null || identifiersList.Count == 0) {
+                return true;
+            }
+
+            // Check if SelectedPrefix is among the identifier prefixes
+            var allPrefixes = identifiersList
+                .SelectMany(ids => ids.Aids)
+                .Select(aid => aid.Prefix)
+                .ToHashSet();
+
+            if (!allPrefixes.Contains(selectedPrefix)) {
+                _logger.LogWarning(
+                    "SelectedPrefix '{SelectedPrefix}' is not among the fetched identifiers for config '{Digest}'. " +
+                    "Available prefixes: {Prefixes}. This may indicate a config/data inconsistency.",
+                    selectedPrefix, connectionDigest, string.Join(", ", allPrefixes));
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -473,6 +537,8 @@
                     onNext: (value) => {
                         MyKeriaConnectionInfo = value;
                         _logger.LogInformation("AppCache updated MyKeriaConnectionInfo");
+                        // Validate that SelectedPrefix (from config) is among the fetched identifiers
+                        ValidateSelectedPrefixAmongIdentifiers();
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, "Error observing Keria connection info storage"),

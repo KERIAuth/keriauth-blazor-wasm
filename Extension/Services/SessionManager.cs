@@ -303,6 +303,35 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
+    /// Clears ALL session storage when changing KERIA configuration.
+    /// This ensures a clean state for the new config.
+    ///
+    /// Use this when:
+    /// - User changes KERIA config on UnlockPage (no-op effect since not authenticated)
+    /// - User changes KERIA config on PreferencesPage (locks session)
+    ///
+    /// Clears: PasscodeModel, KeriaConnectionInfo, BwReadyState, PendingBwAppRequests
+    ///
+    /// NOTE: BwReadyState is automatically re-established by BackgroundWorker via its
+    /// storage observer (BwReadyStateObserver). This self-healing behavior ensures
+    /// App initialization doesn't timeout waiting for BwReadyState.
+    ///
+    /// AppCache will react to storage changes via its observers.
+    /// </summary>
+    public async Task ClearSessionForConfigChangeAsync() {
+        _logger.LogInformation("ClearSessionForConfigChangeAsync: Clearing ALL session storage for config change");
+
+        var clearResult = await _storageService.Clear(StorageArea.Session);
+        if (clearResult.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to clear session storage: {clearResult.Errors[0].Message}");
+        }
+
+        await SetLockIconAsync();
+        _logger.LogInformation("ClearSessionForConfigChangeAsync: Session storage cleared (BwReadyState will self-heal)");
+    }
+
+    /// <summary>
     /// Checks if session is unlocked by verifying (similar to AppCache.IsSessionUnlocked):
     /// 1. PasscodeModel exists in session storage with non-empty passcode
     /// 2. Passcode hash matches stored hash in KeriaConnectConfig

@@ -56,8 +56,6 @@ public static class Routes {
             Icons.Material.Filled.Key, Color.Surface),
         [typeof(MnemonicPage)] = new("Mnemonic", "/Mnemonic.html", RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
-        [typeof(KeriAgentServicePage)] = new("KERIA Cloud Service", "/KeriAgentService.html", RequiresAuth: true,
-            Icons.Material.Outlined.PeopleOutline, Color.Surface),
 
         // Detail pages (auth required, no menu). Trailing / if route has parameter
         [typeof(ProfilePage)] = new("Profile", "/Profile.html/", RequiresAuth: true),
@@ -83,14 +81,16 @@ public static class Routes {
             Icons.Material.Filled.LockOpen, Color.Surface),
         [typeof(PreferencesPage)] = new("Preferences", "/ManagePreferences.html", RequiresAuth: false,
             Icons.Material.Filled.SettingsApplications, Color.Surface),
+        [typeof(KeriaConfigsPage)] = new("KERIA Connections", "/KeriaConfigs.html", RequiresAuth: false,
+            Icons.Material.Filled.Cloud, Color.Surface),
+        [typeof(KeriaConfigPage)] = new("KERIA Connection", "/KeriaConfig.html/", RequiresAuth: false),
+        [typeof(DeletePage)] = new("Delete", "/Delete.html", RequiresAuth: false,
+            Icons.Material.Filled.DeleteForever, Color.Surface),
         [typeof(TermsPage)] = new("Terms", "/Terms.html", RequiresAuth: false),
         [typeof(SidePanel)] = new("SidePanel", "/sidepanel.html", RequiresAuth: false),
-        [typeof(DeletePage)] = new("Delete Config", "/Delete.html", RequiresAuth: false,
-            Icons.Material.Filled.DeleteForever, Color.Surface),
         [typeof(TestPage)] = new("Test", "/Test.html", RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
         [typeof(ReleaseHistoryPage)] = new("Release History", "/ReleaseHistory.html", RequiresAuth: false),
-        [typeof(ManageKeriAgentServicesPage)] = new("Manage KERIA Connections", "/ManageKeriAgentServices.html", RequiresAuth: false),
     };
 
     /// <summary>

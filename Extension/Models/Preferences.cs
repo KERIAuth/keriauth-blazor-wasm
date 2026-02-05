@@ -27,8 +27,12 @@
 
         /// <summary>
         /// Backward compatibility - reads SelectedPrefix from KeriaPreference.
+        /// Note: SelectedPrefix is now stored per-config in KeriaConnectConfig.
+        /// This property is kept for backward compatibility but should be accessed
+        /// via AppCache.SelectedPrefix (which reads from the current config) instead.
         /// </summary>
         [JsonIgnore]
+        [Obsolete("Use AppCache.SelectedPrefix instead, which reads from the current KeriaConnectConfig")]
         public string SelectedPrefix => KeriaPreference.SelectedPrefix;
 
         [JsonPropertyName("IsStored")]

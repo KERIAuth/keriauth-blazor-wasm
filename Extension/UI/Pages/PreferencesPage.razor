@@ -15,6 +15,8 @@
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject ILogger<PreferencesPage> logger
 @inject IAppPortService appPortService
+@inject ISnackbar snackbar
+@inject SessionManager sessionManager
 
 @using Extension.Services.Port
 
@@ -130,19 +132,29 @@
     {
         if (digest == ManageKeriaConfigsValue)
         {
-            navManager.NavigateTo(Routes.PathFor<ManageKeriAgentServicesPage>());
+            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
             return;
         }
 
         if (_selectedKeriaConfigDigest != digest)
         {
+            // Clear ALL session storage to lock the session
+            await sessionManager.ClearSessionForConfigChangeAsync();
+
             _selectedKeriaConfigDigest = digest;
 
             var newKeriaPreference = Prefs.KeriaPreference with {
                 SelectedKeriaConnectionDigest = digest
             };
             await Persist(Prefs with { KeriaPreference = newKeriaPreference });
-            // Note: On PreferencesPage, no restart required - just update selection
+
+            // Wait for appCache to reflect the new preference
+            await appCache.WaitForAppCache([
+                () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == digest
+            ]);
+
+            snackbar.Add("Configuration changed. Session locked.", Severity.Info);
+            // Stay on PreferencesPage (no navigation)
         }
     }
 

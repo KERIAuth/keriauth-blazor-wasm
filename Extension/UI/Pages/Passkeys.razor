@@ -9,6 +9,7 @@
 @using static Extension.AppConfig;
 @using static Extension.Helper.Identicon;
 @using static Extension.Helper.PreviousPage
+@using static Extension.Helper.PasskeyHelper
 @using System.Diagnostics
 @using System.Text.Json
 @using WebExtensions.Net
@@ -66,7 +67,7 @@
     }
 
     bool IsConsistentWithCurrentKeriaConnection(StoredPasskey passkey) =>
-        CurrentKeriaConnectionDigest is not null && passkey.KeriaConnectionDigest == CurrentKeriaConnectionDigest;
+        IsConsistentWithKeriaConnection(passkey, CurrentKeriaConnectionDigest);
 
     async Task AddPasskey()
     {

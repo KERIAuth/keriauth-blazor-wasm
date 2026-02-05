@@ -6,7 +6,7 @@ using FluentResults;
 namespace Extension.Models {
     public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, bool isStored = false) {
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false) {
             ProviderName = providerName;  // Agency Alias
             Alias = providerName; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC"; // Connection Alias
             AdminUrl = adminUrl;
@@ -14,11 +14,12 @@ namespace Extension.Models {
             PasscodeHash = passcodeHash;
             ClientAidPrefix = clientAidPrefix;
             AgentAidPrefix = agentAidPrefix;
+            SelectedPrefix = selectedPrefix;
             IsStored = isStored;
         }
 
         // important to have a parameterless constructor for deserialization or default constructor when storage is deleted
-        public KeriaConnectConfig() : this(null, null, null, 0, null, null, false) { }
+        public KeriaConnectConfig() : this(null, null, null, 0, null, null, null, false) { }
 
         [JsonPropertyName("IsStored")]
         public bool IsStored { get; init; }
@@ -43,6 +44,13 @@ namespace Extension.Models {
 
         [JsonPropertyName("AgentAidPrefix")]
         public string? AgentAidPrefix { get; init; }
+
+        /// <summary>
+        /// The selected AID prefix within this KERIA configuration.
+        /// Each config has its own selected identifier.
+        /// </summary>
+        [JsonPropertyName("SelectedPrefix")]
+        public string? SelectedPrefix { get; init; }
 
         public Result<bool> ValidateConfiguration() {
             var errors = new List<IError>();

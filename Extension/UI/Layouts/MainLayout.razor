@@ -32,13 +32,13 @@
     bool IsPersistentDrawerOpenInPopup { get; set; }
 
     // computed properties ...
-    Object ActiveAidObject => (object)ActivePrefix;
-    string ActivePrefix => appCache.MyPreferences.SelectedPrefix;
+    Object ActiveAidObject => (object?)ActivePrefix ?? "";
+    string ActivePrefix => appCache.SelectedPrefix ?? "";
     string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
     string ActiveAlias => string.IsNullOrEmpty(ActivePrefix) || appCache.Aids.Count == 0
         ? ""
         : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
-    bool IsIdenticonShown => appCache.IsSessionUnlocked && !string.IsNullOrEmpty(ActivePrefix); //&& !string.IsNullOrEmpty(ActiveAlias);
+    bool IsIdenticonShown => appCache.IsConnectedToKeria && !string.IsNullOrEmpty(ActivePrefix);
     string? KeriaAlias => appCache.GetSelectedKeriaConnectConfig()?.Alias;
     bool IsMultiKeriaConfigEnabled => appCache.MyPreferences.IsMultiKeriaConfigEnabled;
     static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
@@ -154,12 +154,23 @@
 
     async Task SetActiveAid(string prefix)
     {
-        var prefs = appCache.MyPreferences;
-        var updatedPrefs = prefs with {
-            KeriaPreference = prefs.KeriaPreference with { SelectedPrefix = prefix }
-        };
-        await storageService.SetItem<Preferences>(updatedPrefs);
-        // await appCache.WaitForAppCache([() => appCache.MyPreferences.SelectedPrefix == prefix]);
+        // Update SelectedPrefix in the current KeriaConnectConfig
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (!string.IsNullOrEmpty(selectedDigest))
+        {
+            var configs = appCache.MyKeriaConnectConfigs;
+            if (configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
+            {
+                var updatedConfig = currentConfig with { SelectedPrefix = prefix };
+                var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+                    [selectedDigest] = updatedConfig
+                };
+                await storageService.SetItem(new KeriaConnectConfigs {
+                    Configs = updatedConfigs,
+                    IsStored = true
+                });
+            }
+        }
         IsProfilePanelOpen = false;
     }
 
@@ -288,11 +299,7 @@
                     <MudNavLink Href="@(Routes.PathFor<Passkeys>())" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<PreferencesPage>())" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href="@(Routes.PathFor<KeriAgentServicePage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Outlined.PeopleOutline" IconColor="Color.Surface">KERIA Config</MudNavLink>
-                    @if (IsMultiKeriaConfigEnabled)
-                    {
-                        <MudNavLink Href="@(Routes.PathFor<ManageKeriAgentServicesPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">Manage KERIA Configs</MudNavLink>
-                    }
+                    <MudNavLink Href="@(Routes.PathFor<KeriaConfigsPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA Connections</MudNavLink>
                     @if (appCache.IsAuthenticated)
                     {
                         <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
@@ -301,7 +308,6 @@
                     {
                         <MudNavLink Href="@(Routes.PathFor<UnlockPage>())" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
                     }
-                    <MudNavLink Href="@(Routes.PathFor<DeletePage>())" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Delete Config&hellip;</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<TestPage>())" Icon="@Icons.Material.Filled.TempleBuddhist" IconColor="Color.Surface">Test</MudNavLink>
                 </MudNavGroup>
 

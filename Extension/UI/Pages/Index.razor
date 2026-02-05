@@ -5,7 +5,9 @@
 @using Extension.Models
 @using Extension.Models.Messages.BwApp
 @using Extension.Models.Messages.BwApp.Requests
+@using Extension.Services
 @using static Extension.AppConfig
+@using static Extension.Helper.PasskeyHelper
 
 @* IndexPage (from Blazor.BrowserExtension) provides base page functionality *@
 @inherits IndexPage
@@ -14,6 +16,7 @@
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
 @inject NavigationManager navManager
 @inject ILogger<IndexPage> logger
+@inject IWebauthnService webauthnService
 
 @* 
    // TODO P2: remove this loading indicator if it is always quick.
@@ -132,12 +135,44 @@
         }
 
         // Check for passkey creation offer flow (after first-time KERIA connection)
-        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.Yes)
+        // Handle NotOffered → OfferPasskeyPage, Yes → AddPasskeyPage (only if no passkey exists)
+        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.NotOffered ||
+            App.OfferCreatePasskeyState == OfferCreatePasskeyState.Yes)
         {
-            logger.LogInformation("RedirectIfNeeded: User accepted passkey offer, navigating to AddPasskey");
-            App.OfferCreatePasskeyState = OfferCreatePasskeyState.InProcess;
-            NavigateIfNeeded(Routes.PathFor<AddPasskeyPage>());
-            return;
+            var digestResult = await webauthnService.GetCurrentKeriaConnectionDigestAsync();
+            var storedPasskeysResult = await webauthnService.GetStoredPasskeysAsync();
+
+            if (digestResult.IsSuccess && storedPasskeysResult.IsSuccess)
+            {
+                var availability = GetPasskeysAvailable(storedPasskeysResult.Value, digestResult.Value);
+                if (!availability.HasPasskeys)
+                {
+                    if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.NotOffered)
+                    {
+                        logger.LogInformation("RedirectIfNeeded: No passkey exists, navigating to OfferPasskeyPage");
+                        NavigateIfNeeded(Routes.PathFor<OfferPasskeyPage>());
+                        return;
+                    }
+                    else // Yes
+                    {
+                        logger.LogInformation("RedirectIfNeeded: User accepted passkey offer and no passkey exists, navigating to AddPasskey");
+                        App.OfferCreatePasskeyState = OfferCreatePasskeyState.InProcess;
+                        NavigateIfNeeded(Routes.PathFor<AddPasskeyPage>());
+                        return;
+                    }
+                }
+                else
+                {
+                    logger.LogInformation("RedirectIfNeeded: Passkey already exists for config, skipping passkey offer flow");
+                    App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+                }
+            }
+            else
+            {
+                // If we can't determine passkey status, skip the offer to avoid potential issues
+                logger.LogWarning("RedirectIfNeeded: Could not determine passkey availability, skipping offer");
+                App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+            }
         }
 
         if (!appCache.ShowedGettingStarted)

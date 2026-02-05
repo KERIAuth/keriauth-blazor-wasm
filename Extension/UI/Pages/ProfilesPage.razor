@@ -123,11 +123,23 @@
 
     async Task SetActiveAid(string prefix)
     {
-        var prefs = appCache.MyPreferences;
-        var updatedPrefs = prefs with {
-            KeriaPreference = prefs.KeriaPreference with { SelectedPrefix = prefix }
-        };
-        await storageService.SetItem<Preferences>(updatedPrefs);
+        // Update SelectedPrefix in the current KeriaConnectConfig
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (!string.IsNullOrEmpty(selectedDigest))
+        {
+            var configs = appCache.MyKeriaConnectConfigs;
+            if (configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
+            {
+                var updatedConfig = currentConfig with { SelectedPrefix = prefix };
+                var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+                    [selectedDigest] = updatedConfig
+                };
+                await storageService.SetItem(new KeriaConnectConfigs {
+                    Configs = updatedConfigs,
+                    IsStored = true
+                });
+            }
+        }
     }
 
     public void Dispose()
@@ -152,7 +164,7 @@
             {
                 <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilePage>() + aid.Prefix)">
                     <MudCard Elevation="0" Class="py-0 my-1">
-                        <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.MyPreferences.SelectedPrefix, aid.Prefix))>
+                        <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.SelectedPrefix ?? "", aid.Prefix))>
                             <MudTooltip Text="Set Profile as active" Delay="1000">
                                 <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
                                     <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Class="bt-identicon" />

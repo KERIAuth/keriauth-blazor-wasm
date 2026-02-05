@@ -6,6 +6,7 @@
 @using Extension.Models.Storage
 @using Extension.Utilities
 @using Extension.Helper
+@using static Extension.Helper.PasskeyHelper
 
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
@@ -106,16 +107,11 @@
     // properties
     StoredPasskeys StoredPasskeys { get; set; } = new StoredPasskeys();
     bool isValid { get; set; }
-    int _relevantPasskeyCount = 0; // Cached count of passkeys matching selected KERIA config
+    PasskeyAvailability _passkeyAvailability; // Cached passkey count and label for selected KERIA config
 
     // reactive properties
-    string NumberPasskeysLabel => _relevantPasskeyCount switch
-    {
-        0 => "No passkeys registered",
-        1 => "1 passkey registered",
-        _ => $"{_relevantPasskeyCount} passkeys registered"
-    };
-    bool CanUsePasskey => _relevantPasskeyCount > 0;
+    string NumberPasskeysLabel => _passkeyAvailability.Label;
+    bool CanUsePasskey => _passkeyAvailability.HasPasskeys;
     bool IsPasskeyUsePreferred => appCache.MyPreferences.IsPasskeyUsePreferred;
     bool ShouldUsePasskey => CanUsePasskey && IsPasskeyUsePreferred;
     string TimeoutDuration => appCache.MyPreferences.InactivityTimeoutMinutes switch
@@ -181,29 +177,49 @@
 
         if (digest == ManageKeriaConfigsValue)
         {
-            navManager.NavigateTo(Routes.PathFor<ManageKeriAgentServicesPage>());
+            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
             return;
         }
 
         if (_selectedKeriaConfigDigest != digest)
         {
             _isChangingConfig = true;
-            _selectedKeriaConfigDigest = digest;
-            UpdateRelevantPasskeyCount(); // Update passkey count for new selection
-
-            var prefs = appCache.MyPreferences;
-            var newKeriaPreference = prefs.KeriaPreference with
+            try
             {
-                SelectedKeriaConnectionDigest = digest
-            };
-            await storageService.SetItem<Preferences>(prefs with
-            {
-                KeriaPreference = newKeriaPreference
-            });
+                // Clear session storage (no-op effect since not authenticated on UnlockPage)
+                await sessionManager.ClearSessionForConfigChangeAsync();
 
-            snackbar.Add("Configuration changed. App will restart in 3 seconds.", Severity.Warning);
-            await Task.Delay(3000);
-            navManager.NavigateTo(_initialUri?.AbsolutePath ?? "/index.html", true);
+                // Update selected digest and passkey count
+                _selectedKeriaConfigDigest = digest;
+                UpdateRelevantPasskeyCount();
+
+                // Update preference with new digest
+                var prefs = appCache.MyPreferences;
+                var newKeriaPreference = prefs.KeriaPreference with
+                {
+                    SelectedKeriaConnectionDigest = digest
+                };
+                await storageService.SetItem<Preferences>(prefs with
+                {
+                    KeriaPreference = newKeriaPreference
+                });
+
+                // Wait for appCache to reflect the new preference before proceeding
+                // This ensures MyKeriaConnectConfig returns the correct config for passcode validation
+                var prefUpdated = await appCache.WaitForAppCache([
+                    () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == digest
+                ]);
+                if (!prefUpdated)
+                {
+                    logger.LogWarning("Preference update did not propagate within timeout");
+                }
+
+                snackbar.Add("Configuration changed", Severity.Info);
+            }
+            finally
+            {
+                _isChangingConfig = false;
+            }
         }
     }
 
@@ -219,13 +235,12 @@
     }
 
     /// <summary>
-    /// Updates the cached count of passkeys matching the currently selected KERIA connection.
+    /// Updates the cached passkey availability for the currently selected KERIA connection.
     /// Called when passkeys are loaded or when the selected KERIA config changes.
     /// </summary>
     private void UpdateRelevantPasskeyCount()
     {
-        _relevantPasskeyCount = StoredPasskeys.Passkeys
-            .Count(p => p.KeriaConnectionDigest == _selectedKeriaConfigDigest);
+        _passkeyAvailability = GetPasskeysAvailable(StoredPasskeys, _selectedKeriaConfigDigest);
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)

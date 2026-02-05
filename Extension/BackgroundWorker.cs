@@ -68,6 +68,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // Track the "Open in tab" tab ID so we can reuse it (lost on service worker restart, which is fine)
     private int? _optionsTabId;
 
+    // BwReadyState observer - re-establishes BwReadyState when cleared by App
+    private IDisposable? _bwReadyStateObserver;
+
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
 
@@ -240,6 +243,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
+
+            // Subscribe to BwReadyState changes to re-establish it if cleared by App
+            // (e.g., during config change via ClearSessionForConfigChangeAsync)
+            SubscribeToBwReadyStateChanges();
 
             // Notify ContentScripts to reconnect their ports after service worker restart
             // await _portService.NotifyContentScriptsOfRestartAsync();
@@ -588,6 +595,54 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             logger.LogError(ex, "SetBwReadyStateAsync: Error setting BwReadyState");
             // Don't throw - allow extension to continue even if this fails
+        }
+    }
+
+    /// <summary>
+    /// Subscribes to BwReadyState changes to re-establish it when cleared.
+    /// This handles the case where App clears session storage (e.g., during config change)
+    /// but BackgroundWorker is still running and ready to handle requests.
+    /// </summary>
+    private void SubscribeToBwReadyStateChanges() {
+        if (_bwReadyStateObserver != null) {
+            logger.LogDebug("SubscribeToBwReadyStateChanges: Already subscribed");
+            return;
+        }
+
+        _bwReadyStateObserver = _storageService.Subscribe(
+            new BwReadyStateObserver(this),
+            StorageArea.Session
+        );
+        logger.LogDebug("SubscribeToBwReadyStateChanges: Subscribed to BwReadyState changes");
+    }
+
+    /// <summary>
+    /// Handles BwReadyState being cleared - immediately re-establishes it.
+    /// </summary>
+    private async Task HandleBwReadyStateClearedAsync() {
+        logger.LogInformation("HandleBwReadyStateClearedAsync: BwReadyState was cleared, re-establishing...");
+        await SetBwReadyStateAsync();
+    }
+
+    /// <summary>
+    /// Observer for BwReadyState changes. Re-establishes BwReadyState when cleared.
+    /// </summary>
+    private sealed class BwReadyStateObserver(BackgroundWorker backgroundWorker) : IObserver<BwReadyState> {
+        public void OnNext(BwReadyState? value) {
+            // Only act if BwReadyState was cleared (null or not initialized)
+            if (value is null || !value.IsInitialized) {
+                backgroundWorker.logger.LogDebug("BwReadyStateObserver: BwReadyState cleared or not initialized, re-establishing");
+                _ = backgroundWorker.HandleBwReadyStateClearedAsync();
+            }
+            // If value.IsInitialized is true, this was us setting it - no action needed
+        }
+
+        public void OnError(Exception error) {
+            backgroundWorker.logger.LogError(error, "BwReadyStateObserver: Error observing BwReadyState");
+        }
+
+        public void OnCompleted() {
+            backgroundWorker.logger.LogDebug("BwReadyStateObserver: Observer completed");
         }
     }
 
@@ -2202,10 +2257,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         string? rememberedPrefix = websiteConfig.RememberedPrefixOrNothing;
 
         if (rememberedPrefix is null) {
+            // Read SelectedPrefix from current KeriaConnectConfig
             var prefsResult = await _storageService.GetItem<Preferences>();
-            rememberedPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
-                ? prefsResult.Value.SelectedPrefix
-                : AppConfig.DefaultPreferences.SelectedPrefix;
+            var selectedDigest = prefsResult.IsSuccess && prefsResult.Value is not null
+                ? prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest
+                : string.Empty;
+
+            if (!string.IsNullOrEmpty(selectedDigest)) {
+                var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+                if (configsResult.IsSuccess && configsResult.Value?.Configs.TryGetValue(selectedDigest, out var config) == true) {
+                    rememberedPrefix = config.SelectedPrefix;
+                }
+            }
+
+            // Fallback to empty if no config found
+            rememberedPrefix ??= string.Empty;
         }
 
         // Create pending request for sign headers
@@ -2828,6 +2894,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     public void Dispose() {
+        _bwReadyStateObserver?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

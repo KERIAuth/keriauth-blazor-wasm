@@ -53,7 +53,7 @@
     string ExpandIcon => IsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     string WebsiteConfiguredAlias => Identifiers?.Find(x => x.Prefix == WebsiteConfiguredPrefix)?.Name ?? "not configured";
     Preferences Prefs => AppCache.MyPreferences;
-    string SelectedPrefix => Prefs.SelectedPrefix;
+    string SelectedPrefix => AppCache.SelectedPrefix ?? "";
     bool IsDetailShown => Prefs.IsSignRequestDetailShown;
 
     protected override async Task OnInitializedAsync()
@@ -178,10 +178,7 @@
 
         if (isConfigNew)
         {
-            var prefsResult = await storageService.GetItem<Preferences>();
-            WebsiteConfiguredPrefix = prefsResult.IsSuccess && prefsResult.Value is not null
-                ? prefsResult.Value.SelectedPrefix
-                : AppConfig.DefaultPreferences.SelectedPrefix;
+            WebsiteConfiguredPrefix = AppCache.SelectedPrefix ?? "unknown";
             ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = WebsiteConfiguredPrefix };
             await websiteConfigService.Update(ThisWebsiteConfig);
         }

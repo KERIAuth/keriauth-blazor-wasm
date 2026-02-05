@@ -1,6 +1,7 @@
 ﻿@page "/Test.html"
 @using Extension.Models
 @using Extension.Services
+@using Extension.Services.Port
 @using System.Reactive.Linq
 @inject NavigationManager navManager
 @using static Extension.AppConfig;
@@ -8,6 +9,7 @@
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
 @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+@inject IAppPortService appPortService  // For port connection status
 @using System.Linq.Expressions
 @inject ISnackbar snackbar
 
@@ -31,13 +33,23 @@
     // private const string popupTestUrl = "chrome-extension://dkjahajaknoahpngklccdmbgdnjlempj/index.html?message=%257B%2522type%2522%253A%2522%252Fsignify%252Fauthorize%2522%252C%2522requestId%2522%253A%252247705f1b-d4ba-43b0-ac3b-7637bcd9c572%2522%252C%2522payload%2522%253A%257B%2522message%2522%253A%2522Message%25201765134849911%2522%257D%257D&origin=\"http%3a%2f%2flocalhost%3a5173%2f\"&popupType=SelectAuthorize&tabId=1716420357&environment=ActionPopup";
     private List<BoolItem> Conditions = new();
 
+    // Computed properties for consistency checks
+    bool IsSelectedPrefixConsistent => appCache.ValidateSelectedPrefixAmongIdentifiers();
+
     protected override async Task OnInitializedAsync()
     {
         await this.SubscribeToAppCache(appCache);
 
         logger.LogInformation("OnInitializedAsync");
+        // Hierarchy of state dependencies (indentation shows parent-child relationships)
+        // NOTE: This list reflects actual AppCache property definitions
         Conditions = new()
         {
+            // Root-level prerequisites
+            new BoolItem(() => appCache.IsBwReady, "BW initialized, storage trustworthy", 0),
+            new BoolItem(() => appPortService.IsConnected, "App↔BW port connected", 0),
+
+            // Main state tree
             new BoolItem(() => appCache.IsReadyToTransact, null, 0),
             new BoolItem(() => appCache.IsNotWaiting, null, 1),
             new BoolItem(() => appCache.IsNotWaitingOnKeria, null, 2),
@@ -47,27 +59,33 @@
             new BoolItem(() => appCache.IsAppNotWaitingOnBw, null, 2),
             new BoolItem(() => appCache.IsConnectedToKeria, null, 1),
             new BoolItem(() => appCache.IsIdentifierFetched, null, 2),
+            new BoolItem(() => IsSelectedPrefixConsistent, "SelectedPrefix among identifiers (diagnostic)", 3),
             new BoolItem(() => appCache.IsAuthenticated, null, 2),
             new BoolItem(() => appCache.IsSessionUnlocked, null, 3),
-            new BoolItem(() => appCache.IsSessionPasscodeSet, null, 4),
             new BoolItem(() => appCache.IsSessionNotExpired, null, 4),
-            new BoolItem(() => appCache.IsPasscodeHashSet, null, 4),
+            new BoolItem(() => appCache.IsSessionPasscodeLocallyValid, "passcode matches config hash", 4),
+            new BoolItem(() => appCache.IsPasscodeHashSet, null, 5),
+            new BoolItem(() => appCache.IsSessionPasscodeSet, null, 5),
             new BoolItem(() => appCache.IsInitialized, null, 3),
             new BoolItem(() => appCache.IsConfigured, null, 4),
-            new BoolItem(() => appCache.IsPasscodeHashSet, null, 5),
-            new BoolItem(() => appCache.IsKeriaInitialConnectSuccess, null, 5),
-            new BoolItem(() => appCache.IsKeriaConfigValidated, null, 6),
-            new BoolItem(() => appCache.IsProductOnboarded, null, 6),
-            new BoolItem(() => appCache.IsCurrentPrivacyAgreed, null, 7),
-            new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 8),
-            new BoolItem(() => appCache.IsPrivacyHashExpected, null, 8),
-            new BoolItem(() => appCache.IsCurrentTosAgreed, null, 7),
-            new BoolItem(() => appCache.IsTosAgreedUtc, null, 8),
-            new BoolItem(() => appCache.IsTosHashExpected, null, 8),
-            new BoolItem(() => appCache.IsInstallAcknowledged, null , 7),
+            new BoolItem(() => appCache.IsKeriaConfigValidated, null, 5),
+            new BoolItem(() => appCache.IsProductOnboarded, null, 5),
+            new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 6),
+            new BoolItem(() => appCache.MyOnboardState.InstallVersionAcknowledged != null, "InstallVersionAcknowledged set", 6),
+            new BoolItem(() => appCache.IsCurrentTosAndPrivacyAgreed, null, 6),
+                new BoolItem(() => appCache.IsCurrentTosAgreed, "ToS agreed (full check)", 7),
+                    new BoolItem(() => appCache.IsTosAgreedUtc, null, 8),
+                    new BoolItem(() => appCache.IsTosHashExpected, null, 8),
+            new BoolItem(() => appCache.IsCurrentPrivacyAgreed, "Privacy agreed (full check)", 7),
+                    new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 8),
+                    new BoolItem(() => appCache.IsPrivacyHashExpected, null, 8),
+
+            new BoolItem(() => appCache.IsInstallAcknowledged, null, 7),
             new BoolItem(() => appCache.IsInstalledVersionAcknowledged, null, 8),
             new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 8),
-            new BoolItem(() => appCache.IsBwReady, null, 0),
+            
+            new BoolItem(() => appCache.MyPreferences.IsStored, "Preferences stored", 0),
+            
         };
     }
 

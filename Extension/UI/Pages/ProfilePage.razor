@@ -491,10 +491,33 @@
 
     async Task SetActiveAid(string prefix)
     {
-        var updatedPrefs = Prefs with {
-            KeriaPreference = Prefs.KeriaPreference with { SelectedPrefix = prefix }
-        };
-        await storageService.SetItem<Preferences>(updatedPrefs);
+        // Update SelectedPrefix in the current KeriaConnectConfig
+        var configsResult = await storageService.GetItem<KeriaConnectConfigs>();
+        if (!configsResult.IsSuccess || configsResult.Value is null)
+        {
+            logger.LogWarning("Failed to get KeriaConnectConfigs");
+            return;
+        }
+        var configs = configsResult.Value;
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest))
+        {
+            logger.LogWarning("No selected KERIA configuration digest");
+            return;
+        }
+        if (configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
+        {
+            var updatedConfig = currentConfig with { SelectedPrefix = prefix };
+            var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs)
+            {
+                [selectedDigest] = updatedConfig
+            };
+            await storageService.SetItem(new KeriaConnectConfigs
+            {
+                Configs = updatedConfigs,
+                IsStored = true
+            });
+        }
     }
 }
 

@@ -1,0 +1,382 @@
+@page "/KeriaConfig.html/{Digest}"
+@layout Layouts.MainLayout
+@using Extension.Models
+@using Extension.Models.Storage
+@using Extension.Services
+@using Extension.Services.Storage
+@using Extension.Utilities
+@using static Extension.Helper.PreviousPage
+@using static Extension.Helper.Identicon
+
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject AppCache appCache
+@inject IStorageService storageService
+@inject IWebauthnService webauthnService
+@inject SessionManager sessionManager
+@inject ISnackbar snackbar
+@inject IDialogService dialogService
+@inject ILogger<KeriaConfigPage> logger
+
+@implements IDisposable
+
+@code {
+    [Parameter]
+    public required string Digest { get; set; }
+
+    private KeriaConnectConfig? _config;
+    private int _passkeyCount;
+    private bool _isDeleting;
+
+    // Provider Name editing
+    private bool _isEditingProviderName;
+    private string _editingProviderName = "";
+
+    // Connection Alias editing
+    private bool _isEditingConnectionName;
+    private string _editingConnectionName = "";
+
+    // Computed properties
+    bool IsSelected => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == Digest;
+    bool IsOnlyConfig => appCache.MyKeriaConnectConfigs.Configs.Count == 1;
+    bool HasPasskeys => _passkeyCount > 0;
+    string PasskeyLabel => _passkeyCount switch {
+        0 => "No passkeys",
+        1 => "1 passkey",
+        _ => $"{_passkeyCount} passkeys"
+    };
+
+    protected override async Task OnInitializedAsync() {
+        await this.SubscribeToAppCache(appCache, async () => {
+            RefreshConfig();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        RefreshConfig();
+        await LoadPasskeyCount();
+
+        if (_config is null) {
+            logger.LogWarning("Config not found for digest {Digest}, redirecting to list", Digest);
+            snackbar.Add("Configuration not found", Severity.Warning);
+            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
+        }
+
+        logger.LogInformation("KeriaConfigPage OnInitializedAsync for digest {Digest}", Digest);
+    }
+
+    private void RefreshConfig() {
+        if (appCache.MyKeriaConnectConfigs.Configs.TryGetValue(Digest, out var config)) {
+            _config = config;
+        }
+    }
+
+    private async Task LoadPasskeyCount() {
+        var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
+        if (passkeysResult.IsSuccess) {
+            _passkeyCount = passkeysResult.Value.Passkeys.Count(p => p.KeriaConnectionDigest == Digest);
+        }
+    }
+
+    private async Task SetAsActive() {
+        if (IsSelected) return;
+
+        // Clear session if currently authenticated
+        if (appCache.IsAuthenticated) {
+            await sessionManager.ClearSessionForConfigChangeAsync();
+        }
+
+        // Update preference
+        var prefs = appCache.MyPreferences;
+        var newKeriaPreference = prefs.KeriaPreference with {
+            SelectedKeriaConnectionDigest = Digest
+        };
+        await storageService.SetItem<Preferences>(prefs with { KeriaPreference = newKeriaPreference });
+
+        snackbar.Add("Configuration set as active", Severity.Success);
+    }
+
+    // Provider Name editing
+    private void StartEditProviderName() {
+        _isEditingProviderName = true;
+        _editingProviderName = _config?.ProviderName ?? "";
+    }
+
+    private void CancelEditProviderName() {
+        _isEditingProviderName = false;
+        _editingProviderName = "";
+    }
+
+    private async Task SaveProviderName() {
+        if (_config is null) return;
+
+        if (string.IsNullOrWhiteSpace(_editingProviderName)) {
+            snackbar.Add("Provider Alias cannot be empty", Severity.Warning);
+            return;
+        }
+
+        var updatedConfig = _config with { ProviderName = _editingProviderName.Trim() };
+        await SaveConfigAsync(updatedConfig);
+        _isEditingProviderName = false;
+        _editingProviderName = "";
+        snackbar.Add("Provider Alias updated", Severity.Success);
+    }
+
+    // Connection Name editing
+    private void StartEditConnectionName() {
+        _isEditingConnectionName = true;
+        _editingConnectionName = _config?.Alias ?? "";
+    }
+
+    private void CancelEditConnectionName() {
+        _isEditingConnectionName = false;
+        _editingConnectionName = "";
+    }
+
+    private async Task SaveConnectionName() {
+        if (_config is null) return;
+
+        if (string.IsNullOrWhiteSpace(_editingConnectionName)) {
+            snackbar.Add("Connection Alias cannot be empty", Severity.Warning);
+            return;
+        }
+
+        var updatedConfig = _config with { Alias = _editingConnectionName.Trim() };
+        await SaveConfigAsync(updatedConfig);
+        _isEditingConnectionName = false;
+        _editingConnectionName = "";
+        snackbar.Add("Connection Alias updated", Severity.Success);
+    }
+
+    private async Task SaveConfigAsync(KeriaConnectConfig updatedConfig) {
+        var configs = appCache.MyKeriaConnectConfigs;
+        var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+            [Digest] = updatedConfig
+        };
+
+        await storageService.SetItem(new KeriaConnectConfigs {
+            Configs = updatedConfigs,
+            IsStored = true
+        });
+    }
+
+    private async Task DeleteConfig() {
+        if (_config is null) return;
+
+        // Show confirmation dialog
+        var parameters = new DialogParameters<ConfirmDeleteConfigDialog> {
+            { x => x.ConfigAlias, _config.Alias ?? "(unnamed)" },
+            { x => x.IsOnlyConfig, IsOnlyConfig },
+            { x => x.PasskeyCount, _passkeyCount }
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await dialogService.ShowAsync<ConfirmDeleteConfigDialog>("Delete Configuration", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled) return;
+
+        var deletePasskeys = result.Data is bool b && b;
+
+        _isDeleting = true;
+        StateHasChanged();
+
+        try {
+            // If this is the active config, we need to select another or clear selection
+            if (IsSelected) {
+                var otherDigest = appCache.MyKeriaConnectConfigs.Configs.Keys
+                    .FirstOrDefault(d => d != Digest);
+
+                var prefs = appCache.MyPreferences;
+                var newKeriaPreference = prefs.KeriaPreference with {
+                    SelectedKeriaConnectionDigest = otherDigest
+                };
+                await storageService.SetItem<Preferences>(prefs with { KeriaPreference = newKeriaPreference });
+
+                if (appCache.IsAuthenticated) {
+                    await sessionManager.ClearSessionForConfigChangeAsync();
+                }
+            }
+
+            // Delete passkeys if requested
+            if (deletePasskeys && HasPasskeys) {
+                var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
+                if (passkeysResult.IsSuccess) {
+                    var toDelete = passkeysResult.Value.Passkeys
+                        .Where(p => p.KeriaConnectionDigest == Digest)
+                        .Select(p => p.CredentialBase64)
+                        .ToList();
+
+                    foreach (var credId in toDelete) {
+                        await webauthnService.RemovePasskeyAsync(credId);
+                    }
+                }
+            }
+
+            // Delete the config
+            var configs = appCache.MyKeriaConnectConfigs;
+            var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
+            updatedConfigs.Remove(Digest);
+
+            await storageService.SetItem(new KeriaConnectConfigs {
+                Configs = updatedConfigs,
+                IsStored = true
+            });
+
+            snackbar.Add("Configuration deleted", Severity.Success);
+            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
+        }
+        finally {
+            _isDeleting = false;
+        }
+    }
+
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            @if (_config is not null)
+            {
+                <div style="display:flex;">
+                    <MudTooltip Delay="0.5" Placement="Placement.Bottom"
+                                Text="View and manage this KERIA Cloud Service connection.">
+                        <MudStack Row="true">
+                            <MudText Class="bt-page-title">KERIA Cloud Service Connection</MudText>
+                            <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
+                        </MudStack>
+                    </MudTooltip>
+                </div>
+
+                @if (IsSelected)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" Class="mt-2">Active Configuration</MudChip>
+                }
+
+                <!-- Agency-Level Service Section -->
+                <MudText Typo="Typo.h6" Class="pt-4"><b>Agency-Level Service</b></MudText>
+                <MudStack Class="d-flex justify-center ml-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText><b>Provider Alias:</b></MudText>
+                        @if (_isEditingProviderName)
+                        {
+                            <MudTextField @bind-Value="_editingProviderName"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Immediate="true"
+                                          Class="mx-2"
+                                          Style="max-width: 21.429rem;"
+                                          @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveProviderName(); })" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           OnClick="SaveProviderName" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="CancelEditProviderName" />
+                        }
+                        else
+                        {
+                            <MudText>@(_config.ProviderName ?? "(none)")</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           OnClick="StartEditProviderName" />
+                        }
+                    </MudStack>
+                    <MudText><b>Admin (aka Connect) URL:</b> @(_config.AdminUrl ?? "(none)")</MudText>
+                    <MudText><b>Boot URL:</b> @(_config.BootUrl ?? "(none)")</MudText>
+                </MudStack>
+
+                <!-- Agent-level Connection Section -->
+                <MudText Typo="Typo.h6" Class="pt-4"><b>Agent-level Connection</b></MudText>
+                <MudStack Class="d-flex justify-center ml-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText><b>Connection Alias:</b></MudText>
+                        @if (_isEditingConnectionName)
+                        {
+                            <MudTextField @bind-Value="_editingConnectionName"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Immediate="true"
+                                          Class="mx-2"
+                                          Style="max-width: 21.429rem;"
+                                          @onkeyup="@(async (e) => { if (e.Key == "Enter") await SaveConnectionName(); })" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           OnClick="SaveConnectionName" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="CancelEditConnectionName" />
+                        }
+                        else
+                        {
+                            <MudText>@(_config.Alias ?? "(none)")</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           OnClick="StartEditConnectionName" />
+                        }
+                    </MudStack>
+                    <MudText>KERI Auth used your passcode to generate your Client AID and its Prefix, which upon initial connection with the configured KERIA service, delegated signing authority to your Agent AID there.</MudText>
+                    @if (!string.IsNullOrEmpty(_config.ClientAidPrefix) && !string.IsNullOrEmpty(_config.AgentAidPrefix))
+                    {
+                        <MudStack Row="true" Style="align-items: center;">
+                            <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(_config.ClientAidPrefix)" Class="bt-identicon" />
+                            <MudText Style="overflow-wrap: anywhere;"><b>Client AID Prefix:</b><br />@_config.ClientAidPrefix</MudText>
+                        </MudStack>
+                        <MudStack Row="true" Style="align-items: center;">
+                            <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(_config.AgentAidPrefix)" Class="bt-identicon" />
+                            <MudText Style="overflow-wrap: anywhere;"><b>Agent AID Prefix:</b><br />@_config.AgentAidPrefix</MudText>
+                        </MudStack>
+                    }
+                </MudStack>
+
+                <!-- Passkeys Section -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="pt-4">
+                    <MudText Typo="Typo.h6"><b>Passkeys</b></MudText>
+                    <MudLink Href="@(Routes.PathFor<Passkeys>())" Typo="Typo.body2" Class="ml-2">manage</MudLink>
+                </MudStack>
+                <MudStack Class="d-flex justify-center ml-3">
+                    <MudText>@PasskeyLabel registered for this configuration.</MudText>
+                </MudStack>
+
+                @if (!IsSelected)
+                {
+                    <!-- Set as Active Section -->
+                    <MudDivider Class="my-4" />
+                    <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="SetAsActive">
+                            Set as Active
+                        </MudButton>
+                    </MudStack>
+                }
+            }
+            else
+            {
+                <MudText>Loading...</MudText>
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text"
+                       OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Error"
+                   OnClick="DeleteConfig"
+                   Disabled="_isDeleting">
+            @if (_isDeleting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Delete
+        </MudButton>
+    </MudStack>
+</div>

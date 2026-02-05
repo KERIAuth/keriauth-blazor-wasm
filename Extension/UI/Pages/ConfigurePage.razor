@@ -521,6 +521,17 @@
             AgentAidPrefix = agentAidPrefix
         };
 
+        // Compute the expected digest so we can wait for it specifically
+        var expectedDigestResult = KeriaConnectionDigestHelper.Compute(completeConfig);
+        if (expectedDigestResult.IsFailed)
+        {
+            logger.LogError("Failed to compute digest for complete config: {Errors}", string.Join(", ", expectedDigestResult.Errors));
+            SetFlowFailed(3, "Failed to compute configuration digest");
+            return;
+        }
+        var expectedDigest = expectedDigestResult.Value;
+        logger.LogInformation("Computed expected digest for new config: {Digest}", expectedDigest);
+
         var storeCompleteConfigResult = await StoreKeriaConnectConfigAsync(completeConfig, setAsSelected: true);
         if (storeCompleteConfigResult.IsFailed)
         {
@@ -530,11 +541,16 @@
         }
 
         // Wait for complete config to be reflected in AppCache (both KeriaConnectConfigs and Preferences)
-        // Need to wait for both the config dictionary AND the selected digest in preferences
-        await appCache.WaitForAppCache([
+        // CRITICAL: Wait for the SPECIFIC new digest, not just any non-empty digest.
+        // This prevents race conditions when adding a new config while another already exists.
+        var digestUpdated = await appCache.WaitForAppCache([
             () => appCache.IsConfigured,
-            () => !string.IsNullOrEmpty(appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest)
+            () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == expectedDigest
         ]);
+        if (!digestUpdated)
+        {
+            logger.LogWarning("Timed out waiting for new digest {Digest} to appear in Preferences", expectedDigest);
+        }
         // IsConfigured check passed
         KeriaConnectConfig = completeConfig;
 
@@ -603,7 +619,7 @@
             _ops5Skipped = true;
         }
 
-        // Store Preferences with SelectedPrefix
+        // Store SelectedPrefix in the KeriaConnectConfig
         if (identifiers.Aids.Count == 0)
         {
             SetFlowFailed(5, "No identifiers available after creation");
@@ -611,28 +627,47 @@
         }
 
         var selectedPrefix = identifiers.Aids.First().Prefix;
-        // Use 'with' to preserve existing preferences (theme, timeouts, etc.) when setting SelectedPrefix
-        var currentPrefs = appCache.MyPreferences;
-        var preferences = currentPrefs with {
-            KeriaPreference = currentPrefs.KeriaPreference with { SelectedPrefix = selectedPrefix }
-        };
 
-        var storePreferencesResult = await storageService.SetItem<Preferences>(preferences);
-        if (storePreferencesResult.IsFailed)
+        // Get the digest from preferences (set earlier in this flow via StoreKeriaConnectConfigAsync)
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest))
         {
-            logger.LogError("Failed to store preferences: {Errors}", string.Join(", ", storePreferencesResult.Errors));
-            SetFlowFailed(5, "Failed to store preferences");
+            logger.LogError("SelectedKeriaConnectionDigest is not set in preferences");
+            SetFlowFailed(5, "Configuration digest not found");
             return;
         }
 
-        // Wait for Preferences to be reflected in AppCache
-        // Waiting for SelectedPrefix (current: '{Value}')", appCache.MyPreferences.SelectedPrefix);
-        await appCache.WaitForAppCache([() => !string.IsNullOrWhiteSpace(appCache.MyPreferences.SelectedPrefix)]);
+        // Update the KeriaConnectConfig with SelectedPrefix
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
+        {
+            var updatedConfig = currentConfig with { SelectedPrefix = selectedPrefix };
+            var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+                [selectedDigest] = updatedConfig
+            };
+            var storeConfigsResult = await storageService.SetItem(new KeriaConnectConfigs {
+                Configs = updatedConfigs,
+                IsStored = true
+            });
+            if (storeConfigsResult.IsFailed)
+            {
+                logger.LogError("Failed to store config with SelectedPrefix: {Errors}", string.Join(", ", storeConfigsResult.Errors));
+                SetFlowFailed(5, "Failed to store selected identifier");
+                return;
+            }
+        }
+        else
+        {
+            logger.LogError("Config not found for digest {Digest}", selectedDigest);
+            SetFlowFailed(5, "Configuration not found");
+            return;
+        }
+
+        // Wait for SelectedPrefix to be reflected in AppCache (via the config)
+        await appCache.WaitForAppCache([() => !string.IsNullOrWhiteSpace(appCache.SelectedPrefix)]);
         // SelectedPrefix check passed
 
         // Store KeriaConnectionInfo to Session storage
-        // Use the digest from preferences (set earlier in this flow via StoreKeriaConnectConfigAsync)
-        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest))
         {
             logger.LogError("SelectedKeriaConnectionDigest is not set in preferences");
@@ -1011,6 +1046,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudButton @ref="resetButton" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetConfiguration" data-testid="reset">Reset</MudButton>
         <MudSpacer />
-        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<OfferPasskeyPage>()))" Class="justify-start" data-testid="next">Next</MudButton>
+        <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<Index>()))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
 </div>
