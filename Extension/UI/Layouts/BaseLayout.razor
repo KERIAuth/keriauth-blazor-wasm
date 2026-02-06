@@ -64,7 +64,9 @@
     protected virtual async Task HandleAppCacheChanged()
     {
         logger.LogInformation("HandleAppCacheChanged invoked");
-        await AssertHydratedCache();
+        // Note: AssertHydratedCache is called in OnInitializedAsync, not here.
+        // By the time HandleAppCacheChanged fires, AppCache is already initialized and receiving storage updates.
+
         // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated)
         {
