@@ -1,4 +1,4 @@
-@page "/RequestSignIn.html"
+﻿@page "/RequestSignIn.html"
 @layout Layouts.DialogLayout
 @inherits Extension.UI.Components.TabDialogPageBase
 
@@ -28,6 +28,8 @@
     string? SelectedAlias { get; set; }
     RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
 
+    RequestSelectAuthorizePayload? payload;
+
     // Computed properties
     bool IsSignInDisabled => (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null));
 
@@ -36,7 +38,7 @@
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        var payload = await InitializeFromPendingRequestAsync<RequestSelectAuthorizePayload>(
+        payload = await InitializeFromPendingRequestAsync<RequestSelectAuthorizePayload>(
             BwAppMessageType.Values.RequestSelectAuthorize);
         if (payload is null)
         {
@@ -201,6 +203,17 @@
             await SignInHandler();
         }
     }
+
+    public class Root
+    {
+        public InnerPayload? Payload { get; set; }
+    }
+
+    public class InnerPayload
+    {
+        public string? Message { get; set; }
+    }
+
 }
 
 @if (IsInitialized)
@@ -225,8 +238,24 @@
                 }
                 @if (ActiveTab is not null)
                 {
+                    // TODO P2: move code out
+                    Root? obj;
+                    string? json;
+                    string messageText = "(none1)";
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    if (payload?.OriginalPayload != null)
+                    {
+                        json = JsonSerializer.Serialize(payload.OriginalPayload);
+                        obj = JsonSerializer.Deserialize<Root>(json, options);
+                        messageText = obj?.Payload?.Message ?? "(none2)";
+                    }
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
-                } else
+                    <MudText>Message: @messageText</MudText>
+                }
+                else
                 {
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }

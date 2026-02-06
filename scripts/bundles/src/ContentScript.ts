@@ -577,6 +577,15 @@ import {
                 case CsBwMsgEnum.POLARIS_SIGNIFY_AUTHORIZE:
                 case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
                 case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
+                    try {
+                        console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                        const authorizeRequestMessage = event.data as Polaris.MessageData<Polaris.AuthorizeArgs>;
+                        console.info("KeriAuthCs: Authorize request payload:", JSON.stringify(authorizeRequestMessage.payload));
+                        await sendMessageToBW(authorizeRequestMessage);
+                    } catch (error) {
+                        console.error(`KeriAuthCs ${event.data.type} error:`, error);
+                    }
+                    break;
                 case CsBwMsgEnum.POLARIS_SIGN_REQUEST:
                     try {
                         console.info(`KeriAuthCs ${event.data.type}:`, event.data);
@@ -601,7 +610,6 @@ import {
                         return;
                     }
                     break;
-
                 case CsBwMsgEnum.POLARIS_CLEAR_SESSION: {
                     // const authorizeArgsMessage3 = event.data as Polaris.MessageData<Polaris.AuthorizeArgs>;
                     // Although sessions are not implemented, we can respond as expected when Clear is requested
