@@ -195,29 +195,8 @@
     {
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
-        // Subscribe to appCache changes to detect external storage modifications
-        await this.SubscribeToAppCache(appCache, OnAppCacheChanged);
-    }
-
-    /// <summary>
-    /// Called when appCache changes. Detects if KeriaConnectConfig was cleared externally
-    /// (e.g., by session timeout, Delete Config, or another page) and resets local state.
-    /// </summary>
-    async Task OnAppCacheChanged()
-    {
-        /*
-        bool currentHasConfig = appCache.IsConfigured;
-
-        // If we previously had a config but now we don't, storage was cleared externally
-        if (_previousHadConfig && !currentHasConfig)
-        {
-            logger.LogInformation("OnAppCacheChanged: KeriaConnectConfig was cleared externally, resetting local state");
-            ResetLocalState();
-            }
-
-        _previousHadConfig = currentHasConfig;
-        await InvokeAsync(StateHasChanged);
-        */
+        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        await this.SubscribeToAppCache(appCache);
     }
 
     public async ValueTask DisposeAsync()

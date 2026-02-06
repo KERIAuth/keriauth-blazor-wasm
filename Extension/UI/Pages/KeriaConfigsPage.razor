@@ -50,9 +50,8 @@
             : "border-left: 4px solid transparent;";
 
     protected override async Task OnInitializedAsync() {
-        await this.SubscribeToAppCache(appCache, async () => {
-            await InvokeAsync(StateHasChanged);
-        });
+        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        await this.SubscribeToAppCache(appCache);
 
         // Load passkeys to show count per config
         var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
