@@ -162,10 +162,12 @@
             if (configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
             {
                 var updatedConfig = currentConfig with { SelectedPrefix = prefix };
-                var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+                var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs)
+                {
                     [selectedDigest] = updatedConfig
                 };
-                await storageService.SetItem(new KeriaConnectConfigs {
+                await storageService.SetItem(new KeriaConnectConfigs
+                {
                     Configs = updatedConfigs,
                     IsStored = true
                 });
@@ -235,20 +237,19 @@
             <MudSpacer />
 
 
-            <SessionStatusIndicator
-                IsAuthenticated="@appCache.IsAuthenticated"
-                IsIdentifierFetched="@appCache.IsIdentifierFetched"
-                IsConfigured="@appCache.IsConfigured"
-                IsHovered="@isTimeoutHovered"
-                TimeoutInfo="@TimeoutText"
-                TimeoutTooltip="@TimeoutTooltip"
-                SessionPercentageRemaining="@SessionPercentageRemaining"
-                SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
-                OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
-                OnRefreshConnect="@RefreshConnect"
-                OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))"
-                KeriaAlias="@KeriaAlias"
-                IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
+            <SessionStatusIndicator IsAuthenticated="@appCache.IsAuthenticated"
+                                    IsIdentifierFetched="@appCache.IsIdentifierFetched"
+                                    IsConfigured="@appCache.IsConfigured"
+                                    IsHovered="@isTimeoutHovered"
+                                    TimeoutInfo="@TimeoutText"
+                                    TimeoutTooltip="@TimeoutTooltip"
+                                    SessionPercentageRemaining="@SessionPercentageRemaining"
+                                    SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
+                                    OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
+                                    OnRefreshConnect="@RefreshConnect"
+                                    OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))"
+                                    KeriaAlias="@KeriaAlias"
+                                    IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
 
             <!-- Active Identifier Identicon -->
             <div style="align-self:center; height: 2.5rem; padding-right:0.5rem;">
@@ -294,21 +295,25 @@
                 <MudNavLink Href="@(Routes.PathFor<ProfilesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Profiles</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+                @if (appCache.IsAuthenticated)
+                {
+                    <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                }
+                else
+                {
+                    <MudNavLink Href="@(Routes.PathFor<UnlockPage>())" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
+                }
 
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
-                    <MudNavLink Href="@(Routes.PathFor<Passkeys>())" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
-                    <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<PreferencesPage>())" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
-                    <MudNavLink Href="@(Routes.PathFor<KeriaConfigsPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA Connections</MudNavLink>
-                    @if (appCache.IsAuthenticated)
-                    {
-                        <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
-                    }
-                    else
-                    {
-                        <MudNavLink Href="@(Routes.PathFor<UnlockPage>())" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
-                    }
-                    <MudNavLink Href="@(Routes.PathFor<TestPage>())" Icon="@Icons.Material.Filled.TempleBuddhist" IconColor="Color.Surface">Test</MudNavLink>
+                    <MudNavLink Href="@(Routes.PathFor<Passkeys>())" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
+                    <MudNavLink Href="@(Routes.PathFor<KeriaConfigsPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA</MudNavLink>
+                    <MudNavGroup Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
+                        <MudNavLink Href="@(Routes.PathFor<DeveloperStatePage>())" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
+                        <MudNavLink Href="@(Routes.PathFor<DeveloperPrimersPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.AutoFixHigh" IconColor="Color.Surface">Primers</MudNavLink>
+                        <MudNavLink Href="@(Routes.PathFor<DeveloperTestPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
+                        <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
+                    </MudNavGroup>
                 </MudNavGroup>
 
                 <MudNavGroup Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">

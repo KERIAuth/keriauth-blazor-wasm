@@ -1,4 +1,4 @@
-﻿@page "/Test.html"
+﻿@page "/DeveloperPrimers.html"
 @using Extension.Models
 @using Extension.Services
 @using Extension.Services.Port
@@ -98,24 +98,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Class="bt-page-title">Test</MudText>
-            <MudStack>
-                <MudStack Spacing="1">
-                    @foreach (var item in Conditions)
-                    {
-                        <TestPageComponent Condition="@item.Condition" Label="@item.Label" Indent="@item.Indent" />
-                    }
-                </MudStack>
-            </MudStack>
-            <MudStack>
-                <MudLink Href="@(Routes.PathFor<WelcomePage>())" Target="_self">Welcome</MudLink>
-                <MudLink Href="@(Routes.PathFor<NewReleasePage>())" Target="_self">Release</MudLink>
-                <MudLink Href="@(Routes.PathFor<TermsPage>())" Target="_self">Terms</MudLink>
-                <MudLink Href="@(Routes.PathFor<ConfigurePage>())" Target="_self">Configure</MudLink>
-                <MudLink Href="@(Routes.PathFor<UnlockPage>())" Target="_self">Unlock</MudLink>
-                <MudLink Href="@(Routes.PathFor<ConnectingPage>())" Target="_self">Connecting</MudLink>
-            </MudStack>
-            <MudButton Variant="Variant.Outlined" OnClick='@(async () => snackbar.Add("testing testing testing testing testing testing testing done"))'>Snackbar</MudButton>
+            <MudText Class="bt-page-title">Developer Primers</MudText>
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
