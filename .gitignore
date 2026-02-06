@@ -449,17 +449,14 @@ obj/
 /Extension/wwwroot/Extension.lib.module.js
 /Extension/wwwroot/Extension.lib.module.js.map
 /Extension/wwwroot/Extension.lib.module.ts
+/Extension/packages.lock.json
 /Extension/log.txt
 /Extension/commit_hash.txt
+
+/Extension.Tests/packages.lock.json
 
 # Claude Code settings
 .claude/settings.local.json
 
 
-
-Extension/wwwroot/scripts/esbuild/demo1.js
-Extension/wwwroot/scripts/esbuild/utils.js
-/Extension/packages.lock.json
-/Extension.Tests/packages.lock.json
-.claude/settings.local.json
 /nul
