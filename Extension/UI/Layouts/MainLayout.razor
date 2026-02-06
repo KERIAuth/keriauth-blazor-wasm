@@ -143,7 +143,7 @@
     {
         logger.LogInformation("HandleAppCacheChanged");
         await base.HandleAppCacheChanged();
-        StateHasChanged();
+        // Note: StateHasChanged() is called by base.HandleAppCacheChanged()
     }
 
     protected override async Task OnParametersSetAsync()

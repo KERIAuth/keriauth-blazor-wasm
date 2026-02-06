@@ -135,7 +135,7 @@
     {
         await base.HandleAppCacheChanged();
         logger.LogInformation("HandleAppCacheChanged");
-        StateHasChanged();
+        // Note: StateHasChanged() is called by base.HandleAppCacheChanged()
     }
 
     public override async ValueTask DisposeAsync()
