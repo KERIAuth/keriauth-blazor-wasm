@@ -8,7 +8,7 @@
 @inject IJSRuntime js
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
-@inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+@inject AppCache appCache
 @inject IAppPortService appPortService  // For port connection status
 @using System.Linq.Expressions
 @inject ISnackbar snackbar

@@ -7,15 +7,29 @@ namespace Extension.UI.Components {
     /// Extension methods for ComponentBase to enable reactive AppCache subscriptions
     /// without requiring inheritance from AppCacheReactiveComponentBase.
     ///
+    /// IMPORTANT: StateHasChanged is called AUTOMATICALLY before the callback.
+    /// Do NOT call StateHasChanged in your callback - it's redundant and wastes render cycles.
+    ///
     /// Usage:
     /// <code>
+    /// // CORRECT - simple subscription (most common case):
     /// protected override async Task OnInitializedAsync() {
-    ///     await this.SubscribeToAppCache(appCache, MyCustomCallback);
+    ///     await this.SubscribeToAppCache(appCache);
     /// }
     ///
-    /// public override void Dispose() {
+    /// // CORRECT - callback with meaningful work (NOT just StateHasChanged):
+    /// protected override async Task OnInitializedAsync() {
+    ///     await this.SubscribeToAppCache(appCache, async () => {
+    ///         RefreshData();  // Do actual work here
+    ///         // StateHasChanged already called - don't call it again
+    ///     });
+    /// }
+    ///
+    /// // WRONG - redundant StateHasChanged in callback:
+    /// await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
+    ///
+    /// public void Dispose() {
     ///     this.UnsubscribeFromAppCache();
-    ///     base.Dispose();
     /// }
     /// </code>
     /// </summary>
@@ -24,11 +38,12 @@ namespace Extension.UI.Components {
 
         /// <summary>
         /// Subscribe a component to AppCache changes. Call in OnInitializedAsync.
-        /// The component will automatically call StateHasChanged() when AppCache changes.
+        /// StateHasChanged() is called AUTOMATICALLY when AppCache changes - do not call it in your callback.
         /// </summary>
         /// <param name="component">The component to subscribe</param>
         /// <param name="appCache">The AppCache instance to observe</param>
-        /// <param name="onChanged">Optional callback to execute after StateHasChanged when cache changes</param>
+        /// <param name="onChanged">Optional callback to execute after StateHasChanged.
+        /// Use only for meaningful work (e.g., RefreshData, navigation). Do NOT use for StateHasChanged - it's already called.</param>
         public static async Task SubscribeToAppCache(
             this ComponentBase component,
             AppCache appCache,

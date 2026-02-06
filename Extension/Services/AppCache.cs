@@ -17,10 +17,21 @@
     /// Note: The Change event is raised on any relevant storage change, so this will cause re-renders in dependent components, perhaps more than needed.
     /// The rendering triggering can be optimized by making the comparisons more granular if/as needed or adding more kinds of change events.
     ///
-    /// Usage on razor pages:
+    /// ## Subscription Architecture
+    ///
+    /// LAYOUTS subscribe to AppCache in BaseLayout.razor:
+    ///   - BaseLayout subscribes and handles app-wide concerns (auth state, session timeout, pending requests)
+    ///   - MainLayout and DialogLayout inherit from BaseLayout (subscription inherited)
+    ///   - Layout's StateHasChanged cascades to child components but may not re-render pages
+    ///
+    /// PAGES may also subscribe to ensure they receive StateHasChanged directly:
+    ///   - In Blazor, layout StateHasChanged doesn't always re-render child pages
+    ///   - Pages that display AppCache data should subscribe for reliable updates
+    ///
+    /// ## Usage on Razor Pages
     ///
     /// For REACTIVE pages (auto-update on storage changes):
-    ///   @inject AppCache appCache  // Reactive: subscribes in OnInitializedAsync via SubscribeToAppCache()
+    ///   @inject AppCache appCache
     ///   @implements IDisposable
     ///
     ///   In OnInitializedAsync:
@@ -31,7 +42,26 @@
     ///     this.UnsubscribeFromAppCache();
     ///
     /// For NON-REACTIVE pages (read-only, no live updates):
-    ///   @inject AppCache appCache  // Non-reactive here unless/until SubscribeToAppCache() is added in OnInitializedAsync
+    ///   @inject AppCache appCache  // Non-reactive unless SubscribeToAppCache() is added
+    ///
+    /// ## IMPORTANT: Avoiding Redundant StateHasChanged
+    ///
+    /// SubscribeToAppCache ALREADY calls StateHasChanged automatically before invoking the callback.
+    /// DO NOT add StateHasChanged in your callback - it's redundant and wastes render cycles:
+    ///
+    ///   // WRONG - redundant StateHasChanged:
+    ///   await this.SubscribeToAppCache(appCache, async () => await InvokeAsync(StateHasChanged));
+    ///
+    ///   // CORRECT - simple subscription (StateHasChanged called automatically):
+    ///   await this.SubscribeToAppCache(appCache);
+    ///
+    ///   // CORRECT - callback with meaningful work (StateHasChanged already called):
+    ///   await this.SubscribeToAppCache(appCache, async () => {
+    ///       RefreshData();  // Do actual work, not just StateHasChanged
+    ///   });
+    ///
+    /// Similarly, derived layouts (MainLayout, DialogLayout) should NOT call StateHasChanged
+    /// after base.HandleAppCacheChanged() since the base already calls it.
     ///
     /// See TestPage for how the IsFoo... reactive properties relate.
     /// See AppCacheComponentExtensions.cs for the SubscribeToAppCache extension method.
