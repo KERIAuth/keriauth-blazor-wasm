@@ -76,7 +76,6 @@
         logger.LogInformation("InitialUri: {u}", InitialUri.ToString());
 
         // Connect to BackgroundWorker via port-based messaging
-        // This replaces the legacy sendMessage-based appBwMessagingService.Initialize()
         await appPortService.ConnectAsync();
         logger.LogInformation("Connected to BackgroundWorker via port, portSessionId={PortSessionId}, originTabId={OriginTabId}",
             appPortService.PortSessionId, appPortService.OriginTabId);

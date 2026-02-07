@@ -1,4 +1,7 @@
 ﻿@using Extension.UI.Pages
+@using Extension.Services.Port
+@inject IAppPortService AppPortService
+@implements IDisposable
 
 @* Session status indicator component for AppBar - shows timeout countdown, connection status, or lock state *@
 
@@ -6,7 +9,16 @@
      @onmouseenter="() => OnHoverChanged.InvokeAsync(true)"
      @onmouseleave="() => OnHoverChanged.InvokeAsync(false)">
 
-    @if (IsAuthenticated)
+    @* Port disconnection takes highest priority - nothing works without BW connection *@
+    @if (!IsPortConnected && !Compact)
+    {
+        <MudTooltip Text="@PortDisconnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="500" Style="height:inherit;" RootStyle="height:inherit;">
+            <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
+                <MudIcon Icon="@Icons.Material.Filled.PowerOff" />
+            </MudPaper>
+        </MudTooltip>
+    }
+    else if (IsAuthenticated)
     {
         @if (TimeoutInfo.IsShown)
         {
@@ -75,6 +87,27 @@
     [Parameter]
     public bool IsAuthenticated { get; set; }
 
+    /// <summary>
+    /// Whether the App is connected to the BackgroundWorker via port.
+    /// Derived from the injected AppPortService.
+    /// </summary>
+    private bool IsPortConnected => AppPortService.IsConnected;
+
+    protected override void OnInitialized()
+    {
+        AppPortService.Disconnected += OnPortDisconnected;
+    }
+
+    private void OnPortDisconnected(object? sender, EventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AppPortService.Disconnected -= OnPortDisconnected;
+    }
+
     [Parameter]
     public bool IsIdentifierFetched { get; set; }
 
@@ -122,4 +155,6 @@
     private string LockedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
         ? $"Locked ({KeriaAlias})"
         : "Locked";
+
+    private const string PortDisconnectedTooltipText = "Disconnected from extension. Reload to reconnect.";
 }

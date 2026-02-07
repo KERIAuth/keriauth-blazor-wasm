@@ -301,6 +301,8 @@ namespace Extension.Services.SignifyService {
             return Task.FromResult(Result.Fail<IList<Schema>>("Not implemented"));
         }
 
+        // TODO P1: Return Result<StateResult> where StateResult includes a NotConnected state,
+        // allowing callers to distinguish connection errors from other failures without brittle string matching.
         public async Task<Result<State>> GetState() {
             try {
                 var jsonString = await _binding.GetStateAsync();

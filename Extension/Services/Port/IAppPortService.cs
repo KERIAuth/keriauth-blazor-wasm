@@ -1,4 +1,4 @@
-using Extension.Models.Messages.AppBw;
+﻿using Extension.Models.Messages.AppBw;
 using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.Common;
 using Extension.Models.Messages.Port;
@@ -16,11 +16,6 @@ public interface IAppPortService : IAsyncDisposable, IObservable<BwAppMessage> {
     /// </summary>
     /// <returns>Task that completes when the connection is established and READY is received.</returns>
     Task ConnectAsync();
-
-    /// <summary>
-    /// Disconnects the port from the App side. Used for testing.
-    /// </summary>
-    Task DisconnectAsync();
 
     /// <summary>
     /// Attaches this App to a specific tab's PortSession.

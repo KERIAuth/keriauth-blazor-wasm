@@ -1,16 +1,11 @@
-using Extension.Models.Messages.AppBw;
-using Extension.Models.Messages.BwApp;
-using Extension.Models.Storage;
+﻿using Extension.Models.Messages.AppBw;
 using Extension.Services;
 using Extension.Services.Port;
 using Extension.UI.Layouts;
 using Microsoft.AspNetCore.Components;
-using Microsoft.Extensions.Logging;
 using WebExtensions.Net;
-using WebExtensions.Net.Tabs;
 using BrowserTab = WebExtensions.Net.Tabs.Tab;
 using TabActiveInfo = WebExtensions.Net.Tabs.ActiveInfo;
-
 namespace Extension.UI.Components;
 
 /// <summary>

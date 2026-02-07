@@ -43,6 +43,12 @@
     protected bool isTimeoutHovered = false;
     private IDisposable? _portEventSubscription;
 
+    /// <summary>
+    /// Indicates whether the App is connected to the BackgroundWorker via port.
+    /// When false, RPC calls will fail and the UI should show a disconnected indicator.
+    /// </summary>
+    protected bool IsPortConnected => appPortService.IsConnected;
+
     // Session timeout properties - available to all layouts
     protected TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
     protected int SessionDurationRemainingSeconds => (int)SessionDurationRemaining.TotalSeconds + 1; // round up for display
@@ -79,6 +85,19 @@
 
         // Subscribe to port events from BackgroundWorker (e.g., SystemLockDetected)
         _portEventSubscription = appPortService.Subscribe(this);
+
+        // Subscribe to port disconnection to update UI when BW connection is lost
+        appPortService.Disconnected += OnPortDisconnected;
+    }
+
+    /// <summary>
+    /// Called when the port connection to BackgroundWorker is lost.
+    /// Triggers UI update to show disconnected indicator.
+    /// </summary>
+    private void OnPortDisconnected(object? sender, EventArgs e)
+    {
+        logger.LogWarning("Port disconnected from BackgroundWorker");
+        InvokeAsync(StateHasChanged);
     }
 
     protected virtual async Task HandleAppCacheChanged()
@@ -214,6 +233,7 @@
     {
         this.UnsubscribeFromAppCache();
         _portEventSubscription?.Dispose();
+        appPortService.Disconnected -= OnPortDisconnected;
         appBarRefreshTimer?.Dispose();
         userActivityService.StopListening();
         GC.SuppressFinalize(this);

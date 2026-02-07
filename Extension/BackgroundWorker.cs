@@ -1926,6 +1926,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestCreateAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestCreateAidRpcAsync");
 
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+
         try {
             if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -1975,26 +1977,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <summary>
     /// Handles get credentials request from App.
     /// Fetches credentials from KERIA via signify-ts and returns them.
-    /// If signify-ts is not connected (startup reconnect may still be in progress), attempts reconnect as fallback.
     /// TODO P1: Consider caching credentials in session storage instead of fetching on-demand.
     /// </summary>
     private async Task HandleAppRequestGetCredentialsRpcAsync(string portId, RpcRequest request) {
         logger.LogInformation("HandleAppRequestGetCredentialsRpcAsync");
 
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+
         try {
             var credentialsResult = await _signifyClientService.GetCredentials();
-
-            // If signify-ts not connected, try reconnecting (startup reconnect may not have completed yet)
-            if (credentialsResult.IsFailed) {
-                var errorMsg = credentialsResult.Errors.Count > 0 ? credentialsResult.Errors[0].Message : "";
-                if (errorMsg.Contains("Missing agentUrl or passcode") || errorMsg.Contains("validateClient")) {
-                    logger.LogInformation("signify-ts not connected during GetCredentials - attempting reconnect");
-                    var reconnectResult = await TryConnectSignifyClientAsync();
-                    if (reconnectResult.IsSuccess) {
-                        credentialsResult = await _signifyClientService.GetCredentials();
-                    }
-                }
-            }
 
             if (credentialsResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2019,6 +2010,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task HandleAppRequestGetKeyStateRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestGetKeyStateRpcAsync");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
         try {
             if (!payload.HasValue) {
@@ -2062,6 +2055,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestGetKeyEventsRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestGetKeyEventsRpcAsync");
 
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+
         try {
             if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2103,6 +2098,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task HandleAppRequestRenameAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestRenameAidRpcAsync");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
         try {
             if (!payload.HasValue) {
@@ -2570,10 +2567,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Get generated signed headers from signify-ts
             var headersDictJson = JsonSerializer.Serialize(headers);
 
-            var readyRes = await _signifyClientService.Ready();
-            if (readyRes.IsFailed) {
-                logger.LogWarning("SignAndSendRequestHeaders: Signify client not ready: {Error}", readyRes.Errors[0].Message);
-                await SendResponseAsync(null, $"Signify client not ready: {readyRes.Errors[0].Message}");
+            // Ensure SignifyClient is connected before signing
+            var connectionResult = await EnsureSignifyConnectedAsync();
+            if (connectionResult.IsFailed) {
+                var errorMsg = connectionResult.Errors.Count > 0 ? connectionResult.Errors[0].Message : "SignifyClient not connected";
+                logger.LogWarning("SignAndSendRequestHeaders: SignifyClient not connected: {Error}", errorMsg);
+                await SendResponseAsync(null, $"SignifyClient not connected: {errorMsg}");
                 return;
             }
 
@@ -2823,6 +2822,45 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             logger.LogError(ex, "RefreshIdentifiersCache: Exception during refresh");
         }
+    }
+
+    /// <summary>
+    /// Ensures SignifyClient is connected, attempting reconnection if necessary.
+    /// Call this at the start of any RPC handler that requires SignifyClient.
+    /// </summary>
+    private async Task<Result> EnsureSignifyConnectedAsync() {
+        // Try a lightweight operation to check connection
+        var stateResult = await _signifyClientService.GetState();
+        if (stateResult.IsSuccess) {
+            return Result.Ok();
+        }
+
+        // Check if it's a recoverable connection error
+        // TODO P1: Use typed error from GetState instead of brittle string matching
+        var errorMsg = stateResult.Errors.Count > 0 ? stateResult.Errors[0].Message : "";
+        if (errorMsg.Contains("Missing agentUrl or passcode") ||
+            errorMsg.Contains("validateClient") ||
+            errorMsg.Contains("not connected", StringComparison.OrdinalIgnoreCase)) {
+            logger.LogInformation("SignifyClient not connected - attempting reconnect");
+            return await TryConnectSignifyClientAsync();
+        }
+
+        // Non-recoverable error
+        return Result.Fail(stateResult.Errors);
+    }
+
+    /// <summary>
+    /// Wrapper that ensures SignifyClient is connected before proceeding.
+    /// Returns false and sends error response if connection fails.
+    /// </summary>
+    private async Task<bool> RequireSignifyConnectionAsync(string portId, string portSessionId, string requestId) {
+        var result = await EnsureSignifyConnectedAsync();
+        if (result.IsFailed) {
+            var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : "SignifyClient not connected";
+            await _portService.SendRpcResponseAsync(portId, portSessionId, requestId, errorMessage: errorMsg);
+            return false;
+        }
+        return true;
     }
 
     /// <summary>
