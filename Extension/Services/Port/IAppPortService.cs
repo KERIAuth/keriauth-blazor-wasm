@@ -18,6 +18,11 @@ public interface IAppPortService : IAsyncDisposable, IObservable<BwAppMessage> {
     Task ConnectAsync();
 
     /// <summary>
+    /// Disconnects the port from the App side. Used for testing.
+    /// </summary>
+    Task DisconnectAsync();
+
+    /// <summary>
     /// Attaches this App to a specific tab's PortSession.
     /// Must be called after ConnectAsync().
     /// </summary>

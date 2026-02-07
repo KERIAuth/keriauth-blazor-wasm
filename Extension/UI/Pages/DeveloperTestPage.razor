@@ -2,6 +2,7 @@
 @using Extension.Models
 @using Extension.Services
 @using Extension.Services.Port
+@using Extension.Models.Messages.AppBw
 @using System.Reactive.Linq
 @inject NavigationManager navManager
 @using static Extension.AppConfig;
@@ -90,6 +91,62 @@
         };
         var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add Profile", parameters, options);
     }
+
+    async Task DisconnectPortFromApp()
+    {
+        try
+        {
+            if (!appPortService.IsConnected)
+            {
+                snackbar.Add("Port is not connected", Severity.Warning);
+                return;
+            }
+            await appPortService.DisconnectAsync();
+            snackbar.Add("Port disconnected from App side", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            snackbar.Add($"Disconnect failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    async Task DisconnectPortFromBW()
+    {
+        try
+        {
+            if (!appPortService.IsConnected)
+            {
+                snackbar.Add("Port is not connected", Severity.Warning);
+                return;
+            }
+
+            // This RPC won't receive a response - the BW will disconnect the port,
+            // which cancels all pending RPC requests on the App side
+            await appPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.TestDisconnectPort,
+                parameters: null);
+
+            // If we get here without exception, something unexpected happened
+            snackbar.Add("Unexpected: RPC completed without port disconnect", Severity.Warning);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected - the port disconnected which cancelled the RPC request
+            snackbar.Add("Port disconnected from BW side", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            // Check if port is now disconnected (success case)
+            if (!appPortService.IsConnected)
+            {
+                snackbar.Add("Port disconnected from BW side", Severity.Success);
+            }
+            else
+            {
+                snackbar.Add($"Disconnect failed: {ex.Message}", Severity.Error);
+            }
+        }
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -135,6 +192,12 @@
             <MudText Class="pl-0">Other</MudText>
             <div>
                 <MudLink OnClick='@(async () => snackbar.Add("testing testing testing testing"))'>Snackbar</MudLink>
+            </div>
+            <MudText>Port Testing</MudText>
+            <div>
+                <MudLink OnClick="@DisconnectPortFromApp">Disconnect Port from App</MudLink>
+                <MudLink Href="chrome://serviceworker-internals/">Stop service-worker via serviceworker-internals</MudLink>>
+                <MudLink Href="chrome://extensions/">Restart service-worker by clicking on it in extensions list</MudLink>
             </div>
         </div>
     </div>

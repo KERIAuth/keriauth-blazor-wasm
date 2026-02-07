@@ -131,6 +131,22 @@ public class AppPortService : IAppPortService
         }
     }
 
+    /// <summary>
+    /// Disconnects the port from the App side. Used for testing port disconnection scenarios.
+    /// This mimics an unexpected disconnect by only calling the browser's Disconnect API
+    /// and letting the OnDisconnect handler (HandleDisconnect) perform the state cleanup.
+    /// </summary>
+    public Task DisconnectAsync()
+    {
+        _logger.LogInformation("DisconnectAsync called");
+        if (_port != null)
+        {
+            // Only call the browser Disconnect API - let OnDisconnect handler do cleanup
+            _port.Disconnect();
+        }
+        return Task.CompletedTask;
+    }
+
     public async Task AttachToTabAsync(int tabId, int? frameId = null)
     {
         if (!IsConnected || string.IsNullOrEmpty(PortSessionId))
@@ -451,6 +467,11 @@ public class AppPortService : IAppPortService
         Disconnected?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Internal disconnect used during connection errors and disposal.
+    /// Directly cleans up state without going through OnDisconnect handler.
+    /// Use DisconnectAsync() for testing to mimic unexpected disconnects.
+    /// </summary>
     private void DisconnectInternal()
     {
         if (_port != null)
