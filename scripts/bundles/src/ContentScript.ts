@@ -56,6 +56,7 @@ import {
         | ICsPageMsgData<unknown>;
 
     // Extended message type that includes both 'data' (legacy BW format) and 'payload' (Polaris spec)
+    // TODO P3: can remove if not supporting data inner-key
     type BwMessage = Polaris.MessageData<unknown> & { data?: unknown };
 
     // Port-based messaging state
@@ -75,7 +76,7 @@ import {
     const RECONNECT_DELAY_MS = 100;
 
     /*
-     * This section is evaluated on document-start, as specified in the extension manifest.
+     * This section is evaluated on document-start, as specified in the extension manifest (or app.ts ?).
      * Because of the timing, you might not see some of these log messages.
      */
 
@@ -99,6 +100,9 @@ import {
     // NOTE: All CS↔BW messaging now uses port-based communication. This listener is ONLY for:
     // 1. ping - to detect if content script is injected (handled locally, no BW roundtrip)
     // 2. SW_RESTARTED - to trigger port reconnection after service worker restart
+    // TODO P2: instead of the above pattern with BW, the CS could be made robust and reconnect (self-healing) 
+    // if port was disconnected, i.e., when service-worker (BackgroundWorker) became inactive.
+    // That would not be trivial refactoring, but would be similar to what App-BW interaction already does
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // Respond to ping messages from the service worker to detect if content script is already injected
         if (msg?.type === 'ping') {
@@ -137,33 +141,24 @@ import {
 
     /**
      * Establish a port connection to the BackgroundWorker
-     * Sends HELLO message and waits for READY response
+     * Sends HELLO message (with listener to wait for READY response)
      */
     function connectPort(): void {
         try {
             console.log('KeriAuthCs: Connecting to BackgroundWorker via port...');
 
-            // TODO P1: tmp
-            console.log('KeriAuthCs→BW: WAKE_UP_TMP');
-            chrome.runtime.sendMessage("WAKE_UP_TMP"); // fire and forget, to wake up SW
-            
-
-            // Create port connection
             port = chrome.runtime.connect(undefined, {name: 'content-script'});
-
-            // Set up message listener
             port.onMessage.addListener(handlePortMessage);
-
-            // Set up disconnect listener
             port.onDisconnect.addListener(handlePortDisconnect);
 
-            // Send HELLO message
             const helloMessage = createCsHelloMessage(instanceId);
             console.log('KeriAuthCs→BW: HELLO', helloMessage);
             port.postMessage(helloMessage);
 
         } catch (error) {
-            console.error('KeriAuthCs: Failed to connect port:', error);
+            // some errors here are expected, e.g. "Extension context invalidated." when service-worker is reloaded or inactive
+            // TODO P2: consider notifying page and/or invalidating this CS
+            console.log('KeriAuthCs: Failed to connect port:', error);
             scheduleReconnect();
         }
     }
@@ -201,7 +196,7 @@ import {
             sendRpcRequest(queued.method, queued.params);
         }
 
-        // Notify the page that the extension is ready
+        // Notify page that extension is ready
         postMessageToPageSignifyExtension();
     }
 
@@ -237,6 +232,9 @@ import {
             }
         } else {
             // Route as a regular BW message for backward compatibility
+            // TODO P2: if none of these are seen, can remove this "else"
+            console.warn("Unexpected message type received. Handling legacy message from BW. Should refactor.");
+            
             const legacyMessage = {
                 type: message.error ? BwCsMsgEnum.REPLY : BwCsMsgEnum.REPLY,
                 requestId: message.id,
@@ -294,7 +292,9 @@ import {
      */
     function scheduleReconnect(): void {
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            console.warn('KeriAuthCs: Max reconnect attempts reached');
+            // This may happen when reloading the extension
+            // TODO P2: consider notifying page and/or invalidating this CS
+            console.log('KeriAuthCs: Max reconnect attempts reached');
             return;
         }
 
@@ -375,6 +375,7 @@ import {
                 } else {
                     // Check if data contains credentialJson string that needs to be parsed
                     // BW may send 'data' (legacy) or 'payload' (Polaris spec)
+                    // TODO P2 clean up legacy handling
                     let data = (message.data ?? message.payload) as any;
                     if (data && data.credentialJson && typeof data.credentialJson === 'string') {
                         // Parse the credentialJson string to get the actual credential object

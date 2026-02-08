@@ -163,6 +163,7 @@
         }
 
         // Don't navigate if already on a request handling page - let the page handle it
+        // TODO P1: need to pre-configure this fixed set Routes? Index may now handle this routing smarts.
         var uri = navManager.Uri;
         if (uri.Contains("RequestSign") || uri.Contains("RequestCreate"))
         {
@@ -176,36 +177,24 @@
 
     protected async Task RefreshConnect()
     {
-        // TODO P3 not yet implemented. Intent is to refresh connection to KERIA and fetch identifier state again, etc.
-        // snackbar.Add("Refreshing connection...", Severity.Info);
+        // Force refresh connection to KERIA and fetch identifier state again, etc.
+        // TODO P2 RefreshConnect not yet implemented
+        snackbar.Add("Refreshing KERIA connection... not implemented", Severity.Warning);
+        logger.LogWarning("RefreshConnect not yet implemented");
     }
 
     private async Task AssertHydratedCache()
     {
         // Ensure that AppCache is fully initialized before proceeding
         // helping assure critical records are loaded (and usually stored) before UI interaction
-        // TODO P1 confirm compound assertions work in WaitForAppCache
         bool isAppCacheReady;
-
-        // () => appCache.IsInitialized,
-        logger.LogInformation("AssertHydratedCache: MyPreferences.IsStored");
-        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyPreferences.IsStored], 10000,100);
-        logger.LogInformation("AssertHydratedCache: {b}", isAppCacheReady);
-        logger.LogInformation("AssertHydratedCache: MyOnboardState.IsStored");
+        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyPreferences.IsStored], 10000, 100);
         isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyOnboardState.IsStored], 10000, 100);
-        logger.LogInformation("AssertHydratedCache: {b}", isAppCacheReady);
-        // logger.LogInformation("AssertHydratedCache: MyKeriaConnectConfig.IsStored");
-        // isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfig.IsStored], 10000, 100);
-        // logger.LogInformation("AssertHydratedCache: {b}", isAppCacheReady);
-            // () => appCache.MyKeriaConnectionInfo is not null,
-            // () => appCache.MyPasscodeModel is not null
-
-        // TODO P2: Make timeout duration configurable?
         if (!isAppCacheReady)
         {
             logger.LogError("AssertHydratedCache: AppCache not ready after waiting.");
             snackbar.Add("Application error: AppCache not ready.", Severity.Error);
-            // Optionally, throw or navigate to an error page or take other actions
+            // TODO P2: alternatively, throw or navigate to an error page or take other actions
         }
     }
 
@@ -220,7 +209,6 @@
                 if (appCache.IsSessionNotExpired &&
                     (appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
                 {
-                    // logger.LogInformation("RestartOrExtendAppBarUpdateTime");
                     InvokeAsync(StateHasChanged);
                 }
             },
