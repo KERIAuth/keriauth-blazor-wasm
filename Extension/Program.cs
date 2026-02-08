@@ -66,9 +66,10 @@ builder.Logging.AddConfiguration(
 
 // TODO P2: add consistent browserExtension.Mode string to logging context for better diagnostics
 
+var extensionMode = BrowserExtensionMode.Standard;
 builder.UseBrowserExtension(browserExtension => {
-    var mode = browserExtension.Mode.ToString();
-    Console.WriteLine($"Program.cs [{mode}]");
+    extensionMode = browserExtension.Mode;
+    Console.WriteLine($"Program.cs [{extensionMode}]");
 
     switch (browserExtension.Mode) {
         case BrowserExtensionMode.ContentScript:
@@ -122,7 +123,7 @@ logger.LogInformation("Loading JavaScript modules via JsModuleLoader...");
 
 try {
     var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
-    await moduleLoader.LoadAllModulesAsync();
+    await moduleLoader.LoadAllModulesAsync(extensionMode);
     logger.LogInformation("Program.cs: JavaScript modules loaded successfully");
 }
 catch (Exception ex) {

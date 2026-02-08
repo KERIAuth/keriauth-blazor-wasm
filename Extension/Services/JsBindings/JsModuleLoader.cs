@@ -1,4 +1,5 @@
-﻿using Microsoft.JSInterop;
+﻿using Blazor.BrowserExtension;
+using Microsoft.JSInterop;
 
 namespace Extension.Services.JsBindings;
 
@@ -8,10 +9,10 @@ namespace Extension.Services.JsBindings;
 /// </summary>
 public interface IJsModuleLoader {
     /// <summary>
-    /// Load all JavaScript modules
-    /// Should be called once during application startup
+    /// Load JavaScript modules for the specified browser extension context.
+    /// Should be called once during application startup.
     /// </summary>
-    ValueTask LoadAllModulesAsync();
+    ValueTask LoadAllModulesAsync(BrowserExtensionMode mode);
 
     /// <summary>
     /// Get a loaded module by name
@@ -30,35 +31,37 @@ public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger
     private readonly Dictionary<string, IJSObjectReference> _modules = [];
     private bool _isInitialized;
 
-    // Module definitions: name -> path
-    private readonly Dictionary<string, string> _moduleDefinitions = new() {
-        { "signifyClient", "./scripts/esbuild/signifyClient.js" },
-        { "navigatorCredentialsShim", "./scripts/es6/navigatorCredentialsShim.js" },
-        { "aesGcmCrypto", "./scripts/es6/aesGcmCrypto.js" },
-        { "demo1", "./scripts/esbuild/demo1.js" }
-    };
+    // Module definitions: name -> (path, contexts)
+    // Each module specifies which BrowserExtensionMode(s) require it
+    private static readonly (string Name, string Path, BrowserExtensionMode[] Contexts)[] ModuleDefinitions = [
+        ("signifyClient", "./scripts/esbuild/signifyClient.js", [BrowserExtensionMode.Background]),
+        ("demo1", "./scripts/esbuild/demo1.js", [BrowserExtensionMode.Background]),
+        ("navigatorCredentialsShim", "./scripts/es6/navigatorCredentialsShim.js", [BrowserExtensionMode.Standard, BrowserExtensionMode.Debug]),
+        ("aesGcmCrypto", "./scripts/es6/aesGcmCrypto.js", [BrowserExtensionMode.Standard, BrowserExtensionMode.Debug]),
+    ];
 
     public bool IsInitialized => _isInitialized;
 
-    public async ValueTask LoadAllModulesAsync() {
+    public async ValueTask LoadAllModulesAsync(BrowserExtensionMode mode) {
         if (_isInitialized) {
             _logger.LogWarning("JsModuleLoader: Modules already loaded, skipping");
             return;
         }
 
-        _logger.LogInformation("JsModuleLoader: Loading {Count} JavaScript modules (fail-fast mode)", _moduleDefinitions.Count);
+        var modulesToLoad = ModuleDefinitions.Where(m => m.Contexts.Contains(mode)).ToArray();
+        _logger.LogInformation("JsModuleLoader: Loading {Count} of {Total} JavaScript modules for {Mode} mode (fail-fast mode)",
+            modulesToLoad.Length, ModuleDefinitions.Length, mode);
 
-        var loadTasks = _moduleDefinitions.Select(async kvp => {
-            var (moduleName, modulePath) = kvp;
+        var loadTasks = modulesToLoad.Select(async def => {
             try {
-                _logger.LogDebug("JsModuleLoader: Loading module '{ModuleName}' from '{ModulePath}'", moduleName, modulePath);
-                var module = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", modulePath);
-                _modules[moduleName] = module;
-                _logger.LogInformation("JsModuleLoader: ✓ Loaded module '{ModuleName}'", moduleName);
+                _logger.LogDebug("JsModuleLoader: Loading module '{ModuleName}' from '{ModulePath}'", def.Name, def.Path);
+                var module = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", def.Path);
+                _modules[def.Name] = module;
+                _logger.LogInformation("JsModuleLoader: ✓ Loaded module '{ModuleName}'", def.Name);
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "JsModuleLoader: ✗ FAILED to load module '{ModuleName}' from '{ModulePath}'", moduleName, modulePath);
-                throw new InvalidOperationException($"Failed to load JavaScript module '{moduleName}' from '{modulePath}'", ex);
+                _logger.LogError(ex, "JsModuleLoader: ✗ FAILED to load module '{ModuleName}' from '{ModulePath}'", def.Name, def.Path);
+                throw new InvalidOperationException($"Failed to load JavaScript module '{def.Name}' from '{def.Path}'", ex);
             }
         });
 
