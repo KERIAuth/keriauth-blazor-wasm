@@ -139,10 +139,6 @@
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text"
                        OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
-        <MudButton Variant="Variant.Text" Color="Color.Error"
-                   OnClick="@(() => navManager.NavigateTo(Routes.PathFor<DeletePage>()))">
-            Reset All
-        </MudButton>
         @if (IsMultiKeriaConfigEnabled)
         {
             <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary"

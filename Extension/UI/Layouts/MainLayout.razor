@@ -308,6 +308,7 @@
                     <MudNavLink Href="@(Routes.PathFor<PreferencesPage>())" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<Passkeys>())" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<KeriaConfigsPage>())" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA</MudNavLink>
+                    <MudNavLink Href="@(Routes.PathFor<DeletePage>())" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset All...</MudNavLink>
                     <MudNavGroup Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
                         <MudNavLink Href="@(Routes.PathFor<DeveloperStatePage>())" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<DeveloperPrimersPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.AutoFixHigh" IconColor="Color.Surface">Primers</MudNavLink>
