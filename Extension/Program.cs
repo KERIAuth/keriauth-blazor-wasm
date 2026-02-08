@@ -73,20 +73,19 @@ builder.UseBrowserExtension(browserExtension => {
     switch (browserExtension.Mode) {
         case BrowserExtensionMode.ContentScript:
             throw new NotImplementedException("ContentScript mode is not implemented in Program.cs");
-        // builder.RootComponents.Add<ContentScript>("#Sample_Messaging_app");
-        // break;
         case BrowserExtensionMode.Background:
-            // Console.WriteLine($"Program.cs [{mode}]: Configuring Background mode - adding BackgroundWorker root component");
             builder.RootComponents.AddBackgroundWorker<BackgroundWorker>();
             builder.Services.AddSingleton<SessionManager>();
-            // IBwAppMessagingService removed - BW→App messaging now uses port-based IBwPortService
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
             builder.Services.AddSingleton<IBwPortService, BwPortService>();
+            builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
+            builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
+            builder.Services.AddSingleton<IDemo1Binding, Demo1Binding>();
+            builder.Services.AddSingleton<ISchemaService, SchemaService>();
             break;
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:
         default:
-            // Console.WriteLine($"Program.cs [{mode}]: Configuring {browserExtension.Mode} mode - adding App and MudBlazor");
             builder.Services.AddMudServices();
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
@@ -94,43 +93,26 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<SessionManager>();
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
             builder.Services.AddSingleton<IAppPortService, AppPortService>();
+            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            builder.Services.AddSingleton<AppCache>();
+            builder.Services.AddSingleton<INavigatorCredentialsBinding, NavigatorCredentialsBinding>();
+            builder.Services.AddSingleton<ICryptoService, SubtleCryptoService>();
+            builder.Services.AddSingleton<IFidoMetadataService, FidoMetadataService>();
+            builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
             break;
     }
 });
 
-// Console.WriteLine("Program.cs: Configuring services...");
+// Services common to both BackgroundWorker and App contexts
 builder.Services.AddBrowserExtensionServices();
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddSingleton<IStorageService, StorageService>();
-builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-builder.Services.AddSingleton<AppCache>();
-// JavaScript module bindings
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
-builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
-builder.Services.AddSingleton<INavigatorCredentialsBinding, NavigatorCredentialsBinding>();
-builder.Services.AddSingleton<IDemo1Binding, Demo1Binding>();
-
-// Cryptography services
-builder.Services.AddSingleton<ICryptoService, SubtleCryptoService>();
-
-// Application services
-builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
-// Note: App→BW messaging now uses IAppPortService (port-based), registered per-context above
-// Note: BW→App messaging now uses IBwPortService (port-based), registered in Background mode above
-builder.Services.AddSingleton<IFidoMetadataService, FidoMetadataService>();
-builder.Services.AddSingleton<ISchemaService, SchemaService>();
-builder.Services.AddSingleton<IWebauthnService, WebauthnService>();
 builder.Services.AddJsBind();
-
-// Console.WriteLine("Program.cs: Building host...");
 
 var host = builder.Build();
 
-// Console.WriteLine("Program.cs: Host built successfully, initializing logger...");
-
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("WASM host built");
 
 // Load JavaScript ES modules via JsModuleLoader
 // libsodium-polyfill is statically imported in app.ts before Blazor starts
