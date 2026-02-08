@@ -135,8 +135,9 @@ public class UserActivityService : IUserActivityService {
         // _logger.LogDebug("UserActivityService: User activity detected, sending to BackgroundWorker");
 
         try {
-            var message = new AppBwUserActivityMessage();
-            await _portService.SendToBackgroundWorkerAsync(message);
+            // Send as EVENT (fire-and-forget) rather than RPC to avoid timeout issues
+            // when service worker is restarting. Events don't expect a response.
+            await _portService.SendEventAsync(AppBwMessageType.Values.UserActivity);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, "UserActivityService: Failed to send USER_ACTIVITY message");

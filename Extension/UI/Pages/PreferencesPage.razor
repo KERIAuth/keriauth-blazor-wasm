@@ -94,8 +94,7 @@
         // TODO P2 Perf BW can be reactive, too...
         // Notify BW so it can reset its inactivity timer with new value?
         // Or, does BW know to treat any Prefs change as user activity?
-        var message = new AppBwUserActivityMessage();
-        await appPortService.SendToBackgroundWorkerAsync(message);
+        await appPortService.SendEventAsync(AppBwMessageType.Values.UserActivity);
     }
 
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)

@@ -9,16 +9,7 @@
      @onmouseenter="() => OnHoverChanged.InvokeAsync(true)"
      @onmouseleave="() => OnHoverChanged.InvokeAsync(false)">
 
-    @* Port disconnection takes highest priority - nothing works without BW connection *@
-    @if (!IsPortConnected && !Compact)
-    {
-        <MudTooltip Text="@PortDisconnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="500" Style="height:inherit;" RootStyle="height:inherit;">
-            <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-error)">
-                <MudIcon Icon="@Icons.Material.Filled.PowerOff" />
-            </MudPaper>
-        </MudTooltip>
-    }
-    else if (IsAuthenticated)
+    @if (IsAuthenticated)
     {
         @if (TimeoutInfo.IsShown)
         {
@@ -49,11 +40,19 @@
                 <MudText Typo="Typo.body2">@TimeoutTooltip</MudText>
             </div>
         }
-        else if (IsIdentifierFetched && !Compact)
+        else if (!IsPortConnected)// && !Compact)
+        {
+            <MudTooltip Text="@PortDisconnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="500" Style="height:inherit;" RootStyle="height:inherit;">
+                <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-warning)">
+                    <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
+                </MudPaper>
+            </MudTooltip>
+        }
+        else if (IsIdentifierFetched)// && !Compact)
         {
             <MudTooltip Text="@ConnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="1000" Style="height:inherit;" RootStyle="height:inherit;">
                 <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-success)">
-                    <MudIcon Icon="@Icons.Material.Filled.Link" Disabled="@(!IsConfigured)" @onclick="OnRefreshConnect" />
+                    <MudIcon Icon="@Icons.Material.Filled.Link" />
                 </MudPaper>
             </MudTooltip>
         }

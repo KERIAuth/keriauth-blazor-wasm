@@ -96,7 +96,7 @@
     /// </summary>
     private void OnPortDisconnected(object? sender, EventArgs e)
     {
-        logger.LogWarning("Port disconnected from BackgroundWorker");
+        logger.LogDebug("Port disconnected from BackgroundWorker");
         InvokeAsync(StateHasChanged);
     }
 

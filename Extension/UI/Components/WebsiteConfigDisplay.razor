@@ -1,6 +1,7 @@
 ﻿@using Newtonsoft.Json
 @using Extension.Services.Storage
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.Port
 
 @implements IDisposable
 
@@ -34,6 +35,10 @@
     WebsiteConfig? ThisWebsiteConfig { get; set; }
     List<RecursiveDictionary>? CredentialsDict { get; set; }
 
+    // Track port connection state for refresh logic
+    private bool _wasDisconnected;
+    private bool _isRefreshing;
+
     // computed properties
     // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
     RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
@@ -46,9 +51,60 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation("OnInitializedAsync...");
+
+        // Subscribe to port disconnect to track when we need to refresh on reconnect
+        appPortService.Disconnected += OnPortDisconnected;
+        appPortService.MessageReceived += OnPortMessageReceived;
+
         await getCredentials();
         // inform parent so it can enable or disable Sign In button, for example
         await sendValueToParent();
+    }
+
+    private void OnPortDisconnected(object? sender, EventArgs e)
+    {
+        logger.LogInformation("WebsiteConfigDisplay: Port disconnected, will refresh on reconnect");
+        _wasDisconnected = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnPortMessageReceived(object? sender, PortMessage message)
+    {
+        // When we receive READY message after reconnect, refresh credentials
+        if (message is ReadyMessage && _wasDisconnected && !_isRefreshing)
+        {
+            logger.LogInformation("WebsiteConfigDisplay: Port reconnected, refreshing credentials");
+            _wasDisconnected = false;
+            _ = RefreshAfterReconnectAsync();
+        }
+    }
+
+    private async Task RefreshAfterReconnectAsync()
+    {
+        if (_isRefreshing) return;
+        _isRefreshing = true;
+
+        try
+        {
+            // Small delay to ensure BW is fully ready
+            await Task.Delay(100);
+
+            await getCredentials();
+            if (OriginUri is not null)
+            {
+                await refreshFromWebsiteConfig(OriginUri);
+            }
+            await sendValueToParent();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "WebsiteConfigDisplay: Error refreshing after reconnect");
+        }
+        finally
+        {
+            _isRefreshing = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -331,8 +387,10 @@
         await sendValueToParent();
     }
 
-    public void Dispose() {
-        
+    public void Dispose()
+    {
+        appPortService.Disconnected -= OnPortDisconnected;
+        appPortService.MessageReceived -= OnPortMessageReceived;
     }
 }
 
