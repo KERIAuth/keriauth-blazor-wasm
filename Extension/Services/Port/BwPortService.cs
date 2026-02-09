@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Threading.Channels;
 using Extension.Helper;
 using Extension.Models;
 using Extension.Models.Messages.Port;
@@ -12,7 +13,7 @@ namespace Extension.Services.Port;
 /// Service for managing port connections in the BackgroundWorker context.
 /// Handles ContentScript and App port connections, PortSession lifecycle, and message routing.
 /// </summary>
-public class BwPortService : IBwPortService {
+public class BwPortService : IBwPortService, IAsyncDisposable {
     private readonly ILogger<BwPortService> _logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IWebExtensionsApi _webExtensionsApi;
@@ -39,6 +40,15 @@ public class BwPortService : IBwPortService {
     // Track which ports are ContentScript vs App (by portId)
     private readonly ConcurrentDictionary<string, bool> _portIsContentScript = new();
 
+    // Sequential queue for state-mutating operations (HELLO, ATTACH, DETACH, DISCONNECT, TAB_REMOVED).
+    // In single-threaded WASM, fire-and-forget async handlers can interleave at await points,
+    // causing logical state tearing. This channel serializes those operations while allowing
+    // RPC forwarding and EVENT forwarding to remain concurrent.
+    private readonly Channel<StateOperation> _stateOpChannel =
+        Channel.CreateUnbounded<StateOperation>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly CancellationTokenSource _drainCts = new();
+    private readonly Task _drainTask;
+
     public BwPortService(
         ILogger<BwPortService> logger,
         IJSRuntime jsRuntime,
@@ -48,10 +58,79 @@ public class BwPortService : IBwPortService {
         _jsRuntime = jsRuntime;
         _webExtensionsApi = webExtensionsApi;
         _pendingRequestService = pendingRequestService;
+
+        _drainTask = DrainStateOpsAsync(_drainCts.Token);
     }
 
     public int ActivePortSessionCount => _portSessionsById.Count;
     public int ActivePortCount => _portsById.Count;
+
+    #region State Operation Queue
+
+    /// <summary>
+    /// Represents a state-mutating operation to be processed sequentially.
+    /// Only connection lifecycle operations are queued; RPC and EVENT forwarding remain concurrent.
+    /// </summary>
+    private abstract record StateOperation;
+    private sealed record HelloOp(string PortId, string MessageJson) : StateOperation;
+    private sealed record AttachTabOp(string PortId, string MessageJson) : StateOperation;
+    private sealed record DetachTabOp(string PortId) : StateOperation;
+    private sealed record DisconnectOp(string PortId) : StateOperation;
+    private sealed record TabRemovedOp(int TabId) : StateOperation;
+
+    /// <summary>
+    /// Single-consumer drain loop that processes state-mutating operations sequentially.
+    /// This prevents reentrancy at await points from causing logical state tearing.
+    /// </summary>
+    private async Task DrainStateOpsAsync(CancellationToken ct) {
+        try {
+            await foreach (var op in _stateOpChannel.Reader.ReadAllAsync(ct)) {
+                try {
+                    switch (op) {
+                        case HelloOp h:
+                            await HandleHelloAsync(h.PortId, h.MessageJson);
+                            break;
+                        case AttachTabOp a:
+                            await HandleAttachTabAsync(a.PortId, a.MessageJson);
+                            break;
+                        case DetachTabOp d:
+                            HandleDetachTab(d.PortId);
+                            break;
+                        case DisconnectOp dc:
+                            await HandleDisconnectAsync(dc.PortId);
+                            break;
+                        case TabRemovedOp tr:
+                            await HandleTabRemovedInternalAsync(tr.TabId);
+                            break;
+                    }
+                }
+                catch (Exception ex) {
+                    _logger.LogError(ex, "Error processing state operation: {Op}", op.GetType().Name);
+                }
+            }
+        }
+        catch (OperationCanceledException) {
+            _logger.LogDebug("State operation drain loop canceled");
+        }
+    }
+
+    private bool _disposed;
+
+    public async ValueTask DisposeAsync() {
+        if (_disposed) {
+            return;
+        }
+        _disposed = true;
+
+        _stateOpChannel.Writer.Complete();
+        await _drainCts.CancelAsync();
+        try { await _drainTask; }
+        catch (OperationCanceledException) { }
+        _drainCts.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    #endregion
 
     public async Task HandleConnectAsync(WebExtensions.Net.Runtime.Port port) {
         var portId = Guid.NewGuid().ToString();
@@ -71,7 +150,7 @@ public class BwPortService : IBwPortService {
         // Set up disconnect listener with explicit delegate type
         // WebExtensions.Net OnDisconnect expects: Action<Port>
         Action<WebExtensions.Net.Runtime.Port> onDisconnectHandler = (WebExtensions.Net.Runtime.Port disconnectedPort) => {
-            _ = HandleDisconnectAsync(portId);
+            _stateOpChannel.Writer.TryWrite(new DisconnectOp(portId));
         };
 
         port.OnDisconnect.AddListener(onDisconnectHandler);
@@ -94,13 +173,13 @@ public class BwPortService : IBwPortService {
 
             switch (messageType) {
                 case PortMessageTypes.Hello:
-                    await HandleHelloAsync(portId, messageJson);
+                    _stateOpChannel.Writer.TryWrite(new HelloOp(portId, messageJson));
                     break;
                 case PortMessageTypes.AttachTab:
-                    await HandleAttachTabAsync(portId, messageJson);
+                    _stateOpChannel.Writer.TryWrite(new AttachTabOp(portId, messageJson));
                     break;
                 case PortMessageTypes.DetachTab:
-                    HandleDetachTab(portId);
+                    _stateOpChannel.Writer.TryWrite(new DetachTabOp(portId));
                     break;
                 case PortMessageTypes.RpcRequest:
                 case CsBwPortMessageTypes.RpcRequest:  // Directional variant for log clarity
@@ -563,8 +642,14 @@ public class BwPortService : IBwPortService {
         }
     }
 
-    public async Task HandleTabRemovedAsync(int tabId) {
-        _logger.LogInformation("Tab removed: tabId={TabId}", tabId);
+    public Task HandleTabRemovedAsync(int tabId) {
+        _logger.LogInformation("Tab removed (queued): tabId={TabId}", tabId);
+        _stateOpChannel.Writer.TryWrite(new TabRemovedOp(tabId));
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleTabRemovedInternalAsync(int tabId) {
+        _logger.LogDebug("Processing tab removed: tabId={TabId}", tabId);
 
         // Find all PortSessions for this tab (across all frames)
         var sessionsToRemove = _portSessionsByTabKey
@@ -575,6 +660,8 @@ public class BwPortService : IBwPortService {
         foreach (var portSession in sessionsToRemove) {
             CleanupPortSession(portSession);
         }
+
+        await Task.CompletedTask;
     }
 
     public async Task NotifyContentScriptsOfRestartAsync() {
@@ -761,8 +848,10 @@ public class BwPortService : IBwPortService {
         _logger.LogInformation("Broadcasting event to all apps: name={EventName}", eventName);
 
         // Collect all unique app port IDs across all port sessions
+        // Snapshot .Values to avoid issues if a state-mutating operation modifies
+        // the dictionary between iterations (defensive for single-threaded WASM reentrancy)
         var appPortIds = new HashSet<string>();
-        foreach (var portSession in _portSessionsById.Values) {
+        foreach (var portSession in _portSessionsById.Values.ToArray()) {
             foreach (var appPortId in portSession.AttachedAppPortIds.ToList()) {
                 appPortIds.Add(appPortId);
             }

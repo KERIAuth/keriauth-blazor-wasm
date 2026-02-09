@@ -27,7 +27,7 @@ public delegate Task PortEventMessageHandler(string portId, PortSession? portSes
 /// Service interface for managing port connections in the BackgroundWorker context.
 /// Handles ContentScript and App port connections, PortSession lifecycle, and message routing.
 /// </summary>
-public interface IBwPortService {
+public interface IBwPortService : IAsyncDisposable {
     /// <summary>
     /// Handles a new port connection from ContentScript or App.
     /// Called from BackgroundWorker.OnConnectAsync when a port connects.

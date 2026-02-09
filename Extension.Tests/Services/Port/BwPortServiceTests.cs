@@ -12,9 +12,10 @@ using WebExtensions.Net;
 using Xunit;
 
 /// <summary>
-/// Unit tests for BwPortService, focusing on orphaned request cleanup logic.
+/// Unit tests for BwPortService, focusing on orphaned request cleanup logic
+/// and reentrancy safety of the state operation queue.
 /// </summary>
-public class BwPortServiceTests {
+public class BwPortServiceTests : IAsyncLifetime {
     private readonly Mock<ILogger<BwPortService>> _mockLogger;
     private readonly Mock<IJSRuntime> _mockJsRuntime;
     private readonly Mock<IWebExtensionsApi> _mockWebExtensionsApi;
@@ -33,6 +34,12 @@ public class BwPortServiceTests {
             _mockWebExtensionsApi.Object,
             _mockPendingRequestService.Object
         );
+    }
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync() {
+        await _sut.DisposeAsync();
     }
 
     #region CleanupOrphanedRequestsAsync Tests
@@ -279,6 +286,52 @@ public class BwPortServiceTests {
         _mockPendingRequestService.Verify(
             x => x.RemoveRequestAsync(It.IsAny<string>()),
             Times.Never);
+    }
+
+    #endregion
+
+    #region State Operation Queue Tests
+
+    [Fact]
+    public async Task HandleTabRemovedAsync_EnqueuesAndReturnsImmediately() {
+        // Arrange - no port sessions exist, so cleanup is a no-op
+
+        // Act - should return immediately (enqueues the operation)
+        await _sut.HandleTabRemovedAsync(42);
+
+        // Assert - the method returned without error.
+        // The actual cleanup runs asynchronously via the drain loop.
+        // Give the drain loop a moment to process.
+        await Task.Delay(50);
+
+        // No port sessions were affected (none existed), so just verify no exception
+        Assert.Equal(0, _sut.ActivePortSessionCount);
+    }
+
+    [Fact]
+    public async Task HandleTabRemovedAsync_MultipleTabsQueuedSequentially() {
+        // Arrange - no port sessions exist
+
+        // Act - enqueue multiple tab removals rapidly
+        await _sut.HandleTabRemovedAsync(1);
+        await _sut.HandleTabRemovedAsync(2);
+        await _sut.HandleTabRemovedAsync(3);
+
+        // Give drain loop time to process all
+        await Task.Delay(50);
+
+        // Assert - all processed without error
+        Assert.Equal(0, _sut.ActivePortSessionCount);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CompletesGracefully() {
+        // Act - dispose should complete the channel and stop the drain loop
+        await _sut.DisposeAsync();
+
+        // Assert - no exceptions thrown, service is disposed
+        // Double-dispose should also be safe
+        await _sut.DisposeAsync();
     }
 
     #endregion

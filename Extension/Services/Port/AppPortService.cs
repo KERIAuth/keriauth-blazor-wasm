@@ -488,11 +488,12 @@ public class AppPortService(
         {
             _observers.Add(observer);
         }
-        return new Unsubscriber(_observers, observer);
+        return new Unsubscriber(this, observer);
     }
 
     /// <summary>
     /// Notify all observers of a new BwAppMessage.
+    /// Snapshots the list with .ToArray() so that unsubscribe during OnNext is safe.
     /// </summary>
     private void NotifyObservers(BwAppMessage message)
     {
@@ -504,15 +505,25 @@ public class AppPortService(
     }
 
     /// <summary>
-    /// Helper class for managing observer unsubscription.
+    /// Removes an observer from the subscription list.
+    /// Called by Unsubscriber.Dispose to avoid leaking the raw _observers list.
     /// </summary>
-    private sealed class Unsubscriber(List<IObserver<BwAppMessage>> observers, IObserver<BwAppMessage> observer) : IDisposable
+    private void RemoveObserver(IObserver<BwAppMessage> observer)
+    {
+        _observers.Remove(observer);
+    }
+
+    /// <summary>
+    /// Helper class for managing observer unsubscription.
+    /// Uses a service reference rather than a direct list reference to encapsulate the _observers list.
+    /// </summary>
+    private sealed class Unsubscriber(AppPortService service, IObserver<BwAppMessage> observer) : IDisposable
     {
         public void Dispose()
         {
-            if (observer != null && observers.Contains(observer))
+            if (observer != null)
             {
-                observers.Remove(observer);
+                service.RemoveObserver(observer);
             }
         }
     }
