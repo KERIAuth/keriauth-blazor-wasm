@@ -35,26 +35,52 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 (globalThis as any).appModules = {};  // WebAuthn modules loaded dynamically by JsModuleLoader
 
 
-// TODO P1: having this listener here may help keep the service-worker active?
-console.log("app.ts registering runtime.onConnect listener");
+// Port connection buffering for WASM startup.
+// Connections arriving before BackgroundWorker.Main() registers OnConnectAsync
+// are buffered here. Once WASM signals readiness via __keriauth_setPortReady(),
+// buffered ports are disconnected, prompting the client (CS or App) to reconnect
+// when the C# OnConnect listener is registered and will handle it properly.
+// After WASM is ready, this listener becomes a no-op since Chrome dispatches
+// onConnect to all registered listeners including the C# one.
+let _wasmPortReady = false;
+const _bufferedPorts: chrome.runtime.Port[] = [];
+
+console.log("app.ts: Registering runtime.onConnect listener (with WASM buffering)");
 chrome.runtime.onConnect.addListener((port) => {
-    console.log("app.ts connected on port:", port.name);
+    if (_wasmPortReady) {
+        // C# OnConnect listener is registered and will handle this connection.
+        return;
+    }
 
-    port.onMessage.addListener((msg) => {
-        console.log("app.ts received via port:", msg);
+    console.log("app.ts: Port connected (buffering until WASM ready):", port.name);
+    _bufferedPorts.push(port);
 
-        if (msg.type === "hello") {
-            port.postMessage({
-                type: "welcome from app.ts",
-                time: Date.now()
-            });
+    // Track disconnection so we don't try to disconnect already-gone ports
+    port.onDisconnect.addListener(() => {
+        const idx = _bufferedPorts.indexOf(port);
+        if (idx >= 0) {
+            _bufferedPorts.splice(idx, 1);
+            console.log("app.ts: Buffered port disconnected before WASM ready:", port.name);
         }
     });
-
-    port.onDisconnect.addListener(() => {
-        console.log("App.ts: Port disconnected:", port.name);
-    });
 });
+
+// Called from BackgroundWorker.Main() via IJSRuntime after OnConnect listener is registered.
+// Disconnects buffered ports so clients reconnect through the proper C# handler.
+(globalThis as any).__keriauth_setPortReady = () => {
+    _wasmPortReady = true;
+    console.log(`app.ts: WASM port-ready, disconnecting ${_bufferedPorts.length} buffered port(s)`);
+
+    while (_bufferedPorts.length > 0) {
+        const port = _bufferedPorts.shift()!;
+        try {
+            port.disconnect();
+            console.log("app.ts: Disconnected buffered port:", port.name);
+        } catch (e) {
+            console.warn("app.ts: Failed to disconnect buffered port:", port.name, e);
+        }
+    }
+};
 
 // TODO P1: having this listener here may help keep the service-worker active?
 console.log("App.ts registering window.sendMessage listener");
@@ -975,4 +1001,12 @@ export function afterStarted(blazor: unknown): void {
     console.log('app.ts: afterStarted - Blazor runtime ready');
     // Note: JavaScript modules are already loaded and cached by beforeStart() hook above
     // C# code can access them via IJSRuntime.InvokeAsync("import", path) which returns instantly from browser cache
+
+    // Signal that WASM is ready to handle port connections.
+    // BackgroundWorker.Main() has completed (registering OnConnectAsync), so any
+    // buffered ports can now be disconnected to trigger client reconnection through
+    // the proper C# handler. In App context this is a harmless no-op.
+    if (typeof (globalThis as any).__keriauth_setPortReady === 'function') {
+        (globalThis as any).__keriauth_setPortReady();
+    }
 }

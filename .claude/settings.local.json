@@ -57,7 +57,8 @@
       "Skill(build-windows)",
       "Skill(build-windows:*)",
       "Skill(clean-build-windows)",
-      "Skill(clean-build-windows:*)"
+      "Skill(clean-build-windows:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

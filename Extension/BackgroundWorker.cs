@@ -94,6 +94,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
         WebExtensions.ContextMenus.OnClicked.AddListener(OnContextMenuClickedAsync);
+        // NOTE: Do NOT add non-listener calls here. The Blazor.BrowserExtension.Analyzer
+        // generates JavaScript equivalents for everything in Main(), and arbitrary method
+        // calls get emitted as raw JS function calls that don't exist.
+        // Port readiness signaling is handled by app.ts afterStarted() hook instead.
     }
 
     /// <summary>

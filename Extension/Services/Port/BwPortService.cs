@@ -188,9 +188,9 @@ public class BwPortService : IBwPortService {
             _appInstanceIdToPortId[hello.InstanceId] = portId;
             _portIdToPortSession[portId] = portSession;
 
-            // Get pending popup context (tab that was clicked when action was invoked)
-            var originTabId = _pendingPopupTabId;
-            _pendingPopupTabId = null; // Clear after use
+            // Read-and-clear before any await to prevent interleaved HELLO handlers
+            // from reading the same value
+            var originTabId = TakeAndClearPendingPopupTabId();
 
             _logger.LogInformation("App PortSession established: portSessionId={PortSessionId}, originTabId={OriginTabId}",
                 portSession.PortSessionId, originTabId);
@@ -336,11 +336,14 @@ public class BwPortService : IBwPortService {
 
         // Remove from ports registry
         _portsById.TryRemove(portId, out _);
+        _portIsContentScript.TryRemove(portId, out _);
 
         // Find and update the associated PortSession
         if (_portIdToPortSession.TryRemove(portId, out var portSession)) {
+            // Guard: only clear if this portId is still the current CS.
+            // Safe because check-and-clear is in the same synchronous segment (no await between).
+            // A reconnecting CS sets a new portId before yielding, so this check will be false.
             if (portSession.ContentScriptPortId == portId) {
-                // ContentScript disconnected
                 portSession.ContentScriptPortId = null;
                 _logger.LogInformation("ContentScript disconnected from portSessionId={PortSessionId}",
                     portSession.PortSessionId);
@@ -397,6 +400,7 @@ public class BwPortService : IBwPortService {
             }
         }
         _portIdToPortSession.TryRemove(portId, out _);
+        _portIsContentScript.TryRemove(portId, out _);
     }
 
     /// <summary>
@@ -646,7 +650,7 @@ public class BwPortService : IBwPortService {
             return;
         }
 
-        foreach (var appPortId in portSession.AttachedAppPortIds) {
+        foreach (var appPortId in portSession.AttachedAppPortIds.ToList()) {
             await SendToPortAsync(appPortId, message);
         }
     }
@@ -654,6 +658,17 @@ public class BwPortService : IBwPortService {
     public void SetPendingPopupTabId(int tabId) {
         _pendingPopupTabId = tabId;
         _logger.LogDebug("Set pending popup tabId={TabId}", tabId);
+    }
+
+    /// <summary>
+    /// Atomically reads and clears the pending popup tab ID.
+    /// Both operations occur before the next await to prevent interleaved HELLO handlers
+    /// from reading the same value.
+    /// </summary>
+    private int? TakeAndClearPendingPopupTabId() {
+        var value = _pendingPopupTabId;
+        _pendingPopupTabId = null;
+        return value;
     }
 
     public void RegisterContentScriptRpcHandler(RpcRequestHandler handler) {
@@ -724,7 +739,7 @@ public class BwPortService : IBwPortService {
             Data = data
         };
 
-        foreach (var appPortId in portSession.AttachedAppPortIds) {
+        foreach (var appPortId in portSession.AttachedAppPortIds.ToList()) {
             await SendToPortAsync(appPortId, eventMessage);
         }
     }
@@ -748,7 +763,7 @@ public class BwPortService : IBwPortService {
         // Collect all unique app port IDs across all port sessions
         var appPortIds = new HashSet<string>();
         foreach (var portSession in _portSessionsById.Values) {
-            foreach (var appPortId in portSession.AttachedAppPortIds) {
+            foreach (var appPortId in portSession.AttachedAppPortIds.ToList()) {
                 appPortIds.Add(appPortId);
             }
         }
