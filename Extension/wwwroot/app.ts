@@ -36,12 +36,12 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 
 
 // TODO P1: having this listener here may help keep the service-worker active?
-console.log("App.ts registering runtime.onConnect listener");
+console.log("app.ts registering runtime.onConnect listener");
 chrome.runtime.onConnect.addListener((port) => {
-    console.log("App.ts connected on port:", port.name);
+    console.log("app.ts connected on port:", port.name);
 
     port.onMessage.addListener((msg) => {
-        console.log("App.ts received via port:", msg);
+        console.log("app.ts received via port:", msg);
 
         if (msg.type === "hello") {
             port.postMessage({
