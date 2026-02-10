@@ -83,12 +83,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // Services can import modules using IJSRuntime.InvokeAsync("import", path) - instant from cache
 
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
+        // These are important to register here because they help wake or keep the service worker alive by ensuring it responds to relevant events.
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
         WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
-        // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
-        // WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
+        WebExtensions.Action.OnClicked.AddListener(OnActionClickedAsync);
         WebExtensions.Tabs.OnRemoved.AddListener(OnTabRemovedAsync);
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
@@ -279,6 +279,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // This handles the case where service worker was restarted but session is still valid
             await TryReconnectSignifyClientIfSessionUnlockedAsync();
 
+            // Notify any already-running App, which may have lost their port connection if BW was inactive, so they can reconnect
+            logger.LogInformation("EnsureInitializedAsync: Broadcasting SW_APP_WAKE");
+            await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+                new { t = SendMessageTypes.SwAppWake });
+
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
 
@@ -376,7 +381,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // NOTE: Action click permission handling is now done in app.js beforeStart() hook to preserve user gesture.
     // See app.js for chrome.action.onClicked listener that handles permission requests and script registration.
     //
-    // This OnActionClickedAsync method will be invoked after the handler above, since this one is registered after it.
+    // This OnActionClickedAsync method will be invoked before after the handler above, since this one is registered after it.
     // Typical use: Open popup, toggle feature, 
     [JSInvokable]
     public async Task OnActionClickedAsync(BrowserTab tab) {
@@ -385,6 +390,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             await EnsureInitializedAsync();
 
+            /*
             // Validate tab information
             if (tab is null || string.IsNullOrEmpty(tab.Url)) {
                 logger.LogWarning("Invalid tab information");
@@ -421,7 +427,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             catch (Exception ex) {
                 logger.LogWarning(ex, "KERIAuth BW: Could not check persistent host permissions - will use activeTab");
             }
-
+            */
             // NOTE: Content script injection is now handled in app.js beforeStart() hook
             // This preserves the user gesture required for permission requests
             // The JavaScript handler runs before this C# handler and handles all injection logic
