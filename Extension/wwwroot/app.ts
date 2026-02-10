@@ -891,7 +891,27 @@ export async function beforeStart(
             //
             // ==================================================================================
 
-            chrome.runtime.onMessage.addListener((message, sender, _sendResponse) => {
+            chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+                console.warn('app.ts: [BW] onMessage received:', message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
+
+                // Handle CLIENT_SW_HELLO: App/CS is probing BW readiness.
+                // WASM is ready if this JS listener fires (it runs in the BW context).
+                if (message?.t === 'CLIENT_SW_HELLO') {
+                    const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
+                    const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
+                    console.warn(`app.ts: [BW] CLIENT_SW_HELLO from ${source}, replying ready=true`);
+
+                    const reply = { t: 'SW_CLIENT_HELLO', ready: true };
+                    // sendResponse delivers the reply to the sender's sendMessage() Promise
+                    // (used by ContentScript which awaits the response directly).
+                    sendResponse(reply);
+                    // Broadcast to all extension pages so App's onMessage listener
+                    // sets __keriauth_bwReady = true (App uses InvokeVoidAsync and
+                    // ignores the sendResponse value).
+                    chrome.runtime.sendMessage(reply);
+                    return false;
+                }
+
                 // Note: 'cs-ready' is defined in CsInternalMsgEnum.CS_READY (@keriauth/types)
                 // We use the literal here to avoid adding build dependencies to app.ts
                 if (message?.type === 'cs-ready') {
@@ -922,8 +942,18 @@ export async function beforeStart(
             break;
         case 'Standard':
         case 'Debug':
-            // App contexts (popup, tab, sidepanel) — no Background-specific setup needed
-            console.log(`app.ts: ${mode} mode — no Background-specific event handlers to register`);
+            // Listen for SW_CLIENT_HELLO from BackgroundWorker (readiness response)
+            // Use 'window' (not globalThis) so Blazor's IJSRuntime can resolve the identifier
+            (window as any).__keriauth_bwReady = false;
+            (window as any).__keriauth_isBwReady = () => (window as any).__keriauth_bwReady === true;
+            chrome.runtime.onMessage.addListener((message) => {
+                if (message?.t === 'SW_CLIENT_HELLO' && message?.ready === true) {
+                    (window as any).__keriauth_bwReady = true;
+                    console.warn('app.ts: Received SW_CLIENT_HELLO, BW is ready');
+                }
+                return false;
+            });
+            console.log(`app.ts: ${mode} mode — registered SW_CLIENT_HELLO listener`);
             break;
         default:
             console.warn(`app.ts: Unknown mode: ${mode}`);

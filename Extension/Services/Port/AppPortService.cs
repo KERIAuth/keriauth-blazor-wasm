@@ -75,87 +75,59 @@ public class AppPortService(
             return;
         }
 
-        // =====================================================================
-        // Phase 1: Poll via sendMessage until BW responds with ready=true.
-        // Each sendMessage is a quick synchronous round-trip. Possible responses:
-        // - undefined/null: SW still loading modules, no listener registered yet
-        // - { t:'SW_CLIENT_HELLO', ready:false }: Listener active, WASM/BW not ready
-        // - { t:'SW_CLIENT_HELLO', ready:true }: BW fully initialized, proceed
-        // =====================================================================
+        // Phase 1: Fire CLIENT_SW_HELLO to wake the SW, then poll for the
+        // async SW_CLIENT_HELLO reply (received by app.ts onMessage listener).
         _logger.LogInformation("ConnectAsync Phase 1: Polling for BW readiness (timeout={Timeout}s, interval={Interval}s)...",
             WasmReadyTimeout.TotalSeconds, PollInterval.TotalSeconds);
 
         var deadline = DateTime.UtcNow + WasmReadyTimeout;
         var pollAttempt = 0;
+        var bwReady = false;
+
         while (DateTime.UtcNow < deadline)
         {
             pollAttempt++;
             try
             {
-                // using var pollCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                // Fire-and-forget: wakes BW if inactive. app.ts [BW] onMessage
+                // handler replies with a separate SW_CLIENT_HELLO message.
+                _logger.LogInformation("ConnectAsync Phase 1: Sending CLIENT_SW_HELLO (attempt {Attempt})", pollAttempt);
+                await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+                    new { t = SendMessageTypes.ClientHello });
 
-                var helloResponse = await _jsRuntime.InvokeAsync<JsonElement>("chrome.runtime.sendMessage", new { t = SendMessageTypes.ClientHello });
+                // Check if app.ts listener has received SW_CLIENT_HELLO
+                bwReady = await _jsRuntime.InvokeAsync<bool>("__keriauth_isBwReady");
+                if (bwReady)
+                {
+                    _logger.LogInformation("ConnectAsync Phase 1: BW ready (attempt {Attempt})", pollAttempt);
+                    break;
+                }
 
-                _logger.LogInformation("ConnectAsync Phase 1: Received response to poll attempt {Attempt}: {Response}",
-                    pollAttempt, helloResponse.ToString()); //.ValueKind == JsonValueKind.Undefined ? "undefined" : helloResponse.ToString());
-
-                /*
-                if (helloResponse.ValueKind == JsonValueKind.Object &&
-                    helloResponse.TryGetProperty("t", out var tProp) &&
-                    tProp.GetString() == SendMessageTypes.SwHello &&
-                    helloResponse.TryGetProperty("ready", out var readyProp) &&
-                    readyProp.GetBoolean())
-                    */
-                
-                    _logger.LogInformation("ConnectAsync Phase 1: BW ready (poll attempt {Attempt})", pollAttempt);
-                    // break;
-                
-
-                // Not ready yet — log progress (Info every 5th attempt, Debug otherwise)
-                /*
-                var readyVal = helloResponse.ValueKind == JsonValueKind.Object &&
-                    helloResponse.TryGetProperty("ready", out var rp) ? rp.ToString() : "n/a";
                 if (pollAttempt % 5 == 0)
                 {
-                    _logger.LogInformation("ConnectAsync Phase 1: Waiting for BW... (attempt {Attempt}, ready={Ready})",
-                        pollAttempt, readyVal);
+                    _logger.LogInformation("ConnectAsync Phase 1: Waiting for BW... (attempt {Attempt})", pollAttempt);
                 }
                 else
                 {
-                    _logger.LogDebug("ConnectAsync Phase 1: Not ready (attempt {Attempt}, ready={Ready})",
-                        pollAttempt, readyVal);
-                }
-                */
-            }
-            catch (OperationCanceledException)
-            {
-                // Individual poll timed out (SW may still be loading modules)
-                if (pollAttempt % 5 == 0)
-                {
-                    _logger.LogInformation("ConnectAsync Phase 1: Waiting for BW... (attempt {Attempt}, poll timed out)", pollAttempt);
-                }
-                else
-                {
-                    _logger.LogDebug("ConnectAsync Phase 1: Poll {Attempt} timed out (SW loading)", pollAttempt);
+                    _logger.LogDebug("ConnectAsync Phase 1: Not ready (attempt {Attempt})", pollAttempt);
                 }
             }
             catch (JSException ex)
             {
-                // JS error (e.g., no listener registered yet, runtime not available)
-                _logger.LogDebug("ConnectAsync Phase 1: Poll {Attempt} JS error: {Error}", pollAttempt, ex.Message);
+                _logger.LogWarning("ConnectAsync Phase 1: Probe {Attempt} JS error: {Error}", pollAttempt, ex.Message);
             }
 
             if (DateTime.UtcNow + PollInterval > deadline)
             {
-                break; // Don't sleep past deadline
+                break;
             }
 
             await Task.Delay(PollInterval);
         }
 
-        if (DateTime.UtcNow >= deadline)
+        if (!bwReady)
         {
-            _logger.LogError("ConnectAsync Phase 1: Timed out after {Timeout}s ({Attempts} attempts)",
+            _logger.LogError("ConnectAsync Phase 1: BW did not become ready within {Timeout}s ({Attempts} attempts)",
                 WasmReadyTimeout.TotalSeconds, pollAttempt);
             throw new TimeoutException(
                 $"BackgroundWorker did not become ready within {WasmReadyTimeout.TotalSeconds}s");

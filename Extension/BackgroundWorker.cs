@@ -195,32 +195,39 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     {
         try
         {
-            // deal with a HELLO / READY here?
-            logger.LogInformation("OnMessageAsync: Received message from {Sender}: {Message} isResponse: {isResponse}", sender, message, isResponse);
+            logger.LogInformation("OnMessageAsync: message={Message}, sender={Sender}, isResponse={IsResponse}", message, sender, isResponse);
 
-
-            /*
-                sendResponse({ t: 'SW_CLIENT_HELLO', ready: true });
-                const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
-                const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-                console.log(`app.ts: [SW] CLIENT_SW_HELLO from ${source}, replied ready=true`);
+            // Parse message to check type
+            JsonElement json;
+            if (message is JsonElement el)
+            {
+                json = el;
             }
-            return false;
-        });
-    };
-            if (message?.t === 'CLIENT_SW_HELLO') {
-                sendResponse({ t: 'SW_CLIENT_HELLO', ready: true });
-                const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
-                const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-                console.log(`app.ts: [SW] CLIENT_SW_HELLO from ${source}, replied ready=true`);
+            else
+            {
+                json = JsonSerializer.SerializeToElement(message);
             }
-            return false;
-        });
-    };
-            */
 
+            if (json.TryGetProperty("t", out var tProp) &&
+                tProp.GetString() == SendMessageTypes.ClientHello)
+            {
+                var isExtPage = sender?.Url?.StartsWith("chrome-extension://", System.StringComparison.InvariantCulture) == true;
+                var source = isExtPage ? "extension page" : $"CS tab {sender?.Tab?.Id}";
+                logger.LogInformation("OnMessageAsync: CLIENT_SW_HELLO from {Source}, replying ready=true", source);
 
-
+                var reply = new { t = SendMessageTypes.SwHello, ready = true };
+                if (isExtPage)
+                {
+                    await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage", reply);
+                    logger.LogInformation("OnMessageAsync: Sent SW_CLIENT_HELLO to extension pages");
+                }
+                else if (sender?.Tab?.Id is int tabId)
+                {
+                    await _jsRuntime.InvokeVoidAsync("chrome.tabs.sendMessage", tabId, reply);
+                    logger.LogInformation("OnMessageAsync: Sent SW_CLIENT_HELLO to CS tab {TabId}", tabId);
+                }
+                return;
+            }
 
 
 
