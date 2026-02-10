@@ -959,11 +959,11 @@ export async function beforeStart(
             chrome.runtime.onMessage.addListener((message) => {
                 if (message?.t === 'SW_CLIENT_HELLO' && message?.ready === true) {
                     (window as any).__keriauth_bwReady = true;
-                    console.warn('app.ts: Received SW_CLIENT_HELLO, BW is ready');
+                    console.log('app.ts: Received SW_CLIENT_HELLO, BW is ready');
                 }
                 if (message?.t === 'SW_APP_WAKE') {
                     (window as any).__keriauth_appWake = true;
-                    console.warn('app.ts: Received SW_APP_WAKE, requestId=', message?.requestId);
+                    console.log('app.ts: Received SW_APP_WAKE, requestId=', message?.requestId);
                 }
                 return false;
             });

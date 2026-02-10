@@ -1,6 +1,4 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Blazor.BrowserExtension;
 using Extension.Helper;
 using Extension.Models;
@@ -1217,7 +1215,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             switch (request.Method) {
                 case AppBwMessageType.Values.ReplyAid:
                 case AppBwMessageType.Values.ReplyCredential:
-                    await HandleAppReplyAuthorizeRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    await HandleAppReplyAuthorizeRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
                 case AppBwMessageType.Values.ReplyApprovedSignHeaders:
@@ -1225,7 +1223,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case AppBwMessageType.Values.ReplySignData:
-                    await HandleAppReplySignDataRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    await HandleAppReplySignDataRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
                 case AppBwMessageType.Values.ReplyCreateCredential:
@@ -1233,17 +1231,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case AppBwMessageType.Values.ReplyAidApproval:
-                    await HandleAppReplyAidApprovalRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    await HandleAppReplyAidApprovalRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
                 case AppBwMessageType.Values.ReplySignDataApproval:
-                    await HandleAppReplySignDataApprovalRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
+                    await HandleAppReplySignDataApprovalRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
                 case AppBwMessageType.Values.ReplyCanceled:
                 case AppBwMessageType.Values.ReplyError:
                 case AppBwMessageType.Values.AppClosed:
-                    await HandleAppReplyCanceledRpcAsync(portId, request, tabId, tabUrl, requestId, request.Method, error);
+                    await HandleAppReplyCanceledRpcAsync(portId, request, tabId, requestId, request.Method, error);
                     return;
 
                 // Note: USER_ACTIVITY is now handled as EVENT (fire-and-forget), not RPC
@@ -1305,7 +1303,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles ReplyAid and ReplyCredential RPC from App.
     /// Transforms to polaris-web format and forwards to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyAuthorizeRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
+    private async Task HandleAppReplyAuthorizeRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplyAuthorizeRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
         if (requestId is null) {
@@ -1356,7 +1354,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// App sends just the identifier prefix and optionally a credential SAID.
     /// BackgroundWorker fetches the credential and CESR representation, then forwards to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyAidApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
+    private async Task HandleAppReplyAidApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplyAidApprovalRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
         if (requestId is null) {
@@ -1479,7 +1477,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// App sends the identifier prefix and data items to sign.
     /// BackgroundWorker performs the actual signing via signify-ts and forwards result to ContentScript.
     /// </summary>
-    private async Task HandleAppReplySignDataApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
+    private async Task HandleAppReplySignDataApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplySignDataApprovalRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
         if (requestId is null) {
@@ -1620,7 +1618,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 signPayload.Origin, signPayload.Url, signPayload.Method);
 
             // Sign and send - this will forward the result to CS
-            await SignAndSendRequestHeaders(tabUrl, tabId,
+            await SignAndSendRequestHeaders(
                 new AppBwReplySignMessage(tabId, tabUrl, requestId, signPayload.Origin, signPayload.Url, signPayload.Method, signPayload.Headers, signPayload.Prefix),
                 pendingRequest?.PortId,
                 pendingRequest?.PortSessionId,
@@ -1640,7 +1638,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles ReplySignData RPC from App.
     /// Forwards the signed data result to ContentScript.
     /// </summary>
-    private async Task HandleAppReplySignDataRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
+    private async Task HandleAppReplySignDataRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplySignDataRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
         if (requestId is null) {
@@ -1748,7 +1746,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles ReplyCanceled, ReplyError, and AppClosed RPC from App.
     /// Forwards cancel/error to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, string messageType, string? errorFromApp) {
+    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, string messageType, string? errorFromApp) {
         logger.LogInformation("HandleAppReplyCanceledRpcAsync: type={Type}, tabId={TabId}, requestId={RequestId}, error={Error}",
             messageType, tabId, requestId, errorFromApp);
 
@@ -1971,7 +1969,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestCreateAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestCreateAidRpcAsync");
 
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
 
         try {
             if (!payload.HasValue) {
@@ -2027,7 +2027,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestGetCredentialsRpcAsync(string portId, RpcRequest request) {
         logger.LogInformation("HandleAppRequestGetCredentialsRpcAsync");
 
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
 
         try {
             var credentialsResult = await _signifyClientService.GetCredentials();
@@ -2056,7 +2058,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestGetKeyStateRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestGetKeyStateRpcAsync");
 
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
 
         try {
             if (!payload.HasValue) {
@@ -2100,7 +2104,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestGetKeyEventsRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestGetKeyEventsRpcAsync");
 
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
 
         try {
             if (!payload.HasValue) {
@@ -2144,7 +2150,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRequestRenameAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestRenameAidRpcAsync");
 
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
 
         try {
             if (!payload.HasValue) {
@@ -2321,7 +2329,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             Origin: origin,
             Url: requestUrl,
             Method: method,
-            Headers: headers ?? new Dictionary<string, string>(),
+            Headers: headers ?? [],
             TabId: tabId,
             TabUrl: tabUrl,
             OriginalRequestId: originalRequestId,
@@ -2561,7 +2569,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg,
+    private async Task SignAndSendRequestHeaders(AppBwReplySignMessage msg,
         string? portId = null, string? portSessionId = null, string? rpcRequestId = null) {
         // Helper to send response via port
         async Task SendResponseAsync(object? result, string? error) {
@@ -2713,9 +2721,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // Fall back to constructing URLs from default OOBI hosts
                     logger.LogInformation("BW HandleCreateCredentialApproval: schema {SchemaSaid} not in manifest, trying default hosts",
                         schemaSaid);
-                    schemaOobiUrls = _schemaService.DefaultOobiHosts
-                        .Select(host => $"{host}/oobi/{schemaSaid}")
-                        .ToArray();
+                    schemaOobiUrls = [.. _schemaService.DefaultOobiHosts.Select(host => $"{host}/oobi/{schemaSaid}")];
                 }
                 else {
                     var schemaEntry = _schemaService.GetSchema(schemaSaid);
