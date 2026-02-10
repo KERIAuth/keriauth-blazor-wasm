@@ -6,6 +6,7 @@ using Extension.Models.Messages.BwApp;
 using Extension.Models.Messages.Common;
 using Extension.Models.Messages.Port;
 using FluentResults;
+using Microsoft.JSInterop;
 using WebExtensions.Net;
 
 namespace Extension.Services.Port;
@@ -16,9 +17,11 @@ namespace Extension.Services.Port;
 /// </summary>
 public class AppPortService(
     ILogger<AppPortService> logger,
-    IWebExtensionsApi webExtensionsApi) : IAppPortService
+    IWebExtensionsApi webExtensionsApi,
+    IJSRuntime jsRuntime) : IAppPortService
 {
     private readonly ILogger<AppPortService> _logger = logger;
+    private readonly IJSRuntime _jsRuntime = jsRuntime;
     private WebExtensions.Net.Runtime.Port? _port;
     private readonly string _instanceId = Guid.NewGuid().ToString();
     private TaskCompletionSource<ReadyMessage>? _connectTcs;
@@ -26,8 +29,27 @@ public class AppPortService(
     private readonly List<IObserver<BwAppMessage>> _observers = [];
     private bool _disposed;
 
+    // Heartbeat watchdog
+    private DateTime _lastHeartbeatUtc = DateTime.MinValue;
+    private Timer? _heartbeatWatchdog;
+    private static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(AppConfig.HeartbeatTimeoutSeconds);
+    private static readonly TimeSpan HeartbeatWatchdogInterval = TimeSpan.FromSeconds(10);
+
     // Default timeout for RPC requests
     private static readonly TimeSpan DefaultRpcTimeout = TimeSpan.FromSeconds(30);
+
+    // ConnectAsync timeout settings
+    // Phase 1 polls via sendMessage until BW responds with ready=true.
+    // Each poll is a quick synchronous round-trip (no deferred sendResponse).
+    // The BW may be loading modules or initializing WASM; polls return ready=false until
+    // Program.cs signals __keriauth_setBwReady. WASM cold start from inactive SW can take
+    // 60-90s (29 modules + WASM compilation), so the timeout must be generous.
+    private static readonly TimeSpan WasmReadyTimeout = TimeSpan.FromSeconds(120);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    // Phase 2: port HELLO/READY handshake (fast once BW is confirmed ready).
+    private static readonly TimeSpan PortHandshakeTimeout = TimeSpan.FromSeconds(5);
+    private const int MaxPortAttempts = 3;
+    private static readonly TimeSpan PortRetryDelay = TimeSpan.FromSeconds(1);
 
     public bool IsConnected => !(_port is null || PortSessionId is null);
     public string? PortSessionId { get; private set; }
@@ -37,6 +59,14 @@ public class AppPortService(
     public event EventHandler<PortMessage>? MessageReceived;
     public event EventHandler? Disconnected;
 
+    public Task StartAsync()
+    {
+        // No-op: SW_CLIENT_HELLO is now received as the sendResponse to CLIENT_SW_HELLO
+        // (same message channel). No separate runtime.onMessage listener needed.
+        _logger.LogInformation("AppPortService.StartAsync called (no listener registration needed)");
+        return Task.CompletedTask;
+    }
+
     public async Task ConnectAsync()
     {
         if (IsConnected)
@@ -45,77 +75,177 @@ public class AppPortService(
             return;
         }
 
-        _logger.LogInformation("Connecting to BackgroundWorker via port...");
+        // =====================================================================
+        // Phase 1: Poll via sendMessage until BW responds with ready=true.
+        // Each sendMessage is a quick synchronous round-trip. Possible responses:
+        // - undefined/null: SW still loading modules, no listener registered yet
+        // - { t:'SW_CLIENT_HELLO', ready:false }: Listener active, WASM/BW not ready
+        // - { t:'SW_CLIENT_HELLO', ready:true }: BW fully initialized, proceed
+        // =====================================================================
+        _logger.LogInformation("ConnectAsync Phase 1: Polling for BW readiness (timeout={Timeout}s, interval={Interval}s)...",
+            WasmReadyTimeout.TotalSeconds, PollInterval.TotalSeconds);
 
-        // Create TaskCompletionSource for READY response
-        _connectTcs = new TaskCompletionSource<ReadyMessage>();
-
-        try
+        var deadline = DateTime.UtcNow + WasmReadyTimeout;
+        var pollAttempt = 0;
+        while (DateTime.UtcNow < deadline)
         {
-            // Connect to BackgroundWorker using port name
-            // Runtime.Connect returns Port directly (not Task<Port>)
-            // Note: Must use ConnectInfo object - passing string directly is interpreted as extensionId
-            var connectInfo = new WebExtensions.Net.Runtime.ConnectInfo { Name = "extension-app" };
-            _port = webExtensionsApi.Runtime.Connect(connectInfo: connectInfo);
+            pollAttempt++;
+            try
+            {
+                // using var pollCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            // Set up message listener with explicit delegate type to resolve ambiguity
-            // WebExtensions.Net OnMessage expects: Func<object, MessageSender, Action<object>, bool>
-            Func<object, WebExtensions.Net.Runtime.MessageSender, Action<object>, bool> onMessageHandler =
-                (object message, WebExtensions.Net.Runtime.MessageSender sender, Action<object> sendResponse) =>
+                var helloResponse = await _jsRuntime.InvokeAsync<JsonElement>("chrome.runtime.sendMessage", new { t = SendMessageTypes.ClientHello });
+
+                _logger.LogInformation("ConnectAsync Phase 1: Received response to poll attempt {Attempt}: {Response}",
+                    pollAttempt, helloResponse.ToString()); //.ValueKind == JsonValueKind.Undefined ? "undefined" : helloResponse.ToString());
+
+                /*
+                if (helloResponse.ValueKind == JsonValueKind.Object &&
+                    helloResponse.TryGetProperty("t", out var tProp) &&
+                    tProp.GetString() == SendMessageTypes.SwHello &&
+                    helloResponse.TryGetProperty("ready", out var readyProp) &&
+                    readyProp.GetBoolean())
+                    */
+                
+                    _logger.LogInformation("ConnectAsync Phase 1: BW ready (poll attempt {Attempt})", pollAttempt);
+                    // break;
+                
+
+                // Not ready yet — log progress (Info every 5th attempt, Debug otherwise)
+                /*
+                var readyVal = helloResponse.ValueKind == JsonValueKind.Object &&
+                    helloResponse.TryGetProperty("ready", out var rp) ? rp.ToString() : "n/a";
+                if (pollAttempt % 5 == 0)
                 {
-                    _ = HandlePortMessageAsync(message);
-                    return true; // keep channel open ?
+                    _logger.LogInformation("ConnectAsync Phase 1: Waiting for BW... (attempt {Attempt}, ready={Ready})",
+                        pollAttempt, readyVal);
+                }
+                else
+                {
+                    _logger.LogDebug("ConnectAsync Phase 1: Not ready (attempt {Attempt}, ready={Ready})",
+                        pollAttempt, readyVal);
+                }
+                */
+            }
+            catch (OperationCanceledException)
+            {
+                // Individual poll timed out (SW may still be loading modules)
+                if (pollAttempt % 5 == 0)
+                {
+                    _logger.LogInformation("ConnectAsync Phase 1: Waiting for BW... (attempt {Attempt}, poll timed out)", pollAttempt);
+                }
+                else
+                {
+                    _logger.LogDebug("ConnectAsync Phase 1: Poll {Attempt} timed out (SW loading)", pollAttempt);
+                }
+            }
+            catch (JSException ex)
+            {
+                // JS error (e.g., no listener registered yet, runtime not available)
+                _logger.LogDebug("ConnectAsync Phase 1: Poll {Attempt} JS error: {Error}", pollAttempt, ex.Message);
+            }
+
+            if (DateTime.UtcNow + PollInterval > deadline)
+            {
+                break; // Don't sleep past deadline
+            }
+
+            await Task.Delay(PollInterval);
+        }
+
+        if (DateTime.UtcNow >= deadline)
+        {
+            _logger.LogError("ConnectAsync Phase 1: Timed out after {Timeout}s ({Attempts} attempts)",
+                WasmReadyTimeout.TotalSeconds, pollAttempt);
+            throw new TimeoutException(
+                $"BackgroundWorker did not become ready within {WasmReadyTimeout.TotalSeconds}s");
+        }
+
+        // =====================================================================
+        // Phase 2: Create port and complete HELLO/READY handshake.
+        // WASM is confirmed alive, so this should be fast. Retry on timeout
+        // since transient issues (port creation race) are possible.
+        // =====================================================================
+        for (int attempt = 1; attempt <= MaxPortAttempts; attempt++)
+        {
+            _logger.LogInformation("ConnectAsync Phase 2: Port handshake attempt {Attempt}/{Max}...",
+                attempt, MaxPortAttempts);
+
+            try
+            {
+                _connectTcs = new TaskCompletionSource<ReadyMessage>();
+                var connectInfo = new WebExtensions.Net.Runtime.ConnectInfo { Name = "extension-app" };
+                _port = webExtensionsApi.Runtime.Connect(connectInfo: connectInfo);
+
+                // Set up message listener
+                Func<object, WebExtensions.Net.Runtime.MessageSender, Action<object>, bool> onMessageHandler =
+                    (object message, WebExtensions.Net.Runtime.MessageSender sender, Action<object> sendResponse) =>
+                    {
+                        _ = HandlePortMessageAsync(message);
+                        return false;
+                    };
+                _port.OnMessage.AddListener(onMessageHandler);
+
+                // Set up disconnect listener (still used as early signal)
+                Action<WebExtensions.Net.Runtime.Port> onDisconnectHandler = (WebExtensions.Net.Runtime.Port disconnectedPort) =>
+                {
+                    HandleDisconnect();
                 };
-            _port.OnMessage.AddListener(onMessageHandler);
+                _port.OnDisconnect.AddListener(onDisconnectHandler);
 
-            // Set up disconnect listener with explicit delegate type
-            // WebExtensions.Net OnDisconnect expects: Action<Port>
-            Action<WebExtensions.Net.Runtime.Port> onDisconnectHandler = (WebExtensions.Net.Runtime.Port disconnectedPort) =>
+                // Send HELLO on port for session establishment
+                var helloMessage = new HelloMessage
+                {
+                    Context = ContextKind.ExtensionApp,
+                    InstanceId = _instanceId,
+                    TabId = null,
+                    FrameId = null
+                };
+
+                await SendMessageInternalAsync(helloMessage);
+                _logger.LogDebug("HELLO sent, waiting for READY (attempt {Attempt})...", attempt);
+
+                // Wait for port READY
+                using var portCts = new CancellationTokenSource(PortHandshakeTimeout);
+                portCts.Token.Register(() => _connectTcs?.TrySetCanceled());
+
+                var readyMessage = await _connectTcs.Task;
+
+                PortSessionId = readyMessage.PortSessionId;
+                OriginTabId = readyMessage.TabId;
+
+                // Start heartbeat watchdog now that we're connected
+                StartHeartbeatWatchdog();
+
+                _logger.LogInformation("Connected to BackgroundWorker, portSessionId={PortSessionId}, originTabId={OriginTabId}",
+                    PortSessionId, OriginTabId);
+                return; // Success
+            }
+            catch (OperationCanceledException)
             {
-                HandleDisconnect();
-            };
-            _port.OnDisconnect.AddListener(onDisconnectHandler);
+                _logger.LogWarning("ConnectAsync Phase 2: Port handshake attempt {Attempt} timed out", attempt);
+                ClearPort();
 
-            // Send HELLO message
-            var helloMessage = new HelloMessage
+                if (attempt < MaxPortAttempts)
+                {
+                    _logger.LogInformation("Retrying port handshake in {Delay}...", PortRetryDelay);
+                    await Task.Delay(PortRetryDelay);
+                }
+            }
+            catch (Exception ex)
             {
-                Context = ContextKind.ExtensionApp,
-                InstanceId = _instanceId,
-                TabId = null,
-                FrameId = null
-            };
-
-            await SendMessageInternalAsync(helloMessage);
-            _logger.LogDebug("HELLO sent, waiting for READY....");
-
-            // Wait for READY response with timeout.  Not if service-worker is inactive and takes time to restart or takes too long to respond, we don't want to wait indefinitely
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            cts.Token.Register(() => _connectTcs?.TrySetCanceled());
-
-            var readyMessage = await _connectTcs.Task;
-
-            PortSessionId = readyMessage.PortSessionId;
-            OriginTabId = readyMessage.TabId;
-
-            _logger.LogInformation("Connected to BackgroundWorker, portSessionId={PortSessionId}, originTabId={OriginTabId}",
-                PortSessionId, OriginTabId);
+                _logger.LogError(ex, "ConnectAsync Phase 2: Port handshake attempt {Attempt} failed", attempt);
+                ClearPort();
+                throw;
+            }
+            finally
+            {
+                _connectTcs = null;
+            }
         }
-        catch (OperationCanceledException)
-        {
-            _logger.LogError("ConnectAsync timed out waiting for READY");
-            ClearPort();
-            throw new TimeoutException("Failed to receive READY from BackgroundWorker within timeout");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ConnectAsync failed");
-            ClearPort();
-            throw;
-        }
-        finally
-        {
-            _connectTcs = null;
-        }
+
+        throw new TimeoutException(
+            $"Failed to complete port handshake after {MaxPortAttempts} attempts (WASM was alive)");
     }
 
     public async Task AttachToTabAsync(int tabId, int? frameId = null)
@@ -288,17 +418,21 @@ public class AppPortService(
 
             switch (messageType)
             {
-                case "READY":
+                case PortMessageTypes.Ready:
                     HandleReadyMessage(messageJson);
                     break;
-                case "RPC_RES":
+                case PortMessageTypes.RpcResponse:
                     HandleRpcResponse(messageJson);
                     break;
-                case "EVENT":
+                case PortMessageTypes.Event:
                     HandleEventMessage(messageJson);
                     break;
-                case "ERROR":
+                case PortMessageTypes.Error:
                     HandleErrorMessage(messageJson);
+                    break;
+                case PortMessageTypes.Heartbeat:
+                    _lastHeartbeatUtc = DateTime.UtcNow;
+                    _logger.LogDebug("Heartbeat received");
                     break;
                 default:
                     _logger.LogWarning("Unknown port message type: {Type}", messageType);
@@ -428,8 +562,10 @@ public class AppPortService(
 
     private void HandleDisconnect()
     {
-        _logger.LogInformation("Port disconnected");
+        _logger.LogInformation("Port disconnected from BackgroundWorker. IsConnected was {WasConnected}, PortSessionId was {PortSessionId}",
+            IsConnected, PortSessionId);
 
+        StopHeartbeatWatchdog();
         ClearPort();
 
         // Cancel any pending requests
@@ -465,6 +601,8 @@ public class AppPortService(
         }
         _disposed = true;
 
+        StopHeartbeatWatchdog();
+
         // Notify observers of completion
         foreach (var observer in _observers.ToArray())
         {
@@ -476,6 +614,36 @@ public class AppPortService(
         await Task.CompletedTask; // Satisfy async requirement
         GC.SuppressFinalize(this);
     }
+
+    #region Heartbeat Watchdog
+
+    private void StartHeartbeatWatchdog()
+    {
+        StopHeartbeatWatchdog();
+        _lastHeartbeatUtc = DateTime.UtcNow; // Initialize so watchdog doesn't fire immediately
+        _heartbeatWatchdog = new Timer(CheckHeartbeat, null, HeartbeatWatchdogInterval, HeartbeatWatchdogInterval);
+        _logger.LogDebug("Heartbeat watchdog started");
+    }
+
+    private void StopHeartbeatWatchdog()
+    {
+        _heartbeatWatchdog?.Dispose();
+        _heartbeatWatchdog = null;
+    }
+
+    private void CheckHeartbeat(object? state)
+    {
+        if (_lastHeartbeatUtc == DateTime.MinValue) return; // No heartbeat received yet
+        if (!IsConnected) return;
+
+        if (DateTime.UtcNow - _lastHeartbeatUtc > HeartbeatTimeout)
+        {
+            _logger.LogWarning("Heartbeat timeout — no heartbeat for {Seconds}s", HeartbeatTimeout.TotalSeconds);
+            HandleDisconnect();
+        }
+    }
+
+    #endregion
 
     #region IObservable<BwAppMessage> Implementation
 

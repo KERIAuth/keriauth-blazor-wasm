@@ -29,7 +29,19 @@ export const PortMessageTypes = {
     Event: 'EVENT',
     RpcRequest: 'RPC_REQ',
     RpcResponse: 'RPC_RES',
-    Error: 'ERROR'
+    Error: 'ERROR',
+    Heartbeat: 'BW_HEARTBEAT'
+} as const;
+
+/**
+ * Message type discriminators for chrome.runtime.sendMessage (non-port) communication.
+ * Used for WASM readiness probing before port creation.
+ */
+export const SendMessageTypes = {
+    /** Client → SW: "Is WASM alive?" (sent via chrome.runtime.sendMessage) */
+    ClientHello: 'CLIENT_SW_HELLO',
+    /** SW → Client: "WASM is ready, you can create a port" (sent via runtime/tabs.sendMessage) */
+    SwHello: 'SW_CLIENT_HELLO'
 } as const;
 
 /**

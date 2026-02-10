@@ -13,6 +13,12 @@ namespace Extension {
         // Request/Response messaging configuration
         public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
 
+        // Heartbeat configuration
+        // TODO P2: Tune heartbeat interval based on UX testing. 15s balances
+        // responsiveness with SW activity. Timer keeps SW alive while ports are active.
+        public const int HeartbeatIntervalSeconds = 15;
+        public const int HeartbeatTimeoutSeconds = 45; // 3 missed heartbeats
+
         // KERIA connection settings
         public const string LocalhostKeriaConnectAlias = "localhost";
         public const string LocalhostKeriaAdminUrl = "http://localhost:3901";

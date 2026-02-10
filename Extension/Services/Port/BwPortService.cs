@@ -40,6 +40,11 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     // Track which ports are ContentScript vs App (by portId)
     private readonly ConcurrentDictionary<string, bool> _portIsContentScript = new();
 
+    // Heartbeat timer - sends BW_HEARTBEAT to all active ports at a regular interval.
+    // Starts when first port connects, stops when last port disconnects.
+    private Timer? _heartbeatTimer;
+    private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(AppConfig.HeartbeatIntervalSeconds);
+
     // Sequential queue for state-mutating operations (HELLO, ATTACH, DETACH, DISCONNECT, TAB_REMOVED).
     // In single-threaded WASM, fire-and-forget async handlers can interleave at await points,
     // causing logical state tearing. This channel serializes those operations while allowing
@@ -122,6 +127,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         }
         _disposed = true;
 
+        StopHeartbeat();
         _stateOpChannel.Writer.Complete();
         await _drainCts.CancelAsync();
         try { await _drainTask; }
@@ -154,6 +160,9 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         };
 
         port.OnDisconnect.AddListener(onDisconnectHandler);
+
+        // Start heartbeat timer when first port connects
+        StartHeartbeat();
 
         await Task.CompletedTask; // Satisfy async method requirement
     }
@@ -439,6 +448,13 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 portSession.AttachedAppPortIds.Remove(portId);
                 _logger.LogInformation("App disconnected from portSessionId={PortSessionId}",
                     portSession.PortSessionId);
+
+                // Clean up orphaned App PortSession if no CS and no attached apps remain
+                if (!portSession.HasContentScript && !portSession.HasAttachedApps) {
+                    _portSessionsById.TryRemove(portSession.PortSessionId, out _);
+                    _logger.LogInformation("Cleaned up orphaned App PortSession: portSessionId={PortSessionId}",
+                        portSession.PortSessionId);
+                }
             }
         }
 
@@ -446,6 +462,11 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         var instanceToRemove = _appInstanceIdToPortId.FirstOrDefault(kvp => kvp.Value == portId).Key;
         if (instanceToRemove != null) {
             _appInstanceIdToPortId.TryRemove(instanceToRemove, out _);
+        }
+
+        // Stop heartbeat if no more active ports
+        if (_portsById.IsEmpty) {
+            StopHeartbeat();
         }
     }
 
@@ -886,4 +907,52 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             }
         }
     }
+
+    #region Heartbeat
+
+    private void BroadcastHeartbeat(object? state) {
+        try {
+            var portIds = _portsById.Keys.ToArray();
+
+            if (portIds.Length == 0) {
+                _logger.LogDebug("Heartbeat: No active ports, stopping timer");
+                StopHeartbeat();
+                return;
+            }
+
+            var heartbeat = new { t = PortMessageTypes.Heartbeat };
+            var serialized = JsonSerializer.Serialize(heartbeat, JsonOptions.PortMessaging);
+            var jsonElement = JsonSerializer.Deserialize<JsonElement>(serialized);
+
+            foreach (var portId in portIds) {
+                if (_portsById.TryGetValue(portId, out var port)) {
+                    try {
+                        port.PostMessage(jsonElement);
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning(ex, "Heartbeat: Failed to send to portId={PortId}", portId);
+                    }
+                }
+            }
+
+            _logger.LogDebug("Heartbeat broadcast to {Count} ports", portIds.Length);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Heartbeat broadcast failed");
+        }
+    }
+
+    private void StartHeartbeat() {
+        if (_heartbeatTimer is not null) return;
+        _heartbeatTimer = new Timer(BroadcastHeartbeat, null, HeartbeatInterval, HeartbeatInterval);
+        _logger.LogInformation("Heartbeat timer started (interval={Interval}s)", HeartbeatInterval.TotalSeconds);
+    }
+
+    private void StopHeartbeat() {
+        _heartbeatTimer?.Dispose();
+        _heartbeatTimer = null;
+        _logger.LogInformation("Heartbeat timer stopped");
+    }
+
+    #endregion
 }

@@ -35,69 +35,6 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 (globalThis as any).appModules = {};  // WebAuthn modules loaded dynamically by JsModuleLoader
 
 
-// Port connection buffering for WASM startup.
-// Connections arriving before BackgroundWorker.Main() registers OnConnectAsync
-// are buffered here. Once WASM signals readiness via __keriauth_setPortReady(),
-// buffered ports are disconnected, prompting the client (CS or App) to reconnect
-// when the C# OnConnect listener is registered and will handle it properly.
-// After WASM is ready, this listener becomes a no-op since Chrome dispatches
-// onConnect to all registered listeners including the C# one.
-let _wasmPortReady = false;
-const _bufferedPorts: chrome.runtime.Port[] = [];
-
-console.log("app.ts: Registering runtime.onConnect listener (with WASM buffering)");
-chrome.runtime.onConnect.addListener((port) => {
-    if (_wasmPortReady) {
-        // C# OnConnect listener is registered and will handle this connection.
-        return;
-    }
-
-    console.log("app.ts: Port connected (buffering until WASM ready):", port.name);
-    _bufferedPorts.push(port);
-
-    // Track disconnection so we don't try to disconnect already-gone ports
-    port.onDisconnect.addListener(() => {
-        const idx = _bufferedPorts.indexOf(port);
-        if (idx >= 0) {
-            _bufferedPorts.splice(idx, 1);
-            console.log("app.ts: Buffered port disconnected before WASM ready:", port.name);
-        }
-    });
-});
-
-// Called from BackgroundWorker.Main() via IJSRuntime after OnConnect listener is registered.
-// Disconnects buffered ports so clients reconnect through the proper C# handler.
-(globalThis as any).__keriauth_setPortReady = () => {
-    _wasmPortReady = true;
-    console.log(`app.ts: WASM port-ready, disconnecting ${_bufferedPorts.length} buffered port(s)`);
-
-    while (_bufferedPorts.length > 0) {
-        const port = _bufferedPorts.shift()!;
-        try {
-            port.disconnect();
-            console.log("app.ts: Disconnected buffered port:", port.name);
-        } catch (e) {
-            console.warn("app.ts: Failed to disconnect buffered port:", port.name, e);
-        }
-    }
-};
-
-// TODO P1: having this listener here may help keep the service-worker active?
-console.log("App.ts registering window.sendMessage listener");
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("App.ts received runtime message: ", message, "sender: ", sender)
-    
-    if (message.type === 'SW_RESTARTED') {
-        console.log('Service worker restarted ???? , re-establishing port ????');
-        // reconnectPort();
-        sendResponse({ ok: true });  
-    }
-      // IMPORTANT warning: if two listeners return true (to keep channel open for responses), the sendRespond receipt becomes nondeterministic
-      // See other listener here in app.ts and in BackgroundWorker (WebExtensions.Runtime.OnMessage.AddListener(...))
-    return false;
-});
-
-
 
 
 
@@ -966,8 +903,6 @@ export async function beforeStart(
                     return false; // No async response needed
                 }
                 // Let other listeners handle other message types
-                // IMPORTANT: if you might respond asynchronously, return true. However, only one such listener should!
-                // See also BackgroundWorker.cs for similar listener (WebExtensions.Runtime.OnMessage.AddListener(...))
                 return false;
             });
 
@@ -985,8 +920,13 @@ export async function beforeStart(
                 await initializeActiveTabState();
             });
             break;
+        case 'Standard':
+        case 'Debug':
+            // App contexts (popup, tab, sidepanel) — no Background-specific setup needed
+            console.log(`app.ts: ${mode} mode — no Background-specific event handlers to register`);
+            break;
         default:
-            console.log(`app.ts: Unknown mode: ${mode}`);
+            console.warn(`app.ts: Unknown mode: ${mode}`);
             break;
     }
     console.log('app.ts: beforeStart completed');
@@ -999,14 +939,8 @@ export async function beforeStart(
  */
 export function afterStarted(blazor: unknown): void {
     console.log('app.ts: afterStarted - Blazor runtime ready');
-    // Note: JavaScript modules are already loaded and cached by beforeStart() hook above
-    // C# code can access them via IJSRuntime.InvokeAsync("import", path) which returns instantly from browser cache
-
-    // Signal that WASM is ready to handle port connections.
-    // BackgroundWorker.Main() has completed (registering OnConnectAsync), so any
-    // buffered ports can now be disconnected to trigger client reconnection through
-    // the proper C# handler. In App context this is a harmless no-op.
-    if (typeof (globalThis as any).__keriauth_setPortReady === 'function') {
-        (globalThis as any).__keriauth_setPortReady();
-    }
+    // Note: _wasmReady is NOT set here. In SW context, it's set by C# via
+    // __keriauth_setBwReady after Program.cs completes DI setup and module loading.
+    // This ensures clients don't attempt port connections before BwPortService is ready.
+    // In App context, _wasmReady is unused (CLIENT_SW_HELLO handler only runs in SW).
 }

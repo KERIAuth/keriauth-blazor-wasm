@@ -8,6 +8,7 @@ using Extension.Services.SignifyService;
 using Extension.Services.Storage;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.JSInterop;
 using MudBlazor.Services;
 
 // Program and Main are implicit and static
@@ -132,6 +133,17 @@ catch (Exception ex) {
 }
 
 // logger.LogInformation("All modules loaded successfully");
+
+// Signal to app.ts that the BackgroundWorker is ready to handle port connections.
+// This sets _wasmReady=true in the CLIENT_SW_HELLO handler so polling clients
+// get ready=true. Called after DI is configured and modules are loaded.
+// The slight delay before BackgroundWorker.Main() creates the component is handled
+// by the App's Phase 2 port handshake retry mechanism.
+if (extensionMode == BrowserExtensionMode.Background) {
+    // var jsRuntimeForSignal = host.Services.GetRequiredService<IJSRuntime>();
+    // await jsRuntimeForSignal.InvokeVoidAsync("__keriauth_setBwReady");
+    // logger.LogInformation("BW readiness signaled to app.ts");
+}
 
 logger.LogInformation("Running WASM Host...");
 // Console.WriteLine("Program.cs: Starting host.RunAsync()...");

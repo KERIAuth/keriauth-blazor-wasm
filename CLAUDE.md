@@ -4,15 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## CRITICAL: Building This Project
 
-**ALWAYS use slash commands to build this project.** Direct npm/dotnet commands do not work reliably in Claude Code's bash shell due to Windows path handling issues.
+**Use slash commands or the batch scripts directly** to build this project:
 
 - **`/build-windows`** - Incremental build after code changes (TypeScript + C#)
 - **`/clean-build-windows`** - Full clean build (use when dependencies change or builds fail)
+- **`cmd //c "c:\s\k\kbw\build.cmd"`** - Direct incremental build (supports `--skip-ts`, `--test`)
+- **`cmd //c "c:\s\k\kbw\clean-build.cmd"`** - Direct clean build (supports `--skip-install`, `--skip-test`)
+
+**Claude Code bash shell note**: Use `cmd //c` (double slash) not `cmd /c` — bash interprets `/c` as a path. The batch scripts handle all `cd`, `pushd`, and path issues internally.
 
 **Never run these directly** - they will fail or produce incomplete results:
 - `npm run build`
 - `dotnet build`
-- `cmd /c "cd ... && npm run build"`
+- `pushd scripts && npm run build && popd`
 
 ## Architecture Overview
 

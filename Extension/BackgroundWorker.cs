@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Blazor.BrowserExtension;
+﻿using Blazor.BrowserExtension;
 using Extension.Helper;
 using Extension.Models;
 using Extension.Models.Messages.AppBw;
@@ -21,6 +20,9 @@ using Extension.Utilities;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
+using System;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
@@ -85,7 +87,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         // The build-generated backgroundWorker.js invokes the following content as js-equivalents
         WebExtensions.Runtime.OnInstalled.AddListener(OnInstalledAsync);
         WebExtensions.Runtime.OnStartup.AddListener(OnStartupAsync);
-        WebExtensions.Runtime.OnMessage.AddListener(HandleRuntimeOnMessageAsync);
         WebExtensions.Runtime.OnConnect.AddListener(OnConnectAsync);
         WebExtensions.Alarms.OnAlarm.AddListener(OnAlarmAsync);
         // Don't add an OnClicked handler here because it would be invoked after the one registered in app.ts, and may result in race conditions.
@@ -94,23 +95,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         WebExtensions.Runtime.OnSuspend.AddListener(OnSuspendAsync);
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
         WebExtensions.ContextMenus.OnClicked.AddListener(OnContextMenuClickedAsync);
+        WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
+            
         // NOTE: Do NOT add non-listener calls here. The Blazor.BrowserExtension.Analyzer
         // generates JavaScript equivalents for everything in Main(), and arbitrary method
         // calls get emitted as raw JS function calls that don't exist.
-        // Port readiness signaling is handled by app.ts afterStarted() hook instead.
-    }
-
-    /// <summary>
-    /// Handles incoming messages from from ContentScript and App.
-    /// </summary>
-    [JSInvokable]
-    public async Task<bool> HandleRuntimeOnMessageAsync(object arg1, MessageSender sender, Action<object> action, bool b)
-    {
-        // TODO P2: implement
-        // may be useful to wake up the service worker from idle inactive state
-        logger.LogWarning("HandleRuntimeOnMessageAsync called bool: {bool} object: {a}", b, arg1);
-        // throw new NotImplementedException();
-        return true;  // TODO P2 returning true here keeps this channel open, so no other such listeners should! See app.ts
+        // Port readiness is signaled by Program.cs calling __keriauth_setBwReady.
     }
 
     private readonly ISignifyClientBinding _signifyClientBinding;
@@ -197,6 +187,58 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         {
             logger.LogError(ex, "OnInstalledAsync: Error handling onInstalled event");
             throw;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnMessageAsync(object message, MessageSender sender, bool isResponse)
+    {
+        try
+        {
+            // deal with a HELLO / READY here?
+            logger.LogInformation("OnMessageAsync: Received message from {Sender}: {Message} isResponse: {isResponse}", sender, message, isResponse);
+
+
+            /*
+                sendResponse({ t: 'SW_CLIENT_HELLO', ready: true });
+                const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
+                const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
+                console.log(`app.ts: [SW] CLIENT_SW_HELLO from ${source}, replied ready=true`);
+            }
+            return false;
+        });
+    };
+            if (message?.t === 'CLIENT_SW_HELLO') {
+                sendResponse({ t: 'SW_CLIENT_HELLO', ready: true });
+                const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
+                const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
+                console.log(`app.ts: [SW] CLIENT_SW_HELLO from ${source}, replied ready=true`);
+            }
+            return false;
+        });
+    };
+            */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "OnMessageAsync: Error handling message");
         }
     }
 

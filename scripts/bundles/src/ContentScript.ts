@@ -20,6 +20,8 @@ import {
     type ReadyMessage,
     type RpcResponse,
     type EventMessage,
+    PortMessageTypes,
+    SendMessageTypes,
     createCsHelloMessage,
     createRpcRequest,
     isReadyMessage,
@@ -71,9 +73,14 @@ import {
     }>();
     // Map RPC request ID -> original page requestId for response routing
     const rpcIdToPageRequestId = new Map<string, string>();
-    let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 5;
-    const RECONNECT_DELAY_MS = 100;
+    let pendingReadyTimeout: ReturnType<typeof setTimeout> | null = null;
+    const READY_TIMEOUT_MS = 5000;
+
+    // Heartbeat tracking
+    let lastHeartbeatTime = 0;
+    let heartbeatWatchdog: ReturnType<typeof setInterval> | null = null;
+    const HEARTBEAT_TIMEOUT_MS = 45000; // 3 missed heartbeats at 15s
+    const HEARTBEAT_WATCHDOG_MS = 10000;
 
     /*
      * This section is evaluated on document-start, as specified in the extension manifest (or app.ts ?).
@@ -96,13 +103,9 @@ import {
     // Add a listener for messages from the web page
     window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
 
-    // Listen for messages from BackgroundWorker (ping for icon state, SW_RESTARTED for reconnection)
-    // NOTE: All CS↔BW messaging now uses port-based communication. This listener is ONLY for:
+    // Listen for messages from service worker
+    // NOTE: All CS↔BW messaging uses port-based communication. This listener is ONLY for:
     // 1. ping - to detect if content script is injected (handled locally, no BW roundtrip)
-    // 2. SW_RESTARTED - to trigger port reconnection after service worker restart
-    // TODO P2: instead of the above pattern with BW, the CS could be made robust and reconnect (self-healing) 
-    // if port was disconnected, i.e., when service-worker (BackgroundWorker) became inactive.
-    // That would not be trivial refactoring, but would be similar to what App-BW interaction already does
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // Respond to ping messages from the service worker to detect if content script is already injected
         if (msg?.type === 'ping') {
@@ -110,19 +113,7 @@ import {
             return true; // keep channel open for response
         }
 
-        // Handle SW_RESTARTED message - reconnect port after service worker restart
-        if (msg?.type === 'SW_RESTARTED') {
-            console.log('KeriAuthCs←BW: Received SW_RESTARTED, reconnecting port...');
-            // Reset state and reconnect
-            port = null;
-            portSessionId = null;
-            isPortReady = false;
-            reconnectAttempts = 0;
-            connectPort();
-            return false;
-        }
-
-        // Ignore all other messages - all CS↔BW communication uses ports now
+        // Ignore all other messages
         return false;
     });
 
@@ -140,26 +131,64 @@ import {
     connectPort();
 
     /**
-     * Establish a port connection to the BackgroundWorker
-     * Sends HELLO message (with listener to wait for READY response)
+     * Establish a port connection to the BackgroundWorker.
+     * Polls via CLIENT_SW_HELLO until BW responds with ready=true,
+     * then creates a port and sends HELLO for session establishment.
      */
-    function connectPort(): void {
-        try {
-            console.log('KeriAuthCs: Connecting to BackgroundWorker via port...');
+    async function connectPort(): Promise<void> {
+        const POLL_INTERVAL_MS = 5000;
+        const POLL_TIMEOUT_MS = 120000; // WASM cold start from inactive SW can take 60-90s
+        const deadline = Date.now() + POLL_TIMEOUT_MS;
 
+        try {
+            // Step 1: Poll until BW is ready. Each sendMessage gets an immediate
+            // synchronous response with { t, ready }. No deferred sendResponse.
+            console.log('KeriAuthCs: Polling for BW readiness...');
+            let attempt = 0;
+            while (Date.now() < deadline) {
+                attempt++;
+                try {
+                    const response = await chrome.runtime.sendMessage({ t: SendMessageTypes.ClientHello });
+                    if (response?.t === SendMessageTypes.SwHello && response?.ready === true) {
+                        console.log(`KeriAuthCs: BW ready (poll attempt ${attempt})`);
+                        break;
+                    }
+                    console.log(`KeriAuthCs: BW not ready (attempt ${attempt}, ready=${response?.ready})`);
+                } catch (e) {
+                    // SW may still be loading modules (no listener yet)
+                    console.log(`KeriAuthCs: Poll ${attempt} failed:`, e);
+                }
+
+                if (Date.now() + POLL_INTERVAL_MS > deadline) {
+                    throw new Error(`BW did not become ready within ${POLL_TIMEOUT_MS / 1000}s`);
+                }
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            }
+
+            console.log('KeriAuthCs: BW ready, creating port...');
+
+            // Step 2: Create port (BW confirmed ready)
             port = chrome.runtime.connect(undefined, {name: 'content-script'});
             port.onMessage.addListener(handlePortMessage);
             port.onDisconnect.addListener(handlePortDisconnect);
 
+            // Step 3: Send HELLO on port for session establishment
             const helloMessage = createCsHelloMessage(instanceId);
             console.log('KeriAuthCs→BW: HELLO', helloMessage);
             port.postMessage(helloMessage);
 
+            // Step 4: Wait for port READY (timeout handled by watchdog)
+            pendingReadyTimeout = setTimeout(() => {
+                if (!isPortReady) {
+                    console.log('KeriAuthCs: Port READY timeout');
+                    pendingReadyTimeout = null;
+                    if (port) port.disconnect();
+                }
+            }, READY_TIMEOUT_MS);
+
         } catch (error) {
-            // some errors here are expected, e.g. "Extension context invalidated." when service-worker is reloaded or inactive
-            // TODO P2: consider notifying page and/or invalidating this CS
-            console.log('KeriAuthCs: Failed to connect port:', error);
-            scheduleReconnect();
+            console.log('KeriAuthCs: Failed to connect:', error);
+            // Don't auto-reconnect — will reconnect lazily when page message arrives
         }
     }
 
@@ -167,6 +196,12 @@ import {
      * Handle messages received from BackgroundWorker via port
      */
     function handlePortMessage(message: PortMessage): void {
+        // Handle heartbeat silently (high frequency, no logging)
+        if ((message as { t: string }).t === PortMessageTypes.Heartbeat) {
+            lastHeartbeatTime = Date.now();
+            return;
+        }
+
         console.log('KeriAuthCs←BW: ', message.t, message);
 
         if (isReadyMessage(message)) {
@@ -184,11 +219,19 @@ import {
      * Handle READY message from BackgroundWorker
      */
     function handleReadyMessage(message: ReadyMessage): void {
+        // Clear READY timeout since we got the response
+        if (pendingReadyTimeout !== null) {
+            clearTimeout(pendingReadyTimeout);
+            pendingReadyTimeout = null;
+        }
+
         portSessionId = message.portSessionId;
         isPortReady = true;
-        reconnectAttempts = 0; // Reset on successful connection
 
         console.log('KeriAuthCs: Port ready, portSessionId:', portSessionId);
+
+        // Start heartbeat watchdog
+        startHeartbeatWatchdog();
 
         // Process any queued messages
         while (messageQueue.length > 0) {
@@ -262,6 +305,12 @@ import {
      * Handle port disconnect
      */
     function handlePortDisconnect(): void {
+        // Clear any pending READY timeout to prevent it firing after disconnect
+        if (pendingReadyTimeout !== null) {
+            clearTimeout(pendingReadyTimeout);
+            pendingReadyTimeout = null;
+        }
+
         // chrome.runtime.lastError exists at runtime but may not be in type definitions
         const error = (chrome.runtime as { lastError?: { message?: string } }).lastError;
         console.log('KeriAuthCs: Port disconnected', error?.message || '');
@@ -269,6 +318,7 @@ import {
         port = null;
         portSessionId = null;
         isPortReady = false;
+        stopHeartbeatWatchdog();
 
         // Check if extension was invalidated
         if (error?.message?.includes('Extension context invalidated')) {
@@ -283,53 +333,64 @@ import {
             return;
         }
 
-        // Attempt reconnection for other disconnects (e.g., service worker restart)
-        scheduleReconnect();
+        // Don't auto-reconnect. Port will be re-established lazily when
+        // a page message needs forwarding.
+        // TODO P1: Inform the page the extension isn't ready by clearing its value for extensionId
     }
 
     /**
-     * Schedule a reconnection attempt with exponential backoff
+     * Start heartbeat watchdog — detects when BW stops sending BW_HEARTBEAT.
      */
-    function scheduleReconnect(): void {
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            // This may happen when reloading the extension
-            // TODO P2: consider notifying page and/or invalidating this CS
-            console.log('KeriAuthCs: Max reconnect attempts reached');
-            return;
+    function startHeartbeatWatchdog(): void {
+        stopHeartbeatWatchdog();
+        lastHeartbeatTime = Date.now(); // Initialize so watchdog doesn't fire immediately
+        heartbeatWatchdog = setInterval(() => {
+            if (isPortReady && lastHeartbeatTime > 0 && Date.now() - lastHeartbeatTime > HEARTBEAT_TIMEOUT_MS) {
+                console.log('KeriAuthCs: Heartbeat timeout — marking port as disconnected');
+                port = null;
+                portSessionId = null;
+                isPortReady = false;
+                // TODO P1: Inform the page the extension isn't ready by clearing its value for extensionId
+                stopHeartbeatWatchdog();
+            }
+        }, HEARTBEAT_WATCHDOG_MS);
+    }
+
+    function stopHeartbeatWatchdog(): void {
+        if (heartbeatWatchdog !== null) {
+            clearInterval(heartbeatWatchdog);
+            heartbeatWatchdog = null;
         }
-
-        reconnectAttempts++;
-        const delay = RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts - 1);
-        console.log(`KeriAuthCs: Scheduling reconnect attempt ${reconnectAttempts} in ${delay}ms`);
-
-        setTimeout(() => {
-            connectPort();
-        }, delay);
     }
 
     /**
      * Send an RPC request via port
      */
-    function sendRpcRequest(method: string, params?: unknown): Promise<unknown> {
-        return new Promise((resolve, reject) => {
-            if (!isPortReady || !port || !portSessionId) {
-                // Queue the message if not ready
-                console.log('KeriAuthCs: Port not ready, queueing message:', method);
-                messageQueue.push({ method, params });
-                // Don't reject - the message will be sent when port is ready
-                // For now, resolve with undefined (caller should handle async response)
-                resolve(undefined);
-                return;
+    async function sendRpcRequest(method: string, params?: unknown): Promise<unknown> {
+        if (!isPortReady || !port || !portSessionId) {
+            // Lazy reconnect: attempt to reconnect when a message needs sending
+            console.log('KeriAuthCs: Port not ready, attempting reconnect...');
+            try {
+                await connectPort();
+            } catch (e) {
+                console.log('KeriAuthCs: Reconnect failed:', e);
             }
+            if (!isPortReady || !port || !portSessionId) {
+                console.log('KeriAuthCs: Still not ready after reconnect, queueing message:', method);
+                messageQueue.push({ method, params });
+                return undefined;
+            }
+        }
 
+        return new Promise((resolve, reject) => {
             // Use directional discriminator for CS→BW messages
-            const request = createRpcRequest(portSessionId, method, params, undefined, CsBwPortMessageTypes.RpcRequest);
+            const request = createRpcRequest(portSessionId!, method, params, undefined, CsBwPortMessageTypes.RpcRequest);
 
             // Store callback for response
             pendingRpcCallbacks.set(request.id, { resolve, reject });
 
             // Send via port
-            port.postMessage(request);
+            port!.postMessage(request);
             console.log('KeriAuthCs→BW: ', request);
         });
     }
@@ -460,10 +521,18 @@ import {
     async function sendMessageToBW(msg: Polaris.MessageData<unknown>): Promise<void> {
         console.info('KeriAuthCs→BW: ', msg);
 
-        // Port must be ready - no fallback to sendMessage
+        // Lazy reconnect if port is not ready
         if (!isPortReady || !port || !portSessionId) {
-            console.error('KeriAuthCs→BW: Port not connected, cannot send message');
-            throw new Error('Port not connected to BackgroundWorker');
+            console.log('KeriAuthCs→BW: Port not connected, attempting reconnect...');
+            try {
+                await connectPort();
+            } catch (e) {
+                console.log('KeriAuthCs→BW: Reconnect failed:', e);
+            }
+            if (!isPortReady || !port || !portSessionId) {
+                console.error('KeriAuthCs→BW: Still not connected after reconnect attempt');
+                throw new Error('Port not connected to BackgroundWorker');
+            }
         }
 
         // Ensure we have a requestId for response routing

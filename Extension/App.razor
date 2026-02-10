@@ -75,6 +75,9 @@
         InitialUri = navManager.ToAbsoluteUri(navManager.Uri);
         logger.LogInformation("InitialUri: {u}", InitialUri.ToString());
 
+        // Register runtime.onMessage listener for SW_CLIENT_HELLO before connecting
+        await appPortService.StartAsync();
+
         // Connect to BackgroundWorker via port-based messaging
         await appPortService.ConnectAsync();
         logger.LogInformation("Connected to BackgroundWorker via port, portSessionId={PortSessionId}, originTabId={OriginTabId}",

@@ -43,8 +43,8 @@ public interface IBwPortService : IAsyncDisposable {
     Task HandleTabRemovedAsync(int tabId);
 
     /// <summary>
-    /// Sends SW_RESTARTED message to all tabs to trigger ContentScript reconnection.
-    /// Called during BackgroundWorker initialization after service worker restart.
+    /// Notifies content scripts of a service worker restart.
+    /// Currently a no-op: heartbeat-based disconnect detection replaces SW_RESTARTED.
     /// </summary>
     Task NotifyContentScriptsOfRestartAsync();
 

@@ -212,6 +212,18 @@ public static class PortMessageTypes {
     public const string RpcRequest = "RPC_REQ";
     public const string RpcResponse = "RPC_RES";
     public const string Error = "ERROR";
+    public const string Heartbeat = "BW_HEARTBEAT";
+}
+
+/// <summary>
+/// Message type discriminators for chrome.runtime.sendMessage (non-port) communication.
+/// Used for WASM readiness probing before port creation.
+/// </summary>
+public static class SendMessageTypes {
+    /// <summary>Client → SW: "Is WASM alive?" (sent via chrome.runtime.sendMessage)</summary>
+    public const string ClientHello = "CLIENT_SW_HELLO";
+    /// <summary>SW → Client: "WASM is ready, you can create a port" (sent via runtime/tabs.sendMessage)</summary>
+    public const string SwHello = "SW_CLIENT_HELLO";
 }
 
 /// <summary>

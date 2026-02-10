@@ -4,27 +4,22 @@ description: Incremental build of the extension using Windows (TypeScript + C# b
 
 # Incremental Build (Windows)
 
-Perform an incremental build of the KERI Auth browser extension using Windows toolchain. Use this for day-to-day development when you've made TypeScript or C# changes.
-
-**When to use this**: After making code changes (TypeScript or C#) when dependencies haven't changed.
-
-**When to use clean-build-windows instead**: After changing package.json, switching from WSL, or when builds fail mysteriously.
-
-**Environment**: This command uses the Windows .NET SDK and npm. Do not mix with WSL builds.
-
----
-
-## Build Steps
-
-### 1. Build TypeScript
-
-Build all TypeScript projects (types, modules, bundles) and app.ts:
+Run the incremental build script. This builds TypeScript (types, modules, bundles, app.ts) then C# in Release configuration.
 
 ```bash
-pushd scripts
-npm run build
-popd
+cmd //c "c:\s\k\kbw\build.cmd"
+```
 
-pushd Extension
-npm run build:app
-popd
+To skip TypeScript (C# only changes):
+
+```bash
+cmd //c "c:\s\k\kbw\build.cmd --skip-ts"
+```
+
+To also run tests after building:
+
+```bash
+cmd //c "c:\s\k\kbw\build.cmd --test"
+```
+
+If the build fails, try the clean build: `/clean-build-windows`
