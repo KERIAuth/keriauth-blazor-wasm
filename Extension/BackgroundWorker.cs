@@ -1,4 +1,7 @@
-﻿using Blazor.BrowserExtension;
+﻿using System;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using Blazor.BrowserExtension;
 using Extension.Helper;
 using Extension.Models;
 using Extension.Models.Messages.AppBw;
@@ -20,9 +23,6 @@ using Extension.Utilities;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
-using System;
-using System.Runtime.InteropServices;
-using System.Text.Json;
 using WebExtensions.Net;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
@@ -42,8 +42,7 @@ namespace Extension;
 /// content scripts, the Blazor app, and KERIA services.
 /// </summary>
 
-public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
-{
+public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Constants
     // TODO P2 move to AppConfig.cs and set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
@@ -78,8 +77,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // All state is derived from message sender info or retrieved from persistent storage
 
     [BackgroundWorkerMain]
-    public override void Main()
-    {
+    public override void Main() {
         // JavaScript ES modules are loaded by app.ts beforeStart() hook BEFORE Blazor starts
         // The modules are cached in BackgroundWorker's runtime context and available via IJSRuntime
         // Services can import modules using IJSRuntime.InvokeAsync("import", path) - instant from cache
@@ -96,7 +94,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         WebExtensions.Runtime.OnSuspendCanceled.AddListener(OnSuspendCanceledAsync);
         WebExtensions.ContextMenus.OnClicked.AddListener(OnContextMenuClickedAsync);
         WebExtensions.Runtime.OnMessage.AddListener(OnMessageAsync);
-            
+
         // NOTE: Do NOT add non-listener calls here. The Blazor.BrowserExtension.Analyzer
         // generates JavaScript equivalents for everything in Main(), and arbitrary method
         // calls get emitted as raw JS function calls that don't exist.
@@ -120,8 +118,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         IDemo1Binding demo1Binding,
         ISchemaService schemaService,
         SessionManager sessionManager,
-        IBwPortService portService)
-    {
+        IBwPortService portService) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -146,19 +143,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
     // Parameter: details - OnInstalledDetails with reason, previousVersion, and id
     [JSInvokable]
-    public async Task OnInstalledAsync(OnInstalledEventCallbackDetails details)
-    {
-        try
-        {
+    public async Task OnInstalledAsync(OnInstalledEventCallbackDetails details) {
+        try {
             logger.LogInformation("OnInstalledAsync: installed/updated: {Reason}", details.Reason);
 
             var readyRes = await _signifyClientService.TestAsync();
-            if (readyRes.IsSuccess)
-            {
+            if (readyRes.IsSuccess) {
                 logger.LogInformation("SignifyClientService is ready onInstalled");
             }
-            else
-            {
+            else {
                 logger.LogError("OnInstalledAsync: SignifyClientService is NOT ready: {Errors}", string.Join("; ", readyRes.Errors.Select(e => e.Message)));
             }
 
@@ -167,8 +160,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             await CreateContextMenuItemsAsync();
 
-            switch (details.Reason)
-            {
+            switch (details.Reason) {
                 case OnInstalledReason.Install:
                     await OnInstalledInstallAsync();
                     break;
@@ -183,46 +175,38 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     break;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "OnInstalledAsync: Error handling onInstalled event");
             throw;
         }
     }
 
     [JSInvokable]
-    public async Task OnMessageAsync(object message, MessageSender sender, bool isResponse)
-    {
-        try
-        {
+    public async Task OnMessageAsync(object message, MessageSender sender, bool isResponse) {
+        try {
             logger.LogInformation("OnMessageAsync: message={Message}, sender={Sender}, isResponse={IsResponse}", message, sender, isResponse);
 
             // Parse message to check type
             JsonElement json;
-            if (message is JsonElement el)
-            {
+            if (message is JsonElement el) {
                 json = el;
             }
-            else
-            {
+            else {
                 json = JsonSerializer.SerializeToElement(message);
             }
 
             if (json.TryGetProperty("t", out var tProp) &&
-                tProp.GetString() == SendMessageTypes.ClientHello)
-            {
+                tProp.GetString() == SendMessageTypes.ClientHello) {
                 var isExtPage = sender?.Url?.StartsWith("chrome-extension://", System.StringComparison.InvariantCulture) == true;
                 var source = isExtPage ? "extension page" : $"CS tab {sender?.Tab?.Id}";
                 logger.LogInformation("OnMessageAsync: CLIENT_SW_HELLO from {Source}, replying ready=true", source);
 
                 var reply = new { t = SendMessageTypes.SwHello, ready = true };
-                if (isExtPage)
-                {
+                if (isExtPage) {
                     await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage", reply);
                     logger.LogInformation("OnMessageAsync: Sent SW_CLIENT_HELLO to extension pages");
                 }
-                else if (sender?.Tab?.Id is int tabId)
-                {
+                else if (sender?.Tab?.Id is int tabId) {
                     await _jsRuntime.InvokeVoidAsync("chrome.tabs.sendMessage", tabId, reply);
                     logger.LogInformation("OnMessageAsync: Sent SW_CLIENT_HELLO to CS tab {TabId}", tabId);
                 }
@@ -243,8 +227,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
 
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "OnMessageAsync: Error handling message");
         }
     }
@@ -254,15 +237,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Delegates to IBwPortService for PortSession management.
     /// </summary>
     [JSInvokable]
-    public async Task OnConnectAsync(WebExtensions.Net.Runtime.Port port)
-    {
-        try
-        {
+    public async Task OnConnectAsync(WebExtensions.Net.Runtime.Port port) {
+        try {
             logger.LogInformation("OnConnectAsync: Port connected, name={Name}", port.Name);
             await _portService.HandleConnectAsync(port);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "OnConnectAsync: Error handling port connection");
         }
     }
@@ -275,15 +255,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Checks session storage for BwReadyState and sets it if missing or stale.
     /// Safe to call multiple times - will only perform initialization once per SW lifetime.
     /// </summary>
-    private async Task EnsureInitializedAsync()
-    {
-        try
-        {
+    private async Task EnsureInitializedAsync() {
+        try {
             // Check if BwReadyState is already set in session storage
             var result = await _storageService.GetItem<BwReadyState>(StorageArea.Session);
 
-            if (result.IsSuccess && result.Value?.IsInitialized == true)
-            {
+            if (result.IsSuccess && result.Value?.IsInitialized == true) {
                 // Already initialized - nothing to do
                 logger.LogDebug("EnsureInitializedAsync: BwReadyState already set, skipping initialization");
                 return;
@@ -314,8 +291,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             logger.LogInformation("EnsureInitializedAsync: Initialization complete");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "EnsureInitializedAsync: Error during initialization - attempting to set BwReadyState anyway");
             // Still try to set BwReadyState so App doesn't timeout
             await SetBwReadyStateAsync();
@@ -326,14 +302,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Attempts to reconnect the signify-ts client if session is unlocked.
     /// Called during BW initialization after service worker restart.
     /// </summary>
-    private async Task TryReconnectSignifyClientIfSessionUnlockedAsync()
-    {
-        try
-        {
+    private async Task TryReconnectSignifyClientIfSessionUnlockedAsync() {
+        try {
             // Check if session is unlocked (passcode exists in session storage)
             var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeResult.IsFailed || passcodeResult.Value == null || string.IsNullOrEmpty(passcodeResult.Value.Passcode))
-            {
+            if (passcodeResult.IsFailed || passcodeResult.Value == null || string.IsNullOrEmpty(passcodeResult.Value.Passcode)) {
                 logger.LogDebug("TryReconnectSignifyClient: Session not unlocked, skipping reconnect");
                 return;
             }
@@ -341,19 +314,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Session is unlocked - try to reconnect
             logger.LogInformation("TryReconnectSignifyClient: Session unlocked, attempting to reconnect signify-ts client");
             var connectResult = await TryConnectSignifyClientAsync();
-            if (connectResult.IsSuccess)
-            {
+            if (connectResult.IsSuccess) {
                 logger.LogInformation("TryReconnectSignifyClient: Successfully reconnected signify-ts client");
             }
-            else
-            {
+            else {
                 var errorMsg = connectResult.Errors.Count > 0 ? connectResult.Errors[0].Message : "Unknown error";
                 logger.LogWarning("TryReconnectSignifyClient: Failed to reconnect: {Error}", errorMsg);
                 // Don't throw - App can still function, user may need to manually unlock
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "TryReconnectSignifyClient: Exception during reconnect attempt");
             // Don't throw - let initialization continue
         }
@@ -363,10 +333,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // Typical use: Re-initialize or restore state, reconnect services, refresh caches.
     // Parameters: none
     [JSInvokable]
-    public async Task OnStartupAsync()
-    {
-        try
-        {
+    public async Task OnStartupAsync() {
+        try {
             logger.LogInformation("OnStartupAsync event handler called");
             logger.LogInformation("Browser startup detected - reinitializing background worker");
 
@@ -376,8 +344,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             await EnsureInitializedAsync();
             logger.LogInformation("Background worker reinitialized on browser startup");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling onStartup event");
             throw;
         }
@@ -385,14 +352,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
     // onAlarm fires at a scheduled interval/time.
     [JSInvokable]
-    public async Task OnAlarmAsync(BrowserAlarm alarm)
-    {
-        try
-        {
+    public async Task OnAlarmAsync(BrowserAlarm alarm) {
+        try {
             logger.LogInformation("OnAlarmAsync: '{AlarmName}' fired", alarm.Name);
             await EnsureInitializedAsync();
-            switch (alarm.Name)
-            {
+            switch (alarm.Name) {
                 case AppConfig.SessionManagerAlarmName:
                     // Delegate to SessionManager to lock the session
                     await _sessionManager.HandleAlarmAsync(alarm);
@@ -404,8 +368,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     return;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling alarm");
         }
     }
@@ -416,17 +379,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // This OnActionClickedAsync method will be invoked after the handler above, since this one is registered after it.
     // Typical use: Open popup, toggle feature, 
     [JSInvokable]
-    public async Task OnActionClickedAsync(BrowserTab tab)
-    {
-        try
-        {
+    public async Task OnActionClickedAsync(BrowserTab tab) {
+        try {
             logger.LogInformation("OnActionClickedAsync event handler called");
 
             await EnsureInitializedAsync();
 
             // Validate tab information
-            if (tab is null || string.IsNullOrEmpty(tab.Url))
-            {
+            if (tab is null || string.IsNullOrEmpty(tab.Url)) {
                 logger.LogWarning("Invalid tab information");
                 return;
             }
@@ -436,8 +396,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // 1) Compute per-origin match patterns from the clicked tab
             var matchPatterns = BuildMatchPatternsFromTabUrl(tab.Url);
-            if (matchPatterns.Count == 0)
-            {
+            if (matchPatterns.Count == 0) {
                 logger.LogInformation("KERIAuth BW: Unsupported or restricted URL scheme; not registering persistence. URL: {Url}", tab.Url);
                 return;
             }
@@ -446,25 +405,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // This prevents subdomain attacks - if permission was granted for https://example.com/*,
             // then https://evil.example.com/* will NOT have permission and cannot inject scripts.
             // Only exact origin matches are permitted.
-            var anyPermissions = new AnyPermissions
-            {
+            var anyPermissions = new AnyPermissions {
                 Origins = [.. matchPatterns.Select(pattern => new MatchPattern(new MatchPatternRestricted(pattern)))]
             };
             bool granted = false;
-            try
-            {
+            try {
                 granted = await WebExtensions.Permissions.Contains(anyPermissions);
-                if (granted)
-                {
+                if (granted) {
                     logger.LogInformation("KERIAuth BW: Persistent host permission already granted for {Patterns}", string.Join(", ", matchPatterns));
                 }
-                else
-                {
+                else {
                     logger.LogInformation("KERIAuth BW: Persistent host permission not granted for {Patterns}. Will inject for current tab only using activeTab.", string.Join(", ", matchPatterns));
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 logger.LogWarning(ex, "KERIAuth BW: Could not check persistent host permissions - will use activeTab");
             }
 
@@ -473,8 +427,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // The JavaScript handler runs before this C# handler and handles all injection logic
             logger.LogInformation("KERIAuth BW: Content script injection handled by app.js - no action needed in C# handler");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling action click");
         }
     }
@@ -488,19 +441,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// - Match patterns don'passcodeModelRes include ports; they'll match any port on that host.
     /// - Only http/https are supported for injection.
     /// </summary>
-    private List<string> BuildMatchPatternsFromTabUrl(string tabUrl)
-    {
-        try
-        {
+    private List<string> BuildMatchPatternsFromTabUrl(string tabUrl) {
+        try {
             var uri = new Uri(tabUrl);
-            if (uri.Scheme == "http" || uri.Scheme == "https")
-            {
+            if (uri.Scheme == "http" || uri.Scheme == "https") {
                 // Exact host only - returns pattern like "https://example.com/*"
                 return [$"{uri.Scheme}://{uri.Host}/*"];
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogDebug(ex, "Error parsing tab URL: {TabUrl}", tabUrl);
         }
         return [];
@@ -508,10 +457,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
     // Tabs.onRemoved fires when a tab is closed
     [JSInvokable]
-    public async Task OnTabRemovedAsync(int tabId, RemoveInfo removeInfo)
-    {
-        try
-        {
+    public async Task OnTabRemovedAsync(int tabId, RemoveInfo removeInfo) {
+        try {
             logger.LogInformation("OnTabRemovedAsync event handler called");
 
             await EnsureInitializedAsync();
@@ -522,23 +469,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Clean up port sessions associated with this tab
             await _portService.HandleTabRemovedAsync(tabId);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling tab removal");
         }
     }
 
     // webNavigation.onComplete event fires when tabs navigate.
     // Typical use: Inject scripts, block/redirect, monitor
-    public static async Task OnWebNavCompletedAsync()
-    {
+    public static async Task OnWebNavCompletedAsync() {
         await Task.Delay(0);
     }
 
     // webRequest.onCompleted event fires when webRequests are made and finish.
     // Typical use: Inject scripts, block/redirect, monitor
-    public static async Task OnWebReqCompletedAsync()
-    {
+    public static async Task OnWebReqCompletedAsync() {
         await Task.Delay(0);
     }
 
@@ -546,16 +490,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // Typical use: Save in-memory state, cleanup, flush logs. ... quickly (though you get very little time).
     // Parameters: none
     [JSInvokable]
-    public async Task OnSuspendAsync()
-    {
-        try
-        {
+    public async Task OnSuspendAsync() {
+        try {
             await EnsureInitializedAsync();
             // TODO P2 needs implementation
             ;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling onSuspend");
         }
     }
@@ -563,40 +504,33 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // Runtime.OnSuspendCanceled event fires if a previously pending unload is canceled (e.g., because a new event kept the worker alive).
     // Parameters: none
     [JSInvokable]
-    public async Task OnSuspendCanceledAsync()
-    {
-        try
-        {
+    public async Task OnSuspendCanceledAsync() {
+        try {
             await EnsureInitializedAsync();
             // TODO P2 needs implementation
             ;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling onSuspend");
         }
     }
 
     // onInstall fires when the extension is installed
-    private async Task OnInstalledInstallAsync()
-    {
-        try
-        {
+    private async Task OnInstalledInstallAsync() {
+        try {
             // Clear BwReadyState first to force fresh initialization
             await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
 
             await EnsureInitializedAsync();
 
             var installUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
-            var cp = new WebExtensions.Net.Tabs.CreateProperties
-            {
+            var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = installUrl
             };
             var newTab = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
             _optionsTabId = newTab.Id;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling install");
             throw;
         }
@@ -611,50 +545,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// - OnboardState: Onboarding state with IsWelcomed = false, IsStored = true
     /// - KeriaConnectConfig: Requires additional user-provided KERIA URLs
     /// </summary>
-    private async Task InitializeStorageDefaultsAsync()
-    {
-        try
-        {
+    private async Task InitializeStorageDefaultsAsync() {
+        try {
             logger.LogInformation("InitializeStorageDefaults: Checking and creating skeleton storage records");
 
             // Check and create Preferences if not exists
             var prefsResult = await _storageService.GetItem<Preferences>();
-            if (prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored)
-            {
+            if (prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored) {
                 logger.LogDebug("InitializeStorageDefaults: Preferences already exists");
             }
-            else
-            {
+            else {
                 var defaultPrefs = new Preferences { IsStored = true };
                 var setResult = await _storageService.SetItem<Preferences>(defaultPrefs);
-                if (setResult.IsFailed)
-                {
+                if (setResult.IsFailed) {
                     logger.LogError("InitializeStorageDefaults: Failed to create Preferences: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
                 }
-                else
-                {
+                else {
                     logger.LogInformation("InitializeStorageDefaults: Created skeleton Preferences record");
                 }
             }
 
             // Check and create OnboardState if not exists
             var onboardResult = await _storageService.GetItem<OnboardState>();
-            if (onboardResult.IsSuccess && onboardResult.Value is not null && onboardResult.Value.IsStored)
-            {
+            if (onboardResult.IsSuccess && onboardResult.Value is not null && onboardResult.Value.IsStored) {
                 logger.LogDebug("InitializeStorageDefaults: OnboardState already exists");
             }
-            else
-            {
+            else {
                 var defaultOnboard = new OnboardState { IsStored = true, IsWelcomed = false };
                 var setResult = await _storageService.SetItem<OnboardState>(defaultOnboard);
-                if (setResult.IsFailed)
-                {
+                if (setResult.IsFailed) {
                     logger.LogError("InitializeStorageDefaults: Failed to create OnboardState: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
                 }
-                else
-                {
+                else {
                     logger.LogInformation("InitializeStorageDefaults: Created skeleton OnboardState record");
                 }
             }
@@ -663,29 +587,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Unlike Preferences and OnboardState, KeriaConnectConfigs requires user input (KERIA URLs)
             // so we only create an empty skeleton with IsStored = true. ConfigurePage will update with real values.
             var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
-            if (configsResult.IsSuccess && configsResult.Value is not null && configsResult.Value.IsStored)
-            {
+            if (configsResult.IsSuccess && configsResult.Value is not null && configsResult.Value.IsStored) {
                 logger.LogDebug("InitializeStorageDefaults: KeriaConnectConfigs already exists (count={Count})", configsResult.Value.Configs.Count);
             }
-            else
-            {
+            else {
                 var defaultConfigs = new KeriaConnectConfigs { IsStored = true };
                 var setResult = await _storageService.SetItem<KeriaConnectConfigs>(defaultConfigs);
-                if (setResult.IsFailed)
-                {
+                if (setResult.IsFailed) {
                     logger.LogError("InitializeStorageDefaults: Failed to create KeriaConnectConfigs: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
                 }
-                else
-                {
+                else {
                     logger.LogInformation("InitializeStorageDefaults: Created skeleton KeriaConnectConfigs record");
                 }
             }
 
             logger.LogInformation("InitializeStorageDefaults: Completed");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "InitializeStorageDefaults: Error creating skeleton storage records");
             // Don't throw? - allow extension to continue even if defaults fail
         }
@@ -696,28 +615,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Called after BackgroundWorker completes all initialization tasks.
     /// App waits for this flag before reading storage to avoid race conditions.
     /// </summary>
-    private async Task SetBwReadyStateAsync()
-    {
-        try
-        {
-            var readyState = new BwReadyState
-            {
+    private async Task SetBwReadyStateAsync() {
+        try {
+            var readyState = new BwReadyState {
                 IsInitialized = true,
                 InitializedAtUtc = DateTime.UtcNow
             };
             var result = await _storageService.SetItem<BwReadyState>(readyState, StorageArea.Session);
-            if (result.IsFailed)
-            {
+            if (result.IsFailed) {
                 logger.LogError("SetBwReadyStateAsync: Failed to set BwReadyState: {Error}",
                     string.Join("; ", result.Errors.Select(e => e.Message)));
             }
-            else
-            {
+            else {
                 logger.LogInformation("SetBwReadyStateAsync: BwReadyState.IsInitialized set to true");
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "SetBwReadyStateAsync: Error setting BwReadyState");
             // Don't throw - allow extension to continue even if this fails
         }
@@ -728,10 +641,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// This handles the case where App clears session storage (e.g., during config change)
     /// but BackgroundWorker is still running and ready to handle requests.
     /// </summary>
-    private void SubscribeToBwReadyStateChanges()
-    {
-        if (_bwReadyStateObserver != null)
-        {
+    private void SubscribeToBwReadyStateChanges() {
+        if (_bwReadyStateObserver != null) {
             logger.LogDebug("SubscribeToBwReadyStateChanges: Already subscribed");
             return;
         }
@@ -746,8 +657,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// <summary>
     /// Handles BwReadyState being cleared - immediately re-establishes it.
     /// </summary>
-    private async Task HandleBwReadyStateClearedAsync()
-    {
+    private async Task HandleBwReadyStateClearedAsync() {
         logger.LogInformation("HandleBwReadyStateClearedAsync: BwReadyState was cleared, re-establishing...");
         await SetBwReadyStateAsync();
     }
@@ -755,39 +665,31 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// <summary>
     /// Observer for BwReadyState changes. Re-establishes BwReadyState when cleared.
     /// </summary>
-    private sealed class BwReadyStateObserver(BackgroundWorker backgroundWorker) : IObserver<BwReadyState>
-    {
-        public void OnNext(BwReadyState? value)
-        {
+    private sealed class BwReadyStateObserver(BackgroundWorker backgroundWorker) : IObserver<BwReadyState> {
+        public void OnNext(BwReadyState? value) {
             // Only act if BwReadyState was cleared (null or not initialized)
-            if (value is null || !value.IsInitialized)
-            {
+            if (value is null || !value.IsInitialized) {
                 backgroundWorker.logger.LogDebug("BwReadyStateObserver: BwReadyState cleared or not initialized, re-establishing");
                 _ = backgroundWorker.HandleBwReadyStateClearedAsync();
             }
             // If value.IsInitialized is true, this was us setting it - no action needed
         }
 
-        public void OnError(Exception error)
-        {
+        public void OnError(Exception error) {
             backgroundWorker.logger.LogError(error, "BwReadyStateObserver: Error observing BwReadyState");
         }
 
-        public void OnCompleted()
-        {
+        public void OnCompleted() {
             backgroundWorker.logger.LogDebug("BwReadyStateObserver: Observer completed");
         }
     }
 
-    public async Task OnContextMenuClickedAsync(MenusOnClickData info, BrowserTab tab)
-    {
-        try
-        {
+    public async Task OnContextMenuClickedAsync(MenusOnClickData info, BrowserTab tab) {
+        try {
             logger.LogInformation("Context menu clicked: {MenuItemId}", info.MenuItemId);
             await EnsureInitializedAsync();
 
-            switch (info.MenuItemId.Value)
-            {
+            switch (info.MenuItemId.Value) {
                 case "launchTab":
                     await OpenOrFocusOptionsTabAsync();
                     break;
@@ -796,22 +698,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     break;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling context menu click");
         }
     }
 
-    private async Task CreateContextMenuItemsAsync()
-    {
-        try
-        {
+    private async Task CreateContextMenuItemsAsync() {
+        try {
             logger.LogDebug("Creating context menu items");
 
             await WebExtensions.ContextMenus.RemoveAll();
 
-            WebExtensions.ContextMenus.Create(new()
-            {
+            WebExtensions.ContextMenus.Create(new() {
                 Id = "launchTab",
                 Title = "Open in tab",
                 Contexts = [MenusContextType.Action]
@@ -819,50 +717,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             logger.LogDebug("Context menu items created");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error creating context menu items");
         }
     }
 
-    private async Task OpenOrFocusOptionsTabAsync()
-    {
+    private async Task OpenOrFocusOptionsTabAsync() {
         var optionsUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
 
         // Try to reuse existing tab if we have one
-        if (_optionsTabId.HasValue)
-        {
-            try
-            {
+        if (_optionsTabId.HasValue) {
+            try {
                 var existingTab = await WebExtensions.Tabs.Get(_optionsTabId.Value);
-                if (existingTab != null)
-                {
+                if (existingTab != null) {
                     // Tab exists, focus it
-                    await WebExtensions.Tabs.Update(_optionsTabId.Value, new WebExtensions.Net.Tabs.UpdateProperties
-                    {
+                    await WebExtensions.Tabs.Update(_optionsTabId.Value, new WebExtensions.Net.Tabs.UpdateProperties {
                         Active = true
                     });
                     // Also focus the window containing the tab
-                    if (existingTab.WindowId.HasValue)
-                    {
-                        await WebExtensions.Windows.Update(existingTab.WindowId.Value, new WebExtensions.Net.Windows.UpdateInfo
-                        {
+                    if (existingTab.WindowId.HasValue) {
+                        await WebExtensions.Windows.Update(existingTab.WindowId.Value, new WebExtensions.Net.Windows.UpdateInfo {
                             Focused = true
                         });
                     }
                     return;
                 }
             }
-            catch
-            {
+            catch {
                 // Tab no longer exists, clear the tracked ID
                 _optionsTabId = null;
             }
         }
 
         // Create a new tab and track its ID
-        var newTab = await WebExtensions.Tabs.Create(new WebExtensions.Net.Tabs.CreateProperties
-        {
+        var newTab = await WebExtensions.Tabs.Create(new WebExtensions.Net.Tabs.CreateProperties {
             Url = optionsUrl
         });
         _optionsTabId = newTab.Id;
@@ -873,10 +761,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     // onUpdated fires when the extension is already installed, but updated, which may occur automatically from Chrome and ChromeWebStore, without user intervention
     // This will be triggered by a Chrome Web Store push,
     // or, when sideloading in development, by installing an updated release per the manifest or a Refresh in DevTools.
-    private async Task OnInstalledUpdateAsync(string previousVersion)
-    {
-        try
-        {
+    private async Task OnInstalledUpdateAsync(string previousVersion) {
+        try {
             var currentVersion = WebExtensions.Runtime.GetManifest().GetProperty("version").ToString() ?? DefaultVersion;
             logger.LogInformation("Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
@@ -895,8 +781,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 Timestamp: DateTime.UtcNow.ToString("O")
             );
             var requestId = Guid.NewGuid().ToString();
-            var pendingRequest = new Models.Storage.PendingBwAppRequest
-            {
+            var pendingRequest = new Models.Storage.PendingBwAppRequest {
                 RequestId = requestId,
                 Type = Models.Messages.BwApp.BwAppMessageType.Values.RequestNotifyUserOfUpdate,
                 Payload = updatePayload,
@@ -905,44 +790,36 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             await _pendingBwAppRequestService.AddRequestAsync(pendingRequest);
 
             var updateUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
-            var cp = new WebExtensions.Net.Tabs.CreateProperties
-            {
+            var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = updateUrl
             };
             var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling update");
         }
     }
 
-    private async Task HandleUnknownMessageActionAsync(string? action)
-    {
+    private async Task HandleUnknownMessageActionAsync(string? action) {
         logger.LogWarning("HandleUnknownMessageActionAsync: Unknown message action: {Action}", action);
         await Task.CompletedTask;
         return;
     }
 
-    private async Task HandleLockAppMessageAsync()
-    {
-        try
-        {
+    private async Task HandleLockAppMessageAsync() {
+        try {
             logger.LogInformation("HandleLockAppMessageAsync called");
             // The InactivityTimerService handles the actual locking logic
             return;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling lock app message");
             return;
         }
     }
 
-    private async Task HandleSystemLockDetectedAsync()
-    {
-        try
-        {
+    private async Task HandleSystemLockDetectedAsync() {
+        try {
             logger.LogInformation("HandleSystemLockDetectedAsync called");
             logger.LogWarning("System lock/suspend/hibernate detected in background worker");
 
@@ -953,32 +830,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Broadcast lock event to all connected apps via ports
             // Note: Apps will also detect session lock via storage change,
             // but this provides immediate notification
-            try
-            {
+            try {
                 await _portService.BroadcastEventToAllAppsAsync(
                     BwAppMessageType.Values.SystemLockDetected,
                     new { reason = "system_lock" });
                 logger.LogInformation("Broadcasted SystemLockDetected event to all apps via ports");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 logger.LogWarning(ex, "Could not broadcast SystemLockDetected event (expected if no apps connected)");
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling system lock detection");
         }
     }
 
-    private async Task<bool> CheckOriginPermissionAsync(string origin)
-    {
-        try
-        {
+    private async Task<bool> CheckOriginPermissionAsync(string origin) {
+        try {
             logger.LogInformation("Checking permission for origin: {Origin}", origin);
 
-            var anyPermissions = new AnyPermissions
-            {
+            var anyPermissions = new AnyPermissions {
                 Origins = [new MatchPattern(new MatchPatternRestricted(origin))]
             };
             var hasPermission = await WebExtensions.Permissions.Contains(anyPermissions);
@@ -986,26 +857,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             logger.LogInformation("Permission check result for {Origin}: {HasPermission}", origin, hasPermission);
             return hasPermission;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error checking origin permission for {Origin}", origin);
             return false;
         }
     }
-    private async Task CreateExtensionTabAsync()
-    {
-        try
-        {
+    private async Task CreateExtensionTabAsync() {
+        try {
             var tabUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
-            var cp = new WebExtensions.Net.Tabs.CreateProperties
-            {
+            var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = tabUrl
                 // TODO P2 use the same tab identifier, so we don't get multiple tabs
             };
             var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error creating extension tab");
         }
     }
@@ -1015,62 +881,56 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// The App will read the pending request from storage and route to the appropriate page.
     /// </summary>
     /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
-    private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest)
-    {
-        try
-        {
+    private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest) {
+        try {
             logger.LogInformation("BW UseActionPopup: type={Type}, requestId={RequestId}, tabId={TabId}",
                 pendingRequest.Type, pendingRequest.RequestId, pendingRequest.TabId);
 
             // Store the pending request for App to retrieve
             var addResult = await _pendingBwAppRequestService.AddRequestAsync(pendingRequest);
-            if (addResult.IsFailed)
-            {
+            if (addResult.IsFailed) {
                 logger.LogError("BW UseActionPopup: Failed to store pending request: {Error}",
                     addResult.Errors.Count > 0 ? addResult.Errors[0].Message : "Unknown error");
                 return;
             }
 
-            // Determine if SidePanel is currently open, and if not use Action popup
+            // Notify any already-running App instances to reconnect and check pending work
+            logger.LogInformation("BW UseActionPopup: Broadcasting SW_APP_WAKE for requestId={RequestId}", pendingRequest.RequestId);
+            await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+                new { t = SendMessageTypes.SwAppWake, requestId = pendingRequest.RequestId });
 
+            // Determine if SidePanel is currently open, and if not use Action popup
             var contextFilter = new ContextFilter() { ContextTypes = [ContextType.SIDEPANEL] };
             var contexts = await _webExtensionsApi.Runtime.GetContexts(contextFilter);
-            if (!contexts.Any())
-            {
+            if (!contexts.Any()) {
                 logger.LogInformation("BW UseActionPopup: SidePanel context(s) detected, will use SidePanel for request");
 
                 // Note: SetPopup applies globally, not per-tab in Manifest V3
-                await WebExtensions.Action.SetPopup(new()
-                {
+                await WebExtensions.Action.SetPopup(new() {
                     Popup = new(_webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InPopup))
                 });
 
                 // Open popup
-                try
-                {
+                try {
                     WebExtensions.Action.OpenPopup();
                     logger.LogInformation("BW UseActionPopup succeeded");
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     // Note: openPopup() sometimes throws even when successful
                     logger.LogDebug(ex, "BW UseActionPopup openPopup() exception");
                 }
 
                 // Clear the Popup setting so future OpenPopup() invocations will be handled without a tab context
-                await WebExtensions.Action.SetPopup(new()
-                {
+                await WebExtensions.Action.SetPopup(new() {
                     Popup = new WebExtensions.Net.ActionNs.Popup("")
                 });
             }
-            else
-            {
+            else {
                 logger.LogInformation("BW UseActionPopup: Waiting for SidePanel to detect and handle request");
                 // SidePanel, if now or soon opened, will read pending request from storage and navigate accordingly
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "BW UseActionPopup");
         }
     }
@@ -1090,13 +950,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// <param name="sender">The message sender</param>
     /// <param name="messageObj">The message object for payload validation</param>
     /// <returns>True if sender and message are valid, false otherwise</returns>
-    private async Task<bool> ValidateMessageSenderAsync(WebExtensions.Net.Runtime.MessageSender? sender, object messageObj)
-    {
-        try
-        {
+    private async Task<bool> ValidateMessageSenderAsync(WebExtensions.Net.Runtime.MessageSender? sender, object messageObj) {
+        try {
             // 1. Check that sender is from this extension
-            if (sender?.Id != WebExtensions.Runtime.Id)
-            {
+            if (sender?.Id != WebExtensions.Runtime.Id) {
                 logger.LogWarning(
                     "ValidateMessageSender: Message from different extension ID. Expected: {Expected}, Actual: {Actual}",
                     WebExtensions.Runtime.Id,
@@ -1106,8 +963,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             }
 
             // 2. Check that sender has a URL
-            if (string.IsNullOrEmpty(sender.Url))
-            {
+            if (string.IsNullOrEmpty(sender.Url)) {
                 logger.LogWarning("ValidateMessageSender: Message sender has no URL");
                 return false;
             }
@@ -1116,21 +972,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // SECURITY: This prevents subdomain attacks. If permission was granted for
             // https://example.com/*, then https://evil.example.com/* will NOT pass this check.
             string senderOrigin;
-            try
-            {
+            try {
                 var url = new Uri(sender.Url);
                 senderOrigin = url.GetLeftPart(UriPartial.Authority);
             }
-            catch (UriFormatException)
-            {
+            catch (UriFormatException) {
                 logger.LogWarning("ValidateMessageSender: Invalid sender URL: {Url}", sender.Url);
                 return false;
             }
 
             // Extension pages (popup, tab, sidepanel) are always allowed
             var extensionOrigin = $"chrome-extension://{WebExtensions.Runtime.Id}";
-            if (senderOrigin.Equals(extensionOrigin, StringComparison.OrdinalIgnoreCase))
-            {
+            if (senderOrigin.Equals(extensionOrigin, StringComparison.OrdinalIgnoreCase)) {
                 // Extension's own pages are trusted
                 logger.LogDebug("ValidateMessageSender: Message from extension page (trusted)");
                 return await ValidatePayloadAsync(messageObj);
@@ -1140,15 +993,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Match pattern for the origin (e.g., "https://example.com/*")
             var matchPattern = $"{senderOrigin}/*";
 
-            var anyPermissions = new WebExtensions.Net.Permissions.AnyPermissions
-            {
+            var anyPermissions = new WebExtensions.Net.Permissions.AnyPermissions {
                 Origins = [new WebExtensions.Net.Manifest.MatchPattern(new WebExtensions.Net.Manifest.MatchPatternRestricted(matchPattern))]
             };
 
             var hasPermission = await WebExtensions.Permissions.Contains(anyPermissions);
 
-            if (!hasPermission)
-            {
+            if (!hasPermission) {
                 logger.LogWarning(
                     "ValidateMessageSender: Sender origin not in granted permissions. Origin: {Origin}, Pattern: {Pattern}. " +
                     "This prevents subdomain attacks - only explicitly granted origins can send messages.",
@@ -1165,8 +1016,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // 5. Validate payload
             var payloadValid = await ValidatePayloadAsync(messageObj);
-            if (!payloadValid)
-            {
+            if (!payloadValid) {
                 return false;
             }
 
@@ -1177,8 +1027,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             );
             return true;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error validating message sender");
             return false;
         }
@@ -1190,38 +1039,32 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// </summary>
     /// <param name="messageObj">The message payload object</param>
     /// <returns>True if payload is valid, false otherwise</returns>
-    private Task<bool> ValidatePayloadAsync(object messageObj)
-    {
+    private Task<bool> ValidatePayloadAsync(object messageObj) {
         // Basic validation: message should be an object
-        if (messageObj == null)
-        {
+        if (messageObj == null) {
             logger.LogWarning("ValidateMessageSender: Invalid message payload (null)");
             return Task.FromResult(false);
         }
 
         // Try to serialize and deserialize to check structure
-        try
-        {
+        try {
             var messageJson = JsonSerializer.Serialize(messageObj);
             var messageDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageJson);
 
-            if (messageDict == null)
-            {
+            if (messageDict == null) {
                 logger.LogWarning("ValidateMessageSender: Invalid message payload (not an object)");
                 return Task.FromResult(false);
             }
 
             // Check for type field
-            if (!messageDict.TryGetValue("type", out var typeElement) || typeElement.ValueKind != JsonValueKind.String)
-            {
+            if (!messageDict.TryGetValue("type", out var typeElement) || typeElement.ValueKind != JsonValueKind.String) {
                 logger.LogWarning("ValidateMessageSender: Message payload missing or invalid type field");
                 return Task.FromResult(false);
             }
 
             return Task.FromResult(true);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogWarning(ex, "ValidateMessageSender: Error validating message payload structure");
             return Task.FromResult(false);
         }
@@ -1231,21 +1074,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles RPC requests from ContentScript via port-based messaging.
     /// Routes the request to the appropriate handler based on the RPC method.
     /// </summary>
-    private async Task HandleContentScriptRpcAsync(string portId, PortSession? portSession, RpcRequest request)
-    {
+    private async Task HandleContentScriptRpcAsync(string portId, PortSession? portSession, RpcRequest request) {
         logger.LogInformation("BW←CS (port RPC): method={Method}, id={Id}, portId={PortId}",
             request.Method, request.Id, portId);
 
-        if (portSession is null)
-        {
+        if (portSession is null) {
             logger.LogWarning("HandleContentScriptRpcAsync: No PortSession for portId={PortId}", portId);
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "No PortSession found for this port");
             return;
         }
 
-        if (!portSession.TabId.HasValue)
-        {
+        if (!portSession.TabId.HasValue) {
             logger.LogWarning("HandleContentScriptRpcAsync: No TabId in PortSession for portId={PortId}", portId);
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "No TabId associated with this port");
@@ -1257,20 +1097,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
         // Extract origin from tab URL
         string origin = "unknown";
-        if (tabUrl is not null && Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri))
-        {
+        if (tabUrl is not null && Uri.TryCreate(tabUrl, UriKind.Absolute, out var originUri)) {
             origin = $"{originUri.Scheme}://{originUri.Host}";
-            if (!originUri.IsDefaultPort)
-            {
+            if (!originUri.IsDefaultPort) {
                 origin += $":{originUri.Port}";
             }
         }
 
         // Route based on method
-        try
-        {
-            switch (request.Method)
-            {
+        try {
+            switch (request.Method) {
                 case CsBwMessageTypes.AUTHORIZE:
                 case CsBwMessageTypes.SELECT_AUTHORIZE_AID:
                 case CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL:
@@ -1333,8 +1169,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     return;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling ContentScript RPC: method={Method}", request.Method);
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error: {ex.Message}");
@@ -1345,17 +1180,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles RPC requests from App (popup/tab/sidepanel) via port-based messaging.
     /// These are typically replies to BW requests or App-initiated actions.
     /// </summary>
-    private async Task HandleAppRpcAsync(string portId, PortSession? portSession, RpcRequest request)
-    {
+    private async Task HandleAppRpcAsync(string portId, PortSession? portSession, RpcRequest request) {
         logger.LogInformation("BW←App (port RPC): method={Method}, id={Id}, portId={PortId}",
             request.Method, request.Id, portId);
 
-        try
-        {
+        try {
             // Parse the RPC params to extract AppBwMessage fields
             // AppPortService sends: { type, requestId, tabId, tabUrl, payload }
-            if (request.Params is not JsonElement paramsElement)
-            {
+            if (request.Params is not JsonElement paramsElement) {
                 logger.LogWarning("BW←App (port RPC): Params is not JsonElement");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     errorMessage: "Invalid params format");
@@ -1376,8 +1208,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             await _sessionManager.ExtendIfUnlockedAsync();
 
             // Route based on method (which is the message type)
-            switch (request.Method)
-            {
+            switch (request.Method) {
                 case AppBwMessageType.Values.ReplyAid:
                 case AppBwMessageType.Values.ReplyCredential:
                     await HandleAppReplyAuthorizeRpcAsync(portId, request, tabId, tabUrl, requestId, payload);
@@ -1457,8 +1288,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     return;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling App RPC: method={Method}", request.Method);
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error: {ex.Message}");
@@ -1469,12 +1299,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles ReplyAid and ReplyCredential RPC from App.
     /// Transforms to polaris-web format and forwards to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyAuthorizeRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
-    {
+    private async Task HandleAppReplyAuthorizeRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplyAuthorizeRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        if (requestId is null)
-        {
+        if (requestId is null) {
             logger.LogWarning("HandleAppReplyAuthorizeRpcAsync: Missing requestId");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Missing requestId");
@@ -1485,8 +1313,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         PendingBwAppRequest? pendingRequest = null;
         {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
         }
@@ -1496,15 +1323,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
         // Transform payload to polaris-web format
         object? transformedPayload = null;
-        if (payload.HasValue)
-        {
+        if (payload.HasValue) {
             var payloadObj = JsonSerializer.Deserialize<object>(payload.Value.GetRawText(), JsonOptions.RecursiveDictionary);
             transformedPayload = TransformToPolariWebAuthorizeResult(payloadObj);
         }
 
         // Route response to ContentScript via port
-        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-        {
+        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
             logger.LogInformation("BW→CS (port): Sending RPC response for authorize, requestId={RequestId}", requestId);
             await _portService.SendRpcResponseAsync(
                 pendingRequest.PortId,
@@ -1512,8 +1337,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 pendingRequest.RpcRequestId ?? requestId,
                 result: transformedPayload);
         }
-        else
-        {
+        else {
             logger.LogWarning("BW→CS: No port info for authorize response, requestId={RequestId}. Response not sent.", requestId);
         }
 
@@ -1526,12 +1350,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// App sends just the identifier prefix and optionally a credential SAID.
     /// BackgroundWorker fetches the credential and CESR representation, then forwards to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyAidApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
-    {
+    private async Task HandleAppReplyAidApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplyAidApprovalRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        if (requestId is null)
-        {
+        if (requestId is null) {
             logger.LogWarning("HandleAppReplyAidApprovalRpcAsync: Missing requestId");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Missing requestId");
@@ -1542,8 +1364,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         PendingBwAppRequest? pendingRequest = null;
         {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
         }
@@ -1551,11 +1372,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         // Clear pending request
         await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
 
-        try
-        {
+        try {
             // Deserialize payload to AidApprovalPayload
-            if (payload is null || !payload.HasValue)
-            {
+            if (payload is null || !payload.HasValue) {
                 logger.LogWarning("HandleAppReplyAidApprovalRpcAsync: Missing payload");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     errorMessage: "Missing payload");
@@ -1563,8 +1382,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             }
 
             var approvalPayload = JsonSerializer.Deserialize<AidApprovalPayload>(payload.Value.GetRawText(), JsonOptions.CamelCase);
-            if (approvalPayload is null)
-            {
+            if (approvalPayload is null) {
                 logger.LogWarning("HandleAppReplyAidApprovalRpcAsync: Could not deserialize AidApprovalPayload");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     errorMessage: "Invalid approval payload");
@@ -1582,33 +1400,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // If credential SAID is provided, fetch the credential and its CESR representation
             BwCsAuthorizeResultCredential? credential = null;
-            if (!string.IsNullOrEmpty(approvalPayload.CredentialSaid))
-            {
-                try
-                {
+            if (!string.IsNullOrEmpty(approvalPayload.CredentialSaid)) {
+                try {
                     // Fetch credentials from signify-ts
                     var credentialsResult = await _signifyClientService.GetCredentials();
-                    if (credentialsResult.IsFailed)
-                    {
+                    if (credentialsResult.IsFailed) {
                         logger.LogWarning("HandleAppReplyAidApprovalRpcAsync: Failed to fetch credentials: {Error}",
                             credentialsResult.Errors.Count > 0 ? credentialsResult.Errors[0].Message : "Unknown error");
                     }
-                    else if (credentialsResult.Value is not null)
-                    {
+                    else if (credentialsResult.Value is not null) {
                         // Find the credential by SAID
                         RecursiveDictionary? foundCredential = null;
-                        foreach (var cred in credentialsResult.Value)
-                        {
+                        foreach (var cred in credentialsResult.Value) {
                             var said = cred.GetByPath("sad.d")?.StringValue;
-                            if (said == approvalPayload.CredentialSaid)
-                            {
+                            if (said == approvalPayload.CredentialSaid) {
                                 foundCredential = cred;
                                 break;
                             }
                         }
 
-                        if (foundCredential is not null)
-                        {
+                        if (foundCredential is not null) {
                             // Get CESR representation
                             var cesr = await _signifyClientBinding.GetCredentialAsync(approvalPayload.CredentialSaid, true);
                             credential = new BwCsAuthorizeResultCredential(
@@ -1617,14 +1428,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                             );
                             logger.LogInformation("HandleAppReplyAidApprovalRpcAsync: Found credential and fetched CESR");
                         }
-                        else
-                        {
+                        else {
                             logger.LogWarning("HandleAppReplyAidApprovalRpcAsync: Credential not found for SAID={Said}", approvalPayload.CredentialSaid);
                         }
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     logger.LogError(ex, "HandleAppReplyAidApprovalRpcAsync: Error fetching credential/CESR");
                     // Continue without credential - still send identifier
                 }
@@ -1637,8 +1446,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             );
 
             // Route response to ContentScript via port
-            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-            {
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 logger.LogInformation("BW→CS (port): Sending RPC response for AID approval, requestId={RequestId}", requestId);
                 await _portService.SendRpcResponseAsync(
                     pendingRequest.PortId,
@@ -1646,16 +1454,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     pendingRequest.RpcRequestId ?? requestId,
                     result: result);
             }
-            else
-            {
+            else {
                 logger.LogWarning("BW→CS: No port info for AID approval response, requestId={RequestId}. Response not sent.", requestId);
             }
 
             // Acknowledge the App RPC
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "HandleAppReplyAidApprovalRpcAsync: Error processing approval");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error: {ex.Message}");
@@ -1667,12 +1473,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// App sends the identifier prefix and data items to sign.
     /// BackgroundWorker performs the actual signing via signify-ts and forwards result to ContentScript.
     /// </summary>
-    private async Task HandleAppReplySignDataApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
-    {
+    private async Task HandleAppReplySignDataApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplySignDataApprovalRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        if (requestId is null)
-        {
+        if (requestId is null) {
             logger.LogWarning("HandleAppReplySignDataApprovalRpcAsync: Missing requestId");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Missing requestId");
@@ -1683,8 +1487,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         PendingBwAppRequest? pendingRequest = null;
         {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
         }
@@ -1692,11 +1495,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         // Clear pending request
         await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
 
-        try
-        {
+        try {
             // Deserialize payload to SignDataApprovalPayload
-            if (payload is null || !payload.HasValue)
-            {
+            if (payload is null || !payload.HasValue) {
                 logger.LogWarning("HandleAppReplySignDataApprovalRpcAsync: Missing payload");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     errorMessage: "Missing payload");
@@ -1704,8 +1505,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             }
 
             var approvalPayload = JsonSerializer.Deserialize<SignDataApprovalPayload>(payload.Value.GetRawText(), JsonOptions.CamelCase);
-            if (approvalPayload is null)
-            {
+            if (approvalPayload is null) {
                 logger.LogWarning("HandleAppReplySignDataApprovalRpcAsync: Could not deserialize SignDataApprovalPayload");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     errorMessage: "Invalid approval payload");
@@ -1724,12 +1524,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Parse the result
             var signResult = JsonSerializer.Deserialize<SignDataResult>(signResultJson, JsonOptions.Default);
 
-            if (signResult is null)
-            {
+            if (signResult is null) {
                 logger.LogWarning("HandleAppReplySignDataApprovalRpcAsync: Failed to parse sign data result");
                 // Send error to ContentScript
-                if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-                {
+                if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                     await _portService.SendRpcResponseAsync(
                         pendingRequest.PortId,
                         pendingRequest.PortSessionId,
@@ -1745,8 +1543,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 signResult.Items?.Length ?? 0, signResult.Aid);
 
             // Route response to ContentScript via port
-            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-            {
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 logger.LogInformation("BW→CS (port): Sending RPC response for sign-data approval, requestId={RequestId}", requestId);
                 await _portService.SendRpcResponseAsync(
                     pendingRequest.PortId,
@@ -1754,20 +1551,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                     pendingRequest.RpcRequestId ?? requestId,
                     result: signResult);
             }
-            else
-            {
+            else {
                 logger.LogWarning("BW→CS: No port info for sign-data approval response, requestId={RequestId}. Response not sent.", requestId);
             }
 
             // Acknowledge the App RPC
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "HandleAppReplySignDataApprovalRpcAsync: Error signing data");
             // Try to notify ContentScript of the error
-            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-            {
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 await _portService.SendRpcResponseAsync(
                     pendingRequest.PortId,
                     pendingRequest.PortSessionId,
@@ -1783,12 +1577,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles ReplyApprovedSignHeaders RPC from App.
     /// Signs the headers and forwards the result to ContentScript.
     /// </summary>
-    private async Task HandleAppReplySignHeadersRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
-    {
+    private async Task HandleAppReplySignHeadersRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplySignHeadersRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        if (payload is null || requestId is null || tabUrl is null)
-        {
+        if (payload is null || requestId is null || tabUrl is null) {
             logger.LogWarning("HandleAppReplySignHeadersRpcAsync: Missing required fields");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Missing required fields");
@@ -1799,8 +1591,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         PendingBwAppRequest? pendingRequest = null;
         {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
         }
@@ -1808,13 +1599,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         // Clear pending request
         await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
 
-        try
-        {
+        try {
             // Deserialize payload to AppBwReplySignPayload2
             var signPayload = JsonSerializer.Deserialize<AppBwReplySignPayload2>(payload.Value.GetRawText(), JsonOptions.RecursiveDictionary);
 
-            if (signPayload is null)
-            {
+            if (signPayload is null) {
                 logger.LogWarning("Could not deserialize payload to AppBwReplySignPayload2");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     errorMessage: "Invalid sign payload");
@@ -1834,8 +1623,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Acknowledge the App RPC
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error handling sign headers");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error: {ex.Message}");
@@ -1846,12 +1634,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles ReplySignData RPC from App.
     /// Forwards the signed data result to ContentScript.
     /// </summary>
-    private async Task HandleAppReplySignDataRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
-    {
+    private async Task HandleAppReplySignDataRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplySignDataRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        if (requestId is null)
-        {
+        if (requestId is null) {
             logger.LogWarning("HandleAppReplySignDataRpcAsync: Missing requestId");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Missing requestId");
@@ -1862,8 +1648,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         PendingBwAppRequest? pendingRequest = null;
         {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
         }
@@ -1874,32 +1659,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         object? transformedPayload = null;
         string? errorStr = null;
 
-        if (payload.HasValue)
-        {
-            try
-            {
+        if (payload.HasValue) {
+            try {
                 var signDataResult = JsonSerializer.Deserialize<SignDataResult>(payload.Value.GetRawText(), JsonOptions.RecursiveDictionary);
-                if (signDataResult is not null)
-                {
+                if (signDataResult is not null) {
                     transformedPayload = signDataResult;
                     logger.LogInformation("ReplySignData: aid={Aid}, itemCount={Count}",
                         signDataResult.Aid, signDataResult.Items?.Length ?? 0);
                 }
-                else
-                {
+                else {
                     errorStr = "Failed to process sign-data result";
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 logger.LogError(ex, "Error deserializing SignDataResult");
                 errorStr = "Error processing sign-data result";
             }
         }
 
         // Route response to ContentScript
-        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-        {
+        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
             logger.LogInformation("BW→CS (port): Sending RPC response for sign-data, requestId={RequestId}", requestId);
             await _portService.SendRpcResponseAsync(
                 pendingRequest.PortId,
@@ -1908,8 +1687,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 result: errorStr is null ? transformedPayload : null,
                 errorMessage: errorStr);
         }
-        else
-        {
+        else {
             logger.LogWarning("BW→CS: No port info for sign-data response, requestId={RequestId}. Response not sent.", requestId);
         }
 
@@ -1921,12 +1699,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles ReplyCreateCredential RPC from App.
     /// Issues the credential via signify-ts and forwards the result to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyCreateCredentialRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload)
-    {
+    private async Task HandleAppReplyCreateCredentialRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, JsonElement? payload) {
         logger.LogInformation("HandleAppReplyCreateCredentialRpcAsync: tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        if (requestId is null || payload is null)
-        {
+        if (requestId is null || payload is null) {
             logger.LogWarning("HandleAppReplyCreateCredentialRpcAsync: Missing required fields");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Missing required fields");
@@ -1937,8 +1713,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         PendingBwAppRequest? pendingRequest = null;
         {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
         }
@@ -1967,16 +1742,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles ReplyCanceled, ReplyError, and AppClosed RPC from App.
     /// Forwards cancel/error to ContentScript.
     /// </summary>
-    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, string messageType, string? errorFromApp)
-    {
+    private async Task HandleAppReplyCanceledRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, string? requestId, string messageType, string? errorFromApp) {
         logger.LogInformation("HandleAppReplyCanceledRpcAsync: type={Type}, tabId={TabId}, requestId={RequestId}, error={Error}",
             messageType, tabId, requestId, errorFromApp);
 
         // Use the error message from App if provided, otherwise fall back to defaults based on message type
         string errorStr = !string.IsNullOrEmpty(errorFromApp)
             ? errorFromApp
-            : messageType switch
-            {
+            : messageType switch {
                 AppBwMessageType.Values.ReplyError => "An error occurred in the KERI Auth app",
                 AppBwMessageType.Values.AppClosed => "The KERI Auth app was closed",
                 _ => "User canceled or rejected request"
@@ -1984,19 +1757,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
         // Get and clear pending request
         PendingBwAppRequest? pendingRequest = null;
-        if (!string.IsNullOrEmpty(requestId))
-        {
+        if (!string.IsNullOrEmpty(requestId)) {
             var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
-            if (pendingResult.IsSuccess)
-            {
+            if (pendingResult.IsSuccess) {
                 pendingRequest = pendingResult.Value;
             }
             await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
         }
 
         // Route response to ContentScript
-        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null)
-        {
+        if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
             logger.LogInformation("BW→CS (port): Sending cancel RPC response, requestId={RequestId}", requestId);
             await _portService.SendRpcResponseAsync(
                 pendingRequest.PortId,
@@ -2004,8 +1774,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 pendingRequest.RpcRequestId ?? requestId ?? "",
                 errorMessage: errorStr);
         }
-        else
-        {
+        else {
             logger.LogWarning("BW→CS: No port info for cancel response, requestId={RequestId}. Response not sent.", requestId);
         }
 
@@ -2017,12 +1786,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles RequestAddIdentifier RPC from App.
     /// Creates a new identifier via signify-ts and returns the result.
     /// </summary>
-    private async Task HandleAppRequestAddIdentifierRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, JsonElement? payload)
-    {
+    private async Task HandleAppRequestAddIdentifierRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestAddIdentifierRpcAsync");
 
-        try
-        {
+        try {
             // Reconstruct AppBwMessage for existing handler
             var appMsg = new AppBwMessage<object>(
                 type: AppBwMessageType.Values.RequestAddIdentifier,
@@ -2040,8 +1807,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             // Return result via RPC response
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: result);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error creating identifier");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error: {ex.Message}");
@@ -2052,14 +1818,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles health check request from App.
     /// Calls KERIA health endpoint and returns the result.
     /// </summary>
-    private async Task HandleAppRequestHealthCheckRpcAsync(string portId, RpcRequest request, JsonElement? payload)
-    {
+    private async Task HandleAppRequestHealthCheckRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestHealthCheckRpcAsync");
 
-        try
-        {
-            if (!payload.HasValue)
-            {
+        try {
+            if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new HealthCheckResponsePayload(false, "Missing payload"));
                 return;
@@ -2068,8 +1831,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var healthCheckRequest = JsonSerializer.Deserialize<HealthCheckRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (healthCheckRequest is null || string.IsNullOrEmpty(healthCheckRequest.HealthUrl))
-            {
+            if (healthCheckRequest is null || string.IsNullOrEmpty(healthCheckRequest.HealthUrl)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new HealthCheckResponsePayload(false, "Invalid health check URL"));
                 return;
@@ -2078,20 +1840,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var healthUri = new Uri(healthCheckRequest.HealthUrl);
             var healthCheckResult = await _signifyClientService.HealthCheck(healthUri);
 
-            if (healthCheckResult.IsSuccess)
-            {
+            if (healthCheckResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new HealthCheckResponsePayload(true));
             }
-            else
-            {
+            else {
                 var errorMsg = healthCheckResult.Errors.Count > 0 ? healthCheckResult.Errors[0].Message : "Health check failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new HealthCheckResponsePayload(false, errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during health check");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new HealthCheckResponsePayload(false, ex.Message));
@@ -2102,14 +1861,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles connect request from App.
     /// Connects to KERIA and returns the controller/agent prefixes.
     /// </summary>
-    private async Task HandleAppRequestConnectRpcAsync(string portId, RpcRequest request, JsonElement? payload)
-    {
+    private async Task HandleAppRequestConnectRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestConnectRpcAsync");
 
-        try
-        {
-            if (!payload.HasValue)
-            {
+        try {
+            if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new ConnectResponsePayload(false, Error: "Missing payload"));
                 return;
@@ -2118,8 +1874,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var connectRequest = JsonSerializer.Deserialize<ConnectRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (connectRequest is null || string.IsNullOrEmpty(connectRequest.AdminUrl) || string.IsNullOrEmpty(connectRequest.Passcode))
-            {
+            if (connectRequest is null || string.IsNullOrEmpty(connectRequest.AdminUrl) || string.IsNullOrEmpty(connectRequest.Passcode)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new ConnectResponsePayload(false, Error: "Invalid connect parameters"));
                 return;
@@ -2132,8 +1887,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 connectRequest.IsNewAgent
             );
 
-            if (connectResult.IsSuccess && connectResult.Value is not null)
-            {
+            if (connectResult.IsSuccess && connectResult.Value is not null) {
                 var clientAidPrefix = connectResult.Value.Controller?.State?.I;
                 var agentAidPrefix = connectResult.Value.Agent?.I;
 
@@ -2144,25 +1898,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 logger.LogInformation("Connect succeeded. identifiersResult.IsSuccess={Success}, hasValue={HasValue}",
                     identifiersResult.IsSuccess, identifiersResult.Value is not null);
 
-                if (identifiersResult.IsSuccess && identifiersResult.Value is not null)
-                {
+                if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
                     var connectionInfo = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
                     logger.LogInformation("Existing KeriaConnectionInfo in session: IsSuccess={Success}, hasValue={HasValue}",
                         connectionInfo.IsSuccess, connectionInfo.Value is not null);
 
-                    if (connectionInfo.IsSuccess && connectionInfo.Value is not null)
-                    {
+                    if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
                         // Update existing KeriaConnectionInfo with new identifiers
                         await _storageService.SetItem(
-                            connectionInfo.Value with
-                            {
+                            connectionInfo.Value with {
                                 IdentifiersList = [identifiersResult.Value]
                             },
                             StorageArea.Session);
                         logger.LogInformation("Updated existing KeriaConnectionInfo with identifiers");
                     }
-                    else
-                    {
+                    else {
                         // KeriaConnectionInfo doesn't exist - create it using the digest computed from connect data
                         // Compute the digest from the connect request/result data
                         var tempConfig = new KeriaConnectConfig(
@@ -2175,14 +1925,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                             isStored: true
                         );
                         var digestResult = KeriaConnectionDigestHelper.Compute(tempConfig);
-                        if (digestResult.IsFailed)
-                        {
+                        if (digestResult.IsFailed) {
                             logger.LogError("Failed to compute KeriaConnectionDigest: {Errors}", string.Join(", ", digestResult.Errors));
                         }
-                        else
-                        {
-                            var newConnectionInfo = new KeriaConnectionInfo
-                            {
+                        else {
+                            var newConnectionInfo = new KeriaConnectionInfo {
                                 KeriaConnectionDigest = digestResult.Value,
                                 IdentifiersList = [identifiersResult.Value]
                             };
@@ -2191,23 +1938,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                         }
                     }
                 }
-                else
-                {
+                else {
                     logger.LogWarning("GetIdentifiers failed or returned null after connect");
                 }
 
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new ConnectResponsePayload(true, clientAidPrefix, agentAidPrefix));
             }
-            else
-            {
+            else {
                 var errorMsg = connectResult.Errors.Count > 0 ? connectResult.Errors[0].Message : "Connect failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new ConnectResponsePayload(false, Error: errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during connect");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new ConnectResponsePayload(false, Error: ex.Message));
@@ -2218,16 +1962,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles create AID request from App.
     /// Creates a new identifier via signify-ts and returns the prefix.
     /// </summary>
-    private async Task HandleAppRequestCreateAidRpcAsync(string portId, RpcRequest request, JsonElement? payload)
-    {
+    private async Task HandleAppRequestCreateAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestCreateAidRpcAsync");
 
         if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
-        try
-        {
-            if (!payload.HasValue)
-            {
+        try {
+            if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new CreateAidResponsePayload(false, Error: "Missing payload"));
                 return;
@@ -2236,8 +1977,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var createAidRequest = JsonSerializer.Deserialize<CreateAidRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (createAidRequest is null || string.IsNullOrEmpty(createAidRequest.Alias))
-            {
+            if (createAidRequest is null || string.IsNullOrEmpty(createAidRequest.Alias)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new CreateAidResponsePayload(false, Error: "Invalid alias"));
                 return;
@@ -2245,15 +1985,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             var createResult = await _signifyClientService.RunCreateAid(createAidRequest.Alias);
 
-            if (createResult.IsSuccess && createResult.Value is not null)
-            {
+            if (createResult.IsSuccess && createResult.Value is not null) {
                 // Refresh identifiers from KERIA and update storage
                 var identifiersResult = await _signifyClientService.GetIdentifiers();
-                if (identifiersResult.IsSuccess && identifiersResult.Value is not null)
-                {
+                if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
                     var connectionInfo = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-                    if (connectionInfo.IsSuccess && connectionInfo.Value is not null)
-                    {
+                    if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
                         await _storageService.SetItem(
                             connectionInfo.Value with { IdentifiersList = [identifiersResult.Value] },
                             StorageArea.Session);
@@ -2263,15 +2000,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new CreateAidResponsePayload(true, createResult.Value));
             }
-            else
-            {
+            else {
                 var errorMsg = createResult.Errors.Count > 0 ? createResult.Errors[0].Message : "Create AID failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new CreateAidResponsePayload(false, Error: errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during create AID");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new CreateAidResponsePayload(false, Error: ex.Message));
@@ -2283,30 +2018,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Fetches credentials from KERIA via signify-ts and returns them.
     /// TODO P1: Consider caching credentials in session storage instead of fetching on-demand.
     /// </summary>
-    private async Task HandleAppRequestGetCredentialsRpcAsync(string portId, RpcRequest request)
-    {
+    private async Task HandleAppRequestGetCredentialsRpcAsync(string portId, RpcRequest request) {
         logger.LogInformation("HandleAppRequestGetCredentialsRpcAsync");
 
         if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
-        try
-        {
+        try {
             var credentialsResult = await _signifyClientService.GetCredentials();
 
-            if (credentialsResult.IsSuccess)
-            {
+            if (credentialsResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetCredentialsResponsePayload(true, credentialsResult.Value));
             }
-            else
-            {
+            else {
                 var errorMsg = credentialsResult.Errors.Count > 0 ? credentialsResult.Errors[0].Message : "Get credentials failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetCredentialsResponsePayload(false, Error: errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during get credentials");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new GetCredentialsResponsePayload(false, Error: ex.Message));
@@ -2317,16 +2047,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles GetKeyState request from App.
     /// Returns the key state for a specific identifier prefix.
     /// </summary>
-    private async Task HandleAppRequestGetKeyStateRpcAsync(string portId, RpcRequest request, JsonElement? payload)
-    {
+    private async Task HandleAppRequestGetKeyStateRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestGetKeyStateRpcAsync");
 
         if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
-        try
-        {
-            if (!payload.HasValue)
-            {
+        try {
+            if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyStateResponsePayload(false, Error: "Missing payload"));
                 return;
@@ -2335,8 +2062,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var keyStateRequest = JsonSerializer.Deserialize<GetKeyStateRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (keyStateRequest is null || string.IsNullOrEmpty(keyStateRequest.Prefix))
-            {
+            if (keyStateRequest is null || string.IsNullOrEmpty(keyStateRequest.Prefix)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyStateResponsePayload(false, Error: "Invalid or missing prefix"));
                 return;
@@ -2344,20 +2070,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             var keyStateResult = await _signifyClientService.GetKeyState(keyStateRequest.Prefix);
 
-            if (keyStateResult.IsSuccess)
-            {
+            if (keyStateResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyStateResponsePayload(true, KeyState: keyStateResult.Value));
             }
-            else
-            {
+            else {
                 var errorMsg = keyStateResult.Errors.Count > 0 ? keyStateResult.Errors[0].Message : "Get key state failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyStateResponsePayload(false, Error: errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during get key state");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new GetKeyStateResponsePayload(false, Error: ex.Message));
@@ -2368,16 +2091,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles GetKeyEvents request from App.
     /// Returns the key events for a specific identifier prefix.
     /// </summary>
-    private async Task HandleAppRequestGetKeyEventsRpcAsync(string portId, RpcRequest request, JsonElement? payload)
-    {
+    private async Task HandleAppRequestGetKeyEventsRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestGetKeyEventsRpcAsync");
 
         if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
-        try
-        {
-            if (!payload.HasValue)
-            {
+        try {
+            if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyEventsResponsePayload(false, Error: "Missing payload"));
                 return;
@@ -2386,8 +2106,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var keyEventsRequest = JsonSerializer.Deserialize<GetKeyEventsRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (keyEventsRequest is null || string.IsNullOrEmpty(keyEventsRequest.Prefix))
-            {
+            if (keyEventsRequest is null || string.IsNullOrEmpty(keyEventsRequest.Prefix)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyEventsResponsePayload(false, Error: "Invalid or missing prefix"));
                 return;
@@ -2395,20 +2114,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             var keyEventsResult = await _signifyClientService.GetKeyEvents(keyEventsRequest.Prefix);
 
-            if (keyEventsResult.IsSuccess)
-            {
+            if (keyEventsResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyEventsResponsePayload(true, KeyEvents: keyEventsResult.Value));
             }
-            else
-            {
+            else {
                 var errorMsg = keyEventsResult.Errors.Count > 0 ? keyEventsResult.Errors[0].Message : "Get key events failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new GetKeyEventsResponsePayload(false, Error: errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during get key events");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new GetKeyEventsResponsePayload(false, Error: ex.Message));
@@ -2419,16 +2135,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles RenameAid request from App.
     /// Renames an AID and refreshes the identifiers cache.
     /// </summary>
-    private async Task HandleAppRequestRenameAidRpcAsync(string portId, RpcRequest request, JsonElement? payload)
-    {
+    private async Task HandleAppRequestRenameAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation("HandleAppRequestRenameAidRpcAsync");
 
         if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) return;
 
-        try
-        {
-            if (!payload.HasValue)
-            {
+        try {
+            if (!payload.HasValue) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new RenameAidResponsePayload(false, Error: "Missing payload"));
                 return;
@@ -2437,8 +2150,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var renameRequest = JsonSerializer.Deserialize<RenameAidRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (renameRequest is null || string.IsNullOrEmpty(renameRequest.CurrentName) || string.IsNullOrEmpty(renameRequest.NewName))
-            {
+            if (renameRequest is null || string.IsNullOrEmpty(renameRequest.CurrentName) || string.IsNullOrEmpty(renameRequest.NewName)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new RenameAidResponsePayload(false, Error: "Invalid or missing current name or new name"));
                 return;
@@ -2446,23 +2158,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             var renameResult = await _signifyClientService.RenameAid(renameRequest.CurrentName, renameRequest.NewName);
 
-            if (renameResult.IsSuccess)
-            {
+            if (renameResult.IsSuccess) {
                 // Refresh the identifiers cache after successful rename
                 await RefreshIdentifiersCache();
 
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new RenameAidResponsePayload(true));
             }
-            else
-            {
+            else {
                 var errorMsg = renameResult.Errors.Count > 0 ? renameResult.Errors[0].Message : "Rename AID failed";
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new RenameAidResponsePayload(false, Error: errorMsg));
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error during rename AID");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new RenameAidResponsePayload(false, Error: ex.Message));
@@ -2473,12 +2182,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles EVENT messages from ContentScript or App (fire-and-forget notifications).
     /// Events don't require a response - they're used for notifications like user activity.
     /// </summary>
-    private async Task HandlePortEventAsync(string portId, PortSession? portSession, Models.Messages.Port.EventMessage eventMessage)
-    {
+    private async Task HandlePortEventAsync(string portId, PortSession? portSession, Models.Messages.Port.EventMessage eventMessage) {
         logger.LogInformation("BW←Port (EVENT): name={Name}, portId={PortId}", eventMessage.Name, portId);
 
-        switch (eventMessage.Name)
-        {
+        switch (eventMessage.Name) {
             case AppBwMessageType.Values.UserActivity:
                 // Extend session on user activity
                 logger.LogDebug("User activity event received, extending session");
@@ -2502,8 +2209,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Creates a pending request and opens the popup/sidepanel for user interaction.
     /// </summary>
     private async Task HandleSelectAuthorizeRpcAsync(string portId, PortSession portSession, RpcRequest request,
-        int tabId, string? tabUrl, string origin)
-    {
+        int tabId, string? tabUrl, string origin) {
         logger.LogInformation("HandleSelectAuthorizeRpcAsync: method={Method}, tabId={TabId}, origin={Origin}",
             request.Method, tabId, origin);
 
@@ -2522,8 +2228,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         );
 
         // Create pending request for App - store port info for response routing
-        var pendingRequest = new PendingBwAppRequest
-        {
+        var pendingRequest = new PendingBwAppRequest {
             RequestId = originalRequestId,
             Type = BwAppMessageType.Values.RequestSelectAuthorize,
             Payload = payload,
@@ -2544,12 +2249,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles sign-request RPC from ContentScript.
     /// </summary>
     private async Task HandleSignRequestRpcAsync(string portId, PortSession portSession, RpcRequest request,
-        int tabId, string? tabUrl, string origin)
-    {
+        int tabId, string? tabUrl, string origin) {
         logger.LogInformation("HandleSignRequestRpcAsync: tabId={TabId}, origin={Origin}", tabId, origin);
 
-        if (tabUrl is null)
-        {
+        if (tabUrl is null) {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Tab URL is required for sign-request");
             return;
@@ -2559,8 +2262,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         var rpcParams = request.GetParams<SignRequestRpcParams>();
         var signRequestPayload = rpcParams?.Payload;
 
-        if (signRequestPayload is null)
-        {
+        if (signRequestPayload is null) {
             logger.LogWarning("HandleSignRequestRpcAsync: invalid payload");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Invalid payload for sign-request");
@@ -2573,8 +2275,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         var requestUrl = signRequestPayload.Url;
         var headers = signRequestPayload.Headers;
 
-        if (string.IsNullOrEmpty(requestUrl))
-        {
+        if (string.IsNullOrEmpty(requestUrl)) {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "URL must not be empty");
             return;
@@ -2582,8 +2283,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
         // Get or create website config for this origin
         var getOrCreateWebsiteRes = await _websiteConfigService.GetOrCreateWebsiteConfig(new Uri(origin));
-        if (getOrCreateWebsiteRes.IsFailed)
-        {
+        if (getOrCreateWebsiteRes.IsFailed) {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Failed to get or create website config");
             return;
@@ -2592,19 +2292,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         WebsiteConfig websiteConfig = getOrCreateWebsiteRes.Value.websiteConfig1;
         string? rememberedPrefix = websiteConfig.RememberedPrefixOrNothing;
 
-        if (rememberedPrefix is null)
-        {
+        if (rememberedPrefix is null) {
             // Read SelectedPrefix from current KeriaConnectConfig
             var prefsResult = await _storageService.GetItem<Preferences>();
             var selectedDigest = prefsResult.IsSuccess && prefsResult.Value is not null
                 ? prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest
                 : string.Empty;
 
-            if (!string.IsNullOrEmpty(selectedDigest))
-            {
+            if (!string.IsNullOrEmpty(selectedDigest)) {
                 var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
-                if (configsResult.IsSuccess && configsResult.Value?.Configs.TryGetValue(selectedDigest, out var config) == true)
-                {
+                if (configsResult.IsSuccess && configsResult.Value?.Configs.TryGetValue(selectedDigest, out var config) == true) {
                     rememberedPrefix = config.SelectedPrefix;
                 }
             }
@@ -2626,8 +2323,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             RememberedPrefix: rememberedPrefix
         );
 
-        var pendingRequest = new PendingBwAppRequest
-        {
+        var pendingRequest = new PendingBwAppRequest {
             RequestId = originalRequestId,
             Type = BwAppMessageType.Values.RequestSignHeaders,
             Payload = signPayload,
@@ -2646,8 +2342,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles sign-data RPC from ContentScript.
     /// </summary>
     private async Task HandleSignDataRpcAsync(string portId, PortSession portSession, RpcRequest request,
-        int tabId, string? tabUrl, string origin)
-    {
+        int tabId, string? tabUrl, string origin) {
         logger.LogInformation("HandleSignDataRpcAsync: tabId={TabId}, origin={Origin}", tabId, origin);
 
         // Extract typed params
@@ -2655,8 +2350,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         var signDataPayload = rpcParams?.Payload;
         var originalRequestId = rpcParams?.RequestId ?? request.Id;
 
-        if (signDataPayload is null || signDataPayload.Items is null || signDataPayload.Items.Length == 0)
-        {
+        if (signDataPayload is null || signDataPayload.Items is null || signDataPayload.Items.Length == 0) {
             logger.LogWarning("HandleSignDataRpcAsync: invalid payload - no items");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Invalid payload for sign-data: items required");
@@ -2673,8 +2367,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             OriginalType: CsBwMessageTypes.SIGN_DATA
         );
 
-        var pendingRequest = new PendingBwAppRequest
-        {
+        var pendingRequest = new PendingBwAppRequest {
             RequestId = originalRequestId,
             Type = BwAppMessageType.Values.RequestSignData,
             Payload = requestSignDataPayload,
@@ -2693,8 +2386,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Handles create-data-attestation RPC from ContentScript.
     /// </summary>
     private async Task HandleCreateDataAttestationRpcAsync(string portId, PortSession portSession, RpcRequest request,
-        int tabId, string? tabUrl, string origin)
-    {
+        int tabId, string? tabUrl, string origin) {
         logger.LogInformation("HandleCreateDataAttestationRpcAsync: tabId={TabId}, origin={Origin}", tabId, origin);
 
         // Extract typed params
@@ -2702,8 +2394,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         var createPayload = rpcParams?.Payload;
         var originalRequestId = rpcParams?.RequestId ?? request.Id;
 
-        if (createPayload is null)
-        {
+        if (createPayload is null) {
             logger.LogWarning("HandleCreateDataAttestationRpcAsync: invalid payload");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Invalid payload for create-data-attestation");
@@ -2720,8 +2411,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             OriginalType: CsBwMessageTypes.CREATE_DATA_ATTESTATION
         );
 
-        var pendingRequest = new PendingBwAppRequest
-        {
+        var pendingRequest = new PendingBwAppRequest {
             RequestId = originalRequestId,
             Type = BwAppMessageType.Values.RequestCreateCredential,
             Payload = requestPayload,
@@ -2745,30 +2435,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Polaris-web format (BwCsAuthorizeResultPayload):
     /// { identifier: { prefix }, credential: { raw, cesr } }
     /// </summary>
-    private BwCsAuthorizeResultPayload? TransformToPolariWebAuthorizeResult(object? payload)
-    {
-        if (payload is null)
-        {
+    private BwCsAuthorizeResultPayload? TransformToPolariWebAuthorizeResult(object? payload) {
+        if (payload is null) {
             logger.LogWarning("TransformToPolariWebAuthorizeResult: payload is null");
             return null;
         }
 
-        try
-        {
+        try {
             // Deserialize the payload to AppBw AuthorizeResult (internal format with Aid)
             var payloadJson = JsonSerializer.Serialize(payload, JsonOptions.RecursiveDictionary);
             var authorizeResult = JsonSerializer.Deserialize<AppBwAuthorizeResult>(payloadJson, JsonOptions.RecursiveDictionary);
 
-            if (authorizeResult is null)
-            {
+            if (authorizeResult is null) {
                 logger.LogWarning("TransformToPolariWebAuthorizeResult: Could not deserialize to AuthorizeResult");
                 return null;
             }
 
             // Transform to polaris-web compliant format
             BwCsAuthorizeResultIdentifier? identifier = null;
-            if (authorizeResult.Aid is not null)
-            {
+            if (authorizeResult.Aid is not null) {
                 identifier = new BwCsAuthorizeResultIdentifier(
                     Prefix: authorizeResult.Aid.Prefix,
                     Name: authorizeResult.Aid.Name
@@ -2776,8 +2461,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             }
 
             BwCsAuthorizeResultCredential? credential = null;
-            if (authorizeResult.Credential is not null)
-            {
+            if (authorizeResult.Credential is not null) {
                 credential = new BwCsAuthorizeResultCredential(
                     Raw: authorizeResult.Credential.Raw,
                     Cesr: authorizeResult.Credential.Cesr
@@ -2794,8 +2478,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             return result;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "TransformToPolariWebAuthorizeResult: Error transforming payload");
             return null;
         }
@@ -2806,15 +2489,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// On success, refreshes identifiers cache and updates storage.
     /// </summary>
     /// <returns>AddIdentifierResponse indicating success/failure</returns>
-    private async Task<object?> HandleRequestAddIdentifierAsync(AppBwMessage<object> msg)
-    {
-        try
-        {
+    private async Task<object?> HandleRequestAddIdentifierAsync(AppBwMessage<object> msg) {
+        try {
             logger.LogInformation("BW HandleRequestAddIdentifier: Processing request");
 
             // Deserialize payload to RequestAddIdentifierPayload
-            if (msg.Payload is null)
-            {
+            if (msg.Payload is null) {
                 logger.LogWarning("BW HandleRequestAddIdentifier: Payload is null");
                 return new AddIdentifierResponse(Success: false, Error: "Payload is null");
             }
@@ -2822,8 +2502,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var payloadJson = JsonSerializer.Serialize(msg.Payload, JsonOptions.RecursiveDictionary);
             var payload = JsonSerializer.Deserialize<RequestAddIdentifierPayload>(payloadJson, JsonOptions.RecursiveDictionary);
 
-            if (payload is null || string.IsNullOrEmpty(payload.Alias))
-            {
+            if (payload is null || string.IsNullOrEmpty(payload.Alias)) {
                 logger.LogWarning("BW HandleRequestAddIdentifier: Invalid payload or empty alias");
                 return new AddIdentifierResponse(Success: false, Error: "Invalid payload or empty alias");
             }
@@ -2832,8 +2511,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Create the identifier
             var createResult = await _signifyClientService.RunCreateAid(payload.Alias);
-            if (createResult.IsFailed || createResult.Value is null)
-            {
+            if (createResult.IsFailed || createResult.Value is null) {
                 var errorMsg = string.Join("; ", createResult.Errors.Select(e => e.Message));
                 logger.LogWarning("BW HandleRequestAddIdentifier: Failed to create identifier: {Errors}", errorMsg);
                 return new AddIdentifierResponse(Success: false, Error: $"Failed to create identifier: {errorMsg}");
@@ -2844,8 +2522,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Refresh identifiers from KERIA
             var identifiersResult = await _signifyClientService.GetIdentifiers();
-            if (identifiersResult.IsFailed)
-            {
+            if (identifiersResult.IsFailed) {
                 var errorMsg = string.Join("; ", identifiersResult.Errors.Select(e => e.Message));
                 logger.LogWarning("BW HandleRequestAddIdentifier: Failed to refresh identifiers: {Errors}", errorMsg);
                 return new AddIdentifierResponse(Success: false, Error: $"Identifier created but failed to refresh list: {errorMsg}");
@@ -2853,20 +2530,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Update storage with new identifiers list
             var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-            if (connectionInfoResult.IsFailed || connectionInfoResult.Value is null)
-            {
+            if (connectionInfoResult.IsFailed || connectionInfoResult.Value is null) {
                 logger.LogWarning("BW HandleRequestAddIdentifier: Failed to get KeriaConnectionInfo from storage");
                 return new AddIdentifierResponse(Success: false, Error: "Failed to get connection info from storage");
             }
 
-            var updatedConnectionInfo = connectionInfoResult.Value with
-            {
+            var updatedConnectionInfo = connectionInfoResult.Value with {
                 IdentifiersList = [identifiersResult.Value]
             };
 
             var setResult = await _storageService.SetItem<KeriaConnectionInfo>(updatedConnectionInfo, StorageArea.Session);
-            if (setResult.IsFailed)
-            {
+            if (setResult.IsFailed) {
                 var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
                 logger.LogWarning("BW HandleRequestAddIdentifier: Failed to update KeriaConnectionInfo in storage: {Errors}", errorMsg);
                 return new AddIdentifierResponse(Success: false, Error: $"Failed to update storage: {errorMsg}");
@@ -2875,38 +2549,31 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             logger.LogInformation("BW HandleRequestAddIdentifier: Successfully updated identifiers in storage");
             return new AddIdentifierResponse(Success: true);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "BW HandleRequestAddIdentifier: Exception occurred");
             return new AddIdentifierResponse(Success: false, Error: $"Exception: {ex.Message}");
         }
     }
 
     private async Task SignAndSendRequestHeaders(string tabUrl, int tabId, AppBwReplySignMessage msg,
-        string? portId = null, string? portSessionId = null, string? rpcRequestId = null)
-    {
+        string? portId = null, string? portSessionId = null, string? rpcRequestId = null) {
         // Helper to send response via port
-        async Task SendResponseAsync(object? result, string? error)
-        {
-            if (portId is not null && portSessionId is not null)
-            {
+        async Task SendResponseAsync(object? result, string? error) {
+            if (portId is not null && portSessionId is not null) {
                 // Route via port
                 await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId ?? msg.RequestId ?? "",
                     result: error is null ? result : null, errorMessage: error);
             }
-            else
-            {
+            else {
                 logger.LogWarning("BW→CS: No port info for sign-headers response, requestId={RequestId}. Response not sent.", msg.RequestId);
             }
         }
 
-        try
-        {
+        try {
             await EnsureInitializedAsync();
 
             var payload = msg.Payload;
-            if (payload is null)
-            {
+            if (payload is null) {
                 logger.LogError("SignAndSendRequestHeaders: could not parse payload");
                 await SendResponseAsync(null, $"SignAndSendRequestHeaders: could not parse payload on msg: {msg}");
                 return;
@@ -2923,16 +2590,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 origin, requestUrl, method, prefix);
 
             // Validate URL is well-formed
-            if (string.IsNullOrEmpty(requestUrl) || !Uri.IsWellFormedUriString(requestUrl, UriKind.Absolute))
-            {
+            if (string.IsNullOrEmpty(requestUrl) || !Uri.IsWellFormedUriString(requestUrl, UriKind.Absolute)) {
                 logger.LogWarning("SignAndSendRequestHeaders: URL is empty or not well-formed: {Url}", requestUrl);
                 await SendResponseAsync(null, "URL is empty or not well-formed");
                 return;
             }
 
             // Validate prefix is provided
-            if (string.IsNullOrEmpty(prefix))
-            {
+            if (string.IsNullOrEmpty(prefix)) {
                 logger.LogWarning("SignAndSendRequestHeaders: no identifier prefix provided");
                 await SendResponseAsync(null, "No identifier configured for signing");
                 return;
@@ -2943,8 +2608,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Ensure SignifyClient is connected before signing
             var connectionResult = await EnsureSignifyConnectedAsync();
-            if (connectionResult.IsFailed)
-            {
+            if (connectionResult.IsFailed) {
                 var errorMsg = connectionResult.Errors.Count > 0 ? connectionResult.Errors[0].Message : "SignifyClient not connected";
                 logger.LogWarning("SignAndSendRequestHeaders: SignifyClient not connected: {Error}", errorMsg);
                 await SendResponseAsync(null, $"SignifyClient not connected: {errorMsg}");
@@ -2960,8 +2624,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             );
 
             var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
-            if (signedHeaders == null)
-            {
+            if (signedHeaders == null) {
                 logger.LogWarning("SignAndSendRequestHeaders: failed to generate signed headers");
                 await SendResponseAsync(null, "Failed to generate signed headers");
                 return;
@@ -2971,8 +2634,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             await SendResponseAsync(new { headers = signedHeaders }, null);
             return;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error in SignAndSendRequestHeaders");
             await SendResponseAsync(null, $"SignAndSendRequestHeaders: exception occurred.");
             return;
@@ -2984,32 +2646,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Issues the credential using signify-ts and sends the result to ContentScript.
     /// </summary>
     private async Task HandleCreateCredentialApprovalAsync(AppBwMessage<object> msg,
-        string? portId = null, string? portSessionId = null, string? rpcRequestId = null)
-    {
+        string? portId = null, string? portSessionId = null, string? rpcRequestId = null) {
         // Helper to send response via port
-        async Task SendResponseAsync(object? result, string? error)
-        {
-            if (portId is not null && portSessionId is not null)
-            {
+        async Task SendResponseAsync(object? result, string? error) {
+            if (portId is not null && portSessionId is not null) {
                 await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId ?? msg.RequestId ?? "",
                     result: error is null ? result : null, errorMessage: error);
             }
-            else
-            {
+            else {
                 logger.LogWarning("BW→CS: No port info for create-credential response, requestId={RequestId}. Response not sent.", msg.RequestId);
             }
         }
 
-        try
-        {
+        try {
             logger.LogInformation("BW HandleCreateCredentialApproval: Processing credential creation approval");
 
             // Deserialize the approval payload
             var payloadJson = JsonSerializer.Serialize(msg.Payload, JsonOptions.RecursiveDictionary);
             var approvalPayload = JsonSerializer.Deserialize<CreateCredentialApprovalPayload>(payloadJson, JsonOptions.RecursiveDictionary);
 
-            if (approvalPayload is null)
-            {
+            if (approvalPayload is null) {
                 logger.LogWarning("BW HandleCreateCredentialApproval: Could not deserialize approval payload");
                 await SendResponseAsync(null, "Invalid approval payload");
                 return;
@@ -3024,8 +2680,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Get registry for this AID
             var registriesResult = await _signifyClientService.ListRegistries(aidPrefix);
-            if (registriesResult.IsFailed || registriesResult.Value.Count == 0)
-            {
+            if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
                 logger.LogWarning("BW HandleCreateCredentialApproval: no registry found for AID {AidName}", aidPrefix);
                 await SendResponseAsync(null, "No credential registry found for this identifier. Please create a registry first.");
                 return;
@@ -3034,8 +2689,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             var registry = registriesResult.Value[0]; // Use first registry
             var registryId = registry.Regk;
 
-            if (string.IsNullOrEmpty(registryId))
-            {
+            if (string.IsNullOrEmpty(registryId)) {
                 logger.LogWarning("BW HandleCreateCredentialApproval: registry ID is empty for AID {AidName}", aidPrefix);
                 await SendResponseAsync(null, "Invalid registry configuration");
                 return;
@@ -3043,15 +2697,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Verify schema exists, and if not, try to load it via OOBI
             var schemaResult = await _signifyClientService.GetSchema(schemaSaid);
-            if (schemaResult.IsFailed)
-            {
+            if (schemaResult.IsFailed) {
                 logger.LogInformation("BW HandleCreateCredentialApproval: schema {SchemaSaid} not found in KERIA, attempting to load via OOBI",
                     schemaSaid);
 
                 // Try to resolve the schema OOBI from SchemaService manifest first
                 var schemaOobiUrls = _schemaService.GetOobiUrls(schemaSaid);
-                if (schemaOobiUrls.Length == 0)
-                {
+                if (schemaOobiUrls.Length == 0) {
                     // Fall back to constructing URLs from default OOBI hosts
                     logger.LogInformation("BW HandleCreateCredentialApproval: schema {SchemaSaid} not in manifest, trying default hosts",
                         schemaSaid);
@@ -3059,41 +2711,34 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                         .Select(host => $"{host}/oobi/{schemaSaid}")
                         .ToArray();
                 }
-                else
-                {
+                else {
                     var schemaEntry = _schemaService.GetSchema(schemaSaid);
                     logger.LogInformation("BW HandleCreateCredentialApproval: found schema '{SchemaName}' in manifest with {Count} OOBI URLs",
                         schemaEntry?.Name ?? schemaSaid, schemaOobiUrls.Length);
                 }
 
                 bool schemaLoaded = false;
-                foreach (var schemaOobi in schemaOobiUrls)
-                {
-                    try
-                    {
+                foreach (var schemaOobi in schemaOobiUrls) {
+                    try {
                         logger.LogInformation("BW HandleCreateCredentialApproval: Attempting to resolve schema OOBI: {Oobi}", schemaOobi);
                         var resolveResult = await _signifyClientService.ResolveOobi(schemaOobi);
-                        if (resolveResult.IsSuccess)
-                        {
+                        if (resolveResult.IsSuccess) {
                             logger.LogInformation("BW HandleCreateCredentialApproval: Successfully loaded schema {SchemaSaid} from {Oobi}",
                                 schemaSaid, schemaOobi);
                             schemaLoaded = true;
                             break;
                         }
-                        else
-                        {
+                        else {
                             logger.LogWarning("BW HandleCreateCredentialApproval: Failed to resolve schema OOBI {Oobi}: {Error}",
                                 schemaOobi, resolveResult.Errors[0].Message);
                         }
                     }
-                    catch (Exception ex)
-                    {
+                    catch (Exception ex) {
                         logger.LogWarning(ex, "BW HandleCreateCredentialApproval: Exception resolving schema OOBI {Oobi}", schemaOobi);
                     }
                 }
 
-                if (!schemaLoaded)
-                {
+                if (!schemaLoaded) {
                     logger.LogWarning("BW HandleCreateCredentialApproval: Could not load schema {SchemaSaid} from any known source, proceeding anyway",
                         schemaSaid);
                 }
@@ -3101,33 +2746,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Convert credData to OrderedDictionary to preserve field order (critical for CESR/SAID)
             var credDataOrdered = new System.Collections.Specialized.OrderedDictionary();
-            if (approvalPayload.CredData is JsonElement jsonElement)
-            {
+            if (approvalPayload.CredData is JsonElement jsonElement) {
                 // If it's a JsonElement, enumerate its properties
-                if (jsonElement.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var prop in jsonElement.EnumerateObject())
-                    {
+                if (jsonElement.ValueKind == JsonValueKind.Object) {
+                    foreach (var prop in jsonElement.EnumerateObject()) {
                         credDataOrdered.Add(prop.Name, prop.Value.Clone());
                     }
                 }
             }
-            else if (approvalPayload.CredData is Dictionary<string, object> dictData)
-            {
-                foreach (var kvp in dictData)
-                {
+            else if (approvalPayload.CredData is Dictionary<string, object> dictData) {
+                foreach (var kvp in dictData) {
                     credDataOrdered.Add(kvp.Key, kvp.Value);
                 }
             }
-            else
-            {
+            else {
                 // Fallback: serialize and re-deserialize to get dictionary
                 var credDataJson = JsonSerializer.Serialize(approvalPayload.CredData, JsonOptions.RecursiveDictionary);
                 var credDataDict = JsonSerializer.Deserialize<Dictionary<string, object>>(credDataJson, JsonOptions.RecursiveDictionary);
-                if (credDataDict != null)
-                {
-                    foreach (var kvp in credDataDict)
-                    {
+                if (credDataDict != null) {
+                    foreach (var kvp in credDataDict) {
                         credDataOrdered.Add(kvp.Key, kvp.Value);
                     }
                 }
@@ -3146,8 +2783,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Issue the credential
             var issueResult = await _signifyClientService.IssueCredential(aidName, credentialData);
-            if (issueResult.IsFailed)
-            {
+            if (issueResult.IsFailed) {
                 logger.LogWarning("BW HandleCreateCredentialApproval: failed to issue credential: {Error}",
                     issueResult.Errors[0].Message);
                 await SendResponseAsync(null, $"Failed to issue credential: {issueResult.Errors[0].Message}");
@@ -3159,8 +2795,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
 
             // Transform IssueCredentialResult to polaris-web CreateCredentialResult format
             // Convert Serder.Ked (OrderedDictionary) to RecursiveDictionary for proper serialization
-            var createCredentialResult = new
-            {
+            var createCredentialResult = new {
                 acdc = credential.Acdc.Ked,
                 iss = credential.Iss.Ked,
                 anc = credential.Anc.Ked,
@@ -3171,8 +2806,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
             logger.LogInformation("BW→CS (port): Sending create-credential response, requestId={RequestId}", msg.RequestId);
             await SendResponseAsync(createCredentialResult, null);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "Error in HandleCreateCredentialApproval");
             await SendResponseAsync(null, "Failed to create credential: " + ex.Message);
         }
@@ -3182,24 +2816,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Get the identifier name for a given prefix from cached session storage.
     /// This avoids calling signifyClientService.GetIdentifiers() repeatedly.
     /// </summary>
-    private async Task<Result<string>> GetIdentifierNameFromCacheAsync(string prefix)
-    {
+    private async Task<Result<string>> GetIdentifierNameFromCacheAsync(string prefix) {
         var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-        if (connectionInfoResult.IsFailed || connectionInfoResult.Value == null)
-        {
+        if (connectionInfoResult.IsFailed || connectionInfoResult.Value == null) {
             return Result.Fail<string>("No KERIA connection info found in session storage");
         }
 
         var identifiersList = connectionInfoResult.Value.IdentifiersList;
-        if (identifiersList == null || identifiersList.Count == 0)
-        {
+        if (identifiersList == null || identifiersList.Count == 0) {
             return Result.Fail<string>("No identifiers found in cached connection info");
         }
 
         var allAids = identifiersList.SelectMany(i => i.Aids).ToList();
         var aid = allAids.FirstOrDefault(a => a.Prefix == prefix);
-        if (aid == null)
-        {
+        if (aid == null) {
             return Result.Fail<string>($"No identifier found with prefix {prefix}");
         }
 
@@ -3210,32 +2840,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Refresh the identifiers cache in session storage.
     /// Called after operations that modify identifiers (e.g., rename, create).
     /// </summary>
-    private async Task RefreshIdentifiersCache()
-    {
-        try
-        {
+    private async Task RefreshIdentifiersCache() {
+        try {
             var identifiersResult = await _signifyClientService.GetIdentifiers();
-            if (identifiersResult.IsSuccess && identifiersResult.Value is not null)
-            {
+            if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
                 var connectionInfo = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-                if (connectionInfo.IsSuccess && connectionInfo.Value is not null)
-                {
+                if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
                     await _storageService.SetItem(
-                        connectionInfo.Value with
-                        {
+                        connectionInfo.Value with {
                             IdentifiersList = [identifiersResult.Value]
                         },
                         StorageArea.Session);
                     logger.LogInformation("RefreshIdentifiersCache: Updated identifiers in session storage");
                 }
             }
-            else
-            {
+            else {
                 logger.LogWarning("RefreshIdentifiersCache: GetIdentifiers failed or returned null");
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "RefreshIdentifiersCache: Exception during refresh");
         }
     }
@@ -3244,12 +2867,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Ensures SignifyClient is connected, attempting reconnection if necessary.
     /// Call this at the start of any RPC handler that requires SignifyClient.
     /// </summary>
-    private async Task<Result> EnsureSignifyConnectedAsync()
-    {
+    private async Task<Result> EnsureSignifyConnectedAsync() {
         // Try a lightweight operation to check connection
         var stateResult = await _signifyClientService.GetState();
-        if (stateResult.IsSuccess)
-        {
+        if (stateResult.IsSuccess) {
             return Result.Ok();
         }
 
@@ -3258,8 +2879,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
         var errorMsg = stateResult.Errors.Count > 0 ? stateResult.Errors[0].Message : "";
         if (errorMsg.Contains("Missing agentUrl or passcode") ||
             errorMsg.Contains("validateClient") ||
-            errorMsg.Contains("not connected", StringComparison.OrdinalIgnoreCase))
-        {
+            errorMsg.Contains("not connected", StringComparison.OrdinalIgnoreCase)) {
             logger.LogInformation("SignifyClient not connected - attempting reconnect");
             return await TryConnectSignifyClientAsync();
         }
@@ -3272,11 +2892,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Wrapper that ensures SignifyClient is connected before proceeding.
     /// Returns false and sends error response if connection fails.
     /// </summary>
-    private async Task<bool> RequireSignifyConnectionAsync(string portId, string portSessionId, string requestId)
-    {
+    private async Task<bool> RequireSignifyConnectionAsync(string portId, string portSessionId, string requestId) {
         var result = await EnsureSignifyConnectedAsync();
-        if (result.IsFailed)
-        {
+        if (result.IsFailed) {
             var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : "SignifyClient not connected";
             await _portService.SendRpcResponseAsync(portId, portSessionId, requestId, errorMessage: errorMsg);
             return false;
@@ -3288,59 +2906,47 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
     /// Try to connect the BackgroundWorker's SignifyClient instance using stored credentials
     /// This is needed because BackgroundWorker has a separate Blazor runtime from the App (popup/tab)
     /// </summary>
-    private async Task<Result> TryConnectSignifyClientAsync()
-    {
-        try
-        {
+    private async Task<Result> TryConnectSignifyClientAsync() {
+        try {
             // Get preferences to find the selected config digest
             var prefsResult = await _storageService.GetItem<Preferences>();
-            if (prefsResult.IsFailed || prefsResult.Value == null)
-            {
+            if (prefsResult.IsFailed || prefsResult.Value == null) {
                 return Result.Fail("Preferences not found");
             }
             var selectedDigest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
-            if (string.IsNullOrEmpty(selectedDigest))
-            {
+            if (string.IsNullOrEmpty(selectedDigest)) {
                 return Result.Fail("No KERIA configuration selected");
             }
 
             // Get KeriaConnectConfigs dictionary and look up the selected config
             var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
-            if (configsResult.IsFailed || configsResult.Value == null || !configsResult.Value.IsStored)
-            {
+            if (configsResult.IsFailed || configsResult.Value == null || !configsResult.Value.IsStored) {
                 return Result.Fail("No KERIA connection configurations found");
             }
-            if (!configsResult.Value.Configs.TryGetValue(selectedDigest, out var config))
-            {
+            if (!configsResult.Value.Configs.TryGetValue(selectedDigest, out var config)) {
                 return Result.Fail($"Selected KERIA configuration not found for digest {selectedDigest}");
             }
 
-            if (string.IsNullOrEmpty(config.AdminUrl))
-            {
+            if (string.IsNullOrEmpty(config.AdminUrl)) {
                 return Result.Fail("Admin URL not configured");
             }
-            if (string.IsNullOrEmpty(config.BootUrl))
-            {
+            if (string.IsNullOrEmpty(config.BootUrl)) {
                 return Result.Fail("Boot URL not configured");
             }
 
             // Retrieve passcode from session storage
             var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeResult.IsFailed)
-            {
+            if (passcodeResult.IsFailed) {
                 return Result.Fail($"Failed to retrieve passcode: {passcodeResult.Errors[0].Message}");
             }
-            if (passcodeResult.Value == null)
-            {
+            if (passcodeResult.Value == null) {
                 return Result.Fail("Passcode not found in session storage");
             }
             var passcode = passcodeResult.Value.Passcode;
-            if (string.IsNullOrEmpty(passcode))
-            {
+            if (string.IsNullOrEmpty(passcode)) {
                 return Result.Fail("Passcode not available");
             }
-            if (passcode.Length != 21)
-            {
+            if (passcode.Length != 21) {
                 return Result.Fail("Invalid passcode length");
             }
 
@@ -3352,22 +2958,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable
                 config.BootUrl,
                 isBootForced: false  // Don't force boot - just connect
             );
-            if (connectResult.IsFailed)
-            {
+            if (connectResult.IsFailed) {
                 return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
             }
             logger.LogInformation("BW TryConnectSignifyClient: connected successfully");
             return Result.Ok();
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             logger.LogError(ex, "BW TryConnectSignifyClient: exception");
             return Result.Fail($"Exception connecting to KERIA: {ex.Message}");
         }
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         _bwReadyStateObserver?.Dispose();
         GC.SuppressFinalize(this);
     }

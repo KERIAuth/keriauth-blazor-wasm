@@ -224,6 +224,8 @@ public static class SendMessageTypes {
     public const string ClientHello = "CLIENT_SW_HELLO";
     /// <summary>SW → Client: "WASM is ready, you can create a port" (sent via runtime/tabs.sendMessage)</summary>
     public const string SwHello = "SW_CLIENT_HELLO";
+    /// <summary>SW → App: "I have pending work, please reconnect" (sent via chrome.runtime.sendMessage)</summary>
+    public const string SwAppWake = "SW_APP_WAKE";
 }
 
 /// <summary>

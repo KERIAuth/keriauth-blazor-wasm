@@ -942,18 +942,32 @@ export async function beforeStart(
             break;
         case 'Standard':
         case 'Debug':
-            // Listen for SW_CLIENT_HELLO from BackgroundWorker (readiness response)
-            // Use 'window' (not globalThis) so Blazor's IJSRuntime can resolve the identifier
+            // Use 'window' (not globalThis) so Blazor's IJSRuntime can resolve identifiers.
+
+            // BW readiness flag: set when SW_CLIENT_HELLO arrives
             (window as any).__keriauth_bwReady = false;
             (window as any).__keriauth_isBwReady = () => (window as any).__keriauth_bwReady === true;
+
+            // Wake signal flag: set when SW_APP_WAKE arrives, reset on read
+            (window as any).__keriauth_appWake = false;
+            (window as any).__keriauth_checkAppWake = () => {
+                const wake = (window as any).__keriauth_appWake === true;
+                if (wake) (window as any).__keriauth_appWake = false;
+                return wake;
+            };
+
             chrome.runtime.onMessage.addListener((message) => {
                 if (message?.t === 'SW_CLIENT_HELLO' && message?.ready === true) {
                     (window as any).__keriauth_bwReady = true;
                     console.warn('app.ts: Received SW_CLIENT_HELLO, BW is ready');
                 }
+                if (message?.t === 'SW_APP_WAKE') {
+                    (window as any).__keriauth_appWake = true;
+                    console.warn('app.ts: Received SW_APP_WAKE, requestId=', message?.requestId);
+                }
                 return false;
             });
-            console.log(`app.ts: ${mode} mode — registered SW_CLIENT_HELLO listener`);
+            console.log(`app.ts: ${mode} mode — registered onMessage listeners`);
             break;
         default:
             console.warn(`app.ts: Unknown mode: ${mode}`);

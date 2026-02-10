@@ -42,6 +42,7 @@
     protected Timer? appBarRefreshTimer;
     protected bool isTimeoutHovered = false;
     private IDisposable? _portEventSubscription;
+    private Timer? _wakeCheckTimer;
 
     /// <summary>
     /// Indicates whether the App is connected to the BackgroundWorker via port.
@@ -92,12 +93,46 @@
 
     /// <summary>
     /// Called when the port connection to BackgroundWorker is lost.
-    /// Triggers UI update to show disconnected indicator.
+    /// Starts polling for SW_APP_WAKE signal so the App can reconnect
+    /// when BW has pending work.
     /// </summary>
     private void OnPortDisconnected(object? sender, EventArgs e)
     {
-        logger.LogDebug("Port disconnected from BackgroundWorker");
+        logger.LogInformation("Port disconnected from BackgroundWorker, starting wake signal poll");
+        StartWakeCheckTimer();
         InvokeAsync(StateHasChanged);
+    }
+
+    private void StartWakeCheckTimer()
+    {
+        _wakeCheckTimer?.Dispose();
+        _wakeCheckTimer = new Timer(
+            async _ =>
+            {
+                try
+                {
+                    await appPortService.CheckForWakeSignalAsync();
+                    if (appPortService.IsConnected)
+                    {
+                        logger.LogInformation("Reconnected after SW_APP_WAKE, stopping wake poll");
+                        StopWakeCheckTimer();
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogDebug(ex, "Wake signal check failed");
+                }
+            },
+            state: null,
+            dueTime: TimeSpan.FromSeconds(2),
+            period: TimeSpan.FromSeconds(2));
+    }
+
+    private void StopWakeCheckTimer()
+    {
+        _wakeCheckTimer?.Dispose();
+        _wakeCheckTimer = null;
     }
 
     protected virtual async Task HandleAppCacheChanged()
@@ -223,6 +258,7 @@
         _portEventSubscription?.Dispose();
         appPortService.Disconnected -= OnPortDisconnected;
         appBarRefreshTimer?.Dispose();
+        StopWakeCheckTimer();
         userActivityService.StopListening();
         GC.SuppressFinalize(this);
     }

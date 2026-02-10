@@ -94,6 +94,12 @@ public interface IAppPortService : IAsyncDisposable, IObservable<BwAppMessage> {
     event EventHandler? Disconnected;
 
     /// <summary>
+    /// Checks if a SW_APP_WAKE signal has been received (via app.ts onMessage listener).
+    /// If so and not currently connected, triggers reconnection via ConnectAsync.
+    /// </summary>
+    Task CheckForWakeSignalAsync();
+
+    /// <summary>
     /// Sends a strongly-typed message from App to BackgroundWorker (fire-and-forget).
     /// This is a convenience wrapper that converts AppBwMessage to RPC format.
     /// </summary>

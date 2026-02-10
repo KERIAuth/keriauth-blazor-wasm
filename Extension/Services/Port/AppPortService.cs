@@ -565,6 +565,23 @@ public class AppPortService(
         AttachedTabId = null;
     }
 
+    public async Task CheckForWakeSignalAsync()
+    {
+        try
+        {
+            var wake = await _jsRuntime.InvokeAsync<bool>("__keriauth_checkAppWake");
+            if (wake && !IsConnected)
+            {
+                _logger.LogInformation("CheckForWakeSignalAsync: SW_APP_WAKE received, reconnecting...");
+                await ConnectAsync();
+            }
+        }
+        catch (JSException)
+        {
+            // Flag not registered yet (beforeStart hasn't run)
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
