@@ -87,6 +87,8 @@
         if (isLoaded && buttonRef is not null && !buttonFocused)
         {
             buttonFocused = true;
+            // allow time for animation
+            await Task.Delay(100);
             await buttonRef.FocusAsync();
         }
     }

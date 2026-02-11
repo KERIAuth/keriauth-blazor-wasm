@@ -34,6 +34,8 @@
         {
             if (buttonRef is not null)
             {
+                // allow time for animation
+                await Task.Delay(100);
                 await buttonRef.FocusAsync();
             }
         }

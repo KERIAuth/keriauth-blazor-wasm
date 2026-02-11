@@ -121,6 +121,8 @@
         if (_shouldFocusCreateButton && _createButton is not null)
         {
             _shouldFocusCreateButton = false;
+            // allow time for animation
+            await Task.Delay(100);
             await _createButton.FocusAsync();
         }
     }

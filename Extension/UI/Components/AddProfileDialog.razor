@@ -4,10 +4,24 @@
 @code {
     [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
     private string? InputText { get; set; }
-    private static string prompt = @"Enter a unique alias,";
+    private static string prompt = @"Enter a unique alias, without spaces";
+    private MudTextField<string>? _textField;
+
+    private bool IsValid => !string.IsNullOrEmpty(InputText) && !InputText.Any(char.IsWhiteSpace);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _textField is not null)
+        {
+            // allow time for animation
+            await Task.Delay(100);
+            await _textField.FocusAsync();
+        }
+    }
 
     private void Submit()
     {
+        if (!IsValid) return;
         MudDialog?.Close(DialogResult.Ok(InputText));
     }
 
@@ -15,16 +29,31 @@
     {
         MudDialog?.Cancel();
     }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if ((e.Key == "Enter" || e.Code == "NumpadEnter") && IsValid)
+        {
+            Submit();
+        }
+    }
 }
 
 <MudDialog>
     <DialogContent>
         <MudText Typo="Typo.h6">@prompt</MudText>
         <MudText Typo="Typo.h6">@AppConfig.ExampleAlias</MudText>
-        <MudTextField @bind-Value="InputText" Label="Input" Variant="Variant.Outlined" />
+        <MudTextField @ref="_textField"
+                      @bind-Value="InputText"
+                      Label="Input"
+                      Variant="Variant.Outlined"
+                      Immediate="true"
+                      OnKeyDown="OnKeyDown"
+                      Error="@(InputText is not null && !IsValid)"
+                      ErrorText="Alias must not be empty or contain whitespace" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Add</MudButton>
         <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Filled">Cancel</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!IsValid)">Add</MudButton>
     </DialogActions>
 </MudDialog>

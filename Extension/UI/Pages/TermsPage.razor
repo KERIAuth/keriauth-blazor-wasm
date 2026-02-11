@@ -119,6 +119,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // allow time for animation
+            await Task.Delay(100);
         if (_shouldFocusCheckbox)
         {
             _shouldFocusCheckbox = false;

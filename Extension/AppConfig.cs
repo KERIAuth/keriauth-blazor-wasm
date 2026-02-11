@@ -62,7 +62,7 @@ namespace Extension {
         public const int ExpectedPrivacyDigest = 529864982;
 
         // Branding and localization
-        public const string ExampleAlias = "e.g. Maria Garcia, Compliance Analyst at Prime Industries";
+        public const string ExampleAlias = "e.g., NewCredentialApprover";
         public const string ProductName = "KERI Auth";
 
         public static readonly MudTheme MyCustomTheme = new() {

@@ -118,6 +118,8 @@
     {
         if (firstRender && signRequestButton is not null)
         {
+            // allow time for animation
+            await Task.Delay(100);
             await signRequestButton.FocusAsync();
         }
     }

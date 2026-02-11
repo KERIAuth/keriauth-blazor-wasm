@@ -211,22 +211,30 @@
         // Handle button focus imperatively (MudButton doesn't support AutoFocus)
         if (_focusTarget == FocusTarget.Connect && connectButton is not null)
         {
+            // allow time for animation
+            await Task.Delay(100);
             _focusTarget = FocusTarget.None;
             await connectButton.FocusAsync();
         }
         else if (_focusTarget == FocusTarget.Next && nextButton is not null)
         {
+            // allow time for animation
+            await Task.Delay(100);
             _focusTarget = FocusTarget.None;
             await nextButton.FocusAsync();
         }
         else if (_focusTarget == FocusTarget.Reset && resetButton is not null)
         {
+            // allow time for animation
+            await Task.Delay(100);
             _focusTarget = FocusTarget.None;
             await resetButton.FocusAsync();
         }
         else if (_focusTarget == FocusTarget.Passcode || _focusTarget == FocusTarget.ConfirmPasscode)
         {
             // Text fields use AutoFocus attribute - reset after first render so it triggers
+            // allow time for animation
+            await Task.Delay(100);
             _focusTarget = FocusTarget.None;
         }
     }
@@ -432,12 +440,6 @@
 
         // Step 3: Connect to KERIA
         _currentStep = FlowStep.Ops3;
-
-        // Move focus away from passcode field before disabling it to prevent
-        // MudBlazor's blur handler from firing during a render batch, which causes
-        // "heap is currently locked" error (blur fires synchronously when Disabled
-        // attribute is applied during render, and the JS→.NET callback fails).
-        await _pageContainer.FocusAsync();
 
         // Ratchet Gate 2: Lock passcode fields once passcode is used for connection
         IsPasscodeUsed = true;

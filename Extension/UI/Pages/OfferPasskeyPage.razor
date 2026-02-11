@@ -21,6 +21,8 @@
         if (_shouldFocusButton && createPasskeyButton is not null)
         {
             _shouldFocusButton = false;
+            // allow time for animation
+            await Task.Delay(100);
             await createPasskeyButton.FocusAsync();
         }
     }
