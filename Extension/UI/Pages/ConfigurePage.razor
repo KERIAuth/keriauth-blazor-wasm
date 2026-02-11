@@ -703,7 +703,7 @@
     /// clearing Session storage (PasscodeModel, KeriaConnectionInfo), and resetting
     /// all local page state to defaults. This allows the user to start fresh.
     /// </summary>
-    async Task ResetConfiguration()
+    async Task RetryResetConfiguration()
     {
         logger.LogInformation("ResetConfiguration: Clearing storage and resetting page state");
 
@@ -1030,7 +1030,7 @@
         </MudStack>
     </div>
     <MudStack Row="true" class="bt-button-tray">
-        <MudButton @ref="resetButton" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetConfiguration" data-testid="reset">Reset</MudButton>
+        <MudButton @ref="resetButton" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="RetryResetConfiguration" data-testid="retry">Retry</MudButton>
         <MudSpacer />
         <MudButton @ref="nextButton" Disabled="@(!IsKeriaConfigured)" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => navManager.NavigateTo(Routes.PathFor<Index>()))" Class="justify-start" data-testid="next">Next</MudButton>
     </MudStack>
