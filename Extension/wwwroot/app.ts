@@ -892,14 +892,14 @@ export async function beforeStart(
             // ==================================================================================
 
             chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-                console.warn('app.ts: [BW] onMessage received:', message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
+                console.log('app.ts: [BW] onMessage received:', message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
 
                 // Handle CLIENT_SW_HELLO: App/CS is probing BW readiness.
                 // WASM is ready if this JS listener fires (it runs in the BW context).
                 if (message?.t === 'CLIENT_SW_HELLO') {
                     const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
                     const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-                    console.warn(`app.ts: [BW] CLIENT_SW_HELLO from ${source}, replying ready=true`);
+                    console.log(`app.ts: [BW] CLIENT_SW_HELLO from ${source}, replying ready=true`);
 
                     const reply = { t: 'SW_CLIENT_HELLO', ready: true };
                     // sendResponse delivers the reply to the sender's sendMessage() Promise
