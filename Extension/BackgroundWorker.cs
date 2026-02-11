@@ -278,9 +278,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await TryReconnectSignifyClientIfSessionUnlockedAsync();
 
             // Notify any already-running App, which may have lost their port connection if BW was inactive, so they can reconnect
-            logger.LogInformation("EnsureInitializedAsync: Broadcasting SW_APP_WAKE");
-            await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
-                new { t = SendMessageTypes.SwAppWake });
+            try {
+                await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+                    new { t = SendMessageTypes.SwAppWake });
+            }
+            catch (Exception ex) {
+                logger.LogInformation(ex, "EnsureInitializedAsync: Could not broadcast SW_APP_WAKE (expected if no app pages connected)");
+            }
+
+            logger.LogInformation("EnsureInitializedAsync: Completed all initialization tasks");
 
             // Signal to App that BackgroundWorker initialization is complete
             await SetBwReadyStateAsync();
