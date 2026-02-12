@@ -90,4 +90,46 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("estOnly")] bool? EstOnly = null,
         [property: JsonPropertyName("data")] object? Data = null
     );
+
+    /// <summary>
+    /// Result of identifiersCreateWithEndRole: AID creation + end role + OOBI retrieval.
+    /// </summary>
+    public record IdentifierWithOobiResult(
+        [property: JsonPropertyName("aid")] HabState Aid,
+        [property: JsonPropertyName("oobi")] string Oobi
+    );
+
+    /// <summary>
+    /// Result of identifiersCreateDelegate: delegated AID creation (op pending delegator approval).
+    /// </summary>
+    public record DelegateCreateResult(
+        [property: JsonPropertyName("aid")] string Aid,
+        [property: JsonPropertyName("opName")] string OpName
+    );
+
+    /// <summary>
+    /// Arguments for creating a new identifier via signify-ts identifiers().create().
+    /// Maps to the signify-ts CreateIdentiferArgs interface.
+    /// </summary>
+    public record CreateIdentifierArgs(
+        [property: JsonPropertyName("transferable")] bool? Transferable = null,
+        [property: JsonPropertyName("isith")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Isith = null,
+        [property: JsonPropertyName("nsith")] [property: JsonConverter(typeof(NullableThresholdValueConverter))] ThresholdValue? Nsith = null,
+        [property: JsonPropertyName("wits")] List<string>? Wits = null,
+        [property: JsonPropertyName("toad")] int? Toad = null,
+        [property: JsonPropertyName("delpre")] string? Delpre = null,
+        [property: JsonPropertyName("dcode")] string? Dcode = null,
+        [property: JsonPropertyName("data")] object? Data = null,
+        [property: JsonPropertyName("algo")] string? Algo = null,
+        [property: JsonPropertyName("pre")] string? Pre = null,
+        [property: JsonPropertyName("states")] List<object>? States = null,
+        [property: JsonPropertyName("rstates")] List<object>? Rstates = null,
+        [property: JsonPropertyName("mhab")] HabState? Mhab = null,
+        [property: JsonPropertyName("keys")] List<string>? Keys = null,
+        [property: JsonPropertyName("ndigs")] List<string>? Ndigs = null,
+        [property: JsonPropertyName("bran")] string? Bran = null,
+        [property: JsonPropertyName("count")] int? Count = null,
+        [property: JsonPropertyName("ncount")] int? Ncount = null,
+        [property: JsonPropertyName("tier")] string? Tier = null
+    );
 }

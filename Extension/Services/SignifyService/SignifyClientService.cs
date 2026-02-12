@@ -804,6 +804,124 @@ namespace Extension.Services.SignifyService {
             }
         }
 
+        // ===================== Identifier Composed Operations (Workshop) =====================
+
+        public async Task<Result<OperationSuccessResult>> IdentifiersAddEndRole(string name, string? role = null) {
+            try {
+                var jsonString = await _binding.IdentifiersAddEndRoleAsync(name, role);
+                if (jsonString is null) {
+                    return Result.Fail<OperationSuccessResult>("IdentifiersAddEndRole returned null");
+                }
+                var result = JsonSerializer.Deserialize<OperationSuccessResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<OperationSuccessResult>("Failed to deserialize OperationSuccessResult");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("IdentifiersAddEndRole: Exception: {e}", e);
+                return Result.Fail<OperationSuccessResult>("IdentifiersAddEndRole: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<IdentifierWithOobiResult>> IdentifiersCreateWithEndRole(string name, CreateIdentifierArgs? args = null) {
+            try {
+                var jsonString = await _binding.IdentifiersCreateWithEndRoleAsync(name, args);
+                if (jsonString is null) {
+                    return Result.Fail<IdentifierWithOobiResult>("IdentifiersCreateWithEndRole returned null");
+                }
+                var result = JsonSerializer.Deserialize<IdentifierWithOobiResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<IdentifierWithOobiResult>("Failed to deserialize IdentifierWithOobiResult");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("IdentifiersCreateWithEndRole: Exception: {e}", e);
+                return Result.Fail<IdentifierWithOobiResult>("IdentifiersCreateWithEndRole: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<DelegateCreateResult>> IdentifiersCreateDelegate(string name, string delpre, CreateIdentifierArgs? args = null) {
+            try {
+                var jsonString = await _binding.IdentifiersCreateDelegateAsync(name, delpre, args);
+                if (jsonString is null) {
+                    return Result.Fail<DelegateCreateResult>("IdentifiersCreateDelegate returned null");
+                }
+                var result = JsonSerializer.Deserialize<DelegateCreateResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<DelegateCreateResult>("Failed to deserialize DelegateCreateResult");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("IdentifiersCreateDelegate: Exception: {e}", e);
+                return Result.Fail<DelegateCreateResult>("IdentifiersCreateDelegate: Exception: " + e);
+            }
+        }
+
+        // ===================== Credential Filtering (Workshop) =====================
+
+        public async Task<Result<List<RecursiveDictionary>>> GetCredentialsFiltered(Dictionary<string, string> filter) {
+            try {
+                var jsonString = await _binding.GetCredentialsListFilteredAsync(filter);
+                if (jsonString is null) {
+                    return Result.Fail("GetCredentialsFiltered returned null");
+                }
+                var credentialsDict = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
+                if (credentialsDict is null) {
+                    return Result.Fail("Failed to deserialize filtered credentials");
+                }
+                var credentials = credentialsDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
+                return Result.Ok(credentials);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetCredentialsFiltered: Exception: {e}", e);
+                return Result.Fail("GetCredentialsFiltered: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<List<RecursiveDictionary>>> GetCredentialsBySchemaAndIssuer(string schemaSaid, string issuerPrefix) {
+            try {
+                var jsonString = await _binding.GetCredentialsBySchemaAndIssuerAsync(schemaSaid, issuerPrefix);
+                if (jsonString is null) {
+                    return Result.Fail("GetCredentialsBySchemaAndIssuer returned null");
+                }
+                var credentialsDict = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString, jsonSerializerOptions);
+                if (credentialsDict is null) {
+                    return Result.Fail("Failed to deserialize credentials by schema and issuer");
+                }
+                var credentials = credentialsDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
+                return Result.Ok(credentials);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GetCredentialsBySchemaAndIssuer: Exception: {e}", e);
+                return Result.Fail("GetCredentialsBySchemaAndIssuer: Exception: " + e);
+            }
+        }
+
+        // ===================== IPEX Composed Operations (Workshop) =====================
+
+        public async Task<Result<OperationSuccessResult>> GrantReceivedCredential(string senderName, string credentialSaid, string recipientPrefix) {
+            try {
+                var jsonString = await _binding.GrantReceivedCredentialAsync(senderName, credentialSaid, recipientPrefix);
+                if (jsonString is null) {
+                    return Result.Fail<OperationSuccessResult>("GrantReceivedCredential returned null");
+                }
+                var result = JsonSerializer.Deserialize<OperationSuccessResult>(jsonString, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<OperationSuccessResult>("Failed to deserialize OperationSuccessResult");
+                }
+                return Result.Ok(result);
+            }
+            catch (Exception e) {
+                logger.LogWarning("GrantReceivedCredential: Exception: {e}", e);
+                return Result.Fail<OperationSuccessResult>("GrantReceivedCredential: Exception: " + e);
+            }
+        }
+
+        // ===================== Schema Operations =====================
+
         public async Task<Result<Schema>> GetSchema(string said) {
             try {
                 var jsonString = await _binding.SchemasGetAsync(said);

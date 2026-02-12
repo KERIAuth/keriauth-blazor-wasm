@@ -111,6 +111,18 @@ namespace Extension.Services.SignifyService {
         // ===================== Config Operations =====================
         Task<Result<AgentConfig>> GetAgentConfig();
 
+        // ===================== Identifier Composed Operations (Workshop) =====================
+        Task<Result<OperationSuccessResult>> IdentifiersAddEndRole(string name, string? role = null);
+        Task<Result<IdentifierWithOobiResult>> IdentifiersCreateWithEndRole(string name, CreateIdentifierArgs? args = null);
+        Task<Result<DelegateCreateResult>> IdentifiersCreateDelegate(string name, string delpre, CreateIdentifierArgs? args = null);
+
+        // ===================== Credential Filtering (Workshop) =====================
+        Task<Result<List<RecursiveDictionary>>> GetCredentialsFiltered(Dictionary<string, string> filter);
+        Task<Result<List<RecursiveDictionary>>> GetCredentialsBySchemaAndIssuer(string schemaSaid, string issuerPrefix);
+
+        // ===================== IPEX Composed Operations (Workshop) =====================
+        Task<Result<OperationSuccessResult>> GrantReceivedCredential(string senderName, string credentialSaid, string recipientPrefix);
+
         // ===================== Challenges Operations =====================
         /// <summary>
         /// Generate a random challenge word list based on BIP39.

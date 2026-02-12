@@ -1,5 +1,8 @@
-﻿using Microsoft.JSInterop;
+﻿using Extension.Services.SignifyService.Models;
+using Microsoft.JSInterop;
 using System.Runtime.Versioning;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Extension.Services.JsBindings;
 
@@ -25,8 +28,8 @@ public interface ISignifyClientBinding {
 
     // ===================== Identifier Composed Operations (Workshop) =====================
     ValueTask<string> IdentifiersAddEndRoleAsync(string name, string? role, CancellationToken cancellationToken = default);
-    ValueTask<string> IdentifiersCreateWithEndRoleAsync(string name, string? identifierArgsJson, CancellationToken cancellationToken = default);
-    ValueTask<string> IdentifiersCreateDelegateAsync(string name, string delpre, string? identifierArgsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> IdentifiersCreateWithEndRoleAsync(string name, CreateIdentifierArgs? identifierArgs, CancellationToken cancellationToken = default);
+    ValueTask<string> IdentifiersCreateDelegateAsync(string name, string delpre, CreateIdentifierArgs? identifierArgs, CancellationToken cancellationToken = default);
 
     // ===================== Credential (ACDC) Operations =====================
     ValueTask<string> GetCredentialsListAsync(CancellationToken cancellationToken = default);
@@ -37,7 +40,7 @@ public interface ISignifyClientBinding {
     ValueTask<string> CredentialsDeleteAsync(string said, CancellationToken cancellationToken = default);
 
     // ===================== Credential Filtering (Workshop) =====================
-    ValueTask<string> GetCredentialsListFilteredAsync(string filterJson, CancellationToken cancellationToken = default);
+    ValueTask<string> GetCredentialsListFilteredAsync(Dictionary<string, string> filter, CancellationToken cancellationToken = default);
     ValueTask<string> GetCredentialsBySchemaAndIssuerAsync(string schemaSaid, string issuerPrefix, CancellationToken cancellationToken = default);
 
     // ===================== Signed Headers =====================
@@ -138,6 +141,11 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
     private readonly IJsModuleLoader _moduleLoader = moduleLoader;
     private readonly ILogger<SignifyClientBinding> _logger = logger;
 
+    private static readonly JsonSerializerOptions s_jsonOptions = new() {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     private IJSObjectReference Module => _moduleLoader.GetModule("signifyClient");
 
     // ===================== Connection & Initialization =====================
@@ -184,11 +192,15 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
     public ValueTask<string> IdentifiersAddEndRoleAsync(string name, string? role, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("identifiersAddEndRole", cancellationToken, name, role);
 
-    public ValueTask<string> IdentifiersCreateWithEndRoleAsync(string name, string? identifierArgsJson, CancellationToken cancellationToken = default) =>
-        Module.InvokeAsync<string>("identifiersCreateWithEndRole", cancellationToken, name, identifierArgsJson);
+    public ValueTask<string> IdentifiersCreateWithEndRoleAsync(string name, CreateIdentifierArgs? identifierArgs, CancellationToken cancellationToken = default) {
+        var argsJson = identifierArgs != null ? JsonSerializer.Serialize(identifierArgs, s_jsonOptions) : null;
+        return Module.InvokeAsync<string>("identifiersCreateWithEndRole", cancellationToken, name, argsJson);
+    }
 
-    public ValueTask<string> IdentifiersCreateDelegateAsync(string name, string delpre, string? identifierArgsJson, CancellationToken cancellationToken = default) =>
-        Module.InvokeAsync<string>("identifiersCreateDelegate", cancellationToken, name, delpre, identifierArgsJson);
+    public ValueTask<string> IdentifiersCreateDelegateAsync(string name, string delpre, CreateIdentifierArgs? identifierArgs, CancellationToken cancellationToken = default) {
+        var argsJson = identifierArgs != null ? JsonSerializer.Serialize(identifierArgs, s_jsonOptions) : null;
+        return Module.InvokeAsync<string>("identifiersCreateDelegate", cancellationToken, name, delpre, argsJson);
+    }
 
     // ===================== Credential (ACDC) Operations =====================
 
@@ -212,8 +224,10 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     // ===================== Credential Filtering (Workshop) =====================
 
-    public ValueTask<string> GetCredentialsListFilteredAsync(string filterJson, CancellationToken cancellationToken = default) =>
-        Module.InvokeAsync<string>("getCredentialsListFiltered", cancellationToken, filterJson);
+    public ValueTask<string> GetCredentialsListFilteredAsync(Dictionary<string, string> filter, CancellationToken cancellationToken = default) {
+        var filterJson = JsonSerializer.Serialize(filter, s_jsonOptions);
+        return Module.InvokeAsync<string>("getCredentialsListFiltered", cancellationToken, filterJson);
+    }
 
     public ValueTask<string> GetCredentialsBySchemaAndIssuerAsync(string schemaSaid, string issuerPrefix, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("getCredentialsBySchemaAndIssuer", cancellationToken, schemaSaid, issuerPrefix);

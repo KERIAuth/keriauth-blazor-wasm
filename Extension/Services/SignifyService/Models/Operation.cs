@@ -50,4 +50,13 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("limit")] int? Limit = null,
         [property: JsonPropertyName("skip")] int? Skip = null
     );
+
+    /// <summary>
+    /// Result of composed operations that return success status with operation details.
+    /// Used by identifiersAddEndRole and grantReceivedCredential.
+    /// </summary>
+    public record OperationSuccessResult(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("operation")] Operation? Operation = null
+    );
 }
