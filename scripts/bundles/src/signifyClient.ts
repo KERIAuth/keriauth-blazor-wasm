@@ -11,7 +11,6 @@
 import type { KeriaConnectConfig, PasscodeModel } from '@keriauth/types';
 import { StorageKeys } from '@keriauth/types';
 import type {
-    EventResult,
     Operation,
     Contact,
     ContactInfo,
@@ -26,11 +25,11 @@ import type {
     IpexAgreeArgs,
     IpexGrantArgs,
     IpexAdmitArgs,
+    CreateIdentiferArgs,
     CreateRegistryArgs,
     Registry,
     RegistryResult,
     Schema,
-    Serder,
     HabState,
     KeyState,
     Challenge,
@@ -42,8 +41,11 @@ import type {
 import {
     SignifyClient,
     Tier,
-    ready
+    ready,
+    Serder
 } from 'signify-ts';
+
+import type { EventResult } from 'signify-ts';
 
 // Re-export ready for libsodium initialization
 export { ready };
@@ -64,6 +66,12 @@ let _client: SignifyClient | null = null;
 // ===================== Helper Functions =====================
 
 const objectToJson = (obj: object): string => JSON.stringify(obj);
+
+/**
+ * Create an ISO timestamp with microsecond precision for KERI operations
+ */
+const createTimestamp = (): string =>
+    new Date().toISOString().replace('Z', '000+00:00');
 
 export const test = async (): Promise<string> => {
     return 'signifyClient: test - module is working';
@@ -476,6 +484,127 @@ export const renameAID = async (currentName: string, newName: string): Promise<s
     );
 };
 
+// ===================== Identifier Composed Operations (Workshop) =====================
+
+/**
+ * Add an end role (e.g., 'agent') to an identifier and wait for the operation to complete
+ * @param name - Alias of the identifier
+ * @param role - Role to add (defaults to 'agent')
+ * @returns JSON string of completed operation result
+ */
+export const identifiersAddEndRole = async (
+    name: string,
+    role: string = 'agent'
+): Promise<string> => {
+    return withClientOperation(
+        'identifiersAddEndRole',
+        async (client) => {
+            const agentPrefix = client.agent?.pre;
+            if (!agentPrefix) {
+                throw new Error('Client agent prefix not available');
+            }
+            const addRoleResult = await client.identifiers().addEndRole(name, role, agentPrefix);
+            const roleOp = await addRoleResult.op();
+            const completedRoleOp = await client
+                .operations()
+                .wait(roleOp, { signal: AbortSignal.timeout(30000) });
+            if (completedRoleOp.error) {
+                throw new Error(`End role assignment failed: ${JSON.stringify(completedRoleOp.error)}`);
+            }
+            await client.operations().delete(completedRoleOp.name);
+            return { success: true, operation: completedRoleOp };
+        },
+        { Name: name, Role: role }
+    );
+};
+
+/**
+ * Create a new AID with agent end role and OOBI generation
+ * Composed workflow: create identifier -> wait for op -> add 'agent' end role -> wait for op -> get OOBI
+ * @param name - Alias for the identifier
+ * @param identifierArgsJson - Optional JSON string of CreateIdentiferArgs (wits, toad, etc.)
+ * @returns JSON string of { aid: HabState, oobi: string }
+ */
+export const identifiersCreateWithEndRole = async (
+    name: string,
+    identifierArgsJson?: string
+): Promise<string> => {
+    return withClientOperation(
+        'identifiersCreateWithEndRole',
+        async (client) => {
+            const identifierArgs = identifierArgsJson
+                ? JSON.parse(identifierArgsJson) as CreateIdentiferArgs
+                : {};
+
+            // Step 1: Create the identifier
+            const inceptionResult: EventResult = await client.identifiers().create(name, identifierArgs);
+            const createOp = await inceptionResult.op();
+            const completedCreateOp = await client
+                .operations()
+                .wait(createOp, { signal: AbortSignal.timeout(30000) });
+            if (completedCreateOp.error) {
+                throw new Error(`AID creation failed: ${JSON.stringify(completedCreateOp.error)}`);
+            }
+            await client.operations().delete(completedCreateOp.name);
+
+            // Step 2: Add agent end role
+            const agentPrefix = client.agent?.pre;
+            if (!agentPrefix) {
+                throw new Error('Client agent prefix not available');
+            }
+            const addRoleResult = await client.identifiers().addEndRole(name, 'agent', agentPrefix);
+            const roleOp = await addRoleResult.op();
+            const completedRoleOp = await client
+                .operations()
+                .wait(roleOp, { signal: AbortSignal.timeout(30000) });
+            if (completedRoleOp.error) {
+                throw new Error(`End role assignment failed: ${JSON.stringify(completedRoleOp.error)}`);
+            }
+            await client.operations().delete(completedRoleOp.name);
+
+            // Step 3: Get the OOBI
+            const oobiResult = await client.oobis().get(name, 'agent');
+            const oobi = oobiResult?.oobis?.[0] ?? '';
+
+            // Step 4: Get the final AID state
+            const aid: HabState = await client.identifiers().get(name);
+
+            return { aid, oobi };
+        },
+        { Name: name }
+    );
+};
+
+/**
+ * Create a delegated identifier
+ * @param name - Alias for the identifier
+ * @param delpre - Prefix of the delegating identifier
+ * @param identifierArgsJson - Optional JSON string of additional CreateIdentiferArgs
+ * @returns JSON string of { aid: string, opName: string } - operation won't complete until delegator approves
+ */
+export const identifiersCreateDelegate = async (
+    name: string,
+    delpre: string,
+    identifierArgsJson?: string
+): Promise<string> => {
+    return withClientOperation(
+        'identifiersCreateDelegate',
+        async (client) => {
+            const baseArgs = identifierArgsJson
+                ? JSON.parse(identifierArgsJson) as CreateIdentiferArgs
+                : {};
+            const args: CreateIdentiferArgs = { ...baseArgs, delpre };
+
+            const inceptionResult: EventResult = await client.identifiers().create(name, args);
+            const op = await inceptionResult.op();
+            const delegatePrefix = op.name.split('.')[1];
+
+            return { aid: delegatePrefix, opName: op.name };
+        },
+        { Name: name, Delegator: delpre }
+    );
+};
+
 // ===================== Credential (ACDC) Operations =====================
 
 /**
@@ -587,6 +716,51 @@ export const credentialsDelete = async (said: string): Promise<string> => {
     );
 };
 
+// ===================== Credential Filtering (Workshop) =====================
+
+/**
+ * List credentials with filter parameters
+ * Uses KERIA filter syntax: keys like '-d', '-s', '-i', '-a-i' for attribute filters
+ * @param filterJson - JSON string of filter object (e.g., { '-s': schemaSaid, '-i': issuerPrefix })
+ * @returns JSON array of matching CredentialResult objects
+ */
+export const getCredentialsListFiltered = async (filterJson: string): Promise<string> => {
+    return withClientOperation(
+        'getCredentialsListFiltered',
+        async (client) => {
+            const filter = JSON.parse(filterJson);
+            const credentials: CredentialResult[] = await client.credentials().list({ filter });
+            return credentials;
+        }
+    );
+};
+
+/**
+ * Get credentials matching schema SAID and issuer prefix
+ * Common vLEI workflow pattern for finding received credentials of a specific type
+ * @param schemaSaid - Schema SAID to filter by
+ * @param issuerPrefix - Issuer AID prefix to filter by
+ * @returns JSON array of matching CredentialResult objects
+ */
+export const getCredentialsBySchemaAndIssuer = async (
+    schemaSaid: string,
+    issuerPrefix: string
+): Promise<string> => {
+    return withClientOperation(
+        'getCredentialsBySchemaAndIssuer',
+        async (client) => {
+            const credentials: CredentialResult[] = await client.credentials().list({
+                filter: {
+                    '-s': schemaSaid,
+                    '-i': issuerPrefix
+                }
+            });
+            return credentials;
+        },
+        { SchemaSAID: schemaSaid, IssuerPrefix: issuerPrefix }
+    );
+};
+
 // ===================== Signed Headers =====================
 
 /**
@@ -684,6 +858,59 @@ export const ipexSubmitAdmit = createIpexSubmitMethod(
     (client) => (name, exn, sigs, atc, recipients) => client.ipex().submitAdmit(name, exn, sigs, atc, recipients),
     true
 );
+
+// ===================== IPEX Composed Operations (Workshop) =====================
+
+/**
+ * Grant a received credential to a recipient via IPEX
+ * Fetches the credential by SAID, constructs Serder wrappers, grants, submits, and waits.
+ * @param senderName - Name/alias of the granting AID
+ * @param credentialSaid - SAID of the credential to grant
+ * @param recipientPrefix - AID prefix of the recipient
+ * @returns JSON string of completed operation result
+ */
+export const grantReceivedCredential = async (
+    senderName: string,
+    credentialSaid: string,
+    recipientPrefix: string
+): Promise<string> => {
+    return withClientOperation(
+        'grantReceivedCredential',
+        async (client) => {
+            // Step 1: Retrieve the credential
+            const credential: CredentialResult = await client.credentials().get(credentialSaid, false);
+
+            // Step 2: Construct IPEX grant with Serder-wrapped components
+            const [grant, gsigs, gend] = await client.ipex().grant({
+                senderName: senderName,
+                acdc: new Serder(credential.sad),
+                iss: new Serder(credential.iss),
+                anc: new Serder(credential.anc),
+                ancAttachment: credential.ancatc,
+                recipient: recipientPrefix,
+                datetime: createTimestamp(),
+            });
+
+            // Step 3: Submit the grant
+            const submitOp = await client
+                .ipex()
+                .submitGrant(senderName, grant, gsigs, gend, [recipientPrefix]);
+
+            // Step 4: Wait for completion
+            const completedOp = await client
+                .operations()
+                .wait(submitOp, { signal: AbortSignal.timeout(30000) });
+
+            if (completedOp.error) {
+                throw new Error(`IPEX grant submission failed: ${JSON.stringify(completedOp.error)}`);
+            }
+
+            await client.operations().delete(completedOp.name);
+            return { success: true, operation: completedOp };
+        },
+        { SenderName: senderName, CredentialSAID: credentialSaid, Recipient: recipientPrefix }
+    );
+};
 
 // ===================== OOBI Operations =====================
 
