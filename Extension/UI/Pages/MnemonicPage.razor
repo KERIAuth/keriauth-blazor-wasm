@@ -1,4 +1,4 @@
-﻿@page "/Mnemonic.html"
+@page "/Mnemonic.html"
 @layout Layouts.MainLayout
 @inherits AuthenticatedPageBase
 @implements IDisposable
@@ -103,7 +103,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Class="bt-page-title">Recovery Phrase</MudText>
+            <PageHeading Title="Recovery Phrase" />
 
             <MudAlert Severity="Severity.Warning" Class="mt-4" Dense="true">
                 <strong>Keep this phrase secure!</strong> Anyone with these words can access your account.

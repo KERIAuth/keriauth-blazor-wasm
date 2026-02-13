@@ -1,0 +1,40 @@
+@if (CountContent is not null || !string.IsNullOrEmpty(InfoTooltip))
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Class="bt-page-title">@Title</MudText>
+        @if (CountContent is not null)
+        {
+            <MudText Class="bt-page-title" Color="Color.Secondary">@CountContent</MudText>
+        }
+        @if (!string.IsNullOrEmpty(InfoTooltip))
+        {
+            <span style="align-self:end">
+                <MudTooltip Delay="500" Text="@InfoTooltip">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" Style="top:0" />
+                </MudTooltip>
+            </span>
+        }
+    </MudStack>
+}
+else
+{
+    <MudText Class="bt-page-title">@Title</MudText>
+}
+@if (!string.IsNullOrEmpty(HelpText))
+{
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@HelpText</MudText>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Title { get; set; }
+
+    [Parameter]
+    public RenderFragment? CountContent { get; set; }
+
+    [Parameter]
+    public string? InfoTooltip { get; set; }
+
+    [Parameter]
+    public string? HelpText { get; set; }
+}

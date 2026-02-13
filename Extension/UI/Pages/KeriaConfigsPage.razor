@@ -81,13 +81,9 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudStack Row="true" AlignItems="AlignItems.Center">
-                <MudText Class="bt-page-title">KERIA Cloud Service Connections</MudText>
-                <MudText Class="bt-page-title" Color="Color.Secondary">@CountLabel</MudText>
-                <MudTooltip Delay="500" Text="Manage connections to KERIA Cloud Services">
-                    <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
-                </MudTooltip>
-            </MudStack>
+            <PageHeading Title="KERIA Cloud Service Connections" InfoTooltip="Manage connections to KERIA Cloud Services">
+                <CountContent>@CountLabel</CountContent>
+            </PageHeading>
 
             @if (ConfigsList.Count == 0)
             {

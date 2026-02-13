@@ -1,4 +1,4 @@
-﻿@page "/OfferPasskey.html"
+@page "/OfferPasskey.html"
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 @using static Extension.AppConfig
@@ -53,7 +53,7 @@
 <div id="@this.GetType().Name" class="bt-body-page" @onkeydown="HandleKeyDown" tabindex="0">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Class="bt-page-title">Create a Passkey?</MudText>
+            <PageHeading Title="Create a Passkey?" />
             <MudStack Class="mt-4">
                 <MudText>
                     You may now (or later) create a convenient passkey that lets you unlock KERI Auth instead of typing your passcode.

@@ -76,10 +76,9 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudStack Row="true">
-                <MudText Class="bt-page-title">Websites</MudText>
-                <MudText Class="bt-page-title">@CountLabel</MudText>
-            </MudStack>
+            <PageHeading Title="Websites">
+                <CountContent>@CountLabel</CountContent>
+            </PageHeading>
             @if (WWebsites is not null && WWebsites.Any())
             {
                 <MudPaper Elevation="0">

@@ -227,7 +227,9 @@
     <MudStack Class="bt-main">
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
-                <MudText Class="bt-page-title">Passkeys  @CountLabel</MudText>
+                <PageHeading Title="Passkeys">
+                    <CountContent>@CountLabel</CountContent>
+                </PageHeading>
                 <MudStack Class="pt-4">
                     @if (MyStoredPasskeys.Passkeys.Any())
                     {

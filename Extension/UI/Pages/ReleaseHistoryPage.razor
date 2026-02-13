@@ -1,4 +1,4 @@
-﻿@page "/ReleaseHistory.html"
+@page "/ReleaseHistory.html"
 @using Extension.Services
 @inject IJSRuntime js
 @inject NavigationManager navManager
@@ -8,7 +8,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <MudText Class="bt-page-title">Release History</MudText>
+            <PageHeading Title="Release History" />
 
             <MudText Typo="Typo.body1">
                 This release is version 0.0.1.  See its <a href="/content/release.html" target="_blank">Release Notes</a>

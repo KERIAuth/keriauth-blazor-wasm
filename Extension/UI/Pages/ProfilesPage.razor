@@ -148,15 +148,9 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <MudStack Row="true">
-                <MudText Class="bt-page-title">Profiles</MudText>
-                <MudText Class="bt-page-title">@CountLabel</MudText>
-                <MudTooltip Delay="0.5"
-                            Text="">
-                    <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
-                </MudTooltip>
-
-            </MudStack>
+            <PageHeading Title="Profiles" InfoTooltip="">
+                <CountContent>@CountLabel</CountContent>
+            </PageHeading>
 
             @foreach (Aid aid in MyIdentifiers)
             {
