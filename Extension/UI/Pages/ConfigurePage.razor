@@ -983,7 +983,7 @@
                                       Class="pl-1"
                                       Immediate="true"
                                       @onclick="SelectNewPasscodeText"
-                                      Style="min-width:15rem;" />
+                                      Style="min-width:15rem; font-family: monospace;" />
                         <MudTooltip Text="@(IsRandomPasscodeRevealed ? "Hide passcode" : "Reveal passcode")">
                             <MudIconButton Icon="@(IsRandomPasscodeRevealed? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
                                            Disabled="@IsPasscodeUsed"
