@@ -370,7 +370,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // Delegate to SessionManager to lock the session
                     await _sessionManager.HandleAlarmAsync(alarm);
                     // Clean up any pending requests with inactivity message
-                    await _portService.CleanupAllPendingRequestsAsync("KERI Auth locked due to inactivity");
+                    await _portService.CleanupAllPendingRequestsAsync($"{AppConfig.ProductName} locked due to inactivity");
                     return;
                 default:
                     logger.LogWarning("Unknown alarm name: {AlarmName}", alarm.Name);
@@ -1760,8 +1760,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         string errorStr = !string.IsNullOrEmpty(errorFromApp)
             ? errorFromApp
             : messageType switch {
-                AppBwMessageType.Values.ReplyError => "An error occurred in the KERI Auth app",
-                AppBwMessageType.Values.AppClosed => "The KERI Auth app was closed",
+                AppBwMessageType.Values.ReplyError => $"An error occurred in the {AppConfig.ProductName} app",
+                AppBwMessageType.Values.AppClosed => $"The {AppConfig.ProductName} app was closed",
                 _ => "User canceled or rejected request"
             };
 

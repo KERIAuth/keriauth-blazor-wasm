@@ -30,6 +30,8 @@ import {
     CsBwPortMessageTypes
 } from '@keriauth/types';
 
+const PRODUCT_NAME = 'KERI Auth';
+
 // CONTEXT GUARD: ContentScript should only run in web page context, not in service worker.
 // BackgroundWorker.js imports all scripts in wwwroot/scripts/, so we must bail out early
 // if we detect we're in a service worker context.
@@ -324,11 +326,11 @@ import {
         if (error?.message?.includes('Extension context invalidated')) {
             console.log('KeriAuthCs: Extension context invalidated - prompting reload');
             promptAndReloadPage(
-                "The KERI Auth extension has been updated or reloaded.\n" +
+                `The ${PRODUCT_NAME} extension has been updated or reloaded.\n` +
                 "Actions needed:\n" +
                 "1) Click OK to reload this page. In some cases, you may need to close the tab.\n\n" +
-                "2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the KERI Auth extension for easier access.\n\n" +
-                "3) Click the KERI Auth extension action button to re-authorize this site."
+                `2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the ${PRODUCT_NAME} extension for easier access.\n\n` +
+                `3) Click the ${PRODUCT_NAME} extension action button to re-authorize this site.`
             );
             return;
         }

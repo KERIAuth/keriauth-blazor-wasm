@@ -20,6 +20,8 @@ if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefi
 // Note: crypto.randomBytes, window.crypto fix, and Module.getRandomValue
 // are now handled by libsodium-polyfill.js imported above
 
+const PRODUCT_NAME = 'KERI Auth';
+
 // Static imports - work in both ServiceWorker (backgroundWorker) and standard contexts
 // Import modules with names so they're registered in the module system
 // NOTE: signifyClient and demo1 are NOT statically imported here because:
@@ -503,7 +505,7 @@ export async function beforeStart(
                                 await updateIconForTab(tab.id, false);
                                 await promptAndReloadTab(
                                     tab.id,
-                                    'KERI Auth needs to refresh the connection with this page.\n\nReload to ensure proper functionality?',
+                                    `${PRODUCT_NAME} needs to refresh the connection with this page.\n\nReload to ensure proper functionality?`,
                                     'ping response not ok'
                                 );
                                 return;
@@ -514,7 +516,7 @@ export async function beforeStart(
                             await updateIconForTab(tab.id, false);
                             await promptAndReloadTab(
                                 tab.id,
-                                'KERI Auth needs to refresh the connection with this page.\n\nReload to ensure proper functionality?',
+                                `${PRODUCT_NAME} needs to refresh the connection with this page.\n\nReload to ensure proper functionality?`,
                                 'stale script'
                             );
                             return;
@@ -566,7 +568,7 @@ export async function beforeStart(
                             // Strongly recommend reload to clear any stale state
                             await promptAndReloadTab(
                                 tab.id,
-                                'KERI Auth is now enabled for this site.\n\nReload the page to ensure clean state?',
+                                `${PRODUCT_NAME} is now enabled for this site.\n\nReload the page to ensure clean state?`,
                                 'contentScriptAlreadyActive'
                             );
                             return;
@@ -625,7 +627,7 @@ export async function beforeStart(
                         // console.log("app.ts: ACTION CLICKED - prompting for reload (main flow)");
                         await promptAndReloadTab(
                             tab.id,
-                            'KERI Auth is now enabled for this site.\n\nReload the page to activate?',
+                            `${PRODUCT_NAME} is now enabled for this site.\n\nReload the page to activate?`,
                             'main flow'
                         );
                         // console.log("app.ts: ACTION CLICKED - main flow completed");
@@ -736,7 +738,7 @@ export async function beforeStart(
                                 try {
                                     await promptAndReloadTab(
                                         tab.id,
-                                        'KERI Auth is now enabled for this site.\n\nReload the page to activate?',
+                                        `${PRODUCT_NAME} is now enabled for this site.\n\nReload the page to activate?`,
                                         'onAdded'
                                     );
                                 } catch (promptError) {
@@ -775,7 +777,7 @@ export async function beforeStart(
                                 try {
                                     await promptAndReloadTab(
                                         tab.id,
-                                        'KERI Auth permissions were removed for this site.\n\nReload the page to complete the removal?',
+                                        `${PRODUCT_NAME} permissions were removed for this site.\n\nReload the page to complete the removal?`,
                                         'onRemoved'
                                     );
                                 } catch (error) {

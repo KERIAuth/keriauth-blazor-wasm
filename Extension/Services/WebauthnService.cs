@@ -27,7 +27,7 @@ public class WebauthnService : IWebauthnService {
     // The PRF output is unique per-authenticator and per-profile, so the key is always unique.
     private static readonly byte[] FixedNonce = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-    private const string KeriAuthExtensionName = "KERI Auth";
+    private static readonly string KeriAuthExtensionName = AppConfig.ProductName;
 
     public WebauthnService(
         IStorageService storageService,
