@@ -94,15 +94,7 @@ public static class Bip39MnemonicConverter
 
         var wordSet = new HashSet<string>(Bip39EnglishWordList.Words, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var word in words)
-        {
-            if (string.IsNullOrWhiteSpace(word) || !wordSet.Contains(word.Trim()))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return words.All(word => !string.IsNullOrWhiteSpace(word) && wordSet.Contains(word.Trim()));
     }
 
     /// <summary>
@@ -119,11 +111,9 @@ public static class Bip39MnemonicConverter
         }
 
         // Build word index lookup for O(1) access
-        var wordToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < Bip39EnglishWordList.Words.Length; i++)
-        {
-            wordToIndex[Bip39EnglishWordList.Words[i]] = i;
-        }
+        var wordToIndex = Bip39EnglishWordList.Words
+            .Select((word, index) => (word, index))
+            .ToDictionary(x => x.word, x => x.index, StringComparer.OrdinalIgnoreCase);
 
         // Convert words to 11-bit indices
         int[] indices = new int[WordCount];

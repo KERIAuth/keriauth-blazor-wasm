@@ -448,15 +448,7 @@
 
             while (elapsedMs < maxWaitMs) {
                 // Check if all assertions pass
-                var allPassed = true;
-                foreach (var assertion in assertions) {
-                    if (!assertion()) {
-                        allPassed = false;
-                        break;
-                    }
-                }
-
-                if (allPassed) {
+                if (assertions.All(assertion => assertion())) {
                     _logger.LogInformation("AppCache assertions all passed after {ElapsedMs}ms", elapsedMs);
                     return true;
                 }

@@ -119,14 +119,9 @@ public class FidoMetadataService : IFidoMetadataService {
 
         // Try language-only fallback (e.g., "en" from "en-US")
         var languageCode = locale.Split('-')[0];
-        foreach (var (key, value) in metadata.FriendlyNames) {
-            if (key.StartsWith(languageCode, StringComparison.OrdinalIgnoreCase)) {
-                return value;
-            }
-        }
-
-        // Return first available name
-        return metadata.FriendlyNames.Values.FirstOrDefault();
+        var match = metadata.FriendlyNames
+            .FirstOrDefault(kvp => kvp.Key.StartsWith(languageCode, StringComparison.OrdinalIgnoreCase));
+        return match.Value ?? metadata.FriendlyNames.Values.FirstOrDefault();
     }
 
     public string GenerateDescriptiveName(string aaguid, string[] transports) {
