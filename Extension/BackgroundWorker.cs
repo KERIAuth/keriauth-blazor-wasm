@@ -2330,6 +2330,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             rememberedPrefix ??= string.Empty;
         }
 
+        // TODO P2: don't auto-approve sign headers when cross-origin request
+
         // Create pending request for sign headers
         var signPayload = new RequestSignHeadersPayload(
             Origin: origin,

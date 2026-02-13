@@ -56,6 +56,51 @@
     string SelectedPrefix => AppCache.SelectedPrefix ?? "";
     bool IsDetailShown => Prefs.IsSignRequestDetailShown;
 
+    Uri? GetRequestUri()
+    {
+        if (string.IsNullOrEmpty(RequestUrl))
+            return null;
+        return Uri.TryCreate(RequestUrl, UriKind.Absolute, out var uri) ? uri : null;
+    }
+
+    bool HasOriginMismatch
+    {
+        get
+        {
+            var pageUri = GetOriginUri();
+            var requestUri = GetRequestUri();
+            if (pageUri is null || requestUri is null)
+                return false;
+            return !string.Equals(pageUri.Scheme, requestUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(pageUri.Host, requestUri.Host, StringComparison.OrdinalIgnoreCase)
+                || pageUri.Port != requestUri.Port;
+        }
+    }
+
+    string PageOriginDisplay
+    {
+        get
+        {
+            var uri = GetOriginUri();
+            if (uri is null) return OriginStr;
+            return uri.IsDefaultPort
+                ? $"{uri.Scheme}://{uri.Host}"
+                : $"{uri.Scheme}://{uri.Host}:{uri.Port}";
+        }
+    }
+
+    string RequestOriginDisplay
+    {
+        get
+        {
+            var uri = GetRequestUri();
+            if (uri is null) return RequestUrl;
+            return uri.IsDefaultPort
+                ? $"{uri.Scheme}://{uri.Host}"
+                : $"{uri.Scheme}://{uri.Host}:{uri.Port}";
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -89,7 +134,7 @@
         LoadIdentifiersFromCache();
         await RefreshFromWebsiteConfig();
 
-        if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod)
+        if (IsAutoSignSafeHeaders && HasSafeHttpRequestMethod && !HasOriginMismatch)
         {
             // TODO P2: Move this logic into BackgroundWorker.cs, to avoid calling this page altogether.
             // TODO P2 notify the user signing is happening, and close?
@@ -244,6 +289,17 @@
                     <MudText><b>Method:</b> @RequestMethod</MudText>
                     <MudText Style="word-break: break-all;"><b>URL:</b> @RequestUrl</MudText>
                 </MudPaper>
+                @if (HasOriginMismatch)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                        <MudText Typo="Typo.body2" Style="font-weight:bold;">Cross-Origin Request</MudText>
+                        <MudText Typo="Typo.body2">
+                            The page origin <b>@PageOriginDisplay</b> differs from the request URL origin
+                            <b>@RequestOriginDisplay</b>.
+                            Verify that you trust this page to sign requests to the destination URL.
+                        </MudText>
+                    </MudAlert>
+                }
                 <MudText Class="mt-4"><b>Signing Profile</b></MudText>
                 <MudStack Row Class="pl-1" Style="align-items:center;">
                     <MudIcon Icon=@Helper.Identicon.MakeIdenticon(WebsiteConfiguredPrefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
