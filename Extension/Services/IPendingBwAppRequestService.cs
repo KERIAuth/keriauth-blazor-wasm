@@ -9,7 +9,7 @@ using FluentResults;
 ///
 /// Usage:
 /// - BackgroundWorker: Call AddRequestAsync() to queue a request, await response via port-based RPC
-/// - App: Subscribe to OnRequestsChanged, process requests, send response via IAppPortService
+/// - App: Subscribe to OnRequestsChanged, process requests, send response via IAppBwPortService
 ///
 /// Storage: Uses chrome.storage.session for persistence across service worker restarts.
 /// </summary>

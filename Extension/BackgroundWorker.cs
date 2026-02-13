@@ -1196,7 +1196,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         try {
             // Parse the RPC params to extract AppBwMessage fields
-            // AppPortService sends: { type, requestId, tabId, tabUrl, payload }
+            // AppBwPortService sends: { type, requestId, tabId, tabUrl, payload }
             if (request.Params is not JsonElement paramsElement) {
                 logger.LogWarning("BW←App (port RPC): Params is not JsonElement");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,

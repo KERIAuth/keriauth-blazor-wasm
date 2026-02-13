@@ -15,12 +15,12 @@ namespace Extension.Services.Port;
 /// Service for managing port connection from App (popup/tab/sidepanel) to BackgroundWorker.
 /// Implements IObservable&lt;BwAppMessage&gt; to allow reactive subscription to incoming BW messages.
 /// </summary>
-public class AppPortService(
-    ILogger<AppPortService> logger,
+public class AppBwPortService(
+    ILogger<AppBwPortService> logger,
     IWebExtensionsApi webExtensionsApi,
-    IJSRuntime jsRuntime) : IAppPortService
+    IJSRuntime jsRuntime) : IAppBwPortService
 {
-    private readonly ILogger<AppPortService> _logger = logger;
+    private readonly ILogger<AppBwPortService> _logger = logger;
     private readonly IJSRuntime _jsRuntime = jsRuntime;
     private WebExtensions.Net.Runtime.Port? _port;
     private readonly string _instanceId = Guid.NewGuid().ToString();
@@ -63,7 +63,7 @@ public class AppPortService(
     {
         // No-op: SW_CLIENT_HELLO is now received as the sendResponse to CLIENT_SW_HELLO
         // (same message channel). No separate runtime.onMessage listener needed.
-        _logger.LogInformation("AppPortService.StartAsync called (no listener registration needed)");
+        _logger.LogInformation("AppBwPortService.StartAsync called (no listener registration needed)");
         return Task.CompletedTask;
     }
 
@@ -674,7 +674,7 @@ public class AppPortService(
     /// Helper class for managing observer unsubscription.
     /// Uses a service reference rather than a direct list reference to encapsulate the _observers list.
     /// </summary>
-    private sealed class Unsubscriber(AppPortService service, IObserver<BwAppMessage> observer) : IDisposable
+    private sealed class Unsubscriber(AppBwPortService service, IObserver<BwAppMessage> observer) : IDisposable
     {
         public void Dispose()
         {

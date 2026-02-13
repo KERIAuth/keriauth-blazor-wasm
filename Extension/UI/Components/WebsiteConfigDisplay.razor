@@ -10,7 +10,7 @@
 @inject IStorageService storageService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 @using Extension.Services.Port
 @inject IJSRuntime jsRuntime
 @inject NavigationManager navManager
@@ -53,8 +53,8 @@
         logger.LogInformation("OnInitializedAsync...");
 
         // Subscribe to port disconnect to track when we need to refresh on reconnect
-        appPortService.Disconnected += OnPortDisconnected;
-        appPortService.MessageReceived += OnPortMessageReceived;
+        appBwPortService.Disconnected += OnPortDisconnected;
+        appBwPortService.MessageReceived += OnPortMessageReceived;
 
         await getCredentials();
         // inform parent so it can enable or disable Sign In button, for example
@@ -321,7 +321,7 @@
 
         try
         {
-            var response = await appPortService.SendRpcRequestAsync(
+            var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetCredentials,
                 new { });
 
@@ -389,8 +389,8 @@
 
     public void Dispose()
     {
-        appPortService.Disconnected -= OnPortDisconnected;
-        appPortService.MessageReceived -= OnPortMessageReceived;
+        appBwPortService.Disconnected -= OnPortDisconnected;
+        appBwPortService.MessageReceived -= OnPortMessageReceived;
     }
 }
 

@@ -206,7 +206,7 @@
         await BeginActionAsync();
 
         var message = new AppBwReplySignMessage(TabId, OriginStr, PageRequestId, OriginStr, RequestUrl, RequestMethod, HeadersDict, WebsiteConfiguredPrefix);
-        await AppPortService.SendToBackgroundWorkerAsync(message);
+        await AppBwPortService.SendToBackgroundWorkerAsync(message);
         MarkAsReplied();
 
         // Clear the pending request now that approval is complete

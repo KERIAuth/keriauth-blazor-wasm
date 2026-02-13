@@ -36,7 +36,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     #region Injected Services
 
     [Inject]
-    protected IAppPortService AppPortService { get; set; } = default!;
+    protected IAppBwPortService AppBwPortService { get; set; } = default!;
 
     [Inject]
     protected IPendingBwAppRequestService PendingBwAppRequestService { get; set; } = default!;
@@ -209,7 +209,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
 
         try {
             var message = new AppBwReplyCanceledMessage(TabId, OriginStr, PageRequestId, reason);
-            await AppPortService.SendToBackgroundWorkerAsync(message);
+            await AppBwPortService.SendToBackgroundWorkerAsync(message);
             HasRepliedToPage = true;
         }
         catch (Exception ex) {

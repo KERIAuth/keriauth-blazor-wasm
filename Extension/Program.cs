@@ -94,7 +94,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<IUserActivityService, UserActivityService>();
             builder.Services.AddSingleton<SessionManager>();
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
-            builder.Services.AddSingleton<IAppPortService, AppPortService>();
+            builder.Services.AddSingleton<IAppBwPortService, AppBwPortService>();
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
             builder.Services.AddSingleton<AppCache>();
             builder.Services.AddSingleton<INavigatorCredentialsBinding, NavigatorCredentialsBinding>();

@@ -16,7 +16,7 @@
 @inject ISnackbar snackbar
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject AppCache appCache
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 @using FluentResults
 @using Extension.Helper
 @using System.Globalization
@@ -383,7 +383,7 @@
             var healthUriBuilder = new UriBuilder(healthUri);
 
             // Send health check request to BackgroundWorker via RPC
-            var healthCheckResponse = await appPortService.SendRpcRequestAsync(
+            var healthCheckResponse = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestHealthCheck,
                 new { payload = new HealthCheckRequestPayload(healthUriBuilder.Uri.ToString()) });
 
@@ -450,7 +450,7 @@
         logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
 
         // Send connect request to BackgroundWorker via RPC
-        var connectResponse = await appPortService.SendRpcRequestAsync(
+        var connectResponse = await appBwPortService.SendRpcRequestAsync(
             AppBwMessageType.Values.RequestConnect,
             new { payload = new ConnectRequestPayload(
                 urlModel.AdminUrl,
@@ -568,7 +568,7 @@
             _currentStep = FlowStep.Ops5;
 
             // Send create AID request to BackgroundWorker via RPC
-            var createAidResponse = await appPortService.SendRpcRequestAsync(
+            var createAidResponse = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestCreateAid,
                 new { payload = new CreateAidRequestPayload("Alias1") });
 

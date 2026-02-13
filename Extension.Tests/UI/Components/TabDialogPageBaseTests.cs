@@ -21,7 +21,7 @@ using BrowserTab = WebExtensions.Net.Tabs.Tab;
 /// Tests cover the common request handling patterns shared by tab dialog pages.
 /// </summary>
 public class TabDialogPageBaseTests {
-    private readonly Mock<IAppPortService> _mockAppPortService;
+    private readonly Mock<IAppBwPortService> _mockAppBwPortService;
     private readonly Mock<IPendingBwAppRequestService> _mockPendingBwAppRequestService;
     private readonly StubAppCache _stubAppCache;
     private readonly Mock<IWebExtensionsApi> _mockWebExtensionsApi;
@@ -30,7 +30,7 @@ public class TabDialogPageBaseTests {
     private readonly TestableDialogPage _sut;
 
     public TabDialogPageBaseTests() {
-        _mockAppPortService = new Mock<IAppPortService>();
+        _mockAppBwPortService = new Mock<IAppBwPortService>();
         _mockPendingBwAppRequestService = new Mock<IPendingBwAppRequestService>();
         _stubAppCache = new StubAppCache();
         _mockWebExtensionsApi = new Mock<IWebExtensionsApi>();
@@ -38,7 +38,7 @@ public class TabDialogPageBaseTests {
         _mockLayout = new Mock<DialogLayout>();
 
         _sut = new TestableDialogPage {
-            AppPortService = _mockAppPortService.Object,
+            AppBwPortService = _mockAppBwPortService.Object,
             PendingBwAppRequestService = _mockPendingBwAppRequestService.Object,
             AppCacheStub = _stubAppCache,
             WebExtensionsApi = _mockWebExtensionsApi.Object,
@@ -53,7 +53,7 @@ public class TabDialogPageBaseTests {
     public async Task SendCancelMessageAsync_SendsMessageAndSetsFlag() {
         // Arrange
         _sut.SetState(pageRequestId: "test-request-123", tabId: 42, originStr: "https://example.com");
-        _mockAppPortService
+        _mockAppBwPortService
             .Setup(x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()))
             .Returns(Task.CompletedTask);
 
@@ -62,7 +62,7 @@ public class TabDialogPageBaseTests {
 
         // Assert
         Assert.True(_sut.GetHasRepliedToPage());
-        _mockAppPortService.Verify(
+        _mockAppBwPortService.Verify(
             x => x.SendToBackgroundWorkerAsync(It.Is<AppBwReplyCanceledMessage>(m =>
                 m.TabId == 42 &&
                 m.RequestId == "test-request-123" &&
@@ -74,7 +74,7 @@ public class TabDialogPageBaseTests {
     public async Task SendCancelMessageAsync_HandlesExceptionGracefully() {
         // Arrange
         _sut.SetState(pageRequestId: "test-request-123", tabId: 42, originStr: "https://example.com");
-        _mockAppPortService
+        _mockAppBwPortService
             .Setup(x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()))
             .ThrowsAsync(new InvalidOperationException("Port disconnected"));
 
@@ -173,7 +173,7 @@ public class TabDialogPageBaseTests {
     public async Task DisposeAsync_SendsCancelMessage_WhenNotReplied() {
         // Arrange
         _sut.SetState(pageRequestId: "test-request-123", tabId: 42, originStr: "https://example.com", hasRepliedToPage: false);
-        _mockAppPortService
+        _mockAppBwPortService
             .Setup(x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()))
             .Returns(Task.CompletedTask);
         _mockPendingBwAppRequestService
@@ -184,7 +184,7 @@ public class TabDialogPageBaseTests {
         await _sut.DisposeAsync();
 
         // Assert
-        _mockAppPortService.Verify(
+        _mockAppBwPortService.Verify(
             x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()),
             Times.Once);
     }
@@ -201,7 +201,7 @@ public class TabDialogPageBaseTests {
         await _sut.DisposeAsync();
 
         // Assert
-        _mockAppPortService.Verify(
+        _mockAppBwPortService.Verify(
             x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()),
             Times.Never);
     }
@@ -218,7 +218,7 @@ public class TabDialogPageBaseTests {
         await _sut.DisposeAsync();
 
         // Assert
-        _mockAppPortService.Verify(
+        _mockAppBwPortService.Verify(
             x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()),
             Times.Never);
     }
@@ -235,7 +235,7 @@ public class TabDialogPageBaseTests {
         await _sut.DisposeAsync();
 
         // Assert
-        _mockAppPortService.Verify(
+        _mockAppBwPortService.Verify(
             x => x.SendToBackgroundWorkerAsync(It.IsAny<AppBwReplyCanceledMessage>()),
             Times.Never);
     }
@@ -375,7 +375,7 @@ public class TabDialogPageBaseTests {
         private StubAppCache? _stubAppCache;
 
         // Expose setters for injected services (normally set by DI)
-        public new IAppPortService AppPortService { set => base.AppPortService = value; }
+        public new IAppBwPortService AppBwPortService { set => base.AppBwPortService = value; }
         public new IPendingBwAppRequestService PendingBwAppRequestService { set => base.PendingBwAppRequestService = value; }
         public StubAppCache? AppCacheStub { set => _stubAppCache = value; }
         public new IWebExtensionsApi WebExtensionsApi { set => base.WebExtensionsApi = value; }

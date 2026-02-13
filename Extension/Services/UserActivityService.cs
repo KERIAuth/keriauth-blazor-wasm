@@ -17,7 +17,7 @@ namespace Extension.Services;
 /// </summary>
 public class UserActivityService : IUserActivityService {
     private readonly IJSRuntime _jsRuntime;
-    private readonly IAppPortService _portService;
+    private readonly IAppBwPortService _portService;
     private readonly ILogger<UserActivityService> _logger;
 
     // State
@@ -29,7 +29,7 @@ public class UserActivityService : IUserActivityService {
 
     public UserActivityService(
         IJSRuntime jsRuntime,
-        IAppPortService portService,
+        IAppBwPortService portService,
         ILogger<UserActivityService> logger) {
         _jsRuntime = jsRuntime;
         _portService = portService;

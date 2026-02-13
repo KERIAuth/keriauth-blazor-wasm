@@ -12,7 +12,7 @@
 @inject ILogger<BaseLayout> logger
 @inject AppCache appCache
 @inject IUserActivityService userActivityService
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 
 @implements IAsyncDisposable
 @implements IObserver<BwAppMessage>
@@ -48,7 +48,7 @@
     /// Indicates whether the App is connected to the BackgroundWorker via port.
     /// When false, RPC calls will fail and the UI should show a disconnected indicator.
     /// </summary>
-    protected bool IsPortConnected => appPortService.IsConnected;
+    protected bool IsPortConnected => appBwPortService.IsConnected;
 
     // Session timeout properties - available to all layouts
     protected TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
@@ -85,10 +85,10 @@
         }
 
         // Subscribe to port events from BackgroundWorker (e.g., SystemLockDetected)
-        _portEventSubscription = appPortService.Subscribe(this);
+        _portEventSubscription = appBwPortService.Subscribe(this);
 
         // Subscribe to port disconnection to update UI when BW connection is lost
-        appPortService.Disconnected += OnPortDisconnected;
+        appBwPortService.Disconnected += OnPortDisconnected;
     }
 
     /// <summary>
@@ -111,8 +111,8 @@
             {
                 try
                 {
-                    await appPortService.CheckForWakeSignalAsync();
-                    if (appPortService.IsConnected)
+                    await appBwPortService.CheckForWakeSignalAsync();
+                    if (appBwPortService.IsConnected)
                     {
                         logger.LogInformation("Reconnected after SW_APP_WAKE, stopping wake poll");
                         StopWakeCheckTimer();
@@ -256,7 +256,7 @@
     {
         this.UnsubscribeFromAppCache();
         _portEventSubscription?.Dispose();
-        appPortService.Disconnected -= OnPortDisconnected;
+        appBwPortService.Disconnected -= OnPortDisconnected;
         appBarRefreshTimer?.Dispose();
         StopWakeCheckTimer();
         userActivityService.StopListening();

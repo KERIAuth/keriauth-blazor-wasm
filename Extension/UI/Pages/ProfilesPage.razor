@@ -11,7 +11,7 @@
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject AppCache appCache
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 
 @using Extension.Services.Port
 @using Extension.Services.SignifyService.Models
@@ -86,7 +86,7 @@
             {
                 // Send request to BackgroundWorker and await response
                 var message = new AppBwRequestAddIdentifierMessage(alias);
-                var addResult = await appPortService.SendRequestAsync<RequestAddIdentifierPayload, AddIdentifierResponse>(message);
+                var addResult = await appBwPortService.SendRequestAsync<RequestAddIdentifierPayload, AddIdentifierResponse>(message);
 
                 if (addResult.IsFailed)
                 {

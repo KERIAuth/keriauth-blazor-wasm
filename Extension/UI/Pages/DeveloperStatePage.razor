@@ -9,7 +9,7 @@
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
 @inject AppCache appCache
-@inject IAppPortService appPortService  // For port connection status
+@inject IAppBwPortService appBwPortService  // For port connection status
 @using System.Linq.Expressions
 @inject ISnackbar snackbar
 
@@ -47,7 +47,7 @@
         {
             // Root-level prerequisites
             new BoolItem(() => appCache.IsBwReady, "BW initialized, storage trustworthy", 0),
-            new BoolItem(() => appPortService.IsConnected, "App↔BW port connected", 0),
+            new BoolItem(() => appBwPortService.IsConnected, "App↔BW port connected", 0),
 
             // Main state tree
             new BoolItem(() => appCache.IsReadyToTransact, null, 0),

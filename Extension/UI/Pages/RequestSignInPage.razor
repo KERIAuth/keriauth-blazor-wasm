@@ -120,7 +120,7 @@
                     CredentialSaid: null
                 );
                 var identifierMessage = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, identifierApproval);
-                await AppPortService.SendToBackgroundWorkerAsync(identifierMessage);
+                await AppBwPortService.SendToBackgroundWorkerAsync(identifierMessage);
                 MarkAsReplied();
                 break;
 
@@ -148,7 +148,7 @@
                     CredentialSaid: selectedCredentialSaid
                 );
                 var credentialMessage = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, credentialApproval);
-                await AppPortService.SendToBackgroundWorkerAsync(credentialMessage);
+                await AppBwPortService.SendToBackgroundWorkerAsync(credentialMessage);
                 MarkAsReplied();
                 break;
 

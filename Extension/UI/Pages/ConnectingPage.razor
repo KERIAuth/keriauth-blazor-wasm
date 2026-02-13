@@ -12,7 +12,7 @@
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 @inject AppCache appCache
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -85,7 +85,7 @@
     private async Task<Result> ConnectAndFetchIdentifiers()
     {
         // Send connect request to BackgroundWorker via RPC
-        var connectResponse = await appPortService.SendRpcRequestAsync(
+        var connectResponse = await appBwPortService.SendRpcRequestAsync(
             AppBwMessageType.Values.RequestConnect,
             new { payload = new ConnectRequestPayload(
                 appCache.MyKeriaConnectConfig.AdminUrl!,

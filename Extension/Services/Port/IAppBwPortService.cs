@@ -10,7 +10,7 @@ namespace Extension.Services.Port;
 /// Service interface for managing port connection from App (popup/tab/sidepanel) to BackgroundWorker.
 /// Implements IObservable&lt;BwAppMessage&gt; to allow reactive subscription to incoming BW messages.
 /// </summary>
-public interface IAppPortService : IAsyncDisposable, IObservable<BwAppMessage> {
+public interface IAppBwPortService : IAsyncDisposable, IObservable<BwAppMessage> {
     /// <summary>
     /// Registers runtime.onMessage listener for SW_CLIENT_HELLO messages.
     /// Must be called once during app initialization, before ConnectAsync.

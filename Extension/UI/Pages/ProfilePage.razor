@@ -11,7 +11,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<ProfilePage> logger
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject AppCache appCache
@@ -163,7 +163,7 @@
     {
         try
         {
-            var response = await appPortService.SendRpcRequestAsync(
+            var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetKeyState,
                 new { payload = new GetKeyStateRequestPayload(Prefix) });
 
@@ -198,7 +198,7 @@
     {
         try
         {
-            var response = await appPortService.SendRpcRequestAsync(
+            var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetKeyEvents,
                 new { payload = new GetKeyEventsRequestPayload(Prefix) });
 
@@ -443,7 +443,7 @@
             IsWaiting = true;
             StateHasChanged();
 
-            var response = await appPortService.SendRpcRequestAsync(
+            var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestRenameAid,
                 new { payload = new RenameAidRequestPayload(currentAid.Name, editedAliasValue) });
 

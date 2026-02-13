@@ -109,7 +109,7 @@
                 DataItems: DataItems
             );
             var message = new AppBwReplySignDataApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
-            await AppPortService.SendToBackgroundWorkerAsync(message);
+            await AppBwPortService.SendToBackgroundWorkerAsync(message);
             MarkAsReplied();
 
             // Clear the pending request now that approval is sent

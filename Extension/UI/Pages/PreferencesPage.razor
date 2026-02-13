@@ -14,7 +14,7 @@
 @inject IJSRuntime js
 @inject AppCache appCache
 @inject ILogger<PreferencesPage> logger
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 @inject ISnackbar snackbar
 @inject SessionManager sessionManager
 
@@ -94,7 +94,7 @@
         // TODO P2 Perf BW can be reactive, too...
         // Notify BW so it can reset its inactivity timer with new value?
         // Or, does BW know to treat any Prefs change as user activity?
-        await appPortService.SendEventAsync(AppBwMessageType.Values.UserActivity);
+        await appBwPortService.SendEventAsync(AppBwMessageType.Values.UserActivity);
     }
 
     async Task SetAndPersistIsDarkTheme(bool isDarkTheme)

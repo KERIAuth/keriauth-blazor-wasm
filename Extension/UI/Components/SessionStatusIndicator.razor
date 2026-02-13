@@ -1,6 +1,6 @@
 ﻿@using Extension.UI.Pages
 @using Extension.Services.Port
-@inject IAppPortService AppPortService
+@inject IAppBwPortService AppBwPortService
 @implements IDisposable
 
 @* Session status indicator component for AppBar - shows timeout countdown, connection status, or lock state *@
@@ -88,13 +88,13 @@
 
     /// <summary>
     /// Whether the App is connected to the BackgroundWorker via port.
-    /// Derived from the injected AppPortService.
+    /// Derived from the injected AppBwPortService.
     /// </summary>
-    private bool IsPortConnected => AppPortService.IsConnected;
+    private bool IsPortConnected => AppBwPortService.IsConnected;
 
     protected override void OnInitialized()
     {
-        AppPortService.Disconnected += OnPortDisconnected;
+        AppBwPortService.Disconnected += OnPortDisconnected;
     }
 
     private void OnPortDisconnected(object? sender, EventArgs e)
@@ -104,7 +104,7 @@
 
     public void Dispose()
     {
-        AppPortService.Disconnected -= OnPortDisconnected;
+        AppBwPortService.Disconnected -= OnPortDisconnected;
     }
 
     [Parameter]

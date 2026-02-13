@@ -9,7 +9,7 @@
 @inject ILogger<DashboardPage> logger
 @inject IWebsiteConfigService websiteConfigService
 @inject AppCache appCache
-@inject IAppPortService appPortService
+@inject IAppBwPortService appBwPortService
 
 @implements IDisposable
 
@@ -89,7 +89,7 @@
 
         try
         {
-            var response = await appPortService.SendRpcRequestAsync(
+            var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetCredentials,
                 new { });
 

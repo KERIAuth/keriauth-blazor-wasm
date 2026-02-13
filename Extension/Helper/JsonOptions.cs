@@ -11,9 +11,9 @@ namespace Extension.Helper;
 /// <para><b>TODO P1: Inconsistencies found during consolidation (investigate later):</b></para>
 /// <list type="number">
 /// <item>
-/// <term>AppPortService vs BwPortService naming mismatch</term>
+/// <term>AppBwPortService vs BwPortService naming mismatch</term>
 /// <description>
-/// AppPortService used CamelCase for port messages but NOT for credential payloads.
+/// AppBwPortService used CamelCase for port messages but NOT for credential payloads.
 /// BwPortService used CamelCase for everything including credentials.
 /// Now both use PortMessaging (with CamelCase) for consistency.
 /// TODO P2: Verify credentials serialize correctly with CamelCase naming policy.
