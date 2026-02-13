@@ -412,6 +412,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("IpexApply: JSException: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexApply: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("IpexApply: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexApply: Exception: " + e);
@@ -430,6 +434,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("IpexOffer: JSException: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexOffer: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("IpexOffer: Exception: {e}", e);
@@ -450,6 +458,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("IpexAgree: JSException: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexAgree: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("IpexAgree: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexAgree: Exception: " + e);
@@ -469,6 +481,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("IpexGrant: JSException: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexGrant: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("IpexGrant: Exception: {e}", e);
                 return Result.Fail<IpexExchangeResult>("IpexGrant: Exception: " + e);
@@ -487,6 +503,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<IpexExchangeResult>("Failed to deserialize IpexExchangeResult");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("IpexAdmit: JSException: {e}", e);
+                return Result.Fail<IpexExchangeResult>("IpexAdmit: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("IpexAdmit: Exception: {e}", e);
@@ -509,6 +529,10 @@ namespace Extension.Services.SignifyService {
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetOobi: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetOobi: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetOobi: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("GetOobi: Exception: " + e);
@@ -527,6 +551,10 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("ResolveOobi: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("ResolveOobi: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("ResolveOobi: Exception: {e}", e);
@@ -548,6 +576,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetOperation: JSException: {e}", e);
+                return Result.Fail<Operation>("GetOperation: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetOperation: Exception: {e}", e);
                 return Result.Fail<Operation>("GetOperation: Exception: " + e);
@@ -566,6 +598,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("ListOperations: JSException: {e}", e);
+                return Result.Fail<List<Operation>>("ListOperations: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("ListOperations: Exception: {e}", e);
                 return Result.Fail<List<Operation>>("ListOperations: Exception: " + e);
@@ -579,6 +615,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteOperation returned null");
                 }
                 return Result.Ok();
+            }
+            catch (JSException e) {
+                logger.LogWarning("DeleteOperation: JSException: {e}", e);
+                return Result.Fail("DeleteOperation: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("DeleteOperation: Exception: {e}", e);
@@ -600,6 +640,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("WaitForOperation: JSException: {e}", e);
+                return Result.Fail<Operation>("WaitForOperation: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("WaitForOperation: Exception: {e}", e);
                 return Result.Fail<Operation>("WaitForOperation: Exception: " + e);
@@ -620,6 +664,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("ListContacts: JSException: {e}", e);
+                return Result.Fail<List<Contact>>("ListContacts: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("ListContacts: Exception: {e}", e);
                 return Result.Fail<List<Contact>>("ListContacts: Exception: " + e);
@@ -637,6 +685,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Contact>("Failed to deserialize Contact");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("GetContact: JSException: {e}", e);
+                return Result.Fail<Contact>("GetContact: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("GetContact: Exception: {e}", e);
@@ -657,6 +709,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("AddContact: JSException: {e}", e);
+                return Result.Fail<Contact>("AddContact: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("AddContact: Exception: {e}", e);
                 return Result.Fail<Contact>("AddContact: Exception: " + e);
@@ -676,6 +732,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("UpdateContact: JSException: {e}", e);
+                return Result.Fail<Contact>("UpdateContact: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("UpdateContact: Exception: {e}", e);
                 return Result.Fail<Contact>("UpdateContact: Exception: " + e);
@@ -689,6 +749,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteContact returned null");
                 }
                 return Result.Ok();
+            }
+            catch (JSException e) {
+                logger.LogWarning("DeleteContact: JSException: {e}", e);
+                return Result.Fail("DeleteContact: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("DeleteContact: Exception: {e}", e);
@@ -710,6 +774,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("ListRegistries: JSException: {e}", e);
+                return Result.Fail<List<Registry>>("ListRegistries: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("ListRegistries: Exception: {e}", e);
                 return Result.Fail<List<Registry>>("ListRegistries: Exception: " + e);
@@ -728,6 +796,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Registry>("Failed to deserialize Registry creation result");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("CreateRegistry: JSException: {e}", e);
+                return Result.Fail<Registry>("CreateRegistry: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("CreateRegistry: Exception: {e}", e);
@@ -748,6 +820,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("IssueCredential: JSException: {e}", e);
+                return Result.Fail<IssueCredentialResult>("IssueCredential: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("IssueCredential: Exception: {e}", e);
                 return Result.Fail<IssueCredentialResult>("IssueCredential: Exception: " + e);
@@ -765,6 +841,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<RevokeCredentialResult>("Failed to deserialize Credential revocation result");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("RevokeCredential: JSException: {e}", e);
+                return Result.Fail<RevokeCredentialResult>("RevokeCredential: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("RevokeCredential: Exception: {e}", e);
@@ -784,6 +864,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetCredentialState: JSException: {e}", e);
+                return Result.Fail<CredentialState>("GetCredentialState: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetCredentialState: Exception: {e}", e);
                 return Result.Fail<CredentialState>("GetCredentialState: Exception: " + e);
@@ -797,6 +881,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteCredential returned null");
                 }
                 return Result.Ok();
+            }
+            catch (JSException e) {
+                logger.LogWarning("DeleteCredential: JSException: {e}", e);
+                return Result.Fail("DeleteCredential: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("DeleteCredential: Exception: {e}", e);
@@ -816,6 +904,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetSchema: JSException: {e}", e);
+                return Result.Fail<Schema>("GetSchema: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetSchema: Exception: {e}", e);
                 return Result.Fail<Schema>("GetSchema: Exception: " + e);
@@ -833,6 +925,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<List<Schema>>("Failed to deserialize Schemas list");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("ListSchemas: JSException: {e}", e);
+                return Result.Fail<List<Schema>>("ListSchemas: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("ListSchemas: Exception: {e}", e);
@@ -853,6 +949,10 @@ namespace Extension.Services.SignifyService {
                 var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("ListNotifications: JSException: {e}", e);
+                return Result.Fail<List<RecursiveDictionary>>("ListNotifications: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("ListNotifications: Exception: {e}", e);
                 return Result.Fail<List<RecursiveDictionary>>("ListNotifications: Exception: " + e);
@@ -867,6 +967,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(jsonString);
             }
+            catch (JSException e) {
+                logger.LogWarning("MarkNotification: JSException: {e}", e);
+                return Result.Fail<string>("MarkNotification: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("MarkNotification: Exception: {e}", e);
                 return Result.Fail<string>("MarkNotification: Exception: " + e);
@@ -880,6 +984,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail("DeleteNotification returned null");
                 }
                 return Result.Ok();
+            }
+            catch (JSException e) {
+                logger.LogWarning("DeleteNotification: JSException: {e}", e);
+                return Result.Fail("DeleteNotification: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("DeleteNotification: Exception: {e}", e);
@@ -908,6 +1016,10 @@ namespace Extension.Services.SignifyService {
                 var result = resultDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("ListEscrowReply: JSException: {e}", e);
+                return Result.Fail<List<RecursiveDictionary>>("ListEscrowReply: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("ListEscrowReply: Exception: {e}", e);
                 return Result.Fail<List<RecursiveDictionary>>("ListEscrowReply: Exception: " + e);
@@ -935,6 +1047,10 @@ namespace Extension.Services.SignifyService {
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetGroupRequest: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetGroupRequest: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetGroupRequest: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("GetGroupRequest: Exception: " + e);
@@ -961,6 +1077,10 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("SendGroupRequest: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SendGroupRequest: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("SendGroupRequest: Exception: {e}", e);
@@ -991,6 +1111,10 @@ namespace Extension.Services.SignifyService {
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("JoinGroup: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("JoinGroup: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("JoinGroup: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("JoinGroup: Exception: " + e);
@@ -1017,6 +1141,10 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("GetExchange: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetExchange: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("GetExchange: Exception: {e}", e);
@@ -1047,6 +1175,10 @@ namespace Extension.Services.SignifyService {
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("SendExchange: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SendExchange: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("SendExchange: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("SendExchange: Exception: " + e);
@@ -1075,6 +1207,10 @@ namespace Extension.Services.SignifyService {
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("SendExchangeFromEvents: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("SendExchangeFromEvents: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("SendExchangeFromEvents: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("SendExchangeFromEvents: Exception: " + e);
@@ -1102,6 +1238,10 @@ namespace Extension.Services.SignifyService {
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("ApproveDelegation: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("ApproveDelegation: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("ApproveDelegation: Exception: {e}", e);
@@ -1142,6 +1282,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetKeyEvents: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GetKeyEvents: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetKeyEvents: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("GetKeyEvents: Exception: " + e);
@@ -1176,6 +1320,10 @@ namespace Extension.Services.SignifyService {
                 // Extract the first (and typically only) key state from the array
                 return Result.Ok(resultArray[0]);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetKeyState: JSException: {e}", e);
+                return Result.Fail<KeyState>("GetKeyState: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetKeyState: Exception: {e}", e);
                 return Result.Fail<KeyState>("GetKeyState: Exception: " + e);
@@ -1201,6 +1349,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("ListKeyStates: JSException: {e}", e);
+                return Result.Fail<List<KeyState>>("ListKeyStates: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("ListKeyStates: Exception: {e}", e);
                 return Result.Fail<List<KeyState>>("ListKeyStates: Exception: " + e);
@@ -1225,6 +1377,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Operation>("Failed to deserialize KeyState query result");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("QueryKeyState: JSException: {e}", e);
+                return Result.Fail<Operation>("QueryKeyState: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("QueryKeyState: Exception: {e}", e);
@@ -1252,6 +1408,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("GetAgentConfig: JSException: {e}", e);
+                return Result.Fail<AgentConfig>("GetAgentConfig: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("GetAgentConfig: Exception: {e}", e);
                 return Result.Fail<AgentConfig>("GetAgentConfig: Exception: " + e);
@@ -1271,6 +1431,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<Challenge>("Failed to deserialize Challenge");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("GenerateChallenge: JSException: {e}", e);
+                return Result.Fail<Challenge>("GenerateChallenge: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("GenerateChallenge: Exception: {e}", e);
@@ -1292,6 +1456,10 @@ namespace Extension.Services.SignifyService {
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("RespondToChallenge: JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("RespondToChallenge: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("RespondToChallenge: Exception: {e}", e);
                 return Result.Fail<RecursiveDictionary>("RespondToChallenge: Exception: " + e);
@@ -1311,6 +1479,10 @@ namespace Extension.Services.SignifyService {
                 }
                 return Result.Ok(result);
             }
+            catch (JSException e) {
+                logger.LogWarning("VerifyChallenge: JSException: {e}", e);
+                return Result.Fail<Operation>("VerifyChallenge: JSException: " + e.Message);
+            }
             catch (Exception e) {
                 logger.LogWarning("VerifyChallenge: Exception: {e}", e);
                 return Result.Fail<Operation>("VerifyChallenge: Exception: " + e);
@@ -1328,6 +1500,10 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<ChallengeRespondedResult>("Failed to deserialize challenge responded result");
                 }
                 return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning("ChallengeResponded: JSException: {e}", e);
+                return Result.Fail<ChallengeRespondedResult>("ChallengeResponded: JSException: " + e.Message);
             }
             catch (Exception e) {
                 logger.LogWarning("ChallengeResponded: Exception: {e}", e);
