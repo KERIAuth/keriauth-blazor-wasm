@@ -740,7 +740,7 @@
                 @if (CanUsePasskey)
                 {
                     <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
-                               OnClick="() => SetIsPasskeyUsePreferred(true)">
+                               OnClick="async () => await SetIsPasskeyUsePreferred(true)">
                         Use Passkey
                     </MudButton>
                 }
