@@ -146,7 +146,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
         CancellationToken cancellationToken = default) {
         try {
             var optionsJson = JsonSerializer.Serialize(options, JsonOptions.CamelCaseOmitNull);
-            _logger.LogDebug("Creating WebAuthn credential with options: {Options}", optionsJson);
+            _logger.LogDebug(nameof(CreateCredentialAsync) + ": Creating WebAuthn credential with options: {Options}", optionsJson);
 
             var result = await Module.InvokeAsync<CredentialCreationResult>(
                 "createCredential",
@@ -154,19 +154,19 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
                 optionsJson);
 
             if (!result.PrfEnabled) {
-                _logger.LogWarning("Authenticator does not support PRF extension");
+                _logger.LogWarning(nameof(CreateCredentialAsync) + ": Authenticator does not support PRF extension");
                 return Result.Fail<CredentialCreationResult>(
                     "This authenticator (or possibly the OS) does not support the required WebAuthn PRF extension.");
             }
 
             if (!result.ResidentKeyCreated) {
-                _logger.LogWarning("Authenticator did not create a resident key");
+                _logger.LogWarning(nameof(CreateCredentialAsync) + ": Authenticator did not create a resident key");
                 return Result.Fail<CredentialCreationResult>(
                     "This authenticator does not support resident keys (passkeys).");
             }
 
             _logger.LogInformation(
-                "WebAuthn credential created - CredentialId: {CredentialId}, Transports: [{Transports}], " +
+                nameof(CreateCredentialAsync) + ": WebAuthn credential created - CredentialId: {CredentialId}, Transports: [{Transports}], " +
                 "AuthenticatorAttachment requested: {AuthenticatorAttachment}",
                 result.CredentialId,
                 string.Join(", ", result.Transports),
@@ -174,14 +174,14 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
             return Result.Ok(result);
         }
         catch (JSException jsEx) {
-            _logger.LogError(jsEx, "JavaScript error during WebAuthn credential creation");
+            _logger.LogError(jsEx, nameof(CreateCredentialAsync) + ": JavaScript error during WebAuthn credential creation");
             return Result.Fail<CredentialCreationResult>(
                 new Error("WebAuthn credential creation failed")
                     .CausedBy(jsEx)
                     .WithMetadata("Function", "createCredential"));
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during WebAuthn credential creation");
+            _logger.LogError(ex, nameof(CreateCredentialAsync) + ": Unexpected error during WebAuthn credential creation");
             return Result.Fail<CredentialCreationResult>(
                 new Error("Unexpected error during WebAuthn credential creation")
                     .CausedBy(ex));
@@ -193,7 +193,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
         CancellationToken cancellationToken = default) {
         try {
             var optionsJson = JsonSerializer.Serialize(options, JsonOptions.CamelCaseOmitNull);
-            _logger.LogDebug("Getting WebAuthn assertion with options: {Options}", optionsJson);
+            _logger.LogDebug(nameof(GetCredentialAsync) + ": Getting WebAuthn assertion with options: {Options}", optionsJson);
 
             var result = await Module.InvokeAsync<CredentialAssertionResult>(
                 "getCredential",
@@ -201,26 +201,26 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
                 optionsJson);
 
             if (result.PrfOutputBase64 is null) {
-                _logger.LogWarning("Authenticator did not return PRF output");
+                _logger.LogWarning(nameof(GetCredentialAsync) + ": Authenticator did not return PRF output");
                 return Result.Fail<CredentialAssertionResult>(
                     "This authenticator did not return PRF results. It may not support the PRF extension.");
             }
 
             _logger.LogInformation(
-                "WebAuthn assertion successful - CredentialId: {CredentialId}, PRF output length: {PrfLength} bytes",
+                nameof(GetCredentialAsync) + ": WebAuthn assertion successful - CredentialId: {CredentialId}, PRF output length: {PrfLength} bytes",
                 result.CredentialId,
                 result.PrfOutputBase64 is not null ? Convert.FromBase64String(result.PrfOutputBase64).Length : 0);
             return Result.Ok(result);
         }
         catch (JSException jsEx) {
-            _logger.LogError(jsEx, "JavaScript error during WebAuthn assertion");
+            _logger.LogError(jsEx, nameof(GetCredentialAsync) + ": JavaScript error during WebAuthn assertion");
             return Result.Fail<CredentialAssertionResult>(
                 new Error("WebAuthn assertion failed")
                     .CausedBy(jsEx)
                     .WithMetadata("Function", "getCredential"));
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during WebAuthn assertion");
+            _logger.LogError(ex, nameof(GetCredentialAsync) + ": Unexpected error during WebAuthn assertion");
             return Result.Fail<CredentialAssertionResult>(
                 new Error("Unexpected error during WebAuthn assertion")
                     .CausedBy(ex));

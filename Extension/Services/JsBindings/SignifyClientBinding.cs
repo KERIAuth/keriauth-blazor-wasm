@@ -191,9 +191,9 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public async ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidName, CancellationToken cancellationToken = default) {
         var headersDictObj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(headersDict);
-        _logger.LogDebug("GetSignedHeadersAsync: origin={Origin}, url={Url}, method={Method}, aidName={AidName}, headers={Headers}", origin, url, method, aidName, headersDict);
+        _logger.LogDebug(nameof(GetSignedHeadersAsync) + ": origin={Origin}, url={Url}, method={Method}, aidName={AidName}, headers={Headers}", origin, url, method, aidName, headersDict);
         var result = await Module.InvokeAsync<Dictionary<string, string>>("getSignedHeaders", cancellationToken, origin, url, method, headersDictObj, aidName);
-        _logger.LogDebug("GetSignedHeadersAsync result: {Result}", System.Text.Json.JsonSerializer.Serialize(result));
+        _logger.LogDebug(nameof(GetSignedHeadersAsync) + ": result: {Result}", System.Text.Json.JsonSerializer.Serialize(result));
         return System.Text.Json.JsonSerializer.Serialize(result);
     }
 
@@ -369,9 +369,9 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public async ValueTask<string> SignDataAsync(string aidName, string dataItemsJson, CancellationToken cancellationToken = default) {
         var dataItems = System.Text.Json.JsonSerializer.Deserialize<string[]>(dataItemsJson);
-        _logger.LogDebug("SignDataAsync: aidName={AidName}, itemCount={ItemCount}", aidName, dataItems?.Length ?? 0);
+        _logger.LogDebug(nameof(SignDataAsync) + ": aidName={AidName}, itemCount={ItemCount}", aidName, dataItems?.Length ?? 0);
         var result = await Module.InvokeAsync<string>("signData", cancellationToken, aidName, dataItems);
-        _logger.LogDebug("SignDataAsync result: {Result}", result);
+        _logger.LogDebug(nameof(SignDataAsync) + ": result: {Result}", result);
         return result;
     }
 }

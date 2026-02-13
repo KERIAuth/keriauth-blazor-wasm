@@ -115,20 +115,21 @@ builder.Services.AddJsBind();
 var host = builder.Build();
 
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
+var ctx = extensionMode == BrowserExtensionMode.Background ? "[BW]" : "[APP]";
 
 // Load JavaScript ES modules via JsModuleLoader
 // libsodium-polyfill is statically imported in app.ts before Blazor starts
 // Other modules (signifyClient, navigatorCredentialsShim) are lazy-loaded to avoid initialization issues
-logger.LogInformation("Loading JavaScript modules via JsModuleLoader...");
+logger.LogInformation("{Ctx} Loading JavaScript modules via JsModuleLoader...", ctx);
 // Console.WriteLine("Program.cs: Loading JavaScript modules via JsModuleLoader...");
 
 try {
     var moduleLoader = host.Services.GetRequiredService<IJsModuleLoader>();
     await moduleLoader.LoadAllModulesAsync(extensionMode);
-    logger.LogInformation("Program.cs: JavaScript modules loaded successfully");
+    logger.LogInformation("{Ctx} JavaScript modules loaded successfully", ctx);
 }
 catch (Exception ex) {
-    logger.LogError(ex, "Failed to load JavaScript modules via JsModuleLoader");
+    logger.LogError(ex, "{Ctx} Failed to load JavaScript modules via JsModuleLoader", ctx);
     throw;
 }
 
@@ -145,7 +146,7 @@ if (extensionMode == BrowserExtensionMode.Background) {
     // logger.LogInformation("BW readiness signaled to app.ts");
 }
 
-logger.LogInformation("Running WASM Host...");
+logger.LogInformation("{Ctx} Running WASM Host...", ctx);
 // Console.WriteLine("Program.cs: Starting host.RunAsync()...");
 
 await host.RunAsync();

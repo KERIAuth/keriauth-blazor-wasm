@@ -70,7 +70,7 @@ public class UserActivityService : IUserActivityService {
             // _logger.LogInformation("UserActivityService: Started listening for user activity");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "UserActivityService: Failed to start listening");
+            _logger.LogError(ex, nameof(UserActivityService) + ": Failed to start listening");
             // Don't throw - activity detection is non-critical functionality
         }
     }
@@ -93,7 +93,7 @@ public class UserActivityService : IUserActivityService {
             // _logger.LogInformation("UserActivityService: Stopped listening for user activity");
         }
         catch (Exception ex) {
-            _logger.LogWarning(ex, "UserActivityService: Error stopping listener");
+            _logger.LogWarning(ex, nameof(UserActivityService) + ": Error stopping listener");
         }
     }
 
@@ -110,7 +110,7 @@ public class UserActivityService : IUserActivityService {
             // Expected during page unload
         }
         catch (Exception ex) {
-            _logger.LogWarning(ex, "UserActivityService: Error in StopListeningInternalAsync");
+            _logger.LogWarning(ex, nameof(UserActivityService) + ": Error in " + nameof(StopListeningInternalAsync));
         }
     }
 
@@ -140,7 +140,7 @@ public class UserActivityService : IUserActivityService {
             await _portService.SendEventAsync(AppBwMessageType.Values.UserActivity);
         }
         catch (Exception ex) {
-            _logger.LogWarning(ex, "UserActivityService: Failed to send USER_ACTIVITY message");
+            _logger.LogWarning(ex, nameof(UserActivityService) + ": Failed to send USER_ACTIVITY message");
             // Don't throw - activity detection is non-critical functionality
         }
     }
@@ -164,12 +164,12 @@ public class UserActivityService : IUserActivityService {
                 // Expected during page unload
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, "UserActivityService: Error disposing JS module");
+                _logger.LogWarning(ex, nameof(UserActivityService) + ": Error disposing JS module");
             }
             _module = null;
         }
 
-        _logger.LogDebug("UserActivityService: Disposed");
+        _logger.LogDebug(nameof(UserActivityService) + ": Disposed");
         GC.SuppressFinalize(this);
     }
 }

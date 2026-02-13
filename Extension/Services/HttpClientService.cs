@@ -44,7 +44,7 @@ namespace Extension.Services {
                     .Handle<HttpRequestException>()
                     .RetryAsync(3, onRetry: (exception, retryCount, context) => {
                         // This is an optional callback you can use to log retry attempts
-                        logger.LogInformation("Retry {RetryCount} of {Context.PolicyKey} at {Context.OperationKey}, due to: {Exception}.", retryCount, context.PolicyKey, context.OperationKey, exception);
+                        logger.LogInformation(nameof(SendAsync) + ": Retry {RetryCount} of {Context.PolicyKey} at {Context.OperationKey}, due to: {Exception}.", retryCount, context.PolicyKey, context.OperationKey, exception);
                     });
 
                 var response = await _retryPolicy.ExecuteAsync(() => _httpClient.SendAsync(request));

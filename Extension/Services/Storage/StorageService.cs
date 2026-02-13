@@ -45,7 +45,7 @@ public class StorageService : IStorageService, IDisposable {
         _jsRuntime = jsRuntime;
         _logger = logger;
         _webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
-        _logger.Log(ServiceLogLevel, "StorageService: constructor");
+        _logger.Log(ServiceLogLevel, nameof(StorageService) + ": constructor");
         Initialize(StorageArea.Local);
         Initialize(StorageArea.Session);
         // TODO P2: Enable Sync and Managed areas as needed
@@ -55,12 +55,12 @@ public class StorageService : IStorageService, IDisposable {
 
     private void Initialize(StorageArea area = StorageArea.Local) {
         if (_initializedAreas.Contains(area)) {
-            _logger.LogDebug("Storage area {Area} already initialized", area);
+            _logger.LogDebug(nameof(Initialize) + ": Storage area {Area} already initialized", area);
             return; // Result.Ok();
         }
 
         try {
-            _logger.Log(ServiceLogLevel, "Initializing {Area} storage change listener", area);
+            _logger.Log(ServiceLogLevel, nameof(Initialize) + ": Initializing {Area} storage change listener", area);
 
             // Register global listener only once (handles ALL storage areas)
             if (!_listenerRegistered) {
@@ -72,29 +72,29 @@ public class StorageService : IStorageService, IDisposable {
                 // This single listener receives events from ALL storage areas
                 _webExtensionsApi.Storage.OnChanged.AddListener(_globalCallback);
                 _listenerRegistered = true;
-                _logger.LogInformation("Registered global storage change listener (WebExtensions.Net native)");
+                _logger.LogInformation(nameof(Initialize) + ": Registered global storage change listener (WebExtensions.Net native)");
             }
 
             _initializedAreas.Add(area);
-            _logger.LogInformation("Enabled change notifications for {Area} storage", area);
+            _logger.LogInformation(nameof(Initialize) + ": Enabled change notifications for {Area} storage", area);
 
             return; // Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to initialize {Area} storage", area);
+            _logger.LogError(ex, nameof(Initialize) + ": Failed to initialize {Area} storage", area);
             throw; //return Result.Fail(new StorageError($"Initialize {area} failed", ex));
         }
     }
 
     private void OnStorageChanged(object changes, string areaName) {
         if (!Enum.TryParse<StorageArea>(areaName, true, out var area)) {
-            _logger.LogWarning("Unknown storage area: {AreaName}", areaName);
+            _logger.LogWarning(nameof(OnStorageChanged) + ": Unknown storage area: {AreaName}", areaName);
             return;
         }
 
         // Only process if we initialized this area (acts as a filter)
         if (!_initializedAreas.Contains(area)) {
-            _logger.LogTrace("Ignoring changes for non-initialized area {Area}", area);
+            _logger.LogTrace(nameof(OnStorageChanged) + ": Ignoring changes for non-initialized area {Area}", area);
             return;
         }
 
@@ -118,11 +118,11 @@ public class StorageService : IStorageService, IDisposable {
             }
 
             if (changesDict == null) {
-                _logger.LogWarning("Failed to deserialize storage changes for {Area}", area);
+                _logger.LogWarning(nameof(OnStorageChanged) + ": Failed to deserialize storage changes for {Area}", area);
                 return;
             }
 
-            _logger.Log(ServiceLogLevel, "Storage changed in {Area}: {Keys}",
+            _logger.Log(ServiceLogLevel, nameof(OnStorageChanged) + ": Storage changed in {Area}: {Keys}",
                 area, string.Join(", ", changesDict.Keys));
 
             foreach (var (key, changeElement) in changesDict) {
@@ -130,7 +130,7 @@ public class StorageService : IStorageService, IDisposable {
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error processing storage changes for {Area}", areaName);
+            _logger.LogError(ex, nameof(OnStorageChanged) + ": Error processing storage changes for {Area}", areaName);
         }
     }
 
@@ -143,7 +143,7 @@ public class StorageService : IStorageService, IDisposable {
             var hasOldValue = changeElement.TryGetProperty("oldValue", out var oldValue);
 
             if (!hasNewValue && !hasOldValue) {
-                _logger.LogDebug("No oldValue or newValue in change for {Key} in {Area} - ignoring", key, area);
+                _logger.LogDebug(nameof(ProcessStorageChange) + ": No oldValue or newValue in change for {Key} in {Area} - ignoring", key, area);
                 return;
             }
 
@@ -157,16 +157,16 @@ public class StorageService : IStorageService, IDisposable {
                 }
                 else {
                     // Key was deleted - notify with default value for the type
-                    _logger.LogDebug("Key {Key} deleted from {Area} storage - notifying observers with default value", key, area);
+                    _logger.LogDebug(nameof(ProcessStorageChange) + ": Key {Key} deleted from {Area} storage - notifying observers with default value", key, area);
                     NotifyObserversOfDeletion(key, area, entryList);
                 }
             }
             else {
-                _logger.LogTrace("No observers for {Key} in {Area}", key, area);
+                _logger.LogTrace(nameof(ProcessStorageChange) + ": No observers for {Key} in {Area}", key, area);
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error processing change for {Key} in {Area}", key, area);
+            _logger.LogError(ex, nameof(ProcessStorageChange) + ": Error processing change for {Key} in {Area}", key, area);
         }
     }
 
@@ -195,16 +195,16 @@ public class StorageService : IStorageService, IDisposable {
                 foreach (var entry in snapshot) {
                     try {
                         entry.NotifyCallback(typedValue);
-                        _logger.LogDebug("Notified observer of {Key} change in {Area}", key, area);
+                        _logger.LogDebug(nameof(NotifyObservers) + ": Notified observer of {Key} change in {Area}", key, area);
                     }
                     catch (Exception ex) {
-                        _logger.LogError(ex, "Observer error for {Key} in {Area}", key, area);
+                        _logger.LogError(ex, nameof(NotifyObservers) + ": Observer error for {Key} in {Area}", key, area);
                     }
                 }
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to deserialize {Key} for observers", key);
+            _logger.LogError(ex, nameof(NotifyObservers) + ": Failed to deserialize {Key} for observers", key);
         }
     }
 
@@ -228,19 +228,19 @@ public class StorageService : IStorageService, IDisposable {
                 foreach (var entry in snapshot) {
                     try {
                         entry.NotifyCallback(defaultValue);
-                        _logger.LogDebug("Notified observer of {Key} deletion in {Area} with default value", key, area);
+                        _logger.LogDebug(nameof(NotifyObserversOfDeletion) + ": Notified observer of {Key} deletion in {Area} with default value", key, area);
                     }
                     catch (Exception ex) {
-                        _logger.LogError(ex, "Observer error for {Key} deletion in {Area}", key, area);
+                        _logger.LogError(ex, nameof(NotifyObserversOfDeletion) + ": Observer error for {Key} deletion in {Area}", key, area);
                     }
                 }
             }
             else {
-                _logger.LogWarning("Could not create default instance of {Type} for {Key} deletion notification", elementType.Name, key);
+                _logger.LogWarning(nameof(NotifyObserversOfDeletion) + ": Could not create default instance of {Type} for {Key} deletion notification", elementType.Name, key);
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to create default value for {Key} deletion", key);
+            _logger.LogError(ex, nameof(NotifyObserversOfDeletion) + ": Failed to create default value for {Key} deletion", key);
         }
     }
 
@@ -250,11 +250,11 @@ public class StorageService : IStorageService, IDisposable {
 
         try {
             await ClearStorageArea(area);
-            _logger.LogInformation("Cleared {Area} storage", area);
+            _logger.LogInformation(nameof(Clear) + ": Cleared {Area} storage", area);
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to clear {Area} storage", area);
+            _logger.LogError(ex, nameof(Clear) + ": Failed to clear {Area} storage", area);
             return Result.Fail(new StorageError($"Clear {area} failed", ex));
         }
     }
@@ -267,15 +267,15 @@ public class StorageService : IStorageService, IDisposable {
 
             if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(key), out var element)) {
                 var value = JsonSerializer.Deserialize<T>(element, JsonOptions.Storage);
-                _logger.LogDebug("Retrieved {Key} from {Area} storage", key, area);
+                _logger.LogDebug(nameof(GetItem) + ": Retrieved {Key} from {Area} storage", key, area);
                 return Result.Ok<T?>(value);
             }
 
-            _logger.LogDebug("{Key} not found in {Area} storage", key, area);
+            _logger.LogDebug(nameof(GetItem) + ": {Key} not found in {Area} storage", key, area);
             return Result.Ok<T?>(default);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to get {Key} from {Area} storage", key, area);
+            _logger.LogError(ex, nameof(GetItem) + ": Failed to get {Key} from {Area} storage", key, area);
             return Result.Fail<T?>(new StorageError($"Get {key} from {area} failed", ex));
         }
     }
@@ -289,11 +289,11 @@ public class StorageService : IStorageService, IDisposable {
         try {
             var data = new Dictionary<string, object?> { { key, value } };
             await SetInStorageArea(area, data);
-            _logger.LogDebug("Set {Key} in {Area} storage", key, area);
+            _logger.LogDebug(nameof(SetItem) + ": Set {Key} in {Area} storage", key, area);
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to set {Key} in {Area} storage", key, area);
+            _logger.LogError(ex, nameof(SetItem) + ": Failed to set {Key} in {Area} storage", key, area);
             return Result.Fail(new StorageError($"Set {key} in {area} failed", ex));
         }
     }
@@ -306,11 +306,11 @@ public class StorageService : IStorageService, IDisposable {
 
         try {
             await RemoveFromStorageArea(area, key);
-            _logger.LogDebug("Removed {Key} from {Area} storage", key, area);
+            _logger.LogDebug(nameof(RemoveItem) + ": Removed {Key} from {Area} storage", key, area);
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to remove {Key} from {Area} storage", key, area);
+            _logger.LogError(ex, nameof(RemoveItem) + ": Failed to remove {Key} from {Area} storage", key, area);
             return Result.Fail(new StorageError($"Remove {key} from {area} failed", ex));
         }
     }
@@ -337,12 +337,12 @@ public class StorageService : IStorageService, IDisposable {
             }
 
             var backupJson = jsonDocument.RootElement.GetRawText();
-            _logger.LogInformation("Created backup of {Area} storage ({Length} chars)",
+            _logger.LogInformation(nameof(GetBackupItems) + ": Created backup of {Area} storage ({Length} chars)",
                 area, backupJson.Length);
             return Result.Ok(backupJson);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to backup {Area} storage", area);
+            _logger.LogError(ex, nameof(GetBackupItems) + ": Failed to backup {Area} storage", area);
             return Result.Fail(new StorageError($"Backup {area} failed", ex));
         }
     }
@@ -367,12 +367,12 @@ public class StorageService : IStorageService, IDisposable {
             );
 
             await SetInStorageArea(area, storageData);
-            _logger.LogInformation("Restored backup to {Area} storage ({Count} items)",
+            _logger.LogInformation(nameof(RestoreBackupItems) + ": Restored backup to {Area} storage ({Count} items)",
                 area, data.Count);
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to restore backup to {Area} storage", area);
+            _logger.LogError(ex, nameof(RestoreBackupItems) + ": Failed to restore backup to {Area} storage", area);
             return Result.Fail(new StorageError($"Restore to {area} failed", ex));
         }
     }
@@ -389,7 +389,7 @@ public class StorageService : IStorageService, IDisposable {
             return Result.Ok((long)bytes);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to get bytes in use for {Area}", area);
+            _logger.LogError(ex, nameof(GetBytesInUse) + ": Failed to get bytes in use for {Area}", area);
             return Result.Fail(new StorageError($"GetBytesInUse {area} failed", ex));
         }
     }
@@ -408,7 +408,7 @@ public class StorageService : IStorageService, IDisposable {
             return Result.Ok((long)bytes);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to get bytes in use for {Type} in {Area}",
+            _logger.LogError(ex, nameof(GetBytesInUse) + ": Failed to get bytes in use for {Type} in {Area}",
                 typeof(T).Name, area);
             return Result.Fail(new StorageError($"GetBytesInUse<{typeof(T).Name}> {area} failed", ex));
         }
@@ -442,7 +442,7 @@ public class StorageService : IStorageService, IDisposable {
             return Result.Ok(quota);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to get quota for {Area}", area);
+            _logger.LogError(ex, nameof(GetQuota) + ": Failed to get quota for {Area}", area);
             return Result.Fail(new StorageError($"GetQuota {area} failed", ex));
         }
     }
@@ -455,7 +455,7 @@ public class StorageService : IStorageService, IDisposable {
 
         if (!_initializedAreas.Contains(area)) {
             _logger.LogWarning(
-                "Subscribing to {Key} in {Area} storage before Initialize() called. " +
+                nameof(Subscribe) + ": Subscribing to {Key} in {Area} storage before Initialize() called. " +
                 "Call Initialize({Area}) first to receive change notifications.",
                 key, area, area
             );
@@ -492,7 +492,7 @@ public class StorageService : IStorageService, IDisposable {
             list.Add(entry);
         }
 
-        _logger.LogDebug("Subscribed to {Key} in {Area} storage", key, area);
+        _logger.LogDebug(nameof(Subscribe) + ": Subscribed to {Key} in {Area} storage", key, area);
 
         // Fetch initial value and notify observer if non-null
         Task.Run(async () => {
@@ -500,17 +500,17 @@ public class StorageService : IStorageService, IDisposable {
                 var result = await GetItem<T>(area);
                 if (result.IsSuccess && result.Value is not null) {
                     observer.OnNext(result.Value);
-                    _logger.LogDebug("Sent initial value for {Key} in {Area} storage to new subscriber", key, area);
+                    _logger.LogDebug(nameof(Subscribe) + ": Sent initial value for {Key} in {Area} storage to new subscriber", key, area);
                 }
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Failed to fetch initial value for {Key} in {Area} storage", key, area);
+                _logger.LogError(ex, nameof(Subscribe) + ": Failed to fetch initial value for {Key} in {Area} storage", key, area);
             }
         });
 
         // Return unsubscriber that removes this observer
         return new UnsubscriberEntry(area, key, observer, RemoveObserver, () => {
-            _logger.LogDebug("Unsubscribed from {Key} in {Area} storage", key, area);
+            _logger.LogDebug(nameof(Subscribe) + ": Unsubscribed from {Key} in {Area} storage", key, area);
         });
     }
 
@@ -642,10 +642,10 @@ public class StorageService : IStorageService, IDisposable {
         if (_listenerRegistered && _globalCallback != null) {
             try {
                 _webExtensionsApi.Storage.OnChanged.RemoveListener(_globalCallback);
-                _logger.LogDebug("Removed global storage change listener");
+                _logger.LogDebug(nameof(Dispose) + ": Removed global storage change listener");
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, "Failed to remove global storage listener");
+                _logger.LogWarning(ex, nameof(Dispose) + ": Failed to remove global storage listener");
             }
             _listenerRegistered = false;
             _globalCallback = null;

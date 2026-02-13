@@ -134,7 +134,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
         // Note: If this fails (port disconnecting), BackgroundWorker.CleanupOrphanedRequestsAsync
         // will detect the orphaned pending request and send the cancel response.
         if (!HasRepliedToPage && TabId > 0 && !string.IsNullOrEmpty(PageRequestId)) {
-            Logger.LogInformation("DisposeAsync: Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", PageRequestId);
+            Logger.LogInformation(nameof(DisposeAsync) + ": Sending cancel reply for pageRequestId={PageRequestId} (popup closed without action)", PageRequestId);
             await SendCancelMessageAsync($"User closed {GetType().Name} dialog");
         }
 
@@ -157,12 +157,12 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     /// <param name="expectedType">The expected BwAppMessageType value (e.g., BwAppMessageType.Values.RequestSignIn).</param>
     /// <returns>The deserialized payload, or null if validation fails.</returns>
     protected async Task<TPayload?> InitializeFromPendingRequestAsync<TPayload>(string expectedType) where TPayload : class {
-        Logger.LogInformation("InitializeFromPendingRequestAsync: expectedType={ExpectedType}", expectedType);
+        Logger.LogInformation(nameof(InitializeFromPendingRequestAsync) + ": expectedType={ExpectedType}", expectedType);
 
         // Get the pending request from storage (set by BackgroundWorker before opening popup)
         var pendingRequest = AppCache.NextPendingBwAppRequest;
         if (pendingRequest?.Type != expectedType) {
-            Logger.LogError("InitializeFromPendingRequestAsync: No pending {ExpectedType} request found, got {ActualType}",
+            Logger.LogError(nameof(InitializeFromPendingRequestAsync) + ": No pending {ExpectedType} request found, got {ActualType}",
                 expectedType, pendingRequest?.Type ?? "null");
             return null;
         }
@@ -170,7 +170,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
         OriginStr = pendingRequest.TabUrl ?? "unknown";
         var payload = pendingRequest.GetPayload<TPayload>();
         if (payload is null) {
-            Logger.LogError("InitializeFromPendingRequestAsync: Failed to deserialize pending request payload to {PayloadType}",
+            Logger.LogError(nameof(InitializeFromPendingRequestAsync) + ": Failed to deserialize pending request payload to {PayloadType}",
                 typeof(TPayload).Name);
             return null;
         }
@@ -179,7 +179,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
         PageRequestId = pendingRequest.RequestId;
         TabId = pendingRequest.TabId ?? -1;
 
-        Logger.LogInformation("InitializeFromPendingRequestAsync: pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}",
+        Logger.LogInformation(nameof(InitializeFromPendingRequestAsync) + ": pageRequestId={PageRequestId}, tabId={TabId}, origin={Origin}",
             PageRequestId, TabId, OriginStr);
 
         // Set up tab activation listener for sidePanel context
@@ -204,7 +204,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     /// </summary>
     /// <param name="reason">The reason for cancellation.</param>
     protected async Task SendCancelMessageAsync(string reason) {
-        Logger.LogInformation("SendCancelMessageAsync: Sending cancel for pageRequestId={PageRequestId}, reason={Reason}",
+        Logger.LogInformation(nameof(SendCancelMessageAsync) + ": Sending cancel for pageRequestId={PageRequestId}, reason={Reason}",
             PageRequestId, reason);
 
         try {
@@ -213,7 +213,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
             HasRepliedToPage = true;
         }
         catch (Exception ex) {
-            Logger.LogError(ex, "SendCancelMessageAsync: Failed to send cancel message to BackgroundWorker");
+            Logger.LogError(ex, nameof(SendCancelMessageAsync) + ": Failed to send cancel message to BackgroundWorker");
             // Still mark as replied to prevent duplicate attempts
             HasRepliedToPage = true;
         }
@@ -225,14 +225,14 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     /// </summary>
     protected async Task ClearPendingRequestAsync() {
         if (string.IsNullOrEmpty(PageRequestId)) {
-            Logger.LogWarning("ClearPendingRequestAsync: No pageRequestId available to clear");
+            Logger.LogWarning(nameof(ClearPendingRequestAsync) + ": No pageRequestId available to clear");
             return;
         }
 
-        Logger.LogInformation("ClearPendingRequestAsync: Clearing pending request, pageRequestId={PageRequestId}", PageRequestId);
+        Logger.LogInformation(nameof(ClearPendingRequestAsync) + ": Clearing pending request, pageRequestId={PageRequestId}", PageRequestId);
         var result = await PendingBwAppRequestService.RemoveRequestAsync(PageRequestId);
         if (result.IsFailed) {
-            Logger.LogError("ClearPendingRequestAsync: Failed to remove request - {Errors}",
+            Logger.LogError(nameof(ClearPendingRequestAsync) + ": Failed to remove request - {Errors}",
                 string.Join(", ", result.Errors.Select(e => e.Message)));
         }
     }
@@ -246,10 +246,10 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     protected async Task<bool> WaitForAppCacheClearAsync(int timeoutMs = 3000) {
         var waitResult = await AppCache.WaitForAppCache([() => !AppCache.HasPendingBwAppRequests], timeoutMs, 100);
         if (!waitResult) {
-            Logger.LogWarning("WaitForAppCacheClearAsync: AppCache did not clear pending requests within timeout, proceeding anyway");
+            Logger.LogWarning(nameof(WaitForAppCacheClearAsync) + ": AppCache did not clear pending requests within timeout, proceeding anyway");
         }
         else {
-            Logger.LogInformation("WaitForAppCacheClearAsync: AppCache confirmed no pending requests");
+            Logger.LogInformation(nameof(WaitForAppCacheClearAsync) + ": AppCache confirmed no pending requests");
         }
         return waitResult;
     }
@@ -272,7 +272,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     /// </summary>
     /// <param name="reason">The reason for cancellation.</param>
     protected async Task CancelAndReturnAsync(string reason) {
-        Logger.LogInformation("CancelAndReturnAsync: Canceling pageRequestId={PageRequestId}, reason={Reason}", PageRequestId, reason);
+        Logger.LogInformation(nameof(CancelAndReturnAsync) + ": Canceling pageRequestId={PageRequestId}, reason={Reason}", PageRequestId, reason);
 
         await BeginActionAsync();
         await SendCancelMessageAsync(reason);
@@ -289,7 +289,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
             await Layout.ReturnToPriorUI();
         }
         else {
-            Logger.LogWarning("ReturnToPriorUIAsync: Layout is null, cannot return to prior UI");
+            Logger.LogWarning(nameof(ReturnToPriorUIAsync) + ": Layout is null, cannot return to prior UI");
         }
     }
 
@@ -313,16 +313,16 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
         // Only set up tab change listener for sidePanel context
         // Popups are independent of tab focus, and extension tabs don't need this
         if (!App.IsInSidePanel) {
-            Logger.LogDebug("SetupTabChangeListener: Not in sidePanel context, skipping tab change listener");
+            Logger.LogDebug(nameof(SetupTabChangeListener) + ": Not in sidePanel context, skipping tab change listener");
             return;
         }
 
         if (TabId <= 0) {
-            Logger.LogDebug("SetupTabChangeListener: No valid TabId, skipping tab change listener");
+            Logger.LogDebug(nameof(SetupTabChangeListener) + ": No valid TabId, skipping tab change listener");
             return;
         }
 
-        Logger.LogInformation("SetupTabChangeListener: Setting up tab activation listener for TabId={TabId}", TabId);
+        Logger.LogInformation(nameof(SetupTabChangeListener) + ": Setting up tab activation listener for TabId={TabId}", TabId);
 
         _tabActivatedHandler = OnTabActivated;
         WebExtensionsApi.Tabs.OnActivated.AddListener(_tabActivatedHandler);
@@ -346,12 +346,12 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
         }
 
         if (activeInfo.TabId == TabId) {
-            Logger.LogDebug("OnTabActivatedAsync: Same tab activated (TabId={TabId}), no action needed", TabId);
+            Logger.LogDebug(nameof(OnTabActivatedAsync) + ": Same tab activated (TabId={TabId}), no action needed", TabId);
             return;
         }
 
         Logger.LogInformation(
-            "OnTabActivatedAsync: User switched from TabId={RequestTabId} to TabId={NewTabId}, canceling request",
+            nameof(OnTabActivatedAsync) + ": User switched from TabId={RequestTabId} to TabId={NewTabId}, canceling request",
             TabId, activeInfo.TabId);
 
         _isCancelingDueToTabChange = true;
@@ -360,7 +360,7 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
             await CancelAndReturnAsync("Request canceled when user navigated to another tab");
         }
         catch (Exception ex) {
-            Logger.LogError(ex, "OnTabActivatedAsync: Error during cancel and return");
+            Logger.LogError(ex, nameof(OnTabActivatedAsync) + ": Error during cancel and return");
         }
         finally {
             _isCancelingDueToTabChange = false;
@@ -372,13 +372,13 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     /// </summary>
     private void RemoveTabChangeListener() {
         if (_tabActivatedHandler is not null) {
-            Logger.LogDebug("RemoveTabChangeListener: Removing tab activation listener");
+            Logger.LogDebug(nameof(RemoveTabChangeListener) + ": Removing tab activation listener");
             try {
                 WebExtensionsApi.Tabs.OnActivated.RemoveListener(_tabActivatedHandler);
             }
             catch (Exception ex) {
                 // RemoveListener may fail if already removed or context is disposed
-                Logger.LogDebug(ex, "RemoveTabChangeListener: Failed to remove listener (may already be removed)");
+                Logger.LogDebug(ex, nameof(RemoveTabChangeListener) + ": Failed to remove listener (may already be removed)");
             }
             _tabActivatedHandler = null;
         }

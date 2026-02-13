@@ -55,7 +55,7 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
 
         // Auto-subscribe on construction
         _subscription = _storageService.Subscribe<T>(this, _storageArea);
-        _logger?.LogDebug("StorageObserver<{Type}> subscribed to {Area} storage", typeof(T).Name, _storageArea);
+        _logger?.LogDebug(nameof(StorageObserver<T>) + ": <{Type}> subscribed to {Area} storage", typeof(T).Name, _storageArea);
     }
 
     public void OnNext(T value) {
@@ -63,18 +63,18 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
             _onNext(value);
         }
         catch (Exception ex) {
-            _logger?.LogError(ex, "Error in StorageObserver<{Type}> OnNext handler", typeof(T).Name);
+            _logger?.LogError(ex, nameof(OnNext) + ": Error in StorageObserver<{Type}> handler", typeof(T).Name);
             OnError(ex);
         }
     }
 
     public void OnError(Exception error) {
-        _logger?.LogError(error, "StorageObserver<{Type}> received error", typeof(T).Name);
+        _logger?.LogError(error, nameof(OnError) + ": StorageObserver<{Type}> received error", typeof(T).Name);
         _onError?.Invoke(error);
     }
 
     public void OnCompleted() {
-        _logger?.LogDebug("StorageObserver<{Type}> completed", typeof(T).Name);
+        _logger?.LogDebug(nameof(OnCompleted) + ": StorageObserver<{Type}> completed", typeof(T).Name);
         _onCompleted?.Invoke();
     }
 
@@ -93,7 +93,7 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
         _subscription?.Dispose();
         _subscription = null;
         _disposed = true;
-        _logger?.LogDebug("StorageObserver<{Type}> disposed", typeof(T).Name);
+        _logger?.LogDebug(nameof(Dispose) + ": StorageObserver<{Type}> disposed", typeof(T).Name);
         GC.SuppressFinalize(this);
     }
 }

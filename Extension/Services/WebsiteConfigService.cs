@@ -93,7 +93,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("could not save updated website to storage");
         }
 
-        logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(websiteConfig));
+        logger.LogInformation(nameof(Update) + ": Updated websiteConfig {website}", JsonSerializer.Serialize(websiteConfig));
         return Result.Ok();
     }
 
@@ -129,7 +129,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             var websiteConfigOrNothing = websiteConfigList.WebsiteList.FirstOrDefault<WebsiteConfig>(a => a.Origin == originUri);
             // logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
             if (websiteConfigOrNothing is null) {
-                logger.LogInformation("Adding websiteConfig for {originUri}", originUri);
+                logger.LogInformation(nameof(GetOrCreateWebsiteConfig) + ": Adding websiteConfig for {originUri}", originUri);
                 WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, false);
                 // newWebsiteConfig.Validate();
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);
@@ -139,7 +139,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                     return Result.Fail(error: setItemRes.Errors[0]);
                 }
                 else {
-                    logger.LogInformation("Added website to database");
+                    logger.LogInformation(nameof(GetOrCreateWebsiteConfig) + ": Added website to database");
                 }
                 return Result.Ok((newWebsiteConfig, true));
             }

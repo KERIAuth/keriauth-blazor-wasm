@@ -30,12 +30,12 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             StorageArea.Session
         );
 
-        _logger.LogDebug("PendingBwAppRequestService: initialized");
+        _logger.LogDebug(nameof(PendingBwAppRequestService) + ": initialized");
     }
 
     public async Task<Result> AddRequestAsync(PendingBwAppRequest request) {
         _logger.LogInformation(
-            "AddRequestAsync: requestId={RequestId}, type={Type}",
+            nameof(AddRequestAsync) + ": requestId={RequestId}, type={Type}",
             request.RequestId, request.Type);
 
         try {
@@ -51,7 +51,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             if (current.Count > 0) {
                 foreach (var existingRequest in current.Requests) {
                     _logger.LogWarning(
-                        "AddRequestAsync: Replacing existing request requestId={ExistingRequestId}, type={ExistingType}, " +
+                        nameof(AddRequestAsync) + ": Replacing existing request requestId={ExistingRequestId}, type={ExistingType}, " +
                         "createdAtUtc={CreatedAtUtc} with new request requestId={NewRequestId}, type={NewType}",
                         existingRequest.RequestId, existingRequest.Type, existingRequest.CreatedAtUtc,
                         request.RequestId, request.Type);
@@ -67,18 +67,18 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 return Result.Fail(setResult.Errors);
             }
 
-            _logger.LogDebug("AddRequestAsync: Request added successfully");
+            _logger.LogDebug(nameof(AddRequestAsync) + ": Request added successfully");
 
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "AddRequestAsync: Failed to add request {RequestId}", request.RequestId);
+            _logger.LogError(ex, nameof(AddRequestAsync) + ": Failed to add request {RequestId}", request.RequestId);
             return Result.Fail($"Failed to add request: {ex.Message}");
         }
     }
 
     public async Task<Result> RemoveRequestAsync(string requestId) {
-        _logger.LogInformation("RemoveRequestAsync: requestId={RequestId}", requestId);
+        _logger.LogInformation(nameof(RemoveRequestAsync) + ": requestId={RequestId}", requestId);
 
         try {
             var getResult = await _storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
@@ -104,13 +104,13 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             }
 
             _logger.LogDebug(
-                "RemoveRequestAsync: Request removed, remaining={Count}",
+                nameof(RemoveRequestAsync) + ": Request removed, remaining={Count}",
                 updated.Count);
 
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "RemoveRequestAsync: Failed to remove request {RequestId}", requestId);
+            _logger.LogError(ex, nameof(RemoveRequestAsync) + ": Failed to remove request {RequestId}", requestId);
             return Result.Fail($"Failed to remove request: {ex.Message}");
         }
     }
@@ -125,7 +125,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             return Result.Ok(result.Value ?? PendingBwAppRequests.Empty);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "GetRequestsAsync: Failed to get requests");
+            _logger.LogError(ex, nameof(GetRequestsAsync) + ": Failed to get requests");
             return Result.Fail<PendingBwAppRequests>($"Failed to get requests: {ex.Message}");
         }
     }
@@ -141,13 +141,13 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             return Result.Ok(request);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "GetRequestAsync: Failed to get request {RequestId}", requestId);
+            _logger.LogError(ex, nameof(GetRequestAsync) + ": Failed to get request {RequestId}", requestId);
             return Result.Fail<PendingBwAppRequest?>($"Failed to get request: {ex.Message}");
         }
     }
 
     public async Task<Result> ClearAllRequestsAsync() {
-        _logger.LogInformation("ClearAllRequestsAsync: Clearing all pending requests");
+        _logger.LogInformation(nameof(ClearAllRequestsAsync) + ": Clearing all pending requests");
 
         try {
             var result = await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
@@ -155,17 +155,17 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 return Result.Fail(result.Errors);
             }
 
-            _logger.LogDebug("ClearAllRequestsAsync: All requests cleared");
+            _logger.LogDebug(nameof(ClearAllRequestsAsync) + ": All requests cleared");
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "ClearAllRequestsAsync: Failed to clear requests");
+            _logger.LogError(ex, nameof(ClearAllRequestsAsync) + ": Failed to clear requests");
             return Result.Fail($"Failed to clear requests: {ex.Message}");
         }
     }
 
     public async Task<Result> CleanupStaleRequestsAsync(TimeSpan maxAge) {
-        _logger.LogInformation("CleanupStaleRequestsAsync: Removing requests older than {MaxAge}", maxAge);
+        _logger.LogInformation(nameof(CleanupStaleRequestsAsync) + ": Removing requests older than {MaxAge}", maxAge);
 
         try {
             var getResult = await _storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
@@ -177,7 +177,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             var cleaned = current.WithoutStaleRequests(maxAge);
 
             if (cleaned.Count == current.Count) {
-                _logger.LogDebug("CleanupStaleRequestsAsync: No stale requests found");
+                _logger.LogDebug(nameof(CleanupStaleRequestsAsync) + ": No stale requests found");
                 return Result.Ok();
             }
 
@@ -195,13 +195,13 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             }
 
             _logger.LogInformation(
-                "CleanupStaleRequestsAsync: Removed {Removed} stale requests, remaining={Remaining}",
+                nameof(CleanupStaleRequestsAsync) + ": Removed {Removed} stale requests, remaining={Remaining}",
                 current.Count - cleaned.Count, cleaned.Count);
 
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "CleanupStaleRequestsAsync: Failed to cleanup stale requests");
+            _logger.LogError(ex, nameof(CleanupStaleRequestsAsync) + ": Failed to cleanup stale requests");
             return Result.Fail($"Failed to cleanup stale requests: {ex.Message}");
         }
     }
@@ -210,7 +210,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
         lock (_observers) {
             if (!_observers.Contains(observer)) {
                 _observers.Add(observer);
-                _logger.LogDebug("Subscribe: Added observer, total={Count}", _observers.Count);
+                _logger.LogDebug(nameof(Subscribe) + ": Added observer, total={Count}", _observers.Count);
             }
         }
 
@@ -223,7 +223,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 }
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Subscribe: Failed to send initial state to observer");
+                _logger.LogError(ex, nameof(Subscribe) + ": Failed to send initial state to observer");
             }
         });
 
@@ -245,7 +245,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
                 observer.OnNext(requests);
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "NotifyObservers: Observer threw exception");
+                _logger.LogError(ex, nameof(NotifyObservers) + ": Observer threw exception");
             }
         }
     }
@@ -253,7 +253,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
     private void RemoveObserver(IObserver<PendingBwAppRequests> observer) {
         lock (_observers) {
             _observers.Remove(observer);
-            _logger.LogDebug("RemoveObserver: Removed observer, remaining={Count}", _observers.Count);
+            _logger.LogDebug(nameof(RemoveObserver) + ": Removed observer, remaining={Count}", _observers.Count);
         }
     }
 
@@ -283,11 +283,11 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
         }
 
         public void OnError(Exception error) {
-            service._logger.LogError(error, "StorageObserver: Error received from storage");
+            service._logger.LogError(error, nameof(StorageObserver) + ": Error received from storage");
         }
 
         public void OnNext(PendingBwAppRequests value) {
-            service._logger.LogDebug("StorageObserver: Received update, count={Count}", value.Count);
+            service._logger.LogDebug(nameof(StorageObserver) + ": Received update, count={Count}", value.Count);
             service.NotifyObservers(value);
         }
     }

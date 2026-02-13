@@ -78,7 +78,7 @@ public class WebauthnService : IWebauthnService {
                 .ToList();
 
             _logger.LogDebug(
-                "RegisterAttestStoreAuthenticatorAsync: excludeCount={ExcludeCount} (total passkeys={Total}, for current config={ForConfig})",
+                nameof(RegisterAttestStoreAuthenticatorAsync) + ": excludeCount={ExcludeCount} (total passkeys={Total}, for current config={ForConfig})",
                 excludeCredentialIds.Count,
                 existingPasskeys.Count,
                 passkeysForCurrentConfig.Count);
@@ -106,12 +106,12 @@ public class WebauthnService : IWebauthnService {
 
             var createResult = await _credentialsBinding.CreateCredentialAsync(createOptions);
             if (createResult.IsFailed) {
-                _logger.LogWarning("Failed to create credential: {Errors}", string.Join(", ", createResult.Errors));
+                _logger.LogWarning(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to create credential: {Errors}", string.Join(", ", createResult.Errors));
                 return Result.Fail<string>(createResult.Errors);
             }
 
             var credential = createResult.Value;
-            _logger.LogInformation("Step 1 complete: Credential created with ID {CredentialId}", credential.CredentialId);
+            _logger.LogInformation(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Step 1 complete: Credential created with ID {CredentialId}", credential.CredentialId);
 
             // Notify user of step 1 success
             await _jsRuntime.InvokeVoidAsync("alert",
@@ -127,7 +127,7 @@ public class WebauthnService : IWebauthnService {
 
             var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
             if (assertionResult.IsFailed) {
-                _logger.LogWarning("Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
+                _logger.LogWarning(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
                 return Result.Fail<string>(assertionResult.Errors);
             }
 
@@ -156,7 +156,7 @@ public class WebauthnService : IWebauthnService {
             var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(encryptionKey, encryptedPasscode, FixedNonce);
             var decryptedPasscodeString = Encoding.UTF8.GetString(decryptedPasscode);
             if (decryptedPasscodeString != passcode) {
-                _logger.LogError("Passcode encrypt/decrypt verification failed");
+                _logger.LogError(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Passcode encrypt/decrypt verification failed");
                 return Result.Fail<string>("Passcode encryption verification failed");
             }
 
@@ -164,7 +164,7 @@ public class WebauthnService : IWebauthnService {
             var requestedTransports = GetRequestedTransports(normalizedAttachment);
             var effectiveTransports = ComputeTransportIntersection(credential.Transports, requestedTransports);
             _logger.LogInformation(
-                "Transport intersection: requested=[{Requested}], returned=[{Returned}], effective=[{Effective}]",
+                nameof(RegisterAttestStoreAuthenticatorAsync) + ": Transport intersection: requested=[{Requested}], returned=[{Returned}], effective=[{Effective}]",
                 string.Join(", ", requestedTransports),
                 string.Join(", ", credential.Transports),
                 string.Join(", ", effectiveTransports));
@@ -176,7 +176,7 @@ public class WebauthnService : IWebauthnService {
             var icon = metadata?.Icon;
 
             _logger.LogInformation(
-                "Authenticator metadata: AAGUID={Aaguid}, Name={Name}, HasIcon={HasIcon}",
+                nameof(RegisterAttestStoreAuthenticatorAsync) + ": Authenticator metadata: AAGUID={Aaguid}, Name={Name}, HasIcon={HasIcon}",
                 aaguid, descriptiveName, icon is not null);
 
             // Create new passkey record
@@ -203,15 +203,15 @@ public class WebauthnService : IWebauthnService {
                 new StoredPasskeys { Passkeys = allPasskeys, IsStored = true },
                 StorageArea.Local);
             if (storeResult.IsFailed) {
-                _logger.LogError("Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
+                _logger.LogError(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
                 return Result.Fail<string>("Failed to store passkey");
             }
 
-            _logger.LogInformation("Passkey created successfully: {Name}", newPasskey.Name);
+            _logger.LogInformation(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Passkey created successfully: {Name}", newPasskey.Name);
             return Result.Ok(newPasskey.Name ?? "Unnamed Passkey");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during passkey creation");
+            _logger.LogError(ex, nameof(RegisterAttestStoreAuthenticatorAsync) + ": Unexpected error during passkey creation");
             return Result.Fail<string>(new Error("Unexpected error during passkey creation").CausedBy(ex));
         }
     }
@@ -234,12 +234,12 @@ public class WebauthnService : IWebauthnService {
                 .ToList();
 
             _logger.LogDebug(
-                "AuthenticateAndDecryptPasscodeAsync: passkeysForConfig={ForConfig} (total={Total})",
+                nameof(AuthenticateAndDecryptPasscodeAsync) + ": passkeysForConfig={ForConfig} (total={Total})",
                 passkeys.Count,
                 allPasskeys.Count);
 
             if (passkeys.Count == 0) {
-                _logger.LogInformation("No valid stored passkeys found for current config");
+                _logger.LogInformation(nameof(AuthenticateAndDecryptPasscodeAsync) + ": No valid stored passkeys found for current config");
                 return Result.Fail<string>("No stored passkeys for this configuration");
             }
 
@@ -254,7 +254,7 @@ public class WebauthnService : IWebauthnService {
             // Log transports for each credential to help diagnose passkey selection
             for (int i = 0; i < passkeys.Count; i++) {
                 _logger.LogInformation(
-                    "Authentication: Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, KeriaDigest: {KeriaDigest}, Transports: [{Transports}]",
+                    nameof(AuthenticateAndDecryptPasscodeAsync) + ": Credential {Index} - Name: {Name}, CredentialId: {CredentialId}, KeriaDigest: {KeriaDigest}, Transports: [{Transports}]",
                     i,
                     passkeys[i].Name ?? "(unnamed)",
                     passkeys[i].CredentialBase64,
@@ -271,7 +271,7 @@ public class WebauthnService : IWebauthnService {
 
             var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
             if (assertionResult.IsFailed) {
-                _logger.LogWarning("Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
+                _logger.LogWarning(nameof(AuthenticateAndDecryptPasscodeAsync) + ": Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
                 return Result.Fail<string>(assertionResult.Errors);
             }
 
@@ -283,7 +283,7 @@ public class WebauthnService : IWebauthnService {
             // Find matching passkey
             var matchingPasskey = passkeys.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
             if (matchingPasskey is null) {
-                _logger.LogError("Assertion credential ID does not match any stored passkey");
+                _logger.LogError(nameof(AuthenticateAndDecryptPasscodeAsync) + ": Assertion credential ID does not match any stored passkey");
                 return Result.Fail<string>("Credential not found in stored passkeys");
             }
 
@@ -296,12 +296,12 @@ public class WebauthnService : IWebauthnService {
             var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
             var passcode = Encoding.UTF8.GetString(decryptedPasscode);
 
-            _logger.LogInformation("Successfully authenticated and decrypted passcode using credential {CredentialId}",
+            _logger.LogInformation(nameof(AuthenticateAndDecryptPasscodeAsync) + ": Successfully authenticated and decrypted passcode using credential {CredentialId}",
                 assertion.CredentialId);
             return Result.Ok(passcode);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during authentication");
+            _logger.LogError(ex, nameof(AuthenticateAndDecryptPasscodeAsync) + ": Unexpected error during authentication");
             return Result.Fail<string>(new Error("Could not decrypt passcode").CausedBy(ex));
         }
     }
@@ -331,11 +331,11 @@ public class WebauthnService : IWebauthnService {
                 return Result.Fail(storeResult.Errors);
             }
 
-            _logger.LogInformation("Removed passkey with credential ID {CredentialId}", credentialBase64);
+            _logger.LogInformation(nameof(RemovePasskeyAsync) + ": Removed passkey with credential ID {CredentialId}", credentialBase64);
             return Result.Ok();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error removing passkey");
+            _logger.LogError(ex, nameof(RemovePasskeyAsync) + ": Error removing passkey");
             return Result.Fail(new Error("Failed to remove passkey").CausedBy(ex));
         }
     }
@@ -347,7 +347,7 @@ public class WebauthnService : IWebauthnService {
             var passkey = passkeys.FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
 
             if (passkey is null) {
-                _logger.LogWarning("Passkey not found for testing: {CredentialId}", credentialBase64);
+                _logger.LogWarning(nameof(TestPasskeyAsync) + ": Passkey not found for testing: {CredentialId}", credentialBase64);
                 return Result.Fail("Passkey not found");
             }
 
@@ -361,7 +361,7 @@ public class WebauthnService : IWebauthnService {
             var prfSaltBase64 = Convert.ToBase64String(prfSalt);
 
             _logger.LogInformation(
-                "Testing specific passkey - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
+                nameof(TestPasskeyAsync) + ": Testing specific passkey - Name: {Name}, CredentialId: {CredentialId}, Transports: [{Transports}]",
                 passkey.Name ?? "(unnamed)",
                 passkey.CredentialBase64,
                 string.Join(", ", passkey.Transports));
@@ -376,7 +376,7 @@ public class WebauthnService : IWebauthnService {
 
             var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
             if (assertionResult.IsFailed) {
-                _logger.LogWarning("Test failed for passkey {Name}: {Errors}",
+                _logger.LogWarning(nameof(TestPasskeyAsync) + ": Test failed for passkey {Name}: {Errors}",
                     passkey.Name, string.Join(", ", assertionResult.Errors));
                 return Result.Fail(assertionResult.Errors);
             }
@@ -393,16 +393,16 @@ public class WebauthnService : IWebauthnService {
 
             try {
                 var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
-                _logger.LogInformation("Test successful for passkey {Name}", passkey.Name);
+                _logger.LogInformation(nameof(TestPasskeyAsync) + ": Test successful for passkey {Name}", passkey.Name);
                 return Result.Ok();
             }
             catch (Exception decryptEx) {
-                _logger.LogError(decryptEx, "Test failed - could not decrypt passcode for passkey {Name}", passkey.Name);
+                _logger.LogError(decryptEx, nameof(TestPasskeyAsync) + ": Test failed - could not decrypt passcode for passkey {Name}", passkey.Name);
                 return Result.Fail("Decryption failed - passkey may have been created with different KERIA connection");
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during passkey test");
+            _logger.LogError(ex, nameof(TestPasskeyAsync) + ": Unexpected error during passkey test");
             return Result.Fail(new Error("Test failed unexpectedly").CausedBy(ex));
         }
     }
@@ -412,7 +412,7 @@ public class WebauthnService : IWebauthnService {
             // Get all valid passkeys
             var passkeys = await GetValidPasskeysAsync();
             if (passkeys.Count == 0) {
-                _logger.LogWarning("No valid stored passkeys found for testing");
+                _logger.LogWarning(nameof(TestAllPasskeysAsync) + ": No valid stored passkeys found for testing");
                 return Result.Fail<string>("No stored passkeys");
             }
 
@@ -429,10 +429,10 @@ public class WebauthnService : IWebauthnService {
             var credentialIds = passkeys.Select(a => a.CredentialBase64).ToList();
             var transportsPerCredential = passkeys.Select(a => a.Transports).ToList();
 
-            _logger.LogInformation("Testing all {Count} passkeys with stored transports", passkeys.Count);
+            _logger.LogInformation(nameof(TestAllPasskeysAsync) + ": Testing all {Count} passkeys with stored transports", passkeys.Count);
             foreach (var pk in passkeys) {
                 _logger.LogInformation(
-                    "  - Name: {Name}, CredentialId: {CredentialId}, Stored Transports: [{Transports}]",
+                    nameof(TestAllPasskeysAsync) + ": Name: {Name}, CredentialId: {CredentialId}, Stored Transports: [{Transports}]",
                     pk.Name ?? "(unnamed)",
                     pk.CredentialBase64,
                     string.Join(", ", pk.Transports));
@@ -447,7 +447,7 @@ public class WebauthnService : IWebauthnService {
 
             var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
             if (assertionResult.IsFailed) {
-                _logger.LogWarning("Test All failed: {Errors}", string.Join(", ", assertionResult.Errors));
+                _logger.LogWarning(nameof(TestAllPasskeysAsync) + ": Test All failed: {Errors}", string.Join(", ", assertionResult.Errors));
                 return Result.Fail<string>(assertionResult.Errors);
             }
 
@@ -459,7 +459,7 @@ public class WebauthnService : IWebauthnService {
             // Find which passkey was used
             var usedPasskey = passkeys.FirstOrDefault(a => a.CredentialBase64 == assertion.CredentialId);
             if (usedPasskey is null) {
-                _logger.LogError("Assertion credential ID does not match any stored passkey");
+                _logger.LogError(nameof(TestAllPasskeysAsync) + ": Assertion credential ID does not match any stored passkey");
                 return Result.Fail<string>("Unknown credential was used");
             }
 
@@ -470,17 +470,17 @@ public class WebauthnService : IWebauthnService {
 
             try {
                 var decryptedPasscode = await _cryptoService.AesGcmDecryptAsync(decryptionKey, encryptedPasscode, FixedNonce);
-                _logger.LogInformation("Test All successful using passkey {Name}", usedPasskey.Name);
+                _logger.LogInformation(nameof(TestAllPasskeysAsync) + ": Test All successful using passkey {Name}", usedPasskey.Name);
                 return Result.Ok(usedPasskey.Name ?? "Unnamed Passkey");
             }
             catch (Exception decryptEx) {
-                _logger.LogError(decryptEx, "Test All failed - could not decrypt passcode using passkey {Name}",
+                _logger.LogError(decryptEx, nameof(TestAllPasskeysAsync) + ": Test All failed - could not decrypt passcode using passkey {Name}",
                     usedPasskey.Name);
                 return Result.Fail<string>("Decryption failed - passkey may have been created with different KERIA connection");
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error during Test All");
+            _logger.LogError(ex, nameof(TestAllPasskeysAsync) + ": Unexpected error during Test All");
             return Result.Fail<string>(new Error("Test All failed unexpectedly").CausedBy(ex));
         }
     }
@@ -558,7 +558,7 @@ public class WebauthnService : IWebauthnService {
         var valid = all.Where(a => a.SchemaVersion == StoredPasskeySchema.CurrentVersion).ToList();
 
         if (valid.Count < all.Count) {
-            _logger.LogInformation("Filtered out {Count} passkeys with old schema version",
+            _logger.LogInformation(nameof(GetValidPasskeysAsync) + ": Filtered out {Count} passkeys with old schema version",
                 all.Count - valid.Count);
         }
 

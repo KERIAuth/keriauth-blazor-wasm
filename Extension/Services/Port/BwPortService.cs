@@ -110,12 +110,12 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                     }
                 }
                 catch (Exception ex) {
-                    _logger.LogError(ex, "Error processing state operation: {Op}", op.GetType().Name);
+                    _logger.LogError(ex, nameof(DrainStateOpsAsync) + ": Error processing state operation: {Op}", op.GetType().Name);
                 }
             }
         }
         catch (OperationCanceledException) {
-            _logger.LogDebug("State operation drain loop canceled");
+            _logger.LogDebug(nameof(DrainStateOpsAsync) + ": State operation drain loop canceled");
         }
     }
 
@@ -142,7 +142,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         var portId = Guid.NewGuid().ToString();
         _portsById[portId] = port;
 
-        _logger.LogInformation("Port connected: name={Name}, portId={PortId}", port.Name, portId);
+        _logger.LogInformation(nameof(HandleConnectAsync) + ": Port connected: name={Name}, portId={PortId}", port.Name, portId);
 
         // Set up message listener with explicit delegate type to resolve ambiguity
         // WebExtensions.Net OnMessage expects: Func<object, MessageSender, Action<object>, bool>
@@ -173,12 +173,12 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             var baseMsg = JsonSerializer.Deserialize<JsonElement>(messageJson, JsonOptions.PortMessaging);
 
             if (!baseMsg.TryGetProperty("t", out var typeElement)) {
-                _logger.LogWarning("Port message missing 't' property from portId={PortId}", portId);
+                _logger.LogWarning(nameof(HandlePortMessageAsync) + ": Port message missing 't' property from portId={PortId}", portId);
                 return;
             }
 
             var messageType = typeElement.GetString();
-            _logger.LogDebug("Port message received: type={Type}, portId={PortId}", messageType, portId);
+            _logger.LogDebug(nameof(HandlePortMessageAsync) + ": Port message received: type={Type}, portId={PortId}", messageType, portId);
 
             switch (messageType) {
                 case PortMessageTypes.Hello:
@@ -198,28 +198,28 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                     await HandleEventAsync(portId, messageJson);
                     break;
                 default:
-                    _logger.LogWarning("Unknown port message type: {Type} from portId={PortId}", messageType, portId);
+                    _logger.LogWarning(nameof(HandlePortMessageAsync) + ": Unknown port message type: {Type} from portId={PortId}", messageType, portId);
                     break;
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error handling port message from portId={PortId}", portId);
+            _logger.LogError(ex, nameof(HandlePortMessageAsync) + ": Error handling port message from portId={PortId}", portId);
         }
     }
 
     private async Task HandleHelloAsync(string portId, string messageJson) {
         var hello = JsonSerializer.Deserialize<HelloMessage>(messageJson, JsonOptions.PortMessaging);
         if (hello is null) {
-            _logger.LogWarning("Failed to deserialize HELLO message from portId={PortId}", portId);
+            _logger.LogWarning(nameof(HandleHelloAsync) + ": Failed to deserialize HELLO message from portId={PortId}", portId);
             return;
         }
 
         if (!_portsById.TryGetValue(portId, out var port)) {
-            _logger.LogWarning("HELLO from unknown portId={PortId}", portId);
+            _logger.LogWarning(nameof(HandleHelloAsync) + ": HELLO from unknown portId={PortId}", portId);
             return;
         }
 
-        _logger.LogInformation("HELLO received: context={Context}, instanceId={InstanceId}, portId={PortId}",
+        _logger.LogInformation(nameof(HandleHelloAsync) + ": HELLO received: context={Context}, instanceId={InstanceId}, portId={PortId}",
             hello.Context, hello.InstanceId, portId);
 
         PortSession portSession;
@@ -233,7 +233,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             var frameId = port.Sender?.FrameId;
 
             if (!tabId.HasValue) {
-                _logger.LogWarning("HELLO from ContentScript without tabId, portId={PortId}", portId);
+                _logger.LogWarning(nameof(HandleHelloAsync) + ": HELLO from ContentScript without tabId, portId={PortId}", portId);
                 return;
             }
 
@@ -253,7 +253,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             portSession.TabUrl = port.Sender?.Url; // Update URL in case it changed
             _portIdToPortSession[portId] = portSession;
 
-            _logger.LogInformation("ContentScript PortSession established: portSessionId={PortSessionId}, tabKey={TabKey}",
+            _logger.LogInformation(nameof(HandleHelloAsync) + ": ContentScript PortSession established: portSessionId={PortSessionId}, tabKey={TabKey}",
                 portSession.PortSessionId, tabKey);
 
             // Send READY with portSessionId and tab info
@@ -280,7 +280,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             // from reading the same value
             var originTabId = TakeAndClearPendingPopupTabId();
 
-            _logger.LogInformation("App PortSession established: portSessionId={PortSessionId}, originTabId={OriginTabId}",
+            _logger.LogInformation(nameof(HandleHelloAsync) + ": App PortSession established: portSessionId={PortSessionId}, originTabId={OriginTabId}",
                 portSession.PortSessionId, originTabId);
 
             var ready = new ReadyMessage {
@@ -294,14 +294,14 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     private async Task HandleAttachTabAsync(string portId, string messageJson) {
         var attach = JsonSerializer.Deserialize<AttachTabMessage>(messageJson, JsonOptions.PortMessaging);
         if (attach is null) {
-            _logger.LogWarning("Failed to deserialize ATTACH_TAB message from portId={PortId}", portId);
+            _logger.LogWarning(nameof(HandleAttachTabAsync) + ": Failed to deserialize ATTACH_TAB message from portId={PortId}", portId);
             return;
         }
 
         var tabKey = $"{attach.TabId}:{attach.FrameId ?? 0}";
 
         if (!_portSessionsByTabKey.TryGetValue(tabKey, out var portSession)) {
-            _logger.LogWarning("ATTACH_TAB failed: no PortSession for tabKey={TabKey}, portId={PortId}", tabKey, portId);
+            _logger.LogWarning(nameof(HandleAttachTabAsync) + ": ATTACH_TAB failed: no PortSession for tabKey={TabKey}, portId={PortId}", tabKey, portId);
 
             // Send error response
             var error = new ErrorMessage {
@@ -315,7 +315,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         // Detach from any previous PortSession
         if (_portIdToPortSession.TryGetValue(portId, out var previousSession)) {
             previousSession.AttachedAppPortIds.Remove(portId);
-            _logger.LogDebug("Detached portId={PortId} from previous portSessionId={PortSessionId}",
+            _logger.LogDebug(nameof(HandleAttachTabAsync) + ": Detached portId={PortId} from previous portSessionId={PortSessionId}",
                 portId, previousSession.PortSessionId);
         }
 
@@ -325,29 +325,29 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         }
         _portIdToPortSession[portId] = portSession;
 
-        _logger.LogInformation("App attached to tab {TabId}: portId={PortId}, portSessionId={PortSessionId}",
+        _logger.LogInformation(nameof(HandleAttachTabAsync) + ": App attached to tab {TabId}: portId={PortId}, portSessionId={PortSessionId}",
             attach.TabId, portId, portSession.PortSessionId);
     }
 
     private void HandleDetachTab(string portId) {
         if (!_portIdToPortSession.TryGetValue(portId, out var portSession)) {
-            _logger.LogDebug("DETACH_TAB: portId={PortId} not attached to any PortSession", portId);
+            _logger.LogDebug(nameof(HandleDetachTab) + ": DETACH_TAB: portId={PortId} not attached to any PortSession", portId);
             return;
         }
 
         portSession.AttachedAppPortIds.Remove(portId);
-        _logger.LogInformation("App detached from portSessionId={PortSessionId}, portId={PortId}",
+        _logger.LogInformation(nameof(HandleDetachTab) + ": App detached from portSessionId={PortSessionId}, portId={PortId}",
             portSession.PortSessionId, portId);
     }
 
     private async Task HandleRpcRequestAsync(string portId, string messageJson) {
         var rpcRequest = JsonSerializer.Deserialize<RpcRequest>(messageJson, JsonOptions.PortMessaging);
         if (rpcRequest is null) {
-            _logger.LogWarning("Failed to deserialize RPC_REQ message from portId={PortId}", portId);
+            _logger.LogWarning(nameof(HandleRpcRequestAsync) + ": Failed to deserialize RPC_REQ message from portId={PortId}", portId);
             return;
         }
 
-        _logger.LogInformation("RPC_REQ received: method={Method}, id={Id}, portId={PortId}",
+        _logger.LogInformation(nameof(HandleRpcRequestAsync) + ": RPC_REQ received: method={Method}, id={Id}, portId={PortId}",
             rpcRequest.Method, rpcRequest.Id, portId);
 
         // Get the PortSession for context
@@ -360,7 +360,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         var handler = isFromContentScript ? _contentScriptRpcHandler : _appRpcHandler;
 
         if (handler is null) {
-            _logger.LogWarning("No RPC handler registered for {Source}, portId={PortId}",
+            _logger.LogWarning(nameof(HandleRpcRequestAsync) + ": No RPC handler registered for {Source}, portId={PortId}",
                 isFromContentScript ? "ContentScript" : "App", portId);
             var errorResponse = new RpcResponse {
                 Discriminator = isFromContentScript ? CsBwPortMessageTypes.RpcResponse : PortMessageTypes.RpcResponse,
@@ -378,7 +378,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             await handler(portId, portSession, rpcRequest);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error in RPC handler for method={Method}, portId={PortId}",
+            _logger.LogError(ex, nameof(HandleRpcRequestAsync) + ": Error in RPC handler for method={Method}, portId={PortId}",
                 rpcRequest.Method, portId);
 
             // Send error response if handler threw
@@ -396,11 +396,11 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     private async Task HandleEventAsync(string portId, string messageJson) {
         var eventMsg = JsonSerializer.Deserialize<EventMessage>(messageJson, JsonOptions.PortMessaging);
         if (eventMsg is null) {
-            _logger.LogWarning("Failed to deserialize EVENT message from portId={PortId}", portId);
+            _logger.LogWarning(nameof(HandleEventAsync) + ": Failed to deserialize EVENT message from portId={PortId}", portId);
             return;
         }
 
-        _logger.LogDebug("EVENT received: name={Name}, portId={PortId}", eventMsg.Name, portId);
+        _logger.LogDebug(nameof(HandleEventAsync) + ": EVENT received: name={Name}, portId={PortId}", eventMsg.Name, portId);
 
         // Get port session for the event
         _portIdToPortSession.TryGetValue(portId, out var portSession);
@@ -411,16 +411,16 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 await _eventHandler(portId, portSession, eventMsg);
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Error handling event: name={Name}", eventMsg.Name);
+                _logger.LogError(ex, nameof(HandleEventAsync) + ": Error handling event: name={Name}", eventMsg.Name);
             }
         }
         else {
-            _logger.LogWarning("No event handler registered for event: name={Name}", eventMsg.Name);
+            _logger.LogWarning(nameof(HandleEventAsync) + ": No event handler registered for event: name={Name}", eventMsg.Name);
         }
     }
 
     private async Task HandleDisconnectAsync(string portId) {
-        _logger.LogInformation("Port disconnected: portId={PortId}", portId);
+        _logger.LogInformation(nameof(HandleDisconnectAsync) + ": Port disconnected: portId={PortId}", portId);
 
         // Remove from ports registry
         _portsById.TryRemove(portId, out _);
@@ -433,7 +433,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             // A reconnecting CS sets a new portId before yielding, so this check will be false.
             if (portSession.ContentScriptPortId == portId) {
                 portSession.ContentScriptPortId = null;
-                _logger.LogInformation("ContentScript disconnected from portSessionId={PortSessionId}",
+                _logger.LogInformation(nameof(HandleDisconnectAsync) + ": ContentScript disconnected from portSessionId={PortSessionId}",
                     portSession.PortSessionId);
 
                 // If no App attached, destroy the PortSession
@@ -446,13 +446,13 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 await CleanupOrphanedRequestsAsync(portSession);
 
                 portSession.AttachedAppPortIds.Remove(portId);
-                _logger.LogInformation("App disconnected from portSessionId={PortSessionId}",
+                _logger.LogInformation(nameof(HandleDisconnectAsync) + ": App disconnected from portSessionId={PortSessionId}",
                     portSession.PortSessionId);
 
                 // Clean up orphaned App PortSession if no CS and no attached apps remain
                 if (!portSession.HasContentScript && !portSession.HasAttachedApps) {
                     _portSessionsById.TryRemove(portSession.PortSessionId, out _);
-                    _logger.LogInformation("Cleaned up orphaned App PortSession: portSessionId={PortSessionId}",
+                    _logger.LogInformation(nameof(HandleDisconnectAsync) + ": Cleaned up orphaned App PortSession: portSessionId={PortSessionId}",
                         portSession.PortSessionId);
                 }
             }
@@ -471,7 +471,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     }
 
     private void CleanupPortSession(PortSession portSession) {
-        _logger.LogInformation("Cleaning up PortSession: portSessionId={PortSessionId}", portSession.PortSessionId);
+        _logger.LogInformation(nameof(CleanupPortSession) + ": Cleaning up PortSession: portSessionId={PortSessionId}", portSession.PortSessionId);
 
         _portSessionsById.TryRemove(portSession.PortSessionId, out _);
 
@@ -496,7 +496,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 port.Disconnect();
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, "Error disconnecting port: portId={PortId}", portId);
+                _logger.LogWarning(ex, nameof(DisconnectPort) + ": Error disconnecting port: portId={PortId}", portId);
             }
         }
         _portIdToPortSession.TryRemove(portId, out _);
@@ -512,25 +512,25 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     /// </remarks>
     internal async Task CleanupOrphanedRequestsAsync(PortSession portSession) {
         _logger.LogDebug(
-            "CleanupOrphanedRequestsAsync: Checking for orphaned requests, portSessionId={PortSessionId}, tabId={TabId}",
+            nameof(CleanupOrphanedRequestsAsync) + ": Checking for orphaned requests, portSessionId={PortSessionId}, tabId={TabId}",
             portSession.PortSessionId, portSession.TabId);
 
         try {
             var pendingResult = await _pendingRequestService.GetRequestsAsync();
             if (pendingResult.IsFailed) {
-                _logger.LogWarning("CleanupOrphanedRequestsAsync: Failed to get pending requests: {Errors}",
+                _logger.LogWarning(nameof(CleanupOrphanedRequestsAsync) + ": Failed to get pending requests: {Errors}",
                     string.Join(", ", pendingResult.Errors));
                 return;
             }
 
             if (pendingResult.Value.IsEmpty) {
-                _logger.LogDebug("CleanupOrphanedRequestsAsync: No pending requests found");
+                _logger.LogDebug(nameof(CleanupOrphanedRequestsAsync) + ": No pending requests found");
                 return;
             }
 
             var pendingRequests = pendingResult.Value.Requests;
             _logger.LogDebug(
-                "CleanupOrphanedRequestsAsync: Found {Count} pending request(s) to check",
+                nameof(CleanupOrphanedRequestsAsync) + ": Found {Count} pending request(s) to check",
                 pendingRequests.Count);
 
             // Find requests for this port session that need cleanup
@@ -559,7 +559,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 }
 
                 _logger.LogDebug(
-                    "CleanupOrphanedRequestsAsync: Checking request requestId={RequestId}, " +
+                    nameof(CleanupOrphanedRequestsAsync) + ": Checking request requestId={RequestId}, " +
                     "request.TabId={ReqTabId}, portSession.TabId={TabId}, isOrphaned={IsOrphaned}",
                     request.RequestId, request.TabId, portSession.TabId, isOrphaned);
 
@@ -568,7 +568,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 }
 
                 _logger.LogInformation(
-                    "CleanupOrphanedRequestsAsync: Found orphaned request requestId={RequestId}, type={Type}, sending cancel to ContentScript",
+                    nameof(CleanupOrphanedRequestsAsync) + ": Found orphaned request requestId={RequestId}, type={Type}, sending cancel to ContentScript",
                     request.RequestId, request.Type);
 
                 // Send cancel RPC response to ContentScript if we have the port info
@@ -586,7 +586,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                     catch (Exception ex) {
                         // Port may already be disconnected, log and continue
                         _logger.LogWarning(ex,
-                            "CleanupOrphanedRequestsAsync: Failed to send cancel response for requestId={RequestId}",
+                            nameof(CleanupOrphanedRequestsAsync) + ": Failed to send cancel response for requestId={RequestId}",
                             request.RequestId);
                     }
                 }
@@ -595,39 +595,39 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 var removeResult = await _pendingRequestService.RemoveRequestAsync(request.RequestId);
                 if (removeResult.IsFailed) {
                     _logger.LogWarning(
-                        "CleanupOrphanedRequestsAsync: Failed to remove request requestId={RequestId}: {Errors}",
+                        nameof(CleanupOrphanedRequestsAsync) + ": Failed to remove request requestId={RequestId}: {Errors}",
                         request.RequestId, string.Join(", ", removeResult.Errors));
                 }
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "CleanupOrphanedRequestsAsync: Unexpected error cleaning up orphaned requests");
+            _logger.LogError(ex, nameof(CleanupOrphanedRequestsAsync) + ": Unexpected error cleaning up orphaned requests");
         }
     }
 
     /// <inheritdoc/>
     public async Task CleanupAllPendingRequestsAsync(string errorMessage) {
-        _logger.LogInformation("CleanupAllPendingRequestsAsync: Cleaning up all pending requests with error: {Error}", errorMessage);
+        _logger.LogInformation(nameof(CleanupAllPendingRequestsAsync) + ": Cleaning up all pending requests with error: {Error}", errorMessage);
 
         try {
             var pendingResult = await _pendingRequestService.GetRequestsAsync();
             if (pendingResult.IsFailed) {
-                _logger.LogWarning("CleanupAllPendingRequestsAsync: Failed to get pending requests: {Errors}",
+                _logger.LogWarning(nameof(CleanupAllPendingRequestsAsync) + ": Failed to get pending requests: {Errors}",
                     string.Join(", ", pendingResult.Errors));
                 return;
             }
 
             if (pendingResult.Value.IsEmpty) {
-                _logger.LogDebug("CleanupAllPendingRequestsAsync: No pending requests to clean up");
+                _logger.LogDebug(nameof(CleanupAllPendingRequestsAsync) + ": No pending requests to clean up");
                 return;
             }
 
             var pendingRequests = pendingResult.Value.Requests;
-            _logger.LogInformation("CleanupAllPendingRequestsAsync: Found {Count} pending request(s) to clean up", pendingRequests.Count);
+            _logger.LogInformation(nameof(CleanupAllPendingRequestsAsync) + ": Found {Count} pending request(s) to clean up", pendingRequests.Count);
 
             foreach (var request in pendingRequests) {
                 _logger.LogInformation(
-                    "CleanupAllPendingRequestsAsync: Cleaning up request requestId={RequestId}, type={Type}",
+                    nameof(CleanupAllPendingRequestsAsync) + ": Cleaning up request requestId={RequestId}, type={Type}",
                     request.RequestId, request.Type);
 
                 // Send cancel RPC response to ContentScript if we have the port info
@@ -644,7 +644,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                     }
                     catch (Exception ex) {
                         _logger.LogWarning(ex,
-                            "CleanupAllPendingRequestsAsync: Failed to send cancel response for requestId={RequestId}",
+                            nameof(CleanupAllPendingRequestsAsync) + ": Failed to send cancel response for requestId={RequestId}",
                             request.RequestId);
                     }
                 }
@@ -653,24 +653,24 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 var removeResult = await _pendingRequestService.RemoveRequestAsync(request.RequestId);
                 if (removeResult.IsFailed) {
                     _logger.LogWarning(
-                        "CleanupAllPendingRequestsAsync: Failed to remove request requestId={RequestId}: {Errors}",
+                        nameof(CleanupAllPendingRequestsAsync) + ": Failed to remove request requestId={RequestId}: {Errors}",
                         request.RequestId, string.Join(", ", removeResult.Errors));
                 }
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "CleanupAllPendingRequestsAsync: Unexpected error");
+            _logger.LogError(ex, nameof(CleanupAllPendingRequestsAsync) + ": Unexpected error");
         }
     }
 
     public Task HandleTabRemovedAsync(int tabId) {
-        _logger.LogInformation("Tab removed (queued): tabId={TabId}", tabId);
+        _logger.LogInformation(nameof(HandleTabRemovedAsync) + ": Tab removed (queued): tabId={TabId}", tabId);
         _stateOpChannel.Writer.TryWrite(new TabRemovedOp(tabId));
         return Task.CompletedTask;
     }
 
     private async Task HandleTabRemovedInternalAsync(int tabId) {
-        _logger.LogDebug("Processing tab removed: tabId={TabId}", tabId);
+        _logger.LogDebug(nameof(HandleTabRemovedInternalAsync) + ": Processing tab removed: tabId={TabId}", tabId);
 
         // Find all PortSessions for this tab (across all frames)
         var sessionsToRemove = _portSessionsByTabKey
@@ -697,7 +697,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
         // Instead, we rely on ContentScript's port disconnect handler to reconnect.
         // This method is now a no-op but kept for documentation and future use.
 
-        _logger.LogDebug("NotifyContentScriptsOfRestartAsync: Port-based messaging handles reconnection automatically");
+        _logger.LogDebug(nameof(NotifyContentScriptsOfRestartAsync) + ": Port-based messaging handles reconnection automatically");
         await Task.CompletedTask;
     }
 
@@ -716,7 +716,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
 
     public Task SendToPortAsync<T>(string portId, T message) where T : PortMessage {
         if (!_portsById.TryGetValue(portId, out var port)) {
-            _logger.LogWarning("SendToPortAsync: port not found for portId={PortId}", portId);
+            _logger.LogWarning(nameof(SendToPortAsync) + ": port not found for portId={PortId}", portId);
             return Task.CompletedTask;
         }
 
@@ -728,10 +728,10 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             var jsonElement = JsonSerializer.Deserialize<JsonElement>(serialized);
 
             port.PostMessage(jsonElement);
-            _logger.LogDebug("Message sent to portId={PortId}, type={Type}", portId, message.T);
+            _logger.LogDebug(nameof(SendToPortAsync) + ": Message sent to portId={PortId}, type={Type}", portId, message.T);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error sending message to portId={PortId}", portId);
+            _logger.LogError(ex, nameof(SendToPortAsync) + ": Error sending message to portId={PortId}", portId);
         }
         return Task.CompletedTask;
     }
@@ -739,12 +739,12 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     public async Task SendToContentScriptAsync<T>(string portSessionId, T message) where T : PortMessage {
         var portSession = GetPortSession(portSessionId);
         if (portSession is null) {
-            _logger.LogWarning("SendToContentScriptAsync: PortSession not found for portSessionId={PortSessionId}", portSessionId);
+            _logger.LogWarning(nameof(SendToContentScriptAsync) + ": PortSession not found for portSessionId={PortSessionId}", portSessionId);
             return;
         }
 
         if (string.IsNullOrEmpty(portSession.ContentScriptPortId)) {
-            _logger.LogWarning("SendToContentScriptAsync: No ContentScript port for portSessionId={PortSessionId}", portSessionId);
+            _logger.LogWarning(nameof(SendToContentScriptAsync) + ": No ContentScript port for portSessionId={PortSessionId}", portSessionId);
             return;
         }
 
@@ -754,7 +754,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     public async Task SendToAppsAsync<T>(string portSessionId, T message) where T : PortMessage {
         var portSession = GetPortSession(portSessionId);
         if (portSession is null) {
-            _logger.LogWarning("SendToAppsAsync: PortSession not found for portSessionId={PortSessionId}", portSessionId);
+            _logger.LogWarning(nameof(SendToAppsAsync) + ": PortSession not found for portSessionId={PortSessionId}", portSessionId);
             return;
         }
 
@@ -765,7 +765,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
 
     public void SetPendingPopupTabId(int tabId) {
         _pendingPopupTabId = tabId;
-        _logger.LogDebug("Set pending popup tabId={TabId}", tabId);
+        _logger.LogDebug(nameof(SetPendingPopupTabId) + ": Set pending popup tabId={TabId}", tabId);
     }
 
     /// <summary>
@@ -781,17 +781,17 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
 
     public void RegisterContentScriptRpcHandler(RpcRequestHandler handler) {
         _contentScriptRpcHandler = handler;
-        _logger.LogInformation("ContentScript RPC handler registered");
+        _logger.LogInformation(nameof(RegisterContentScriptRpcHandler) + ": ContentScript RPC handler registered");
     }
 
     public void RegisterAppRpcHandler(RpcRequestHandler handler) {
         _appRpcHandler = handler;
-        _logger.LogInformation("App RPC handler registered");
+        _logger.LogInformation(nameof(RegisterAppRpcHandler) + ": App RPC handler registered");
     }
 
     public void RegisterEventHandler(PortEventMessageHandler handler) {
         _eventHandler = handler;
-        _logger.LogInformation("Event handler registered");
+        _logger.LogInformation(nameof(RegisterEventHandler) + ": Event handler registered");
     }
 
     public async Task SendRpcResponseAsync(string portId, string portSessionId, string requestId, object? result = null, string? errorMessage = null) {
@@ -807,7 +807,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             Error = errorMessage
         };
 
-        _logger.LogInformation("Sending RPC response: id={RequestId}, ok={Ok}, error={Error}",
+        _logger.LogInformation(nameof(SendRpcResponseAsync) + ": Sending RPC response: id={RequestId}, ok={Ok}, error={Error}",
             requestId, response.Ok, errorMessage ?? "null");
 
         await SendToPortAsync(portId, response);
@@ -816,12 +816,12 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     public async Task SendEventToContentScriptAsync(string portSessionId, string eventName, object? data = null) {
         var portSession = GetPortSession(portSessionId);
         if (portSession is null) {
-            _logger.LogWarning("SendEventToContentScriptAsync: PortSession not found for portSessionId={PortSessionId}", portSessionId);
+            _logger.LogWarning(nameof(SendEventToContentScriptAsync) + ": PortSession not found for portSessionId={PortSessionId}", portSessionId);
             return;
         }
 
         if (string.IsNullOrEmpty(portSession.ContentScriptPortId)) {
-            _logger.LogWarning("SendEventToContentScriptAsync: No ContentScript port for portSessionId={PortSessionId}", portSessionId);
+            _logger.LogWarning(nameof(SendEventToContentScriptAsync) + ": No ContentScript port for portSessionId={PortSessionId}", portSessionId);
             return;
         }
 
@@ -837,7 +837,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     public async Task SendEventToAppsAsync(string portSessionId, string eventName, object? data = null) {
         var portSession = GetPortSession(portSessionId);
         if (portSession is null) {
-            _logger.LogWarning("SendEventToAppsAsync: PortSession not found for portSessionId={PortSessionId}", portSessionId);
+            _logger.LogWarning(nameof(SendEventToAppsAsync) + ": PortSession not found for portSessionId={PortSessionId}", portSessionId);
             return;
         }
 
@@ -866,7 +866,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
     }
 
     public async Task BroadcastEventToAllAppsAsync(string eventName, object? data = null) {
-        _logger.LogInformation("Broadcasting event to all apps: name={EventName}", eventName);
+        _logger.LogInformation(nameof(BroadcastEventToAllAppsAsync) + ": Broadcasting event to all apps: name={EventName}", eventName);
 
         // Collect all unique app port IDs across all port sessions
         // Snapshot .Values to avoid issues if a state-mutating operation modifies
@@ -886,7 +886,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             }
         }
 
-        _logger.LogDebug("Broadcasting to {Count} app ports", appPortIds.Count);
+        _logger.LogDebug(nameof(BroadcastEventToAllAppsAsync) + ": Broadcasting to {Count} app ports", appPortIds.Count);
 
         foreach (var appPortId in appPortIds) {
             try {
@@ -903,7 +903,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 await SendToPortAsync(appPortId, eventMessage);
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, "Failed to send event to app port: portId={PortId}", appPortId);
+                _logger.LogWarning(ex, nameof(BroadcastEventToAllAppsAsync) + ": Failed to send event to app port: portId={PortId}", appPortId);
             }
         }
     }
@@ -915,7 +915,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
             var portIds = _portsById.Keys.ToArray();
 
             if (portIds.Length == 0) {
-                _logger.LogDebug("Heartbeat: No active ports, stopping timer");
+                _logger.LogDebug(nameof(BroadcastHeartbeat) + ": No active ports, stopping timer");
                 StopHeartbeat();
                 return;
             }
@@ -930,28 +930,28 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                         port.PostMessage(jsonElement);
                     }
                     catch (Exception ex) {
-                        _logger.LogWarning(ex, "Heartbeat: Failed to send to portId={PortId}", portId);
+                        _logger.LogWarning(ex, nameof(BroadcastHeartbeat) + ": Failed to send to portId={PortId}", portId);
                     }
                 }
             }
 
-            _logger.LogDebug("Heartbeat broadcast to {Count} ports", portIds.Length);
+            _logger.LogDebug(nameof(BroadcastHeartbeat) + ": Heartbeat broadcast to {Count} ports", portIds.Length);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Heartbeat broadcast failed");
+            _logger.LogError(ex, nameof(BroadcastHeartbeat) + ": Heartbeat broadcast failed");
         }
     }
 
     private void StartHeartbeat() {
         if (_heartbeatTimer is not null) return;
         _heartbeatTimer = new Timer(BroadcastHeartbeat, null, HeartbeatInterval, HeartbeatInterval);
-        _logger.LogInformation("Heartbeat timer started (interval={Interval}s)", HeartbeatInterval.TotalSeconds);
+        _logger.LogInformation(nameof(StartHeartbeat) + ": Heartbeat timer started (interval={Interval}s)", HeartbeatInterval.TotalSeconds);
     }
 
     private void StopHeartbeat() {
         _heartbeatTimer?.Dispose();
         _heartbeatTimer = null;
-        _logger.LogInformation("Heartbeat timer stopped");
+        _logger.LogInformation(nameof(StopHeartbeat) + ": Heartbeat timer stopped");
     }
 
     #endregion

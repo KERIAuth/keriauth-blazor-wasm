@@ -8,13 +8,25 @@
 // See commits 90aa450 and 6f33fba for details
 import './scripts/es6/libsodium-polyfill.js';
 
+// Determine logging context tag for this runtime
+const _logTag: string = (() => {
+    if (typeof (globalThis as any).ServiceWorkerGlobalScope !== 'undefined') return '[BW]';
+    const ctx = (globalThis as any).__EXT_CONTEXT__?.type;
+    switch (ctx) {
+        case 'POPUP': return '[AppPopup]';
+        case 'TAB': return '[AppTab]';
+        case 'SIDEPANEL': return '[AppSidePanel]';
+        default: return '[App]';
+    }
+})();
+
 // Polyfills for libsodium WASM initialization
 //
 // 1. Polyfill global object (service workers only have 'self', not 'global' or 'window')
 // This must be set BEFORE any module imports libsodium
 if (typeof self !== 'undefined' && typeof (globalThis as any).global === 'undefined') {
     (globalThis as any).global = self;
-    console.log('app.ts: Polyfilled global object for libsodium');
+    console.log(`app.ts: ${_logTag} Polyfilled global object for libsodium`);
 }
 
 // Note: crypto.randomBytes, window.crypto fix, and Module.getRandomValue
@@ -81,7 +93,7 @@ export async function beforeStart(
     blazorBrowserExtension: BrowserExtensionInstance
 ): Promise<void> {
     const startTime = Date.now();
-    console.log('app.ts: beforeStart - ENTRY', {
+    console.log(`app.ts: ${_logTag} beforeStart - ENTRY`, {
         mode: blazorBrowserExtension.BrowserExtension.Mode,
         timestamp: startTime,
         extensionId: chrome.runtime.id
@@ -92,7 +104,7 @@ export async function beforeStart(
     // JavaScript ES modules are statically imported at the top of this file
     // This works in both ServiceWorker (Background) and standard (App) contexts
     // The modules are now available to C# code via IJSRuntime.InvokeAsync("import", path)
-    console.log('app.ts: Modules loaded via static imports:', Object.keys((globalThis as any).appModules));
+    console.log(`app.ts: ${_logTag} Modules loaded via static imports:`, Object.keys((globalThis as any).appModules));
 
     // NOTE: signifyClient is NOT preloaded here because:
     // 1. libsodium WASM initializes during ES module evaluation (not in a function)
@@ -102,11 +114,11 @@ export async function beforeStart(
     // SOLUTION: signifyClient will be lazy-loaded by C# services via IJSRuntime.InvokeAsync("import", ...)
     // when first needed. By that time, Blazor and all crypto APIs are guaranteed to be fully available.
     // The polyfill in signifyClient.js banner will run first and libsodium will initialize successfully.
-    console.log('app.ts: signifyClient will be lazy-loaded by C# when needed');
+    console.log(`app.ts: ${_logTag} signifyClient will be lazy-loaded by C# when needed`);
 
     switch (mode) {
         case 'Background':
-            console.log('app.ts: Setting up Background mode event handlers');
+            console.log(`app.ts: ${_logTag} Setting up Background mode event handlers`);
 
             /**
              * Note that JS imports for backgroundWorker requires static module loading via import statements at the top of the js files or declaration in the .csproj file. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker
@@ -144,7 +156,7 @@ export async function beforeStart(
                     const u = new URL(urlString);
                     return u.host; // Returns hostname:port or just hostname if port is default
                 } catch (e) {
-                    console.error(`app.ts: Invalid match pattern: ${matchPattern}`);
+                    console.error(`app.ts: ${_logTag} Invalid match pattern: ${matchPattern}`);
                     return '';
                 }
             };
@@ -165,16 +177,16 @@ export async function beforeStart(
             const unregisterForPattern = async (matchPattern: string): Promise<void> => {
                 const hostWithPort = hostWithPortFromPattern(matchPattern);
                 if (!hostWithPort) {
-                    console.error(`app.ts: Cannot unregister - invalid pattern: ${matchPattern}`);
+                    console.error(`app.ts: ${_logTag} Cannot unregister - invalid pattern: ${matchPattern}`);
                     return;
                 }
                 const scriptId = scriptIdFromHostWithPort(hostWithPort);
                 try {
                     await chrome.scripting.unregisterContentScripts({ ids: [scriptId] });
-                    console.log(`app.ts: Unregistered content script: ${scriptId}`);
+                    console.log(`app.ts: ${_logTag} Unregistered content script: ${scriptId}`);
                 } catch (e) {
                     // Script may not exist, ignore error
-                    console.log(`app.ts: Script ${scriptId} not found for unregistration (may not exist)`);
+                    console.log(`app.ts: ${_logTag} Script ${scriptId} not found for unregistration (may not exist)`);
                 }
             };
 
@@ -196,15 +208,15 @@ export async function beforeStart(
                     const userAccepted = reloadResponse?.[0]?.result === true;
 
                     if (userAccepted) {
-                        console.log(`app.ts: User accepted reload prompt (${context}) - reloading tab ${tabId}`);
+                        console.log(`app.ts: ${_logTag} User accepted reload prompt (${context}) - reloading tab ${tabId}`);
                         await chrome.tabs.reload(tabId);
                         return true;
                     } else {
-                        console.log(`app.ts: User declined reload prompt (${context}) for tab ${tabId}`);
+                        console.log(`app.ts: ${_logTag} User declined reload prompt (${context}) for tab ${tabId}`);
                         return false;
                     }
                 } catch (error) {
-                    console.error(`app.ts: ERROR in promptAndReloadTab (${context}) for tab ${tabId}:`, error);
+                    console.error(`app.ts: ${_logTag} ERROR in promptAndReloadTab (${context}) for tab ${tabId}:`, error);
                     throw error;
                 }
             };
@@ -233,9 +245,9 @@ export async function beforeStart(
                     } else {
                         // await chrome.action.setBadgeText({ text: 'off', tabId });
                     }
-                    console.log(`app.ts: Set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}`);
+                    console.log(`app.ts: ${_logTag} Set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}`);
                 } catch (error) {
-                    console.warn(`app.ts: Failed to set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}:`, error);
+                    console.warn(`app.ts: ${_logTag} Failed to set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}:`, error);
                 }
             };
 
@@ -295,7 +307,7 @@ export async function beforeStart(
                     // console.log("app.ts: openPopupIfNotOpen - found contexts:", contexts.length, contexts.map(c => c.contextType));
 
                     if (contexts.length > 0) {
-                        console.log("app.ts: Popup or sidepanel already open, skipping openPopup");
+                        console.log(`app.ts: ${_logTag} Popup or sidepanel already open, skipping openPopup`);
                         return;
                     }
 
@@ -307,10 +319,10 @@ export async function beforeStart(
                     // console.log("app.ts: openPopupIfNotOpen - calling openPopup()");
                     try {
                         await chrome.action.openPopup();
-                        console.log("app.ts: Popup opened successfully");
+                        console.log(`app.ts: ${_logTag} Popup opened successfully`);
                     } catch (error) {
                         // openPopup() sometimes throws even on success
-                        console.debug("app.ts: openPopup() threw (may still have succeeded):", error);
+                        console.debug(`app.ts: ${_logTag} openPopup() threw (may still have succeeded):`, error);
                     }
 
                     // Clear the popup setting so future clicks trigger onClicked event
@@ -319,7 +331,7 @@ export async function beforeStart(
                     // console.log("app.ts: openPopupIfNotOpen - completed");
 
                 } catch (error) {
-                    console.error("app.ts: Error in openPopupIfNotOpen:", error);
+                    console.error(`app.ts: ${_logTag} Error in openPopupIfNotOpen:`, error);
                 }
             };
 
@@ -428,20 +440,20 @@ export async function beforeStart(
             // ==================================================================================
 
             chrome.action.onClicked.addListener(async (tab: chrome.tabs.Tab) => {
-                console.log("app.ts: ACTION CLICKED - tab:", tab?.id, "url:", tab?.url?.substring(0, 80));
+                console.log(`app.ts: ${_logTag} ACTION CLICKED - tab:`, tab?.id, "url:", tab?.url?.substring(0, 80));
                 try {
                     if (!tab?.id || !tab.url) {
-                        console.warn("app.ts: ACTION CLICKED - missing tab.id or tab.url, returning early");
+                        console.warn(`app.ts: ${_logTag} ACTION CLICKED - missing tab.id or tab.url, returning early`);
                         return;
                     }
 
                     // 1) Compute per-origin match patterns from the clicked tab
                     const MATCHES = matchPatternsFromTabUrl(tab.url);
-                    console.log("app.ts: ACTION CLICKED - computed MATCHES:", MATCHES);
+                    console.log(`app.ts: ${_logTag} ACTION CLICKED - computed MATCHES:`, MATCHES);
                     if (MATCHES.length === 0) {
                         // Tab URL doesn't support content scripts (chrome-extension:, about:blank, etc.)
                         // Still open the popup so user can interact with the extension
-                        console.log("app.ts: Unsupported or restricted URL scheme; opening popup without content script setup.", tab.url);
+                        console.log(`app.ts: ${_logTag} Unsupported or restricted URL scheme; opening popup without content script setup.`, tab.url);
                         await openPopupIfNotOpen();
                         return;
                     }
@@ -455,15 +467,15 @@ export async function beforeStart(
                     // console.log("app.ts: ACTION CLICKED - requesting permissions:", wanted);
                     try {
                         const granted = await chrome.permissions.request(wanted);
-                        console.log("app.ts: Permission request completed, granted:", granted);
+                        console.log(`app.ts: ${_logTag} Permission request completed, granted:`, granted);
                         if (!granted) {
                             // Scenario #6: User declined permission
-                            console.log("app.ts: User declined persistent host permission; stopping.");
+                            console.log(`app.ts: ${_logTag} User declined persistent host permission; stopping.`);
                             return;
                         }
-                        console.log("app.ts: Permission granted (or was already granted)");
+                        console.log(`app.ts: ${_logTag} Permission granted (or was already granted)`);
                     } catch (error) {
-                        console.error("app.ts: ERROR in chrome.permissions.request():", error);
+                        console.error(`app.ts: ${_logTag} ERROR in chrome.permissions.request():`, error);
                         throw error;
                     }
 
@@ -477,7 +489,7 @@ export async function beforeStart(
                         already = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
                         // console.log("app.ts: Script registration check completed, found:", already.length, already);
                     } catch (error) {
-                        console.error("app.ts: ERROR in chrome.scripting.getRegisteredContentScripts():", error);
+                        console.error(`app.ts: ${_logTag} ERROR in chrome.scripting.getRegisteredContentScripts():`, error);
                         throw error;
                     }
                     if (already.length > 0) {
@@ -497,7 +509,7 @@ export async function beforeStart(
                                 // Open popup for user interaction (if not already open)
                                 // console.log("app.ts: ACTION CLICKED - calling openPopupIfNotOpen");
                                 await openPopupIfNotOpen();
-                                console.log("app.ts: ACTION CLICKED - openPopupIfNotOpen completed");
+                                console.log(`app.ts: ${_logTag} ACTION CLICKED - openPopupIfNotOpen completed`);
                                 return;
                             } else {
                                 // Ping response received but ok is not true - treat as stale
@@ -536,10 +548,10 @@ export async function beforeStart(
                             // console.log("app.ts: ACTION CLICKED - ping response (script NOT registered branch):", pingResponse);
                             if (pingResponse?.ok) {
                                 contentScriptAlreadyActive = true;
-                                console.log("app.ts: Content script already active (likely permission re-grant)");
+                                console.log(`app.ts: ${_logTag} Content script already active (likely permission re-grant)`);
                             }
                         } catch (error) {
-                            console.log("app.ts: ACTION CLICKED - No active content script detected, error:", error);
+                            console.log(`app.ts: ${_logTag} ACTION CLICKED - No active content script detected, error:`, error);
                         }
 
                         // Scenario #3: Content script already in page (permission re-grant case)
@@ -559,7 +571,7 @@ export async function beforeStart(
                                 }]);
                                 // console.log("app.ts: Registered persistent content script:", scriptId);
                             } catch (error) {
-                                console.error("app.ts: ERROR in chrome.scripting.registerContentScripts() [contentScriptAlreadyActive branch]:", error);
+                                console.error(`app.ts: ${_logTag} ERROR in chrome.scripting.registerContentScripts() [contentScriptAlreadyActive branch]:`, error);
                                 throw error;
                             }
 
@@ -584,14 +596,14 @@ export async function beforeStart(
                                 injectImmediately: false,
                                 world: "ISOLATED",
                             });
-                            console.log("app.ts: One-shot injection completed successfully");
+                            console.log(`app.ts: ${_logTag} One-shot injection completed successfully`);
                         } catch (error) {
-                            console.error("app.ts: ERROR in chrome.scripting.executeScript() [one-shot injection]:", error);
+                            console.error(`app.ts: ${_logTag} ERROR in chrome.scripting.executeScript() [one-shot injection]:`, error);
                             throw error;
                         }
 
                         if (!oneShotResult?.[0]?.documentId) {
-                            console.error("app.ts: One-shot injection failed.", oneShotResult);
+                            console.error(`app.ts: ${_logTag} One-shot injection failed.`, oneShotResult);
                             return;
                         }
 
@@ -609,15 +621,15 @@ export async function beforeStart(
                                 world: "ISOLATED",
                                 persistAcrossSessions: true, // default is true
                             }]);
-                            console.log("app.ts: Registered persistent content script:", scriptId, "for", MATCHES);
+                            console.log(`app.ts: ${_logTag} Registered persistent content script:`, scriptId, "for", MATCHES);
                         } catch (error: any) {
                             // Handle race condition: onAdded listener may have already registered the script
                             // when permission was just granted via the permission prompt in Scenario #1
                             // This is expected behavior - we continue to the reload prompt regardless
                             if (error?.message?.includes('Duplicate script ID')) {
-                                console.log("app.ts: Script already registered (likely by onAdded listener) - continuing to reload prompt");
+                                console.log(`app.ts: ${_logTag} Script already registered (likely by onAdded listener) - continuing to reload prompt`);
                             } else {
-                                console.error("app.ts: ERROR in chrome.scripting.registerContentScripts() [main flow]:", error);
+                                console.error(`app.ts: ${_logTag} ERROR in chrome.scripting.registerContentScripts() [main flow]:`, error);
                                 throw error;
                             }
                         }
@@ -634,7 +646,7 @@ export async function beforeStart(
                     }
                     // console.log("app.ts: ACTION CLICKED - handler completed normally for tab", tab.id);
                 } catch (error: any) {
-                    console.error('app.ts: ACTION CLICKED - Error in action.onClicked handler:', error);
+                    console.error(`app.ts: ${_logTag} ACTION CLICKED - Error in action.onClicked handler:`, error);
                 }
             });
 
@@ -675,18 +687,18 @@ export async function beforeStart(
             // ==================================================================================
 
             chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
-                console.log('app.ts: onAdded event - permissions added:', perm.origins);
+                console.log(`app.ts: ${_logTag} onAdded event - permissions added:`, perm.origins);
                 const origins = perm?.origins || [];
 
                 for (const matchPattern of origins) {
                     try {
                         // matchPattern looks like "https://example.com/*" or "http://localhost:8080/*"
-                        console.log(`app.ts: Processing added permission for: ${matchPattern}`);
+                        console.log(`app.ts: ${_logTag} Processing added permission for: ${matchPattern}`);
 
                         // Extract host-with-port for script ID (includes port for granular tracking)
                         const hostWithPort = hostWithPortFromPattern(matchPattern);
                         if (!hostWithPort) {
-                            console.error(`app.ts: Invalid match pattern: ${matchPattern}`);
+                            console.error(`app.ts: ${_logTag} Invalid match pattern: ${matchPattern}`);
                             continue;
                         }
 
@@ -697,7 +709,7 @@ export async function beforeStart(
                         const alreadyRegistered = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
                         if (alreadyRegistered.length > 0) {
                             // Scenario #8 or #9: Script already registered
-                            console.log(`app.ts: Persistent content script already registered for ${hostWithPort}`);
+                            console.log(`app.ts: ${_logTag} Persistent content script already registered for ${hostWithPort}`);
                             // Continue to check tabs - may need reload if CS not active
                         } else {
                             // Scenario #7: Need to register the script
@@ -710,13 +722,13 @@ export async function beforeStart(
                                 world: "ISOLATED",
                                 persistAcrossSessions: true,
                             }]);
-                            console.log(`app.ts: Registered persistent content script for ${hostWithPort}`);
+                            console.log(`app.ts: ${_logTag} Registered persistent content script for ${hostWithPort}`);
                         }
 
                         // Find all tabs matching this origin and check if they need reload
                         // Implements: Scenario #7, #8, #9 - determine if reload prompt needed per tab
                         const tabs = await chrome.tabs.query({ url: matchPattern });
-                        console.log(`app.ts: Found ${tabs.length} tabs matching ${matchPattern}`);
+                        console.log(`app.ts: ${_logTag} Found ${tabs.length} tabs matching ${matchPattern}`);
 
                         for (const tab of tabs) {
                             if (!tab.id) continue;
@@ -726,13 +738,13 @@ export async function beforeStart(
                                 const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
                                 if (pingResponse?.ok) {
                                     // Scenario #9: Content script already active - no reload needed
-                                    console.log(`app.ts: Content script already active in tab ${tab.id}`);
+                                    console.log(`app.ts: ${_logTag} Content script already active in tab ${tab.id}`);
                                     await updateIconForTab(tab.id, true);
                                     continue;
                                 }
                             } catch (error) {
                                 // Scenario #7 or #8: No content script active - prompt user to reload
-                                console.log(`app.ts: No content script in tab ${tab.id}, prompting for reload...`);
+                                console.log(`app.ts: ${_logTag} No content script in tab ${tab.id}, prompting for reload...`);
                                 await updateIconForTab(tab.id, false);
 
                                 try {
@@ -742,23 +754,23 @@ export async function beforeStart(
                                         'onAdded'
                                     );
                                 } catch (promptError) {
-                                    console.error(`app.ts: Error prompting for reload in tab ${tab.id}:`, promptError);
+                                    console.error(`app.ts: ${_logTag} Error prompting for reload in tab ${tab.id}:`, promptError);
                                 }
                             }
                         }
                     } catch (error) {
-                        console.error(`app.ts: Error processing added permission for ${matchPattern}:`, error);
+                        console.error(`app.ts: ${_logTag} Error processing added permission for ${matchPattern}:`, error);
                     }
                 }
             });
 
             chrome.permissions.onRemoved.addListener(async (perm: chrome.permissions.Permissions) => {
                 // Implements: Scenario #10 - Remove permission and clean up
-                console.log('app.ts: onRemoved event - permissions removed:', perm.origins);
+                console.log(`app.ts: ${_logTag} onRemoved event - permissions removed:`, perm.origins);
                 const origins = perm?.origins || [];
 
                 for (const matchPattern of origins) {
-                    console.log(`app.ts: Processing removed permission for: ${matchPattern}`);
+                    console.log(`app.ts: ${_logTag} Processing removed permission for: ${matchPattern}`);
 
                     // Scenario #10: Unregister the content script for this match pattern
                     await unregisterForPattern(matchPattern);
@@ -767,7 +779,7 @@ export async function beforeStart(
                     // This ensures previously injected content scripts are removed from pages
                     try {
                         const tabs = await chrome.tabs.query({ url: matchPattern });
-                        console.log(`app.ts: Found ${tabs.length} tabs matching ${matchPattern} for removal`);
+                        console.log(`app.ts: ${_logTag} Found ${tabs.length} tabs matching ${matchPattern} for removal`);
 
                         for (const tab of tabs) {
                             if (tab.id) {
@@ -782,12 +794,12 @@ export async function beforeStart(
                                     );
                                 } catch (error) {
                                     // Tab may have already been closed or navigated away
-                                    console.log(`app.ts: Could not prompt tab ${tab.id} for reload:`, error);
+                                    console.log(`app.ts: ${_logTag} Could not prompt tab ${tab.id} for reload:`, error);
                                 }
                             }
                         }
                     } catch (error) {
-                        console.error('app.ts: Error querying tabs for removed origin:', matchPattern, error);
+                        console.error(`app.ts: ${_logTag} Error querying tabs for removed origin:`, matchPattern, error);
                     }
                 }
             });
@@ -842,7 +854,7 @@ export async function beforeStart(
                 } catch (error) {
                     // Content script registered but not responding
                     // This is expected after extension reload - CS context is invalidated
-                    console.log(`app.ts: initializeTabIconState - Content script registered but not responding for tab ${tabId} (may need page reload), error:`, error);
+                    console.log(`app.ts: ${_logTag} initializeTabIconState - Content script registered but not responding for tab ${tabId} (may need page reload), error:`, error);
                     await updateIconForTab(tabId, false);
                 }
             };
@@ -868,15 +880,15 @@ export async function beforeStart(
                     await initializeTabIconState(activeTab.id, activeTab.url);
                     // console.log('app.ts: initializeActiveTabState - completed');
                 } catch (error) {
-                    console.error('app.ts: initializeActiveTabState - Error during active tab initialization:', error);
+                    console.error(`app.ts: ${_logTag} initializeActiveTabState - Error during active tab initialization:`, error);
                 }
             };
 
             // Log registered content scripts at startup for debugging
             chrome.scripting.getRegisteredContentScripts().then(scripts => {
-                console.log('app.ts: Registered content scripts at startup:', scripts.length, scripts.map(s => s.id));
+                console.log(`app.ts: ${_logTag} Registered content scripts at startup:`, scripts.length, scripts.map(s => s.id));
             }).catch(err => {
-                console.error('app.ts: Error getting registered content scripts at startup:', err);
+                console.error(`app.ts: ${_logTag} Error getting registered content scripts at startup:`, err);
             });
 
             // Run initialization asynchronously (don't block beforeStart completion)
@@ -894,14 +906,14 @@ export async function beforeStart(
             // ==================================================================================
 
             chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-                console.log('app.ts: [BW] onMessage received:', message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
+                console.log(`app.ts: ${_logTag} onMessage received:`, message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
 
                 // Handle CLIENT_SW_HELLO: App/CS is probing BW readiness.
                 // WASM is ready if this JS listener fires (it runs in the BW context).
                 if (message?.t === 'CLIENT_SW_HELLO') {
                     const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
                     const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-                    console.log(`app.ts: [BW] CLIENT_SW_HELLO from ${source}, replying ready=true`);
+                    console.log(`app.ts: ${_logTag} CLIENT_SW_HELLO from ${source}, replying ready=true`);
 
                     const reply = { t: 'SW_CLIENT_HELLO', ready: true };
                     // sendResponse delivers the reply to the sender's sendMessage() Promise
@@ -919,7 +931,7 @@ export async function beforeStart(
                 if (message?.type === 'cs-ready') {
                     const tabId = sender.tab?.id;
                     if (tabId) {
-                        console.log(`app.ts: Content script ready in tab ${tabId}`);
+                        console.log(`app.ts: ${_logTag} Content script ready in tab ${tabId}`);
                         updateIconForTab(tabId, true);
                     }
                     return false; // No async response needed
@@ -933,7 +945,7 @@ export async function beforeStart(
             // ==================================================================================
 
             chrome.runtime.onInstalled.addListener(async (details) => {
-                console.log('app.ts: onInstalled event:', details.reason);
+                console.log(`app.ts: ${_logTag} onInstalled event:`, details.reason);
 
                 // On extension install, update, or reload, initialize the active tab's icon state.
                 // We intentionally only handle the active tab to maintain minimal permissions.
@@ -961,21 +973,21 @@ export async function beforeStart(
             chrome.runtime.onMessage.addListener((message) => {
                 if (message?.t === 'SW_CLIENT_HELLO' && message?.ready === true) {
                     (window as any).__keriauth_bwReady = true;
-                    console.log('app.ts: Received SW_CLIENT_HELLO, BW is ready');
+                    console.log(`app.ts: ${_logTag} Received SW_CLIENT_HELLO, BW is ready`);
                 }
                 if (message?.t === 'SW_APP_WAKE') {
                     (window as any).__keriauth_appWake = true;
-                    console.log('app.ts: Received SW_APP_WAKE, requestId=', message?.requestId);
+                    console.log(`app.ts: ${_logTag} Received SW_APP_WAKE, requestId=`, message?.requestId);
                 }
                 return false;
             });
-            console.log(`app.ts: ${mode} mode — registered onMessage listeners`);
+            console.log(`app.ts: ${_logTag} ${mode} mode — registered onMessage listeners`);
             break;
         default:
-            console.warn(`app.ts: Unknown mode: ${mode}`);
+            console.warn(`app.ts: ${_logTag} Unknown mode: ${mode}`);
             break;
     }
-    console.log('app.ts: beforeStart completed');
+    console.log(`app.ts: ${_logTag} beforeStart completed`);
     return;
 }
 
@@ -984,7 +996,7 @@ export async function beforeStart(
  * @param blazor The Blazor instance
  */
 export function afterStarted(blazor: unknown): void {
-    console.log('app.ts: afterStarted - Blazor runtime ready');
+    console.log(`app.ts: ${_logTag} afterStarted - Blazor runtime ready`);
     // Note: _wasmReady is NOT set here. In SW context, it's set by C# via
     // __keriauth_setBwReady after Program.cs completes DI setup and module loading.
     // This ensures clients don't attempt port connections before BwPortService is ready.

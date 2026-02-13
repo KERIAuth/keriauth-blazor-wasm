@@ -204,7 +204,7 @@ const PRODUCT_NAME = 'KERI Auth';
             return;
         }
 
-        console.log('KeriAuthCs←BW: ', message.t, message);
+        console.log('BW→KeriAuthCs: ', message.t, message);
 
         if (isReadyMessage(message)) {
             handleReadyMessage(message);
@@ -413,11 +413,11 @@ const PRODUCT_NAME = 'KERI Auth';
      */
     function handleMsgFromBW(message: BwMessage): void {
         if (!message.type) {
-            console.error('KeriAuthCs←BW: type not found in message:', message);
+            console.error('BW→KeriAuthCs: type not found in message:', message);
             return;
         }
 
-        console.log(`KeriAuthCs←BW: ${message.type}`, { message });
+        console.log(`BW→KeriAuthCs: ${message.type}`, { message });
         switch (message.type) {
             case BwCsMsgEnum.READY:
                 // In the case the user has just clicked on Action Button and provided CS inject permission for first time,
@@ -426,7 +426,7 @@ const PRODUCT_NAME = 'KERI Auth';
                 break;
 
             case BwCsMsgEnum.REPLY:
-                console.log('KeriAuthCs←BW: reply:', message);
+                console.log('BW→KeriAuthCs: reply:', message);
                 if (message.error) {
                     const errorMsg: ICsPageMsgData<null> = {
                         source: CsPageMsgTag,
@@ -613,7 +613,7 @@ const PRODUCT_NAME = 'KERI Auth';
         }
 
         // handle messages from current page
-        console.log(`KeriAuthCs←Page: ${event.data.type}`, {event});
+        console.log(`Page→KeriAuthCs: ${event.data.type}`, {event});
         try {
             const requestId = event.data.requestId;
             switch (event.data.type) {

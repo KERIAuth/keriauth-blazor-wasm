@@ -49,17 +49,17 @@ public class SessionManager : IDisposable {
         _storageService = storageService;
         _webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
-        _logger.LogInformation("SessionManager initializing...");
+        _logger.LogInformation(nameof(SessionManager) + ": initializing...");
 
         // Start alarm and observers asynchronously
         // Use Task.Run to avoid blocking in browser/Blazor WASM context
         _ = Task.Run(async () => {
             try {
                 await StartAsync();
-                _logger.LogInformation("SessionManager initialized successfully");
+                _logger.LogInformation(nameof(SessionManager) + ": initialized successfully");
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "SessionManager initialization failed");
+                _logger.LogError(ex, nameof(SessionManager) + ": initialization failed");
                 // Don't rethrow - nobody awaits this task, so the exception would be lost
             }
         });
@@ -87,14 +87,14 @@ public class SessionManager : IDisposable {
             var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
 
             if (passcodeModelRes.IsFailed) {
-                _logger.LogDebug("No PasscodeModel found on startup - session is locked");
+                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": No PasscodeModel found on startup - session is locked");
                 await SetLockIconAsync();
                 return;
             }
 
             var passcodeModel = passcodeModelRes.Value;
             if (passcodeModel is null) {
-                _logger.LogDebug("PasscodeModel is null on startup - session is locked");
+                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel is null on startup - session is locked");
                 await SetLockIconAsync();
                 return;
             }
@@ -103,21 +103,21 @@ public class SessionManager : IDisposable {
 
             // Check for invalid expiration (DateTime.MinValue or past)
             if (expirationUtc == DateTime.MinValue) {
-                _logger.LogDebug("PasscodeModel has default expiration (MinValue) on startup - session is locked");
+                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel has default expiration (MinValue) on startup - session is locked");
                 await SetLockIconAsync();
                 return;
             }
 
             if (DateTime.UtcNow >= expirationUtc) {
                 // Session is expired - clear it
-                _logger.LogInformation("PasscodeModel expired on startup ({Expiration}), clearing session",
+                _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel expired on startup ({Expiration}), clearing session",
                     expirationUtc);
                 await LockSessionAsync();
                 return;
             }
             else {
                 // Session is still valid - reschedule alarm
-                _logger.LogInformation("PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
+                _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
                     expirationUtc);
                 await SetLockIconAsync();
                 await ScheduleExpirationAlarmAsync(expirationUtc);
@@ -125,7 +125,7 @@ public class SessionManager : IDisposable {
             }
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error checking expired session on startup");
+            _logger.LogError(ex, nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": Error checking expired session on startup");
             throw new InvalidOperationException("Failed to check expired session on startup", ex);
         }
     }
@@ -136,7 +136,7 @@ public class SessionManager : IDisposable {
     /// Validates expiration time is in the future and within max timeout range.
     /// </summary>
     private async Task ScheduleExpirationAlarmAsync(DateTime newExpirationUtc) {
-        _logger.LogDebug("Scheduling SessionExpirationUtc alarm for {Expiration} ???????", newExpirationUtc);
+        _logger.LogDebug(nameof(ScheduleExpirationAlarmAsync) + ": Scheduling alarm for {Expiration} ???????", newExpirationUtc);
         try {
             var now = DateTime.UtcNow;
             var timeUntilExpiration = newExpirationUtc - now;
@@ -162,7 +162,7 @@ public class SessionManager : IDisposable {
                 var existingAlarmTime = DateTimeOffset.FromUnixTimeMilliseconds((long)existingAlarm.ScheduledTime).UtcDateTime;
                 var timeDifference = Math.Abs((newExpirationUtc - existingAlarmTime).TotalSeconds);
                 if (timeDifference < 15) { // TODO P2 put in AppConfig
-                    _logger.LogDebug("Session extended: skipped alarm rescheduling (existing alarm at {ExistingTime} is within 15s of {NewTime})",
+                    _logger.LogDebug(nameof(ScheduleExpirationAlarmAsync) + ": skipped alarm rescheduling (existing alarm at {ExistingTime} is within 15s of {NewTime})",
                         existingAlarmTime, newExpirationUtc);
                     return;
                 }
@@ -173,11 +173,11 @@ public class SessionManager : IDisposable {
             await _webExtensionsApi.Alarms.Create(AppConfig.SessionManagerAlarmName, new AlarmInfo {
                 When = whenMs
             });
-            _logger.LogInformation("Session alarm scheduled for {Expiration} ({Minutes} min from now)",
+            _logger.LogInformation(nameof(ScheduleExpirationAlarmAsync) + ": alarm scheduled for {Expiration} ({Minutes} min from now)",
                 newExpirationUtc, Math.Round(timeUntilExpiration.TotalMinutes, 1));
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to schedule SessionManager alarm");
+            _logger.LogError(ex, nameof(ScheduleExpirationAlarmAsync) + ": Failed to schedule alarm");
             throw new InvalidOperationException("Failed to schedule SessionManager alarm", ex);
         }
     }
@@ -192,14 +192,14 @@ public class SessionManager : IDisposable {
             new PasscodeObserver(this),
             StorageArea.Session
         );
-        _logger.LogDebug("Subscribed to PasscodeModel changes");
+        _logger.LogDebug(nameof(SubscribeToStorageChanges) + ": Subscribed to PasscodeModel changes");
 
         // Preferences changes - immediate SessionExpirationUtc update if unlocked
         _preferencesObserver = _storageService.Subscribe(
             new PreferencesObserver(this),
             StorageArea.Local
         );
-        _logger.LogDebug("Subscribed to Preferences changes");
+        _logger.LogDebug(nameof(SubscribeToStorageChanges) + ": Subscribed to Preferences changes");
     }
 
     /// <summary>
@@ -209,11 +209,11 @@ public class SessionManager : IDisposable {
     /// </summary>
     public async Task HandleAlarmAsync(Alarm alarm) {
         if (alarm.Name != AppConfig.SessionManagerAlarmName) {
-            _logger.LogError("SessionManager received unexpected alarm: {Name}", alarm.Name);
+            _logger.LogError(nameof(HandleAlarmAsync) + ": received unexpected alarm: {Name}", alarm.Name);
             return;
         }
 
-        _logger.LogInformation("SessionManager alarm fired - session expired, clearing session storage");
+        _logger.LogInformation(nameof(HandleAlarmAsync) + ": alarm fired - session expired, clearing session storage");
         await LockSessionAsync();
     }
 
@@ -258,7 +258,7 @@ public class SessionManager : IDisposable {
 
         }
         else {
-            _logger.LogInformation("Session not unlocked, locking session");
+            _logger.LogInformation(nameof(ExtendIfUnlockedAsync) + ": Session not unlocked, locking session");
             await LockSessionAsync();
         }
     }
@@ -270,7 +270,7 @@ public class SessionManager : IDisposable {
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
     public async Task LockSessionAsync() {
-        _logger.LogInformation("Locking session (clearing KERIA session records)");
+        _logger.LogInformation(nameof(LockSessionAsync) + ": Locking session (clearing KERIA session records)");
         await ClearKeriaSessionRecordsAsync();
         await SetLockIconAsync();
     }
@@ -285,7 +285,7 @@ public class SessionManager : IDisposable {
     /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
     /// </summary>
     public async Task ClearKeriaSessionRecordsAsync() {
-        _logger.LogInformation("ClearKeriaSessionRecordsAsync: Removing PasscodeModel and KeriaConnectionInfo");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing PasscodeModel and KeriaConnectionInfo");
 
         var removePasscodeRes = await _storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
         if (removePasscodeRes.IsFailed) {
@@ -299,7 +299,7 @@ public class SessionManager : IDisposable {
                 $"Failed to remove KeriaConnectionInfo: {removeConnectionRes.Errors[0].Message}");
         }
 
-        _logger.LogInformation("ClearKeriaSessionRecordsAsync: KERIA session records cleared");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": KERIA session records cleared");
     }
 
     /// <summary>
@@ -319,7 +319,7 @@ public class SessionManager : IDisposable {
     /// AppCache will react to storage changes via its observers.
     /// </summary>
     public async Task ClearSessionForConfigChangeAsync() {
-        _logger.LogInformation("ClearSessionForConfigChangeAsync: Clearing ALL session storage for config change");
+        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Clearing ALL session storage for config change");
 
         var clearResult = await _storageService.Clear(StorageArea.Session);
         if (clearResult.IsFailed) {
@@ -328,7 +328,7 @@ public class SessionManager : IDisposable {
         }
 
         await SetLockIconAsync();
-        _logger.LogInformation("ClearSessionForConfigChangeAsync: Session storage cleared (BwReadyState will self-heal)");
+        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Session storage cleared (BwReadyState will self-heal)");
     }
 
     /// <summary>
@@ -341,14 +341,14 @@ public class SessionManager : IDisposable {
         // 1. Check PasscodeModel exists and has non-empty passcode
         var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
         if (passcodeModelRes.IsFailed || passcodeModelRes.Value is null) {
-            _logger.LogInformation("PasscodeModel does not exists");
+            _logger.LogInformation(nameof(IsUnlockedAsync) + ": PasscodeModel does not exists");
             return false;
         }
 
         var passcodeModel = passcodeModelRes.Value;
         var passcode = passcodeModel.Passcode;
         if (string.IsNullOrEmpty(passcode)) {
-            _logger.LogWarning("Passcode not in PasscodeModel");
+            _logger.LogWarning(nameof(IsUnlockedAsync) + ": Passcode not in PasscodeModel");
             return false;
         }
 
@@ -356,39 +356,39 @@ public class SessionManager : IDisposable {
         // First get preferences to find the selected config digest
         var prefsRes = await _storageService.GetItem<Preferences>();
         if (prefsRes.IsFailed || prefsRes.Value is null) {
-            _logger.LogWarning("Preferences not stored");
+            _logger.LogWarning(nameof(IsUnlockedAsync) + ": Preferences not stored");
             return false;
         }
 
         var selectedDigest = prefsRes.Value.KeriaPreference.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest)) {
-            _logger.LogWarning("SelectedKeriaConnectionDigest not set in Preferences");
+            _logger.LogWarning(nameof(IsUnlockedAsync) + ": SelectedKeriaConnectionDigest not set in Preferences");
             return false;
         }
 
         // Get the KeriaConnectConfigs dictionary
         var configsRes = await _storageService.GetItem<KeriaConnectConfigs>();
         if (configsRes.IsFailed || configsRes.Value is null || !configsRes.Value.IsStored) {
-            _logger.LogWarning("KeriaConnectConfigs not stored");
+            _logger.LogWarning(nameof(IsUnlockedAsync) + ": KeriaConnectConfigs not stored");
             return false;
         }
 
         // Look up the selected config by digest
         if (!configsRes.Value.Configs.TryGetValue(selectedDigest, out var selectedConfig)) {
-            _logger.LogWarning("Selected KeriaConnectConfig not found for digest {Digest}", selectedDigest);
+            _logger.LogWarning(nameof(IsUnlockedAsync) + ": Selected KeriaConnectConfig not found for digest {Digest}", selectedDigest);
             return false;
         }
 
         var storedHash = selectedConfig.PasscodeHash;
         if (storedHash == 0) {
-            _logger.LogWarning("PasscodeHash not set in selected KeriaConnectConfig");
+            _logger.LogWarning(nameof(IsUnlockedAsync) + ": PasscodeHash not set in selected KeriaConnectConfig");
             return false;
         }
 
         var currentHash = DeterministicHash.ComputeHash(passcode);
         if (currentHash != storedHash) {
             _logger.LogWarning(
-                "Passcode hash mismatch - session not authenticated. " +
+                nameof(IsUnlockedAsync) + ": Passcode hash mismatch - session not authenticated. " +
                 "CurrentHash={CurrentHash}, StoredHash={StoredHash}, PasscodeLength={PasscodeLength}",
                 currentHash, storedHash, passcode.Length);
             return false;
@@ -397,12 +397,12 @@ public class SessionManager : IDisposable {
         // 3. Check PasscodeModel.SessionExpirationUtc is not expired
         var expirationUtc = passcodeModel.SessionExpirationUtc;
         if (expirationUtc == DateTime.MinValue) {
-            _logger.LogDebug("PasscodeModel.SessionExpirationUtc not set (MinValue) - session is locked");
+            _logger.LogDebug(nameof(IsUnlockedAsync) + ": PasscodeModel.SessionExpirationUtc not set (MinValue) - session is locked");
             return false;
         }
 
         if (DateTime.UtcNow >= expirationUtc) {
-            _logger.LogInformation("PasscodeModel.SessionExpirationUtc expired ({Expiration}) - session is locked", expirationUtc);
+            _logger.LogInformation(nameof(IsUnlockedAsync) + ": PasscodeModel.SessionExpirationUtc expired ({Expiration}) - session is locked", expirationUtc);
             return false;
         }
 
@@ -414,7 +414,7 @@ public class SessionManager : IDisposable {
     /// Icon files to be created: logoB016-locked.png, logoB032-locked.png, logoB048-locked.png, logoB128-locked.png
     /// </summary>
     private async Task SetLockIconAsync() {
-        _logger.LogInformation("Not setting lock icon for now");
+        _logger.LogInformation(nameof(SetLockIconAsync) + ": Not setting lock icon for now");
         /*
         try {
             await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = unicodeLockIcon });
@@ -433,10 +433,10 @@ public class SessionManager : IDisposable {
     private async Task ClearLockIconAsync() {
         try {
             await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = "" });
-            _logger.LogInformation("Lock icon cleared");
+            _logger.LogInformation(nameof(ClearLockIconAsync) + ": Lock icon cleared");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to clear lock icon");
+            _logger.LogError(ex, nameof(ClearLockIconAsync) + ": Failed to clear lock icon");
         }
     }
 
@@ -448,7 +448,7 @@ public class SessionManager : IDisposable {
     private async Task HandlePasscodeChangeAsync(PasscodeModel? passcodeModel) {
         if (passcodeModel is null || string.IsNullOrEmpty(passcodeModel.Passcode)) {
             // PasscodeModel is null or empty - session locked
-            _logger.LogDebug("PasscodeModel is null/empty - session locked");
+            _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel is null/empty - session locked");
             await SetLockIconAsync();
             return;
         }
@@ -458,13 +458,13 @@ public class SessionManager : IDisposable {
         // Skip if expiration time is invalid (DateTime.MinValue or in the past)
         // This can happen during initial PasscodeModel creation or storage clearing
         if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
-            _logger.LogDebug("PasscodeModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
+            _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
                 expirationUtc);
             await SetLockIconAsync();
             return;
         }
 
-        _logger.LogDebug("PasscodeModel changed with SessionExpirationUtc {Expiration}, rescheduling alarm", expirationUtc);
+        _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel changed with SessionExpirationUtc {Expiration}, rescheduling alarm", expirationUtc);
 
         // Session is being unlocked - clear lock icon
         await ClearLockIconAsync();
@@ -474,7 +474,7 @@ public class SessionManager : IDisposable {
             await ScheduleExpirationAlarmAsync(expirationUtc);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to reschedule alarm for PasscodeModel change");
+            _logger.LogError(ex, nameof(HandlePasscodeChangeAsync) + ": Failed to reschedule alarm for PasscodeModel change");
             // Don't throw - this is a fire-and-forget observer
         }
     }
@@ -485,11 +485,11 @@ public class SessionManager : IDisposable {
     /// </summary>
     private async Task HandlePreferencesChangeAsync(Preferences? preferences) {
         if (preferences is null) {
-            _logger.LogWarning("Preferences changed to null, ignoring");
+            _logger.LogWarning(nameof(HandlePreferencesChangeAsync) + ": Preferences changed to null, ignoring");
             return;
         }
 
-        _logger.LogDebug("Preferences.InactivityTimeoutMinutes changed to {Minutes}, extending session if unlocked",
+        _logger.LogDebug(nameof(HandlePreferencesChangeAsync) + ": Preferences.InactivityTimeoutMinutes changed to {Minutes}, extending session if unlocked",
             preferences.InactivityTimeoutMinutes);
 
         // Extend session with new timeout value if currently unlocked
@@ -506,11 +506,11 @@ public class SessionManager : IDisposable {
         }
 
         public void OnError(Exception error) {
-            sessionManager._logger.LogError(error, "Error in PasscodeModel observer");
+            sessionManager._logger.LogError(error, nameof(PasscodeObserver) + ": Error in PasscodeModel observer");
         }
 
         public void OnCompleted() {
-            sessionManager._logger.LogDebug("PasscodeModel observer completed");
+            sessionManager._logger.LogDebug(nameof(PasscodeObserver) + ": PasscodeModel observer completed");
         }
     }
 
@@ -524,11 +524,11 @@ public class SessionManager : IDisposable {
         }
 
         public void OnError(Exception error) {
-            sessionManager._logger.LogError(error, "Error in Preferences observer");
+            sessionManager._logger.LogError(error, nameof(PreferencesObserver) + ": Error in Preferences observer");
         }
 
         public void OnCompleted() {
-            sessionManager._logger.LogDebug("Preferences observer completed");
+            sessionManager._logger.LogDebug(nameof(PreferencesObserver) + ": Preferences observer completed");
         }
     }
 
@@ -536,10 +536,10 @@ public class SessionManager : IDisposable {
     /// Disposes storage observers.
     /// </summary>
     public void Dispose() {
-        _logger.LogDebug("SessionManager disposing...");
+        _logger.LogDebug(nameof(Dispose) + ": disposing...");
         _passcodeObserver?.Dispose();
         _preferencesObserver?.Dispose();
         GC.SuppressFinalize(this);
-        _logger.LogDebug("SessionManager disposed");
+        _logger.LogDebug(nameof(Dispose) + ": disposed");
     }
 }

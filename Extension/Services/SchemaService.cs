@@ -73,7 +73,7 @@ public class SchemaService : ISchemaService {
 
             using var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream is null) {
-                _logger.LogWarning("Schema manifest resource not found: {ResourceName}", resourceName);
+                _logger.LogWarning(nameof(LoadManifest) + ": Schema manifest resource not found: {ResourceName}", resourceName);
                 return (new Dictionary<string, SchemaEntry>(), []);
             }
 
@@ -82,17 +82,17 @@ public class SchemaService : ISchemaService {
 
             var manifest = JsonSerializer.Deserialize<SchemaManifest>(json);
             if (manifest is null) {
-                _logger.LogWarning("Failed to deserialize schema manifest");
+                _logger.LogWarning(nameof(LoadManifest) + ": Failed to deserialize schema manifest");
                 return (new Dictionary<string, SchemaEntry>(), []);
             }
 
             var schemas = manifest.Schemas.ToDictionary(s => s.Said, s => s);
-            _logger.LogInformation("Loaded {Count} schema entries from manifest", schemas.Count);
+            _logger.LogInformation(nameof(LoadManifest) + ": Loaded {Count} schema entries from manifest", schemas.Count);
 
             return (schemas, manifest.DefaultOobiHosts);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error loading schema manifest");
+            _logger.LogError(ex, nameof(LoadManifest) + ": Error loading schema manifest");
             return (new Dictionary<string, SchemaEntry>(), []);
         }
     }

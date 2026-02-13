@@ -225,7 +225,7 @@
                 KeriaConnectionDigest = "",
                 IdentifiersList = []
             };
-            _logger.LogInformation("AppCache: Cleared KeriaConnectionInfo synchronously");
+            _logger.LogInformation(nameof(AppCache) + ": Cleared KeriaConnectionInfo synchronously");
             Changed?.Invoke();
         }
 
@@ -245,7 +245,7 @@
 
             // If there's an active session, its digest must match the preference
             if (sessionDigest != preferenceDigest) {
-                _logger.LogError("Session KeriaConnectionDigest '{SessionDigest}' does not match preference '{PreferenceDigest}'",
+                _logger.LogError(nameof(ValidateSessionDigestMatchesPreference) + ": Session KeriaConnectionDigest '{SessionDigest}' does not match preference '{PreferenceDigest}'",
                     sessionDigest, preferenceDigest);
                 throw new InvalidOperationException(
                     $"Session KeriaConnectionDigest '{sessionDigest}' does not match preference '{preferenceDigest}'");
@@ -274,7 +274,7 @@
                 // Connection info is from a different config than the selected one
                 // This is expected during config switches - skip validation
                 _logger.LogDebug(
-                    "Skipping SelectedPrefix validation: connection digest '{ConnectionDigest}' != preference digest '{PreferenceDigest}'",
+                    nameof(ValidateSelectedPrefixAmongIdentifiers) + ": Skipping SelectedPrefix validation: connection digest '{ConnectionDigest}' != preference digest '{PreferenceDigest}'",
                     connectionDigest, preferenceDigest);
                 return true;
             }
@@ -301,7 +301,7 @@
 
             if (!allPrefixes.Contains(selectedPrefix)) {
                 _logger.LogWarning(
-                    "SelectedPrefix '{SelectedPrefix}' is not among the fetched identifiers for config '{Digest}'. " +
+                    nameof(ValidateSelectedPrefixAmongIdentifiers) + ": SelectedPrefix '{SelectedPrefix}' is not among the fetched identifiers for config '{Digest}'. " +
                     "Available prefixes: {Prefixes}. This may indicate a config/data inconsistency.",
                     selectedPrefix, connectionDigest, string.Join(", ", allPrefixes));
                 return false;
@@ -440,7 +440,7 @@
         // TODO P2: adjust default timeouts as needed based on real-world performance
         public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
             if (assertions is null || assertions.Count == 0) {
-                _logger.LogWarning("WaitForAppCache called with no assertions");
+                _logger.LogWarning(nameof(WaitForAppCache) + ": called with no assertions");
                 return true; // No assertions means nothing to wait for
             }
 
@@ -449,7 +449,7 @@
             while (elapsedMs < maxWaitMs) {
                 // Check if all assertions pass
                 if (assertions.All(assertion => assertion())) {
-                    _logger.LogInformation("AppCache assertions all passed after {ElapsedMs}ms", elapsedMs);
+                    _logger.LogInformation(nameof(WaitForAppCache) + ": assertions all passed after {ElapsedMs}ms", elapsedMs);
                     return true;
                 }
 
@@ -457,7 +457,7 @@
                 elapsedMs += pollIntervalMs;
             }
 
-            _logger.LogWarning("AppCache assertions did not all pass after {ElapsedMs}ms timeout", elapsedMs);
+            _logger.LogWarning(nameof(WaitForAppCache) + ": assertions did not all pass after {ElapsedMs}ms timeout", elapsedMs);
             return false;
         }
 
@@ -478,7 +478,7 @@
         public async Task Initialize() {
             // Prevent multiple initializations (singleton service may be accessed from multiple components)
             if (_isInitialized) {
-                _logger.LogDebug("AppCache already initialized, skipping");
+                _logger.LogDebug(nameof(Initialize) + ": AppCache already initialized, skipping");
                 return;
             }
 
@@ -488,17 +488,17 @@
                     return;
                 }
 
-                _logger.LogInformation("Initializing AppCache storage observers");
+                _logger.LogInformation(nameof(Initialize) + ": Initializing AppCache storage observers");
 
                 preferencesStorageObserver = new StorageObserver<Preferences>(
                     storageService,
                     StorageArea.Local,
                     onNext: (value) => {
                         MyPreferences = value;
-                        _logger.LogInformation("AppCache updated MyPreferences");
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyPreferences");
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing preferences storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing preferences storage"),
                     null,
                     _logger
                 );
@@ -507,10 +507,10 @@
                     StorageArea.Local,
                     onNext: (value) => {
                         MyOnboardState = value;
-                        _logger.LogInformation("AppCache updated MyOnboardState");
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyOnboardState");
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing onboard state storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing onboard state storage"),
                     null,
                     _logger
                 );
@@ -519,10 +519,10 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MyPasscodeModel = value;
-                        _logger.LogInformation("AppCache updated MyPasscodeModel: Passcode length={Length}", value.Passcode?.Length ?? 0);
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyPasscodeModel: Passcode length={Length}", value.Passcode?.Length ?? 0);
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing user session storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing user session storage"),
                     null,
                     _logger
                 );
@@ -534,10 +534,10 @@
                     onNext: (value) => {
                         // Note: MyKeriaConnectConfig is now computed from KeriaConnectConfigs
                         // This observer is kept for backward compatibility during transition
-                        _logger.LogInformation("AppCache observed legacy KeriaConnectConfig change");
+                        _logger.LogInformation(nameof(AppCache) + ": observed legacy KeriaConnectConfig change");
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing legacy Keria connect config storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing legacy Keria connect config storage"),
                     null,
                     _logger
                 );
@@ -546,10 +546,10 @@
                     StorageArea.Local,
                     onNext: (value) => {
                         MyKeriaConnectConfigs = value;
-                        _logger.LogInformation("AppCache updated MyKeriaConnectConfigs: count={Count}", value.Configs.Count);
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectConfigs: count={Count}", value.Configs.Count);
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing KeriaConnectConfigs storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing KeriaConnectConfigs storage"),
                     null,
                     _logger
                 );
@@ -558,12 +558,12 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MyKeriaConnectionInfo = value;
-                        _logger.LogInformation("AppCache updated MyKeriaConnectionInfo");
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectionInfo");
                         // Validate that SelectedPrefix (from config) is among the fetched identifiers
                         ValidateSelectedPrefixAmongIdentifiers();
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing Keria connection info storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing Keria connection info storage"),
                     null,
                     _logger
                 );
@@ -572,10 +572,10 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MyPendingBwAppRequests = value;
-                        _logger.LogInformation("AppCache updated MyPendingBwAppRequests: count={Count}", value.Count);
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyPendingBwAppRequests: count={Count}", value.Count);
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, "Error observing pending BW→App requests storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing pending BW→App requests storage"),
                     null,
                     _logger
                 );
@@ -584,11 +584,11 @@
 
                 // Perform initial fetch of essential storage records
                 // This ensures My* properties have current values before IsReady is set
-                _logger.LogInformation("AppCache: Fetching initial storage values");
+                _logger.LogInformation(nameof(AppCache) + ": Fetching initial storage values");
                 await FetchInitialStorageValuesAsync();
 
                 IsReady = true;
-                _logger.LogInformation("AppCache initialization complete, IsReady=true");
+                _logger.LogInformation(nameof(AppCache) + ": initialization complete, IsReady=true");
             }
             finally {
                 _initLock.Release();
@@ -610,35 +610,35 @@
             var prefsResult = await storageService.GetItem<Preferences>();
             if (prefsResult.IsSuccess && prefsResult.Value is not null) {
                 MyPreferences = prefsResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - Preferences loaded (IsStored={IsStored})", prefsResult.Value.IsStored);
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Preferences loaded (IsStored={IsStored})", prefsResult.Value.IsStored);
             }
             else {
                 // leaving default (without IsStored = true)
-                _logger.LogWarning("AppCache: Initial fetch - Preferences not found or failed, using default");
+                _logger.LogWarning(nameof(AppCache) + ": Initial fetch - Preferences not found or failed, using default");
             }
 
             // 2. OnboardState
             var onboardResult = await storageService.GetItem<OnboardState>();
             if (onboardResult.IsSuccess && onboardResult.Value is not null) {
                 MyOnboardState = onboardResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - OnboardState loaded (IsStored={IsStored}, IsWelcomed={IsWelcomed})",
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - OnboardState loaded (IsStored={IsStored}, IsWelcomed={IsWelcomed})",
                     onboardResult.Value.IsStored, onboardResult.Value.IsWelcomed);
             }
             else {
                 // leaving default (without IsStored = true)
-                _logger.LogWarning("AppCache: Initial fetch - OnboardState not found or failed, using default");
+                _logger.LogWarning(nameof(AppCache) + ": Initial fetch - OnboardState not found or failed, using default");
             }
 
             // 3. KeriaConnectConfigs (may not exist on first run - created by ConfigurePage)
             var configsResult = await storageService.GetItem<KeriaConnectConfigs>();
             if (configsResult.IsSuccess && configsResult.Value is not null) {
                 MyKeriaConnectConfigs = configsResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfigs loaded (count={Count})",
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectConfigs loaded (count={Count})",
                     configsResult.Value.Configs.Count);
             }
             else {
                 // leaving default (empty configs)
-                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectConfigs not found (expected on first run)");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectConfigs not found (expected on first run)");
             }
 
             /*
@@ -661,35 +661,35 @@
             var passcodeResult = await storageService.GetItem<PasscodeModel>(StorageArea.Session);
             if (passcodeResult.IsSuccess && passcodeResult.Value is not null) {
                 MyPasscodeModel = passcodeResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - PasscodeModel loaded (Passcode length={Length})",
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PasscodeModel loaded (Passcode length={Length})",
                     passcodeResult.Value.Passcode?.Length ?? 0);
             }
             else {
-                _logger.LogDebug("AppCache: Initial fetch - PasscodeModel not found (session locked or new)");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PasscodeModel not found (session locked or new)");
             }
 
             // 5. KeriaConnectionInfo (only exists when connected to KERIA)
             var connectionResult = await storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             if (connectionResult.IsSuccess && connectionResult.Value is not null) {
                 MyKeriaConnectionInfo = connectionResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectionInfo loaded");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectionInfo loaded");
             }
             else {
-                _logger.LogDebug("AppCache: Initial fetch - KeriaConnectionInfo not found (not connected)");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectionInfo not found (not connected)");
             }
 
             // 6. PendingBwAppRequests (pending requests from BackgroundWorker)
             var pendingRequestsResult = await storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
             if (pendingRequestsResult.IsSuccess && pendingRequestsResult.Value is not null) {
                 MyPendingBwAppRequests = pendingRequestsResult.Value;
-                _logger.LogDebug("AppCache: Initial fetch - PendingBwAppRequests loaded (count={Count})",
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PendingBwAppRequests loaded (count={Count})",
                     pendingRequestsResult.Value.Count);
             }
             else {
-                _logger.LogDebug("AppCache: Initial fetch - PendingBwAppRequests not found (none pending)");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PendingBwAppRequests not found (none pending)");
             }
 
-            _logger.LogInformation("AppCache: Initial fetch complete");
+            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete");
         }
 
         /// <summary>
@@ -705,7 +705,7 @@
         /// <returns>Task that completes when AppCache is ready</returns>
         public async Task EnsureInitializedAsync() {
             if (IsReady) {
-                _logger.LogDebug("AppCache: EnsureInitializedAsync - already ready");
+                _logger.LogDebug(nameof(AppCache) + ": EnsureInitializedAsync - already ready");
                 return;
             }
             await WaitForBwReadyOrThrowAsync();
@@ -721,7 +721,7 @@
         private async Task WaitForBwReadyOrThrowAsync() {
             IsBwReady = await WaitForBwReadyAsync();
             if (!IsBwReady) {
-                _logger.LogError("AppCache: BackgroundWorker did not become ready within timeout - proceeding anyway");
+                _logger.LogError(nameof(AppCache) + ": BackgroundWorker did not become ready within timeout - proceeding anyway");
                 throw new TimeoutException("BackgroundWorker did not become ready within timeout");
             }
             return;
@@ -734,7 +734,7 @@
         /// </summary>
         /// <returns>True if BackgroundWorker became ready, false if timeout occurred.</returns>
         private async Task<bool> WaitForBwReadyAsync() {
-            _logger.LogInformation("AppCache: Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", BwReadyTimeoutMs);
+            _logger.LogInformation(nameof(AppCache) + ": Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", BwReadyTimeoutMs);
 
             var elapsedMs = 0;
 
@@ -743,7 +743,7 @@
 
                 if (result.IsSuccess && result.Value?.IsInitialized == true) {
                     _logger.LogInformation(
-                        "AppCache: BackgroundWorker ready after {ElapsedMs}ms (initialized at {InitializedAt})",
+                        nameof(AppCache) + ": BackgroundWorker ready after {ElapsedMs}ms (initialized at {InitializedAt})",
                         elapsedMs,
                         result.Value.InitializedAtUtc);
                     return true;
@@ -754,7 +754,7 @@
             }
 
             _logger.LogWarning(
-                "AppCache: Timeout after {TimeoutMs}ms - BackgroundWorker did not become ready. " +
+                nameof(AppCache) + ": Timeout after {TimeoutMs}ms - BackgroundWorker did not become ready. " +
                 "App will proceed but may encounter stale or missing storage data.",
                 BwReadyTimeoutMs);
             return false;

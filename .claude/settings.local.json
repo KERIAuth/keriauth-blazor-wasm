@@ -61,7 +61,10 @@
       "Bash(test:*)",
       "Bash(cmd //c \"c:\\\\s\\\\k\\\\kbw\\\\build.cmd --skip-ts --test\")",
       "Bash(cmd //c \"c:\\\\s\\\\k\\\\kbw\\\\clean-build.cmd\")",
-      "Bash(cmd //c \"dir c:\\\\s\\\\k\\\\kbw\\\\Extension\\\\bin\\\\Release\\\\net9.0\\\\browserextension\\\\manifest.json 2>nul && echo BUILD_OK || echo BUILD_MISSING\")"
+      "Bash(cmd //c \"dir c:\\\\s\\\\k\\\\kbw\\\\Extension\\\\bin\\\\Release\\\\net9.0\\\\browserextension\\\\manifest.json 2>nul && echo BUILD_OK || echo BUILD_MISSING\")",
+      "Bash(ls -la \"c:\\\\s\\\\k\\\\kbw\\\\Extension\\\\UI\"\" && ls -la \"c:skkbwExtensionUIComponents\"\")",
+      "Bash(dir:*)",
+      "Bash(cmd //c \"c:\\\\s\\\\k\\\\kbw\\\\build.cmd --test\")"
     ],
     "deny": [],
     "ask": []

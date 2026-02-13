@@ -95,7 +95,7 @@ public class SubtleCryptoService : ICryptoService {
 
     private async Task EnsureCryptoModuleLoadedAsync() {
         if (_cryptoModule is null) {
-            _logger.LogDebug("Loading aesGcmCrypto.js module");
+            _logger.LogDebug(nameof(EnsureCryptoModuleLoadedAsync) + ": Loading aesGcmCrypto.js module");
             _cryptoModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./scripts/es6/aesGcmCrypto.js");

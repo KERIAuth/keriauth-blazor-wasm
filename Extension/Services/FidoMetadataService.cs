@@ -75,7 +75,7 @@ public class FidoMetadataService : IFidoMetadataService {
 
             using var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream is null) {
-                _logger.LogWarning("FIDO convenience metadata resource not found: {ResourceName}", resourceName);
+                _logger.LogWarning(nameof(LoadMetadata) + ": FIDO convenience metadata resource not found: {ResourceName}", resourceName);
                 return new Dictionary<string, AuthenticatorMetadata>(StringComparer.OrdinalIgnoreCase);
             }
 
@@ -84,15 +84,15 @@ public class FidoMetadataService : IFidoMetadataService {
 
             var result = JsonSerializer.Deserialize<Dictionary<string, AuthenticatorMetadata>>(json);
             if (result is null) {
-                _logger.LogWarning("Failed to deserialize FIDO convenience metadata");
+                _logger.LogWarning(nameof(LoadMetadata) + ": Failed to deserialize FIDO convenience metadata");
                 return new Dictionary<string, AuthenticatorMetadata>(StringComparer.OrdinalIgnoreCase);
             }
 
-            _logger.LogInformation("Loaded {Count} authenticator metadata entries", result.Count);
+            _logger.LogInformation(nameof(LoadMetadata) + ": Loaded {Count} authenticator metadata entries", result.Count);
             return new Dictionary<string, AuthenticatorMetadata>(result, StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error loading FIDO convenience metadata");
+            _logger.LogError(ex, nameof(LoadMetadata) + ": Error loading FIDO convenience metadata");
             return new Dictionary<string, AuthenticatorMetadata>(StringComparer.OrdinalIgnoreCase);
         }
     }

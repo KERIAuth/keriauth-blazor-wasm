@@ -44,23 +44,23 @@ public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger
 
     public async ValueTask LoadAllModulesAsync(BrowserExtensionMode mode) {
         if (_isInitialized) {
-            _logger.LogWarning("JsModuleLoader: Modules already loaded, skipping");
+            _logger.LogWarning(nameof(JsModuleLoader) + ": Modules already loaded, skipping");
             return;
         }
 
         var modulesToLoad = ModuleDefinitions.Where(m => m.Contexts.Contains(mode)).ToArray();
-        _logger.LogInformation("JsModuleLoader: Loading {Count} of {Total} JavaScript modules for {Mode} mode (fail-fast mode)",
+        _logger.LogInformation(nameof(JsModuleLoader) + ": Loading {Count} of {Total} JavaScript modules for {Mode} mode (fail-fast mode)",
             modulesToLoad.Length, ModuleDefinitions.Length, mode);
 
         var loadTasks = modulesToLoad.Select(async def => {
             try {
-                _logger.LogDebug("JsModuleLoader: Loading module '{ModuleName}' from '{ModulePath}'", def.Name, def.Path);
+                _logger.LogDebug(nameof(JsModuleLoader) + ": Loading module '{ModuleName}' from '{ModulePath}'", def.Name, def.Path);
                 var module = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", def.Path);
                 _modules[def.Name] = module;
-                _logger.LogInformation("JsModuleLoader: ✓ Loaded module '{ModuleName}'", def.Name);
+                _logger.LogInformation(nameof(JsModuleLoader) + ": Loaded module '{ModuleName}'", def.Name);
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "JsModuleLoader: ✗ FAILED to load module '{ModuleName}' from '{ModulePath}'", def.Name, def.Path);
+                _logger.LogError(ex, nameof(JsModuleLoader) + ": FAILED to load module '{ModuleName}' from '{ModulePath}'", def.Name, def.Path);
                 throw new InvalidOperationException($"Failed to load JavaScript module '{def.Name}' from '{def.Path}'", ex);
             }
         });
@@ -69,7 +69,7 @@ public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger
         await Task.WhenAll(loadTasks);
 
         _isInitialized = true;
-        _logger.LogInformation("JsModuleLoader: ✅ All modules loaded successfully");
+        _logger.LogInformation(nameof(JsModuleLoader) + ": All modules loaded successfully");
     }
 
     public IJSObjectReference GetModule(string moduleName) {
@@ -85,15 +85,15 @@ public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger
     }
 
     public async ValueTask DisposeAsync() {
-        _logger.LogInformation("JsModuleLoader: Disposing {Count} modules", _modules.Count);
+        _logger.LogInformation(nameof(JsModuleLoader) + ": Disposing {Count} modules", _modules.Count);
 
         foreach (var (moduleName, module) in _modules) {
             try {
                 await module.DisposeAsync();
-                _logger.LogDebug("JsModuleLoader: Disposed module '{ModuleName}'", moduleName);
+                _logger.LogDebug(nameof(JsModuleLoader) + ": Disposed module '{ModuleName}'", moduleName);
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, "JsModuleLoader: Error disposing module '{ModuleName}'", moduleName);
+                _logger.LogWarning(ex, nameof(JsModuleLoader) + ": Error disposing module '{ModuleName}'", moduleName);
             }
         }
 
