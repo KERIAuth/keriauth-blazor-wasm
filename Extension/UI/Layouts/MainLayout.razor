@@ -130,7 +130,9 @@
     async Task Lock()
     {
         await sessionManager.ClearKeriaSessionRecordsAsync();
-        await appCache.WaitForAppCache([() => !appCache.IsSessionPasscodeSet]);
+        await appCache.WaitForAppCache([
+            () => !appCache.IsAuthenticated
+        ]);
         navManager.NavigateTo(Routes.PathFor<UnlockPage>());
     }
 
