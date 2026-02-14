@@ -17,6 +17,7 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService
+@inject IScrollManager scrollManager
 @using FluentResults
 @using Extension.Helper
 @using System.Globalization
@@ -355,7 +356,9 @@
 
         // Ratchet Gate 1: Lock Provider/URL fields once flow starts
         IsFlowStarted = true;
-        // TODO P2 scroll div into view
+        StateHasChanged();
+        await Task.Yield(); // Let Blazor render the Connection section into the DOM
+        await scrollManager.ScrollToBottomAsync("#connect-progress", ScrollBehavior.Smooth);
 
         // Validate preconditions
         if (!(IsValidNewInfo || IsKeriaConfigured))
@@ -911,7 +914,7 @@
 }
 
 <div @ref="_pageContainer" tabindex="-1" id="@this.GetType().Name" class="bt-body-page">
-    <div class="d-flex gap-2 bt-main">
+    <div id="connect-progress"  class="d-flex gap-2 bt-main">
         <MudStack Style="min-width: 24.286rem; width:100%; margin-right:1.143rem;">
             <MudText Class="bt-page-title">Connect with KERIA Cloud Service</MudText>
 
@@ -1022,6 +1025,8 @@
 
             @if (IsFlowStarted)
             {
+                <!-- Connection progress and operations. div helps ScrollToBottom because of height --> 
+                <div style="min-height: 20rem;">
                 <MudText Typo="Typo.h6" Class="mt-4">Connection</MudText>
                 <MudStack Class="ml-4">
                     <OperationDisplayComponent ops="@Ops1CheckLiveness" StateOverride="@Ops1State" ErrorMessage="@(_failedAtStep == 1 ? _errorMessage : null)" />
@@ -1031,6 +1036,7 @@
                     <OperationDisplayComponent ops="@Ops5CreatePersonalAid" StateOverride="@Ops5State" ErrorMessage="@(_failedAtStep == 5 ? _errorMessage : null)" />
                     <OperationDisplayComponent ops="@Ops6AllDone" StateOverride="@Ops6State" />
                 </MudStack>
+                </div>
             }
         </MudStack>
     </div>
