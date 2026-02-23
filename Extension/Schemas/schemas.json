@@ -65,6 +65,15 @@
         "https://schema.provenant.net/oobi/EJxFPpyDRV-W6O2Vtjdy2K90ltWmQK8l1jePw5YOo_Ft",
         "http://vlei-server.localhost:7723/oobi/EJxFPpyDRV-W6O2Vtjdy2K90ltWmQK8l1jePw5YOo_Ft"
       ]
+    },
+    {
+      "said": "ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD",
+      "name": "Verifiable Credential Schema for Data Attestation",
+      "file": "verifiable-credential-schema-for-data-attestation.json",
+      "oobiUrls": [
+        "https://schema.provenant.net/oobi/ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD",
+        "http://vlei-server.localhost:7723/oobi/ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD"
+      ]
     }
   ],
   "defaultOobiHosts": [
