@@ -31,30 +31,20 @@ jobs:
         cp .github/NuGet.config ./
         cat NuGet.config
 
-    - name: Install npm dependencies (scripts workspace)
-      working-directory: ./scripts
-      run: npm install
+    - name: Install npm dependencies
+      run: make install
 
-    - name: Build TypeScript (types, modules, bundles)
-      working-directory: ./scripts
-      run: npm run build
-
-    - name: Install npm dependencies (Extension app.ts)
-      working-directory: ./Extension
-      run: npm install
-
-    - name: Build app.ts
-      working-directory: ./Extension
-      run: npm run build:app
+    - name: Build TypeScript
+      run: make build-ts
 
     - name: Restore dependencies
       run: dotnet restore -p:Configuration=Release
 
-    - name: Debug Environment Variables
-      run: echo "GITHUB_SHA=$GITHUB_SHA"
-
     - name: Build C# project
       run: dotnet build --configuration Release --no-restore -p:Quick=true /p:CI=true
+
+    - name: Verify build output
+      run: make verify
 
     - name: Extract version from manifest.json
       id: extract_version
@@ -109,7 +99,7 @@ jobs:
         done
 
     - name: Run tests
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: make test
 
     - name: Zip artifacts
       run: |

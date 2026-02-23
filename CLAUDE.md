@@ -62,15 +62,15 @@ These are firm constraints. Do not change or work around them without explicit a
 
 ## Building This Project
 
-See [BUILD.md](BUILD.md) for full instructions.
+See [BUILD.md](BUILD.md) for full instructions. Builds exclusively in WSL (Ubuntu).
 
-**Quick reference for Claude Code** (bash shell — use `cmd //c` with double slash):
-- Incremental build: `cmd //c "c:\s\k\kbw\build.cmd --test"`
-- Skip TypeScript: `cmd //c "c:\s\k\kbw\build.cmd --skip-ts --test"`
-- Clean build: `cmd //c "c:\s\k\kbw\clean-build.cmd"`
-
-**Never run these directly** — they will fail or produce incomplete results:
-- `npm run build`, `dotnet build`, `pushd scripts && npm run build && popd`
+**Quick reference for Claude Code**:
+- Incremental build: `make build`
+- Build + test: `make build && make test`
+- TypeScript only: `make build-ts`
+- C# only (skip TypeScript): `dotnet build --configuration Release -p:Quick=true`
+- Clean build: `make clean-build`
+- Watch mode: `make watch`
 
 **Build configuration**: Release only. Debug configuration is intentionally disabled.
 

@@ -460,3 +460,6 @@ obj/
 
 
 /nul
+scripts/bundles/objRelease/package.g.props
+scripts/modules/objRelease/package.g.props
+scripts/types/objRelease/package.g.props
