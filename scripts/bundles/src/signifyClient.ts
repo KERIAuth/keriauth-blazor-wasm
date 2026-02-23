@@ -16,9 +16,9 @@ import type {
     Contact,
     ContactInfo,
     CredentialData,
-    CredentialResult,
     CredentialFilter,
     CredentialState,
+    CredentialSubject,
     IssueCredentialResult,
     RevokeCredentialResult,
     IpexApplyArgs,
@@ -27,12 +27,8 @@ import type {
     IpexGrantArgs,
     IpexAdmitArgs,
     CreateRegistryArgs,
-    Registry,
     RegistryResult,
-    Schema,
-    Serder,
     HabState,
-    KeyState,
     Challenge,
     AgentConfig,
     Dict
@@ -41,6 +37,7 @@ import type {
 // eslint-disable-next-line no-duplicate-imports
 import {
     SignifyClient,
+    Serder,
     Tier,
     ready
 } from 'signify-ts';
@@ -51,10 +48,31 @@ export { ready };
 // ===================== Type Definitions =====================
 
 // Note: Most types are now imported directly from signify-ts.
-// The following types extend or supplement signify-ts types for C# interop.
+// The following local types define shapes for signify-ts API results that are not exported as individual types.
 
-// Re-export HabState as the primary identifier type
-// HabState from signify-ts includes: name, prefix, transferable, state (KeyState), windexes, icp_dt
+/** Credential result from client.credentials().get() / .list() */
+interface CredentialResult {
+    sad: { d: string; i: string; a?: { i?: string }; [key: string]: unknown };
+    anc: Dict<any>;
+    iss: Dict<any>;
+    ancatc?: string;
+    [key: string]: unknown;
+}
+
+/** Registry record from client.registries().list() */
+interface Registry {
+    name: string;
+    regk: string;
+    [key: string]: unknown;
+}
+
+/** Schema record from client.schemas().get() / .list() */
+type Schema = Record<string, unknown>;
+
+/** Key state from HabState.state */
+type KeyState = Record<string, unknown>;
+
+// Re-export types for C# interop layer
 export type { HabState, KeyState, Contact, ContactInfo, CredentialResult, CredentialState, Schema, Registry, Challenge, AgentConfig };
 
 // ===================== Module State =====================
@@ -64,6 +82,50 @@ let _client: SignifyClient | null = null;
 // ===================== Helper Functions =====================
 
 const objectToJson = (obj: object): string => JSON.stringify(obj);
+
+/** Default timeout for KERIA operations (ms) */
+const DEFAULT_TIMEOUT_MS = 30000;
+
+/** Create an ISO 8601 timestamp compatible with KERI datetime format */
+const createTimestamp = (): string => new Date().toISOString().replace('Z', '000+00:00');
+
+/**
+ * Recursively delete an operation and its dependents from KERIA
+ */
+const deleteOperationRecursive = async (client: SignifyClient, op: Operation): Promise<void> => {
+    if (op.metadata?.depends) {
+        await deleteOperationRecursive(client, op.metadata.depends);
+    }
+    await client.operations().delete(op.name);
+};
+
+/**
+ * Wait for an operation to complete, then recursively clean up the operation and its dependents.
+ * Throws if the operation completes with an error.
+ */
+const waitAndDeleteOperation = async <T = unknown>(
+    client: SignifyClient,
+    op: Operation<T> | string
+): Promise<Operation<T>> => {
+    if (typeof op === 'string') {
+        op = await client.operations().get(op) as Operation<T>;
+    }
+    op = await client.operations().wait(op, { signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) });
+    if (op.error) {
+        throw new Error(`Operation ${op.name} failed: ${JSON.stringify(op.error)}`);
+    }
+    await deleteOperationRecursive(client, op);
+    return op;
+};
+
+// ===================== vLEI Schema SAIDs =====================
+
+export const QVI_SCHEMA_SAID = 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao';
+export const LE_SCHEMA_SAID = 'ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY';
+export const ECR_AUTH_SCHEMA_SAID = 'EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g';
+export const ECR_SCHEMA_SAID = 'EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw';
+export const OOR_AUTH_SCHEMA_SAID = 'EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E';
+export const OOR_SCHEMA_SAID = 'EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy';
 
 export const test = async (): Promise<string> => {
     return 'signifyClient: test - module is working';
@@ -397,6 +459,66 @@ export const createAID = async (name: string): Promise<string> => {
 };
 
 /**
+ * Create an AID with agent endpoint role and retrieve its OOBI.
+ * Composite: create AID + addEndRole('agent') + get OOBI.
+ * Source: sig-wallet/src/client/identifiers.ts:createAid()
+ * @param name - Alias for the identifier
+ * @returns JSON string of { prefix, oobi }
+ */
+export const createAidWithEndRole = async (name: string): Promise<string> => {
+    return withClientOperation(
+        'createAidWithEndRole',
+        async (client) => {
+            const icpRes = await client.identifiers().create(name);
+            const op = await icpRes.op();
+            const prefix = op.response.i as string;
+
+            const endRoleRes = await client.identifiers().addEndRole(name, 'agent', client.agent!.pre);
+            await waitAndDeleteOperation(client, await endRoleRes.op());
+
+            const oobiResp = await client.oobis().get(name, 'agent');
+            const oobi = oobiResp.oobis[0];
+
+            return { prefix, oobi };
+        },
+        { Name: name }
+    );
+};
+
+/**
+ * Create a delegated AID. Resolves delegator OOBI first, then creates the delegate with delpre.
+ * Source: sig-wallet/src/client/identifiers.ts:createDelegate()
+ * @param name - Alias for the delegate identifier
+ * @param delegatorPrefix - Prefix of the delegator AID
+ * @param delegatorOobi - OOBI of the delegator (for key state resolution)
+ * @param delegatorAlias - Alias to assign to the delegator contact
+ * @returns JSON string of { prefix, operationName }
+ */
+export const createDelegateAid = async (
+    name: string,
+    delegatorPrefix: string,
+    delegatorOobi: string,
+    delegatorAlias: string
+): Promise<string> => {
+    return withClientOperation(
+        'createDelegateAid',
+        async (client) => {
+            const resolveOp = await client.oobis().resolve(delegatorOobi, delegatorAlias);
+            await waitAndDeleteOperation(client, resolveOp);
+
+            const icpRes = await client.identifiers().create(name, {
+                delpre: delegatorPrefix
+            });
+            const op = await icpRes.op();
+            const prefix = op.response.i as string;
+
+            return { prefix, operationName: op.name };
+        },
+        { Name: name, DelegatorPrefix: delegatorPrefix }
+    );
+};
+
+/**
  * List all identifiers managed by this client
  * @returns JSON array of identifiers
  */
@@ -494,6 +616,56 @@ export const getCredentialsList = async (): Promise<string> => {
 };
 
 /**
+ * List credentials matching a filter, returning raw CESR for each to preserve cryptographic signatures.
+ * Source: sig-wallet/src/client/credentials.ts:findMatchingCredentials()
+ * @param filterJson - JSON string of filter object (e.g. { "-s": schemaSaid, "-i": issuerPrefix })
+ * @returns JSON array of CESR strings
+ */
+export const credentialsListFilteredCesr = async (filterJson: string): Promise<string> => {
+    return withClientOperation(
+        'credentialsListFilteredCesr',
+        async (client) => {
+            const filter = JSON.parse(filterJson);
+            const credentials = await client.credentials().list({ filter });
+            const cesrResults: string[] = [];
+            for (const cred of credentials) {
+                const cesr: string = await client.credentials().get(cred.sad.d, true);
+                cesrResults.push(cesr);
+            }
+            return cesrResults;
+        }
+    );
+};
+
+/**
+ * Find credentials by schema SAID and issuer prefix, returning raw CESR.
+ * Source: sig-wallet/src/client/credentials.ts:getReceivedCredBySchemaAndIssuer()
+ * @param schemaSaid - Schema SAID to filter by
+ * @param issuerPrefix - Issuer prefix to filter by
+ * @returns JSON array of CESR strings
+ */
+export const credentialsBySchemaAndIssuerCesr = async (
+    schemaSaid: string,
+    issuerPrefix: string
+): Promise<string> => {
+    return withClientOperation(
+        'credentialsBySchemaAndIssuerCesr',
+        async (client) => {
+            const credentials = await client.credentials().list({
+                filter: { '-s': schemaSaid, '-i': issuerPrefix }
+            });
+            const cesrResults: string[] = [];
+            for (const cred of credentials) {
+                const cesr: string = await client.credentials().get(cred.sad.d, true);
+                cesrResults.push(cesr);
+            }
+            return cesrResults;
+        },
+        { SchemaSaid: schemaSaid, IssuerPrefix: issuerPrefix }
+    );
+};
+
+/**
  * Get a specific credential by SAID
  * @param id - Credential SAID
  * @param includeCESR - Include CESR encoding (returns string if true, CredentialResult if false)
@@ -533,6 +705,68 @@ export const credentialsIssue = async (name: string, argsJson: string): Promise<
             return result;
         },
         { Name: name }
+    );
+};
+
+/**
+ * Issue a credential with typed parameters, wait for completion, and retrieve the result.
+ * Composite: validate registry + build CredentialData + issue + wait + get credential.
+ * Source: sig-wallet/src/client/credentials.ts:issueCredential()
+ * @param argsJson - JSON string of issue parameters
+ * // TODO P2 define ts interface for argsJson: { issuerAidName, registryName, schema, holderPrefix, credData, credEdge?, credRules? }
+ * @returns JSON string of { said, issuer, issuee, acdc, anc, iss }
+ */
+export const issueAndGetCredential = async (argsJson: string): Promise<string> => {
+    return withClientOperation(
+        'issueAndGetCredential',
+        async (client) => {
+            const args = JSON.parse(argsJson) as {
+                issuerAidName: string;
+                registryName: string;
+                schema: string;
+                holderPrefix: string;
+                credData: Record<string, unknown>;
+                credEdge?: Record<string, unknown>;
+                credRules?: Record<string, unknown>;
+            };
+
+            const issAid = await client.identifiers().get(args.issuerAidName);
+            const registries: Registry[] = await client.registries().list(args.issuerAidName);
+            const registry = registries.find((reg) => reg.name === args.registryName);
+            if (!registry) {
+                throw new Error(`Registry "${args.registryName}" not found under AID "${args.issuerAidName}"`);
+            }
+
+            const kargsSub: CredentialSubject = {
+                i: args.holderPrefix,
+                dt: createTimestamp(),
+                ...args.credData,
+            };
+            const issData: CredentialData = {
+                i: issAid.prefix,
+                ri: registry.regk,
+                s: args.schema,
+                a: kargsSub,
+                e: args.credEdge,
+                r: args.credRules,
+            };
+
+            const issResult: IssueCredentialResult = await client.credentials().issue(args.issuerAidName, issData);
+            const issOp = await waitAndDeleteOperation(client, issResult.op);
+
+            const credentialSad = issOp.response as Record<string, any>;
+            const credentialSaid = credentialSad?.ced?.d as string;
+
+            const cred = await client.credentials().get(credentialSaid);
+            return {
+                said: cred.sad.d,
+                issuer: cred.sad.i,
+                issuee: cred.sad?.a?.i,
+                acdc: issResult.acdc,
+                anc: issResult.anc,
+                iss: issResult.iss,
+            };
+        }
     );
 };
 
@@ -685,6 +919,122 @@ export const ipexSubmitAdmit = createIpexSubmitMethod(
     true
 );
 
+// ===================== Composite IPEX Operations =====================
+
+/**
+ * Create an IPEX grant and submit it in one call, then wait for completion.
+ * Composite: ipex.grant() + ipex.submitGrant() + wait.
+ * Source: sig-wallet/src/client/credentials.ts:ipexGrantCredential()
+ * @param argsJson - JSON string of grant parameters
+ * // TODO P2 define ts interface for argsJson: { senderName, recipient, acdc, anc, iss }
+ * @returns JSON string of completed operation
+ */
+export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
+    return withClientOperation(
+        'ipexGrantAndSubmit',
+        async (client) => {
+            const args = JSON.parse(argsJson) as {
+                senderName: string;
+                recipient: string;
+                acdc: Dict<any>;
+                anc: Dict<any>;
+                iss: Dict<any>;
+            };
+
+            const [grant, gsigs, end] = await client.ipex().grant({
+                senderName: args.senderName,
+                recipient: args.recipient,
+                datetime: createTimestamp(),
+                acdc: new Serder(args.acdc),
+                anc: new Serder(args.anc),
+                iss: new Serder(args.iss),
+            });
+
+            const op = await client.ipex().submitGrant(
+                args.senderName, grant, gsigs, end, [args.recipient]
+            );
+            return await waitAndDeleteOperation(client, op);
+        }
+    );
+};
+
+/**
+ * Create an IPEX admit and submit it in one call, then wait for completion.
+ * Composite: ipex.admit() + ipex.submitAdmit() + wait.
+ * Source: sig-wallet/src/client/credentials.ts:ipexAdmitGrant()
+ * @param argsJson - JSON string of admit parameters
+ * // TODO P2 define ts interface for argsJson: { senderName, recipient, grantSaid, message? }
+ * @returns JSON string of completed operation
+ */
+export const ipexAdmitAndSubmit = async (argsJson: string): Promise<string> => {
+    return withClientOperation(
+        'ipexAdmitAndSubmit',
+        async (client) => {
+            const args = JSON.parse(argsJson) as {
+                senderName: string;
+                recipient: string;
+                grantSaid: string;
+                message?: string;
+            };
+
+            const [admit, sigs, aend] = await client.ipex().admit({
+                senderName: args.senderName,
+                message: args.message ?? '',
+                grantSaid: args.grantSaid,
+                recipient: args.recipient,
+                datetime: createTimestamp(),
+            });
+
+            const op = await client.ipex().submitAdmit(
+                args.senderName, admit, sigs, aend, [args.recipient]
+            );
+            return await waitAndDeleteOperation(client, op);
+        }
+    );
+};
+
+/**
+ * Grant a previously received credential to another recipient via IPEX.
+ * Gets credential, wraps sad/anc/iss in Serder, creates grant + submits.
+ * Must stay in TS because Serder constructor is signify-ts internal.
+ * Source: sig-wallet/src/client/credentials.ts:grantCredential()
+ * @param senderAidName - Name of the AID sending the credential
+ * @param credentialSaid - SAID of the credential to grant
+ * @param recipientPrefix - Prefix of the recipient AID
+ * @returns JSON string of completed operation
+ */
+export const grantReceivedCredential = async (
+    senderAidName: string,
+    credentialSaid: string,
+    recipientPrefix: string
+): Promise<string> => {
+    return withClientOperation(
+        'grantReceivedCredential',
+        async (client) => {
+            const cred: CredentialResult = await client.credentials().get(credentialSaid, false);
+            if (!cred) {
+                throw new Error(`Credential ${credentialSaid} not found`);
+            }
+
+            const [grant, gsigs, gend] = await client.ipex().grant({
+                senderName: senderAidName,
+                acdc: new Serder(cred.sad),
+                anc: new Serder(cred.anc),
+                iss: new Serder(cred.iss),
+                ancAttachment: cred.ancatc,
+                recipient: recipientPrefix,
+                datetime: createTimestamp(),
+            });
+
+            const op = await client.ipex().submitGrant(
+                senderAidName, grant, gsigs, gend, [recipientPrefix]
+            );
+            return await waitAndDeleteOperation(client, op);
+        },
+        { SenderAidName: senderAidName, CredentialSaid: credentialSaid, RecipientPrefix: recipientPrefix }
+    );
+};
+
 // ===================== OOBI Operations =====================
 
 export const oobiGet = async (name: string, role?: string): Promise<string> => {
@@ -732,6 +1082,8 @@ export const operationsDelete = async (name: string): Promise<string> => {
     );
 };
 
+// TODO P2: consider adding recursive dependent operation cleanup (see waitAndDeleteOperation
+// and sig-wallet/src/client/operations.ts:waitOperation for reference)
 export const operationsWait = async <T = unknown>(
     operationJson: string,
     optionsJson?: string
@@ -769,6 +1121,35 @@ export const registriesCreate = async (argsJson: string): Promise<string> => {
             const registry: Registry = await result.op();
             return registry;
         }
+    );
+};
+
+/**
+ * Create a credential registry if it doesn't already exist, then wait for completion.
+ * Idempotent: returns existing registry info if a registry with the given name already exists.
+ * Source: sig-wallet/src/client/credentials.ts:createRegistry()
+ * @param aidName - Name of the AID to create the registry under
+ * @param registryName - Name for the registry
+ * @returns JSON string of { regk, created }
+ */
+export const createRegistryIfNotExists = async (
+    aidName: string,
+    registryName: string
+): Promise<string> => {
+    return withClientOperation(
+        'createRegistryIfNotExists',
+        async (client) => {
+            const existing: Registry[] = await client.registries().list(aidName);
+            const found = existing.find((reg) => reg.name === registryName);
+            if (found) {
+                return { regk: found.regk, created: false };
+            }
+
+            const result: RegistryResult = await client.registries().create({ name: aidName, registryName });
+            const registry: Registry = await result.op();
+            return { regk: registry.regk, created: true };
+        },
+        { AidName: aidName, RegistryName: registryName }
     );
 };
 
@@ -1065,8 +1446,9 @@ export const exchangesSendFromEvents = async (
 
 /**
  * Approve delegation via interaction event
+ * // TODO P2: consider typed anchor variant { i, s, d } (see sig-wallet/src/client/identifiers.ts:approveDelegation)
  * @param name - Name or alias of the identifier
- * @param dataJson - Optional JSON string of anchoring interaction event data
+ * @param dataJson - Optional JSON string of anchoring interaction event data (e.g. { i: delegatePrefix, s: '0', d: delegatePrefix })
  * @returns JSON string of approval result with operation
  */
 export const delegationsApprove = async (name: string, dataJson?: string): Promise<string> => {
@@ -1282,11 +1664,11 @@ export const signData = async (aidName: string, dataItems: string[]): Promise<st
                 const sigs = await keeper.sign(dataBytes);
 
                 // Use the first signature (for non-multisig identifiers)
-                const signature = sigs.length > 0 ? sigs[0] : '';
+                const signature = sigs[0] ?? '';
 
                 signedItems.push({
                     data: dataItem,
-                    signature: signature
+                    signature
                 });
             }
 
