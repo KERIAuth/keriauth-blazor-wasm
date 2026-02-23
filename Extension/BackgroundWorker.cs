@@ -2700,19 +2700,27 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": aidName={AidName}, aidPrefix={AidPrefix}, schemaSaid={SchemaSaid}",
                 aidName, aidPrefix, schemaSaid);
 
-            // Get registry for this AID
+            // Get registry for this AID, creating one if none exists
+            string registryId;
             var registriesResult = await _signifyClientService.ListRegistries(aidPrefix);
-            if (registriesResult.IsFailed || registriesResult.Value.Count == 0) {
-                logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": no registry found for AID {AidName}", aidPrefix);
-                await SendResponseAsync(null, "No credential registry found for this identifier. Please create a registry first.");
-                return;
+            if (registriesResult.IsSuccess && registriesResult.Value.Count > 0) {
+                registryId = registriesResult.Value[0].Regk;
+            }
+            else {
+                logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": no registry found for AID {AidPrefix}, creating one", aidPrefix);
+                var registryName = schemaSaid + "-registry";
+                var createResult = await _signifyClientService.CreateRegistryIfNotExists(aidPrefix, registryName);
+                if (createResult.IsFailed) {
+                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": failed to create registry: {Error}", createResult.Errors[0].Message);
+                    await SendResponseAsync(null, "Failed to create credential registry: " + createResult.Errors[0].Message);
+                    return;
+                }
+                registryId = createResult.Value.Regk;
+                logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": created registry '{RegistryName}' with regk={Regk}", registryName, registryId);
             }
 
-            var registry = registriesResult.Value[0]; // Use first registry
-            var registryId = registry.Regk;
-
             if (string.IsNullOrEmpty(registryId)) {
-                logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": registry ID is empty for AID {AidName}", aidPrefix);
+                logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": registry ID is empty for AID {AidPrefix}", aidPrefix);
                 await SendResponseAsync(null, "Invalid registry configuration");
                 return;
             }
@@ -2798,11 +2806,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 A: credDataOrdered          // Credential attributes (order-preserved)
             );
 
-            logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": issuing credential for AID {AidName} with schema {SchemaSaid}",
-                aidName, schemaSaid);
+            logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": issuing credential for AID {AidPrefix} with schema {SchemaSaid}",
+                aidPrefix, schemaSaid);
 
             // Issue the credential
-            var issueResult = await _signifyClientService.IssueCredential(aidName, credentialData);
+            var issueResult = await _signifyClientService.IssueCredential(aidPrefix, credentialData);
             if (issueResult.IsFailed) {
                 logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": failed to issue credential: {Error}",
                     issueResult.Errors[0].Message);
