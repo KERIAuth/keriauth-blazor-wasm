@@ -1,0 +1,75 @@
+@page "/PrimeData.html"
+@using Extension.Models
+@using Extension.Services
+@using static Extension.AppConfig;
+@using static Extension.Helper.PreviousPage
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ILogger<PrimeDataPage> logger
+@inject AppCache appCache
+
+@implements IDisposable
+
+@code
+{
+    string gedaSalt = "0AD45YWdzWSwNREuAoitH_CC";
+    string qviSalt = "0ABZi_wCWBhxFNEenxtf40mL";
+    string leSalt = "0ACzkItDY-F7lqI9ZtTQ1qR5";
+    string personSalt = "0ADckowyGuNwtJUPLeRqZvTp";
+    string gedaRegistry = "geda-qvi-registry";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await this.SubscribeToAppCache(appCache);
+        logger.LogInformation("OnInitializedAsync");
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <PageHeading Title="Prime Data" />
+
+            <MudText Class="bt-pref-group-label0">
+                Input Fields
+            </MudText>
+            <MudStack Class="ml-5">
+                <MudTextField T="string" Label="GEDA_SALT" @bind-Value="gedaSalt" Variant="Variant.Outlined" />
+                <MudTextField T="string" Label="QVI_SALT" @bind-Value="qviSalt" Variant="Variant.Outlined" />
+                <MudTextField T="string" Label="LE_SALT" @bind-Value="leSalt" Variant="Variant.Outlined" />
+                <MudTextField T="string" Label="PERSON_SALT" @bind-Value="personSalt" Variant="Variant.Outlined" />
+                <MudTextField T="string" Label="GEDA_REGISTRY" @bind-Value="gedaRegistry" Variant="Variant.Outlined" />
+            </MudStack>
+
+            <MudText Class="bt-pref-group-label0">
+                GEDA and QVI Setup
+            </MudText>
+            <MudStack Class="ml-5" Spacing="2">
+                <MudButton Variant="Variant.Outlined">geda-aid-create</MudButton>
+                <MudButton Variant="Variant.Outlined">recreate-with-geda-aid</MudButton>
+                <MudButton Variant="Variant.Outlined">qvi-aid-delegate-create</MudButton>
+                <MudButton Variant="Variant.Outlined">geda-delegate-approve</MudButton>
+                <MudButton Variant="Variant.Outlined">qvi-aid-delegate-finish</MudButton>
+                <MudButton Variant="Variant.Outlined">geda-oobi-resolve-qvi</MudButton>
+            </MudStack>
+
+        </div>
+    </div>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+    </MudStack>
+</div>
+
+<style>
+    .bt-pref-group-label0 {
+        font-weight: bold;
+        padding-top: 1.143rem;
+    }
+</style>

@@ -315,6 +315,7 @@
                         <MudNavLink Href="@(Routes.PathFor<DeveloperStatePage>())" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<DeveloperPrimersPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.AutoFixHigh" IconColor="Color.Surface">Primers</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<DeveloperTestPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
+                        <MudNavLink Href="@(Routes.PathFor<PrimeDataPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime Data</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
                     </MudNavGroup>
                 </MudNavGroup>

@@ -92,6 +92,8 @@ public static class Routes {
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
         [typeof(DeveloperPrimersPage)] = new("DeveloperPrimers", "/DeveloperPrimers.html", RequiresAuth: true,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
+        [typeof(PrimeDataPage)] = new("PrimeData", "/PrimeData.html", RequiresAuth: true,
+            Icons.Material.Filled.DataObject, Color.Surface),
         [typeof(DeveloperStatePage)] = new("DeveloperState", "/DeveloperState.html", RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
         [typeof(ReleaseHistoryPage)] = new("Release History", "/ReleaseHistory.html", RequiresAuth: false),
