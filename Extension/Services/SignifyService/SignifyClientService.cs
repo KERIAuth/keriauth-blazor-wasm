@@ -1510,5 +1510,270 @@ namespace Extension.Services.SignifyService {
                 return Result.Fail<ChallengeRespondedResult>("ChallengeResponded: Exception: " + e);
             }
         }
+
+        // ===================== Composite vLEI Operations =====================
+
+        public async Task<Result<AidWithOobi>> CreateAidWithEndRole(string name, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.CreateAidWithEndRoleAsync(name, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<AidWithOobi>("CreateAidWithEndRole returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<AidWithOobi>("CreateAidWithEndRole returned empty value");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<AidWithOobi>(res.Value, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<AidWithOobi>("Failed to deserialize AidWithOobi");
+                }
+                logger.LogInformation(nameof(CreateAidWithEndRole) + ": Created AID '{name}' with prefix {prefix}", name, result.Prefix);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(CreateAidWithEndRole) + ": JSException: {e}", e);
+                return Result.Fail<AidWithOobi>("CreateAidWithEndRole: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(CreateAidWithEndRole) + ": Exception: {e}", e);
+                return Result.Fail<AidWithOobi>("CreateAidWithEndRole: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<DelegateAidResult>> CreateDelegateAid(string name, string delegatorPrefix, string delegatorOobi, string delegatorAlias, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.CreateDelegateAidAsync(name, delegatorPrefix, delegatorOobi, delegatorAlias, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<DelegateAidResult>("CreateDelegateAid returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<DelegateAidResult>("CreateDelegateAid returned empty value");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<DelegateAidResult>(res.Value, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<DelegateAidResult>("Failed to deserialize DelegateAidResult");
+                }
+                logger.LogInformation(nameof(CreateDelegateAid) + ": Created delegate AID '{name}' with prefix {prefix}", name, result.Prefix);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(CreateDelegateAid) + ": JSException: {e}", e);
+                return Result.Fail<DelegateAidResult>("CreateDelegateAid: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(CreateDelegateAid) + ": Exception: {e}", e);
+                return Result.Fail<DelegateAidResult>("CreateDelegateAid: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RegistryCheckResult>> CreateRegistryIfNotExists(string aidName, string registryName, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.CreateRegistryIfNotExistsAsync(aidName, registryName, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RegistryCheckResult>("CreateRegistryIfNotExists returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RegistryCheckResult>("CreateRegistryIfNotExists returned empty value");
+                }
+                var result = System.Text.Json.JsonSerializer.Deserialize<RegistryCheckResult>(res.Value, jsonSerializerOptions);
+                if (result is null) {
+                    return Result.Fail<RegistryCheckResult>("Failed to deserialize RegistryCheckResult");
+                }
+                logger.LogInformation(nameof(CreateRegistryIfNotExists) + ": Registry '{registryName}' for AID '{aidName}': created={created}", registryName, aidName, result.Created);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(CreateRegistryIfNotExists) + ": JSException: {e}", e);
+                return Result.Fail<RegistryCheckResult>("CreateRegistryIfNotExists: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(CreateRegistryIfNotExists) + ": Exception: {e}", e);
+                return Result.Fail<RegistryCheckResult>("CreateRegistryIfNotExists: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<string>> GetCredentialsFilteredCesr(string filterJson, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.CredentialsListFilteredCesrAsync(filterJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<string>("GetCredentialsFilteredCesr returned null or failed");
+                }
+                if (res.Value is null) {
+                    return Result.Fail<string>("GetCredentialsFilteredCesr returned null value");
+                }
+                return Result.Ok(res.Value);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(GetCredentialsFilteredCesr) + ": JSException: {e}", e);
+                return Result.Fail<string>("GetCredentialsFilteredCesr: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(GetCredentialsFilteredCesr) + ": Exception: {e}", e);
+                return Result.Fail<string>("GetCredentialsFilteredCesr: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<string>> GetCredentialsBySchemaAndIssuerCesr(string schemaSaid, string issuerPrefix, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.CredentialsBySchemaAndIssuerCesrAsync(schemaSaid, issuerPrefix, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<string>("GetCredentialsBySchemaAndIssuerCesr returned null or failed");
+                }
+                if (res.Value is null) {
+                    return Result.Fail<string>("GetCredentialsBySchemaAndIssuerCesr returned null value");
+                }
+                return Result.Ok(res.Value);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(GetCredentialsBySchemaAndIssuerCesr) + ": JSException: {e}", e);
+                return Result.Fail<string>("GetCredentialsBySchemaAndIssuerCesr: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(GetCredentialsBySchemaAndIssuerCesr) + ": Exception: {e}", e);
+                return Result.Fail<string>("GetCredentialsBySchemaAndIssuerCesr: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> IssueAndGetCredential(IssueAndGetCredentialArgs args, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, recursiveJsonSerializerOptions);
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.IssueAndGetCredentialAsync(argsJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("IssueAndGetCredential returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("IssueAndGetCredential returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize IssueAndGetCredential result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(IssueAndGetCredential) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IssueAndGetCredential: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(IssueAndGetCredential) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IssueAndGetCredential: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> IpexGrantAndSubmit(IpexGrantSubmitArgs args, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, recursiveJsonSerializerOptions);
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.IpexGrantAndSubmitAsync(argsJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("IpexGrantAndSubmit returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("IpexGrantAndSubmit returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexGrantAndSubmit result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(IpexGrantAndSubmit) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexGrantAndSubmit: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(IpexGrantAndSubmit) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexGrantAndSubmit: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> IpexAdmitAndSubmit(IpexAdmitSubmitArgs args, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.IpexAdmitAndSubmitAsync(argsJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("IpexAdmitAndSubmit returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("IpexAdmitAndSubmit returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexAdmitAndSubmit result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(IpexAdmitAndSubmit) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexAdmitAndSubmit: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(IpexAdmitAndSubmit) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexAdmitAndSubmit: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidName, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.GrantReceivedCredentialAsync(senderAidName, credentialSaid, recipientPrefix, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("GrantReceivedCredential returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("GrantReceivedCredential returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize GrantReceivedCredential result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(GrantReceivedCredential) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GrantReceivedCredential: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(GrantReceivedCredential) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("GrantReceivedCredential: Exception: " + e);
+            }
+        }
     }
 }

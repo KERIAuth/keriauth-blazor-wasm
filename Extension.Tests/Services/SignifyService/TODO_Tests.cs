@@ -63,6 +63,25 @@
 // 5. Test error handling for JavaScript exceptions
 // 6. Test timeout scenarios
 //
+// 7. CompositeOperationTests.cs
+//    - Tests for composite vLEI operations added in Phase 3
+//    - Mock ISignifyClientBinding to return expected JSON strings
+//    - Verify SignifyClientService correctly deserializes and wraps in Result<T>
+//    - Test error paths (JSException, null returns, timeout)
+//    - Methods to test:
+//      * CreateAidWithEndRole -> Result<AidWithOobi>
+//      * CreateDelegateAid -> Result<DelegateAidResult>
+//      * CreateRegistryIfNotExists -> Result<RegistryCheckResult>
+//      * GetCredentialsFilteredCesr -> Result<string> (raw CESR)
+//      * GetCredentialsBySchemaAndIssuerCesr -> Result<string> (raw CESR)
+//      * IssueAndGetCredential -> Result<RecursiveDictionary>
+//      * IpexGrantAndSubmit -> Result<RecursiveDictionary>
+//      * IpexAdmitAndSubmit -> Result<RecursiveDictionary>
+//      * GrantReceivedCredential -> Result<RecursiveDictionary>
+//    - Model deserialization tests:
+//      * AidWithOobi, DelegateAidResult, RegistryCheckResult round-trip
+//      * IssueAndGetCredentialArgs, IpexGrantSubmitArgs, IpexAdmitSubmitArgs serialization
+//
 // Priority:
 // ---------
 // P2 - These tests are important for regression prevention but not blocking for

@@ -22,6 +22,8 @@ public interface ISignifyClientBinding {
     ValueTask<string> GetAIDAsync(string name, CancellationToken cancellationToken = default);
     ValueTask<string> GetIdentifierByPrefixAsync(string prefix, CancellationToken cancellationToken = default);
     ValueTask<string> RenameAIDAsync(string currentName, string newName, CancellationToken cancellationToken = default);
+    ValueTask<string> CreateAidWithEndRoleAsync(string name, CancellationToken cancellationToken = default);
+    ValueTask<string> CreateDelegateAidAsync(string name, string delegatorPrefix, string delegatorOobi, string delegatorAlias, CancellationToken cancellationToken = default);
 
     // ===================== Credential (ACDC) Operations =====================
     ValueTask<string> GetCredentialsListAsync(CancellationToken cancellationToken = default);
@@ -30,6 +32,9 @@ public interface ISignifyClientBinding {
     ValueTask<string> CredentialsRevokeAsync(string name, string said, string? datetime, CancellationToken cancellationToken = default);
     ValueTask<string> CredentialsStateAsync(string ri, string said, CancellationToken cancellationToken = default);
     ValueTask<string> CredentialsDeleteAsync(string said, CancellationToken cancellationToken = default);
+    ValueTask<string> CredentialsListFilteredCesrAsync(string filterJson, CancellationToken cancellationToken = default);
+    ValueTask<string> CredentialsBySchemaAndIssuerCesrAsync(string schemaSaid, string issuerPrefix, CancellationToken cancellationToken = default);
+    ValueTask<string> IssueAndGetCredentialAsync(string argsJson, CancellationToken cancellationToken = default);
 
     // ===================== Signed Headers =====================
     ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidName, CancellationToken cancellationToken = default);
@@ -45,6 +50,9 @@ public interface ISignifyClientBinding {
     ValueTask<string> IpexSubmitAgreeAsync(string name, string exnJson, string sigsJson, string recipientsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexSubmitGrantAsync(string name, string exnJson, string sigsJson, string atc, string recipientsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexSubmitAdmitAsync(string name, string exnJson, string sigsJson, string atc, string recipientsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> IpexGrantAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> IpexAdmitAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> GrantReceivedCredentialAsync(string senderAidName, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default);
 
     // ===================== OOBI Operations =====================
     ValueTask<string> OobiGetAsync(string name, string? role, CancellationToken cancellationToken = default);
@@ -60,6 +68,7 @@ public interface ISignifyClientBinding {
     ValueTask<string> RegistriesListAsync(string name, CancellationToken cancellationToken = default);
     ValueTask<string> RegistriesCreateAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> RegistriesRenameAsync(string name, string registryName, string newName, CancellationToken cancellationToken = default);
+    ValueTask<string> CreateRegistryIfNotExistsAsync(string aidName, string registryName, CancellationToken cancellationToken = default);
 
     // ===================== Contact Management =====================
     ValueTask<string> ContactsListAsync(string? group, string? filterField, string? filterValue, CancellationToken cancellationToken = default);
@@ -167,6 +176,12 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
     public ValueTask<string> RenameAIDAsync(string currentName, string newName, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("renameAID", cancellationToken, currentName, newName);
 
+    public ValueTask<string> CreateAidWithEndRoleAsync(string name, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("createAidWithEndRole", cancellationToken, name);
+
+    public ValueTask<string> CreateDelegateAidAsync(string name, string delegatorPrefix, string delegatorOobi, string delegatorAlias, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("createDelegateAid", cancellationToken, name, delegatorPrefix, delegatorOobi, delegatorAlias);
+
     // ===================== Credential (ACDC) Operations =====================
 
     public ValueTask<string> GetCredentialsListAsync(CancellationToken cancellationToken = default) =>
@@ -186,6 +201,15 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public ValueTask<string> CredentialsDeleteAsync(string said, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("credentialsDelete", cancellationToken, said);
+
+    public ValueTask<string> CredentialsListFilteredCesrAsync(string filterJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("credentialsListFilteredCesr", cancellationToken, filterJson);
+
+    public ValueTask<string> CredentialsBySchemaAndIssuerCesrAsync(string schemaSaid, string issuerPrefix, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("credentialsBySchemaAndIssuerCesr", cancellationToken, schemaSaid, issuerPrefix);
+
+    public ValueTask<string> IssueAndGetCredentialAsync(string argsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("issueAndGetCredential", cancellationToken, argsJson);
 
     // ===================== Signed Headers =====================
 
@@ -229,6 +253,15 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
     public ValueTask<string> IpexSubmitAdmitAsync(string name, string exnJson, string sigsJson, string atc, string recipientsJson, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("ipexSubmitAdmit", cancellationToken, name, exnJson, sigsJson, atc, recipientsJson);
 
+    public ValueTask<string> IpexGrantAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("ipexGrantAndSubmit", cancellationToken, argsJson);
+
+    public ValueTask<string> IpexAdmitAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("ipexAdmitAndSubmit", cancellationToken, argsJson);
+
+    public ValueTask<string> GrantReceivedCredentialAsync(string senderAidName, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("grantReceivedCredential", cancellationToken, senderAidName, credentialSaid, recipientPrefix);
+
     // ===================== OOBI Operations =====================
 
     public ValueTask<string> OobiGetAsync(string name, string? role, CancellationToken cancellationToken = default) =>
@@ -261,6 +294,9 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public ValueTask<string> RegistriesRenameAsync(string name, string registryName, string newName, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("registriesRename", cancellationToken, name, registryName, newName);
+
+    public ValueTask<string> CreateRegistryIfNotExistsAsync(string aidName, string registryName, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("createRegistryIfNotExists", cancellationToken, aidName, registryName);
 
     // ===================== Contact Management =====================
 

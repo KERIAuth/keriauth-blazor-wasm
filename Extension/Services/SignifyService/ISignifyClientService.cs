@@ -139,5 +139,52 @@ namespace Extension.Services.SignifyService {
         /// <param name="source">Prefix of the identifier that was challenged</param>
         /// <param name="said">qb64 AID of exn message representing the signed response</param>
         Task<Result<ChallengeRespondedResult>> ChallengeResponded(string source, string said);
+
+        // ===================== Composite vLEI Operations =====================
+
+        /// <summary>
+        /// Create AID + add endRole('agent') + get OOBI in one operation.
+        /// </summary>
+        Task<Result<AidWithOobi>> CreateAidWithEndRole(string name, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Create a delegate AID under a delegator, resolving the delegator OOBI first.
+        /// </summary>
+        Task<Result<DelegateAidResult>> CreateDelegateAid(string name, string delegatorPrefix, string delegatorOobi, string delegatorAlias, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Idempotently create a credential registry (checks if it exists first).
+        /// </summary>
+        Task<Result<RegistryCheckResult>> CreateRegistryIfNotExists(string aidName, string registryName, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// List credentials matching a filter, returning raw CESR to preserve ordering/signatures.
+        /// </summary>
+        Task<Result<string>> GetCredentialsFilteredCesr(string filterJson, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Get credentials by schema SAID and issuer prefix, returning raw CESR.
+        /// </summary>
+        Task<Result<string>> GetCredentialsBySchemaAndIssuerCesr(string schemaSaid, string issuerPrefix, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Issue a credential, wait for completion, and retrieve the issued credential.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> IssueAndGetCredential(IssueAndGetCredentialArgs args, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Create IPEX grant + submit in one operation.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> IpexGrantAndSubmit(IpexGrantSubmitArgs args, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Create IPEX admit + submit in one operation.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> IpexAdmitAndSubmit(IpexAdmitSubmitArgs args, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Get a received credential and grant it to another party.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidName, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
     }
 }
