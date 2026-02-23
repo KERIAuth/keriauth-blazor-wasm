@@ -411,7 +411,7 @@ public class SessionManager : IDisposable {
 
     /// <summary>
     /// TODO P2: TBD Sets the extension action icon to locked variant using pre-created locked icon files.
-    /// Icon files to be created: logoB016-locked.png, logoB032-locked.png, logoB048-locked.png, logoB128-locked.png
+    /// Icon files to be created: logob016-locked.png, logob032-locked.png, logob048-locked.png, logob128-locked.png
     /// </summary>
     private async Task SetLockIconAsync() {
         _logger.LogInformation(nameof(SetLockIconAsync) + ": Not setting lock icon for now");
@@ -428,7 +428,7 @@ public class SessionManager : IDisposable {
 
     /// <summary>
     /// Restores the extension action icon to the default (unlocked) state.
-    /// Uses the original logoB icon files specified in manifest.json.
+    /// Uses the original logob icon files specified in manifest.json.
     /// </summary>
     private async Task ClearLockIconAsync() {
         try {

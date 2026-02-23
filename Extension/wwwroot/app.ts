@@ -227,7 +227,7 @@ export async function beforeStart(
              * @param isActive true if content script is active, false to reset to default inactive icon
              */
             const updateIconForTab = async (tabId: number, isActive: boolean): Promise<void> => {
-                const iconPrefix = isActive ? "logo" : "logoB";
+                const iconPrefix = isActive ? "logo" : "logob";
 
                 try {
                     await chrome.action.setIcon({
