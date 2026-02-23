@@ -71,8 +71,7 @@
       "name": "Verifiable Credential Schema for Data Attestation",
       "file": "verifiable-credential-schema-for-data-attestation.json",
       "oobiUrls": [
-        "https://schema.provenant.net/oobi/ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD",
-        "http://vlei-server.localhost:7723/oobi/ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD"
+        "https://raw.githubusercontent.com/provenant-dev/public-schema/fcbac645b8f2565b04155f43abcecb15f9c69dc0/attestation/attestation.schema.json"
       ]
     }
   ],

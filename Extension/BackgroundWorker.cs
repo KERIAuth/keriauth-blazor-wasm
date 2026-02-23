@@ -2708,7 +2708,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
             else {
                 logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": no registry found for AID {AidPrefix}, creating one", aidPrefix);
-                var registryName = schemaSaid + "-registry";
+                var registryName = $"reg-{aidPrefix[..8]}-{schemaSaid[..8]}";
                 var createResult = await _signifyClientService.CreateRegistryIfNotExists(aidPrefix, registryName);
                 if (createResult.IsFailed) {
                     logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": failed to create registry: {Error}", createResult.Errors[0].Message);
@@ -2751,10 +2751,39 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Attempting to resolve schema OOBI: {Oobi}", schemaOobi);
                         var resolveResult = await _signifyClientService.ResolveOobi(schemaOobi);
                         if (resolveResult.IsSuccess) {
-                            logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Successfully loaded schema {SchemaSaid} from {Oobi}",
-                                schemaSaid, schemaOobi);
-                            schemaLoaded = true;
-                            break;
+                            // Wait for the OOBI resolution operation to complete in KERIA
+                            var resolveOp = resolveResult.Value;
+                            if (resolveOp.TryGetValue("name", out var nameValue) && nameValue.StringValue is string opName && !string.IsNullOrEmpty(opName)) {
+                                logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": waiting for schema OOBI resolution operation {OpName}", opName);
+                                var op = new Operation(opName);
+                                var waitResult = await _signifyClientService.WaitForOperation(op);
+                                if (waitResult.IsFailed) {
+                                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": operation wait failed for schema OOBI: {Error}", waitResult.Errors[0].Message);
+                                    continue; // Try next OOBI URL
+                                }
+                            }
+
+                            // Verify the schema is now available in KERIA (retry with delay — KERIA indexes asynchronously)
+                            const int maxRetries = 5;
+                            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                                var verifyResult = await _signifyClientService.GetSchema(schemaSaid);
+                                if (verifyResult.IsSuccess) {
+                                    logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Successfully loaded and verified schema {SchemaSaid} from {Oobi} (attempt {Attempt})",
+                                        schemaSaid, schemaOobi, attempt);
+                                    schemaLoaded = true;
+                                    break;
+                                }
+                                if (attempt < maxRetries) {
+                                    logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Schema {SchemaSaid} not yet available, retrying ({Attempt}/{MaxRetries})",
+                                        schemaSaid, attempt, maxRetries);
+                                    await Task.Delay(1000); // Give KERIA time to index the schema
+                                }
+                                else {
+                                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Schema OOBI resolved but schema {SchemaSaid} still not available in KERIA after {MaxRetries} attempts",
+                                        schemaSaid, maxRetries);
+                                }
+                            }
+                            if (schemaLoaded) break;
                         }
                         else {
                             logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Failed to resolve schema OOBI {Oobi}: {Error}",
@@ -2767,8 +2796,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
 
                 if (!schemaLoaded) {
-                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Could not load schema {SchemaSaid} from any known source, proceeding anyway",
+                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Could not load schema {SchemaSaid} from any known source",
                         schemaSaid);
+                    await SendResponseAsync(null, $"Failed to load credential schema {schemaSaid}. Ensure the schema OOBI is accessible.");
+                    return;
                 }
             }
 

@@ -1,10 +1,10 @@
-﻿using Extension.Helper;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices.JavaScript;
+using System.Text.Json;
+using Extension.Helper;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService.Models;
 using FluentResults;
-using System.Diagnostics;
-using System.Runtime.InteropServices.JavaScript;
-using System.Text.Json;
 using Group = Extension.Services.SignifyService.Models.Group;
 using State = Extension.Services.SignifyService.Models.State;
 
@@ -810,6 +810,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<IssueCredentialResult>> IssueCredential(string name, CredentialData args) {
             try {
                 var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                logger.LogInformation("IssueCredential: Calling JS with name={name} and args={argsJson}", name, argsJson);
                 var jsonString = await _binding.CredentialsIssueAsync(name, argsJson);
                 if (jsonString is null) {
                     return Result.Fail<IssueCredentialResult>("IssueCredential returned null");

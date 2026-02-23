@@ -1092,7 +1092,11 @@ export const operationsWait = async <T = unknown>(
         'operationsWait',
         async (client) => {
             const operation = JSON.parse(operationJson) as Operation<T>;
-            const options = optionsJson ? JSON.parse(optionsJson) : undefined;
+            const options = optionsJson ? JSON.parse(optionsJson) : {};
+            // Ensure a timeout signal is always set to prevent indefinite polling
+            if (!options.signal) {
+                options.signal = AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+            }
             return await client.operations().wait<T>(operation, options);
         }
     );
@@ -1146,8 +1150,8 @@ export const createRegistryIfNotExists = async (
             }
 
             const result: RegistryResult = await client.registries().create({ name: aidName, registryName });
-            const registry: Registry = await result.op();
-            return { regk: registry.regk, created: true };
+            await result.op(); // Wait for the registry creation operation to complete
+            return { regk: result.regser.pre, created: true };
         },
         { AidName: aidName, RegistryName: registryName }
     );
