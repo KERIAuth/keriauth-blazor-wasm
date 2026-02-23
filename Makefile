@@ -19,8 +19,8 @@ SHELL := /bin/bash
 
 # Source nvm before each recipe line that needs node/npm.
 # .nvmrc in the project root pins the required Node.js version.
-# On CI (GitHub Actions), nvm is not present — Node.js is on PATH via actions/setup-node.
-NVM_USE := if [ -f "$$HOME/.nvm/nvm.sh" ]; then source "$$HOME/.nvm/nvm.sh" --no-use && nvm use --silent; fi &&
+# On CI (GitHub Actions sets CI=true), Node.js is on PATH via actions/setup-node — skip nvm.
+NVM_USE := if [ -z "$$CI" ] && [ -f "$$HOME/.nvm/nvm.sh" ]; then source "$$HOME/.nvm/nvm.sh" --no-use && nvm use --silent; fi &&
 
 # Configuration
 CONFIGURATION := Release
