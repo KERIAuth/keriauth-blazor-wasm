@@ -38,6 +38,7 @@ import type {
 import {
     SignifyClient,
     Serder,
+    Salter,
     Tier,
     ready
 } from 'signify-ts';
@@ -728,10 +729,11 @@ export const issueAndGetCredential = async (argsJson: string): Promise<string> =
                 credData: Record<string, unknown>;
                 credEdge?: Record<string, unknown>;
                 credRules?: Record<string, unknown>;
+                private?: boolean;
             };
 
             const issAid = await client.identifiers().get(args.issuerAidName);
-            const registries: Registry[] = await client.registries().list(args.issuerAidName);
+            const registries: Registry[] = await client.registries().list(issAid.prefix);
             const registry = registries.find((reg) => reg.name === args.registryName);
             if (!registry) {
                 throw new Error(`Registry "${args.registryName}" not found under AID "${args.issuerAidName}"`);
@@ -740,9 +742,11 @@ export const issueAndGetCredential = async (argsJson: string): Promise<string> =
             const kargsSub: CredentialSubject = {
                 i: args.holderPrefix,
                 dt: createTimestamp(),
+                ...(args.private ? { u: new Salter({}).qb64 } : {}),
                 ...args.credData,
             };
             const issData: CredentialData = {
+                ...(args.private ? { u: new Salter({}).qb64 } : {}),
                 i: issAid.prefix,
                 ri: registry.regk,
                 s: args.schema,
@@ -751,7 +755,7 @@ export const issueAndGetCredential = async (argsJson: string): Promise<string> =
                 ...(args.credRules ? { r: args.credRules } : {}),
             };
 
-            const issResult: IssueCredentialResult = await client.credentials().issue(args.issuerAidName, issData);
+            const issResult: IssueCredentialResult = await client.credentials().issue(issAid.prefix, issData);
             const issOp = await waitAndDeleteOperation(client, issResult.op);
 
             const credentialSad = issOp.response as Record<string, any>;

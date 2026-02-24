@@ -183,6 +183,27 @@ namespace Extension.Services.PrimeDataService {
             }
             _logger.LogInformation("GEDA registry: regk={Regk}, created={Created}", registryResult.Value.Regk, registryResult.Value.Created);
 
+            // Step 12b: Resolve credential schema OOBIs so KERIA can validate credentials
+            _logger.LogInformation("Step 12b: Resolving credential schema OOBIs...");
+            var schemaOobis = new (string schemaSaid, string url)[] {
+                ("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", "https://schema.testnet.gleif.org:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"),
+                ("ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY", "https://schema.testnet.gleif.org:7723/oobi/ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY"),
+                ("EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E", "https://schema.testnet.gleif.org:7723/oobi/EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E"),
+                ("EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy", "https://schema.testnet.gleif.org:7723/oobi/EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy"),
+                ("EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g", "https://schema.testnet.gleif.org:7723/oobi/EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g"),
+                ("EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw", "https://schema.testnet.gleif.org:7723/oobi/EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw"),
+            };
+            foreach (var (schemaSaid, url) in schemaOobis) {
+                _logger.LogInformation("  Resolving schema OOBI {SchemaSaid}...", schemaSaid);
+                var schemaResolveResult = await _signifyClient.ResolveOobi(url);
+                if (schemaResolveResult.IsFailed) {
+                    var err = $"Failed to resolve schema OOBI {schemaSaid}: {schemaResolveResult.Errors[0].Message}";
+                    _logger.LogError("{Error}", err);
+                    return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+                }
+                _logger.LogInformation("  Schema OOBI resolved: {SchemaSaid}", schemaSaid);
+            }
+
             // Step 13a: GEDA issues QVI credential
             _logger.LogInformation("Step 13a: GEDA issuing QVI credential to QVI...");
             var credData = new RecursiveDictionary();
@@ -431,6 +452,368 @@ namespace Extension.Services.PrimeDataService {
                 return Result.Ok(new PrimeDataGoResponse(false, Error: err));
             }
             _logger.LogInformation("LE credential presented to Verifier successfully");
+
+            // Step 22: Resolve OOBIs for Person (Person↔LE, Person↔QVI, Person↔Verifier)
+            _logger.LogInformation("Step 22: Resolving OOBIs for Person...");
+            var personOobiPairs = new (string resolver, string oobi, string alias)[] {
+                (personName, leResult.Value.Oobi, leName),
+                (leName, personResult.Value.Oobi, personName),
+                (qviName, personResult.Value.Oobi, personName),
+                (personName, qviResult.Value.Oobi, qviName),
+                (personName, verifierResult.Value.Oobi, verifierName),
+                (verifierName, personResult.Value.Oobi, personName),
+            };
+
+            foreach (var (resolver, oobi, alias) in personOobiPairs) {
+                _logger.LogInformation("  {Resolver} resolving OOBI for {Alias}...", resolver, alias);
+                var resolveResult = await _signifyClient.ResolveOobi(oobi, alias);
+                if (resolveResult.IsFailed) {
+                    var err = $"Failed OOBI resolve ({resolver} -> {alias}): {resolveResult.Errors[0].Message}";
+                    _logger.LogError("{Error}", err);
+                    return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+                }
+                _logger.LogInformation("  OOBI resolved: {Resolver} -> {Alias}", resolver, alias);
+            }
+
+            // Step 23: LE creates credential registry
+            var leRegistryName = $"{prepend}_le_oor_registry";
+            _logger.LogInformation("Step 23: Creating credential registry '{Name}' for LE...", leRegistryName);
+            var leRegistryResult = await _signifyClient.CreateRegistryIfNotExists(leName, leRegistryName);
+            if (leRegistryResult.IsFailed) {
+                var err = $"Failed to create LE registry: {leRegistryResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("LE registry: regk={Regk}, created={Created}", leRegistryResult.Value.Regk, leRegistryResult.Value.Created);
+
+            // Step 24a: LE issues OOR Auth credential to QVI
+            _logger.LogInformation("Step 24a: LE issuing OOR Auth credential to QVI...");
+            var oorAuthCredData = new RecursiveDictionary();
+            oorAuthCredData["AID"] = new RecursiveValue { StringValue = personResult.Value.Prefix };
+            oorAuthCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
+            oorAuthCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
+            oorAuthCredData["officialRole"] = new RecursiveValue { StringValue = "Head of Standards" };
+
+            var oorAuthEdge = new RecursiveDictionary();
+            oorAuthEdge["d"] = new RecursiveValue { StringValue = "" };
+            var oorAuthLeEdge = new RecursiveDictionary();
+            oorAuthLeEdge["n"] = new RecursiveValue { StringValue = leCredSaid };
+            oorAuthLeEdge["s"] = new RecursiveValue { StringValue = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY" };
+            oorAuthEdge["le"] = new RecursiveValue { Dictionary = oorAuthLeEdge };
+
+            var oorAuthRules = new RecursiveDictionary();
+            oorAuthRules["d"] = new RecursiveValue { StringValue = "" };
+            var oorAuthUsage = new RecursiveDictionary();
+            oorAuthUsage["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
+            oorAuthRules["usageDisclaimer"] = new RecursiveValue { Dictionary = oorAuthUsage };
+            var oorAuthIssuance = new RecursiveDictionary();
+            oorAuthIssuance["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
+            oorAuthRules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = oorAuthIssuance };
+
+            var oorAuthIssueArgs = new IssueAndGetCredentialArgs(
+                IssuerAidName: leName,
+                RegistryName: leRegistryName,
+                Schema: "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E",
+                HolderPrefix: qviResult.Value.Prefix,
+                CredData: oorAuthCredData,
+                CredEdge: oorAuthEdge,
+                CredRules: oorAuthRules
+            );
+            var oorAuthCredResult = await _signifyClient.IssueAndGetCredential(oorAuthIssueArgs);
+            if (oorAuthCredResult.IsFailed) {
+                var err = $"Failed to issue OOR Auth credential: {oorAuthCredResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var oorAuthAcdc = oorAuthCredResult.Value["acdc"].Dictionary!;
+            var oorAuthAnc = oorAuthCredResult.Value["anc"].Dictionary!;
+            var oorAuthIss = oorAuthCredResult.Value["iss"].Dictionary!;
+            var oorAuthCredSaid = oorAuthCredResult.Value["said"].StringValue!;
+            _logger.LogInformation("OOR Auth credential issued: said={Said}", oorAuthCredSaid);
+
+            // Step 24b: LE grants OOR Auth to QVI via IPEX
+            _logger.LogInformation("Step 24b: LE granting OOR Auth credential to QVI via IPEX...");
+            var oorAuthGrantArgs = new IpexGrantSubmitArgs(
+                SenderName: leName,
+                Recipient: qviResult.Value.Prefix,
+                Acdc: oorAuthAcdc,
+                Anc: oorAuthAnc,
+                Iss: oorAuthIss
+            );
+            var oorAuthGrantResult = await _signifyClient.IpexGrantAndSubmit(oorAuthGrantArgs);
+            if (oorAuthGrantResult.IsFailed) {
+                var err = $"Failed to grant OOR Auth credential: {oorAuthGrantResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var oorAuthGrantSaid = oorAuthGrantResult.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("OOR Auth credential granted: grantSaid={GrantSaid}", oorAuthGrantSaid);
+
+            // Step 25: QVI admits OOR Auth credential
+            _logger.LogInformation("Step 25: QVI admitting OOR Auth credential...");
+            var oorAuthAdmitArgs = new IpexAdmitSubmitArgs(
+                SenderName: qviName,
+                Recipient: leResult.Value.Prefix,
+                GrantSaid: oorAuthGrantSaid
+            );
+            var oorAuthAdmitResult = await _signifyClient.IpexAdmitAndSubmit(oorAuthAdmitArgs);
+            if (oorAuthAdmitResult.IsFailed) {
+                var err = $"Failed to admit OOR Auth credential: {oorAuthAdmitResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("OOR Auth credential admitted successfully");
+
+            // Step 26a: QVI issues OOR credential to Person
+            _logger.LogInformation("Step 26a: QVI issuing OOR credential to Person...");
+            var oorCredData = new RecursiveDictionary();
+            oorCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
+            oorCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
+            oorCredData["officialRole"] = new RecursiveValue { StringValue = "Head of Standards" };
+
+            var oorEdge = new RecursiveDictionary();
+            oorEdge["d"] = new RecursiveValue { StringValue = "" };
+            var oorAuthRef = new RecursiveDictionary();
+            oorAuthRef["n"] = new RecursiveValue { StringValue = oorAuthCredSaid };
+            oorAuthRef["s"] = new RecursiveValue { StringValue = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E" };
+            oorAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
+            oorEdge["auth"] = new RecursiveValue { Dictionary = oorAuthRef };
+
+            var oorRules = new RecursiveDictionary();
+            oorRules["d"] = new RecursiveValue { StringValue = "" };
+            var oorUsage = new RecursiveDictionary();
+            oorUsage["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
+            oorRules["usageDisclaimer"] = new RecursiveValue { Dictionary = oorUsage };
+            var oorIssuance = new RecursiveDictionary();
+            oorIssuance["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
+            oorRules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = oorIssuance };
+
+            var oorIssueArgs = new IssueAndGetCredentialArgs(
+                IssuerAidName: qviName,
+                RegistryName: qviRegistryName,
+                Schema: "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy",
+                HolderPrefix: personResult.Value.Prefix,
+                CredData: oorCredData,
+                CredEdge: oorEdge,
+                CredRules: oorRules
+            );
+            var oorCredResult = await _signifyClient.IssueAndGetCredential(oorIssueArgs);
+            if (oorCredResult.IsFailed) {
+                var err = $"Failed to issue OOR credential: {oorCredResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var oorAcdc = oorCredResult.Value["acdc"].Dictionary!;
+            var oorAnc = oorCredResult.Value["anc"].Dictionary!;
+            var oorIssVal = oorCredResult.Value["iss"].Dictionary!;
+            var oorCredSaid = oorCredResult.Value["said"].StringValue!;
+            _logger.LogInformation("OOR credential issued: said={Said}", oorCredSaid);
+
+            // Step 26b: QVI grants OOR credential to Person via IPEX
+            _logger.LogInformation("Step 26b: QVI granting OOR credential to Person via IPEX...");
+            var oorGrantArgs = new IpexGrantSubmitArgs(
+                SenderName: qviName,
+                Recipient: personResult.Value.Prefix,
+                Acdc: oorAcdc,
+                Anc: oorAnc,
+                Iss: oorIssVal
+            );
+            var oorGrantResult = await _signifyClient.IpexGrantAndSubmit(oorGrantArgs);
+            if (oorGrantResult.IsFailed) {
+                var err = $"Failed to grant OOR credential: {oorGrantResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var oorGrantSaid = oorGrantResult.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("OOR credential granted: grantSaid={GrantSaid}", oorGrantSaid);
+
+            // Step 27: Person admits OOR credential
+            _logger.LogInformation("Step 27: Person admitting OOR credential...");
+            var oorAdmitArgs = new IpexAdmitSubmitArgs(
+                SenderName: personName,
+                Recipient: qviResult.Value.Prefix,
+                GrantSaid: oorGrantSaid
+            );
+            var oorAdmitResult = await _signifyClient.IpexAdmitAndSubmit(oorAdmitArgs);
+            if (oorAdmitResult.IsFailed) {
+                var err = $"Failed to admit OOR credential: {oorAdmitResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("OOR credential admitted successfully");
+
+            // Step 28: Person presents OOR credential to Verifier (direct grant)
+            _logger.LogInformation("Step 28: Person presenting OOR credential to Verifier...");
+            var oorPresentResult = await _signifyClient.GrantReceivedCredential(personName, oorCredSaid, verifierResult.Value.Prefix);
+            if (oorPresentResult.IsFailed) {
+                var err = $"Failed to present OOR credential: {oorPresentResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("OOR credential presented to Verifier successfully");
+
+            // Step 29a: LE issues ECR Auth credential to QVI
+            _logger.LogInformation("Step 29a: LE issuing ECR Auth credential to QVI...");
+            var ecrAuthCredData = new RecursiveDictionary();
+            ecrAuthCredData["AID"] = new RecursiveValue { StringValue = personResult.Value.Prefix };
+            ecrAuthCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
+            ecrAuthCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
+            ecrAuthCredData["engagementContextRole"] = new RecursiveValue { StringValue = "Project Manager" };
+
+            var ecrAuthEdge = new RecursiveDictionary();
+            ecrAuthEdge["d"] = new RecursiveValue { StringValue = "" };
+            var ecrAuthLeEdge = new RecursiveDictionary();
+            ecrAuthLeEdge["n"] = new RecursiveValue { StringValue = leCredSaid };
+            ecrAuthLeEdge["s"] = new RecursiveValue { StringValue = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY" };
+            ecrAuthEdge["le"] = new RecursiveValue { Dictionary = ecrAuthLeEdge };
+
+            var ecrAuthRules = new RecursiveDictionary();
+            ecrAuthRules["d"] = new RecursiveValue { StringValue = "" };
+            var ecrAuthUsage = new RecursiveDictionary();
+            ecrAuthUsage["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
+            ecrAuthRules["usageDisclaimer"] = new RecursiveValue { Dictionary = ecrAuthUsage };
+            var ecrAuthIssuance = new RecursiveDictionary();
+            ecrAuthIssuance["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
+            ecrAuthRules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = ecrAuthIssuance };
+            var ecrAuthPrivacy = new RecursiveDictionary();
+            ecrAuthPrivacy["l"] = new RecursiveValue { StringValue = "Privacy Considerations are applicable to QVI ECR AUTH vLEI Credentials.  It is the sole responsibility of QVIs as Issuees of QVI ECR AUTH vLEI Credentials to present these Credentials in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification.  https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification." };
+            ecrAuthRules["privacyDisclaimer"] = new RecursiveValue { Dictionary = ecrAuthPrivacy };
+
+            var ecrAuthIssueArgs = new IssueAndGetCredentialArgs(
+                IssuerAidName: leName,
+                RegistryName: leRegistryName,
+                Schema: "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",
+                HolderPrefix: qviResult.Value.Prefix,
+                CredData: ecrAuthCredData,
+                CredEdge: ecrAuthEdge,
+                CredRules: ecrAuthRules
+            );
+            var ecrAuthCredResult = await _signifyClient.IssueAndGetCredential(ecrAuthIssueArgs);
+            if (ecrAuthCredResult.IsFailed) {
+                var err = $"Failed to issue ECR Auth credential: {ecrAuthCredResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var ecrAuthAcdc = ecrAuthCredResult.Value["acdc"].Dictionary!;
+            var ecrAuthAnc = ecrAuthCredResult.Value["anc"].Dictionary!;
+            var ecrAuthIss = ecrAuthCredResult.Value["iss"].Dictionary!;
+            var ecrAuthCredSaid = ecrAuthCredResult.Value["said"].StringValue!;
+            _logger.LogInformation("ECR Auth credential issued: said={Said}", ecrAuthCredSaid);
+
+            // Step 29b: LE grants ECR Auth to QVI via IPEX
+            _logger.LogInformation("Step 29b: LE granting ECR Auth credential to QVI via IPEX...");
+            var ecrAuthGrantArgs = new IpexGrantSubmitArgs(
+                SenderName: leName,
+                Recipient: qviResult.Value.Prefix,
+                Acdc: ecrAuthAcdc,
+                Anc: ecrAuthAnc,
+                Iss: ecrAuthIss
+            );
+            var ecrAuthGrantResult = await _signifyClient.IpexGrantAndSubmit(ecrAuthGrantArgs);
+            if (ecrAuthGrantResult.IsFailed) {
+                var err = $"Failed to grant ECR Auth credential: {ecrAuthGrantResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var ecrAuthGrantSaid = ecrAuthGrantResult.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("ECR Auth credential granted: grantSaid={GrantSaid}", ecrAuthGrantSaid);
+
+            // Step 30: QVI admits ECR Auth credential
+            _logger.LogInformation("Step 30: QVI admitting ECR Auth credential...");
+            var ecrAuthAdmitArgs = new IpexAdmitSubmitArgs(
+                SenderName: qviName,
+                Recipient: leResult.Value.Prefix,
+                GrantSaid: ecrAuthGrantSaid
+            );
+            var ecrAuthAdmitResult = await _signifyClient.IpexAdmitAndSubmit(ecrAuthAdmitArgs);
+            if (ecrAuthAdmitResult.IsFailed) {
+                var err = $"Failed to admit ECR Auth credential: {ecrAuthAdmitResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("ECR Auth credential admitted successfully");
+
+            // Step 31a: QVI issues ECR credential to Person (private, with u fields)
+            _logger.LogInformation("Step 31a: QVI issuing ECR credential to Person...");
+            var ecrCredData = new RecursiveDictionary();
+            ecrCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
+            ecrCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
+            ecrCredData["engagementContextRole"] = new RecursiveValue { StringValue = "Project Manager" };
+
+            var ecrEdge = new RecursiveDictionary();
+            ecrEdge["d"] = new RecursiveValue { StringValue = "" };
+            var ecrAuthRef = new RecursiveDictionary();
+            ecrAuthRef["n"] = new RecursiveValue { StringValue = ecrAuthCredSaid };
+            ecrAuthRef["s"] = new RecursiveValue { StringValue = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g" };
+            ecrAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
+            ecrEdge["auth"] = new RecursiveValue { Dictionary = ecrAuthRef };
+
+            var ecrRules = new RecursiveDictionary();
+            ecrRules["d"] = new RecursiveValue { StringValue = "" };
+            var ecrUsage = new RecursiveDictionary();
+            ecrUsage["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
+            ecrRules["usageDisclaimer"] = new RecursiveValue { Dictionary = ecrUsage };
+            var ecrIssuance = new RecursiveDictionary();
+            ecrIssuance["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
+            ecrRules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = ecrIssuance };
+            var ecrPrivacy = new RecursiveDictionary();
+            ecrPrivacy["l"] = new RecursiveValue { StringValue = "It is the sole responsibility of Holders as Issuees of an ECR vLEI Credential to present that Credential in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification. https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification." };
+            ecrRules["privacyDisclaimer"] = new RecursiveValue { Dictionary = ecrPrivacy };
+
+            var ecrIssueArgs = new IssueAndGetCredentialArgs(
+                IssuerAidName: qviName,
+                RegistryName: qviRegistryName,
+                Schema: "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw",
+                HolderPrefix: personResult.Value.Prefix,
+                CredData: ecrCredData,
+                CredEdge: ecrEdge,
+                CredRules: ecrRules,
+                Private: true
+            );
+            var ecrCredResult = await _signifyClient.IssueAndGetCredential(ecrIssueArgs);
+            if (ecrCredResult.IsFailed) {
+                var err = $"Failed to issue ECR credential: {ecrCredResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var ecrAcdc = ecrCredResult.Value["acdc"].Dictionary!;
+            var ecrAnc = ecrCredResult.Value["anc"].Dictionary!;
+            var ecrIssVal = ecrCredResult.Value["iss"].Dictionary!;
+            var ecrCredSaid = ecrCredResult.Value["said"].StringValue!;
+            _logger.LogInformation("ECR credential issued: said={Said}", ecrCredSaid);
+
+            // Step 31b: QVI grants ECR credential to Person via IPEX
+            _logger.LogInformation("Step 31b: QVI granting ECR credential to Person via IPEX...");
+            var ecrGrantArgs = new IpexGrantSubmitArgs(
+                SenderName: qviName,
+                Recipient: personResult.Value.Prefix,
+                Acdc: ecrAcdc,
+                Anc: ecrAnc,
+                Iss: ecrIssVal
+            );
+            var ecrGrantResult = await _signifyClient.IpexGrantAndSubmit(ecrGrantArgs);
+            if (ecrGrantResult.IsFailed) {
+                var err = $"Failed to grant ECR credential: {ecrGrantResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var ecrGrantSaid = ecrGrantResult.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("ECR credential granted: grantSaid={GrantSaid}", ecrGrantSaid);
+
+            // Step 32: Person admits ECR credential
+            _logger.LogInformation("Step 32: Person admitting ECR credential...");
+            var ecrAdmitArgs = new IpexAdmitSubmitArgs(
+                SenderName: personName,
+                Recipient: qviResult.Value.Prefix,
+                GrantSaid: ecrGrantSaid
+            );
+            var ecrAdmitResult = await _signifyClient.IpexAdmitAndSubmit(ecrAdmitArgs);
+            if (ecrAdmitResult.IsFailed) {
+                var err = $"Failed to admit ECR credential: {ecrAdmitResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("ECR credential admitted successfully");
 
             _logger.LogInformation("PrimeData Go completed successfully");
             return Result.Ok(new PrimeDataGoResponse(true));

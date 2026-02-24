@@ -6,6 +6,7 @@
       "name": "Qualified vLEI Issuer Credential",
       "file": "qualified-vLEI-issuer-vLEI-credential.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
         "http://vlei-server.localhost:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
       ]
     },
@@ -14,6 +15,7 @@
       "name": "Legal Entity vLEI Credential",
       "file": "legal-entity-vLEI-credential.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
         "http://vlei-server.localhost:7723/oobi/ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY"
       ]
     },
@@ -22,6 +24,7 @@
       "name": "Legal Entity Official Organizational Role vLEI Credential",
       "file": "legal-entity-official-organizational-role-vLEI-credential.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy",
         "http://vlei-server.localhost:7723/oobi/EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy"
       ]
     },
@@ -30,6 +33,7 @@
       "name": "OOR Authorization vLEI Credential",
       "file": "oor-authorization-vlei-credential.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E",
         "http://vlei-server.localhost:7723/oobi/EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E"
       ]
     },
@@ -38,6 +42,7 @@
       "name": "Legal Entity Engagement Context Role vLEI Credential",
       "file": "legal-entity-engagement-context-role-vLEI-credential.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw",
         "http://vlei-server.localhost:7723/oobi/EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw"
       ]
     },
@@ -46,6 +51,7 @@
       "name": "ECR Authorization vLEI Credential",
       "file": "ecr-authorization-vlei-credential.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",
         "http://vlei-server.localhost:7723/oobi/EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g"
       ]
     },
@@ -54,6 +60,7 @@
       "name": "Verifiable iXBRL Report Attestation",
       "file": "verifiable-ixbrl-report-attestation.json",
       "oobiUrls": [
+        "https://schema.testnet.gleif.org:7723/oobi/EMhvwOlyEJ9kN4PrwCpr9Jsv7TxPhiYveZ0oP3lJzdEi",
         "http://vlei-server.localhost:7723/oobi/EMhvwOlyEJ9kN4PrwCpr9Jsv7TxPhiYveZ0oP3lJzdEi"
       ]
     },
@@ -76,6 +83,7 @@
     }
   ],
   "defaultOobiHosts": [
+    "https://schema.testnet.gleif.org:7723",
     "https://schema.provenant.net",
     "http://vlei-server.localhost:7723"
   ]

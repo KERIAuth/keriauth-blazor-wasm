@@ -29,7 +29,9 @@
       "Bash(wsl:*)",
       "Bash(grep:*)",
       "Bash(make build:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:schema.testnet.gleif.org)"
     ],
     "deny": [],
     "ask": []

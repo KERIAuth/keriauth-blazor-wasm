@@ -36,7 +36,8 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("holderPrefix")] string HolderPrefix,
         [property: JsonPropertyName("credData")] RecursiveDictionary CredData,
         [property: JsonPropertyName("credEdge")] RecursiveDictionary? CredEdge = null,
-        [property: JsonPropertyName("credRules")] RecursiveDictionary? CredRules = null
+        [property: JsonPropertyName("credRules")] RecursiveDictionary? CredRules = null,
+        [property: JsonPropertyName("private")] bool? Private = null
     );
 
     /// <summary>
