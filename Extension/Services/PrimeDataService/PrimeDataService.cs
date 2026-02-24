@@ -316,6 +316,122 @@ namespace Extension.Services.PrimeDataService {
             }
             _logger.LogInformation("Verifier IPEX agree submitted successfully");
 
+            // Step 17: QVI creates credential registry for LE credentials
+            var qviRegistryName = $"{prepend}_qvi_le_registry";
+            _logger.LogInformation("Step 17: Creating credential registry '{Name}' for QVI...", qviRegistryName);
+            var qviRegistryResult = await _signifyClient.CreateRegistryIfNotExists(qviName, qviRegistryName);
+            if (qviRegistryResult.IsFailed) {
+                var err = $"Failed to create QVI registry: {qviRegistryResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("QVI registry: regk={Regk}, created={Created}", qviRegistryResult.Value.Regk, qviRegistryResult.Value.Created);
+
+            // Step 18a: QVI issues LE credential (with edges chaining to QVI credential + rules)
+            _logger.LogInformation("Step 18a: QVI issuing LE credential to LE...");
+            var leCredData = new RecursiveDictionary();
+            leCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
+
+            // Edge: chain LE credential to QVI credential
+            var credEdge = new RecursiveDictionary();
+            credEdge["d"] = new RecursiveValue { StringValue = "" };
+            var qviEdge = new RecursiveDictionary();
+            qviEdge["n"] = new RecursiveValue { StringValue = credSaid };
+            qviEdge["s"] = new RecursiveValue { StringValue = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao" };
+            credEdge["qvi"] = new RecursiveValue { Dictionary = qviEdge };
+
+            // Rules: standard vLEI disclaimers
+            var credRules = new RecursiveDictionary();
+            credRules["d"] = new RecursiveValue { StringValue = "" };
+            var usageDisclaimer = new RecursiveDictionary();
+            usageDisclaimer["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
+            credRules["usageDisclaimer"] = new RecursiveValue { Dictionary = usageDisclaimer };
+            var issuanceDisclaimer = new RecursiveDictionary();
+            issuanceDisclaimer["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
+            credRules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = issuanceDisclaimer };
+
+            var leIssueArgs = new IssueAndGetCredentialArgs(
+                IssuerAidName: qviName,
+                RegistryName: qviRegistryName,
+                Schema: "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
+                HolderPrefix: leResult.Value.Prefix,
+                CredData: leCredData,
+                CredEdge: credEdge,
+                CredRules: credRules
+            );
+            var leCredResult = await _signifyClient.IssueAndGetCredential(leIssueArgs);
+            if (leCredResult.IsFailed) {
+                var err = $"Failed to issue LE credential: {leCredResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var leCredAcdc = leCredResult.Value["acdc"].Dictionary!;
+            var leCredAnc = leCredResult.Value["anc"].Dictionary!;
+            var leCredIss = leCredResult.Value["iss"].Dictionary!;
+            var leCredSaid = leCredResult.Value["said"].StringValue!;
+            _logger.LogInformation("LE credential issued: said={Said}", leCredSaid);
+
+            // Step 18b: QVI grants LE credential to LE via IPEX
+            _logger.LogInformation("Step 18b: QVI granting LE credential to LE via IPEX...");
+            var leGrantArgs = new IpexGrantSubmitArgs(
+                SenderName: qviName,
+                Recipient: leResult.Value.Prefix,
+                Acdc: leCredAcdc,
+                Anc: leCredAnc,
+                Iss: leCredIss
+            );
+            var leGrantResult = await _signifyClient.IpexGrantAndSubmit(leGrantArgs);
+            if (leGrantResult.IsFailed) {
+                var err = $"Failed to grant LE credential: {leGrantResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var leGrantSaid = leGrantResult.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("LE credential granted: grantSaid={GrantSaid}", leGrantSaid);
+
+            // Step 19: LE admits LE credential
+            _logger.LogInformation("Step 19: LE admitting LE credential...");
+            var leAdmitArgs = new IpexAdmitSubmitArgs(
+                SenderName: leName,
+                Recipient: qviResult.Value.Prefix,
+                GrantSaid: leGrantSaid
+            );
+            var leAdmitResult = await _signifyClient.IpexAdmitAndSubmit(leAdmitArgs);
+            if (leAdmitResult.IsFailed) {
+                var err = $"Failed to admit LE credential: {leAdmitResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("LE credential admitted successfully");
+
+            // Step 20: Resolve OOBIs between LE and Verifier
+            _logger.LogInformation("Step 20: Resolving OOBIs between LE and Verifier...");
+            var leVerifierOobiPairs = new (string resolver, string oobi, string alias)[] {
+                (leName, verifierResult.Value.Oobi, verifierName),
+                (verifierName, leResult.Value.Oobi, leName),
+            };
+
+            foreach (var (resolver, oobi, alias) in leVerifierOobiPairs) {
+                _logger.LogInformation("  {Resolver} resolving OOBI for {Alias}...", resolver, alias);
+                var resolveResult = await _signifyClient.ResolveOobi(oobi, alias);
+                if (resolveResult.IsFailed) {
+                    var err = $"Failed OOBI resolve ({resolver} -> {alias}): {resolveResult.Errors[0].Message}";
+                    _logger.LogError("{Error}", err);
+                    return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+                }
+                _logger.LogInformation("  OOBI resolved: {Resolver} -> {Alias}", resolver, alias);
+            }
+
+            // Step 21: LE presents LE credential to Verifier (direct grant)
+            _logger.LogInformation("Step 21: LE presenting LE credential to Verifier...");
+            var lePresentResult = await _signifyClient.GrantReceivedCredential(leName, leCredSaid, verifierResult.Value.Prefix);
+            if (lePresentResult.IsFailed) {
+                var err = $"Failed to present LE credential: {lePresentResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("LE credential presented to Verifier successfully");
+
             _logger.LogInformation("PrimeData Go completed successfully");
             return Result.Ok(new PrimeDataGoResponse(true));
         }
