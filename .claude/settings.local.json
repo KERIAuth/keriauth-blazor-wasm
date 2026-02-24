@@ -6,10 +6,8 @@
       "WebFetch(domain:github.com)",
       "Bash(node:*)",
       "Bash(npm:*)",
-      
       "Read(/home/edeyk/.nuget/packages/**)",
       "Read(/home/edeyk/.nuget/packages/blazor.browserextension.build/**)",
-      
       "Bash(dotnet test:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(dotnet format:*)",
@@ -17,27 +15,21 @@
       "Bash(mkdir:*)",
       "WebFetch(domain:mingyaulee.github.io)",
       "WebSearch",
-
       "WebFetch(domain:developer.chrome.com)",
-
-      
       "Bash(else echo \"File already moved or doesn''t exist\")",
       "Bash(awk:*)",
       "Bash(git checkout:*)",
       "Bash(git log:*)",
-      
       "Bash(dotnet --version:*)",
       "Bash(git mv:*)",
       "Bash(tasklist:*)",
       "Bash(echo:*)",
-      
-      
       "Bash(test:*)",
-      
       "Bash(dir:*)",
       "Bash(wsl:*)",
       "Bash(grep:*)",
-      "Bash(make build:*)"
+      "Bash(make build:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []

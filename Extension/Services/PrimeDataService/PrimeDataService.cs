@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Extension.Helper;
 using Extension.Models.Messages.AppBw;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
@@ -170,6 +171,150 @@ namespace Extension.Services.PrimeDataService {
                 return Result.Ok(new PrimeDataGoResponse(false, Error: err));
             }
             _logger.LogInformation("QVI verified GEDA's challenge response (SAID={Said})", said2);
+
+            // Step 12: GEDA creates credential registry
+            var gedaRegistryName = $"{prepend}_geda_registry";
+            _logger.LogInformation("Step 12: Creating credential registry '{Name}' for GEDA...", gedaRegistryName);
+            var registryResult = await _signifyClient.CreateRegistryIfNotExists(gedaName, gedaRegistryName);
+            if (registryResult.IsFailed) {
+                var err = $"Failed to create GEDA registry: {registryResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("GEDA registry: regk={Regk}, created={Created}", registryResult.Value.Regk, registryResult.Value.Created);
+
+            // Step 13a: GEDA issues QVI credential
+            _logger.LogInformation("Step 13a: GEDA issuing QVI credential to QVI...");
+            var credData = new RecursiveDictionary();
+            credData["LEI"] = new RecursiveValue { StringValue = "5493001KJTIIGC8Y1R17" };
+            var issueArgs = new IssueAndGetCredentialArgs(
+                IssuerAidName: gedaName,
+                RegistryName: gedaRegistryName,
+                Schema: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                HolderPrefix: qviResult.Value.Prefix,
+                CredData: credData
+            );
+            var credResult = await _signifyClient.IssueAndGetCredential(issueArgs);
+            if (credResult.IsFailed) {
+                var err = $"Failed to issue QVI credential: {credResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var acdc = credResult.Value["acdc"].Dictionary!;
+            var anc = credResult.Value["anc"].Dictionary!;
+            var iss = credResult.Value["iss"].Dictionary!;
+            var credSaid = credResult.Value["said"].StringValue!;
+            _logger.LogInformation("QVI credential issued: said={Said}", credSaid);
+
+            // Step 13b: GEDA grants QVI credential to QVI via IPEX
+            _logger.LogInformation("Step 13b: GEDA granting QVI credential to QVI via IPEX...");
+            var grantArgs = new IpexGrantSubmitArgs(
+                SenderName: gedaName,
+                Recipient: qviResult.Value.Prefix,
+                Acdc: acdc,
+                Anc: anc,
+                Iss: iss
+            );
+            var grantResult = await _signifyClient.IpexGrantAndSubmit(grantArgs);
+            if (grantResult.IsFailed) {
+                var err = $"Failed to grant QVI credential: {grantResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var grantSaid = grantResult.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("QVI credential granted: grantSaid={GrantSaid}", grantSaid);
+
+            // Step 14: QVI admits QVI credential
+            _logger.LogInformation("Step 14: QVI admitting QVI credential...");
+            var admitArgs = new IpexAdmitSubmitArgs(
+                SenderName: qviName,
+                Recipient: gedaResult.Value.Prefix,
+                GrantSaid: grantSaid
+            );
+            var admitResult = await _signifyClient.IpexAdmitAndSubmit(admitArgs);
+            if (admitResult.IsFailed) {
+                var err = $"Failed to admit QVI credential: {admitResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("QVI credential admitted successfully");
+
+            // Step 15a: Create Verifier AID
+            var verifierName = $"{prepend}_verifier";
+            _logger.LogInformation("Step 15a: Creating Verifier AID '{Name}'...", verifierName);
+            var verifierResult = await _signifyClient.CreateAidWithEndRole(verifierName);
+            if (verifierResult.IsFailed) {
+                var err = $"Failed to create Verifier AID: {verifierResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("Verifier AID created: prefix={Prefix}, oobi={Oobi}", verifierResult.Value.Prefix, verifierResult.Value.Oobi);
+
+            // Step 15b: Resolve OOBIs between QVI and Verifier
+            _logger.LogInformation("Step 15b: Resolving OOBIs between QVI and Verifier...");
+            var verifierOobiPairs = new (string resolver, string oobi, string alias)[] {
+                (qviName, verifierResult.Value.Oobi, verifierName),
+                (verifierName, qviResult.Value.Oobi, qviName),
+            };
+
+            foreach (var (resolver, oobi, alias) in verifierOobiPairs) {
+                _logger.LogInformation("  {Resolver} resolving OOBI for {Alias}...", resolver, alias);
+                var resolveResult = await _signifyClient.ResolveOobi(oobi, alias);
+                if (resolveResult.IsFailed) {
+                    var err = $"Failed OOBI resolve ({resolver} -> {alias}): {resolveResult.Errors[0].Message}";
+                    _logger.LogError("{Error}", err);
+                    return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+                }
+                _logger.LogInformation("  OOBI resolved: {Resolver} -> {Alias}", resolver, alias);
+            }
+
+            // Step 16a: Verifier applies (requests QVI credential)
+            _logger.LogInformation("Step 16a: Verifier requesting QVI credential via IPEX apply...");
+            var applyArgs = new IpexApplySubmitArgs(
+                SenderName: verifierName,
+                Recipient: qviResult.Value.Prefix,
+                SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+            );
+            var applyResult = await _signifyClient.IpexApplyAndSubmit(applyArgs);
+            if (applyResult.IsFailed) {
+                var err = $"Failed verifier IPEX apply: {applyResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var applySaid = applyResult.Value["applySaid"].StringValue!;
+            _logger.LogInformation("Verifier IPEX apply submitted: applySaid={ApplySaid}", applySaid);
+
+            // Step 16b: QVI offers credential to verifier
+            _logger.LogInformation("Step 16b: QVI offering credential to Verifier via IPEX offer...");
+            var offerArgs = new IpexOfferSubmitArgs(
+                SenderName: qviName,
+                Recipient: verifierResult.Value.Prefix,
+                CredentialSaid: credSaid,
+                ApplySaid: applySaid
+            );
+            var offerResult = await _signifyClient.IpexOfferAndSubmit(offerArgs);
+            if (offerResult.IsFailed) {
+                var err = $"Failed QVI IPEX offer: {offerResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            var offerSaid = offerResult.Value["offerSaid"].StringValue!;
+            _logger.LogInformation("QVI IPEX offer submitted: offerSaid={OfferSaid}", offerSaid);
+
+            // Step 16c: Verifier agrees to credential offer
+            _logger.LogInformation("Step 16c: Verifier agreeing to credential offer via IPEX agree...");
+            var agreeArgs = new IpexAgreeSubmitArgs(
+                SenderName: verifierName,
+                Recipient: qviResult.Value.Prefix,
+                OfferSaid: offerSaid
+            );
+            var agreeResult = await _signifyClient.IpexAgreeAndSubmit(agreeArgs);
+            if (agreeResult.IsFailed) {
+                var err = $"Failed verifier IPEX agree: {agreeResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Ok(new PrimeDataGoResponse(false, Error: err));
+            }
+            _logger.LogInformation("Verifier IPEX agree submitted successfully");
 
             _logger.LogInformation("PrimeData Go completed successfully");
             return Result.Ok(new PrimeDataGoResponse(true));

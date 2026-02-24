@@ -52,6 +52,9 @@ public interface ISignifyClientBinding {
     ValueTask<string> IpexSubmitAdmitAsync(string name, string exnJson, string sigsJson, string atc, string recipientsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexGrantAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexAdmitAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> IpexApplyAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> IpexOfferAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> IpexAgreeAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> GrantReceivedCredentialAsync(string senderAidName, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default);
 
     // ===================== OOBI Operations =====================
@@ -258,6 +261,15 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     public ValueTask<string> IpexAdmitAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("ipexAdmitAndSubmit", cancellationToken, argsJson);
+
+    public ValueTask<string> IpexApplyAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("ipexApplyAndSubmit", cancellationToken, argsJson);
+
+    public ValueTask<string> IpexOfferAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("ipexOfferAndSubmit", cancellationToken, argsJson);
+
+    public ValueTask<string> IpexAgreeAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("ipexAgreeAndSubmit", cancellationToken, argsJson);
 
     public ValueTask<string> GrantReceivedCredentialAsync(string senderAidName, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("grantReceivedCredential", cancellationToken, senderAidName, credentialSaid, recipientPrefix);

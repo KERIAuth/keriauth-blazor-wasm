@@ -747,8 +747,8 @@ export const issueAndGetCredential = async (argsJson: string): Promise<string> =
                 ri: registry.regk,
                 s: args.schema,
                 a: kargsSub,
-                e: args.credEdge,
-                r: args.credRules,
+                ...(args.credEdge ? { e: args.credEdge } : {}),
+                ...(args.credRules ? { r: args.credRules } : {}),
             };
 
             const issResult: IssueCredentialResult = await client.credentials().issue(args.issuerAidName, issData);
@@ -762,9 +762,9 @@ export const issueAndGetCredential = async (argsJson: string): Promise<string> =
                 said: cred.sad.d,
                 issuer: cred.sad.i,
                 issuee: cred.sad?.a?.i,
-                acdc: issResult.acdc,
-                anc: issResult.anc,
-                iss: issResult.iss,
+                acdc: issResult.acdc.ked,
+                anc: issResult.anc.ked,
+                iss: issResult.iss.ked,
             };
         }
     );
@@ -950,10 +950,13 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
                 iss: new Serder(args.iss),
             });
 
+            const grantSaid = grant.ked.d as string;
+
             const op = await client.ipex().submitGrant(
                 args.senderName, grant, gsigs, end, [args.recipient]
             );
-            return await waitAndDeleteOperation(client, op);
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, grantSaid };
         }
     );
 };
@@ -987,6 +990,115 @@ export const ipexAdmitAndSubmit = async (argsJson: string): Promise<string> => {
 
             const op = await client.ipex().submitAdmit(
                 args.senderName, admit, sigs, aend, [args.recipient]
+            );
+            return await waitAndDeleteOperation(client, op);
+        }
+    );
+};
+
+/**
+ * Create an IPEX apply and submit it in one call, then wait for completion.
+ * Composite: ipex.apply() + ipex.submitApply() + wait.
+ * @param argsJson - JSON string of apply parameters: { senderName, recipient, schemaSaid, attributes? }
+ * @returns JSON string of completed operation with applySaid
+ */
+export const ipexApplyAndSubmit = async (argsJson: string): Promise<string> => {
+    return withClientOperation(
+        'ipexApplyAndSubmit',
+        async (client) => {
+            const args = JSON.parse(argsJson) as {
+                senderName: string;
+                recipient: string;
+                schemaSaid: string;
+                attributes?: Record<string, unknown>;
+            };
+
+            const [apply, asigs, _aend] = await client.ipex().apply({
+                senderName: args.senderName,
+                recipient: args.recipient,
+                schemaSaid: args.schemaSaid,
+                attributes: args.attributes,
+                datetime: createTimestamp(),
+            });
+
+            const applySaid = apply.ked.d as string;
+
+            const op = await client.ipex().submitApply(
+                args.senderName, apply, asigs, [args.recipient]
+            );
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, applySaid };
+        }
+    );
+};
+
+/**
+ * Create an IPEX offer and submit it in one call, then wait for completion.
+ * Fetches credential by SAID, wraps in Serder, creates offer + submits.
+ * Composite: credentials.get() + ipex.offer() + ipex.submitOffer() + wait.
+ * @param argsJson - JSON string of offer parameters: { senderName, recipient, credentialSaid, applySaid? }
+ * @returns JSON string of completed operation with offerSaid
+ */
+export const ipexOfferAndSubmit = async (argsJson: string): Promise<string> => {
+    return withClientOperation(
+        'ipexOfferAndSubmit',
+        async (client) => {
+            const args = JSON.parse(argsJson) as {
+                senderName: string;
+                recipient: string;
+                credentialSaid: string;
+                applySaid?: string;
+            };
+
+            const cred = await client.credentials().get(args.credentialSaid, false);
+            if (!cred) {
+                throw new Error(`Credential ${args.credentialSaid} not found`);
+            }
+
+            const [offer, osigs, oend] = await client.ipex().offer({
+                senderName: args.senderName,
+                recipient: args.recipient,
+                acdc: new Serder(cred.sad),
+                applySaid: args.applySaid,
+                datetime: createTimestamp(),
+            });
+
+            const offerSaid = offer.ked.d as string;
+
+            const op = await client.ipex().submitOffer(
+                args.senderName, offer, osigs, oend, [args.recipient]
+            );
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, offerSaid };
+        }
+    );
+};
+
+/**
+ * Create an IPEX agree and submit it in one call, then wait for completion.
+ * Composite: ipex.agree() + ipex.submitAgree() + wait.
+ * @param argsJson - JSON string of agree parameters: { senderName, recipient, offerSaid }
+ * @returns JSON string of completed operation
+ */
+export const ipexAgreeAndSubmit = async (argsJson: string): Promise<string> => {
+    return withClientOperation(
+        'ipexAgreeAndSubmit',
+        async (client) => {
+            const args = JSON.parse(argsJson) as {
+                senderName: string;
+                recipient: string;
+                offerSaid: string;
+            };
+
+            const [agree, agsigs, _agend] = await client.ipex().agree({
+                senderName: args.senderName,
+                recipient: args.recipient,
+                offerSaid: args.offerSaid,
+                datetime: createTimestamp(),
+            });
+
+            const op = await client.ipex().submitAgree(
+                args.senderName, agree, agsigs, [args.recipient]
             );
             return await waitAndDeleteOperation(client, op);
         }

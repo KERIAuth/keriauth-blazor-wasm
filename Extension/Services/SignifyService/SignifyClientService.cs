@@ -1747,6 +1747,99 @@ namespace Extension.Services.SignifyService {
             }
         }
 
+        public async Task<Result<RecursiveDictionary>> IpexApplyAndSubmit(IpexApplySubmitArgs args, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, recursiveJsonSerializerOptions);
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.IpexApplyAndSubmitAsync(argsJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("IpexApplyAndSubmit returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("IpexApplyAndSubmit returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexApplyAndSubmit result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(IpexApplyAndSubmit) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexApplyAndSubmit: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(IpexApplyAndSubmit) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexApplyAndSubmit: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> IpexOfferAndSubmit(IpexOfferSubmitArgs args, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.IpexOfferAndSubmitAsync(argsJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("IpexOfferAndSubmit returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("IpexOfferAndSubmit returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexOfferAndSubmit result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(IpexOfferAndSubmit) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexOfferAndSubmit: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(IpexOfferAndSubmit) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexOfferAndSubmit: Exception: " + e);
+            }
+        }
+
+        public async Task<Result<RecursiveDictionary>> IpexAgreeAndSubmit(IpexAgreeSubmitArgs args, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            try {
+                var argsJson = System.Text.Json.JsonSerializer.Serialize(args, jsonSerializerOptions);
+                var res = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.IpexAgreeAndSubmitAsync(argsJson, ct),
+                    timeout2
+                );
+                if (res is null || res.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>("IpexAgreeAndSubmit returned null or failed");
+                }
+                if (string.IsNullOrEmpty(res.Value)) {
+                    return Result.Fail<RecursiveDictionary>("IpexAgreeAndSubmit returned empty value");
+                }
+                var resultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(res.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexAgreeAndSubmit result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(IpexAgreeAndSubmit) + ": JSException: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexAgreeAndSubmit: JSException: " + e.Message);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(IpexAgreeAndSubmit) + ": Exception: {e}", e);
+                return Result.Fail<RecursiveDictionary>("IpexAgreeAndSubmit: Exception: " + e);
+            }
+        }
+
         public async Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidName, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null) {
             var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
             try {

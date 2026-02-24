@@ -183,6 +183,21 @@ namespace Extension.Services.SignifyService {
         Task<Result<RecursiveDictionary>> IpexAdmitAndSubmit(IpexAdmitSubmitArgs args, TimeSpan? timeout = null);
 
         /// <summary>
+        /// Create IPEX apply + submit in one operation.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> IpexApplyAndSubmit(IpexApplySubmitArgs args, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Create IPEX offer + submit in one operation.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> IpexOfferAndSubmit(IpexOfferSubmitArgs args, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Create IPEX agree + submit in one operation.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> IpexAgreeAndSubmit(IpexAgreeSubmitArgs args, TimeSpan? timeout = null);
+
+        /// <summary>
         /// Get a received credential and grant it to another party.
         /// </summary>
         Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidName, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
