@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using Extension.Helper;
 
 namespace Extension.Services.SignifyService.Models {
@@ -18,7 +19,7 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("response")] T? Response = default
     );
 
-    public class OperationMetadata : KeriDictionary {
+    public class OperationMetadata {
         [JsonPropertyName("depends")]
         public Operation? Depends { get; init; }
 
@@ -27,6 +28,9 @@ namespace Extension.Services.SignifyService.Models {
 
         [JsonPropertyName("anchor")]
         public string? Anchor { get; init; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
 
     public record LongRunningOperationResult<T>(
