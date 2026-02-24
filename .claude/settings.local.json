@@ -6,16 +6,10 @@
       "WebFetch(domain:github.com)",
       "Bash(node:*)",
       "Bash(npm:*)",
-      "Bash(dotnet build)",
-      "Bash(dotnet nuget locals:*)",
+      
       "Read(/home/edeyk/.nuget/packages/**)",
       "Read(/home/edeyk/.nuget/packages/blazor.browserextension.build/**)",
-      "Bash(dotnet clean:*)",
-      "Bash(dotnet build:*)",
-      "Bash(dotnet restore:*)",
-      "Bash(dotnet msbuild:*)",
-      "Bash(dotnet add:*)",
-      "Bash(NUGET_PACKAGES=/home/edeyk/.nuget/packages dotnet build Extension.sln --configuration Debug --no-restore)",
+      
       "Bash(dotnet test:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(dotnet format:*)",
@@ -23,43 +17,27 @@
       "Bash(mkdir:*)",
       "WebFetch(domain:mingyaulee.github.io)",
       "WebSearch",
-      "Bash(dotnet list:*)",
+
       "WebFetch(domain:developer.chrome.com)",
-      "Bash(npx eslint:*)",
-      "Bash(npx tsc:*)",
-      "Bash(if [ -f wwwroot/scripts/es6/signifyClient.ts ])",
-      "Bash(then mv wwwroot/scripts/es6/signifyClient.ts wwwroot/scripts/esbuild/signifyClient.ts)",
+
+      
       "Bash(else echo \"File already moved or doesn''t exist\")",
       "Bash(awk:*)",
       "Bash(git checkout:*)",
       "Bash(git log:*)",
-      "Bash(wsl -e bash -ic \"cd /mnt/c/s/k/kbw/Extension && npm run build:app\")",
+      
       "Bash(dotnet --version:*)",
       "Bash(git mv:*)",
       "Bash(tasklist:*)",
       "Bash(echo:*)",
-      "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet restore:*)",
-      "Bash(NUGET_PACKAGES=c:/s/k/kbw/.nuget/packages dotnet build:*)",
-      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm run build\")",
-      "Bash(powershell -Command \"cd c:\\s\\k\\kbw\\scripts; npm run build 2>&1\")",
-      "Bash(cmd.exe /c \"cd c:\\s\\k\\kbw\\scripts && npm run build\")",
-      "Bash(cmd /c \"cd c:\\s\\k\\kbw\\scripts && npm run build\")",
-      "Bash(cmd /c \"cd c:\\s\\k\\kbw\\scripts\\bundles && npm run build\")",
-      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm run build 2>&1\")",
-      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && call npm run build\")",
-      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts && npm.cmd run build\")",
-      "Bash(cmd /c \"cd /d c:\\s\\k\\kbw\\scripts\\bundles && npm.cmd run build 2>&1\")",
-      "Skill(build-windows)",
-      "Skill(build-windows:*)",
-      "Skill(clean-build-windows)",
-      "Skill(clean-build-windows:*)",
+      
+      
       "Bash(test:*)",
-      "Bash(cmd //c \"c:\\\\s\\\\k\\\\kbw\\\\build.cmd --skip-ts --test\")",
-      "Bash(cmd //c \"c:\\\\s\\\\k\\\\kbw\\\\clean-build.cmd\")",
-      "Bash(cmd //c \"dir c:\\\\s\\\\k\\\\kbw\\\\Extension\\\\bin\\\\Release\\\\net9.0\\\\browserextension\\\\manifest.json 2>nul && echo BUILD_OK || echo BUILD_MISSING\")",
-      "Bash(ls -la \"c:\\\\s\\\\k\\\\kbw\\\\Extension\\\\UI\"\" && ls -la \"c:skkbwExtensionUIComponents\"\")",
+      
       "Bash(dir:*)",
-      "Bash(cmd //c \"c:\\\\s\\\\k\\\\kbw\\\\build.cmd --test\")"
+      "Bash(wsl:*)",
+      "Bash(grep:*)",
+      "Bash(make build:*)"
     ],
     "deny": [],
     "ask": []

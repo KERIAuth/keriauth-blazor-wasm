@@ -141,6 +141,10 @@ namespace Extension.Models.Messages.AppBw {
             /// Request to rename an AID.
             /// </summary>
             public const string RequestRenameAid = "AppBw.RequestRenameAid";
+            /// <summary>
+            /// Request to execute PrimeData Go action (create GEDA/QVI/LE/PERSON AIDs).
+            /// </summary>
+            public const string RequestPrimeDataGo = "AppBw.RequestPrimeDataGo";
         }
 
         public string Value { get; }
@@ -169,6 +173,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetKeyState { get; } = new(Values.RequestGetKeyState);
         public static AppBwMessageType RequestGetKeyEvents { get; } = new(Values.RequestGetKeyEvents);
         public static AppBwMessageType RequestRenameAid { get; } = new(Values.RequestRenameAid);
+        public static AppBwMessageType RequestPrimeDataGo { get; } = new(Values.RequestPrimeDataGo);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -253,6 +258,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestRenameAid:
                     result = RequestRenameAid;
+                    return true;
+                case Values.RequestPrimeDataGo:
+                    result = RequestPrimeDataGo;
                     return true;
                 default:
                     return false;
@@ -571,6 +579,22 @@ namespace Extension.Models.Messages.AppBw {
     /// Response payload for rename AID request.
     /// </summary>
     public record RenameAidResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for PrimeData Go request from App to BackgroundWorker.
+    /// Expandable: add more fields later (salts, registry names, etc.)
+    /// </summary>
+    public record PrimeDataGoPayload(
+        [property: JsonPropertyName("prepend")] string Prepend
+    );
+
+    /// <summary>
+    /// Response payload for PrimeData Go request.
+    /// </summary>
+    public record PrimeDataGoResponse(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("error")] string? Error = null
     );

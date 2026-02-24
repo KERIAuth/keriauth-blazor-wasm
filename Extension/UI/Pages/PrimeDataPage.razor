@@ -1,27 +1,82 @@
 @page "/PrimeData.html"
+@using System.Text.Json
+@using Extension.Helper
 @using Extension.Models
+@using Extension.Models.Messages.AppBw
 @using Extension.Services
+@using Extension.Services.Port
 @using static Extension.AppConfig;
 @using static Extension.Helper.PreviousPage
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<PrimeDataPage> logger
 @inject AppCache appCache
+@inject IAppBwPortService appBwPortService
 
 @implements IDisposable
 
 @code
 {
-    string gedaSalt = "0AD45YWdzWSwNREuAoitH_CC";
-    string qviSalt = "0ABZi_wCWBhxFNEenxtf40mL";
-    string leSalt = "0ACzkItDY-F7lqI9ZtTQ1qR5";
-    string personSalt = "0ADckowyGuNwtJUPLeRqZvTp";
-    string gedaRegistry = "geda-qvi-registry";
+    enum StepStatus { Blank, Running, Success, Error }
+    StepStatus goStatus;
+    string? goError;
+    string prepend = "001";
 
     protected override async Task OnInitializedAsync()
     {
         await this.SubscribeToAppCache(appCache);
         logger.LogInformation("OnInitializedAsync");
+    }
+
+    async Task OnGo()
+    {
+        goStatus = StepStatus.Running;
+        goError = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestPrimeDataGo,
+                new { payload = new PrimeDataGoPayload(prepend) },
+                TimeSpan.FromMinutes(5));
+
+            if (!response.Ok)
+            {
+                goStatus = StepStatus.Error;
+                goError = response.Error ?? "RPC failed";
+            }
+            else
+            {
+                var result = response.Result is JsonElement jsonEl
+                    ? JsonSerializer.Deserialize<PrimeDataGoResponse>(jsonEl.GetRawText(), JsonOptions.PortMessaging)
+                    : null;
+
+                if (result is not null && result.Success)
+                {
+                    goStatus = StepStatus.Success;
+                }
+                else
+                {
+                    goStatus = StepStatus.Error;
+                    goError = result?.Error ?? "Unknown error";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            goStatus = StepStatus.Error;
+            goError = ex.Message;
+        }
+
+        StateHasChanged();
+    }
+
+    void OnReset()
+    {
+        goStatus = StepStatus.Blank;
+        goError = null;
+        StateHasChanged();
     }
 
     public void Dispose()
@@ -40,23 +95,30 @@
                 Input Fields
             </MudText>
             <MudStack Class="ml-5">
-                <MudTextField T="string" Label="GEDA_SALT" @bind-Value="gedaSalt" Variant="Variant.Outlined" />
-                <MudTextField T="string" Label="QVI_SALT" @bind-Value="qviSalt" Variant="Variant.Outlined" />
-                <MudTextField T="string" Label="LE_SALT" @bind-Value="leSalt" Variant="Variant.Outlined" />
-                <MudTextField T="string" Label="PERSON_SALT" @bind-Value="personSalt" Variant="Variant.Outlined" />
-                <MudTextField T="string" Label="GEDA_REGISTRY" @bind-Value="gedaRegistry" Variant="Variant.Outlined" />
+                <MudTextField T="string" Label="Prepend" @bind-Value="prepend" Variant="Variant.Outlined" />
             </MudStack>
 
             <MudText Class="bt-pref-group-label0">
-                GEDA and QVI Setup
+                Execute
             </MudText>
-            <MudStack Class="ml-5" Spacing="2">
-                <MudButton Variant="Variant.Outlined">geda-aid-create</MudButton>
-                <MudButton Variant="Variant.Outlined">recreate-with-geda-aid</MudButton>
-                <MudButton Variant="Variant.Outlined">qvi-aid-delegate-create</MudButton>
-                <MudButton Variant="Variant.Outlined">geda-delegate-approve</MudButton>
-                <MudButton Variant="Variant.Outlined">qvi-aid-delegate-finish</MudButton>
-                <MudButton Variant="Variant.Outlined">geda-oobi-resolve-qvi</MudButton>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="ml-5">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="OnGo" Disabled="@(goStatus == StepStatus.Running)">
+                    Go
+                </MudButton>
+                @if (goStatus == StepStatus.Running)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                }
+                @if (goStatus == StepStatus.Success)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                }
+                @if (goStatus == StepStatus.Error)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Title="@goError" />
+                    <MudText Color="Color.Error" Typo="Typo.body2">@goError</MudText>
+                }
             </MudStack>
 
         </div>
@@ -64,6 +126,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
+        <MudButton Variant="Variant.Text" OnClick="OnReset" Disabled="@(goStatus == StepStatus.Running)">Reset</MudButton>
     </MudStack>
 </div>
 

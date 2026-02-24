@@ -14,6 +14,7 @@ using Extension.Models.Storage;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.Port;
+using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
@@ -103,6 +104,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly SessionManager _sessionManager;
     private readonly ChromeSidePanel _chromeSidePanel;
     private readonly IBwPortService _portService;
+    private readonly IPrimeDataService _primeDataService;
 
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
@@ -116,7 +118,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IDemo1Binding demo1Binding,
         ISchemaService schemaService,
         SessionManager sessionManager,
-        IBwPortService portService) {
+        IBwPortService portService,
+        IPrimeDataService primeDataService) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -131,6 +134,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _sessionManager = sessionManager;
         _chromeSidePanel = new ChromeSidePanel(_jsRuntimeAdapter);
         _portService = portService;
+        _primeDataService = primeDataService;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);
@@ -1291,6 +1295,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestRenameAidRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestPrimeDataGo:
+                    await HandleAppRequestPrimeDataGoRpcAsync(portId, request, payload);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2195,6 +2203,51 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestRenameAidRpcAsync) + ": Error during rename AID");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new RenameAidResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestPrimeDataGoRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestPrimeDataGoRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new PrimeDataGoResponse(false, Error: "Missing payload"));
+                return;
+            }
+
+            var goPayload = JsonSerializer.Deserialize<PrimeDataGoPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (goPayload is null || string.IsNullOrEmpty(goPayload.Prepend)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new PrimeDataGoResponse(false, Error: "Invalid or missing prepend"));
+                return;
+            }
+
+            var goResult = await _primeDataService.GoAsync(goPayload);
+
+            // Refresh identifiers cache since AIDs may have been created (even on partial failure)
+            await RefreshIdentifiersCache();
+
+            if (goResult.IsSuccess) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: goResult.Value);
+            }
+            else {
+                var errorMsg = goResult.Errors.Count > 0 ? goResult.Errors[0].Message : "PrimeData Go failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new PrimeDataGoResponse(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestPrimeDataGoRpcAsync) + ": Error during PrimeData Go");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new PrimeDataGoResponse(false, Error: ex.Message));
         }
     }
 

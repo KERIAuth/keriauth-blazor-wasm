@@ -4,6 +4,7 @@ using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
 using Extension.Services.Port;
+using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyService;
 using Extension.Services.Storage;
 using Microsoft.AspNetCore.Components.Web;
@@ -82,6 +83,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<IBwPortService, BwPortService>();
             builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
             builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
+            builder.Services.AddSingleton<IPrimeDataService, Extension.Services.PrimeDataService.PrimeDataService>();
             builder.Services.AddSingleton<IDemo1Binding, Demo1Binding>();
             builder.Services.AddSingleton<ISchemaService, SchemaService>();
             break;

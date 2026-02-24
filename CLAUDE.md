@@ -74,6 +74,13 @@ See [BUILD.md](BUILD.md) for full instructions. Builds exclusively in WSL (Ubunt
 
 **Build configuration**: Release only. Debug configuration is intentionally disabled.
 
+**WSL path conventions for Claude Code**:
+- The project lives at WSL path `~/s/k/keriauth-blazor-wasm`
+- From Windows/Claude Code, use UNC paths: `//wsl.localhost/Ubuntu-24.04/home/edeyk/s/...`
+- Build commands must run via WSL: `wsl -d Ubuntu-24.04 -- bash -lc "cd ~/s/k/keriauth-blazor-wasm && make build"`
+- The user's `~/s/` directory contains sibling repos that may be referenced (e.g., `~/s/g/` for reference implementations)
+- Read/write access to everything under `~/s/` is pre-authorized for the session
+
 ## Security Constraints
 
 - **Passcode caching**: cleared after configurable inactivity timeout
