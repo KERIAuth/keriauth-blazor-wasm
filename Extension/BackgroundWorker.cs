@@ -69,6 +69,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // Track the "Open in tab" tab ID so we can reuse it (lost on service worker restart, which is fine)
     private int? _optionsTabId;
 
+    // In-memory correlation for connection invite flow: keyed by page's OOBI
+    // Stored after App approval, consumed by the confirm handler
+    private record PendingConnectionInfo(string AidName, string AidPrefix, string? ResolvedAlias);
+    private readonly Dictionary<string, PendingConnectionInfo> _pendingConnections = new();
+
     // BwReadyState observer - re-establishes BwReadyState when cleared by App
     private IDisposable? _bwReadyStateObserver;
 
@@ -2365,55 +2370,308 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Stub: Handles /KeriAuth/connection/invite from ContentScript.
-    /// TODO: Resolve page OOBI, prompt App for user approval, get own OOBI, return to CS.
+    /// Handles /KeriAuth/connection/invite from ContentScript.
+    /// Resolves the page's OOBI, then creates a pending request for App to show approval UI.
+    /// The RPC response to CS is deferred until HandleAppReplyConnectionInviteRpcAsync.
     /// </summary>
     private async Task HandleConnectionInviteRpcAsync(string portId, PortSession portSession, RpcRequest request, int tabId, string? tabUrl, string origin) {
         logger.LogInformation(nameof(HandleConnectionInviteRpcAsync) + ": tabId={TabId}, origin={Origin}", tabId, origin);
 
-        // TODO: Implement connection invite flow:
-        // 1. Extract ConnectionInvitePayload from request params
-        // 2. Resolve the page's OOBI via signify-ts (validate + extract AID info)
-        // 3. Send BwApp.RequestConnectionInvite to App for user approval
-        // 4. On approval: get own OOBI for selected AID
-        // 5. Return ConnectionInviteResponse with reciprocal OOBI
+        // Extract params
+        var rpcParams = request.GetParams<ConnectionInviteRpcParams>();
+        var oobi = rpcParams?.Payload?.Oobi;
+        var originalRequestId = rpcParams?.RequestId ?? request.Id;
 
-        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-            errorMessage: "Connection invite not yet implemented");
+        if (string.IsNullOrEmpty(oobi)) {
+            logger.LogWarning(nameof(HandleConnectionInviteRpcAsync) + ": Missing or empty OOBI");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing or empty OOBI in connection invite");
+            return;
+        }
+
+        // Resolve the page's OOBI to validate it and extract identity info
+        string? resolvedAidPrefix = null;
+        string? resolvedAlias = null;
+        var resolveResult = await _signifyClientService.ResolveOobi(oobi);
+        if (resolveResult.IsSuccess && resolveResult.Value is not null) {
+            // Best-effort extraction of AID prefix from resolved result
+            resolvedAidPrefix = resolveResult.Value.GetByPath("response.i")?.StringValue;
+            resolvedAlias = resolveResult.Value.GetByPath("response.alias")?.StringValue;
+            logger.LogInformation(nameof(HandleConnectionInviteRpcAsync) + ": Resolved OOBI, prefix={Prefix}, alias={Alias}",
+                resolvedAidPrefix ?? "null", resolvedAlias ?? "null");
+        }
+        else {
+            // Log warning but continue — user can still approve with limited info
+            logger.LogWarning(nameof(HandleConnectionInviteRpcAsync) + ": Failed to resolve page OOBI: {Error}",
+                resolveResult.Errors.Count > 0 ? resolveResult.Errors[0].Message : "Unknown error");
+        }
+
+        // Build payload for App UI
+        var invitePayload = new ConnectionInviteRequestPayload(
+            Oobi: oobi,
+            ResolvedAidPrefix: resolvedAidPrefix,
+            ResolvedAlias: resolvedAlias,
+            TabUrl: tabUrl
+        );
+
+        // Create pending request — store port routing info for deferred CS response
+        var pendingRequest = new PendingBwAppRequest {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestConnectionInvite,
+            Payload = invitePayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+        // RPC response to CS will be sent when App replies via HandleAppReplyConnectionInviteRpcAsync
     }
 
     /// <summary>
-    /// Stub: Handles /KeriAuth/connection/confirm from ContentScript.
-    /// TODO: Persist connection to chrome.storage.local, notify App.
+    /// Handles /KeriAuth/connection/confirm from ContentScript.
+    /// Page confirms it resolved the reciprocal OOBI. Persists the connection and notifies App.
     /// </summary>
     private async Task HandleConnectionConfirmRpcAsync(string portId, PortSession portSession, RpcRequest request, int tabId, string? tabUrl) {
         logger.LogInformation(nameof(HandleConnectionConfirmRpcAsync) + ": tabId={TabId}", tabId);
 
-        // TODO: Implement connection confirm flow:
-        // 1. Extract ConnectionConfirmPayload from request params
-        // 2. Persist the mutual connection to chrome.storage.local
-        // 3. Send BwApp.NotifyConnectionConfirmed to App to update UI
-        // 4. Acknowledge RPC
+        // Extract params
+        var rpcParams = request.GetParams<ConnectionConfirmRpcParams>();
+        var oobi = rpcParams?.Payload?.Oobi;
+        var error = rpcParams?.Payload?.Error;
+
+        if (string.IsNullOrEmpty(oobi)) {
+            logger.LogWarning(nameof(HandleConnectionConfirmRpcAsync) + ": Missing OOBI in confirm");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new { ok = true });
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(error)) {
+            logger.LogWarning(nameof(HandleConnectionConfirmRpcAsync) + ": Page reported error: {Error}", error);
+            _pendingConnections.Remove(oobi);
+            // Notify App of the failure
+            await BroadcastConnectionConfirmedAsync(oobi, error);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new { ok = true });
+            return;
+        }
+
+        // Clean up pending connection info (connection was already persisted in reply handler)
+        _pendingConnections.Remove(oobi);
+
+        logger.LogInformation(nameof(HandleConnectionConfirmRpcAsync) + ": Connection confirmed by page for OOBI");
+
+        // Notify App to update connections UI
+        await BroadcastConnectionConfirmedAsync(oobi, null);
 
         await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
             result: new { ok = true });
     }
 
     /// <summary>
-    /// Stub: Handles AppBw.ReplyConnectionInvite from App.
-    /// TODO: User approved connection invite — generate own OOBI and complete the CS response.
+    /// Broadcasts a connection confirmed notification to App via chrome.runtime.sendMessage.
+    /// </summary>
+    private async Task BroadcastConnectionConfirmedAsync(string oobi, string? error) {
+        try {
+            await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+                new {
+                    t = SendMessageTypes.SwAppWake,
+                    notification = BwAppMessageType.Values.NotifyConnectionConfirmed,
+                    oobi,
+                    error
+                });
+        }
+        catch (Exception ex) {
+            logger.LogDebug(ex, nameof(BroadcastConnectionConfirmedAsync) + ": Failed to broadcast (App may not be open)");
+        }
+    }
+
+    /// <summary>
+    /// Extracts the AID prefix from an OOBI URL.
+    /// Expected format: /oobi/{PREFIX}/agent/{AGENT} or /oobi/{PREFIX}
+    /// </summary>
+    private static string? ExtractPrefixFromOobi(string oobi) {
+        try {
+            var uri = new Uri(oobi);
+            var segments = uri.AbsolutePath.Split('/');
+            var oobiIndex = Array.IndexOf(segments, "oobi");
+            if (oobiIndex >= 0 && oobiIndex + 1 < segments.Length) {
+                return segments[oobiIndex + 1];
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>
+    /// Handles AppBw.ReplyConnectionInvite from App.
+    /// User approved the connection — generates own OOBI and sends it back to CS.
     /// </summary>
     private async Task HandleAppReplyConnectionInviteRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
         logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": tabId={TabId}, requestId={RequestId}", tabId, requestId);
 
-        // TODO: Implement:
-        // 1. Extract ConnectionInviteReplyPayload (aidName) from payload
-        // 2. Get OOBI for selected AID via signify-ts
-        // 3. Retrieve pending CS request by requestId
-        // 4. Send ConnectionInviteResponse with reciprocal OOBI back to CS
+        if (requestId is null) {
+            logger.LogWarning(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Missing requestId");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing requestId");
+            return;
+        }
 
-        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-            result: new { ok = true });
+        // Get pending request to retrieve port routing info and original payload
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess) {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        try {
+            // Deserialize the reply payload
+            if (payload is null || !payload.HasValue) {
+                logger.LogWarning(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Missing payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var replyPayload = JsonSerializer.Deserialize<ConnectionInviteReplyPayload>(payload.Value.GetRawText(), JsonOptions.CamelCase);
+            if (replyPayload is null) {
+                logger.LogWarning(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Could not deserialize ConnectionInviteReplyPayload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid reply payload");
+                return;
+            }
+
+            logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": aidName={AidName}", replyPayload.AidName);
+
+            // Get own OOBI for the selected AID
+            var oobiResult = await _signifyClientService.GetOobi(replyPayload.AidName, "agent");
+            if (oobiResult.IsFailed || oobiResult.Value is null) {
+                var errorMsg = oobiResult.Errors.Count > 0 ? oobiResult.Errors[0].Message : "Failed to get OOBI";
+                logger.LogError(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": GetOobi failed: {Error}", errorMsg);
+
+                // Send error to CS if we have port info
+                if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                    await _portService.SendRpcResponseAsync(
+                        pendingRequest.PortId,
+                        pendingRequest.PortSessionId,
+                        pendingRequest.RpcRequestId ?? requestId,
+                        errorMessage: errorMsg);
+                }
+
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: errorMsg);
+                return;
+            }
+
+            // Extract OOBI URL from the result (same pattern as HandleAppRequestGetOobiRpcAsync)
+            string? myOobiUrl = null;
+            if (oobiResult.Value.TryGetValue("oobis", out var oobisVal)) {
+                myOobiUrl = oobisVal?.List?.FirstOrDefault()?.StringValue
+                            ?? oobisVal?.StringValue;
+            }
+
+            if (string.IsNullOrEmpty(myOobiUrl)) {
+                logger.LogError(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": GetOobi returned no OOBI URL");
+                if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                    await _portService.SendRpcResponseAsync(
+                        pendingRequest.PortId,
+                        pendingRequest.PortSessionId,
+                        pendingRequest.RpcRequestId ?? requestId,
+                        errorMessage: "Failed to generate OOBI URL");
+                }
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Failed to generate OOBI URL");
+                return;
+            }
+
+            // Extract own AID prefix from our OOBI URL for connection storage later
+            var myAidPrefix = ExtractPrefixFromOobi(myOobiUrl) ?? "";
+
+            // Retrieve the page's original OOBI for correlation
+            string? pageOobi = null;
+            string? resolvedAlias = null;
+            if (pendingRequest?.Payload is not null) {
+                try {
+                    var payloadJson = JsonSerializer.Serialize(pendingRequest.Payload, JsonOptions.CamelCase);
+                    var originalPayload = JsonSerializer.Deserialize<ConnectionInviteRequestPayload>(payloadJson, JsonOptions.CamelCase);
+                    pageOobi = originalPayload?.Oobi;
+                    resolvedAlias = originalPayload?.ResolvedAlias;
+                }
+                catch (Exception ex) {
+                    logger.LogWarning(ex, nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Could not extract original payload");
+                }
+            }
+
+            // Store pending connection info for the confirm handler
+            if (!string.IsNullOrEmpty(pageOobi)) {
+                _pendingConnections[pageOobi] = new PendingConnectionInfo(replyPayload.AidName, myAidPrefix, resolvedAlias);
+            }
+
+            // Persist connection immediately on user approval (don't wait for confirm)
+            try {
+                string? remotePrefix = !string.IsNullOrEmpty(pageOobi) ? ExtractPrefixFromOobi(pageOobi) : null;
+                var connectionName = replyPayload.ConnectionName
+                    ?? resolvedAlias
+                    ?? replyPayload.AidName;
+
+                var connection = new Connection {
+                    Name = connectionName,
+                    SenderPrefix = myAidPrefix,
+                    ReceiverPrefix = remotePrefix ?? "",
+                    ConnectionDate = DateTime.UtcNow
+                };
+
+                var connectionsResult = await _storageService.GetItem<Models.Storage.Connections>();
+                var currentItems = connectionsResult.IsSuccess && connectionsResult.Value is not null
+                    ? connectionsResult.Value.Items : [];
+                var newItems = new List<Connection>(currentItems) { connection };
+                await _storageService.SetItem(new Models.Storage.Connections { Items = newItems });
+
+                logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Connection persisted, name={Name}, sender={Sender}, receiver={Receiver}",
+                    connection.Name, connection.SenderPrefix, connection.ReceiverPrefix);
+            }
+            catch (Exception storageEx) {
+                logger.LogError(storageEx, nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Failed to persist connection");
+            }
+
+            // Append friendly name to outbound OOBI as ?name= parameter
+            if (!string.IsNullOrWhiteSpace(replyPayload.FriendlyName)) {
+                var encodedName = Uri.EscapeDataString(replyPayload.FriendlyName);
+                var separator = myOobiUrl.Contains('?') ? "&" : "?";
+                myOobiUrl = $"{myOobiUrl}{separator}name={encodedName}";
+            }
+
+            // Route the ConnectionInviteResponse to CS
+            var csResponse = new ConnectionInviteResponse(Oobi: myOobiUrl);
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Sending reciprocal OOBI to CS, requestId={RequestId}", requestId);
+                await _portService.SendRpcResponseAsync(
+                    pendingRequest.PortId,
+                    pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    result: csResponse);
+            }
+            else {
+                logger.LogWarning(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": No port info for CS response, requestId={RequestId}. Response not sent.", requestId);
+            }
+
+            // Acknowledge the App RPC
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Error processing connection invite reply");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
     }
 
     /// <summary>

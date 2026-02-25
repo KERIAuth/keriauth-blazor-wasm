@@ -523,6 +523,52 @@ namespace Extension.Tests.Models {
             Assert.Null(deserialized.Error);
         }
 
+        [Fact]
+        public void RequestConnectPage_RouteRegistered() {
+            // Verify the route is registered in Routes.Pages
+            var pageType = typeof(Extension.UI.Pages.RequestConnectPage);
+            Assert.True(Extension.Routes.Pages.ContainsKey(pageType),
+                "RequestConnectPage must be registered in Routes.Pages");
+            var route = Extension.Routes.Pages[pageType];
+            Assert.Equal("/RequestConnect.html", route.Path);
+            Assert.True(route.RequiresAuth);
+        }
+
+        [Fact]
+        public void AppBwReplyConnectionInviteMessage_RoundTrip() {
+            // Arrange: App sends reply with selected AID, connection name, and friendly name
+            var replyPayload = new ConnectionInviteReplyPayload(
+                "my-identifier",
+                ConnectionName: "CF Credential Issuance",
+                FriendlyName: "My Org Name");
+            var message = new AppBwReplyConnectionInviteMessage(42, "https://example.com", "req-123", replyPayload);
+
+            // Act: serialize
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
+
+            // Assert: key fields present
+            Assert.Contains("\"type\":\"AppBw.ReplyConnectionInvite\"", json);
+            Assert.Contains("\"aidName\":\"my-identifier\"", json);
+            Assert.Contains("\"connectionName\":\"CF Credential Issuance\"", json);
+            Assert.Contains("\"friendlyName\":\"My Org Name\"", json);
+            Assert.Contains("\"tabId\":42", json);
+            Assert.Contains("\"requestId\":\"req-123\"", json);
+
+            // Act: deserialize to non-generic AppBwMessage (two-phase pattern)
+            var baseMessage = JsonSerializer.Deserialize<AppBwMessage>(json, _jsonOptions);
+            Assert.NotNull(baseMessage);
+            Assert.Equal(AppBwMessageType.Values.ReplyConnectionInvite, baseMessage.Type);
+            Assert.Equal(42, baseMessage.TabId);
+
+            // Act: two-phase deserialization to typed message
+            var typedMessage = baseMessage.ToTyped<ConnectionInviteReplyPayload>(_jsonOptions);
+            Assert.NotNull(typedMessage);
+            Assert.NotNull(typedMessage.Payload);
+            Assert.Equal("my-identifier", typedMessage.Payload.AidName);
+            Assert.Equal("CF Credential Issuance", typedMessage.Payload.ConnectionName);
+            Assert.Equal("My Org Name", typedMessage.Payload.FriendlyName);
+        }
+
         #endregion
     }
 }

@@ -534,6 +534,15 @@ namespace Extension.Models.Messages.AppBw {
     }
 
     /// <summary>
+    /// Reply message for connection invite approval.
+    /// App sends this when user approves a connection request; BW generates reciprocal OOBI.
+    /// </summary>
+    public record AppBwReplyConnectionInviteMessage : AppBwMessage<Requests.ConnectionInviteReplyPayload> {
+        public AppBwReplyConnectionInviteMessage(int tabId, string? tabUrl, string requestId, Requests.ConnectionInviteReplyPayload payload)
+            : base(AppBwMessageType.ReplyConnectionInvite, tabId, tabUrl, requestId, payload) { }
+    }
+
+    /// <summary>
     /// Payload for sign-data approval from App to BackgroundWorker.
     /// App sends the user's selected identifier prefix and the data items to sign.
     /// BackgroundWorker will perform the actual signing via signify-ts.

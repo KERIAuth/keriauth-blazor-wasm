@@ -70,6 +70,7 @@ public static class Routes {
         [typeof(RequestSignDataPage)] = new("Request Sign Data", "/RequestSignData.html", RequiresAuth: true),
         [typeof(RequestUnknownPage)] = new("Request Unknown", "/RequestUnknown.html", RequiresAuth: true),
         [typeof(RequestCreateCredentialPage)] = new("Request Create Credential", "/RequestCreateCredential.html", RequiresAuth: true),
+        [typeof(RequestConnectPage)] = new("Request Connect", "/RequestConnect.html", RequiresAuth: true),
         [typeof(AddPasskeyPage)] = new("Add Passkey", "/AddPasskey.html", RequiresAuth: true),
 
         // Index pages (no auth) - Index.razor handles multiple routes
@@ -102,6 +103,20 @@ public static class Routes {
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
         [typeof(ReleaseHistoryPage)] = new("Release History", "/ReleaseHistory.html", RequiresAuth: false),
     };
+
+    /// <summary>
+    /// Pages that use DialogLayout for handling pending BW→App requests.
+    /// BaseLayout uses this to avoid re-navigating when already on a dialog page.
+    /// </summary>
+    public static readonly HashSet<string> DialogPagePaths =
+    [
+        Pages[typeof(RequestSignInPage)].Path,
+        Pages[typeof(RequestSignHeadersPage)].Path,
+        Pages[typeof(RequestSignDataPage)].Path,
+        Pages[typeof(RequestCreateCredentialPage)].Path,
+        Pages[typeof(RequestConnectPage)].Path,
+        Pages[typeof(RequestUnknownPage)].Path,
+    ];
 
     /// <summary>
     /// Additional paths that don't require auth but aren't separate page types.
@@ -159,6 +174,12 @@ public static class Routes {
             .Where(p => p.Key == pageType)
             .Select(p => p.Value.RequiresAuth)
             .FirstOrDefault();
+
+    /// <summary>
+    /// Check if a path is a dialog page (handles pending BW→App requests).
+    /// </summary>
+    public static bool IsDialogPage(string path) =>
+        DialogPagePaths.Contains(path);
 
     /// <summary>
     /// Check if a path requires authentication.

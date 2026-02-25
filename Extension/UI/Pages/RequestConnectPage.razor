@@ -1,0 +1,228 @@
+@page "/RequestConnect.html"
+@layout Layouts.DialogLayout
+@inherits Extension.UI.Components.TabDialogPageBase
+
+@using Extension.Models
+@using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.AppBw.Requests
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
+@using Extension.Services
+@using FluentResults
+@using MudBlazor
+
+@inject ILogger<RequestConnectPage> logger
+@inject ISnackbar snackbar
+
+@code {
+    private MudButton? connectButton;
+
+    private string? SelectedAidName { get; set; }
+    private string? SelectedPrefix { get; set; }
+    private string? ConnectionName { get; set; }
+    private string? FriendlyName { get; set; }
+
+    ConnectionInviteRequestPayload? payload;
+
+    bool IsApproveDisabled => SelectedAidName is null || string.IsNullOrWhiteSpace(ConnectionName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+
+        payload = await InitializeFromPendingRequestAsync<ConnectionInviteRequestPayload>(
+            BwAppMessageType.Values.RequestConnectionInvite);
+        if (payload is null)
+        {
+            return;
+        }
+
+        logger.LogInformation("OnInitializedAsync: oobi={Oobi}", payload.Oobi);
+
+        // Extract suggested connection name from OOBI ?name= parameter
+        if (!string.IsNullOrEmpty(payload.Oobi))
+        {
+            try
+            {
+                var uri = new Uri(payload.Oobi);
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                var name = query["name"];
+                if (!string.IsNullOrEmpty(name))
+                {
+                    ConnectionName = name;
+                }
+            }
+            catch { }
+        }
+
+        // Fall back to resolved alias if no ?name= found
+        if (string.IsNullOrEmpty(ConnectionName) && !string.IsNullOrEmpty(payload.ResolvedAlias))
+        {
+            ConnectionName = payload.ResolvedAlias;
+        }
+
+        await LoadActiveTabAsync();
+
+        IsInitialized = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && connectButton is not null)
+        {
+            // await connectButton.FocusAsync();
+        }
+    }
+
+    async Task<Result> Approve()
+    {
+        await BeginActionAsync();
+
+        if (SelectedAidName is null)
+        {
+            var error = new ValidationError("Selection", "No profile selected");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
+        }
+
+        var replyPayload = new ConnectionInviteReplyPayload(
+            AidName: SelectedAidName,
+            ConnectionName: ConnectionName,
+            FriendlyName: FriendlyName);
+        var message = new AppBwReplyConnectionInviteMessage(TabId, OriginStr, PageRequestId, replyPayload);
+        await AppBwPortService.SendToBackgroundWorkerAsync(message);
+        MarkAsReplied();
+
+        try
+        {
+            await ClearPendingRequestAsync();
+            await WaitForAppCacheClearAsync();
+            await ReturnToPriorUIAsync();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Failed to complete connection approval: {error}", ex.Message);
+            return Result.Fail(new JavaScriptInteropError("SendToServiceWorker", ex.Message, ex));
+        }
+    }
+
+    async Task Cancel()
+    {
+        await CancelAndReturnAsync("User canceled connection request");
+    }
+
+    private async Task HandleAidChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing) value)
+    {
+        logger.LogInformation("HandleAidChanged: prefix={Prefix}, alias={Alias}", value.selectedPrefix, value.selectedAlias);
+        SelectedPrefix = value.selectedPrefix;
+        SelectedAidName = value.selectedAlias;
+        // Always update friendly name to match selected profile
+        FriendlyName = value.selectedAlias;
+        if (connectButton is not null)
+        {
+            // await connectButton.FocusAsync();
+        }
+    }
+
+    private async Task ApproveHandler()
+    {
+        var result = await Approve();
+        if (result.IsFailed)
+        {
+            logger.LogError("Connection approval failed: {error}", result.Errors.FirstOrDefault()?.Message);
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Code == "NumpadEnter")
+        {
+            await ApproveHandler();
+        }
+    }
+}
+
+@if (IsInitialized)
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <MudText Class="bt-page-title">Connection Request</MudText>
+                @if (ActiveTab is not null)
+                {
+                    <TabInteractionDisplay ActiveTab=@ActiveTab />
+                }
+                else
+                {
+                    <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
+                }
+                <MudText Typo="Typo.body1" Class="mb-3">
+                    A web page is requesting a mutual KERI connection.
+                    Select a profile to share your OOBI with the requesting party.
+                </MudText>
+                @if (payload?.ResolvedAidPrefix is not null)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                        <MudText Typo="Typo.body2"><b>Remote identity:</b></MudText>
+                        <AidPrefixDisplay Prefix="@payload.ResolvedAidPrefix" />
+                        @if (payload.ResolvedAlias is not null)
+                        {
+                            <MudText Typo="Typo.body2">@payload.ResolvedAlias</MudText>
+                        }
+                    </MudStack>
+                }
+                else if (payload?.ResolvedAlias is not null)
+                {
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                        <b>Remote identity:</b> @payload.ResolvedAlias
+                    </MudText>
+                }
+                @if (!string.IsNullOrEmpty(payload?.Oobi))
+                {
+                    <MudExpansionPanels Elevation="0" Class="mb-2">
+                        <MudExpansionPanel Text="OOBI Details" Dense="true" Style="font-size:0.85rem;">
+                            <MudText Typo="Typo.caption" Style="word-break: break-all; font-family: monospace;">
+                                @payload.Oobi
+                            </MudText>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+                <MudTextField @bind-Value="ConnectionName"
+                              Label="Connection Name"
+                              HelperText="Name for this connection (from remote party)"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Class="mb-3" />
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
+                @if (SelectedAidName is null)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-3 mb-3" />
+                }
+                else
+                {
+                    <MudTextField @bind-Value="FriendlyName"
+                                  Label="Your Name (shared with remote)"
+                                  HelperText="Name sent with your OOBI invitation"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  Class="mt-3 mb-3" />
+                }
+            </div>
+        </MudStack>
+
+        <MudStack Row="true" class="bt-button-tray">
+            <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Cancel</MudButton>
+            <MudButton @ref="connectButton"
+                       StartIcon="@Icons.Material.Filled.Handshake"
+                       Disabled="IsApproveDisabled"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="ApproveHandler"
+                       @onkeydown="HandleKeyDown">
+                Connect
+            </MudButton>
+        </MudStack>
+    </div>
+}

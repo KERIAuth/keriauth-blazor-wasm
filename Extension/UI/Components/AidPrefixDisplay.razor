@@ -1,0 +1,48 @@
+@using static Extension.Helper.Identicon
+@inject IJSRuntime js
+
+@* Displays an AID prefix with identicon, abbreviated text, full-prefix tooltip, and copy button. *@
+@* // TODO P2 look for other opportunities to use this component *@
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+    <MudTooltip Text="@Prefix" Delay="500" Arrow="true">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            @if (ShowIdenticon)
+            {
+                <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(Prefix)" Class="bt-identicon" Style="@IdenticonStyle" />
+            }
+            <span style="font-family: monospace; font-size: 0.85rem;">@Abbreviated</span>
+        </MudStack>
+    </MudTooltip>
+    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                   Size="Size.Small"
+                   OnClick="CopyToClipboard"
+                   Style="padding: 0px !important;"
+                   aria-label="Copy prefix" />
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Prefix { get; set; } = "";
+
+    [Parameter]
+    public int HeadChars { get; set; } = 4;
+
+    [Parameter]
+    public int TailChars { get; set; } = 4;
+
+    [Parameter]
+    public bool ShowIdenticon { get; set; } = true;
+
+    [Parameter]
+    public string IdenticonStyle { get; set; } = "width: 1.5rem; height: 1.5rem;";
+
+    string Abbreviated => string.IsNullOrEmpty(Prefix) || Prefix.Length <= HeadChars + TailChars + 3
+        ? Prefix ?? ""
+        : $"{Prefix[..HeadChars]}\u2026{Prefix[^TailChars..]}";
+
+    async Task CopyToClipboard()
+    {
+        await js.InvokeVoidAsync("navigator.clipboard.writeText", Prefix);
+    }
+}

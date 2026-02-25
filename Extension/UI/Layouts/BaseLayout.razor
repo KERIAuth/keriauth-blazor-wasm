@@ -197,10 +197,9 @@
             return;
         }
 
-        // Don't navigate if already on a request handling page - let the page handle it
-        // TODO P1: need to pre-configure this fixed set Routes? Index may now handle this routing smarts.
-        var uri = navManager.Uri;
-        if (uri.Contains("RequestSign") || uri.Contains("RequestCreate"))
+        // Don't navigate if already on a dialog page handling a request
+        var currentPath = "/" + navManager.ToBaseRelativePath(navManager.Uri);
+        if (Routes.IsDialogPage(currentPath))
         {
             return;
         }
