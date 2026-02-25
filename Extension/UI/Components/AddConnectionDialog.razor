@@ -1,0 +1,162 @@
+@using Extension.Services.SignifyService
+@inject IJSRuntime js
+
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public string Mode { get; set; } = "invite"; // "invite" or "receive"
+    [Parameter] public string DefaultName { get; set; } = "";
+    [Parameter] public string? GeneratedOobi { get; set; }
+
+    private string? ConnectionName { get; set; }
+    private string? OobiInput { get; set; }
+    private DateTime? _copiedAt;
+    private MudTextField<string>? _nameField;
+    private MudTextField<string>? _oobiField;
+
+    private bool IsCopied => _copiedAt.HasValue && (DateTime.UtcNow - _copiedAt.Value).TotalSeconds < 2;
+
+    private string? DisplayOobi {
+        get {
+            if (string.IsNullOrEmpty(GeneratedOobi)) return null;
+            if (string.IsNullOrWhiteSpace(ConnectionName)) return GeneratedOobi;
+            var encodedName = Uri.EscapeDataString(ConnectionName);
+            var separator = GeneratedOobi.Contains('?') ? "&" : "?";
+            return $"{GeneratedOobi}{separator}name={encodedName}";
+        }
+    }
+
+    protected override void OnParametersSet() {
+        ConnectionName = DefaultName;
+        if (Mode == "receive" && !string.IsNullOrEmpty(OobiInput)) {
+            TryExtractNameFromOobi(OobiInput);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (firstRender) {
+            await Task.Delay(100);
+            if (Mode == "receive" && _oobiField is not null) {
+                await _oobiField.FocusAsync();
+            }
+            else if (_nameField is not null) {
+                await _nameField.FocusAsync();
+            }
+        }
+    }
+
+    private bool IsValid => Mode switch {
+        "invite" => !string.IsNullOrWhiteSpace(ConnectionName),
+        "receive" => !string.IsNullOrWhiteSpace(ConnectionName) && !string.IsNullOrWhiteSpace(OobiInput),
+        _ => false
+    };
+
+    private void Submit() {
+        if (!IsValid) return;
+        var result = Mode == "invite"
+            ? new AddConnectionResult(ConnectionName!, null)
+            : new AddConnectionResult(ConnectionName!, OobiInput);
+        MudDialog?.Close(DialogResult.Ok(result));
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private void OnOobiChanged(string? value) {
+        OobiInput = value;
+        if (!string.IsNullOrEmpty(value)) {
+            TryExtractNameFromOobi(value);
+        }
+    }
+
+    private void TryExtractNameFromOobi(string oobi) {
+        try {
+            var uri = new Uri(oobi);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var name = query["name"];
+            if (!string.IsNullOrEmpty(name)) {
+                ConnectionName = name;
+            }
+        }
+        catch {
+            // Not a valid URI yet, ignore
+        }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e) {
+        if ((e.Key == "Enter" || e.Code == "NumpadEnter") && IsValid) {
+            Submit();
+        }
+    }
+
+    private async Task CopyOobi() {
+        if (DisplayOobi is not null) {
+            await js.InvokeVoidAsync("navigator.clipboard.writeText", DisplayOobi);
+            _copiedAt = DateTime.UtcNow;
+        }
+    }
+}
+
+<MudDialog>
+    <DialogContent>
+        @if (Mode == "invite")
+        {
+            <MudText Typo="Typo.body1" Class="mb-3">Copy this OOBI and share it with the other party. They will need to resolve it on their side. For a mutual connection, you will also need to resolve their OOBI.</MudText>
+            <MudTextField @ref="_nameField"
+                          @bind-Value="ConnectionName"
+                          Label="Connection Name"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          OnKeyDown="OnKeyDown" />
+            @if (!string.IsNullOrEmpty(DisplayOobi))
+            {
+                <MudTextField Value="@DisplayOobi"
+                              Label="Your OOBI"
+                              Variant="Variant.Outlined"
+                              ReadOnly="true"
+                              Lines="3"
+                              Class="mt-3"
+                              Style="font-family: monospace; font-size: 0.8rem;" />
+                <MudButton StartIcon="@(IsCopied ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)"
+                           OnClick="CopyOobi"
+                           Variant="Variant.Text"
+                           Size="Size.Small"
+                           Class="mt-1">
+                    @(IsCopied ? "Copied" : "Copy to clipboard")
+                </MudButton>
+            }
+        }
+        else
+        {
+            <MudText Typo="Typo.body1" Class="mb-3">Paste the other party's OOBI to resolve their identifier. For a mutual connection, they will also need to resolve your OOBI.</MudText>
+            <MudTextField @ref="_oobiField"
+                          Value="@OobiInput"
+                          ValueChanged="@((string v) => OnOobiChanged(v))"
+                          Label="Paste OOBI"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Lines="3"
+                          Style="font-family: monospace; font-size: 0.8rem;" />
+            <MudTextField @ref="_nameField"
+                          @bind-Value="ConnectionName"
+                          Label="Connection Name"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          OnKeyDown="OnKeyDown"
+                          Class="mt-3" />
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (Mode == "invite")
+        {
+            <MudButton OnClick="Cancel" Color="Color.Primary" Variant="Variant.Filled">Close</MudButton>
+        }
+        else
+        {
+            <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Filled">Cancel</MudButton>
+            <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!IsValid)">Resolve</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    public record AddConnectionResult(string Name, string? Oobi);
+}

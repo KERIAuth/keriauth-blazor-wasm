@@ -145,6 +145,8 @@ namespace Extension.Models.Messages.AppBw {
             /// Request to execute PrimeData Go action (create GEDA/QVI/LE/PERSON AIDs).
             /// </summary>
             public const string RequestPrimeDataGo = "AppBw.RequestPrimeDataGo";
+            public const string RequestGetOobi = "AppBw.RequestGetOobi";
+            public const string RequestResolveOobi = "AppBw.RequestResolveOobi";
         }
 
         public string Value { get; }
@@ -174,6 +176,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetKeyEvents { get; } = new(Values.RequestGetKeyEvents);
         public static AppBwMessageType RequestRenameAid { get; } = new(Values.RequestRenameAid);
         public static AppBwMessageType RequestPrimeDataGo { get; } = new(Values.RequestPrimeDataGo);
+        public static AppBwMessageType RequestGetOobi { get; } = new(Values.RequestGetOobi);
+        public static AppBwMessageType RequestResolveOobi { get; } = new(Values.RequestResolveOobi);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -261,6 +265,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestPrimeDataGo:
                     result = RequestPrimeDataGo;
+                    return true;
+                case Values.RequestGetOobi:
+                    result = RequestGetOobi;
+                    return true;
+                case Values.RequestResolveOobi:
+                    result = RequestResolveOobi;
                     return true;
                 default:
                     return false;

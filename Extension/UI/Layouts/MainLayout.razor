@@ -295,6 +295,8 @@
             <MudNavMenu Style="height:calc(100vh - var(--mud-appbar-height) - 0.5rem); overflow-y:auto;">
                 <MudNavLink Href="@(Routes.PathFor<DashboardPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<ProfilesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Profiles</MudNavLink>
+                <MudNavLink Href="@(Routes.PathFor<ConnectionsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.People" IconColor="Color.Surface">Connections</MudNavLink>
+                <MudNavLink Href="@(Routes.PathFor<PresentationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                 @if (appCache.IsAuthenticated)

@@ -1,0 +1,28 @@
+@page "/Presentations.html"
+@inherits AuthenticatedPageBase
+@implements IDisposable
+
+@inject IJSRuntime js
+@inject AppCache appCache
+
+@code {
+    protected override async Task OnInitializedAsync() {
+        InitializeAppCache(appCache);
+        await this.SubscribeToAppCache(appCache);
+    }
+
+    public void Dispose() { }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <PageHeading Title="Presentations" InfoTooltip="" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-4">Coming soon.</MudText>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await Helper.PreviousPage.GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+    </MudStack>
+</div>

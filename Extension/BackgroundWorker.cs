@@ -14,6 +14,7 @@ using Extension.Models.Storage;
 using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.Port;
+using Extension.Services.NotificationPollingService;
 using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
@@ -105,6 +106,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ChromeSidePanel _chromeSidePanel;
     private readonly IBwPortService _portService;
     private readonly IPrimeDataService _primeDataService;
+    private readonly INotificationPollingService _notificationPollingService;
+    private CancellationTokenSource? _notificationPollingCts;
 
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
@@ -119,7 +122,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         ISchemaService schemaService,
         SessionManager sessionManager,
         IBwPortService portService,
-        IPrimeDataService primeDataService) {
+        IPrimeDataService primeDataService,
+        INotificationPollingService notificationPollingService) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -135,6 +139,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _chromeSidePanel = new ChromeSidePanel(_jsRuntimeAdapter);
         _portService = portService;
         _primeDataService = primeDataService;
+        _notificationPollingService = notificationPollingService;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);
@@ -1299,6 +1304,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestPrimeDataGoRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestGetOobi:
+                    await HandleAppRequestGetOobiRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestResolveOobi:
+                    await HandleAppRequestResolveOobiRpcAsync(portId, request, payload);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2251,6 +2264,97 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    private async Task HandleAppRequestGetOobiRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestGetOobiRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetOobiResponse(false, Error: "Missing payload"));
+                return;
+            }
+
+            var getOobiRequest = JsonSerializer.Deserialize<RequestGetOobiPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (getOobiRequest is null || string.IsNullOrEmpty(getOobiRequest.AidName)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetOobiResponse(false, Error: "Invalid or missing AID name"));
+                return;
+            }
+
+            var oobiResult = await _signifyClientService.GetOobi(getOobiRequest.AidName, "agent");
+
+            if (oobiResult.IsSuccess && oobiResult.Value is not null) {
+                // The result contains an "oobis" field with an array of OOBI URLs
+                string? oobiUrl = null;
+                if (oobiResult.Value.TryGetValue("oobis", out var oobisVal)) {
+                    // oobis is an array — take the first element
+                    oobiUrl = oobisVal?.List?.FirstOrDefault()?.StringValue
+                              ?? oobisVal?.StringValue;
+                }
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetOobiResponse(true, Oobi: oobiUrl));
+            }
+            else {
+                var errorMsg = oobiResult.Errors.Count > 0 ? oobiResult.Errors[0].Message : "Failed to get OOBI";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetOobiResponse(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestGetOobiRpcAsync) + ": Error getting OOBI");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new GetOobiResponse(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestResolveOobiRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestResolveOobiRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ResolveOobiResponse(false, Error: "Missing payload"));
+                return;
+            }
+
+            var resolveRequest = JsonSerializer.Deserialize<RequestResolveOobiPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (resolveRequest is null || string.IsNullOrEmpty(resolveRequest.OobiUrl)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ResolveOobiResponse(false, Error: "Invalid or missing OOBI URL"));
+                return;
+            }
+
+            var resolveResult = await _signifyClientService.ResolveOobi(resolveRequest.OobiUrl, resolveRequest.Alias);
+
+            if (resolveResult.IsSuccess) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ResolveOobiResponse(true));
+            }
+            else {
+                var errorMsg = resolveResult.Errors.Count > 0 ? resolveResult.Errors[0].Message : "Failed to resolve OOBI";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ResolveOobiResponse(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestResolveOobiRpcAsync) + ": Error resolving OOBI");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new ResolveOobiResponse(false, Error: ex.Message));
+        }
+    }
+
     /// <summary>
     /// Handles EVENT messages from ContentScript or App (fire-and-forget notifications).
     /// Events don't require a response - they're used for notifications like user activity.
@@ -3074,6 +3178,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
             }
             logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": connected successfully");
+
+            // Start notification polling (cancel any previous polling first)
+            _notificationPollingCts?.Cancel();
+            _notificationPollingCts = new CancellationTokenSource();
+            _ = _notificationPollingService.StartPollingAsync(_notificationPollingCts.Token);
+
             return Result.Ok();
         }
         catch (Exception ex) {
@@ -3083,6 +3193,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     public void Dispose() {
+        _notificationPollingCts?.Cancel();
+        _notificationPollingCts?.Dispose();
         _bwReadyStateObserver?.Dispose();
         GC.SuppressFinalize(this);
     }

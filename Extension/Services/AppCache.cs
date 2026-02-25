@@ -110,6 +110,8 @@
         private StorageObserver<KeriaConnectConfigs>? keriaConnectConfigsObserver;
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
         private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
+        private StorageObserver<Connections>? connectionsObserver;
+        private StorageObserver<Notifications>? notificationsObserver;
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = AppConfig.DefaultPreferences;
@@ -178,6 +180,10 @@
         /// Components can check HasPendingBwAppRequests or NextPendingBwAppRequest to react to incoming requests.
         /// </summary>
         public PendingBwAppRequests MyPendingBwAppRequests { get; private set; } = PendingBwAppRequests.Empty;
+
+        public Connections MyConnections { get; private set; } = new Connections();
+
+        public Notifications MyNotifications { get; private set; } = new Notifications();
 
         // Derived properties ("reactive selectors")
         /// <summary>
@@ -469,6 +475,8 @@
             keriaConnectConfigsObserver?.Dispose();
             keriaConnectionInfoObserver?.Dispose();
             pendingBwAppRequestsObserver?.Dispose();
+            connectionsObserver?.Dispose();
+            notificationsObserver?.Dispose();
             _initLock?.Dispose();
             GC.SuppressFinalize(this);
         }
@@ -576,6 +584,30 @@
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing pending BW→App requests storage"),
+                    null,
+                    _logger
+                );
+                connectionsObserver = new StorageObserver<Connections>(
+                    storageService,
+                    StorageArea.Local,
+                    onNext: (value) => {
+                        MyConnections = value;
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyConnections: count={Count}", value.Items.Count);
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing connections storage"),
+                    null,
+                    _logger
+                );
+                notificationsObserver = new StorageObserver<Notifications>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (value) => {
+                        MyNotifications = value;
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyNotifications: count={Count}", value.Items.Count);
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing notifications storage"),
                     null,
                     _logger
                 );
@@ -687,6 +719,28 @@
             }
             else {
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PendingBwAppRequests not found (none pending)");
+            }
+
+            // 7. Notifications (session-scoped, cleared on browser close)
+            var notificationsResult = await storageService.GetItem<Notifications>(StorageArea.Session);
+            if (notificationsResult.IsSuccess && notificationsResult.Value is not null) {
+                MyNotifications = notificationsResult.Value;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Notifications loaded (count={Count})",
+                    notificationsResult.Value.Items.Count);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Notifications not found (none stored)");
+            }
+
+            // 8. Connections (persistent in Local storage)
+            var connectionsResult = await storageService.GetItem<Connections>();
+            if (connectionsResult.IsSuccess && connectionsResult.Value is not null) {
+                MyConnections = connectionsResult.Value;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections loaded (count={Count})",
+                    connectionsResult.Value.Items.Count);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections not found (none stored)");
             }
 
             _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete");

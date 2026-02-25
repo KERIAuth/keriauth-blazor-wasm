@@ -1,0 +1,235 @@
+@page "/Connections.html"
+@using Extension.Models
+@using Extension.Models.Storage
+@using Extension.Services.Storage
+@using Extension.Services.SignifyService
+@using Extension.Services.SignifyService.Models
+@using Extension.Models.Messages.AppBw.Requests
+@using Extension.Models.Messages.AppBw.Responses
+@using Extension.Services.Port
+@using Extension.UI.Components
+@using static Extension.UI.Components.AddConnectionDialog
+@inherits AuthenticatedPageBase
+@implements IDisposable
+
+@inject IStorageService storageService
+@inject NavigationManager navManager
+@inject IJSRuntime js
+@inject ILogger<ConnectionsPage> logger
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
+@inject AppCache appCache
+@inject IAppBwPortService appBwPortService
+
+@code {
+    bool IsProcessing { get; set; }
+
+    List<Connection> MyConnections => appCache?.MyConnections?.Items?
+        .Where(c => c.LocalPrefix == appCache.SelectedPrefix)
+        .OrderBy(c => c.Name)
+        .ToList() ?? [];
+
+    string CountLabel => "(" + MyConnections.Count + ")";
+
+    int UnreadNotificationCount(string remotePrefix) =>
+        appCache?.MyNotifications?.Items?
+            .Count(n => !n.IsRead) ?? 0;
+
+    static string ElidePrefix(string prefix) =>
+        prefix.Length > 8
+            ? $"{prefix[..4]}...{prefix[^4..]}"
+            : prefix;
+
+    protected override async Task OnInitializedAsync() {
+        logger.LogInformation("OnInitializedAsync");
+        InitializeAppCache(appCache);
+        await this.SubscribeToAppCache(appCache);
+    }
+
+    async Task AddConnection() {
+        var options = new DialogOptions {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false,
+            CloseButton = true,
+            Position = DialogPosition.Center,
+        };
+
+        // First ask: Invite or Receive Invite?
+        var choiceParams = new DialogParameters();
+        var choiceDialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add Connection", choiceParams, options);
+        var choiceResult = await choiceDialog.Result;
+        if (choiceResult is null || choiceResult.Canceled) return;
+
+        var mode = choiceResult.Data?.ToString() ?? "receive";
+
+        if (mode == "invite") {
+            await HandleInviteFlow(options);
+        }
+        else {
+            await HandleReceiveInviteFlow(options);
+        }
+    }
+
+    async Task HandleInviteFlow(DialogOptions options) {
+        var activeAid = appCache.Aids.Find(a => a.Prefix == appCache.SelectedPrefix);
+        if (activeAid is null) {
+            snackbar.Add("No active profile selected", Severity.Warning);
+            return;
+        }
+
+        IsProcessing = true;
+        StateHasChanged();
+
+        try {
+            // Generate OOBI for the active AID
+            var oobiResult = await appBwPortService.SendRequestAsync<RequestGetOobiPayload, GetOobiResponse>(
+                new AppBwRequestGetOobiMessage(activeAid.Name));
+
+            string? generatedOobi = null;
+            if (oobiResult.IsSuccess && oobiResult.Value?.Oobi is not null) {
+                generatedOobi = oobiResult.Value.Oobi;
+            }
+            else {
+                snackbar.Add("Failed to generate OOBI", Severity.Error);
+                return;
+            }
+
+            IsProcessing = false;
+            StateHasChanged();
+
+            var inviteParams = new DialogParameters {
+                { nameof(AddConnectionDialog.Mode), "invite" },
+                { nameof(AddConnectionDialog.DefaultName), activeAid.Name },
+                { nameof(AddConnectionDialog.GeneratedOobi), generatedOobi }
+            };
+            var inviteDialog = await dialogService.ShowAsync<AddConnectionDialog>("Share my OOBI", inviteParams, options);
+            await inviteDialog.Result;
+        }
+        finally {
+            IsProcessing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task HandleReceiveInviteFlow(DialogOptions options) {
+        var receiveParams = new DialogParameters {
+            { nameof(AddConnectionDialog.Mode), "receive" },
+            { nameof(AddConnectionDialog.DefaultName), "" }
+        };
+        var receiveDialog = await dialogService.ShowAsync<AddConnectionDialog>("Resolve their OOBI", receiveParams, options);
+        var receiveResult = await receiveDialog.Result;
+        if (receiveResult is null || receiveResult.Canceled) return;
+
+        if (receiveResult.Data is AddConnectionResult result && !string.IsNullOrEmpty(result.Oobi)) {
+            IsProcessing = true;
+            StateHasChanged();
+
+            try {
+                // Extract remote prefix from OOBI URL
+                var remotePrefix = ExtractPrefixFromOobi(result.Oobi);
+
+                // Resolve the OOBI via BackgroundWorker
+                var resolveResult = await appBwPortService.SendRequestAsync<RequestResolveOobiPayload, ResolveOobiResponse>(
+                    new AppBwRequestResolveOobiMessage(result.Oobi, result.Name));
+
+                if (resolveResult.IsFailed || resolveResult.Value?.Success != true) {
+                    var errorMsg = resolveResult.IsFailed
+                        ? resolveResult.Errors.FirstOrDefault()?.Message ?? "Unknown error"
+                        : resolveResult.Value?.Error ?? "Failed to resolve OOBI";
+                    snackbar.Add(errorMsg, Severity.Error);
+                    return;
+                }
+
+                var connection = new Connection {
+                    Name = result.Name,
+                    LocalPrefix = appCache.SelectedPrefix!,
+                    RemotePrefix = remotePrefix ?? "",
+                    ConnectionDate = DateTime.UtcNow
+                };
+                await StoreConnection(connection);
+                snackbar.Add($"Connected to '{result.Name}'", Severity.Success);
+            }
+            finally {
+                IsProcessing = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    static string? ExtractPrefixFromOobi(string oobi) {
+        try {
+            var uri = new Uri(oobi);
+            var segments = uri.AbsolutePath.Split('/');
+            // Expected format: /oobi/{PREFIX}/agent/{AGENT} or /oobi/{PREFIX}
+            var oobiIndex = Array.IndexOf(segments, "oobi");
+            if (oobiIndex >= 0 && oobiIndex + 1 < segments.Length) {
+                return segments[oobiIndex + 1];
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    async Task StoreConnection(Connection connection) {
+        var currentConnections = appCache.MyConnections;
+        var newItems = new List<Connection>(currentConnections.Items) { connection };
+        await storageService.SetItem(new Connections { Items = newItems });
+    }
+
+    async Task DeleteConnection(Connection connection) {
+        var currentConnections = appCache.MyConnections;
+        var newItems = currentConnections.Items.Where(c =>
+            !(c.LocalPrefix == connection.LocalPrefix &&
+              c.RemotePrefix == connection.RemotePrefix &&
+              c.ConnectionDate == connection.ConnectionDate)).ToList();
+        await storageService.SetItem(new Connections { Items = newItems });
+        snackbar.Add($"Connection '{connection.Name}' deleted", Severity.Info);
+    }
+
+    public void Dispose() { }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <PageHeading Title="Outbound Connections" InfoTooltip="">
+                <CountContent>@CountLabel</CountContent>
+            </PageHeading>
+
+            @foreach (var conn in MyConnections)
+            {
+                <MudCard Elevation="0" Class="py-0 my-1">
+                    <div class="d-flex" style="align-items: center; padding: 8px 4px;">
+                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(conn.RemotePrefix)" Class="bt-identicon" Style="margin-right: 8px;" />
+                        <div style="flex:1; min-width:0;">
+                            <MudText Typo="Typo.h6">@conn.Name</MudText>
+                            <MudTooltip Text="@conn.RemotePrefix" Delay="300">
+                                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(conn.RemotePrefix)</MudText>
+                            </MudTooltip>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
+                        </div>
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                            <MudMenuItem OnClick="@(() => DeleteConnection(conn))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">Delete</MudMenuItem>
+                            <MudMenuItem Disabled="true" Icon="@Icons.Material.Filled.Badge">Issue Credential</MudMenuItem>
+                            <MudMenuItem Disabled="true" Icon="@Icons.Material.Filled.PresentToAll">Request Presentation</MudMenuItem>
+                        </MudMenu>
+                    </div>
+                </MudCard>
+            }
+
+            @if (IsProcessing)
+            {
+                <div style="display:flex; align-items: center; justify-content:center; padding: 24px;">
+                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+                </div>
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await Helper.PreviousPage.GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsProcessing" OnClick="async () => await AddConnection()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
+    </MudStack>
+</div>

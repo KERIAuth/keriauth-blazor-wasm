@@ -1,0 +1,33 @@
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+
+    private void SelectInvite() => MudDialog?.Close(DialogResult.Ok("invite"));
+    private void SelectReceive() => MudDialog?.Close(DialogResult.Ok("receive"));
+    private void Cancel() => MudDialog?.Cancel();
+}
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-3">Establishing a mutual connection with another party requires each to a) share an introduction (string or QR code) called an OOBI, and also to b) resolve an introduction from the other.
+The later action causes the new outbound connection to appear in your Connections list.</MudText>
+        <MudStack Spacing="2">
+            <MudButton OnClick="SelectInvite"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Share">
+                Share my OOBI
+            </MudButton>
+            <MudButton OnClick="SelectReceive"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.ContentPaste">
+                Resolve their OOBI
+            </MudButton>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Text">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
