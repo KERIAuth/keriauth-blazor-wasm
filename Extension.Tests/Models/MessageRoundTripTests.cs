@@ -2,8 +2,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Extension.Helper;
 using Extension.Models.Messages.AppBw;
+using Extension.Models.Messages.AppBw.Requests;
 using Extension.Models.Messages.BwApp;
+using Extension.Models.Messages.BwApp.Requests;
 using Extension.Models.Messages.Common;
+using Extension.Models.Messages.CsBw;
 
 namespace Extension.Tests.Models {
     /// <summary>
@@ -364,6 +367,160 @@ namespace Extension.Tests.Models {
             var methodValue = (RecursiveValue)dataDict["method"];
             Assert.Equal("https://api.example.com/resource", urlValue.StringValue);
             Assert.Equal("POST", methodValue.StringValue);
+        }
+
+        #endregion
+
+        #region Connection Invite Message Compatibility Tests
+
+        [Fact]
+        public void CsBwMessageTypes_ConnectionInvite_MatchesTypeScriptConstant() {
+            // These string values must match the TypeScript CsBwRpcMethods constants exactly,
+            // since they are used as RPC method discriminators across the CS-BW boundary.
+            Assert.Equal("/KeriAuth/connection/invite", CsBwMessageTypes.CONNECTION_INVITE);
+            Assert.Equal("/KeriAuth/connection/confirm", CsBwMessageTypes.CONNECTION_CONFIRM);
+        }
+
+        [Fact]
+        public void BwAppMessageType_ConnectionInvite_TryParse() {
+            Assert.True(BwAppMessageType.TryParse(BwAppMessageType.Values.RequestConnectionInvite, out var inviteType));
+            Assert.Equal(BwAppMessageType.RequestConnectionInvite, inviteType);
+
+            Assert.True(BwAppMessageType.TryParse(BwAppMessageType.Values.NotifyConnectionConfirmed, out var confirmType));
+            Assert.Equal(BwAppMessageType.NotifyConnectionConfirmed, confirmType);
+        }
+
+        [Fact]
+        public void AppBwMessageType_ReplyConnectionInvite_TryParse() {
+            Assert.True(AppBwMessageType.TryParse(AppBwMessageType.Values.ReplyConnectionInvite, out var replyType));
+            Assert.Equal(AppBwMessageType.ReplyConnectionInvite, replyType);
+        }
+
+        [Fact]
+        public void ConnectionInvitePayload_RoundTrip_SerializesWithCorrectJsonKeys() {
+            // Arrange: simulate a page sending ConnectionInvitePayload via RPC
+            var payload = new ConnectionInvitePayload("http://example.com/oobi/EKE3-w61B11v");
+
+            // Act: serialize with camelCase (matches TypeScript conventions)
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+
+            // Assert: JSON key matches TypeScript field name
+            Assert.Contains("\"oobi\":", json);
+            Assert.Contains("http://example.com/oobi/EKE3-w61B11v", json);
+
+            // Act: deserialize back
+            var deserialized = JsonSerializer.Deserialize<ConnectionInvitePayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("http://example.com/oobi/EKE3-w61B11v", deserialized.Oobi);
+        }
+
+        [Fact]
+        public void ConnectionConfirmPayload_RoundTrip_WithError() {
+            // Arrange: page sends confirmation with error
+            var payload = new ConnectionConfirmPayload(
+                "http://example.com/oobi/EKE3-w61B11v",
+                Error: "Failed to resolve reciprocal OOBI"
+            );
+
+            // Act
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<ConnectionConfirmPayload>(json, _jsonOptions);
+
+            // Assert
+            Assert.NotNull(deserialized);
+            Assert.Equal("http://example.com/oobi/EKE3-w61B11v", deserialized.Oobi);
+            Assert.Equal("Failed to resolve reciprocal OOBI", deserialized.Error);
+        }
+
+        [Fact]
+        public void ConnectionConfirmPayload_RoundTrip_WithoutError() {
+            // Arrange: page sends successful confirmation
+            var payload = new ConnectionConfirmPayload("http://example.com/oobi/EKE3-w61B11v");
+
+            // Act
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<ConnectionConfirmPayload>(json, _jsonOptions);
+
+            // Assert
+            Assert.NotNull(deserialized);
+            Assert.Equal("http://example.com/oobi/EKE3-w61B11v", deserialized.Oobi);
+            Assert.Null(deserialized.Error);
+            // error field should be omitted from JSON when null (WhenWritingNull)
+            Assert.DoesNotContain("\"error\":", json);
+        }
+
+        [Fact]
+        public void ConnectionInviteResponse_RoundTrip() {
+            // Arrange: BW returns reciprocal OOBI to CS
+            var response = new ConnectionInviteResponse("http://keriauth.example/oobi/EAbc123");
+
+            // Act
+            var json = JsonSerializer.Serialize(response, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<ConnectionInviteResponse>(json, _jsonOptions);
+
+            // Assert
+            Assert.NotNull(deserialized);
+            Assert.Equal("http://keriauth.example/oobi/EAbc123", deserialized.Oobi);
+        }
+
+        [Fact]
+        public void ConnectionInviteRequestPayload_RoundTrip_BwToApp() {
+            // Arrange: BW sends resolved OOBI info to App for user approval
+            var payload = new ConnectionInviteRequestPayload(
+                Oobi: "http://example.com/oobi/EKE3-w61B11v",
+                ResolvedAidPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                ResolvedAlias: "Example Corp",
+                TabUrl: "https://example.com/connect"
+            );
+
+            // Act
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<ConnectionInviteRequestPayload>(json, _jsonOptions);
+
+            // Assert: all fields round-trip correctly
+            Assert.NotNull(deserialized);
+            Assert.Equal("http://example.com/oobi/EKE3-w61B11v", deserialized.Oobi);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", deserialized.ResolvedAidPrefix);
+            Assert.Equal("Example Corp", deserialized.ResolvedAlias);
+            Assert.Equal("https://example.com/connect", deserialized.TabUrl);
+
+            // Assert: JSON keys match TypeScript conventions (camelCase via JsonPropertyName)
+            Assert.Contains("\"oobi\":", json);
+            Assert.Contains("\"resolvedAidPrefix\":", json);
+            Assert.Contains("\"resolvedAlias\":", json);
+            Assert.Contains("\"tabUrl\":", json);
+        }
+
+        [Fact]
+        public void ConnectionInviteReplyPayload_RoundTrip_AppToBw() {
+            // Arrange: user approved and selected an AID
+            var payload = new ConnectionInviteReplyPayload("my-identifier");
+
+            // Act
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<ConnectionInviteReplyPayload>(json, _jsonOptions);
+
+            // Assert
+            Assert.NotNull(deserialized);
+            Assert.Equal("my-identifier", deserialized.AidName);
+            Assert.Contains("\"aidName\":", json);
+        }
+
+        [Fact]
+        public void ConnectionConfirmedPayload_RoundTrip_BwToApp() {
+            // Arrange: BW notifies App that connection is confirmed
+            var payload = new ConnectionConfirmedPayload(
+                Oobi: "http://example.com/oobi/EKE3-w61B11v"
+            );
+
+            // Act
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<ConnectionConfirmedPayload>(json, _jsonOptions);
+
+            // Assert
+            Assert.NotNull(deserialized);
+            Assert.Equal("http://example.com/oobi/EKE3-w61B11v", deserialized.Oobi);
+            Assert.Null(deserialized.Error);
         }
 
         #endregion

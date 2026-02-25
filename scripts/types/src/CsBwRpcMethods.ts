@@ -65,6 +65,12 @@ export const CsBwRpcMethods = {
     /** Configure vendor URL for theming */
     ConfigureVendor: '/signify/configure-vendor',
 
+    /** Request mutual OOBI exchange to establish a connection */
+    ConnectionInvite: '/KeriAuth/connection/invite',
+
+    /** Confirm that the page resolved the reciprocal OOBI (fire-and-forget) */
+    ConnectionConfirm: '/KeriAuth/connection/confirm',
+
     /** ContentScript initialization (legacy) */
     Init: 'init'
 } as const;

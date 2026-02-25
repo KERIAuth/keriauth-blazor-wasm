@@ -1171,6 +1171,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         errorMessage: "ConfigureVendor not supported");
                     return;
 
+                case CsBwMessageTypes.CONNECTION_INVITE:
+                    await HandleConnectionInviteRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
+                    return;
+
+                case CsBwMessageTypes.CONNECTION_CONFIRM:
+                    await HandleConnectionConfirmRpcAsync(portId, portSession, request, tabId, tabUrl);
+                    return;
+
                 case CsBwMessageTypes.INIT:
                     // Legacy method - respond with specific error
                     logger.LogWarning(nameof(HandleContentScriptRpcAsync) + ": Init is legacy/not implemented: {Method}", request.Method);
@@ -1307,6 +1315,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case AppBwMessageType.Values.RequestResolveOobi:
                     await HandleAppRequestResolveOobiRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.ReplyConnectionInvite:
+                    await HandleAppReplyConnectionInviteRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
                 default:
@@ -2350,6 +2362,58 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new ResolveOobiResponse(false, Error: ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Stub: Handles /KeriAuth/connection/invite from ContentScript.
+    /// TODO: Resolve page OOBI, prompt App for user approval, get own OOBI, return to CS.
+    /// </summary>
+    private async Task HandleConnectionInviteRpcAsync(string portId, PortSession portSession, RpcRequest request, int tabId, string? tabUrl, string origin) {
+        logger.LogInformation(nameof(HandleConnectionInviteRpcAsync) + ": tabId={TabId}, origin={Origin}", tabId, origin);
+
+        // TODO: Implement connection invite flow:
+        // 1. Extract ConnectionInvitePayload from request params
+        // 2. Resolve the page's OOBI via signify-ts (validate + extract AID info)
+        // 3. Send BwApp.RequestConnectionInvite to App for user approval
+        // 4. On approval: get own OOBI for selected AID
+        // 5. Return ConnectionInviteResponse with reciprocal OOBI
+
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+            errorMessage: "Connection invite not yet implemented");
+    }
+
+    /// <summary>
+    /// Stub: Handles /KeriAuth/connection/confirm from ContentScript.
+    /// TODO: Persist connection to chrome.storage.local, notify App.
+    /// </summary>
+    private async Task HandleConnectionConfirmRpcAsync(string portId, PortSession portSession, RpcRequest request, int tabId, string? tabUrl) {
+        logger.LogInformation(nameof(HandleConnectionConfirmRpcAsync) + ": tabId={TabId}", tabId);
+
+        // TODO: Implement connection confirm flow:
+        // 1. Extract ConnectionConfirmPayload from request params
+        // 2. Persist the mutual connection to chrome.storage.local
+        // 3. Send BwApp.NotifyConnectionConfirmed to App to update UI
+        // 4. Acknowledge RPC
+
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+            result: new { ok = true });
+    }
+
+    /// <summary>
+    /// Stub: Handles AppBw.ReplyConnectionInvite from App.
+    /// TODO: User approved connection invite — generate own OOBI and complete the CS response.
+    /// </summary>
+    private async Task HandleAppReplyConnectionInviteRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        // TODO: Implement:
+        // 1. Extract ConnectionInviteReplyPayload (aidName) from payload
+        // 2. Get OOBI for selected AID via signify-ts
+        // 3. Retrieve pending CS request by requestId
+        // 4. Send ConnectionInviteResponse with reciprocal OOBI back to CS
+
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+            result: new { ok = true });
     }
 
     /// <summary>

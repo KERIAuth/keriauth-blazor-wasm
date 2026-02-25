@@ -72,6 +72,26 @@ export type CsBwSignifyExtensionParams = undefined;
  */
 export type CsBwInitParams = undefined;
 
+/**
+ * Params for /KeriAuth/connection/invite request.
+ * Page sends its OOBI to initiate a mutual connection.
+ */
+export interface CsBwConnectionInviteParams {
+    /** Page's OOBI to share with the extension */
+    oobi: string;
+}
+
+/**
+ * Params for /KeriAuth/connection/confirm notification.
+ * Page confirms it resolved the reciprocal OOBI (or reports failure).
+ */
+export interface CsBwConnectionConfirmParams {
+    /** The original OOBI the page sent in the invite (correlation key) */
+    oobi: string;
+    /** Non-empty if the page failed to resolve the reciprocal OOBI */
+    error?: string;
+}
+
 // ============================================================================
 // Response Result Types (BW→CS via RpcResponse)
 // ============================================================================
@@ -108,6 +128,15 @@ export interface CsBwSignifyExtensionResult {
     extensionId: string;
 }
 
+/**
+ * Result for /KeriAuth/connection/invite response.
+ * Extension's reciprocal OOBI for the page to resolve.
+ */
+export interface CsBwConnectionInviteResult {
+    /** Extension's reciprocal OOBI (always present on success) */
+    oobi: string;
+}
+
 // ============================================================================
 // Method→Params Type Map
 // ============================================================================
@@ -135,6 +164,8 @@ export interface CsBwRpcParamsMap {
     [CsBwRpcMethods.SignifyExtensionClient]: CsBwSignifyExtensionParams;
     [CsBwRpcMethods.GetSessionInfo]: Polaris.AuthorizeArgs;
     [CsBwRpcMethods.ClearSession]: Polaris.AuthorizeArgs;
+    [CsBwRpcMethods.ConnectionInvite]: CsBwConnectionInviteParams;
+    [CsBwRpcMethods.ConnectionConfirm]: CsBwConnectionConfirmParams;
     [CsBwRpcMethods.Init]: CsBwInitParams;
 }
 
@@ -165,6 +196,8 @@ export interface CsBwRpcResultMap {
     [CsBwRpcMethods.SignifyExtensionClient]: CsBwSignifyExtensionResult;
     [CsBwRpcMethods.GetSessionInfo]: CsBwAuthorizeResult;
     [CsBwRpcMethods.ClearSession]: CsBwAuthorizeResult;
+    [CsBwRpcMethods.ConnectionInvite]: CsBwConnectionInviteResult;
+    [CsBwRpcMethods.ConnectionConfirm]: void;
     [CsBwRpcMethods.Init]: void;
 }
 

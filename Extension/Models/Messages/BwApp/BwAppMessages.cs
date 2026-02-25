@@ -64,6 +64,10 @@ namespace Extension.Models.Messages.BwApp {
             public const string RequestCreateCredential = "BwApp.RequestCreateCredential";
             /// <summary>Request App to notify user of extension update.</summary>
             public const string RequestNotifyUserOfUpdate = "BwApp.RequestNotifyUserOfUpdate";
+            /// <summary>Request App to show UI for user to approve a connection invite and select an AID.</summary>
+            public const string RequestConnectionInvite = "BwApp.RequestConnectionInvite";
+            /// <summary>Notify App that the page confirmed (or failed) the mutual connection.</summary>
+            public const string NotifyConnectionConfirmed = "BwApp.NotifyConnectionConfirmed";
         }
 
         public string Value { get; }
@@ -80,6 +84,8 @@ namespace Extension.Models.Messages.BwApp {
         public static BwAppMessageType RequestSignData { get; } = new(Values.RequestSignData);
         public static BwAppMessageType RequestCreateCredential { get; } = new(Values.RequestCreateCredential);
         public static BwAppMessageType RequestNotifyUserOfUpdate { get; } = new(Values.RequestNotifyUserOfUpdate);
+        public static BwAppMessageType RequestConnectionInvite { get; } = new(Values.RequestConnectionInvite);
+        public static BwAppMessageType NotifyConnectionConfirmed { get; } = new(Values.NotifyConnectionConfirmed);
 
         /// <summary>
         /// Parse a string value into a BwAppMessageType.
@@ -128,6 +134,12 @@ namespace Extension.Models.Messages.BwApp {
                     return true;
                 case Values.RequestNotifyUserOfUpdate:
                     result = RequestNotifyUserOfUpdate;
+                    return true;
+                case Values.RequestConnectionInvite:
+                    result = RequestConnectionInvite;
+                    return true;
+                case Values.NotifyConnectionConfirmed:
+                    result = NotifyConnectionConfirmed;
                     return true;
                 default:
                     return false;

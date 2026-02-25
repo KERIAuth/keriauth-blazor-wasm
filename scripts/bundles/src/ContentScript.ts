@@ -711,6 +711,18 @@ const PRODUCT_NAME = 'KERI Auth';
                     // console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
                     break;
                 }
+                case CsBwMsgEnum.KERIAUTH_CONNECTION_INVITE: {
+                    const connectionInviteMsg = event.data as Polaris.MessageData<unknown>;
+                    console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                    await sendMessageToBW(connectionInviteMsg);
+                    break;
+                }
+                case CsBwMsgEnum.KERIAUTH_CONNECTION_CONFIRM: {
+                    const connectionConfirmMsg = event.data as Polaris.MessageData<unknown>;
+                    console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                    await sendMessageToBW(connectionConfirmMsg);
+                    break;
+                }
                 default:
                     console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
                     break;

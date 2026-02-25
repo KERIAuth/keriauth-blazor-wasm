@@ -147,6 +147,11 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestPrimeDataGo = "AppBw.RequestPrimeDataGo";
             public const string RequestGetOobi = "AppBw.RequestGetOobi";
             public const string RequestResolveOobi = "AppBw.RequestResolveOobi";
+            /// <summary>
+            /// App user approved a connection invite and selected an AID.
+            /// BackgroundWorker will generate its OOBI for the selected AID and send it to the page.
+            /// </summary>
+            public const string ReplyConnectionInvite = "AppBw.ReplyConnectionInvite";
         }
 
         public string Value { get; }
@@ -178,6 +183,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestPrimeDataGo { get; } = new(Values.RequestPrimeDataGo);
         public static AppBwMessageType RequestGetOobi { get; } = new(Values.RequestGetOobi);
         public static AppBwMessageType RequestResolveOobi { get; } = new(Values.RequestResolveOobi);
+        public static AppBwMessageType ReplyConnectionInvite { get; } = new(Values.ReplyConnectionInvite);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -271,6 +277,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestResolveOobi:
                     result = RequestResolveOobi;
+                    return true;
+                case Values.ReplyConnectionInvite:
+                    result = ReplyConnectionInvite;
                     return true;
                 default:
                     return false;

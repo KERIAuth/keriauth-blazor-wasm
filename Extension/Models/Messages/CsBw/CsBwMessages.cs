@@ -90,6 +90,46 @@ namespace Extension.Models.Messages.CsBw {
     );
 
     /// <summary>
+    /// RPC params for connection/invite method.
+    /// Page sends its OOBI to initiate a mutual connection.
+    /// </summary>
+    public record ConnectionInviteRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] ConnectionInvitePayload? Payload
+    );
+
+    /// <summary>
+    /// Payload for connection/invite request.
+    /// </summary>
+    public record ConnectionInvitePayload(
+        [property: JsonPropertyName("oobi")] string Oobi
+    );
+
+    /// <summary>
+    /// RPC params for connection/confirm method.
+    /// Page confirms it resolved the reciprocal OOBI (or reports failure).
+    /// </summary>
+    public record ConnectionConfirmRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] ConnectionConfirmPayload? Payload
+    );
+
+    /// <summary>
+    /// Payload for connection/confirm notification.
+    /// </summary>
+    public record ConnectionConfirmPayload(
+        [property: JsonPropertyName("oobi")] string Oobi,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Response for connection/invite — extension's reciprocal OOBI.
+    /// </summary>
+    public record ConnectionInviteResponse(
+        [property: JsonPropertyName("oobi")] string Oobi
+    );
+
+    /// <summary>
     /// Generic internal extension runtime message structure for chrome.runtime messages.
     /// Used for simple internal communication between extension components.
     /// </summary>
@@ -121,6 +161,10 @@ namespace Extension.Models.Messages.CsBw {
         public const string CLEAR_SESSION = "/signify/clear-session";
         public const string CREATE_DATA_ATTESTATION = "/signify/credential/create/data-attestation";
         public const string GET_CREDENTIAL = "/signify/credential/get";
+
+        // KeriAuth-specific connection messages from web page
+        public const string CONNECTION_INVITE = "/KeriAuth/connection/invite";
+        public const string CONNECTION_CONFIRM = "/KeriAuth/connection/confirm";
     }
 
     /// <summary>

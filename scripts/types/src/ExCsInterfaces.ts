@@ -21,6 +21,8 @@ export enum CsBwMsgEnum {
     POLARIS_CLEAR_SESSION = '/signify/clear-session',
     POLARIS_CREATE_DATA_ATTESTATION = '/signify/credential/create/data-attestation',
     POLARIS_GET_CREDENTIAL = '/signify/credential/get',
+    KERIAUTH_CONNECTION_INVITE = '/KeriAuth/connection/invite',
+    KERIAUTH_CONNECTION_CONFIRM = '/KeriAuth/connection/confirm',
     INIT = 'init'
 }
 
