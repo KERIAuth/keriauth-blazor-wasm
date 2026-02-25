@@ -1,18 +1,23 @@
 using System.Text.Json;
 using Extension.Helper;
+using Extension.Models;
 using Extension.Models.Messages.AppBw;
+using Extension.Models.Storage;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
+using Extension.Services.Storage;
 using FluentResults;
 using Microsoft.Extensions.Logging;
 
 namespace Extension.Services.PrimeDataService {
     public class PrimeDataService : IPrimeDataService {
         private readonly ISignifyClientService _signifyClient;
+        private readonly IStorageService _storageService;
         private readonly ILogger<PrimeDataService> _logger;
 
-        public PrimeDataService(ISignifyClientService signifyClient, ILogger<PrimeDataService> logger) {
+        public PrimeDataService(ISignifyClientService signifyClient, IStorageService storageService, ILogger<PrimeDataService> logger) {
             _signifyClient = signifyClient;
+            _storageService = storageService;
             _logger = logger;
         }
 
@@ -21,30 +26,39 @@ namespace Extension.Services.PrimeDataService {
             _logger.LogInformation("PrimeData Go starting with prepend '{Prepend}'", prepend);
 
             // Steps 1-4: Create AIDs
+            var nameToPrefix = new Dictionary<string, string>();
+
             var gedaName = $"{prepend}_geda";
             var gedaResult = await CreateAidStep(gedaName, "Step 1");
             if (gedaResult.IsFailed) return FailResponse(gedaResult.Errors[0].Message);
+            nameToPrefix[gedaName] = gedaResult.Value.Prefix;
 
             var qviName = $"{prepend}_qvi";
             var qviResult = await CreateAidStep(qviName, "Step 2");
             if (qviResult.IsFailed) return FailResponse(qviResult.Errors[0].Message);
+            nameToPrefix[qviName] = qviResult.Value.Prefix;
 
             var leName = $"{prepend}_le";
             var leResult = await CreateAidStep(leName, "Step 3");
             if (leResult.IsFailed) return FailResponse(leResult.Errors[0].Message);
+            nameToPrefix[leName] = leResult.Value.Prefix;
 
             var personName = $"{prepend}_person";
             var personResult = await CreateAidStep(personName, "Step 4");
             if (personResult.IsFailed) return FailResponse(personResult.Errors[0].Message);
+            nameToPrefix[personName] = personResult.Value.Prefix;
 
             // Step 5: Resolve OOBIs between roles
-            var step5 = await ResolveOobiPairsStep(new[] {
+            var step5Pairs = new[] {
                 (gedaName, qviResult.Value.Oobi, qviName),
                 (qviName, gedaResult.Value.Oobi, gedaName),
                 (leName, qviResult.Value.Oobi, qviName),
                 (qviName, leResult.Value.Oobi, leName),
-            }, "Step 5");
+            };
+            var step5 = await ResolveOobiPairsStep(step5Pairs, "Step 5");
             if (step5.IsFailed) return FailResponse(step5.Errors[0].Message);
+            var step5Store = await StoreConnectionsStep(step5Pairs, nameToPrefix, "Step 5");
+            if (step5Store.IsFailed) return FailResponse(step5Store.Errors[0].Message);
 
             // Steps 6-8: GEDA challenges QVI
             var step6 = await ChallengeExchangeStep(
@@ -120,13 +134,17 @@ namespace Extension.Services.PrimeDataService {
             var verifierName = $"{prepend}_verifier";
             var verifierResult = await CreateAidStep(verifierName, "Step 15a");
             if (verifierResult.IsFailed) return FailResponse(verifierResult.Errors[0].Message);
+            nameToPrefix[verifierName] = verifierResult.Value.Prefix;
 
             // Step 15b: Resolve OOBIs between QVI and Verifier
-            var step15b = await ResolveOobiPairsStep(new[] {
+            var step15bPairs = new[] {
                 (qviName, verifierResult.Value.Oobi, verifierName),
                 (verifierName, qviResult.Value.Oobi, qviName),
-            }, "Step 15b");
+            };
+            var step15b = await ResolveOobiPairsStep(step15bPairs, "Step 15b");
             if (step15b.IsFailed) return FailResponse(step15b.Errors[0].Message);
+            var step15bStore = await StoreConnectionsStep(step15bPairs, nameToPrefix, "Step 15b");
+            if (step15bStore.IsFailed) return FailResponse(step15bStore.Errors[0].Message);
 
             // Step 16a: Verifier requests QVI credential via IPEX apply
             _logger.LogInformation("Step 16a: Verifier requesting QVI credential via IPEX apply...");
@@ -219,26 +237,32 @@ namespace Extension.Services.PrimeDataService {
             if (step19.IsFailed) return FailResponse(step19.Errors[0].Message);
 
             // Step 20: Resolve OOBIs between LE and Verifier
-            var step20 = await ResolveOobiPairsStep(new[] {
+            var step20Pairs = new[] {
                 (leName, verifierResult.Value.Oobi, verifierName),
                 (verifierName, leResult.Value.Oobi, leName),
-            }, "Step 20");
+            };
+            var step20 = await ResolveOobiPairsStep(step20Pairs, "Step 20");
             if (step20.IsFailed) return FailResponse(step20.Errors[0].Message);
+            var step20Store = await StoreConnectionsStep(step20Pairs, nameToPrefix, "Step 20");
+            if (step20Store.IsFailed) return FailResponse(step20Store.Errors[0].Message);
 
             // Step 21: LE presents LE credential to Verifier
             var step21 = await PresentCredentialStep(leName, leCredIssued.Value.Said, verifierResult.Value.Prefix, "Step 21", "LE credential");
             if (step21.IsFailed) return FailResponse(step21.Errors[0].Message);
 
             // Step 22: Resolve OOBIs for Person
-            var step22 = await ResolveOobiPairsStep(new[] {
+            var step22Pairs = new[] {
                 (personName, leResult.Value.Oobi, leName),
                 (leName, personResult.Value.Oobi, personName),
                 (qviName, personResult.Value.Oobi, personName),
                 (personName, qviResult.Value.Oobi, qviName),
                 (personName, verifierResult.Value.Oobi, verifierName),
                 (verifierName, personResult.Value.Oobi, personName),
-            }, "Step 22");
+            };
+            var step22 = await ResolveOobiPairsStep(step22Pairs, "Step 22");
             if (step22.IsFailed) return FailResponse(step22.Errors[0].Message);
+            var step22Store = await StoreConnectionsStep(step22Pairs, nameToPrefix, "Step 22");
+            if (step22Store.IsFailed) return FailResponse(step22Store.Errors[0].Message);
 
             // Step 23: LE creates credential registry
             var leRegistryName = $"{prepend}_le_oor_registry";
@@ -459,6 +483,36 @@ namespace Extension.Services.PrimeDataService {
                 }
                 _logger.LogInformation("  OOBI resolved: {Resolver} -> {Alias}", resolver, alias);
             }
+            return Result.Ok();
+        }
+
+        private async Task<Result> StoreConnectionsStep(
+            (string resolver, string oobi, string alias)[] pairs,
+            Dictionary<string, string> nameToPrefix,
+            string stepLabel) {
+            _logger.LogInformation("{Step}: Storing {Count} connections...", stepLabel, pairs.Length);
+            var existingResult = await _storageService.GetItem<Connections>();
+            var existingItems = existingResult.IsSuccess && existingResult.Value is not null
+                ? existingResult.Value.Items
+                : new List<Connection>();
+
+            var newConnections = new List<Connection>(existingItems);
+            foreach (var (resolver, _, alias) in pairs) {
+                newConnections.Add(new Connection {
+                    Name = alias,
+                    SenderPrefix = nameToPrefix[resolver],
+                    ReceiverPrefix = nameToPrefix[alias],
+                    ConnectionDate = DateTime.UtcNow
+                });
+            }
+
+            var setResult = await _storageService.SetItem(new Connections { Items = newConnections });
+            if (setResult.IsFailed) {
+                var err = $"Failed to store connections: {setResult.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Fail(err);
+            }
+            _logger.LogInformation("{Count} connections stored successfully", pairs.Length);
             return Result.Ok();
         }
 

@@ -25,7 +25,7 @@
     bool IsProcessing { get; set; }
 
     List<Connection> MyConnections => appCache?.MyConnections?.Items?
-        .Where(c => c.LocalPrefix == appCache.SelectedPrefix)
+        .Where(c => c.SenderPrefix == appCache.SelectedPrefix)
         .OrderBy(c => c.Name)
         .ToList() ?? [];
 
@@ -144,8 +144,8 @@
 
                 var connection = new Connection {
                     Name = result.Name,
-                    LocalPrefix = appCache.SelectedPrefix!,
-                    RemotePrefix = remotePrefix ?? "",
+                    SenderPrefix = appCache.SelectedPrefix!,
+                    ReceiverPrefix = remotePrefix ?? "",
                     ConnectionDate = DateTime.UtcNow
                 };
                 await StoreConnection(connection);
@@ -181,8 +181,8 @@
     async Task DeleteConnection(Connection connection) {
         var currentConnections = appCache.MyConnections;
         var newItems = currentConnections.Items.Where(c =>
-            !(c.LocalPrefix == connection.LocalPrefix &&
-              c.RemotePrefix == connection.RemotePrefix &&
+            !(c.SenderPrefix == connection.SenderPrefix &&
+              c.ReceiverPrefix == connection.ReceiverPrefix &&
               c.ConnectionDate == connection.ConnectionDate)).ToList();
         await storageService.SetItem(new Connections { Items = newItems });
         snackbar.Add($"Connection '{connection.Name}' deleted", Severity.Info);
@@ -202,11 +202,11 @@
             {
                 <MudCard Elevation="0" Class="py-0 my-1">
                     <div class="d-flex" style="align-items: center; padding: 8px 4px;">
-                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(conn.RemotePrefix)" Class="bt-identicon" Style="margin-right: 8px;" />
+                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(conn.ReceiverPrefix)" Class="bt-identicon" Style="margin-right: 8px;" />
                         <div style="flex:1; min-width:0;">
                             <MudText Typo="Typo.h6">@conn.Name</MudText>
-                            <MudTooltip Text="@conn.RemotePrefix" Delay="300">
-                                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(conn.RemotePrefix)</MudText>
+                            <MudTooltip Text="@conn.ReceiverPrefix" Delay="300">
+                                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(conn.ReceiverPrefix)</MudText>
                             </MudTooltip>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
                         </div>
