@@ -82,7 +82,6 @@ Expected files in `scripts/esbuild/`:
 
 * signifyClient.js
 * ContentScript.js
-* demo1.js
 * utils.js
 
 Expected files in `scripts/es6/`:

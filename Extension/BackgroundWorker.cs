@@ -63,7 +63,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
     private readonly IPendingBwAppRequestService _pendingBwAppRequestService;
-    private readonly IDemo1Binding _demo1Binding;
     private readonly ISchemaService _schemaService;
     private readonly WebExtensionsApi _webExtensionsApi;
 
@@ -118,7 +117,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService,
         IPendingBwAppRequestService pendingBwAppRequestService,
-        IDemo1Binding demo1Binding,
         ISchemaService schemaService,
         SessionManager sessionManager,
         IBwPortService portService,
@@ -127,7 +125,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
-        _demo1Binding = demo1Binding;
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageService = storageService;
         _signifyClientService = signifyService;

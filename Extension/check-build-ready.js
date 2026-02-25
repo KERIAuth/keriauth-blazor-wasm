@@ -20,7 +20,6 @@ const __dirname = path.dirname(__filename);
 const requiredDistFiles = [
     'dist/wwwroot/scripts/esbuild/signifyClient.js',
     'dist/wwwroot/scripts/esbuild/ContentScript.js',
-    'dist/wwwroot/scripts/esbuild/demo1.js',
     'dist/wwwroot/scripts/esbuild/utils.js',
     'dist/wwwroot/scripts/es6/storageHelper.js'
 ];
@@ -29,7 +28,6 @@ const requiredDistFiles = [
 const sourceFiles = [
     'wwwroot/scripts/esbuild/signifyClient.ts',
     'wwwroot/scripts/esbuild/ContentScript.ts',
-    'wwwroot/scripts/esbuild/demo1.ts',
     'wwwroot/scripts/esbuild/utils.ts'
 ];
 

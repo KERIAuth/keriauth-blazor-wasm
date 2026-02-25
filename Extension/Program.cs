@@ -85,7 +85,6 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
             builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
             builder.Services.AddSingleton<IPrimeDataService, Extension.Services.PrimeDataService.PrimeDataService>();
-            builder.Services.AddSingleton<IDemo1Binding, Demo1Binding>();
             builder.Services.AddSingleton<ISchemaService, SchemaService>();
             builder.Services.AddSingleton<INotificationPollingService, NotificationPollingService>();
             break;

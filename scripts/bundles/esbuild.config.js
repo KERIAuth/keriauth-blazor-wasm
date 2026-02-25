@@ -196,23 +196,6 @@ const builds = [
         // Will use IIFE format from sharedOptions
     },
     {
-        name: 'demo1',
-        entryPoints: ['src/demo1.ts'],
-        outfile: path.join(OUTPUT_DIR, 'demo1.js'),
-        platform: "browser",
-        format: 'esm',  // Use ESM to export runDemo1 function (not IIFE which runs immediately)
-        bundle: true,   // Explicitly enable bundling to inline utils.ts and signify-ts dependencies
-        inject: ['src/buffer-shim.js'],  // Inject Buffer polyfill for ESSR
-        define: {
-            'global': 'globalThis',
-            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-        },
-        banner: {
-            js: libsodiumPolyfillBanner
-        },
-        plugins: [ecdsaSecp256r1ShimPlugin, keriAuthTypesAlias, signifyTsAlias]
-    },
-    {
         name: 'utils',
         entryPoints: ['src/utils.ts'],
         outfile: path.join(OUTPUT_DIR, 'utils.js'),
@@ -240,7 +223,7 @@ async function buildAll() {
     // Type checking is now optional - run 'npm run typecheck' separately if needed
     // The VS JavaScript SDK treats stderr output as build failures, so we skip
     // automatic type checking during build to avoid false build failures from
-    // pre-existing signify-ts API type mismatches in demo1.ts and utils.ts
+    // pre-existing signify-ts API type mismatches in utils.ts
     if (process.argv[2] === '--typecheck') {
         const typeCheckPassed = runTypeCheck();
         if (!typeCheckPassed && process.env.NODE_ENV === 'production') {

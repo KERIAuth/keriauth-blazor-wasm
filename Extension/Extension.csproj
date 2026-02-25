@@ -91,7 +91,6 @@
     <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/browser-polyfill.js" />
     <BrowserExtensionBackgroundWorkerImportIncludeContent Include="content/Blazor.BrowserExtension/lib/decode.js" />
     <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/signifyClient.js" />
-    <BrowserExtensionBackgroundWorkerImportIncludeContent Include="scripts/esbuild/demo1.js" />
   </ItemGroup>
 
 

@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node esbuild.config.js",
     "watch": "node esbuild.config.js --watch",
-    "clean": "node -e \"const fs=require('fs');const path=require('path');const dir='../../Extension/wwwroot/scripts/esbuild';['signifyClient','ContentScript','demo1','utils'].forEach(f=>{['.js','.js.map'].forEach(ext=>{try{fs.unlinkSync(path.join(dir,f+ext))}catch{}})})\"",
+    "clean": "node -e \"const fs=require('fs');const path=require('path');const dir='../../Extension/wwwroot/scripts/esbuild';['signifyClient','ContentScript','utils'].forEach(f=>{['.js','.js.map'].forEach(ext=>{try{fs.unlinkSync(path.join(dir,f+ext))}catch{}})})\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

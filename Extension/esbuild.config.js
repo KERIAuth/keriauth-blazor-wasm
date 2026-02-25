@@ -119,26 +119,6 @@ const builds = [
         // Will use IIFE format from sharedOptions
     },
     {
-        name: 'demo1',
-        entryPoints: ['wwwroot/scripts/esbuild/demo1.ts'],
-        outfile: 'wwwroot/scripts/esbuild/demo1.js',
-        platform: "browser",
-        format: 'esm',  // Use ESM to export runDemo1 function (not IIFE which runs immediately)
-        bundle: true,   // Explicitly enable bundling to inline utils.ts and signify-ts dependencies
-        define: {
-            'global': 'globalThis',
-            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-        },
-        banner: {
-            js: libsodiumPolyfillBanner
-        },
-        plugins: [
-            alias({
-                '@signify-ts': path.resolve(__dirname, 'node_modules/signify-ts/dist/signify-ts.mjs'),
-            })
-        ]
-    },
-    {
         name: 'utils',
         entryPoints: ['wwwroot/scripts/esbuild/utils.ts'],
         outfile: 'wwwroot/scripts/esbuild/utils.js',

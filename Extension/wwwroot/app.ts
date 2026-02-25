@@ -36,14 +36,12 @@ const PRODUCT_NAME = 'KERI Auth';
 
 // Static imports - work in both ServiceWorker (backgroundWorker) and standard contexts
 // Import modules with names so they're registered in the module system
-// NOTE: signifyClient and demo1 are NOT statically imported here because:
+// NOTE: signifyClient is NOT statically imported here because:
 // - signifyClient: contains libsodium which needs crypto APIs ready first
-// - demo1: has TypeScript errors that would fail compilation (loaded via JsModuleLoader instead)
 // NOTE: WebAuthn modules (navigatorCredentialsShim, aesGcmCrypto) are loaded via JsModuleLoader
 // and cached by browser module system - no static import needed here
 // import * as signifyClient from './scripts/esbuild/signifyClient.js';
 // import * as utils from './scripts/esbuild/utils.js';
-// import * as demo1 from './scripts/esbuild/demo1.js';
 
 // Make modules available globally for debugging
 (globalThis as any).appModules = {};  // WebAuthn modules loaded dynamically by JsModuleLoader
