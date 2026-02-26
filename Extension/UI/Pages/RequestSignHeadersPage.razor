@@ -241,9 +241,8 @@
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
                 }
                 <MudText Typo="Typo.body1" Class="bt-help-text">
-                    This website is requesting KERI Auth, with your approval,
-                    to cryptographically sign HTTP Request Headers with the key material of the profile you selected for this site when you signed in to it.
-                    The resulting signature and other headers will then allow the server for the requested url to validate and authorize the request.
+                    This website is asking you to digitally sign certain request details using your selected profile.
+                    Your digital signature enables this website to verify your identity and confirm that the request is authorized by you.
                 </MudText>
                 <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                 <MudText Class="bt-section-title">Request to Sign</MudText>
@@ -291,7 +290,7 @@
                         </MudPaper>
                     }
                 }
-                <MudCheckBox Label="Always auto-sign Http Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 2rem;" />
+                <MudCheckBox Label="Always auto-sign HTTP Request Headers that are safe and read-only (i.e., GET, HEAD, OPTIONS, TRACE)" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSignSafeHeaders(b)" Style="padding-left:0; height: 2rem;" />
             </div>
         </MudStack>
         <MudStack Row="true" class="bt-button-tray">
