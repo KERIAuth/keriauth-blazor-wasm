@@ -33,6 +33,14 @@
     // Computed properties
     bool IsSignInDisabled => (SelectedPrefix is null || (RequestedSignInMode == SignInMode.Credential && SelectedCredentialOrNothing is null));
 
+    string PageTitle => RequestedSignInMode switch
+    {
+        SignInMode.Identifier => "Request to Sign In with Profile",
+        SignInMode.Credential => "Request to Sign In with Credential",
+        SignInMode.Prompt => "Request to Sign In",
+        _ => $"Unsupported SignIn Mode: {RequestedSignInMode}"
+    };
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -221,21 +229,7 @@
     <div id="@this.GetType().Name" class="bt-body-page">
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
-                @switch (RequestedSignInMode)
-                {
-                    case SignInMode.Identifier:
-                        <MudText Class="bt-page-title">Request to Sign In with Profile</MudText>
-                        break;
-                    case SignInMode.Credential:
-                        <MudText Class="bt-page-title">Request to Sign In with Credential</MudText>
-                        break;
-                    case SignInMode.Prompt:
-                        <MudText Class="bt-page-title">Request to Sign In</MudText>
-                        break;
-                    default:
-                        <MudText Class="bt-page-title">Unsupported SignIn Mode: @RequestedSignInMode</MudText>
-                        break;
-                }
+                <PageHeading Title="@PageTitle" />
                 @if (ActiveTab is not null)
                 {
                     // TODO P2: move code out
