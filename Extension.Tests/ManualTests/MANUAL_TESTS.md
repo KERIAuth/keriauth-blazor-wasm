@@ -62,6 +62,49 @@
 #### Uninstall
 - [ ] Expected: Browser opens the configured page for user to provide freedback
 
+# Simulated Page Requests
+The following can be pasted into the DevTools console on a page with injected Content Script:
+
+## Sign In with Identifier (AID) selection
+```js
+window.postMessage({type: '/signify/authorize/aid', requestId: crypto.randomUUID(), payload: {message: 'Please select a profile'}}, window.location.origin);
+```
+
+## Sign In with Credential selection
+```js
+window.postMessage({type: '/signify/authorize/credential', requestId: crypto.randomUUID(), payload: {message: 'Please select a credential'}}, window.location.origin);
+```
+
+## Sign In (user chooses method)
+```js
+window.postMessage({type: '/signify/authorize', requestId: crypto.randomUUID(), payload: {message: 'Please authorize'}}, window.location.origin);
+```
+
+## Sign HTTP Request Headers
+```js
+window.postMessage({type: '/signify/sign-request', requestId: crypto.randomUUID(), payload: {url: 'https://example.com/api/data', method: 'GET'}}, window.location.origin);
+```
+
+## Sign Data
+```js
+window.postMessage({type: '/signify/sign-data', requestId: crypto.randomUUID(), payload: {message: 'Please sign this data', items: ['item-to-sign-1', 'item-to-sign-2']}}, window.location.origin);
+```
+
+## Create Data Attestation Credential
+```js
+window.postMessage({type: '/signify/credential/create/data-attestation', requestId: crypto.randomUUID(), payload: {schemaSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', credData: {d: '', u: '', i: '', dt: '2025-01-01T00:00:00Z', LEI: '5493001KJTIIGC8Y1R17'}}}, window.location.origin);
+```
+
+## Connection Invite
+```js
+window.postMessage({type: '/KeriAuth/connection/invite', requestId: crypto.randomUUID(), payload: {oobi: 'https://keria-ext.dev.idw-sandboxes.cf-deployments.org/oobi/EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3/agent/EMhtGVe_k0b0NQXqJvJzm5NvhYkggbnLkKNaTtxmOcxe?name=CF%20Credential%20Issuance4'}}, window.location.origin);
+```
+
+## Unknown / Unimplemented Request
+```js
+window.postMessage({type: '/signify/some-future-method', requestId: crypto.randomUUID(), payload: {foo: 'bar'}}, window.location.origin);
+```
+
 # Session Expiration Tests
 
 ## A. Inactivity Timeout Without User Activity
