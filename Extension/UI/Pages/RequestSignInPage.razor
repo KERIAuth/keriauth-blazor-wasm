@@ -23,7 +23,13 @@
     private MudButton? signInButton;
 
     // Page-specific properties
-    SignInMode RequestedSignInMode { get; set; } = SignInMode.IdentifierAndOptionalCredential;
+    SignInMode RequestedSignInMode => (payload?.OriginalType ?? string.Empty) switch
+    {
+        CsBwMessageTypes.SELECT_AUTHORIZE_AID => SignInMode.Identifier,
+        CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL => SignInMode.Credential,
+        CsBwMessageTypes.AUTHORIZE => SignInMode.IdentifierAndOptionalCredential,
+        _ => SignInMode.IdentifierAndOptionalCredential
+    };
     string? SelectedPrefix { get; set; }
     string? SelectedAlias { get; set; }
     RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
@@ -58,19 +64,8 @@
         // Load the active tab for display
         await LoadActiveTabAsync();
 
-        // Determine sign-in mode from the original message type
         var originalType = payload.OriginalType ?? string.Empty;
-        RequestedSignInMode = originalType switch
-        {
-            CsBwMessageTypes.SELECT_AUTHORIZE_AID => SignInMode.Identifier,
-            CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL => SignInMode.Credential,
-            CsBwMessageTypes.AUTHORIZE => SignInMode.IdentifierAndOptionalCredential,
-            _ => SignInMode.IdentifierAndOptionalCredential
-        };
-
-        if (originalType != CsBwMessageTypes.AUTHORIZE &&
-            originalType != CsBwMessageTypes.SELECT_AUTHORIZE_AID &&
-            originalType != CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL)
+        if (originalType is not (CsBwMessageTypes.AUTHORIZE or CsBwMessageTypes.SELECT_AUTHORIZE_AID or CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL))
         {
             logger.LogWarning("OnInitializedAsync: Unexpected original message type: {Type}, defaulting to IdentifierAndOptionalCredential mode", originalType);
         }
@@ -110,59 +105,40 @@
             return Result.Fail(error);
         }
 
-        switch (RequestedSignInMode)
+        if (SelectedPrefix is null || SelectedAlias is null)
         {
-            case SignInMode.Identifier:
-                logger.LogInformation("SignIn with Identifier: {0}", SelectedPrefix);
-                if (SelectedPrefix is null || SelectedAlias is null)
-                {
-                    var error = new ValidationError("Selection", "Identifier selection is incomplete");
-                    snackbar.Add(error.Message, Severity.Error);
-                    return Result.Fail(error);
-                }
-
-                // Send approval with just identifier info - BackgroundWorker handles the rest
-                var identifierApproval = new AidApprovalPayload(
-                    Prefix: SelectedPrefix,
-                    Alias: SelectedAlias,
-                    CredentialSaid: null
-                );
-                var identifierMessage = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, identifierApproval);
-                await AppBwPortService.SendToBackgroundWorkerAsync(identifierMessage);
-                MarkAsReplied();
-                break;
-
-            case SignInMode.Credential:
-                if (SelectedCredentialOrNothing is null || SelectedPrefix is null || SelectedAlias is null)
-                {
-                    var error = new ValidationError("Credential", "No credential is selected");
-                    snackbar.Add(error.Message, Severity.Error);
-                    return Result.Fail(error);
-                }
-
-                var selectedCredentialSaid = SelectedCredentialOrNothing.GetValueByPath("sad.d")?.Value as string;
-                if (selectedCredentialSaid is null)
-                {
-                    var error = new ValidationError("Credential", "Credential SAID is missing");
-                    snackbar.Add(error.Message, Severity.Error);
-                    return Result.Fail(error);
-                }
-
-                // Send approval with identifier and credential SAID
-                // BackgroundWorker will fetch the credential and CESR representation
-                var credentialApproval = new AidApprovalPayload(
-                    Prefix: SelectedPrefix,
-                    Alias: SelectedAlias,
-                    CredentialSaid: selectedCredentialSaid
-                );
-                var credentialMessage = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, credentialApproval);
-                await AppBwPortService.SendToBackgroundWorkerAsync(credentialMessage);
-                MarkAsReplied();
-                break;
-
-            default:
-                return Result.Fail(new ValidationError("SignInMode", $"Unknown sign-in mode: {RequestedSignInMode}"));
+            var error = new ValidationError("Selection", "Identifier selection is incomplete");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
         }
+
+        string? credentialSaid = null;
+        if (SelectedCredentialOrNothing is not null)
+        {
+            credentialSaid = SelectedCredentialOrNothing.GetValueByPath("sad.d")?.Value as string;
+            if (credentialSaid is null)
+            {
+                var error = new ValidationError("Credential", "Credential SAID is missing");
+                snackbar.Add(error.Message, Severity.Error);
+                return Result.Fail(error);
+            }
+        }
+        else if (RequestedSignInMode == SignInMode.Credential)
+        {
+            var error = new ValidationError("Credential", "No credential is selected");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
+        }
+
+        logger.LogInformation("SignIn with prefix: {Prefix}, credential: {HasCred}", SelectedPrefix, credentialSaid is not null);
+        var approval = new AidApprovalPayload(
+            Prefix: SelectedPrefix,
+            Alias: SelectedAlias,
+            CredentialSaid: credentialSaid
+        );
+        var message = new AppBwReplyAidApprovalMessage(TabId, OriginStr, PageRequestId, approval);
+        await AppBwPortService.SendToBackgroundWorkerAsync(message);
+        MarkAsReplied();
 
         try
         {
@@ -212,16 +188,6 @@
         }
     }
 
-    public class Root
-    {
-        public InnerPayload? Payload { get; set; }
-    }
-
-    public class InnerPayload
-    {
-        public string? Message { get; set; }
-    }
-
 }
 
 @if (IsInitialized)
@@ -232,21 +198,7 @@
                 <PageHeading Title="@PageTitle" />
                 @if (ActiveTab is not null)
                 {
-                    // TODO P2: remove unused payload-parsing code? Either use the parsed message text in the UI, or remove the parsing code if it's not needed
-                    // TODO P1: all this should be a computed property or method, not inline in the middle of the markup
-                    Root? obj;
-                    string? json;
-                    string messageText = "(none1)";
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    };
-                    if (payload?.OriginalPayload != null)
-                    {
-                        json = JsonSerializer.Serialize(payload.OriginalPayload);
-                        obj = JsonSerializer.Deserialize<Root>(json, options);
-                        messageText = obj?.Payload?.Message ?? "(none2)";
-                    }
+                    // Note: the message text from the website request is intentionally not displayed.
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
                     @switch (RequestedSignInMode)
                     {
@@ -257,7 +209,7 @@
                             <MudText Class="bt-help-text">The website is requesting you to select a profile and credential for authorization.</MudText>
                             break;
                         case SignInMode.IdentifierAndOptionalCredential:
-                            <MudText Class="bt-help-text">The website is requesting you to provide your profile for identification, or a credential for authorization.</MudText>
+                            <MudText Class="bt-help-text">The website is requesting you to provide your profile for identification or a credential for authorization.</MudText>
                             break;
                         default:
                             <MudText Class="bt-help-text">Unknown sign-in mode.</MudText>
@@ -272,8 +224,7 @@
                 @switch (RequestedSignInMode)
                 {
                     case SignInMode.IdentifierAndOptionalCredential:
-                        // TODO P1: the WebsiteConfigDisplay needs to know whether credential selection is optional or required, to adjust the label and validation accordingly. Right now it just says "Select credential" in both cases which is confusing. This is a bit tricky because the sign-in mode is determined by the original message type, and the WebsiteConfigDisplay is a child component that currently doesn't have direct knowledge of the message type. We could pass down the sign-in mode as a parameter, or we could infer optional vs required credential selection based on whether the original message type was AUTHORIZE (optional) vs SELECT_AUTHORIZE_CREDENTIAL (required).
-                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="true" IsCredentialRequired="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                         break;
                     case SignInMode.Identifier:
                         <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />

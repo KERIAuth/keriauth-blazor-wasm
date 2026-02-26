@@ -23,11 +23,11 @@
     [Parameter] public required bool IsCredentialShown { get; init; }
     [Parameter] public required bool IsOriginShown { get; init; }
     [Parameter] public required bool IsAutoSignShown { get; init; }
+    [Parameter] public bool IsCredentialRequired { get; init; } = true;
     [Parameter] public EventCallback<(string? selectedPrefix, string? selectedAlias, RecursiveDictionary? selectedCredential, WebsiteConfig? websiteConfig)> ValueChanged { get; init; }
 
     // properties
     bool IsCredListExpanded { get; set; }
-    bool IsAutoSignInIdentifier { get; set; }
     string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
     List<RecursiveDictionary>? CredentialsDict { get; set; }
@@ -37,13 +37,12 @@
     private bool _isRefreshing;
 
     // computed properties
-    // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
     List<Aid> Identifiers => appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
         ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.OrderBy(a => a.Name).ToList()
         : new List<Aid>();
-    RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
+    RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : CredentialsDict.FirstOrDefault(c => c.GetValueByPath("sad.d")?.Value as string == SelectedCredSaidOrNothing);
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
-    List<RecursiveDictionary> IssueeCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
+    List<RecursiveDictionary> IssueeCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : CredentialHelper.FilterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
     string ExpandIcon => IsCredListExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore;
     bool IsAutoSignSafeHeaders => ThisWebsiteConfig?.IsAutoSignSafeHeaders ?? false;
     Uri? OriginUri => OriginStr is null ? null : tryCreateUri(OriginStr);
@@ -57,6 +56,11 @@
         appBwPortService.MessageReceived += OnPortMessageReceived;
 
         await getCredentials();
+        // Load website config after credentials so auto-select has data to work with
+        if (OriginUri is not null)
+        {
+            await refreshFromWebsiteConfig(OriginUri);
+        }
         // inform parent so it can enable or disable Sign In button, for example
         await sendValueToParent();
     }
@@ -86,9 +90,7 @@
 
         try
         {
-            // Small delay to ensure BW is fully ready
-            // TODO P2 should invoke WaitForAppCacheReady or similar instead of arbitrary delay...
-            await Task.Delay(100);
+            await appCache.WaitForAppCache([() => appCache.IsBwReady]);
 
             await getCredentials();
             if (OriginUri is not null)
@@ -115,14 +117,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            logger.LogInformation("OnAfterRenderAsync");
-            if (OriginUri is not null)
-            {
-                await refreshFromWebsiteConfig(OriginUri);
-            }
-        }
+        // refreshFromWebsiteConfig is now called in OnInitializedAsync (after getCredentials)
+        // to ensure credentials are available for auto-selection.
     }
 
     Uri? tryCreateUri(string origin)
@@ -180,17 +176,27 @@
                 if (isConfigNew)
                 {
                     SelectedPrefix = appCache.SelectedPrefix;
+                    if (SelectedPrefix is null && Identifiers.Count > 0)
+                    {
+                        SelectedPrefix = Identifiers[0].Prefix;
+                    }
                     ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
                     await updateWebsiteConfigAndParent(ThisWebsiteConfig);
                     // Note above includes StateHasChanged.
+                    await autoSelectCredentialIfNeeded();
                     return;
                 }
                 else
                 {
-                    SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing!;
-                    // Required: SelectedPrefix was just set from storage, so the UI must re-render
-                    // to reflect the selected profile in the MudSelect dropdown.
+                    SelectedPrefix = ThisWebsiteConfig.RememberedPrefixOrNothing;
+                    if (SelectedPrefix is null && Identifiers.Count > 0)
+                    {
+                        SelectedPrefix = Identifiers[0].Prefix;
+                        ThisWebsiteConfig = ThisWebsiteConfig with { RememberedPrefixOrNothing = SelectedPrefix };
+                        await updateWebsiteConfigAndParent(ThisWebsiteConfig);
+                    }
                     StateHasChanged();
+                    await autoSelectCredentialIfNeeded();
                     return;
                 }
             }
@@ -202,44 +208,28 @@
         logger.LogInformation("RefreshFromWebsiteConfig: done");
     }
 
-    // TODO P2 DRY move this filterCredentials to a helper
-    // TODO P2 Incorporate this use into the Credentials display to (checkbox) Show selected Identifier only, default true
-    public static List<RecursiveDictionary> filterCredentials(List<RecursiveDictionary> credentialDictList, List<(string filterPath, string match)> filters)
+
+
+    async Task autoSelectCredentialIfNeeded()
     {
-        if (!filters.Any())
+        if (IsCredentialShown && IsCredentialRequired && SelectedCredentialOrNothing is null && IssueeCredentials.Count > 0)
         {
-            throw new Exception("filterCredentials must have at least one filter string");
+            await updateSelectedCredential(IssueeCredentials[0]);
         }
-        List<RecursiveDictionary> filteredCredentials = new();
-        foreach (var credDict in credentialDictList)
-        {
-            foreach (var filter in filters)
-            {
-                // include filtered value if any of the filters match (versus all)
-                var value = credDict.GetValueByPath(filter.filterPath)?.Value as string;
-                if (value != null && value == filter.match)
-                {
-                    filteredCredentials.Add(credDict);
-                    break;
-                }
-            }
-        }
-        // logger.LogWarning("filteredCredentials: count: {c} ", filteredCredentials.Count);
-        return filteredCredentials;
     }
 
     async Task updateSelectedPrefix(string prefix)
     {
-
         logger.LogInformation("updateSelectedPrefix set prefix to {p}", prefix);
         IsCredListExpanded = false;
+        SelectedPrefix = prefix;
 
         if (ThisWebsiteConfig is null)
         {
             throw new Exception($"updateSelectedPrefix: ThisWebsiteConfig should not be null here.");
         }
         // when changing the Prefix, any prior selection of RememberedCred will not be relevant
-        var newWebsiteConfig = ThisWebsiteConfig with
+        ThisWebsiteConfig = ThisWebsiteConfig with
             {
                 RememberedPrefixOrNothing = prefix,
                 RememberedCredSaidOrNothing = null,
@@ -247,21 +237,12 @@
                 IsAutoSignInIdentifier = false,
                 IsAutoSignSafeHeaders = false
             };
-        logger.LogInformation("updateSelectedPrefix 2");
-        // _ = newWebsiteConfig.Validate();
-        logger.LogInformation("updateSelectedPrefix 3");
-        await updateWebsiteConfigAndParent(newWebsiteConfig);
-        logger.LogInformation("updateSelectedPrefix updated ConfigAndParent");
+        await updateWebsiteConfigAndParent(ThisWebsiteConfig);
         if (OriginUri is not null)
         {
-            StateHasChanged(); // update reactive properties
+            // Re-sync from storage in case another tab modified the config
             await refreshFromWebsiteConfig(OriginUri);
-            // Note, if changing selection like Prefix, the parent's Sign In button may need to be disabled
-            await sendValueToParent();
         }
-        logger.LogInformation("updateSelectedPrefix 4");
-        StateHasChanged(); // update reactive properties
-        SelectedPrefix = prefix;
     }
 
     async Task updateSelectedCredential(RecursiveDictionary? newSelectedCredential)
@@ -292,23 +273,32 @@
         }
         // logger.LogWarning("updateSelectedCredential credSaid: ", newCredSaidOrNothing);
 
-        var newWebsiteConfig = ThisWebsiteConfig with
+        ThisWebsiteConfig = ThisWebsiteConfig with
             {
                 RememberedCredSaidOrNothing = newCredSaidOrNothing,
                 RememberedPrefixOrNothing = SelectedPrefix,
             };
 
-        await updateWebsiteConfigAndParent(newWebsiteConfig);
+        await updateWebsiteConfigAndParent(ThisWebsiteConfig);
 
         IsCredListExpanded = false;
-        // TODO P3 why is any of the following needed?
+        if (OriginUri is not null)
+        {
+            // Re-sync from storage in case another tab modified the config
+            await refreshFromWebsiteConfig(OriginUri);
+        }
+    }
+
+    async Task clearSelectedCredential()
+    {
+        if (ThisWebsiteConfig is null) return;
+        ThisWebsiteConfig = ThisWebsiteConfig with { RememberedCredSaidOrNothing = null };
+        await updateWebsiteConfigAndParent(ThisWebsiteConfig);
+        IsCredListExpanded = false;
         if (OriginUri is not null)
         {
             await refreshFromWebsiteConfig(OriginUri);
-            StateHasChanged(); // update reactive properties
-            await sendValueToParent(); // needed?
         }
-        return;
     }
 
     async Task getCredentials()
@@ -384,9 +374,13 @@
 
     async Task updateWebsiteConfigAndParent(WebsiteConfig wc)
     {
-        // TODO P2 evaluate results
         var res = await websiteConfigService.Update(wc);
-        logger.LogInformation("UpdateWebsiteConfigAndParent success: {r}", res.IsSuccess);
+        if (res.IsFailed)
+        {
+            logger.LogWarning("Failed to update website config for {Origin}: {Errors}",
+                wc.Origin, string.Join(", ", res.Errors.Select(e => e.Message)));
+            snackbar.Add("Failed to save website configuration", Severity.Warning);
+        }
         await sendValueToParent();
     }
 
@@ -427,14 +421,17 @@
                 <MudText Class="bt-section-title">Credential</MudText>
                 <MudStack Class="ml-0" Style="gap:0;">
                     <!-- Display Selected Credential or Selection List -->
-                    @if (!IsCredListExpanded)
+                    @if (IssueeCredentials.Count == 0)
+                    {
+                        <MudText Class="ml-3">No credentials held.</MudText>
+                    }
+                    else if (!IsCredListExpanded)
                     {
                         <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded" Style="cursor: pointer;">
                             @if (SelectedCredentialOrNothing is null)
                             {
-                                // TODO P1: distinguish label for optional versus required credential selection, e.g. "Select credential (optional)" vs "Select credential (required)"
                                 <div style="width:100%; align-content:center;">
-                                    <MudText Class="ml-3">Select</MudText>
+                                    <MudText Class="ml-3">Select@(IsCredentialRequired ? "" : " (optional)")</MudText>
                                 </div>
                             }
                             else
@@ -447,22 +444,24 @@
                     }
                     else
                     {
-                        @if (IssueeCredentials is not null && IssueeCredentials.Any())
-                        {
-                            <MudStack Spacing="1">
-                                @foreach (RecursiveDictionary credential in IssueeCredentials)
-                                {
-                                    var isSelected = credential == SelectedCredentialOrNothing;
-                                    <div @onclick="async () => await updateSelectedCredential(credential)" style="cursor: pointer;">
-                                        <CredentialPanelCompact Credential="@credential" IsSelected="@isSelected" />
-                                    </div>
-                                }
-                            </MudStack>
-                        }
-                        else
-                        {
-                            <MudText>No credentials issued to this profile.</MudText>
-                        }
+                        <MudStack Spacing="1">
+                            @if (!IsCredentialRequired)
+                            {
+                                var isNoneSelected = SelectedCredentialOrNothing is null;
+                                <div @onclick="async () => await clearSelectedCredential()" style="cursor: pointer;">
+                                    <MudPaper Elevation="0" Class="@(isNoneSelected ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1")">
+                                        <MudText Class="ml-2" Style="font-style: italic;">None</MudText>
+                                    </MudPaper>
+                                </div>
+                            }
+                            @foreach (RecursiveDictionary credential in IssueeCredentials)
+                            {
+                                var isSelected = credential == SelectedCredentialOrNothing;
+                                <div @onclick="async () => await updateSelectedCredential(credential)" style="cursor: pointer;">
+                                    <CredentialPanelCompact Credential="@credential" IsSelected="@isSelected" />
+                                </div>
+                            }
+                        </MudStack>
                     }
                     @if (IsAutoSignShown)
                     {

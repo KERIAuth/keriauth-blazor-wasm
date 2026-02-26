@@ -31,7 +31,7 @@
     // TODO P2 confirm what we want to show
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected to" : appCache.IsAuthenticated ? "Not Connected with" : "Locked. Configured to";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
-    List<RecursiveDictionary> FilteredCredentials => WebsiteConfigDisplay.filterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
+    List<RecursiveDictionary> FilteredCredentials => CredentialHelper.FilterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
     int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => appCache.SelectedPrefix ?? "";
 
@@ -71,7 +71,6 @@
         }
 
         // Fetch credentials from BackgroundWorker via RPC
-        // TODO P2 See filterCredentials in WebsiteConfigDisplay, and move that into a helper
         await FetchCredentialsAsync();
     }
 

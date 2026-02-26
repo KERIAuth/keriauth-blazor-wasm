@@ -75,4 +75,30 @@ public static class CredentialHelper
         var schemaSaid = credential?.GetValueByPath("sad.s")?.Value?.ToString();
         return GetBackgroundColor(schemaSaid);
     }
+
+    /// <summary>
+    /// Filters a list of credential RecursiveDictionaries by path/value pairs.
+    /// Returns credentials where any filter matches (OR logic).
+    /// </summary>
+    public static List<RecursiveDictionary> FilterCredentials(List<RecursiveDictionary> credentialDictList, List<(string filterPath, string match)> filters)
+    {
+        if (filters.Count == 0)
+        {
+            throw new ArgumentException("FilterCredentials must have at least one filter");
+        }
+        List<RecursiveDictionary> filteredCredentials = new();
+        foreach (var credDict in credentialDictList)
+        {
+            foreach (var filter in filters)
+            {
+                var value = credDict.GetValueByPath(filter.filterPath)?.Value as string;
+                if (value != null && value == filter.match)
+                {
+                    filteredCredentials.Add(credDict);
+                    break;
+                }
+            }
+        }
+        return filteredCredentials;
+    }
 }
