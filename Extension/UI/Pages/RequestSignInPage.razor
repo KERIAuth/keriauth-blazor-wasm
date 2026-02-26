@@ -232,7 +232,7 @@
                 <PageHeading Title="@PageTitle" />
                 @if (ActiveTab is not null)
                 {
-                    // TODO P2: move code out
+                    // TODO P2: remove unused payload-parsing code?
                     Root? obj;
                     string? json;
                     string messageText = "(none1)";
@@ -247,7 +247,7 @@
                         messageText = obj?.Payload?.Message ?? "(none2)";
                     }
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
-                    <MudText Class="bt-help-text">Message: @messageText</MudText>
+                    <MudText Class="bt-help-text">The website is requesting you to provide your profile identifier (or, optionally a credential) for authentication / sign-in.</MudText>
                 }
                 else
                 {
