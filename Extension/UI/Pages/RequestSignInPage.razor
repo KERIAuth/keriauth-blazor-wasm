@@ -17,13 +17,13 @@
 
 @code {
     // Page-specific types
-    enum SignInMode { Credential, Identifier, Prompt }
+    enum SignInMode { Credential, Identifier, IdentifierAndOptionalCredential }
 
     // Page-specific fields
     private MudButton? signInButton;
 
     // Page-specific properties
-    SignInMode RequestedSignInMode { get; set; } = SignInMode.Prompt;
+    SignInMode RequestedSignInMode { get; set; } = SignInMode.IdentifierAndOptionalCredential;
     string? SelectedPrefix { get; set; }
     string? SelectedAlias { get; set; }
     RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
@@ -37,7 +37,7 @@
     {
         SignInMode.Identifier => "Request to Sign In with Profile",
         SignInMode.Credential => "Request to Sign In with Credential",
-        SignInMode.Prompt => "Request to Sign In",
+        SignInMode.IdentifierAndOptionalCredential => "Request to Sign In",
         _ => $"Unsupported SignIn Mode: {RequestedSignInMode}"
     };
 
@@ -64,15 +64,15 @@
         {
             CsBwMessageTypes.SELECT_AUTHORIZE_AID => SignInMode.Identifier,
             CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL => SignInMode.Credential,
-            CsBwMessageTypes.AUTHORIZE => SignInMode.Prompt,
-            _ => SignInMode.Prompt
+            CsBwMessageTypes.AUTHORIZE => SignInMode.IdentifierAndOptionalCredential,
+            _ => SignInMode.IdentifierAndOptionalCredential
         };
 
         if (originalType != CsBwMessageTypes.AUTHORIZE &&
             originalType != CsBwMessageTypes.SELECT_AUTHORIZE_AID &&
             originalType != CsBwMessageTypes.SELECT_AUTHORIZE_CREDENTIAL)
         {
-            logger.LogWarning("OnInitializedAsync: Unexpected original message type: {Type}, defaulting to Prompt mode", originalType);
+            logger.LogWarning("OnInitializedAsync: Unexpected original message type: {Type}, defaulting to IdentifierAndOptionalCredential mode", originalType);
         }
 
         IsInitialized = true;
@@ -232,7 +232,8 @@
                 <PageHeading Title="@PageTitle" />
                 @if (ActiveTab is not null)
                 {
-                    // TODO P2: remove unused payload-parsing code?
+                    // TODO P2: remove unused payload-parsing code? Either use the parsed message text in the UI, or remove the parsing code if it's not needed
+                    // TODO P1: all this should be a computed property or method, not inline in the middle of the markup
                     Root? obj;
                     string? json;
                     string messageText = "(none1)";
@@ -247,7 +248,21 @@
                         messageText = obj?.Payload?.Message ?? "(none2)";
                     }
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
-                    <MudText Class="bt-help-text">The website is requesting you to provide your profile identifier (or, optionally a credential) for authentication / sign-in.</MudText>
+                    @switch (RequestedSignInMode)
+                    {
+                        case SignInMode.Identifier:
+                            <MudText Class="bt-help-text">The website is requesting you to select a profile for identification.</MudText>
+                            break;
+                        case SignInMode.Credential:
+                            <MudText Class="bt-help-text">The website is requesting you to select a profile and credential for authorization.</MudText>
+                            break;
+                        case SignInMode.IdentifierAndOptionalCredential:
+                            <MudText Class="bt-help-text">The website is requesting you to provide your profile for identification, or a credential for authorization.</MudText>
+                            break;
+                        default:
+                            <MudText Class="bt-help-text">Unknown sign-in mode.</MudText>
+                            break;
+                    }
                 }
                 else
                 {
@@ -256,14 +271,9 @@
 
                 @switch (RequestedSignInMode)
                 {
-                    case SignInMode.Prompt:
-                        <MudStack Class="gap-0">
-                            <MudText Class="bt-section-title">Sign-in method</MudText>
-                            <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode InputStyle="flex-direction:column; align-items:start;">
-                                <MudRadio Value=@(SignInMode.Identifier)>Profile only</MudRadio>
-                                <MudRadio Value=@(SignInMode.Credential)>Profile with Credential</MudRadio>
-                            </MudRadioGroup>
-                        </MudStack>
+                    case SignInMode.IdentifierAndOptionalCredential:
+                        // TODO P1: the WebsiteConfigDisplay needs to know whether credential selection is optional or required, to adjust the label and validation accordingly. Right now it just says "Select credential" in both cases which is confusing. This is a bit tricky because the sign-in mode is determined by the original message type, and the WebsiteConfigDisplay is a child component that currently doesn't have direct knowledge of the message type. We could pass down the sign-in mode as a parameter, or we could infer optional vs required credential selection based on whether the original message type was AUTHORIZE (optional) vs SELECT_AUTHORIZE_CREDENTIAL (required).
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="true" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
                         break;
                     case SignInMode.Identifier:
                         <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />

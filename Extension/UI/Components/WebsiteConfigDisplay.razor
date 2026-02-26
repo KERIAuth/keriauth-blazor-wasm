@@ -27,9 +27,6 @@
 
     // properties
     bool IsCredListExpanded { get; set; }
-    List<Aid> Identifiers => appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
-        ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.OrderBy(a => a.Name).ToList()
-        : new List<Aid>();
     bool IsAutoSignInIdentifier { get; set; }
     string? SelectedPrefix { get; set; }
     WebsiteConfig? ThisWebsiteConfig { get; set; }
@@ -41,6 +38,9 @@
 
     // computed properties
     // TODO P2 optimize SelectedCredentialOrNothing expression to use FilteredCredentials
+    List<Aid> Identifiers => appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
+        ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.OrderBy(a => a.Name).ToList()
+        : new List<Aid>();
     RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : filterCredentials(CredentialsDict, [("sad.d", SelectedCredSaidOrNothing)])?.FirstOrDefault();
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<RecursiveDictionary> IssueeCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : filterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
@@ -87,6 +87,7 @@
         try
         {
             // Small delay to ensure BW is fully ready
+            // TODO P2 should invoke WaitForAppCacheReady or similar instead of arbitrary delay...
             await Task.Delay(100);
 
             await getCredentials();
@@ -431,6 +432,7 @@
                         <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded" Style="cursor: pointer;">
                             @if (SelectedCredentialOrNothing is null)
                             {
+                                // TODO P1: distinguish label for optional versus required credential selection, e.g. "Select credential (optional)" vs "Select credential (required)"
                                 <div style="width:100%; align-content:center;">
                                     <MudText Class="ml-3">Select</MudText>
                                 </div>
