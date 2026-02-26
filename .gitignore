@@ -458,8 +458,8 @@ obj/
 # Claude Code settings
 .claude/settings.local.json
 
-
-/nul
-scripts/bundles/objRelease/package.g.props
-scripts/modules/objRelease/package.g.props
-scripts/types/objRelease/package.g.props
+# Obj directories in scripts (TypeScript project artifacts)
+scripts/**/obj/
+scripts/bundles/obj/
+scripts/modules/obj/
+scripts/types/obj/
