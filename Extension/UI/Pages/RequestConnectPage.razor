@@ -113,7 +113,7 @@
         await CancelAndReturnAsync("User canceled connection request");
     }
 
-    private async Task HandleAidChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing) value)
+    private async Task HandleAidChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
     {
         logger.LogInformation("HandleAidChanged: prefix={Prefix}, alias={Alias}", value.selectedPrefix, value.selectedAlias);
         SelectedPrefix = value.selectedPrefix;
@@ -158,10 +158,13 @@
                 {
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
-                <MudText Typo="Typo.body1" Class="mb-3">
+                <MudText Typo="Typo.body1" Class="bt-help-text">
                     A web page is requesting a mutual KERI connection.
                     Select a profile to share your OOBI with the requesting party.
                 </MudText>
+                
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
+
                 @if (payload?.ResolvedAidPrefix is not null)
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
@@ -195,7 +198,7 @@
                               Variant="Variant.Outlined"
                               Immediate="true"
                               Class="mb-3" />
-                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
+
                 @if (SelectedAidName is null)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-3 mb-3" />

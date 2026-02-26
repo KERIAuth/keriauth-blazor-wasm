@@ -51,10 +51,8 @@
         StateHasChanged();
     }
 
-    // TODO P2 Update the callback signature to just send a complete WebsiteConfig?
-    // TODO P2 Persist the change, then refetch the entire WebsiteConfigList and return that?
     // Handle callback from the WebsiteConfigDisplay
-    private void HandleValueChanged((string selectedPrefix, RecursiveDictionary? selectedCredentialOrNothing) value)
+    private void HandleValueChanged((string? selectedPrefix, string? selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
     {
         logger.LogError($"NOT YET IMPLEMENTED HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         StateHasChanged();

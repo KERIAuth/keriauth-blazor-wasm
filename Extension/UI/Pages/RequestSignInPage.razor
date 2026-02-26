@@ -185,7 +185,7 @@
         await CancelAndReturnAsync("User canceled sign-in request");
     }
 
-    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing) value)
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
     {
         logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;
@@ -247,7 +247,7 @@
                         messageText = obj?.Payload?.Message ?? "(none2)";
                     }
                     <TabInteractionDisplay ActiveTab=@ActiveTab />
-                    <MudText>Message: @messageText</MudText>
+                    <MudText Class="bt-help-text">Message: @messageText</MudText>
                 }
                 else
                 {
@@ -258,7 +258,7 @@
                 {
                     case SignInMode.Prompt:
                         <MudStack Class="gap-0">
-                            <MudText Class="mt-6"><b>Sign-in method</b></MudText>
+                            <MudText Class="bt-section-title">Sign-in method</MudText>
                             <MudRadioGroup @bind-Value="RequestedSignInMode" T=@SignInMode InputStyle="flex-direction:column; align-items:start;">
                                 <MudRadio Value=@(SignInMode.Identifier)>Profile only</MudRadio>
                                 <MudRadio Value=@(SignInMode.Credential)>Profile with Credential</MudRadio>

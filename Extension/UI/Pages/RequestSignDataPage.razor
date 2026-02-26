@@ -131,7 +131,7 @@
         await CancelAndReturnAsync("User canceled sign-data request");
     }
 
-    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing) value)
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
     {
         logger.LogInformation($"HandleValueChanged prefix {value.selectedPrefix} | selectedCredential {value.selectedCredentialOrNothing is not null}");
         SelectedPrefix = value.selectedPrefix;
@@ -177,13 +177,14 @@
 
                 @if (!string.IsNullOrEmpty(RequestMessage))
                 {
-                    <MudText Class="mt-4 mb-2"><b>Message from page:</b></MudText>
-                    <MudAlert Severity="Severity.Info" Class="mt-4 mb-2">
+                    <MudText Class="bt-section-title">Message from page:</MudText>
+                    <MudAlert Severity="Severity.Info">
                         <MudText Typo="Typo.body2">@RequestMessage</MudText>
                     </MudAlert>
                 }
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
 
-                <MudText Class="mt-4 mb-2"><b>Data items to sign (@DataItems.Length):</b></MudText>
+                <MudText Class="bt-section-title">Data items to sign (@DataItems.Length):</MudText>
                 <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 150px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
                     @foreach (var item in DataItems)
                     {
@@ -191,8 +192,6 @@
                     }
                 </MudPaper>
 
-                <MudText Class="mt-4 mb-2"><b>Select profile to use for signing:</b></MudText>
-                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
             </div>
         </MudStack>
 

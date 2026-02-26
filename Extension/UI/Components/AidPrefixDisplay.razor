@@ -1,8 +1,7 @@
 @using static Extension.Helper.Identicon
 @inject IJSRuntime js
 
-@* Displays an AID prefix with identicon, abbreviated text, full-prefix tooltip, and copy button. *@
-@* // TODO P2 look for other opportunities to use this component *@
+@* Displays an AID prefix with identicon, abbreviated text, full-prefix tooltip, and optional name/alias. *@
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
     <MudTooltip Text="@Prefix" Delay="500" Arrow="true">
@@ -11,19 +10,35 @@
             {
                 <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(Prefix)" Class="bt-identicon" Style="@IdenticonStyle" />
             }
-            <span style="font-family: monospace; font-size: 0.85rem;">@Abbreviated</span>
+            @if (Name is not null)
+            {
+                <MudStack Class="gap-0">
+                    <span style="font-family: monospace; font-size: 0.85rem;">@Abbreviated</span>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@Name</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <span style="font-family: monospace; font-size: 0.85rem;">@Abbreviated</span>
+            }
         </MudStack>
     </MudTooltip>
-    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
-                   Size="Size.Small"
-                   OnClick="CopyToClipboard"
-                   Style="padding: 0px !important;"
-                   aria-label="Copy prefix" />
+    @if (ShowCopyButton)
+    {
+        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                       Size="Size.Small"
+                       OnClick="CopyToClipboard"
+                       Style="padding: 0px !important;"
+                       aria-label="Copy prefix" />
+    }
 </MudStack>
 
 @code {
     [Parameter, EditorRequired]
     public string Prefix { get; set; } = "";
+
+    [Parameter]
+    public string? Name { get; set; }
 
     [Parameter]
     public int HeadChars { get; set; } = 4;
@@ -33,6 +48,9 @@
 
     [Parameter]
     public bool ShowIdenticon { get; set; } = true;
+
+    [Parameter]
+    public bool ShowCopyButton { get; set; } = true;
 
     [Parameter]
     public string IdenticonStyle { get; set; } = "width: 1.5rem; height: 1.5rem;";
