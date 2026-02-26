@@ -159,10 +159,12 @@
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
                 <MudText Typo="Typo.body1" Class="bt-help-text">
-                    A web page is requesting a mutual KERI connection.
-                    Select a profile to share your OOBI with the requesting party.
+                    The website is requesting you to establish a mutual KERI connection. 
+                    This allows you to share your OOBI (Out-of-Band Introduction) with the requesting party,
+                    enabling secure and private interactions.
+                    Please select one of your profiles to share with the requester, 
+                    and provide a name for this connection to help you identify it later.
                 </MudText>
-                
                 <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
 
                 @if (payload?.ResolvedAidPrefix is not null)
