@@ -24,6 +24,7 @@
     [Parameter] public required bool IsOriginShown { get; init; }
     [Parameter] public required bool IsAutoSignShown { get; init; }
     [Parameter] public bool IsCredentialRequired { get; init; } = true;
+    [Parameter] public string Heading { get; init; } = "Profile";
     [Parameter] public EventCallback<(string? selectedPrefix, string? selectedAlias, RecursiveDictionary? selectedCredential, WebsiteConfig? websiteConfig)> ValueChanged { get; init; }
 
     // properties
@@ -401,7 +402,7 @@
     {
         <!-- Select Identifier -->
         <MudStack Style="gap:0;">
-            <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Profile</MudText>
+            <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">@Heading</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
                 <MudSelect T="string" Value="SelectedPrefix" ValueChanged="async (string v) => await updateSelectedPrefix(v)" Placeholder="Select">
                     @foreach (var aid in Identifiers)
@@ -474,7 +475,7 @@
     else
     {
         <MudStack Class="gap-0">
-            <MudText Class="bt-section-title">Profile</MudText>
+            <MudText Class="bt-section-title">@Heading</MudText>
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="ml-2" Style="min-height: 48px;">
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />
                 <MudText Typo="Typo.body2">Loading...</MudText>

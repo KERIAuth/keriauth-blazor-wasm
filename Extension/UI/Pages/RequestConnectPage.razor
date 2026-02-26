@@ -20,11 +20,12 @@
     private string? SelectedAidName { get; set; }
     private string? SelectedPrefix { get; set; }
     private string? ConnectionName { get; set; }
-    private string? FriendlyName { get; set; }
+    private string FriendlyName { get; set; } = "";
+    private string? OobiName { get; set; }
 
     ConnectionInviteRequestPayload? payload;
 
-    bool IsApproveDisabled => SelectedAidName is null || string.IsNullOrWhiteSpace(ConnectionName);
+    bool IsApproveDisabled => SelectedAidName is null || string.IsNullOrWhiteSpace(ConnectionName) || string.IsNullOrWhiteSpace(FriendlyName);
 
     protected override async Task OnInitializedAsync()
     {
@@ -60,6 +61,13 @@
         if (string.IsNullOrEmpty(ConnectionName) && !string.IsNullOrEmpty(payload.ResolvedAlias))
         {
             ConnectionName = payload.ResolvedAlias;
+        }
+
+        OobiName = ConnectionName;
+
+        if (payload.ResolvedAidPrefix is null)
+        {
+            logger.LogError("OnInitializedAsync: ResolvedAidPrefix is null for oobi={Oobi}", payload.Oobi);
         }
 
         await LoadActiveTabAsync();
@@ -118,8 +126,8 @@
         logger.LogInformation("HandleAidChanged: prefix={Prefix}, alias={Alias}", value.selectedPrefix, value.selectedAlias);
         SelectedPrefix = value.selectedPrefix;
         SelectedAidName = value.selectedAlias;
-        // Always update friendly name to match selected profile
-        FriendlyName = value.selectedAlias;
+        // Intentionally clear friendly name when profile changes
+        FriendlyName = "";
         if (connectButton is not null)
         {
             // await connectButton.FocusAsync();
@@ -159,59 +167,47 @@
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
                 <MudText Typo="Typo.body1" Class="bt-help-text">
-                    The website is requesting you to establish a mutual KERI connection. 
-                    This allows you to share your OOBI (Out-of-Band Introduction) with the requesting party,
-                    enabling secure and private interactions.
-                    Please select one of your profiles to share with the requester, 
-                    and provide a name for this connection to help you identify it later.
+                    The website is requesting you to establish a mutual KERI connection:<br/>
+                    1) Select one of your profiles to share with the them; <br/>
+                    2) Name your connection to them, which you can later see from the Websites menu; and<br/>
+                    3) Suggest a name for their connection to you that is unambiguous, such as your full name.
                 </MudText>
-                @if (!string.IsNullOrEmpty(payload?.Oobi))
-                {
-                    <MudExpansionPanels Elevation="0" Class="mb-2">
-                        <MudExpansionPanel Text="OOBI Details" Dense="true" Style="font-size:0.85rem;">
-                            <MudText Typo="Typo.caption" Style="word-break: break-all; font-family: monospace;">
-                                @payload.Oobi
-                            </MudText>
-                        </MudExpansionPanel>
-                    </MudExpansionPanels>
-                }
 
                 <style>
                     .color-incoming {
-                        color: #8888FF88;
+                        color: var(--mud-palette-info);
                     }
                     #tf-name3 .mud-input-outlined-border {
-                        border-color: #8888FF88 !important;
+                        border-color: var(--mud-palette-info) !important;
                     }
                     #tf-name3 .mud-input-label {
-                        color: #8888FF88 !important;
+                        color: var(--mud-palette-info) !important;
                     }
                 </style>
 
-                <div style="max-width: 400px; margin: 0 auto;">
-                    <MudPaper id="paper1" Class="pa-4" Elevation="2" Outlined="true">
-                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
+                <div style="max-width: 600px;">
+                    <MudPaper id="paper1" Class="pa-2" Elevation="2" Outlined="true">
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" Heading="Your Profile" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
                     </MudPaper>
-
-                    <div style="min-height: 300px; position: relative;">
+                    <div style="position: relative;">
                         <!-- Background boxes -->
-                        <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 10%; min-height: 300px;">
-                            <MudPaper id="paper2" Class="pa-4 flex-grow-1 d-flex justify-end" Elevation="0" Style="min-height: 120px; background:transparent;">
-                                <MudStack>
-                                    <MudText Typo="Typo.h6">Your new connection to them</MudText>
+                        <div style="display: flex; flex-direction: column; padding: 0 10%;">
+                            <MudPaper id="paper2" Class="pa-2 flex-grow-1 d-flex justify-end" Elevation="0" Style="background:transparent;">
+                                <MudStack Style="gap:0;">
+                                    <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Your connection</MudText>
                                     <MudTextField @bind-Value="ConnectionName"
                                                   Label="Name"
                                                   Variant="Variant.Outlined"
                                                   Immediate="true" />
                                 </MudStack>
                             </MudPaper>
-                            <MudPaper id="paper3" Class="pa-4 flex-grow-1 d-flex align-end" Elevation="0" Style="min-height: 120px; background:transparent;">
-                                <MudStack Class="color-incoming">
-                                    <MudText Typo="Typo.h6">Your invitation for their connection to you</MudText>
+                            <MudPaper id="paper3" Class="pa-2 flex-grow-1 d-flex align-end" Elevation="0" Style="background:transparent; padding-right:75px !important;">
+                                <MudStack Class="color-incoming" Style="gap:0;">
+                                    <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Invitation for their connection</MudText>
                                     <div id="tf-name3">
                                         @if (SelectedAidName is null)
                                         {
-                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-3 mb-3" />
+                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
                                         }
                                         else
                                         {
@@ -235,12 +231,12 @@
                                 </marker>
                                 <marker id="arrow1" markerWidth="10" markerHeight="7"
                                         refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
-                                    <polygon points="0 0, 10 3.5, 0 7" fill="#8888FF88"/>
+                                    <polygon points="0 0, 10 3.5, 0 7" style="fill: var(--mud-palette-info)"/>
                                 </marker>
                             </defs>
                             <!-- Left: upward arrow (bottom box → top box) -->
                             <line x1="10%" y1="100%" x2="10%" y2="0%"
-                                  stroke="#8888FF88" stroke-width="2" marker-end="url(#arrow1)"/>
+                                  style="stroke: var(--mud-palette-info); stroke-width: 2;" marker-end="url(#arrow1)"/>
                             <!-- Right: downward arrow (top box → bottom box) -->
                             <line x1="90%" y1="0%" x2="90%" y2="100%"
                                   stroke="#757575" stroke-width="2" marker-end="url(#arrow)"/>
@@ -249,16 +245,9 @@
 
                     @if (payload?.ResolvedAidPrefix is not null)
                     {
-                        <MudPaper id="paper4" Class="pa-4" Elevation="2" Outlined="true">
-                            <MudText Typo="Typo.h6">Their Profile</MudText>
-                            <AidPrefixDisplay Prefix="@payload.ResolvedAidPrefix" Name="@payload.ResolvedAlias" />
-                        </MudPaper>
-                    }
-                    else if (payload?.ResolvedAlias is not null)
-                    {
-                        <MudPaper id="paper4" Class="pa-4" Elevation="2" Outlined="true">
-                            <MudText Typo="Typo.h6">Their Profile</MudText>
-                            <MudText Typo="Typo.body2">@payload.ResolvedAlias</MudText>
+                        <MudPaper id="paper4" Class="pa-2" Elevation="2" Outlined="true">
+                            <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Their Profile</MudText>
+                            <AidPrefixDisplay Prefix="@payload.ResolvedAidPrefix" Name="@OobiName" ShowCopyButton="false" />
                         </MudPaper>
                     }
                 </div>
