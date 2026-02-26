@@ -261,9 +261,8 @@
     padding: 0;
 }
 
-.selected-credential {
-    border-color: var(--mud-palette-primary);
-    border-width: 2px;
+.credential-compact.selected-credential {
+    border-left: 4px solid var(--mud-palette-primary);
 }
 
 .credential-compact {
