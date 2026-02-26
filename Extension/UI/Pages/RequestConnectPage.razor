@@ -165,25 +165,6 @@
                     Please select one of your profiles to share with the requester, 
                     and provide a name for this connection to help you identify it later.
                 </MudText>
-                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
-
-                @if (payload?.ResolvedAidPrefix is not null)
-                {
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-                        <MudText Typo="Typo.body2"><b>Remote identity:</b></MudText>
-                        <AidPrefixDisplay Prefix="@payload.ResolvedAidPrefix" />
-                        @if (payload.ResolvedAlias is not null)
-                        {
-                            <MudText Typo="Typo.body2">@payload.ResolvedAlias</MudText>
-                        }
-                    </MudStack>
-                }
-                else if (payload?.ResolvedAlias is not null)
-                {
-                    <MudText Typo="Typo.body2" Class="mb-2">
-                        <b>Remote identity:</b> @payload.ResolvedAlias
-                    </MudText>
-                }
                 @if (!string.IsNullOrEmpty(payload?.Oobi))
                 {
                     <MudExpansionPanels Elevation="0" Class="mb-2">
@@ -194,26 +175,93 @@
                         </MudExpansionPanel>
                     </MudExpansionPanels>
                 }
-                <MudTextField @bind-Value="ConnectionName"
-                              Label="Connection Name"
-                              HelperText="Name for this connection (from remote party)"
-                              Variant="Variant.Outlined"
-                              Immediate="true"
-                              Class="mb-3" />
 
-                @if (SelectedAidName is null)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-3 mb-3" />
-                }
-                else
-                {
-                    <MudTextField @bind-Value="FriendlyName"
-                                  Label="Your Name (shared with remote)"
-                                  HelperText="Name sent with your OOBI invitation"
-                                  Variant="Variant.Outlined"
-                                  Immediate="true"
-                                  Class="mt-3 mb-3" />
-                }
+                <style>
+                    .color-incoming {
+                        color: #8888FF88;
+                    }
+                    #tf-name3 .mud-input-outlined-border {
+                        border-color: #8888FF88 !important;
+                    }
+                    #tf-name3 .mud-input-label {
+                        color: #8888FF88 !important;
+                    }
+                </style>
+
+                <div style="max-width: 400px; margin: 0 auto;">
+                    <MudPaper id="paper1" Class="pa-4" Elevation="2" Outlined="true">
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
+                    </MudPaper>
+
+                    <div style="min-height: 300px; position: relative;">
+                        <!-- Background boxes -->
+                        <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 10%; min-height: 300px;">
+                            <MudPaper id="paper2" Class="pa-4 flex-grow-1 d-flex justify-end" Elevation="0" Style="min-height: 120px; background:transparent;">
+                                <MudStack>
+                                    <MudText Typo="Typo.h6">Your new connection to them</MudText>
+                                    <MudTextField @bind-Value="ConnectionName"
+                                                  Label="Name"
+                                                  Variant="Variant.Outlined"
+                                                  Immediate="true" />
+                                </MudStack>
+                            </MudPaper>
+                            <MudPaper id="paper3" Class="pa-4 flex-grow-1 d-flex align-end" Elevation="0" Style="min-height: 120px; background:transparent;">
+                                <MudStack Class="color-incoming">
+                                    <MudText Typo="Typo.h6">Your invitation for their connection to you</MudText>
+                                    <div id="tf-name3">
+                                        @if (SelectedAidName is null)
+                                        {
+                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mt-3 mb-3" />
+                                        }
+                                        else
+                                        {
+                                            <MudTextField @bind-Value="FriendlyName"
+                                                          Label="Name"
+                                                          Variant="Variant.Outlined"
+                                                          Immediate="true" />
+                                        }
+                                    </div>
+                                </MudStack>
+                            </MudPaper>
+                        </div>
+
+                        <!-- Arrow overlay -->
+                        <svg width="100%" height="100%" preserveAspectRatio="none"
+                             style="position: absolute; inset: 0; z-index: 1; pointer-events: none;">
+                            <defs>
+                                <marker id="arrow" markerWidth="10" markerHeight="7"
+                                        refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#757575"/>
+                                </marker>
+                                <marker id="arrow1" markerWidth="10" markerHeight="7"
+                                        refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#8888FF88"/>
+                                </marker>
+                            </defs>
+                            <!-- Left: upward arrow (bottom box → top box) -->
+                            <line x1="10%" y1="100%" x2="10%" y2="0%"
+                                  stroke="#8888FF88" stroke-width="2" marker-end="url(#arrow1)"/>
+                            <!-- Right: downward arrow (top box → bottom box) -->
+                            <line x1="90%" y1="0%" x2="90%" y2="100%"
+                                  stroke="#757575" stroke-width="2" marker-end="url(#arrow)"/>
+                        </svg>
+                    </div>
+
+                    @if (payload?.ResolvedAidPrefix is not null)
+                    {
+                        <MudPaper id="paper4" Class="pa-4" Elevation="2" Outlined="true">
+                            <MudText Typo="Typo.h6">Their Profile</MudText>
+                            <AidPrefixDisplay Prefix="@payload.ResolvedAidPrefix" Name="@payload.ResolvedAlias" />
+                        </MudPaper>
+                    }
+                    else if (payload?.ResolvedAlias is not null)
+                    {
+                        <MudPaper id="paper4" Class="pa-4" Elevation="2" Outlined="true">
+                            <MudText Typo="Typo.h6">Their Profile</MudText>
+                            <MudText Typo="Typo.body2">@payload.ResolvedAlias</MudText>
+                        </MudPaper>
+                    }
+                </div>
             </div>
         </MudStack>
 
