@@ -20,7 +20,33 @@
         .ToList() ?? [];
 
     int UnreadCount => AllNotifications.Count(n => !n.IsRead);
-    string CountLabel => $"({AllNotifications.Count})";
+
+    // Filtering state
+    string? FilterRoute { get; set; }
+    bool? FilterReadStatus { get; set; }
+
+    List<string> AvailableRoutes => AllNotifications
+        .Select(n => n.Route)
+        .Where(r => !string.IsNullOrEmpty(r))
+        .Distinct()
+        .OrderBy(r => r)
+        .ToList();
+
+    List<Notification> FilteredNotifications {
+        get {
+            IEnumerable<Notification> filtered = AllNotifications;
+            if (FilterRoute is not null)
+                filtered = filtered.Where(n => n.Route == FilterRoute);
+            if (FilterReadStatus is not null)
+                filtered = filtered.Where(n => n.IsRead == FilterReadStatus.Value);
+            return filtered.ToList();
+        }
+    }
+
+    bool IsFiltering => FilterRoute is not null || FilterReadStatus is not null;
+    string CountLabel => IsFiltering
+        ? $"({FilteredNotifications.Count} of {AllNotifications.Count})"
+        : $"({AllNotifications.Count})";
 
     static string ElideId(string id) =>
         id.Length > 12
@@ -39,6 +65,24 @@
         "/multisig/exn" => "Multisig Exchange",
         _ => route
     };
+
+    static string RouteIcon(string route) => route switch {
+        "/exn/ipex/grant" => Icons.Material.Filled.CardGiftcard,
+        "/exn/ipex/admit" => Icons.Material.Filled.CheckCircle,
+        "/exn/ipex/apply" => Icons.Material.Filled.Assignment,
+        "/exn/ipex/offer" => Icons.Material.Filled.LocalOffer,
+        "/exn/ipex/agree" => Icons.Material.Filled.Handshake,
+        "/multisig/iss" => Icons.Material.Filled.GroupWork,
+        "/multisig/icp" => Icons.Material.Filled.Groups,
+        "/multisig/rot" => Icons.Material.Filled.RotateRight,
+        "/multisig/exn" => Icons.Material.Filled.SwapHoriz,
+        _ => Icons.Material.Filled.Notifications
+    };
+
+    // Mark-all-as-read state
+    bool IsMarkingAll { get; set; }
+    int MarkAllProgress { get; set; }
+    int MarkAllTotal { get; set; }
 
     // Expansion state
     string? ExpandedNotificationId { get; set; }
@@ -160,8 +204,9 @@
 
             if (admitResult is not null && admitResult.Success) {
                 snackbar.Add("Credential admitted", Severity.Success);
-                // Mark notification as read after successful admit
-                await MarkAsRead(notification);
+                if (!notification.IsRead) {
+                    await MarkAsRead(notification);
+                }
             }
             else {
                 snackbar.Add($"Admit failed: {admitResult?.Error ?? "Unknown error"}", Severity.Error);
@@ -239,6 +284,39 @@
         }
     }
 
+    async Task MarkAllAsRead() {
+        var unread = AllNotifications.Where(n => !n.IsRead).ToList();
+        if (unread.Count == 0 || IsMarkingAll) return;
+
+        IsMarkingAll = true;
+        MarkAllProgress = 0;
+        MarkAllTotal = unread.Count;
+        StateHasChanged();
+
+        try {
+            foreach (var n in unread) {
+                var response = await appBwPortService.SendRpcRequestAsync(
+                    AppBwMessageType.Values.RequestMarkNotification,
+                    new { payload = new { said = n.Id } });
+
+                if (!response.Ok) {
+                    logger.LogWarning("MarkAllAsRead: Failed to mark {Id}: {Error}", n.Id, response.Error);
+                }
+                MarkAllProgress++;
+                await InvokeAsync(StateHasChanged);
+            }
+            snackbar.Add($"Marked {MarkAllTotal} as read", Severity.Info);
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during mark all as read");
+            snackbar.Add("Error marking notifications", Severity.Error);
+        }
+        finally {
+            IsMarkingAll = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     public void Dispose() {
         this.UnsubscribeFromAppCache();
         GC.SuppressFinalize(this);
@@ -248,21 +326,61 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Notifications" InfoTooltip="Notifications from KERIA">
-                <CountContent>@CountLabel</CountContent>
-            </PageHeading>
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <PageHeading Title="Notifications" InfoTooltip="Notifications from KERIA">
+                    <CountContent>@CountLabel</CountContent>
+                </PageHeading>
+                <MudSpacer />
+                @if (UnreadCount > 0 && !IsMarkingAll)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.DoneAll"
+                               OnClick="MarkAllAsRead"
+                               Disabled="@IsProcessing">
+                        Mark all read
+                    </MudButton>
+                }
+            </MudStack>
 
-            @if (!AllNotifications.Any())
+            @if (IsMarkingAll)
             {
-                <MudAlert Severity="Severity.Info" Class="mt-4">No notifications.</MudAlert>
+                <MudProgressLinear Value="@MarkAllProgress" Max="@MarkAllTotal" Color="Color.Primary" Class="my-1" />
             }
 
-            @foreach (var n in AllNotifications)
+            @if (AllNotifications.Count > 0)
+            {
+                <MudStack Row="true" Spacing="2" Class="mt-1">
+                    <MudSelect T="string" Label="Route" Value="@FilterRoute" ValueChanged="@(v => FilterRoute = v)"
+                               Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Style="min-width: 160px;">
+                        @foreach (var route in AvailableRoutes)
+                        {
+                            <MudSelectItem T="string" Value="@route">@RouteLabel(route)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="bool?" Label="Status" Value="@FilterReadStatus" ValueChanged="@(v => FilterReadStatus = v)"
+                               Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Style="min-width: 120px;">
+                        <MudSelectItem T="bool?" Value="@((bool?)false)">Unread</MudSelectItem>
+                        <MudSelectItem T="bool?" Value="@((bool?)true)">Read</MudSelectItem>
+                    </MudSelect>
+                </MudStack>
+            }
+
+            @if (!FilteredNotifications.Any())
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-4">
+                    @(IsFiltering ? "No notifications match the current filters." : "No notifications.")
+                </MudAlert>
+            }
+
+            @foreach (var n in FilteredNotifications)
             {
                 <MudCard Elevation="0" Class="py-0 my-1" Style="@(n.IsRead ? "opacity: 0.6;" : "")">
                     <div class="d-flex" style="align-items: center; padding: 8px 4px; cursor: pointer;"
                          @onclick="@(() => ToggleNotificationDetail(n))">
-                        <MudIcon Icon="@(n.IsRead ? Icons.Material.Outlined.Notifications : Icons.Material.Filled.NotificationsActive)"
+                        <MudIcon Icon="@RouteIcon(n.Route)"
                                  Color="@(n.IsRead ? Color.Default : Color.Primary)"
                                  Style="margin-right: 8px;" />
                         <div style="flex:1; min-width:0;">
