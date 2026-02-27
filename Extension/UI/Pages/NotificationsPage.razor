@@ -172,9 +172,8 @@
         exn.TryGetValue("rp", out var rpVal);
         var recipientPrefix = rpVal?.StringValue;
 
-        // Look up our AID name from the prefix
-        var ourAid = appCache.Aids.FirstOrDefault(a => a.Prefix == recipientPrefix);
-        if (ourAid is null) {
+        // Validate the recipient is one of our AIDs
+        if (recipientPrefix is null || !appCache.Aids.Any(a => a.Prefix == recipientPrefix)) {
             snackbar.Add("Could not find matching AID for this grant", Severity.Error);
             return;
         }
@@ -188,9 +187,10 @@
         StateHasChanged();
 
         try {
+            // Pass prefix (not name) as senderName — signify-ts accepts either, and prefix is immutable
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestIpexAdmit,
-                new { payload = new IpexAdmitRequestPayload(ourAid.Name, issuerPrefix, notification.ExchangeSaid) },
+                new { payload = new IpexAdmitRequestPayload(recipientPrefix, issuerPrefix, notification.ExchangeSaid) },
                 timeout: TimeSpan.FromMinutes(2));
 
             if (!response.Ok) {
