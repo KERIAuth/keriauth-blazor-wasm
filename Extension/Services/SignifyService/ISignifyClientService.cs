@@ -200,6 +200,6 @@ namespace Extension.Services.SignifyService {
         /// <summary>
         /// Get a received credential and grant it to another party.
         /// </summary>
-        Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidName, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
+        Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
     }
 }

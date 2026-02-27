@@ -676,8 +676,8 @@ namespace Extension.Models.Messages.AppBw {
     );
 
     public record IpexAdmitRequestPayload(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("grantSaid")] string GrantSaid
     );
 

@@ -37,7 +37,7 @@ public interface ISignifyClientBinding {
     ValueTask<string> IssueAndGetCredentialAsync(string argsJson, CancellationToken cancellationToken = default);
 
     // ===================== Signed Headers =====================
-    ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidName, CancellationToken cancellationToken = default);
+    ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidNameOrPrefix, CancellationToken cancellationToken = default);
 
     // ===================== IPEX Protocol Methods =====================
     ValueTask<string> IpexApplyAsync(string argsJson, CancellationToken cancellationToken = default);
@@ -55,7 +55,7 @@ public interface ISignifyClientBinding {
     ValueTask<string> IpexApplyAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexOfferAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexAgreeAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
-    ValueTask<string> GrantReceivedCredentialAsync(string senderAidName, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default);
+    ValueTask<string> GrantReceivedCredentialAsync(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default);
 
     // ===================== OOBI Operations =====================
     ValueTask<string> OobiGetAsync(string name, string? role, CancellationToken cancellationToken = default);
@@ -126,11 +126,11 @@ public interface ISignifyClientBinding {
     /// <summary>
     /// Sign arbitrary data strings with an identifier
     /// </summary>
-    /// <param name="aidName">Name or prefix of the identifier to sign with</param>
+    /// <param name="aidNameOrPrefix">Name or prefix of the identifier to sign with</param>
     /// <param name="dataItemsJson">JSON array of UTF-8 strings to sign</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>JSON string of SignDataResult with aid prefix and signed items</returns>
-    ValueTask<string> SignDataAsync(string aidName, string dataItemsJson, CancellationToken cancellationToken = default);
+    ValueTask<string> SignDataAsync(string aidNameOrPrefix, string dataItemsJson, CancellationToken cancellationToken = default);
 }
 
 [SupportedOSPlatform("browser")]
@@ -216,10 +216,10 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     // ===================== Signed Headers =====================
 
-    public async ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidName, CancellationToken cancellationToken = default) {
+    public async ValueTask<string> GetSignedHeadersAsync(string origin, string url, string method, string headersDict, string aidNameOrPrefix, CancellationToken cancellationToken = default) {
         var headersDictObj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(headersDict);
-        _logger.LogDebug(nameof(GetSignedHeadersAsync) + ": origin={Origin}, url={Url}, method={Method}, aidName={AidName}, headers={Headers}", origin, url, method, aidName, headersDict);
-        var result = await Module.InvokeAsync<Dictionary<string, string>>("getSignedHeaders", cancellationToken, origin, url, method, headersDictObj, aidName);
+        _logger.LogDebug(nameof(GetSignedHeadersAsync) + ": origin={Origin}, url={Url}, method={Method}, aidNameOrPrefix={AidNameOrPrefix}, headers={Headers}", origin, url, method, aidNameOrPrefix, headersDict);
+        var result = await Module.InvokeAsync<Dictionary<string, string>>("getSignedHeaders", cancellationToken, origin, url, method, headersDictObj, aidNameOrPrefix);
         _logger.LogDebug(nameof(GetSignedHeadersAsync) + ": result: {Result}", System.Text.Json.JsonSerializer.Serialize(result));
         return System.Text.Json.JsonSerializer.Serialize(result);
     }
@@ -271,8 +271,8 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
     public ValueTask<string> IpexAgreeAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("ipexAgreeAndSubmit", cancellationToken, argsJson);
 
-    public ValueTask<string> GrantReceivedCredentialAsync(string senderAidName, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default) =>
-        Module.InvokeAsync<string>("grantReceivedCredential", cancellationToken, senderAidName, credentialSaid, recipientPrefix);
+    public ValueTask<string> GrantReceivedCredentialAsync(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("grantReceivedCredential", cancellationToken, senderAidNameOrPrefix, credentialSaid, recipientPrefix);
 
     // ===================== OOBI Operations =====================
 
@@ -415,10 +415,10 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
 
     // ===================== Arbitrary Data Signing =====================
 
-    public async ValueTask<string> SignDataAsync(string aidName, string dataItemsJson, CancellationToken cancellationToken = default) {
+    public async ValueTask<string> SignDataAsync(string aidNameOrPrefix, string dataItemsJson, CancellationToken cancellationToken = default) {
         var dataItems = System.Text.Json.JsonSerializer.Deserialize<string[]>(dataItemsJson);
-        _logger.LogDebug(nameof(SignDataAsync) + ": aidName={AidName}, itemCount={ItemCount}", aidName, dataItems?.Length ?? 0);
-        var result = await Module.InvokeAsync<string>("signData", cancellationToken, aidName, dataItems);
+        _logger.LogDebug(nameof(SignDataAsync) + ": aidNameOrPrefix={AidNameOrPrefix}, itemCount={ItemCount}", aidNameOrPrefix, dataItems?.Length ?? 0);
+        var result = await Module.InvokeAsync<string>("signData", cancellationToken, aidNameOrPrefix, dataItems);
         _logger.LogDebug(nameof(SignDataAsync) + ": result: {Result}", result);
         return result;
     }

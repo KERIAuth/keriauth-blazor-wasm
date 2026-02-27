@@ -172,10 +172,12 @@
         StateHasChanged();
 
         try {
-            // Pass prefix (not name) as senderName — signify-ts accepts either, and prefix is immutable
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestIpexAdmit,
-                new { payload = new IpexAdmitRequestPayload(recipientPrefix, issuerPrefix, notification.ExchangeSaid) },
+                new { payload = new IpexAdmitRequestPayload(
+                    SenderNameOrPrefix: recipientPrefix,
+                    RecipientPrefix: issuerPrefix,
+                    GrantSaid: notification.ExchangeSaid) },
                 timeout: TimeSpan.FromMinutes(2));
 
             if (!response.Ok) {

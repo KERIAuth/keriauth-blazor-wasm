@@ -4,8 +4,8 @@ using Extension.Helper;
 
 namespace Extension.Services.SignifyService.Models {
     public record IpexApplyArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
         [property: JsonPropertyName("message")] string? Message = null,
         [property: JsonPropertyName("attributes")] KeriDictionary? Attributes = null,
@@ -13,8 +13,8 @@ namespace Extension.Services.SignifyService.Models {
     );
 
     public record IpexOfferArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("acdc")] Serder Acdc,
         [property: JsonPropertyName("message")] string? Message = null,
         [property: JsonPropertyName("applySaid")] string? ApplySaid = null,
@@ -22,8 +22,8 @@ namespace Extension.Services.SignifyService.Models {
     );
 
     public record IpexGrantArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("acdc")] Serder Acdc,
         [property: JsonPropertyName("iss")] Serder Iss,
         [property: JsonPropertyName("anc")] Serder Anc,
@@ -36,24 +36,24 @@ namespace Extension.Services.SignifyService.Models {
     );
 
     public record IpexAgreeArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("offerSaid")] string OfferSaid,
         [property: JsonPropertyName("message")] string? Message = null,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 
     public record IpexSpurnArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("spurning")] string Spurning,
         [property: JsonPropertyName("message")] string? Message = null,
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 
     public record IpexAdmitArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("grantSaid")] string GrantSaid,
         [property: JsonPropertyName("message")] string? Message = null,
         [property: JsonPropertyName("datetime")] string? Datetime = null

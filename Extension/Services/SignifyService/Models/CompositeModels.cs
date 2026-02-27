@@ -30,7 +30,7 @@ namespace Extension.Services.SignifyService.Models {
     /// Args for issueAndGetCredential composite operation.
     /// </summary>
     public record IssueAndGetCredentialArgs(
-        [property: JsonPropertyName("issuerAidName")] string IssuerAidName,
+        [property: JsonPropertyName("issuerAidName")] string IssuerAidNameOrPrefix,
         [property: JsonPropertyName("registryName")] string RegistryName,
         [property: JsonPropertyName("schema")] string Schema,
         [property: JsonPropertyName("holderPrefix")] string HolderPrefix,
@@ -44,8 +44,8 @@ namespace Extension.Services.SignifyService.Models {
     /// Args for ipexGrantAndSubmit composite operation.
     /// </summary>
     public record IpexGrantSubmitArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("acdc")] RecursiveDictionary Acdc,
         [property: JsonPropertyName("anc")] RecursiveDictionary Anc,
         [property: JsonPropertyName("iss")] RecursiveDictionary Iss
@@ -55,8 +55,8 @@ namespace Extension.Services.SignifyService.Models {
     /// Args for ipexAdmitAndSubmit composite operation.
     /// </summary>
     public record IpexAdmitSubmitArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("grantSaid")] string GrantSaid,
         [property: JsonPropertyName("message")] string? Message = null
     );
@@ -65,8 +65,8 @@ namespace Extension.Services.SignifyService.Models {
     /// Args for ipexApplyAndSubmit composite operation.
     /// </summary>
     public record IpexApplySubmitArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
         [property: JsonPropertyName("attributes")] RecursiveDictionary? Attributes = null
     );
@@ -75,8 +75,8 @@ namespace Extension.Services.SignifyService.Models {
     /// Args for ipexOfferAndSubmit composite operation.
     /// </summary>
     public record IpexOfferSubmitArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("credentialSaid")] string CredentialSaid,
         [property: JsonPropertyName("applySaid")] string? ApplySaid = null
     );
@@ -85,8 +85,8 @@ namespace Extension.Services.SignifyService.Models {
     /// Args for ipexAgreeAndSubmit composite operation.
     /// </summary>
     public record IpexAgreeSubmitArgs(
-        [property: JsonPropertyName("senderName")] string SenderName,
-        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("offerSaid")] string OfferSaid
     );
 }

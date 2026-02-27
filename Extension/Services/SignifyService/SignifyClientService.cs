@@ -1840,11 +1840,11 @@ namespace Extension.Services.SignifyService {
             }
         }
 
-        public async Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidName, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null) {
+        public async Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null) {
             var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
             try {
                 var res = await TimeoutHelper.WithTimeout<string>(
-                    ct => _binding.GrantReceivedCredentialAsync(senderAidName, credentialSaid, recipientPrefix, ct),
+                    ct => _binding.GrantReceivedCredentialAsync(senderAidNameOrPrefix, credentialSaid, recipientPrefix, ct),
                     timeout2
                 );
                 if (res is null || res.IsFailed) {

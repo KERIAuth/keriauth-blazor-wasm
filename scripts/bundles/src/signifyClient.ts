@@ -833,7 +833,7 @@ export const credentialsDelete = async (said: string): Promise<string> => {
  * @param url - Resource URL
  * @param method - HTTP method
  * @param headersDict - Initial headers object
- * @param aidName - Identifier name for signing
+ * @param aidNameOrPrefix - Identifier name or prefix for signing
  * @returns JSON object of signed headers
  */
 export const getSignedHeaders = async (
@@ -841,7 +841,7 @@ export const getSignedHeaders = async (
     url: string,
     method: string,
     headersDict: { [key: string]: string },
-    aidName: string
+    aidNameOrPrefix: string
 ): Promise<{ [key: string]: string }> => {
     try {
         const client = await validateClient();
@@ -850,7 +850,7 @@ export const getSignedHeaders = async (
             method,
             headers: headersDict
         };
-        const signedRequest: Request = await client.createSignedRequest(aidName, url, requestInit);
+        const signedRequest: Request = await client.createSignedRequest(aidNameOrPrefix, url, requestInit);
 
         const jsonHeaders: { [key: string]: string } = {};
         if (signedRequest?.headers) {
@@ -1114,13 +1114,13 @@ export const ipexAgreeAndSubmit = async (argsJson: string): Promise<string> => {
  * Gets credential, wraps sad/anc/iss in Serder, creates grant + submits.
  * Must stay in TS because Serder constructor is signify-ts internal.
  * Source: sig-wallet/src/client/credentials.ts:grantCredential()
- * @param senderAidName - Name of the AID sending the credential
+ * @param senderAidNameOrPrefix - Name or prefix of the AID sending the credential
  * @param credentialSaid - SAID of the credential to grant
  * @param recipientPrefix - Prefix of the recipient AID
  * @returns JSON string of completed operation
  */
 export const grantReceivedCredential = async (
-    senderAidName: string,
+    senderAidNameOrPrefix: string,
     credentialSaid: string,
     recipientPrefix: string
 ): Promise<string> => {
@@ -1133,7 +1133,7 @@ export const grantReceivedCredential = async (
             }
 
             const [grant, gsigs, gend] = await client.ipex().grant({
-                senderName: senderAidName,
+                senderName: senderAidNameOrPrefix,
                 acdc: new Serder(cred.sad),
                 anc: new Serder(cred.anc),
                 iss: new Serder(cred.iss),
@@ -1143,11 +1143,11 @@ export const grantReceivedCredential = async (
             });
 
             const op = await client.ipex().submitGrant(
-                senderAidName, grant, gsigs, gend, [recipientPrefix]
+                senderAidNameOrPrefix, grant, gsigs, gend, [recipientPrefix]
             );
             return await waitAndDeleteOperation(client, op);
         },
-        { SenderAidName: senderAidName, CredentialSaid: credentialSaid, RecipientPrefix: recipientPrefix }
+        { SenderAidNameOrPrefix: senderAidNameOrPrefix, CredentialSaid: credentialSaid, RecipientPrefix: recipientPrefix }
     );
 };
 
@@ -1759,24 +1759,24 @@ interface SignDataResult {
 
 /**
  * Sign arbitrary data strings with an identifier
- * @param aidName - Name or prefix of the identifier to sign with
+ * @param aidNameOrPrefix - Name or prefix of the identifier to sign with
  * @param dataItems - Array of UTF-8 strings to sign
  * @returns JSON string of SignDataResult with aid prefix and signed items
  */
-export const signData = async (aidName: string, dataItems: string[]): Promise<string> => {
+export const signData = async (aidNameOrPrefix: string, dataItems: string[]): Promise<string> => {
     return withClientOperation(
         'signData',
         async (client) => {
             // Get the identifier
-            const hab = await client.identifiers().get(aidName);
+            const hab = await client.identifiers().get(aidNameOrPrefix);
             if (!hab) {
-                throw new Error(`Identifier '${aidName}' not found`);
+                throw new Error(`Identifier '${aidNameOrPrefix}' not found`);
             }
 
             // Get the keeper (signer) for this identifier
             const keeper = client.manager!.get(hab);
             if (!keeper) {
-                throw new Error(`No keeper available for identifier '${aidName}'`);
+                throw new Error(`No keeper available for identifier '${aidNameOrPrefix}'`);
             }
 
             // Sign each data item
@@ -1805,6 +1805,6 @@ export const signData = async (aidName: string, dataItems: string[]): Promise<st
 
             return result;
         },
-        { AIDName: aidName, ItemCount: dataItems.length }
+        { AIDNameOrPrefix: aidNameOrPrefix, ItemCount: dataItems.length }
     );
 };

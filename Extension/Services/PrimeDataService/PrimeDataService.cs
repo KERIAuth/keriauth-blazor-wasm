@@ -104,7 +104,7 @@ namespace Extension.Services.PrimeDataService {
             var qviCredData = new RecursiveDictionary();
             qviCredData["LEI"] = new RecursiveValue { StringValue = "5493001KJTIIGC8Y1R17" };
             var qviCredIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
-                IssuerAidName: gedaName,
+                IssuerAidNameOrPrefix: gedaName,
                 RegistryName: gedaRegistryName,
                 Schema: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
                 HolderPrefix: qviResult.Value.Prefix,
@@ -114,8 +114,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 13b: GEDA grants QVI credential to QVI via IPEX
             var qviGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
-                SenderName: gedaName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: gedaName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 Acdc: qviCredIssued.Value.Acdc,
                 Anc: qviCredIssued.Value.Anc,
                 Iss: qviCredIssued.Value.Iss
@@ -124,8 +124,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 14: QVI admits QVI credential
             var step14 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
-                SenderName: qviName,
-                Recipient: gedaResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: gedaResult.Value.Prefix,
                 GrantSaid: qviGrantSaid.Value
             ), "Step 14", "QVI credential");
             if (step14.IsFailed) return FailResponse(step14.Errors[0].Message);
@@ -149,8 +149,8 @@ namespace Extension.Services.PrimeDataService {
             // Step 16a: Verifier requests QVI credential via IPEX apply
             _logger.LogInformation("Step 16a: Verifier requesting QVI credential via IPEX apply...");
             var applyResult = await _signifyClient.IpexApplyAndSubmit(new IpexApplySubmitArgs(
-                SenderName: verifierName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: verifierName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
             ));
             if (applyResult.IsFailed) {
@@ -164,8 +164,8 @@ namespace Extension.Services.PrimeDataService {
             // Step 16b: QVI offers credential to Verifier
             _logger.LogInformation("Step 16b: QVI offering credential to Verifier via IPEX offer...");
             var offerResult = await _signifyClient.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
-                SenderName: qviName,
-                Recipient: verifierResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: verifierResult.Value.Prefix,
                 CredentialSaid: qviCredIssued.Value.Said,
                 ApplySaid: applySaid
             ));
@@ -180,8 +180,8 @@ namespace Extension.Services.PrimeDataService {
             // Step 16c: Verifier agrees to credential offer
             _logger.LogInformation("Step 16c: Verifier agreeing to credential offer via IPEX agree...");
             var agreeResult = await _signifyClient.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
-                SenderName: verifierName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: verifierName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 OfferSaid: offerSaid
             ));
             if (agreeResult.IsFailed) {
@@ -208,7 +208,7 @@ namespace Extension.Services.PrimeDataService {
             leCredEdge["qvi"] = new RecursiveValue { Dictionary = qviEdge };
 
             var leCredIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
-                IssuerAidName: qviName,
+                IssuerAidNameOrPrefix: qviName,
                 RegistryName: qviRegistryName,
                 Schema: "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
                 HolderPrefix: leResult.Value.Prefix,
@@ -220,8 +220,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 18b: QVI grants LE credential to LE via IPEX
             var leGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
-                SenderName: qviName,
-                Recipient: leResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: leResult.Value.Prefix,
                 Acdc: leCredIssued.Value.Acdc,
                 Anc: leCredIssued.Value.Anc,
                 Iss: leCredIssued.Value.Iss
@@ -230,8 +230,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 19: LE admits LE credential
             var step19 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
-                SenderName: leName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: leName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: leGrantSaid.Value
             ), "Step 19", "LE credential");
             if (step19.IsFailed) return FailResponse(step19.Errors[0].Message);
@@ -284,7 +284,7 @@ namespace Extension.Services.PrimeDataService {
             oorAuthEdge["le"] = new RecursiveValue { Dictionary = oorAuthLeEdge };
 
             var oorAuthIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
-                IssuerAidName: leName,
+                IssuerAidNameOrPrefix: leName,
                 RegistryName: leRegistryName,
                 Schema: "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E",
                 HolderPrefix: qviResult.Value.Prefix,
@@ -296,8 +296,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 24b: LE grants OOR Auth to QVI via IPEX
             var oorAuthGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
-                SenderName: leName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: leName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 Acdc: oorAuthIssued.Value.Acdc,
                 Anc: oorAuthIssued.Value.Anc,
                 Iss: oorAuthIssued.Value.Iss
@@ -306,8 +306,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 25: QVI admits OOR Auth credential
             var step25 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
-                SenderName: qviName,
-                Recipient: leResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: leResult.Value.Prefix,
                 GrantSaid: oorAuthGrantSaid.Value
             ), "Step 25", "OOR Auth credential");
             if (step25.IsFailed) return FailResponse(step25.Errors[0].Message);
@@ -327,7 +327,7 @@ namespace Extension.Services.PrimeDataService {
             oorEdge["auth"] = new RecursiveValue { Dictionary = oorAuthRef };
 
             var oorIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
-                IssuerAidName: qviName,
+                IssuerAidNameOrPrefix: qviName,
                 RegistryName: qviRegistryName,
                 Schema: "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy",
                 HolderPrefix: personResult.Value.Prefix,
@@ -339,8 +339,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 26b: QVI grants OOR credential to Person via IPEX
             var oorGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
-                SenderName: qviName,
-                Recipient: personResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: personResult.Value.Prefix,
                 Acdc: oorIssued.Value.Acdc,
                 Anc: oorIssued.Value.Anc,
                 Iss: oorIssued.Value.Iss
@@ -349,8 +349,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 27: Person admits OOR credential
             var step27 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
-                SenderName: personName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: personName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: oorGrantSaid.Value
             ), "Step 27", "OOR credential");
             if (step27.IsFailed) return FailResponse(step27.Errors[0].Message);
@@ -374,7 +374,7 @@ namespace Extension.Services.PrimeDataService {
             ecrAuthEdge["le"] = new RecursiveValue { Dictionary = ecrAuthLeEdge };
 
             var ecrAuthIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
-                IssuerAidName: leName,
+                IssuerAidNameOrPrefix: leName,
                 RegistryName: leRegistryName,
                 Schema: "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",
                 HolderPrefix: qviResult.Value.Prefix,
@@ -386,8 +386,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 29b: LE grants ECR Auth to QVI via IPEX
             var ecrAuthGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
-                SenderName: leName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: leName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 Acdc: ecrAuthIssued.Value.Acdc,
                 Anc: ecrAuthIssued.Value.Anc,
                 Iss: ecrAuthIssued.Value.Iss
@@ -396,8 +396,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 30: QVI admits ECR Auth credential
             var step30 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
-                SenderName: qviName,
-                Recipient: leResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: leResult.Value.Prefix,
                 GrantSaid: ecrAuthGrantSaid.Value
             ), "Step 30", "ECR Auth credential");
             if (step30.IsFailed) return FailResponse(step30.Errors[0].Message);
@@ -417,7 +417,7 @@ namespace Extension.Services.PrimeDataService {
             ecrEdge["auth"] = new RecursiveValue { Dictionary = ecrAuthRef };
 
             var ecrIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
-                IssuerAidName: qviName,
+                IssuerAidNameOrPrefix: qviName,
                 RegistryName: qviRegistryName,
                 Schema: "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw",
                 HolderPrefix: personResult.Value.Prefix,
@@ -430,8 +430,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 31b: QVI grants ECR credential to Person via IPEX
             var ecrGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
-                SenderName: qviName,
-                Recipient: personResult.Value.Prefix,
+                SenderNameOrPrefix: qviName,
+                RecipientPrefix: personResult.Value.Prefix,
                 Acdc: ecrIssued.Value.Acdc,
                 Anc: ecrIssued.Value.Anc,
                 Iss: ecrIssued.Value.Iss
@@ -440,8 +440,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 32: Person admits ECR credential
             var step32 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
-                SenderName: personName,
-                Recipient: qviResult.Value.Prefix,
+                SenderNameOrPrefix: personName,
+                RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: ecrGrantSaid.Value
             ), "Step 32", "ECR credential");
             if (step32.IsFailed) return FailResponse(step32.Errors[0].Message);
@@ -621,9 +621,9 @@ namespace Extension.Services.PrimeDataService {
             return Result.Ok();
         }
 
-        private async Task<Result> PresentCredentialStep(string senderName, string credSaid, string recipientPrefix, string stepLabel, string credLabel) {
-            _logger.LogInformation("{Step}: {Sender} presenting {CredLabel}...", stepLabel, senderName, credLabel);
-            var result = await _signifyClient.GrantReceivedCredential(senderName, credSaid, recipientPrefix);
+        private async Task<Result> PresentCredentialStep(string senderNameOrPrefix, string credSaid, string recipientPrefix, string stepLabel, string credLabel) {
+            _logger.LogInformation("{Step}: {Sender} presenting {CredLabel}...", stepLabel, senderNameOrPrefix, credLabel);
+            var result = await _signifyClient.GrantReceivedCredential(senderNameOrPrefix, credSaid, recipientPrefix);
             if (result.IsFailed) {
                 var err = $"Failed to present {credLabel}: {result.Errors[0].Message}";
                 _logger.LogError("{Error}", err);

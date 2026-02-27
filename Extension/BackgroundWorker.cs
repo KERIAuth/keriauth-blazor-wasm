@@ -2535,16 +2535,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var admitRequest = JsonSerializer.Deserialize<IpexAdmitRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (admitRequest is null || string.IsNullOrEmpty(admitRequest.SenderName)
-                || string.IsNullOrEmpty(admitRequest.Recipient) || string.IsNullOrEmpty(admitRequest.GrantSaid)) {
+            if (admitRequest is null || string.IsNullOrEmpty(admitRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(admitRequest.RecipientPrefix) || string.IsNullOrEmpty(admitRequest.GrantSaid)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexAdmitResponsePayload(false, Error: "Invalid or missing admit parameters"));
                 return;
             }
 
             var admitResult = await _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
-                SenderName: admitRequest.SenderName,
-                Recipient: admitRequest.Recipient,
+                SenderNameOrPrefix: admitRequest.SenderNameOrPrefix,
+                RecipientPrefix: admitRequest.RecipientPrefix,
                 GrantSaid: admitRequest.GrantSaid
             ));
 
@@ -3315,7 +3315,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 requestUrl,
                 method,
                 headersDictJson,
-                aidName: prefix
+                aidNameOrPrefix: prefix
             );
 
             var signedHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(signedHeadersJson);
