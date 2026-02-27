@@ -154,6 +154,8 @@ namespace Extension.Models.Messages.AppBw {
             public const string ReplyConnectionInvite = "AppBw.ReplyConnectionInvite";
             public const string RequestMarkNotification = "AppBw.RequestMarkNotification";
             public const string RequestDeleteNotification = "AppBw.RequestDeleteNotification";
+            public const string RequestGetExchange = "AppBw.RequestGetExchange";
+            public const string RequestIpexAdmit = "AppBw.RequestIpexAdmit";
         }
 
         public string Value { get; }
@@ -188,6 +190,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType ReplyConnectionInvite { get; } = new(Values.ReplyConnectionInvite);
         public static AppBwMessageType RequestMarkNotification { get; } = new(Values.RequestMarkNotification);
         public static AppBwMessageType RequestDeleteNotification { get; } = new(Values.RequestDeleteNotification);
+        public static AppBwMessageType RequestGetExchange { get; } = new(Values.RequestGetExchange);
+        public static AppBwMessageType RequestIpexAdmit { get; } = new(Values.RequestIpexAdmit);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -290,6 +294,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestDeleteNotification:
                     result = RequestDeleteNotification;
+                    return true;
+                case Values.RequestGetExchange:
+                    result = RequestGetExchange;
+                    return true;
+                case Values.RequestIpexAdmit:
+                    result = RequestIpexAdmit;
                     return true;
                 default:
                     return false;
@@ -651,6 +661,27 @@ namespace Extension.Models.Messages.AppBw {
     );
 
     public record DeleteNotificationResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    public record GetExchangeRequestPayload(
+        [property: JsonPropertyName("said")] string Said
+    );
+
+    public record GetExchangeResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("exchange")] RecursiveDictionary? Exchange = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    public record IpexAdmitRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderName,
+        [property: JsonPropertyName("recipient")] string Recipient,
+        [property: JsonPropertyName("grantSaid")] string GrantSaid
+    );
+
+    public record IpexAdmitResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("error")] string? Error = null
     );

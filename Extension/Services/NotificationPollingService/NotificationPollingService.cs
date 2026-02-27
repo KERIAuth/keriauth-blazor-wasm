@@ -102,16 +102,17 @@ public class NotificationPollingService : INotificationPollingService {
                 _loggedExchangeIds.Remove(notification.ExchangeSaid);
                 return;
             }
-            var exn = exnResult.Value;
-            exn.TryGetValue("i", out var senderVal);
-            exn.TryGetValue("a", out var aVal);
-            string? recipient = null;
-            if (aVal?.Dictionary is RecursiveDictionary aDict) {
-                aDict.TryGetValue("i", out var recipientVal);
-                recipient = recipientVal?.StringValue;
+            // Exchange response has wrapper: { exn: { i, rp, a, e, ... }, pathed: {...} }
+            var wrapper = exnResult.Value;
+            RecursiveDictionary? exn = null;
+            if (wrapper.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
+                exn = exnDict;
             }
+            exn ??= wrapper; // fallback to top-level if no wrapper
+            exn.TryGetValue("i", out var senderVal);
+            exn.TryGetValue("rp", out var rpVal);
             _logger.LogInformation(nameof(LogExchangeDetailsOnceAsync) + ": Exchange {Said}: sender={Sender} recipient={Recipient} route={Route}",
-                notification.ExchangeSaid, senderVal?.StringValue, recipient, notification.Route);
+                notification.ExchangeSaid, senderVal?.StringValue, rpVal?.StringValue, notification.Route);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, nameof(LogExchangeDetailsOnceAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);

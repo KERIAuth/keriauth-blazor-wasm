@@ -1334,6 +1334,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestDeleteNotificationRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestGetExchange:
+                    await HandleAppRequestGetExchangeRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestIpexAdmit:
+                    await HandleAppRequestIpexAdmitRpcAsync(portId, request, payload);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2465,6 +2473,96 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestDeleteNotificationRpcAsync) + ": Error deleting notification");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: ex.Message);
+        }
+    }
+
+    private async Task HandleAppRequestGetExchangeRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestGetExchangeRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetExchangeResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var exchangeRequest = JsonSerializer.Deserialize<GetExchangeRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (exchangeRequest is null || string.IsNullOrEmpty(exchangeRequest.Said)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetExchangeResponsePayload(false, Error: "Invalid or missing exchange SAID"));
+                return;
+            }
+
+            var exchangeResult = await _signifyClientService.GetExchange(exchangeRequest.Said);
+
+            if (exchangeResult.IsSuccess) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetExchangeResponsePayload(true, Exchange: exchangeResult.Value));
+            }
+            else {
+                var errorMsg = exchangeResult.Errors.Count > 0 ? exchangeResult.Errors[0].Message : "Get exchange failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new GetExchangeResponsePayload(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestGetExchangeRpcAsync) + ": Error getting exchange");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new GetExchangeResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestIpexAdmitRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexAdmitRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAdmitResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var admitRequest = JsonSerializer.Deserialize<IpexAdmitRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (admitRequest is null || string.IsNullOrEmpty(admitRequest.SenderName)
+                || string.IsNullOrEmpty(admitRequest.Recipient) || string.IsNullOrEmpty(admitRequest.GrantSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAdmitResponsePayload(false, Error: "Invalid or missing admit parameters"));
+                return;
+            }
+
+            var admitResult = await _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
+                SenderName: admitRequest.SenderName,
+                Recipient: admitRequest.Recipient,
+                GrantSaid: admitRequest.GrantSaid
+            ));
+
+            if (admitResult.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAdmitResponsePayload(true));
+            }
+            else {
+                var errorMsg = admitResult.Errors.Count > 0 ? admitResult.Errors[0].Message : "IPEX admit failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAdmitResponsePayload(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIpexAdmitRpcAsync) + ": Error during IPEX admit");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexAdmitResponsePayload(false, Error: ex.Message));
         }
     }
 

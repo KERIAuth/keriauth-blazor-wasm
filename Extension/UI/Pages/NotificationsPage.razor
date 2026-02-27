@@ -40,10 +40,141 @@
         _ => route
     };
 
+    // Expansion state
+    string? ExpandedNotificationId { get; set; }
+    RecursiveDictionary? ExpandedExchangeData { get; set; }
+    bool IsLoadingExchange { get; set; }
+    string? ExchangeLoadError { get; set; }
+    bool IsAdmitting { get; set; }
+
     protected override async Task OnInitializedAsync() {
         logger.LogInformation("OnInitializedAsync");
         InitializeAppCache(appCache);
         await this.SubscribeToAppCache(appCache);
+    }
+
+    async Task ToggleNotificationDetail(Notification notification) {
+        if (ExpandedNotificationId == notification.Id) {
+            ExpandedNotificationId = null;
+            ExpandedExchangeData = null;
+            ExchangeLoadError = null;
+            StateHasChanged();
+            return;
+        }
+
+        ExpandedNotificationId = notification.Id;
+        ExpandedExchangeData = null;
+        ExchangeLoadError = null;
+
+        if (notification.ExchangeSaid is null) {
+            ExchangeLoadError = "No exchange SAID available";
+            StateHasChanged();
+            return;
+        }
+
+        IsLoadingExchange = true;
+        StateHasChanged();
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetExchange,
+                new { payload = new { said = notification.ExchangeSaid } });
+
+            if (!response.Ok) {
+                ExchangeLoadError = response.Error ?? "Failed to load exchange details";
+                return;
+            }
+
+            var exchangeResult = response.Result is JsonElement jsonEl
+                ? JsonSerializer.Deserialize<GetExchangeResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
+                ExpandedExchangeData = exchangeResult.Exchange;
+            }
+            else {
+                ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error fetching exchange details");
+            ExchangeLoadError = "Error loading exchange details";
+        }
+        finally {
+            IsLoadingExchange = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task AdmitCredential(Notification notification) {
+        if (IsAdmitting || ExpandedExchangeData is null) return;
+
+        // Exchange response has wrapper: { exn: { i, rp, a, e, ... }, pathed: {...} }
+        RecursiveDictionary? exn = null;
+        if (ExpandedExchangeData.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
+            exn = exnDict;
+        }
+
+        if (exn is null) {
+            snackbar.Add("Invalid exchange data structure", Severity.Error);
+            return;
+        }
+
+        // Extract sender (issuer) prefix from exn.i
+        exn.TryGetValue("i", out var senderVal);
+        var issuerPrefix = senderVal?.StringValue;
+
+        // Extract recipient (our AID) prefix from exn.rp
+        exn.TryGetValue("rp", out var rpVal);
+        var recipientPrefix = rpVal?.StringValue;
+
+        // Look up our AID name from the prefix
+        var ourAid = appCache.Aids.FirstOrDefault(a => a.Prefix == recipientPrefix);
+        if (ourAid is null) {
+            snackbar.Add("Could not find matching AID for this grant", Severity.Error);
+            return;
+        }
+
+        if (notification.ExchangeSaid is null || issuerPrefix is null) {
+            snackbar.Add("Missing exchange data for admit", Severity.Error);
+            return;
+        }
+
+        IsAdmitting = true;
+        StateHasChanged();
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexAdmit,
+                new { payload = new IpexAdmitRequestPayload(ourAid.Name, issuerPrefix, notification.ExchangeSaid) },
+                timeout: TimeSpan.FromMinutes(2));
+
+            if (!response.Ok) {
+                snackbar.Add($"Admit failed: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var admitResult = response.Result is JsonElement admitJsonEl
+                ? JsonSerializer.Deserialize<IpexAdmitResponsePayload>(admitJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (admitResult is not null && admitResult.Success) {
+                snackbar.Add("Credential admitted", Severity.Success);
+                // Mark notification as read after successful admit
+                await MarkAsRead(notification);
+            }
+            else {
+                snackbar.Add($"Admit failed: {admitResult?.Error ?? "Unknown error"}", Severity.Error);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during IPEX admit");
+            snackbar.Add("Error admitting credential", Severity.Error);
+        }
+        finally {
+            IsAdmitting = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     async Task MarkAsRead(Notification notification) {
@@ -129,7 +260,8 @@
             @foreach (var n in AllNotifications)
             {
                 <MudCard Elevation="0" Class="py-0 my-1" Style="@(n.IsRead ? "opacity: 0.6;" : "")">
-                    <div class="d-flex" style="align-items: center; padding: 8px 4px;">
+                    <div class="d-flex" style="align-items: center; padding: 8px 4px; cursor: pointer;"
+                         @onclick="@(() => ToggleNotificationDetail(n))">
                         <MudIcon Icon="@(n.IsRead ? Icons.Material.Outlined.Notifications : Icons.Material.Filled.NotificationsActive)"
                                  Color="@(n.IsRead ? Color.Default : Color.Primary)"
                                  Style="margin-right: 8px;" />
@@ -152,6 +284,31 @@
                             <MudMenuItem OnClick="@(() => DeleteNotification(n))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error" Disabled="@IsProcessing">Delete</MudMenuItem>
                         </MudMenu>
                     </div>
+
+                    @if (ExpandedNotificationId == n.Id)
+                    {
+                        <MudDivider />
+                        <div style="padding: 8px 12px;">
+                            @if (IsLoadingExchange)
+                            {
+                                <div style="display:flex; align-items:center; padding: 8px 0;">
+                                    <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" />
+                                    <MudText Typo="Typo.caption" Class="ml-2">Loading exchange details...</MudText>
+                                </div>
+                            }
+                            else if (ExchangeLoadError is not null)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true">@ExchangeLoadError</MudAlert>
+                            }
+                            else if (ExpandedExchangeData is not null)
+                            {
+                                <NotificationExchangeDetail Exchange="@ExpandedExchangeData"
+                                                            Route="@n.Route"
+                                                            OnAdmit="@(() => AdmitCredential(n))"
+                                                            IsAdmitting="@IsAdmitting" />
+                            }
+                        </div>
+                    }
                 </MudCard>
             }
 

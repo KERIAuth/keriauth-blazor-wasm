@@ -1,0 +1,116 @@
+@code {
+    [Parameter, EditorRequired]
+    public required RecursiveDictionary Exchange { get; init; }
+
+    [Parameter]
+    public string? Route { get; set; }
+
+    [Parameter]
+    public EventCallback OnAdmit { get; set; }
+
+    [Parameter]
+    public bool IsAdmitting { get; set; }
+
+    // Exchange response has wrapper: { exn: { i, rp, a, e, ... }, pathed: {...} }
+    RecursiveDictionary? Exn {
+        get {
+            if (Exchange.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
+                return exnDict;
+            }
+            return null;
+        }
+    }
+
+    string? SenderAid {
+        get {
+            if (Exn?.TryGetValue("i", out var val) == true) {
+                return val?.StringValue;
+            }
+            return null;
+        }
+    }
+
+    string? RecipientAid {
+        get {
+            if (Exn?.TryGetValue("rp", out var rpVal) == true) {
+                return rpVal?.StringValue;
+            }
+            return null;
+        }
+    }
+
+    string? ExchangeSaid {
+        get {
+            if (Exn?.TryGetValue("d", out var dVal) == true) {
+                return dVal?.StringValue;
+            }
+            return null;
+        }
+    }
+
+    bool IsGrantRoute => Route == "/exn/ipex/grant";
+
+    static string ElidePrefix(string? prefix) =>
+        prefix is null ? "Unknown"
+        : prefix.Length > 12 ? $"{prefix[..6]}...{prefix[^4..]}"
+        : prefix;
+}
+
+<MudStack Spacing="1">
+    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Sender</MudText>
+        <MudTooltip Text="@SenderAid" Delay="300">
+            <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(SenderAid)</MudText>
+        </MudTooltip>
+    </MudStack>
+
+    @if (RecipientAid is not null)
+    {
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Recipient</MudText>
+            <MudTooltip Text="@RecipientAid" Delay="300">
+                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(RecipientAid)</MudText>
+            </MudTooltip>
+        </MudStack>
+    }
+
+    @if (ExchangeSaid is not null)
+    {
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Exchange</MudText>
+            <MudTooltip Text="@ExchangeSaid" Delay="300">
+                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(ExchangeSaid)</MudText>
+            </MudTooltip>
+        </MudStack>
+    }
+
+    @if (!string.IsNullOrEmpty(Route))
+    {
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Route</MudText>
+            <MudText Typo="Typo.caption" Style="font-family: monospace;">@Route</MudText>
+        </MudStack>
+    }
+
+    @if (IsGrantRoute && OnAdmit.HasDelegate)
+    {
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                       OnClick="OnAdmit"
+                       Disabled="@IsAdmitting">
+                @if (IsAdmitting)
+                {
+                    <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <text>Admitting...</text>
+                }
+                else
+                {
+                    <text>Admit Credential</text>
+                }
+            </MudButton>
+        </MudStack>
+    }
+</MudStack>
