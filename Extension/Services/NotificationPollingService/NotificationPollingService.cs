@@ -17,6 +17,9 @@ public class NotificationPollingService : INotificationPollingService {
     // Track which notification IDs we've already logged exchange details for, to avoid repeated KERIA fetches
     private readonly HashSet<string> _loggedExchangeIds = [];
 
+    // Fingerprint of the last notification list written to storage, to avoid unconditional writes every poll cycle
+    private string? _lastNotificationFingerprint;
+
     public NotificationPollingService(
         ISignifyClientService signifyClient,
         IStorageService storageService,
@@ -73,6 +76,12 @@ public class NotificationPollingService : INotificationPollingService {
                 await LogExchangeDetailsOnceAsync(n);
             }
         }
+
+        // Only write to storage when notifications actually changed, to avoid triggering
+        // chrome.storage.onChanged → appCache subscription → StateHasChanged on every poll cycle
+        var fingerprint = string.Join("|", notifications.Select(n => $"{n.Id}:{n.IsRead}"));
+        if (fingerprint == _lastNotificationFingerprint) return;
+        _lastNotificationFingerprint = fingerprint;
 
         var stored = new Notifications { Items = notifications };
         await _storageService.SetItem(stored, StorageArea.Session);

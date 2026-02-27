@@ -152,6 +152,8 @@ namespace Extension.Models.Messages.AppBw {
             /// BackgroundWorker will generate its OOBI for the selected AID and send it to the page.
             /// </summary>
             public const string ReplyConnectionInvite = "AppBw.ReplyConnectionInvite";
+            public const string RequestMarkNotification = "AppBw.RequestMarkNotification";
+            public const string RequestDeleteNotification = "AppBw.RequestDeleteNotification";
         }
 
         public string Value { get; }
@@ -184,6 +186,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetOobi { get; } = new(Values.RequestGetOobi);
         public static AppBwMessageType RequestResolveOobi { get; } = new(Values.RequestResolveOobi);
         public static AppBwMessageType ReplyConnectionInvite { get; } = new(Values.ReplyConnectionInvite);
+        public static AppBwMessageType RequestMarkNotification { get; } = new(Values.RequestMarkNotification);
+        public static AppBwMessageType RequestDeleteNotification { get; } = new(Values.RequestDeleteNotification);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -280,6 +284,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.ReplyConnectionInvite:
                     result = ReplyConnectionInvite;
+                    return true;
+                case Values.RequestMarkNotification:
+                    result = RequestMarkNotification;
+                    return true;
+                case Values.RequestDeleteNotification:
+                    result = RequestDeleteNotification;
                     return true;
                 default:
                     return false;
@@ -623,6 +633,24 @@ namespace Extension.Models.Messages.AppBw {
     /// Response payload for PrimeData Go request.
     /// </summary>
     public record PrimeDataGoResponse(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    public record MarkNotificationRequestPayload(
+        [property: JsonPropertyName("said")] string Said
+    );
+
+    public record MarkNotificationResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    public record DeleteNotificationRequestPayload(
+        [property: JsonPropertyName("said")] string Said
+    );
+
+    public record DeleteNotificationResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("error")] string? Error = null
     );

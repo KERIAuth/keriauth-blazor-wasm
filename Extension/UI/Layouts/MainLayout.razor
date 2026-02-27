@@ -299,6 +299,16 @@
                 <MudNavLink Href="@(Routes.PathFor<PresentationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+                <MudNavLink Href="@(Routes.PathFor<NotificationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">
+                    <MudBadge Content="@(appCache.MyNotifications.Items.Count(n => !n.IsRead))"
+                              Visible="@(appCache.MyNotifications.Items.Any(n => !n.IsRead))"
+                              Color="Color.Error"
+                              Overlap=false
+                              Origin=Origin.CenterRight
+                              >
+                        <span Style="padding-right: 1rem;">Notifications</span>
+                    </MudBadge>
+                </MudNavLink>
                 @if (appCache.IsAuthenticated)
                 {
                     <MudNavLink OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>

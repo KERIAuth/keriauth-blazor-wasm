@@ -1326,6 +1326,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppReplyConnectionInviteRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestMarkNotification:
+                    await HandleAppRequestMarkNotificationRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestDeleteNotification:
+                    await HandleAppRequestDeleteNotificationRpcAsync(portId, request, payload);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2371,6 +2379,92 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestResolveOobiRpcAsync) + ": Error resolving OOBI");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new ResolveOobiResponse(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestMarkNotificationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestMarkNotificationRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var markRequest = JsonSerializer.Deserialize<MarkNotificationRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (markRequest is null || string.IsNullOrEmpty(markRequest.Said)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid or missing notification SAID");
+                return;
+            }
+
+            var markResult = await _signifyClientService.MarkNotification(markRequest.Said);
+
+            if (markResult.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new MarkNotificationResponsePayload(true));
+            }
+            else {
+                var errorMsg = markResult.Errors.Count > 0 ? markResult.Errors[0].Message : "Mark notification failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: errorMsg);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestMarkNotificationRpcAsync) + ": Error marking notification");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: ex.Message);
+        }
+    }
+
+    private async Task HandleAppRequestDeleteNotificationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestDeleteNotificationRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var deleteRequest = JsonSerializer.Deserialize<DeleteNotificationRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (deleteRequest is null || string.IsNullOrEmpty(deleteRequest.Said)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid or missing notification SAID");
+                return;
+            }
+
+            var deleteResult = await _signifyClientService.DeleteNotification(deleteRequest.Said);
+
+            if (deleteResult.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new DeleteNotificationResponsePayload(true));
+            }
+            else {
+                var errorMsg = deleteResult.Errors.Count > 0 ? deleteResult.Errors[0].Message : "Delete notification failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: errorMsg);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestDeleteNotificationRpcAsync) + ": Error deleting notification");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: ex.Message);
         }
     }
 

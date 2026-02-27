@@ -1382,15 +1382,14 @@ export const notificationsList = async (start?: number, end?: number): Promise<s
 };
 
 export const notificationsMark = async (said: string): Promise<string> => {
-    try {
-        const client = await validateClient();
-        const result = await client.notifications().mark(said);
-        console.debug('signifyClient: notificationsMark - SAID:', said);
-        return result; // Already a string
-    } catch (error) {
-        console.error('signifyClient: notificationsMark error:', error);
-        throw error;
-    }
+    return withClientOperation(
+        'notificationsMark',
+        async (client) => {
+            await client.notifications().mark(said);
+            return { success: true, message: `Notification ${said} marked as read` };
+        },
+        { SAID: said }
+    );
 };
 
 export const notificationsDelete = async (said: string): Promise<string> => {

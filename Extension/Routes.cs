@@ -56,6 +56,8 @@ public static class Routes {
             Icons.Material.Filled.Badge, Color.Surface),
         [typeof(WebsitesPage)] = new("Websites", "/Websites.html", RequiresAuth: true,
             Icons.Material.Filled.Web, Color.Surface),
+        [typeof(NotificationsPage)] = new("Notifications", "/Notifications.html", RequiresAuth: true,
+            Icons.Material.Filled.Notifications, Color.Surface),
         [typeof(Passkeys)] = new("Passkeys", "/Passkeys.html", RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
         [typeof(MnemonicPage)] = new("Mnemonic", "/Mnemonic.html", RequiresAuth: true,

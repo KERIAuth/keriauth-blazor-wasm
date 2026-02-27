@@ -1,0 +1,170 @@
+@page "/Notifications.html"
+@using Extension.Models.Messages.AppBw
+@using Extension.Services.SignifyService.Models
+@using Extension.Services.Port
+@using Extension.UI.Components
+@inherits AuthenticatedPageBase
+@implements IDisposable
+
+@inject ILogger<NotificationsPage> logger
+@inject IJSRuntime js
+@inject ISnackbar snackbar
+@inject AppCache appCache
+@inject IAppBwPortService appBwPortService
+
+@code {
+    bool IsProcessing { get; set; }
+
+    List<Notification> AllNotifications => appCache?.MyNotifications?.Items?
+        .OrderByDescending(n => n.DateTime)
+        .ToList() ?? [];
+
+    int UnreadCount => AllNotifications.Count(n => !n.IsRead);
+    string CountLabel => $"({AllNotifications.Count})";
+
+    static string ElideId(string id) =>
+        id.Length > 12
+            ? $"{id[..6]}...{id[^4..]}"
+            : id;
+
+    static string RouteLabel(string route) => route switch {
+        "/exn/ipex/grant" => "Credential Grant",
+        "/exn/ipex/admit" => "Credential Admit",
+        "/exn/ipex/apply" => "Credential Apply",
+        "/exn/ipex/offer" => "Credential Offer",
+        "/exn/ipex/agree" => "Credential Agree",
+        "/multisig/iss" => "Multisig Issuance",
+        "/multisig/icp" => "Multisig Inception",
+        "/multisig/rot" => "Multisig Rotation",
+        "/multisig/exn" => "Multisig Exchange",
+        _ => route
+    };
+
+    protected override async Task OnInitializedAsync() {
+        logger.LogInformation("OnInitializedAsync");
+        InitializeAppCache(appCache);
+        await this.SubscribeToAppCache(appCache);
+    }
+
+    async Task MarkAsRead(Notification notification) {
+        if (IsProcessing) return;
+        IsProcessing = true;
+        StateHasChanged();
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestMarkNotification,
+                new { payload = new { said = notification.Id } });
+
+            if (!response.Ok) {
+                snackbar.Add($"Failed to mark notification: {response.Error}", Severity.Error);
+            }
+            else {
+                var notifId = notification.Id;
+                await appCache.WaitForAppCache([
+                    () => appCache.MyNotifications.Items.Any(n => n.Id == notifId && n.IsRead)
+                ]);
+                snackbar.Add("Marked as read", Severity.Info);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error marking notification as read");
+            snackbar.Add("Error marking notification", Severity.Error);
+        }
+        finally {
+            IsProcessing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task DeleteNotification(Notification notification) {
+        if (IsProcessing) return;
+        IsProcessing = true;
+        StateHasChanged();
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestDeleteNotification,
+                new { payload = new { said = notification.Id } });
+
+            if (!response.Ok) {
+                snackbar.Add($"Failed to delete notification: {response.Error}", Severity.Error);
+            }
+            else {
+                var notifId = notification.Id;
+                await appCache.WaitForAppCache([
+                    () => !appCache.MyNotifications.Items.Any(n => n.Id == notifId)
+                ]);
+                snackbar.Add("Notification deleted", Severity.Info);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error deleting notification");
+            snackbar.Add("Error deleting notification", Severity.Error);
+        }
+        finally {
+            IsProcessing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <PageHeading Title="Notifications" InfoTooltip="Notifications from KERIA">
+                <CountContent>@CountLabel</CountContent>
+            </PageHeading>
+
+            @if (!AllNotifications.Any())
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-4">No notifications.</MudAlert>
+            }
+
+            @foreach (var n in AllNotifications)
+            {
+                <MudCard Elevation="0" Class="py-0 my-1" Style="@(n.IsRead ? "opacity: 0.6;" : "")">
+                    <div class="d-flex" style="align-items: center; padding: 8px 4px;">
+                        <MudIcon Icon="@(n.IsRead ? Icons.Material.Outlined.Notifications : Icons.Material.Filled.NotificationsActive)"
+                                 Color="@(n.IsRead ? Color.Default : Color.Primary)"
+                                 Style="margin-right: 8px;" />
+                        <div style="flex:1; min-width:0;">
+                            <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route)</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@n.DateTime</MudText>
+                            <MudTooltip Text="@n.Id" Delay="300">
+                                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElideId(n.Id)</MudText>
+                            </MudTooltip>
+                        </div>
+                        @if (!n.IsRead)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">New</MudChip>
+                        }
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                            @if (!n.IsRead)
+                            {
+                                <MudMenuItem OnClick="@(() => MarkAsRead(n))" Icon="@Icons.Material.Filled.MarkEmailRead" Disabled="@IsProcessing">Mark as Read</MudMenuItem>
+                            }
+                            <MudMenuItem OnClick="@(() => DeleteNotification(n))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error" Disabled="@IsProcessing">Delete</MudMenuItem>
+                        </MudMenu>
+                    </div>
+                </MudCard>
+            }
+
+            @if (IsProcessing)
+            {
+                <div style="display:flex; align-items: center; justify-content:center; padding: 24px;">
+                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+                </div>
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await Helper.PreviousPage.GoBack(js))' Class="justify-start" />
+        <MudSpacer />
+    </MudStack>
+</div>
