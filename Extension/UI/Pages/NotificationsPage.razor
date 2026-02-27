@@ -86,7 +86,7 @@
 
     // Expansion state
     string? ExpandedNotificationId { get; set; }
-    RecursiveDictionary? ExpandedExchangeData { get; set; }
+    ExchangeView? ExpandedExchangeData { get; set; }
     bool IsLoadingExchange { get; set; }
     string? ExchangeLoadError { get; set; }
     bool IsAdmitting { get; set; }
@@ -134,7 +134,7 @@
                 : null;
 
             if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
-                ExpandedExchangeData = exchangeResult.Exchange;
+                ExpandedExchangeData = ExchangeView.FromRecursiveDictionary(exchangeResult.Exchange);
             }
             else {
                 ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
@@ -153,24 +153,9 @@
     async Task AdmitCredential(Notification notification) {
         if (IsAdmitting || ExpandedExchangeData is null) return;
 
-        // KERI exchange (exn) fields: see LogExchangeDetailsOnceAsync in NotificationPollingService.cs for spec references
-        RecursiveDictionary? exn = null;
-        if (ExpandedExchangeData.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
-            exn = exnDict;
-        }
-
-        if (exn is null) {
-            snackbar.Add("Invalid exchange data structure", Severity.Error);
-            return;
-        }
-
-        // Extract sender (issuer) prefix from exn.i
-        exn.TryGetValue("i", out var senderVal);
-        var issuerPrefix = senderVal?.StringValue;
-
-        // Extract recipient (our AID) prefix from exn.rp
-        exn.TryGetValue("rp", out var rpVal);
-        var recipientPrefix = rpVal?.StringValue;
+        var view = ExpandedExchangeData.Value;
+        var issuerPrefix = view.I;
+        var recipientPrefix = view.Rp;
 
         // Validate the recipient is one of our AIDs
         if (recipientPrefix is null || !appCache.Aids.Any(a => a.Prefix == recipientPrefix)) {
@@ -420,7 +405,7 @@
                             }
                             else if (ExpandedExchangeData is not null)
                             {
-                                <NotificationExchangeDetail Exchange="@ExpandedExchangeData"
+                                <NotificationExchangeDetail Exchange="@ExpandedExchangeData.Value"
                                                             Route="@n.Route"
                                                             OnAdmit="@(() => AdmitCredential(n))"
                                                             IsAdmitting="@IsAdmitting" />

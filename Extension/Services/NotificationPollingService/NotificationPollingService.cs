@@ -109,16 +109,9 @@ public class NotificationPollingService : INotificationPollingService {
             // Exchange response wrapper: { exn: { v, t, d, i, rp, p, dt, r, q, a, e }, pathed: {...} }
             //   d=SAID, i=sender AID prefix, rp=recipient prefix, dt=datetime,
             //   r=route (e.g. /ipex/grant), a=attributes, e=embedded data
-            var wrapper = exnResult.Value;
-            RecursiveDictionary? exn = null;
-            if (wrapper.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
-                exn = exnDict;
-            }
-            exn ??= wrapper; // fallback to top-level if no wrapper
-            exn.TryGetValue("i", out var senderVal);
-            exn.TryGetValue("rp", out var rpVal);
+            var view = ExchangeView.FromRecursiveDictionary(exnResult.Value);
             _logger.LogInformation(nameof(LogExchangeDetailsOnceAsync) + ": Exchange {Said}: sender={Sender} recipient={Recipient} route={Route}",
-                notification.ExchangeSaid, senderVal?.StringValue, rpVal?.StringValue, notification.Route);
+                notification.ExchangeSaid, view.I, view.Rp, notification.Route);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, nameof(LogExchangeDetailsOnceAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);

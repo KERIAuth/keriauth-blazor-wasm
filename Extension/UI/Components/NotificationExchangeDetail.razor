@@ -1,6 +1,8 @@
+@using Extension.Services.SignifyService.Models
+
 @code {
     [Parameter, EditorRequired]
-    public required RecursiveDictionary Exchange { get; init; }
+    public required ExchangeView Exchange { get; init; }
 
     [Parameter]
     public string? Route { get; set; }
@@ -11,42 +13,9 @@
     [Parameter]
     public bool IsAdmitting { get; set; }
 
-    // KERI exchange (exn) fields: see LogExchangeDetailsOnceAsync in NotificationPollingService.cs for spec references
-    RecursiveDictionary? Exn {
-        get {
-            if (Exchange.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
-                return exnDict;
-            }
-            return null;
-        }
-    }
-
-    string? SenderAid {
-        get {
-            if (Exn?.TryGetValue("i", out var val) == true) {
-                return val?.StringValue;
-            }
-            return null;
-        }
-    }
-
-    string? RecipientAid {
-        get {
-            if (Exn?.TryGetValue("rp", out var rpVal) == true) {
-                return rpVal?.StringValue;
-            }
-            return null;
-        }
-    }
-
-    string? ExchangeSaid {
-        get {
-            if (Exn?.TryGetValue("d", out var dVal) == true) {
-                return dVal?.StringValue;
-            }
-            return null;
-        }
-    }
+    string? SenderAid => Exchange.I;
+    string? RecipientAid => Exchange.Rp;
+    string? ExchangeSaid => Exchange.D;
 
     bool IsGrantRoute => Route == "/exn/ipex/grant";
 
