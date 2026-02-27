@@ -102,7 +102,13 @@ public class NotificationPollingService : INotificationPollingService {
                 _loggedExchangeIds.Remove(notification.ExchangeSaid);
                 return;
             }
-            // Exchange response has wrapper: { exn: { i, rp, a, e, ... }, pathed: {...} }
+            // KERI exchange (exn) message fields — see KERIpy serdering.py (search Ilks.exn):
+            //   https://github.com/WebOfTrust/keripy/blob/main/src/keri/core/serdering.py
+            // IPEX spec: https://www.ietf.org/archive/id/draft-ssmith-ipex-00.html
+            // KERIA IPEX endpoints: https://github.com/WebOfTrust/keria/blob/main/src/keria/app/ipexing.py
+            // Exchange response wrapper: { exn: { v, t, d, i, rp, p, dt, r, q, a, e }, pathed: {...} }
+            //   d=SAID, i=sender AID prefix, rp=recipient prefix, dt=datetime,
+            //   r=route (e.g. /ipex/grant), a=attributes, e=embedded data
             var wrapper = exnResult.Value;
             RecursiveDictionary? exn = null;
             if (wrapper.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {

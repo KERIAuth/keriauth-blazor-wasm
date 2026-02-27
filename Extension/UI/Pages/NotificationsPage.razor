@@ -153,7 +153,7 @@
     async Task AdmitCredential(Notification notification) {
         if (IsAdmitting || ExpandedExchangeData is null) return;
 
-        // Exchange response has wrapper: { exn: { i, rp, a, e, ... }, pathed: {...} }
+        // KERI exchange (exn) fields: see LogExchangeDetailsOnceAsync in NotificationPollingService.cs for spec references
         RecursiveDictionary? exn = null;
         if (ExpandedExchangeData.TryGetValue("exn", out var exnVal) && exnVal?.Dictionary is RecursiveDictionary exnDict) {
             exn = exnDict;
