@@ -1367,10 +1367,17 @@ export const schemasList = async (): Promise<string> => {
 
 // ===================== Notifications Operations =====================
 
+// TODO P1: start/end default to undefined, so this fetches ALL notifications every poll interval.
+// Add incremental polling (e.g., track last-seen datetime or index) to avoid unbounded growth.
 export const notificationsList = async (start?: number, end?: number): Promise<string> => {
     return withClientOperation(
         'notificationsList',
-        (client) => client.notifications().list(start, end)
+        async (client) => {
+            const result = await client.notifications().list(start, end);
+            // signify-ts returns { start, end, total, notes: [...] }
+            // C# expects a bare array of notification objects
+            return result.notes;
+        }
     );
 };
 

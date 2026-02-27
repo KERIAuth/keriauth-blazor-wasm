@@ -14,6 +14,9 @@ public class NotificationPollingService : INotificationPollingService {
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
+    // Track which notification IDs we've already logged exchange details for, to avoid repeated KERIA fetches
+    private readonly HashSet<string> _loggedExchangeIds = [];
+
     public NotificationPollingService(
         ISignifyClientService signifyClient,
         IStorageService storageService,
@@ -46,7 +49,8 @@ public class NotificationPollingService : INotificationPollingService {
     public async Task PollOnDemandAsync() {
         var result = await _signifyClient.ListNotifications();
         if (result.IsFailed) {
-            _logger.LogDebug(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
+            // TODO P1: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.
+            _logger.LogWarning(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
                 result.Errors.Count > 0 ? result.Errors[0].Message : "unknown");
             return;
         }
@@ -63,10 +67,47 @@ public class NotificationPollingService : INotificationPollingService {
         if (unreadCount > 0) {
             _logger.LogInformation(nameof(PollOnDemandAsync) + ": {Total} notifications ({Unread} unread)",
                 notifications.Count, unreadCount);
+            foreach (var n in notifications.Where(n => !n.IsRead)) {
+                _logger.LogInformation(nameof(PollOnDemandAsync) + ": Unread: id={Id} dt={DateTime} route={Route} exchangeSaid={ExchangeSaid}",
+                    n.Id, n.DateTime, n.Route, n.ExchangeSaid);
+                await LogExchangeDetailsOnceAsync(n);
+            }
         }
 
         var stored = new Notifications { Items = notifications };
         await _storageService.SetItem(stored, StorageArea.Session);
+    }
+
+    /// <summary>
+    /// Fetches and logs the exchange message details for a notification, but only once per exchangeSaid.
+    /// </summary>
+    private async Task LogExchangeDetailsOnceAsync(Notification notification) {
+        if (notification.ExchangeSaid is null || !_loggedExchangeIds.Add(notification.ExchangeSaid)) {
+            return;
+        }
+        try {
+            var exnResult = await _signifyClient.GetExchange(notification.ExchangeSaid);
+            if (exnResult.IsFailed) {
+                _logger.LogWarning(nameof(LogExchangeDetailsOnceAsync) + ": GetExchange failed for {Said}: {Error}",
+                    notification.ExchangeSaid, exnResult.Errors.Count > 0 ? exnResult.Errors[0].Message : "unknown");
+                _loggedExchangeIds.Remove(notification.ExchangeSaid);
+                return;
+            }
+            var exn = exnResult.Value;
+            exn.TryGetValue("i", out var senderVal);
+            exn.TryGetValue("a", out var aVal);
+            string? recipient = null;
+            if (aVal?.Dictionary is RecursiveDictionary aDict) {
+                aDict.TryGetValue("i", out var recipientVal);
+                recipient = recipientVal?.StringValue;
+            }
+            _logger.LogInformation(nameof(LogExchangeDetailsOnceAsync) + ": Exchange {Said}: sender={Sender} recipient={Recipient} route={Route}",
+                notification.ExchangeSaid, senderVal?.StringValue, recipient, notification.Route);
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, nameof(LogExchangeDetailsOnceAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);
+            _loggedExchangeIds.Remove(notification.ExchangeSaid);
+        }
     }
 
     private Notification? ParseNotification(RecursiveDictionary notifDict) {

@@ -1936,6 +1936,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 var clientAidPrefix = connectResult.Value.Controller?.State?.I;
                 var agentAidPrefix = connectResult.Value.Agent?.I;
 
+                // Start notification polling (cancel any previous polling first)
+                _notificationPollingCts?.Cancel();
+                _notificationPollingCts = new CancellationTokenSource();
+                _ = _notificationPollingService.StartPollingAsync(_notificationPollingCts.Token);
+
                 // Fetch identifiers and store in session for App to read
                 // TODO P1: Consider caching credentials in session storage as well, fetching on-demand for now
                 var identifiersResult = await _signifyClientService.GetIdentifiers();
