@@ -97,8 +97,6 @@ public static class Routes {
         [typeof(SidePanel)] = new("SidePanel", "/sidepanel.html", RequiresAuth: false),
         [typeof(DeveloperTestPage)] = new("DeveloperTest", "/DeveloperTest.html", RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
-        [typeof(DeveloperPrimersPage)] = new("DeveloperPrimers", "/DeveloperPrimers.html", RequiresAuth: true,
-            Icons.Material.Filled.TempleBuddhist, Color.Surface),
         [typeof(PrimeDataPage)] = new("PrimeData", "/PrimeData.html", RequiresAuth: true,
             Icons.Material.Filled.DataObject, Color.Surface),
         [typeof(DeveloperStatePage)] = new("DeveloperState", "/DeveloperState.html", RequiresAuth: false,

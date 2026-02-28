@@ -295,10 +295,11 @@
             <MudNavMenu Style="height:calc(100vh - var(--mud-appbar-height) - 0.5rem); overflow-y:auto;">
                 <MudNavLink Href="@(Routes.PathFor<DashboardPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<ProfilesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Profiles</MudNavLink>
-                <MudNavLink Href="@(Routes.PathFor<ConnectionsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.People" IconColor="Color.Surface">Connections</MudNavLink>
-                <MudNavLink Href="@(Routes.PathFor<PresentationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
+                <MudNavLink Href="@(Routes.PathFor<ConnectionsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.People" IconColor="Color.Surface">Connections</MudNavLink>
+
+
                 <MudNavLink Href="@(Routes.PathFor<NotificationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">
                     <MudBadge Content="@(appCache.MyNotifications.Items.Count(n => !n.IsRead))"
                               Visible="@(appCache.MyNotifications.Items.Any(n => !n.IsRead))"
@@ -325,10 +326,17 @@
                     <MudNavLink Href="@(Routes.PathFor<DeletePage>())" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset All...</MudNavLink>
                     <MudNavGroup Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
                         <MudNavLink Href="@(Routes.PathFor<DeveloperStatePage>())" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
-                        <MudNavLink Href="@(Routes.PathFor<DeveloperPrimersPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.AutoFixHigh" IconColor="Color.Surface">Primers</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<DeveloperTestPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<PrimeDataPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime Data</MudNavLink>
+                        
+
+                        <MudNavGroup Title="Draft Pages" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
+
+
+                <MudNavLink Href="@(Routes.PathFor<PresentationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
+                        
+                        </MudNavGroup>
                     </MudNavGroup>
                 </MudNavGroup>
 
