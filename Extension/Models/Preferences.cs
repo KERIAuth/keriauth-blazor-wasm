@@ -1,6 +1,6 @@
 ﻿namespace Extension.Models {
-    using Extension.Models.Storage;
     using System.Text.Json.Serialization;
+    using Extension.Models.Storage;
 
     public record Preferences : IStorageModel {
 
@@ -17,7 +17,7 @@
         /// When true (and IsMultiKeriaConfigEnabled is true), shows the KERIA selector on the Unlock page.
         /// </summary>
         [JsonPropertyName("IsMultiKeriaOnUnlock")]
-        public bool IsMultiKeriaOnUnlock { get; init; } = true;
+        public bool IsMultiKeriaOnUnlock { get; init; }
 
         /// <summary>
         /// KERIA-specific preferences including selected connection and AID prefix.
