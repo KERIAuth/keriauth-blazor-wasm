@@ -90,6 +90,7 @@
     bool IsLoadingExchange { get; set; }
     string? ExchangeLoadError { get; set; }
     bool IsAdmitting { get; set; }
+    bool IsAlreadyAdmitted { get; set; }
 
     protected override async Task OnInitializedAsync() {
         logger.LogInformation("OnInitializedAsync");
@@ -109,6 +110,7 @@
         ExpandedNotificationId = notification.Id;
         ExpandedExchangeData = null;
         ExchangeLoadError = null;
+        IsAlreadyAdmitted = false;
 
         if (notification.ExchangeSaid is null) {
             ExchangeLoadError = "No exchange SAID available";
@@ -135,6 +137,32 @@
 
             if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
                 ExpandedExchangeData = ExchangeView.FromRecursiveDictionary(exchangeResult.Exchange);
+
+                // For grant notifications, check if credential has already been admitted
+                if (notification.Route == "/exn/ipex/grant") {
+                    var credSaid = ExpandedExchangeData.Value.E?.GetValueByPath("acdc.d")?.Value?.ToString();
+                    if (credSaid is not null) {
+                        try {
+                            var credResponse = await appBwPortService.SendRpcRequestAsync(
+                                AppBwMessageType.Values.RequestGetCredentials,
+                                new { });
+                            if (credResponse.Ok) {
+                                var credResult = credResponse.Result is JsonElement credJsonEl
+                                    ? JsonSerializer.Deserialize<GetCredentialsResponsePayload>(credJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                                    : null;
+                                IsAlreadyAdmitted = credResult?.Credentials?.Any(c =>
+                                    c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid) ?? false;
+                            }
+                        }
+                        catch (Exception credEx) {
+                            logger.LogWarning(credEx, "Error checking credential existence");
+                        }
+                    }
+
+                    if (IsAlreadyAdmitted && !notification.IsRead) {
+                        _ = MarkAsRead(notification);
+                    }
+                }
             }
             else {
                 ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
@@ -190,6 +218,7 @@
                 : null;
 
             if (admitResult is not null && admitResult.Success) {
+                IsAlreadyAdmitted = true;
                 snackbar.Add("Credential admitted", Severity.Success);
                 if (!notification.IsRead) {
                     await MarkAsRead(notification);
@@ -410,7 +439,8 @@
                                 <NotificationExchangeDetail Exchange="@ExpandedExchangeData.Value"
                                                             Route="@n.Route"
                                                             OnAdmit="@(() => AdmitCredential(n))"
-                                                            IsAdmitting="@IsAdmitting" />
+                                                            IsAdmitting="@IsAdmitting"
+                                                            IsAlreadyAdmitted="@IsAlreadyAdmitted" />
                             }
                         </div>
                     }

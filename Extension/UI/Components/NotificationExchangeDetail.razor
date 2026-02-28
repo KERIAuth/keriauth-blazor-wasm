@@ -13,6 +13,9 @@
     [Parameter]
     public bool IsAdmitting { get; set; }
 
+    [Parameter]
+    public bool IsAlreadyAdmitted { get; set; }
+
     string? SenderAid => Exchange.I;
     string? RecipientAid => Exchange.Rp;
     string? ExchangeSaid => Exchange.D;
@@ -61,25 +64,33 @@
         </MudStack>
     }
 
-    @if (IsGrantRoute && OnAdmit.HasDelegate)
+    @if (IsGrantRoute)
     {
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       Size="Size.Small"
-                       StartIcon="@Icons.Material.Filled.CheckCircle"
-                       OnClick="OnAdmit"
-                       Disabled="@IsAdmitting">
-                @if (IsAdmitting)
-                {
-                    <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    <text>Admitting...</text>
-                }
-                else
-                {
-                    <text>Admit Credential</text>
-                }
-            </MudButton>
+            @if (IsAlreadyAdmitted)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                         Icon="@Icons.Material.Filled.CheckCircle">Already Admitted</MudChip>
+            }
+            else if (OnAdmit.HasDelegate)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                           OnClick="OnAdmit"
+                           Disabled="@IsAdmitting">
+                    @if (IsAdmitting)
+                    {
+                        <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <text>Admitting...</text>
+                    }
+                    else
+                    {
+                        <text>Admit Credential</text>
+                    }
+                </MudButton>
+            }
         </MudStack>
     }
 </MudStack>
