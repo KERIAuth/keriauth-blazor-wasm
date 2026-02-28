@@ -1,5 +1,6 @@
 ﻿namespace Extension.Services.Storage;
 
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Extension.Helper;
@@ -219,7 +220,15 @@ public class StorageService : IStorageService, IDisposable {
         try {
             // Create default instance for the type
             // This matches the behavior of GetItem<T> which returns default(T) when key not found
-            var defaultValue = Activator.CreateInstance(elementType);
+            object? defaultValue;
+            try {
+                defaultValue = Activator.CreateInstance(elementType);
+            }
+            catch (MissingMethodException) {
+                // Type has no parameterless constructor (e.g. positional records with required params).
+                // GetUninitializedObject creates a valid instance without calling any constructor.
+                defaultValue = RuntimeHelpers.GetUninitializedObject(elementType);
+            }
 
             if (defaultValue != null) {
                 // Create a snapshot to avoid concurrent modification if callbacks modify subscriptions
