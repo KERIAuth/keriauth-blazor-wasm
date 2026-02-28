@@ -62,7 +62,8 @@ clean:
 	@echo "=== Cleaning build artifacts ==="
 	$(NVM_USE) cd scripts && npm run clean
 	$(NVM_USE) cd Extension && npm run clean
-	rm -rf Extension/bin Extension/obj Extension.Tests/obj
+	rm -rf Extension/bin Extension/obj Extension.Tests/bin Extension.Tests/obj tsconfig.tsbuildinfo Extension.Tests/packages.lock.json.bak
+	@echo "Note: node_modules/ directories were not removed. To remove them: rm -rf Extension/node_modules scripts/node_modules"
 
 clean-build: prereqs clean
 	@echo "=== Clean build ==="
