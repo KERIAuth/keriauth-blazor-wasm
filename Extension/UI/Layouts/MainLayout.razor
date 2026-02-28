@@ -298,15 +298,12 @@
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<ConnectionsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.People" IconColor="Color.Surface">Connections</MudNavLink>
-
-
                 <MudNavLink Href="@(Routes.PathFor<NotificationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">
                     <MudBadge Content="@(appCache.MyNotifications.Items.Count(n => !n.IsRead))"
                               Visible="@(appCache.MyNotifications.Items.Any(n => !n.IsRead))"
                               Color="Color.Error"
                               Overlap=false
-                              Origin=Origin.CenterRight
-                              >
+                              Origin=Origin.CenterRight>
                         <span Style="padding-right: 1rem;">Notifications</span>
                     </MudBadge>
                 </MudNavLink>
@@ -318,7 +315,6 @@
                 {
                     <MudNavLink Href="@(Routes.PathFor<UnlockPage>())" Icon="@Icons.Material.Filled.LockOpen" IconColor="Color.Surface">Unlock</MudNavLink>
                 }
-
                 <MudNavGroup Title="Advanced" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Surface" Style="padding-right: 0;">
                     <MudNavLink Href="@(Routes.PathFor<PreferencesPage>())" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Href="@(Routes.PathFor<Passkeys>())" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
@@ -328,14 +324,9 @@
                         <MudNavLink Href="@(Routes.PathFor<DeveloperStatePage>())" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<DeveloperTestPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
                         <MudNavLink Href="@(Routes.PathFor<PrimeDataPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime Data</MudNavLink>
-                        
-
                         <MudNavGroup Title="Draft Pages" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
-
-
-                <MudNavLink Href="@(Routes.PathFor<PresentationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
-                        <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
-                        
+                            <MudNavLink Href="@(Routes.PathFor<PresentationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
+                            <MudNavLink Href="@(Routes.PathFor<MnemonicPage>())" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
                         </MudNavGroup>
                     </MudNavGroup>
                 </MudNavGroup>

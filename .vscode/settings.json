@@ -56,6 +56,15 @@
         "editor.formatOnSave": true
     },
 
+    // Razor settings — prevent formatter from wrapping long lines
+    "[razor]": {
+        "editor.defaultFormatter": "ms-dotnettools.csdevkit"
+    },
+
+    // HTML formatting — disable auto line-wrapping
+    "html.format.wrapLineLength": 0,
+    "html.format.wrapAttributes": "preserve",
+
     // OmniSharp settings for better assembly reference resolution
     "omnisharp.enableEditorConfigSupport": true,
     "omnisharp.enableRoslynAnalyzers": true,
