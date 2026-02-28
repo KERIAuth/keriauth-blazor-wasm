@@ -466,13 +466,8 @@ namespace Extension.Services.PrimeDataService {
             if (step32.IsFailed) return FailResponse(step32.Errors[0].Message);
             generatedExchangeSaids.Add(step32.Value);
 
-            // Step 33: Mark all PrimeData-generated notifications as read
-            // TODO P2: Race condition — KERIA propagates notifications asynchronously, so some arrive after this step
-            // runs and remain unread. A better approach may be for NotificationPollingService to proactively auto-mark
-            // grant notifications whose credentials are already admitted, eliminating the timing dependency.
-            _logger.LogInformation("Step 33: Waiting 20s for KERIA notification propagation...");
-            await Task.Delay(TimeSpan.FromSeconds(20));
-            await MarkGeneratedNotificationsAsReadStep(generatedExchangeSaids, "Step 33");
+            // Step 33: Wait for KERIA to propagate notifications, then mark as read
+            await WaitForNotificationsAndMarkAsReadStep(generatedExchangeSaids, "Step 33");
 
             _logger.LogInformation("PrimeData Go completed successfully");
             return Result.Ok(new PrimeDataGoResponse(true));
@@ -678,6 +673,35 @@ namespace Extension.Services.PrimeDataService {
                 rules["privacyDisclaimer"] = new RecursiveValue { Dictionary = privacy };
             }
             return rules;
+        }
+
+        private async Task WaitForNotificationsAndMarkAsReadStep(HashSet<string> expectedExchangeSaids, string stepLabel) {
+            _logger.LogInformation("{Step}: Waiting for {Count} notifications to propagate...",
+                stepLabel, expectedExchangeSaids.Count);
+
+            var timeout = TimeSpan.FromSeconds(30);
+            var interval = TimeSpan.FromSeconds(1);
+            var deadline = DateTime.UtcNow + timeout;
+            var foundSaids = new HashSet<string>();
+
+            while (DateTime.UtcNow < deadline) {
+                var notifsResult = await _signifyClient.ListNotifications();
+                if (notifsResult.IsSuccess) {
+                    foreach (var n in notifsResult.Value) {
+                        var exchangeSaid = n.GetValueByPath("a.d")?.Value?.ToString();
+                        if (exchangeSaid is not null && expectedExchangeSaids.Contains(exchangeSaid)) {
+                            foundSaids.Add(exchangeSaid);
+                        }
+                    }
+                    if (foundSaids.Count >= expectedExchangeSaids.Count) break;
+                }
+                await Task.Delay(interval);
+            }
+
+            _logger.LogInformation("{Step}: Found {Found}/{Expected} notifications",
+                stepLabel, foundSaids.Count, expectedExchangeSaids.Count);
+
+            await MarkGeneratedNotificationsAsReadStep(expectedExchangeSaids, stepLabel);
         }
 
         private async Task MarkGeneratedNotificationsAsReadStep(HashSet<string> exchangeSaids, string stepLabel) {

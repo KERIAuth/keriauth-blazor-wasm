@@ -119,6 +119,28 @@ const waitAndDeleteOperation = async <T = unknown>(
     return op;
 };
 
+/**
+ * Poll for a credential to appear in KERIA's credential store.
+ * Used after ipexAdmitAndSubmit to ensure the credential is indexed before returning.
+ */
+const waitForCredential = async (
+    client: SignifyClient,
+    credentialSaid: string,
+    timeoutMs: number = 30000, // some operations like an ipexAdmitAndSubmit can take a while, especially if they involve external interactions
+    intervalMs: number = 500
+): Promise<void> => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        try {
+            await client.credentials().get(credentialSaid);
+            return;
+        } catch {
+            await new Promise(r => setTimeout(r, intervalMs));
+        }
+    }
+    throw new Error(`Credential ${credentialSaid} not available after ${timeoutMs}ms`);
+};
+
 // ===================== vLEI Schema SAIDs =====================
 
 export const QVI_SCHEMA_SAID = 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao';
@@ -998,7 +1020,15 @@ export const ipexAdmitAndSubmit = async (argsJson: string): Promise<string> => {
                 args.senderName, admit, sigs, aend, [args.recipient]
             );
             const result = await waitAndDeleteOperation(client, op);
-            return { ...result, admitSaid };
+
+            // Wait for the admitted credential to be available in KERIA's credential store
+            const grantExn = await client.exchanges().get(args.grantSaid) as Record<string, any>;
+            const credentialSaid = grantExn?.exn?.e?.acdc?.d as string | undefined;
+            if (credentialSaid) {
+                await waitForCredential(client, credentialSaid);
+            }
+
+            return { ...result, admitSaid, credentialSaid };
         }
     );
 };
