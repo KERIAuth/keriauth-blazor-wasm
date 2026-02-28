@@ -226,24 +226,25 @@
                 <MudText Class="bt-pref-group-label0">
                     Optional Features
                 </MudText>
+                <MudText Class="bt-pref-group-label1">Multiple KERIA Cloud Service Configurations</MudText>
                 <MudStack Row="true" Class="ml-5" AlignItems="AlignItems.Center">
                     <MudSwitch Value="IsMultiKeriaConfigEnabled"
                                ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaConfigEnabled(isOn)"
                                T="bool" Color="Color.Primary" />
-                    <MudText>Enable multiple KERIA Cloud Service configurations</MudText>
-                </MudStack>
-                @if (IsMultiKeriaConfigEnabled)
-                {
-                    <MudStack Row="true" Class="ml-5 mt-2" AlignItems="AlignItems.Center">
+                    <MudText>Enable</MudText>
+                    @if (IsMultiKeriaConfigEnabled)
+                    {
+                        <MudStack Row="true" Class="ml-5 mt-2" AlignItems="AlignItems.Center">
                         <MudSwitch Value="IsMultiKeriaOnUnlock"
                                    ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaOnUnlock(isOn)"
                                    T="bool" Color="Color.Primary" />
-                        <MudText>Show KERIA selector on Unlock page</MudText>
+                        <MudText>Show on Unlock page</MudText>
                     </MudStack>
                     @if (_availableKeriaConfigItems.Count > 0)
                     {
                         <MudStack Row="false" Class="ml-5 mt-3" Style="width:18rem;">
-                            <MudSelect T="string"
+                            <MudText>Selected</MudText>
+                            <MudSelect Class="ml-5" T="string"
                                        Label="KERIA Cloud Service"
                                        Value="@_selectedKeriaConfigDigest"
                                        ValueChanged="OnKeriaConfigDigestChanged"
@@ -252,13 +253,13 @@
                                 {
                                     <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
                                 }
-                                <MudSelectItem Value="@ManageKeriaConfigsValue">Add/Remove KERIA Connection</MudSelectItem>
+                                <MudSelectItem Value="@ManageKeriaConfigsValue">Manage...</MudSelectItem>
                             </MudSelect>
                         </MudStack>
                     }
                 }
+                </MudStack>
             </MudStack>
-
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
