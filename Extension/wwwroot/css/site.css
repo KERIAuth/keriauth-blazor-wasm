@@ -294,6 +294,12 @@
     margin-bottom: 0.5rem;
 }
 
+.bt-link-list .mud-link {
+    display: block;
+    text-decoration: underline;
+    padding-left: 2rem;
+}
+
 /* Print styles for multi-page printing */
 @media print {
     /* Reset positioning and viewport constraints on root containers */

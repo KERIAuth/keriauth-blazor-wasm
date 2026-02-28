@@ -10,7 +10,7 @@
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
 @inject AppCache appCache
-@inject IAppBwPortService appBwPortService  // For port connection status
+@inject IAppBwPortService appBwPortService // For port connection status
 @using System.Linq.Expressions
 @inject ISnackbar snackbar
 @inject IDialogService dialogService
@@ -54,9 +54,9 @@
     async Task ShowMessageBoxExample()
     {
         var result = await dialogService.ShowMessageBox(
-               "Delete Configuration",
-               $"Are you sure you want to delete your local configuration and reload the extension?",
-               yesText: "Yes, Delete",
+               "Auto-approve safe requests?",
+               $"Are you sure you want to auto-approve all safe HTTP requests?",
+               yesText: "Yes, Auto-approve",
                cancelText: "Cancel",
                 options: new DialogOptions()
                 {
@@ -91,6 +91,16 @@
         };
         var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add Profile", parameters, options);
     }
+
+    async Task ShowAddConnectionDialogExample()
+    {
+        var parameters = new DialogParameters<AddConnectionDialog> {
+            { x => x.Mode, "receive" },
+            { x => x.DefaultName, "" }
+        };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await dialogService.ShowAsync<AddConnectionDialog>("Add Connection", parameters, options);
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -100,8 +110,8 @@
 
 
 
-            <MudText>Pages not on main menu</MudText>
-            <div>
+            <MudText Typo="Typo.h6">Pages not on main menu</MudText>
+            <div class="bt-link-list">
                 <MudLink Href="@(Routes.PathFor<WelcomePage>())" Target="_self">Welcome</MudLink>
                 <MudLink Href="@(Routes.PathFor<NewReleasePage>())" Target="_self">Release</MudLink>
                 <MudLink Href="@(Routes.PathFor<TermsPage>())" Target="_self">Terms</MudLink>
@@ -113,8 +123,8 @@
                 <MudLink Href="@(Routes.PathFor<GettingStartedPage>())" Target="_self">Getting Started</MudLink>
                 <MudLink Href="@(Routes.PathFor<OfferPasskeyPage>())" Target="_self">Offer Passkey</MudLink>
             </div>
-            <MudText>Dialog Pages</MudText>
-            <div>
+            <MudText Typo="Typo.h6">Dialog Pages</MudText>
+            <div class="bt-link-list">
                 <MudLink Href="@(Routes.PathFor<RequestCreateCredentialPage>())" Target="_self">Request Create Credential</MudLink>
                 <MudLink Href="@(Routes.PathFor<RequestSignDataPage>())" Target="_self">Request Sign Data</MudLink>
                 <MudLink Href="@(Routes.PathFor<RequestSignHeadersPage>())" Target="_self">Request Sign Headers</MudLink>
@@ -122,23 +132,24 @@
                 <MudLink Href="@(Routes.PathFor<RequestConnectPage>())" Target="_self">Request Connection</MudLink>
                 <MudLink Href="@(Routes.PathFor<RequestUnknownPage>())" Target="_self">Request Unknown</MudLink>
             </div>
-            <MudText>Parameterized Pages</MudText>
-            <div>
+            <MudText Typo="Typo.h6">Parameterized Pages</MudText>
+            <div class="bt-link-list">
                 <MudLink Href="@(Routes.PathFor<KeriaConfigPage>() + "x")" Target="_self">KERIA Config</MudLink>
                 <MudLink Href="@(Routes.PathFor<ProfilePage>() + "x")" Target="_self">Profile</MudLink>
                 <MudLink Href="@(Routes.PathFor<WebsitePage>() + "x")" Target="_self">Website</MudLink>
             </div>
-            <MudText>Dialogs</MudText>
-            <div>
+            <MudText Typo="Typo.h6">Dialogs</MudText>
+            <div class="bt-link-list">
+                <MudLink OnClick="@ShowAddConnectionDialogExample">Add Connection</MudLink>
                 <MudLink OnClick="@ShowAddProfileDialogExample">Add Profile</MudLink>
                 <MudLink OnClick="@ShowConfirmDeleteConfigExample">Confirm Delete Config</MudLink>
-                <MudLink OnClick="@ShowMessageBoxExample">Message Box</MudLink>
+                <MudLink OnClick="@ShowMessageBoxExample">Message Box Example</MudLink>
             </div>
-            <MudText Class="pl-0">Other</MudText>
-            <div>
+            <MudText Typo="Typo.h6">Other</MudText>
+            <div class="bt-link-list">
                 <MudLink OnClick='@(async () => snackbar.Add("testing testing testing testing"))'>Snackbar</MudLink>
             </div>
-            <MudText>Port Testing</MudText>
+            <MudText Typo="Typo.h6">Port Testing</MudText>
             <MudStack>
                 <MudText>To disconnect/stop/inactivate: navigate to chrome://serviceworker-internals and Stop the service-worker. Should restart based on its listener events.</MudText>
             </MudStack>
