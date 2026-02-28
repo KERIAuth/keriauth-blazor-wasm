@@ -92,6 +92,12 @@
         var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add Profile", parameters, options);
     }
 
+    async Task ShowConnectionChoiceDialogExample()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add Connection", new DialogParameters(), options);
+    }
+
     async Task ShowAddConnectionDialogExample()
     {
         var parameters = new DialogParameters<AddConnectionDialog> {
@@ -122,6 +128,7 @@
                 <MudLink Href="@(Routes.PathFor<DeletePage>())" Target="_self">Delete Local Config</MudLink>
                 <MudLink Href="@(Routes.PathFor<GettingStartedPage>())" Target="_self">Getting Started</MudLink>
                 <MudLink Href="@(Routes.PathFor<OfferPasskeyPage>())" Target="_self">Offer Passkey</MudLink>
+                <MudLink Href="@(Routes.PathFor<ReleaseHistoryPage>())" Target="_self">Release History</MudLink>
             </div>
             <MudText Typo="Typo.h6">Dialog Pages</MudText>
             <div class="bt-link-list">
@@ -141,6 +148,7 @@
             <MudText Typo="Typo.h6">Dialogs</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@ShowAddConnectionDialogExample">Add Connection</MudLink>
+                <MudLink OnClick="@ShowConnectionChoiceDialogExample">Connection Choice</MudLink>
                 <MudLink OnClick="@ShowAddProfileDialogExample">Add Profile</MudLink>
                 <MudLink OnClick="@ShowConfirmDeleteConfigExample">Confirm Delete Config</MudLink>
                 <MudLink OnClick="@ShowMessageBoxExample">Message Box Example</MudLink>
