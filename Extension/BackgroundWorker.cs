@@ -77,6 +77,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // BwReadyState observer - re-establishes BwReadyState when cleared by App
     private IDisposable? _bwReadyStateObserver;
 
+    // PasscodeModel observer - cancels notification polling when session locks
+    private IDisposable? _passcodeModelObserver;
+
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
 
@@ -305,6 +308,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Subscribe to BwReadyState changes to re-establish it if cleared by App
             // (e.g., during config change via ClearSessionForConfigChangeAsync)
             SubscribeToBwReadyStateChanges();
+
+            // Subscribe to PasscodeModel changes to cancel polling when session locks
+            SubscribeToPasscodeModelChanges();
 
             // Notify ContentScripts to reconnect their ports after service worker restart
             // await _portService.NotifyContentScriptsOfRestartAsync();
@@ -702,6 +708,44 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         public void OnCompleted() {
             backgroundWorker.logger.LogDebug(nameof(BwReadyStateObserver) + ": Observer completed");
+        }
+    }
+
+    /// <summary>
+    /// Subscribes to PasscodeModel changes to cancel notification polling when session locks.
+    /// When PasscodeModel is cleared (session lock/expiration), polling is stopped to avoid
+    /// futile KERIA calls against a disconnected signify client.
+    /// </summary>
+    private void SubscribeToPasscodeModelChanges() {
+        if (_passcodeModelObserver != null) {
+            logger.LogDebug(nameof(SubscribeToPasscodeModelChanges) + ": Already subscribed");
+            return;
+        }
+
+        _passcodeModelObserver = _storageService.Subscribe(
+            new PasscodeModelPollingObserver(this),
+            StorageArea.Session
+        );
+        logger.LogDebug(nameof(SubscribeToPasscodeModelChanges) + ": Subscribed to PasscodeModel changes");
+    }
+
+    /// <summary>
+    /// Observer for PasscodeModel changes. Cancels notification polling when session locks.
+    /// </summary>
+    private sealed class PasscodeModelPollingObserver(BackgroundWorker backgroundWorker) : IObserver<PasscodeModel> {
+        public void OnNext(PasscodeModel? value) {
+            if (value is null || string.IsNullOrEmpty(value.Passcode)) {
+                backgroundWorker.logger.LogInformation(nameof(PasscodeModelPollingObserver) + ": PasscodeModel cleared — cancelling notification polling");
+                backgroundWorker.CancelNotificationPolling();
+            }
+        }
+
+        public void OnError(Exception error) {
+            backgroundWorker.logger.LogError(error, nameof(PasscodeModelPollingObserver) + ": Error observing PasscodeModel");
+        }
+
+        public void OnCompleted() {
+            backgroundWorker.logger.LogDebug(nameof(PasscodeModelPollingObserver) + ": Observer completed");
         }
     }
 
@@ -3723,6 +3767,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _notificationPollingCts = new CancellationTokenSource();
             _ = _notificationPollingService.StartPollingAsync(_notificationPollingCts.Token);
 
+            // Proactively cache credentials in session storage for App components to read directly
+            await RefreshCachedCredentialsAsync();
+
             return Result.Ok();
         }
         catch (Exception ex) {
@@ -3731,10 +3778,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    /// <summary>
+    /// Cancels notification polling if running.
+    /// Called when session locks to stop polling against a disconnected signify client.
+    /// </summary>
+    private void CancelNotificationPolling() {
+        if (_notificationPollingCts is not null) {
+            logger.LogInformation(nameof(CancelNotificationPolling) + ": Cancelling notification polling");
+            _notificationPollingCts.Cancel();
+            _notificationPollingCts.Dispose();
+            _notificationPollingCts = null;
+        }
+    }
+
     public void Dispose() {
         _notificationPollingCts?.Cancel();
         _notificationPollingCts?.Dispose();
         _bwReadyStateObserver?.Dispose();
+        _passcodeModelObserver?.Dispose();
         GC.SuppressFinalize(this);
     }
 }
