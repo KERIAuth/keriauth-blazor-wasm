@@ -16,6 +16,7 @@
 @code {
     // fields
     bool _credentialsLoading = true;
+    bool _websitesLoading = true;
 
     // properties
 
@@ -51,14 +52,15 @@
         // Initialize base class for authentication-based render suppression
         InitializeAppCache(appCache);
 
-        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
-        // Re-read credentials from session storage when AppCache notifies of changes
-        await this.SubscribeToAppCache(appCache, onChanged: async () => await FetchCredentialsAsync());
+        // Subscribe to AppCache changes - will trigger StateHasChanged for reactive properties
+        // (identifiers count, connection status, etc.). Credentials are fetched once in OnParametersSetAsync.
+        await this.SubscribeToAppCache(appCache);
     }
 
     protected override async Task OnParametersSetAsync()
     {
         logger.LogInformation("OnParemetersSetAsync");
+        _websitesLoading = true;
         var x = await websiteConfigService.GetList();
         if (x.IsSuccess && x.Value is not null)
         {
@@ -68,8 +70,8 @@
         {
             NumWebsites = 0;
         }
+        _websitesLoading = false;
 
-        // Fetch credentials from BackgroundWorker via RPC
         await FetchCredentialsAsync();
     }
 
@@ -134,7 +136,16 @@
                     </MudStack>
                     <!-- Websites -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumWebsites</MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">
+                            @if (_websitesLoading)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="bt-inline-progress" />
+                            }
+                            else
+                            {
+                                @NumWebsites
+                            }
+                        </MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<WebsitesPage>())">@WebsitesLabel</MudLink>
                         </MudText>
