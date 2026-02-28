@@ -1,5 +1,7 @@
-* text=auto
+* text=auto eol=lf
 *.cs diff=csharp
 
-# Force consistent line endings for files where hash consistency matters
-*.html text eol=lf
+# Binary files
+*.png binary
+*.zip binary
+*.ico binary
