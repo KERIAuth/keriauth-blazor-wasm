@@ -137,7 +137,7 @@
                     <!-- Websites -->
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left bt-home-status-number">
-                            <LoadingCount Count="@(_websitesLoading ? null : NumWebsites)" />
+                            <LoadingCount Count="@(_websitesLoading ? null : NumWebsites.ToString())" HideParentheses="true" />
                         </MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<WebsitesPage>())">@WebsitesLabel</MudLink>
@@ -156,7 +156,7 @@
                     <!-- Credentials -->
                     <MudStack Row>
                         <MudText Class="mudtext-half-width-left bt-home-status-number">
-                            <LoadingCount Count="@(_credentialsLoading ? null : NumCredentialsThisIdentifier)" />
+                            <LoadingCount Count="@(_credentialsLoading ? null : NumCredentialsThisIdentifier.ToString())" HideParentheses="true" />
                         </MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<CredentialsPage>())">@CredentialsLabel</MudLink>
