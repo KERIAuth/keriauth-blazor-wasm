@@ -1,0 +1,14 @@
+@if (Count is null)
+{
+    <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="vertical-align: middle; width: 1em !important; height: 1em !important;" />
+}
+else
+{
+    @Count
+}
+
+@code {
+    [Parameter] public int? Count { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+}
