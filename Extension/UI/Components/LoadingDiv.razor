@@ -1,0 +1,15 @@
+@if (IsLoading)
+{
+    <span style="display: inline-flex; vertical-align: middle;">
+        <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="width: 1em !important; height: 1em !important;" />
+    </span>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,15 +1,13 @@
-@if (Count is null)
-{
-    <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="vertical-align: middle; width: 1em !important; height: 1em !important;" />
-}
-else if (HideParentheses)
-{
-    @Count
-}
-else
-{
-    @($"({Count})")
-}
+<LoadingDiv IsLoading="@(Count is null)">
+    @if (HideParentheses)
+    {
+        @Count
+    }
+    else
+    {
+        @($"({Count})")
+    }
+</LoadingDiv>
 
 @code {
     [Parameter] public string? Count { get; set; }
