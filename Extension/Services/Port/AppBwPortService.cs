@@ -39,13 +39,14 @@ public class AppBwPortService(
     private static readonly TimeSpan DefaultRpcTimeout = TimeSpan.FromSeconds(30);
 
     // ConnectAsync timeout settings
-    // Phase 1 polls via sendMessage until BW responds with ready=true.
-    // Each poll is a quick synchronous round-trip (no deferred sendResponse).
-    // The BW may be loading modules or initializing WASM; polls return ready=false until
-    // Program.cs signals __keriauth_setBwReady. WASM cold start from inactive SW can take
-    // 60-90s (29 modules + WASM compilation), so the timeout must be generous.
+    // Phase 1 sends CLIENT_SW_HELLO via chrome.runtime.sendMessage and awaits the
+    // sendResponse reply directly (resolves as a Promise). If BW is ready, the reply
+    // contains { ready: true } and Phase 1 completes immediately. If BW hasn't loaded
+    // yet, sendMessage throws ("Receiving end does not exist") and we retry after
+    // PollInterval. WASM cold start from inactive SW can take 60-90s, so the timeout
+    // must be generous.
     private static readonly TimeSpan WasmReadyTimeout = TimeSpan.FromSeconds(120);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
     // Phase 2: port HELLO/READY handshake (fast once BW is confirmed ready).
     private static readonly TimeSpan PortHandshakeTimeout = TimeSpan.FromSeconds(5);
     private const int MaxPortAttempts = 3;
@@ -75,8 +76,10 @@ public class AppBwPortService(
             return;
         }
 
-        // Phase 1: Fire CLIENT_SW_HELLO to wake the SW, then poll for the
-        // async SW_CLIENT_HELLO reply (received by app.ts onMessage listener).
+        // Phase 1: Send CLIENT_SW_HELLO via chrome.runtime.sendMessage and await the
+        // sendResponse reply directly. The BW's onMessage handler (app.ts) calls
+        // sendResponse({ t: 'SW_CLIENT_HELLO', ready: true }) which resolves the
+        // sendMessage Promise. If BW hasn't loaded yet, sendMessage throws.
         _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Polling for BW readiness (timeout={Timeout}s, interval={Interval}s)...",
             WasmReadyTimeout.TotalSeconds, PollInterval.TotalSeconds);
 
@@ -89,38 +92,33 @@ public class AppBwPortService(
             pollAttempt++;
             try
             {
-                // Fire-and-forget: wakes BW if inactive. app.ts [BW] onMessage
-                // handler replies with a separate SW_CLIENT_HELLO message.
                 _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Sending CLIENT_SW_HELLO (attempt {Attempt})", pollAttempt);
-                await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+                var response = await _jsRuntime.InvokeAsync<JsonElement>("chrome.runtime.sendMessage",
                     new { t = SendMessageTypes.ClientHello });
 
-                // Check if app.ts listener has received SW_CLIENT_HELLO
-                bwReady = await _jsRuntime.InvokeAsync<bool>("__keriauth_isBwReady");
-                if (bwReady)
+                // sendResponse from BW's onMessage handler resolves the Promise directly
+                if (response.ValueKind == JsonValueKind.Object
+                    && response.TryGetProperty("ready", out var readyProp)
+                    && readyProp.ValueKind == JsonValueKind.True)
                 {
                     _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: BW ready (attempt {Attempt})", pollAttempt);
+                    bwReady = true;
                     break;
                 }
 
-                if (pollAttempt % 5 == 0)
-                {
-                    _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Waiting for BW... (attempt {Attempt})", pollAttempt);
-                }
-                else
-                {
-                    _logger.LogDebug(nameof(ConnectAsync) + ": Phase 1: Not ready (attempt {Attempt})", pollAttempt);
-                }
+                _logger.LogDebug(nameof(ConnectAsync) + ": Phase 1: BW not ready (attempt {Attempt})", pollAttempt);
             }
             catch (JSException ex)
             {
-                _logger.LogWarning(nameof(ConnectAsync) + ": Phase 1: Probe {Attempt} JS error: {Error}", pollAttempt, ex.Message);
+                // Expected when BW hasn't loaded yet ("Receiving end does not exist")
+                if (pollAttempt % 10 == 0)
+                    _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Waiting for BW... (attempt {Attempt})", pollAttempt);
+                else
+                    _logger.LogDebug(nameof(ConnectAsync) + ": Phase 1: Probe {Attempt} JS error: {Error}", pollAttempt, ex.Message);
             }
 
             if (DateTime.UtcNow + PollInterval > deadline)
-            {
                 break;
-            }
 
             await Task.Delay(PollInterval);
         }
