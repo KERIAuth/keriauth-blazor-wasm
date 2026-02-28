@@ -25,6 +25,8 @@ namespace Extension.Services.PrimeDataService {
             var prepend = payload.Prepend;
             _logger.LogInformation("PrimeData Go starting with prepend '{Prepend}'", prepend);
 
+            var generatedExchangeSaids = new HashSet<string>();
+
             // Steps 1-4: Create AIDs
             var nameToPrefix = new Dictionary<string, string>();
 
@@ -121,6 +123,7 @@ namespace Extension.Services.PrimeDataService {
                 Iss: qviCredIssued.Value.Iss
             ), "Step 13b", "QVI credential");
             if (qviGrantSaid.IsFailed) return FailResponse(qviGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(qviGrantSaid.Value);
 
             // Step 14: QVI admits QVI credential
             var step14 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -129,6 +132,7 @@ namespace Extension.Services.PrimeDataService {
                 GrantSaid: qviGrantSaid.Value
             ), "Step 14", "QVI credential");
             if (step14.IsFailed) return FailResponse(step14.Errors[0].Message);
+            generatedExchangeSaids.Add(step14.Value);
 
             // Step 15a: Create Verifier AID
             var verifierName = $"{prepend}_verifier";
@@ -160,6 +164,7 @@ namespace Extension.Services.PrimeDataService {
             }
             var applySaid = applyResult.Value["applySaid"].StringValue!;
             _logger.LogInformation("Verifier IPEX apply submitted: applySaid={ApplySaid}", applySaid);
+            generatedExchangeSaids.Add(applySaid);
 
             // Step 16b: QVI offers credential to Verifier
             _logger.LogInformation("Step 16b: QVI offering credential to Verifier via IPEX offer...");
@@ -176,6 +181,7 @@ namespace Extension.Services.PrimeDataService {
             }
             var offerSaid = offerResult.Value["offerSaid"].StringValue!;
             _logger.LogInformation("QVI IPEX offer submitted: offerSaid={OfferSaid}", offerSaid);
+            generatedExchangeSaids.Add(offerSaid);
 
             // Step 16c: Verifier agrees to credential offer
             _logger.LogInformation("Step 16c: Verifier agreeing to credential offer via IPEX agree...");
@@ -189,7 +195,9 @@ namespace Extension.Services.PrimeDataService {
                 _logger.LogError("{Error}", err);
                 return FailResponse(err);
             }
-            _logger.LogInformation("Verifier IPEX agree submitted successfully");
+            var agreeSaid = agreeResult.Value["agreeSaid"].StringValue!;
+            _logger.LogInformation("Verifier IPEX agree submitted: agreeSaid={AgreeSaid}", agreeSaid);
+            generatedExchangeSaids.Add(agreeSaid);
 
             // Step 17: QVI creates credential registry for LE credentials
             var qviRegistryName = $"{prepend}_qvi_le_registry";
@@ -227,6 +235,7 @@ namespace Extension.Services.PrimeDataService {
                 Iss: leCredIssued.Value.Iss
             ), "Step 18b", "LE credential");
             if (leGrantSaid.IsFailed) return FailResponse(leGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(leGrantSaid.Value);
 
             // Step 19: LE admits LE credential
             var step19 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -235,6 +244,7 @@ namespace Extension.Services.PrimeDataService {
                 GrantSaid: leGrantSaid.Value
             ), "Step 19", "LE credential");
             if (step19.IsFailed) return FailResponse(step19.Errors[0].Message);
+            generatedExchangeSaids.Add(step19.Value);
 
             // Step 20: Resolve OOBIs between LE and Verifier
             var step20Pairs = new[] {
@@ -249,6 +259,7 @@ namespace Extension.Services.PrimeDataService {
             // Step 21: LE presents LE credential to Verifier
             var step21 = await PresentCredentialStep(leName, leCredIssued.Value.Said, verifierResult.Value.Prefix, "Step 21", "LE credential");
             if (step21.IsFailed) return FailResponse(step21.Errors[0].Message);
+            generatedExchangeSaids.Add(step21.Value);
 
             // Step 22: Resolve OOBIs for Person
             var step22Pairs = new[] {
@@ -303,6 +314,7 @@ namespace Extension.Services.PrimeDataService {
                 Iss: oorAuthIssued.Value.Iss
             ), "Step 24b", "OOR Auth credential");
             if (oorAuthGrantSaid.IsFailed) return FailResponse(oorAuthGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(oorAuthGrantSaid.Value);
 
             // Step 25: QVI admits OOR Auth credential
             var step25 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -311,6 +323,7 @@ namespace Extension.Services.PrimeDataService {
                 GrantSaid: oorAuthGrantSaid.Value
             ), "Step 25", "OOR Auth credential");
             if (step25.IsFailed) return FailResponse(step25.Errors[0].Message);
+            generatedExchangeSaids.Add(step25.Value);
 
             // Step 26a: QVI issues OOR credential to Person
             var oorCredData = new RecursiveDictionary();
@@ -346,6 +359,7 @@ namespace Extension.Services.PrimeDataService {
                 Iss: oorIssued.Value.Iss
             ), "Step 26b", "OOR credential");
             if (oorGrantSaid.IsFailed) return FailResponse(oorGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(oorGrantSaid.Value);
 
             // Step 27: Person admits OOR credential
             var step27 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -354,10 +368,12 @@ namespace Extension.Services.PrimeDataService {
                 GrantSaid: oorGrantSaid.Value
             ), "Step 27", "OOR credential");
             if (step27.IsFailed) return FailResponse(step27.Errors[0].Message);
+            generatedExchangeSaids.Add(step27.Value);
 
             // Step 28: Person presents OOR credential to Verifier
             var step28 = await PresentCredentialStep(personName, oorIssued.Value.Said, verifierResult.Value.Prefix, "Step 28", "OOR credential");
             if (step28.IsFailed) return FailResponse(step28.Errors[0].Message);
+            generatedExchangeSaids.Add(step28.Value);
 
             // Step 29a: LE issues ECR Auth credential to QVI
             var ecrAuthCredData = new RecursiveDictionary();
@@ -393,6 +409,7 @@ namespace Extension.Services.PrimeDataService {
                 Iss: ecrAuthIssued.Value.Iss
             ), "Step 29b", "ECR Auth credential");
             if (ecrAuthGrantSaid.IsFailed) return FailResponse(ecrAuthGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(ecrAuthGrantSaid.Value);
 
             // Step 30: QVI admits ECR Auth credential
             var step30 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -401,6 +418,7 @@ namespace Extension.Services.PrimeDataService {
                 GrantSaid: ecrAuthGrantSaid.Value
             ), "Step 30", "ECR Auth credential");
             if (step30.IsFailed) return FailResponse(step30.Errors[0].Message);
+            generatedExchangeSaids.Add(step30.Value);
 
             // Step 31a: QVI issues ECR credential to Person (private)
             var ecrCredData = new RecursiveDictionary();
@@ -437,6 +455,7 @@ namespace Extension.Services.PrimeDataService {
                 Iss: ecrIssued.Value.Iss
             ), "Step 31b", "ECR credential");
             if (ecrGrantSaid.IsFailed) return FailResponse(ecrGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(ecrGrantSaid.Value);
 
             // Step 32: Person admits ECR credential
             var step32 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -445,6 +464,15 @@ namespace Extension.Services.PrimeDataService {
                 GrantSaid: ecrGrantSaid.Value
             ), "Step 32", "ECR credential");
             if (step32.IsFailed) return FailResponse(step32.Errors[0].Message);
+            generatedExchangeSaids.Add(step32.Value);
+
+            // Step 33: Mark all PrimeData-generated notifications as read
+            // TODO P2: Race condition — KERIA propagates notifications asynchronously, so some arrive after this step
+            // runs and remain unread. A better approach may be for NotificationPollingService to proactively auto-mark
+            // grant notifications whose credentials are already admitted, eliminating the timing dependency.
+            _logger.LogInformation("Step 33: Waiting 20s for KERIA notification propagation...");
+            await Task.Delay(TimeSpan.FromSeconds(20));
+            await MarkGeneratedNotificationsAsReadStep(generatedExchangeSaids, "Step 33");
 
             _logger.LogInformation("PrimeData Go completed successfully");
             return Result.Ok(new PrimeDataGoResponse(true));
@@ -609,28 +637,30 @@ namespace Extension.Services.PrimeDataService {
             return Result.Ok(grantSaid);
         }
 
-        private async Task<Result> AdmitCredentialStep(IpexAdmitSubmitArgs args, string stepLabel, string credLabel) {
+        private async Task<Result<string>> AdmitCredentialStep(IpexAdmitSubmitArgs args, string stepLabel, string credLabel) {
             _logger.LogInformation("{Step}: Admitting {CredLabel}...", stepLabel, credLabel);
             var result = await _signifyClient.IpexAdmitAndSubmit(args);
             if (result.IsFailed) {
                 var err = $"Failed to admit {credLabel}: {result.Errors[0].Message}";
                 _logger.LogError("{Error}", err);
-                return Result.Fail(err);
+                return Result.Fail<string>(err);
             }
-            _logger.LogInformation("{CredLabel} admitted successfully", credLabel);
-            return Result.Ok();
+            var admitSaid = result.Value["admitSaid"].StringValue!;
+            _logger.LogInformation("{CredLabel} admitted: admitSaid={AdmitSaid}", credLabel, admitSaid);
+            return Result.Ok(admitSaid);
         }
 
-        private async Task<Result> PresentCredentialStep(string senderNameOrPrefix, string credSaid, string recipientPrefix, string stepLabel, string credLabel) {
+        private async Task<Result<string>> PresentCredentialStep(string senderNameOrPrefix, string credSaid, string recipientPrefix, string stepLabel, string credLabel) {
             _logger.LogInformation("{Step}: {Sender} presenting {CredLabel}...", stepLabel, senderNameOrPrefix, credLabel);
             var result = await _signifyClient.GrantReceivedCredential(senderNameOrPrefix, credSaid, recipientPrefix);
             if (result.IsFailed) {
                 var err = $"Failed to present {credLabel}: {result.Errors[0].Message}";
                 _logger.LogError("{Error}", err);
-                return Result.Fail(err);
+                return Result.Fail<string>(err);
             }
-            _logger.LogInformation("{CredLabel} presented successfully", credLabel);
-            return Result.Ok();
+            var grantSaid = result.Value["grantSaid"].StringValue!;
+            _logger.LogInformation("{CredLabel} presented: grantSaid={GrantSaid}", credLabel, grantSaid);
+            return Result.Ok(grantSaid);
         }
 
         private static RecursiveDictionary BuildVleiRules(string? privacyText = null) {
@@ -648,6 +678,32 @@ namespace Extension.Services.PrimeDataService {
                 rules["privacyDisclaimer"] = new RecursiveValue { Dictionary = privacy };
             }
             return rules;
+        }
+
+        private async Task MarkGeneratedNotificationsAsReadStep(HashSet<string> exchangeSaids, string stepLabel) {
+            _logger.LogInformation("{Step}: Marking generated notifications as read ({Count} exchange SAIDs tracked)...", stepLabel, exchangeSaids.Count);
+            try {
+                var notifsResult = await _signifyClient.ListNotifications();
+                if (notifsResult.IsFailed) {
+                    _logger.LogWarning("Failed to list notifications for cleanup: {Error}", notifsResult.Errors[0].Message);
+                    return;
+                }
+                var marked = 0;
+                foreach (var n in notifsResult.Value) {
+                    var notifId = n.GetValueByPath("i")?.Value?.ToString();
+                    var exchangeSaid = n.GetValueByPath("a.d")?.Value?.ToString();
+                    var isRead = n.GetValueByPath("r")?.Value is true;
+                    if (notifId is not null && exchangeSaid is not null && !isRead && exchangeSaids.Contains(exchangeSaid)) {
+                        var markResult = await _signifyClient.MarkNotification(notifId);
+                        if (markResult.IsSuccess) marked++;
+                        else _logger.LogWarning("Failed to mark notification {Id} as read", notifId);
+                    }
+                }
+                _logger.LogInformation("{Marked} notifications marked as read", marked);
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "Error during notification cleanup");
+            }
         }
     }
 }

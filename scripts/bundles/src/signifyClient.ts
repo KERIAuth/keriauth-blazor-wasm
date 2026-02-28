@@ -992,10 +992,13 @@ export const ipexAdmitAndSubmit = async (argsJson: string): Promise<string> => {
                 datetime: createTimestamp(),
             });
 
+            const admitSaid = admit.ked.d as string;
+
             const op = await client.ipex().submitAdmit(
                 args.senderName, admit, sigs, aend, [args.recipient]
             );
-            return await waitAndDeleteOperation(client, op);
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, admitSaid };
         }
     );
 };
@@ -1101,10 +1104,13 @@ export const ipexAgreeAndSubmit = async (argsJson: string): Promise<string> => {
                 datetime: createTimestamp(),
             });
 
+            const agreeSaid = agree.ked.d as string;
+
             const op = await client.ipex().submitAgree(
                 args.senderName, agree, agsigs, [args.recipient]
             );
-            return await waitAndDeleteOperation(client, op);
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, agreeSaid };
         }
     );
 };
@@ -1142,10 +1148,13 @@ export const grantReceivedCredential = async (
                 datetime: createTimestamp(),
             });
 
+            const grantSaid = grant.ked.d as string;
+
             const op = await client.ipex().submitGrant(
                 senderAidNameOrPrefix, grant, gsigs, gend, [recipientPrefix]
             );
-            return await waitAndDeleteOperation(client, op);
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, grantSaid };
         },
         { SenderAidNameOrPrefix: senderAidNameOrPrefix, CredentialSaid: credentialSaid, RecipientPrefix: recipientPrefix }
     );
