@@ -9,7 +9,7 @@
 @using static Extension.Helper.PreviousPage
 @inject ILogger<PreferencesPage> logger
 @inject AppCache appCache
-@inject IAppBwPortService appBwPortService  // For port connection status
+@inject IAppBwPortService appBwPortService // For port connection status
 @using System.Linq.Expressions
 @inject ISnackbar snackbar
 
@@ -46,10 +46,11 @@
         Conditions = new()
         {
             // Root-level prerequisites
-            new BoolItem(() => appCache.IsBwReady, "BW initialized, storage trustworthy", 0),
-            new BoolItem(() => appBwPortService.IsConnected, "App↔BW port connected", 0),
+            new BoolItem(() => appCache.IsBwReady, "BW initialized, storage trustworthy", 1),
+            new BoolItem(() => appBwPortService.IsConnected, "App↔BW port connected", 1),
 
             // Main state tree
+            /*
             new BoolItem(() => appCache.IsReadyToTransact, null, 0),
             new BoolItem(() => appCache.IsNotWaiting, null, 1),
             new BoolItem(() => appCache.IsNotWaitingOnKeria, null, 2),
@@ -57,6 +58,7 @@
             new BoolItem(() => appCache.IsNotWaitingOnPendingRequests, null, 2),
             new BoolItem(() => appCache.IsBwNotWaitingOnApp, null, 2),
             new BoolItem(() => appCache.IsAppNotWaitingOnBw, null, 2),
+            */
             new BoolItem(() => appCache.IsConnectedToKeria, null, 1),
             new BoolItem(() => appCache.IsIdentifierFetched, null, 2),
             new BoolItem(() => IsSelectedPrefixConsistent, "SelectedPrefix among identifiers (diagnostic)", 3),
@@ -73,23 +75,22 @@
             new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 6),
             new BoolItem(() => appCache.MyOnboardState.InstallVersionAcknowledged != null, "InstallVersionAcknowledged set", 6),
             new BoolItem(() => appCache.IsCurrentTosAndPrivacyAgreed, null, 6),
-                new BoolItem(() => appCache.IsCurrentTosAgreed, "ToS agreed (full check)", 7),
-                    new BoolItem(() => appCache.IsTosAgreedUtc, null, 8),
-                    new BoolItem(() => appCache.IsTosHashExpected, null, 8),
+            new BoolItem(() => appCache.IsCurrentTosAgreed, "ToS agreed (full check)", 7),
+            new BoolItem(() => appCache.IsTosAgreedUtc, null, 8),
+            new BoolItem(() => appCache.IsTosHashExpected, null, 8),
             new BoolItem(() => appCache.IsCurrentPrivacyAgreed, "Privacy agreed (full check)", 7),
-                    new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 8),
-                    new BoolItem(() => appCache.IsPrivacyHashExpected, null, 8),
-
+            new BoolItem(() => appCache.IsPrivacyAgreedUtc, null, 8),
+            new BoolItem(() => appCache.IsPrivacyHashExpected, null, 8),
             new BoolItem(() => appCache.IsInstallAcknowledged, null, 7),
             new BoolItem(() => appCache.IsInstalledVersionAcknowledged, null, 8),
             new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 8),
-            
-            new BoolItem(() => appCache.MyPreferences.IsStored, "Preferences stored", 0),
-            
+
+            new BoolItem(() => appCache.MyPreferences.IsStored, "Preferences stored", 1),
         };
     }
 
-    public void Dispose() {
+    public void Dispose()
+    {
         this.UnsubscribeFromAppCache();
         GC.SuppressFinalize(this);
     }
