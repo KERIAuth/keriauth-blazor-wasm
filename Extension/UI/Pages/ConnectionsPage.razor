@@ -188,7 +188,9 @@
         snackbar.Add($"Connection '{connection.Name}' deleted", Severity.Info);
     }
 
-    public void Dispose() { }
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">

@@ -11,7 +11,9 @@
         await this.SubscribeToAppCache(appCache);
     }
 
-    public void Dispose() { }
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">

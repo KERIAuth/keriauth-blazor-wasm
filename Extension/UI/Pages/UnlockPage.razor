@@ -8,6 +8,7 @@
 @using Extension.Helper
 @using static Extension.Helper.PasskeyHelper
 
+@implements IDisposable
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
 
@@ -557,6 +558,11 @@
         await Task.Delay(300); // minor delay to ensure the dropdown collapse animation and other handlers completes
         await FocusAppropriateElementAsync();
 
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
     }
 }
 
