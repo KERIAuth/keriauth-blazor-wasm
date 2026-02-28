@@ -145,6 +145,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _portService = portService;
         _primeDataService = primeDataService;
         _notificationPollingService = notificationPollingService;
+        _notificationPollingService.OnCredentialNotificationsChanged = RefreshCachedCredentialsAsync;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);

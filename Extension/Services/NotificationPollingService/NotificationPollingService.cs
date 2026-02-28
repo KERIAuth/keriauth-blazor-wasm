@@ -17,8 +17,13 @@ public class NotificationPollingService : INotificationPollingService {
     // Track which notification IDs we've already logged exchange details for, to avoid repeated KERIA fetches
     private readonly HashSet<string> _loggedExchangeIds = [];
 
+    private static readonly HashSet<string> CredentialAffectingRoutes = ["/exn/ipex/grant", "/exn/ipex/admit"];
+
     // Fingerprint of the last notification list written to storage, to avoid unconditional writes every poll cycle
     private string? _lastNotificationFingerprint;
+    private string? _lastCredentialFingerprint;
+
+    public Func<Task>? OnCredentialNotificationsChanged { get; set; }
 
     public NotificationPollingService(
         ISignifyClientService signifyClient,
@@ -30,6 +35,8 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     public async Task StartPollingAsync(CancellationToken ct) {
+        _lastNotificationFingerprint = null;
+        _lastCredentialFingerprint = null;
         _logger.LogInformation(nameof(StartPollingAsync) + ": Starting notification polling (interval={Interval}s)", PollInterval.TotalSeconds);
         while (!ct.IsCancellationRequested) {
             try {
@@ -85,6 +92,22 @@ public class NotificationPollingService : INotificationPollingService {
 
         var stored = new Notifications { Items = notifications };
         await _storageService.SetItem(stored, StorageArea.Session);
+
+        if (OnCredentialNotificationsChanged is not null) {
+            var credentialFingerprint = string.Join("|",
+                notifications
+                    .Where(n => CredentialAffectingRoutes.Contains(n.Route))
+                    .Select(n => $"{n.Id}:{n.IsRead}"));
+            if (credentialFingerprint != _lastCredentialFingerprint) {
+                _lastCredentialFingerprint = credentialFingerprint;
+                try {
+                    await OnCredentialNotificationsChanged();
+                }
+                catch (Exception ex) {
+                    _logger.LogWarning(ex, nameof(PollOnDemandAsync) + ": Error in OnCredentialNotificationsChanged callback");
+                }
+            }
+        }
     }
 
     /// <summary>
