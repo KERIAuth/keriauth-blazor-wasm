@@ -1,8 +1,11 @@
 @page "/DeveloperTest.html"
 @using Extension.Models
+@using Extension.Models.Storage
 @using Extension.Services
 @using Extension.Services.Port
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
 @using System.Reactive.Linq
 @inject NavigationManager navManager
 @using static Extension.AppConfig;
@@ -14,6 +17,9 @@
 @using System.Linq.Expressions
 @inject ISnackbar snackbar
 @inject IDialogService dialogService
+@inject IPendingBwAppRequestService pendingBwAppRequestService
+@inject IWebExtensionsApi webExtensionsApi
+@inject IWebsiteConfigService websiteConfigService
 
 @implements IDisposable
 
@@ -32,7 +38,6 @@
         }
     }
 
-    // private const string popupTestUrl = "chrome-extension://dkjahajaknoahpngklccdmbgdnjlempj/index.html?message=%257B%2522type%2522%253A%2522%252Fsignify%252Fauthorize%2522%252C%2522requestId%2522%253A%252247705f1b-d4ba-43b0-ac3b-7637bcd9c572%2522%252C%2522payload%2522%253A%257B%2522message%2522%253A%2522Message%25201765134849911%2522%257D%257D&origin=\"http%3a%2f%2flocalhost%3a5173%2f\"&popupType=SelectAuthorize&tabId=1716420357&environment=ActionPopup";
     private List<BoolItem> Conditions = new();
 
     // Computed properties for consistency checks
@@ -49,6 +54,148 @@
     {
         this.UnsubscribeFromAppCache();
         GC.SuppressFinalize(this);
+    }
+
+    async Task<int> GetCurrentTabIdAsync()
+    {
+        var currentTab = await webExtensionsApi.Tabs.GetCurrent();
+        return currentTab?.Id ?? -1;
+    }
+
+    async Task SimulateDialogRequestAsync(string type, Func<int, object> payloadFactory, string targetRoute)
+    {
+        await pendingBwAppRequestService.ClearAllRequestsAsync();
+        var tabId = await GetCurrentTabIdAsync();
+        var pendingRequest = new PendingBwAppRequest {
+            RequestId = Guid.NewGuid().ToString(),
+            Type = type,
+            Payload = payloadFactory(tabId),
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = "https://example.com/test"
+        };
+        await pendingBwAppRequestService.AddRequestAsync(pendingRequest);
+        navManager.NavigateTo(targetRoute);
+    }
+
+    async Task SimulateRequestSignIn() => await SimulateDialogRequestAsync(
+        BwAppMessageType.Values.RequestSelectAuthorize,
+        tabId => new RequestSelectAuthorizePayload(
+            Origin: "https://example.com",
+            TabId: tabId,
+            TabUrl: "https://example.com/test",
+            OriginalRequestId: Guid.NewGuid().ToString(),
+            OriginalType: "/signify/authorize"
+        ),
+        Routes.PathFor<RequestSignInPage>()
+    );
+
+    async Task SimulateRequestSignHeaders() => await SimulateDialogRequestAsync(
+        BwAppMessageType.Values.RequestSignHeaders,
+        tabId => new RequestSignHeadersPayload(
+            Origin: "https://example.com",
+            Url: "https://example.com/api/data",
+            Method: "GET",
+            Headers: new Dictionary<string, string>(),
+            TabId: tabId,
+            TabUrl: "https://example.com/test",
+            OriginalRequestId: Guid.NewGuid().ToString(),
+            OriginalType: "/signify/sign-request"
+        ),
+        Routes.PathFor<RequestSignHeadersPage>()
+    );
+
+    async Task SimulateRequestSignData() => await SimulateDialogRequestAsync(
+        BwAppMessageType.Values.RequestSignData,
+        tabId => new RequestSignDataPayload(
+            Origin: "https://example.com",
+            Message: "Please sign this data",
+            Items: ["item-to-sign-1", "item-to-sign-2"],
+            TabId: tabId,
+            TabUrl: "https://example.com/test",
+            OriginalRequestId: Guid.NewGuid().ToString(),
+            OriginalType: "/signify/sign-data"
+        ),
+        Routes.PathFor<RequestSignDataPage>()
+    );
+
+    async Task SimulateRequestSignDataCustomized() => await SimulateDialogRequestAsync(
+        BwAppMessageType.Values.RequestSignData,
+        tabId => new RequestSignDataPayload(
+            Origin: "https://example.com",
+            Message: "{\"requestTitleText\":\"Authorize Credential Issuance\", \"requestText\":\"Review and approve the set of credential fields below\", \"itemsLabel\":\"Credential fields\", \"buttonText\":\"Authorize\"}",
+            Items: ["item-to-sign-1", "item-to-sign-2"],
+            TabId: tabId,
+            TabUrl: "https://example.com/test",
+            OriginalRequestId: Guid.NewGuid().ToString(),
+            OriginalType: "/signify/sign-data"
+        ),
+        Routes.PathFor<RequestSignDataPage>()
+    );
+
+    async Task SimulateRequestCreateCredential() => await SimulateDialogRequestAsync(
+        BwAppMessageType.Values.RequestCreateCredential,
+        tabId => new RequestCreateCredentialPayload(
+            Origin: "https://example.com",
+            CredData: new { d = "", u = "", i = "", dt = "2025-01-01T00:00:00Z", LEI = "5493001KJTIIGC8Y1R17" },
+            SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+            TabId: tabId,
+            TabUrl: "https://example.com/test",
+            OriginalRequestId: Guid.NewGuid().ToString(),
+            OriginalType: "/signify/credential/create/data-attestation"
+        ),
+        Routes.PathFor<RequestCreateCredentialPage>()
+    );
+
+    async Task SimulateRequestConnect() => await SimulateDialogRequestAsync(
+        BwAppMessageType.Values.RequestConnectionInvite,
+        _ => new ConnectionInviteRequestPayload(
+            Oobi: "https://keria-ext.dev.idw-sandboxes.cf-deployments.org/oobi/EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3/agent/EMhtGVe_k0b0NQXqJvJzm5NvhYkggbnLkKNaTtxmOcxe?name=CF%20Credential%20Issuance4",
+            ResolvedAidPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+            ResolvedAlias: "CF Credential Issuance4",
+            TabUrl: "https://example.com/test"
+        ),
+        Routes.PathFor<RequestConnectPage>()
+    );
+
+    async Task SimulateRequestUnknown() => await SimulateDialogRequestAsync(
+        "BwApp.UnknownType",
+        _ => new { foo = "bar" } as object,
+        Routes.PathFor<RequestUnknownPage>()
+    );
+
+    void NavigateToKeriaConfig()
+    {
+        var digest = appCache.MyKeriaConnectConfigs.Configs.Keys.FirstOrDefault();
+        if (digest is null)
+        {
+            snackbar.Add("No KERIA configurations found in storage");
+            return;
+        }
+        navManager.NavigateTo(Routes.PathFor<KeriaConfigPage>() + digest);
+    }
+
+    void NavigateToProfile()
+    {
+        var prefix = appCache.Aids.FirstOrDefault()?.Prefix;
+        if (prefix is null)
+        {
+            snackbar.Add("No identifiers found in storage");
+            return;
+        }
+        navManager.NavigateTo(Routes.PathFor<ProfilePage>() + prefix);
+    }
+
+    async Task NavigateToWebsite()
+    {
+        var listResult = await websiteConfigService.GetList();
+        var origin = listResult.IsSuccess ? listResult.Value?.WebsiteList.FirstOrDefault()?.Origin : null;
+        if (origin is null)
+        {
+            snackbar.Add("No websites found in storage");
+            return;
+        }
+        navManager.NavigateTo(Routes.PathFor<WebsitePage>() + HttpUtility.UrlEncode(origin.OriginalString));
     }
 
     async Task ShowMessageBoxExample()
@@ -130,20 +277,21 @@
                 <MudLink Href="@(Routes.PathFor<OfferPasskeyPage>())" Target="_self">Offer Passkey</MudLink>
                 <MudLink Href="@(Routes.PathFor<ReleaseHistoryPage>())" Target="_self">Release History</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Dialog Pages</MudText>
+            <MudText Typo="Typo.h6">Dialog Pages (simulated)</MudText>
             <div class="bt-link-list">
-                <MudLink Href="@(Routes.PathFor<RequestCreateCredentialPage>())" Target="_self">Request Create Credential</MudLink>
-                <MudLink Href="@(Routes.PathFor<RequestSignDataPage>())" Target="_self">Request Sign Data</MudLink>
-                <MudLink Href="@(Routes.PathFor<RequestSignHeadersPage>())" Target="_self">Request Sign Headers</MudLink>
-                <MudLink Href="@(Routes.PathFor<RequestSignInPage>())" Target="_self">Request Sign In</MudLink>
-                <MudLink Href="@(Routes.PathFor<RequestConnectPage>())" Target="_self">Request Connection</MudLink>
-                <MudLink Href="@(Routes.PathFor<RequestUnknownPage>())" Target="_self">Request Unknown</MudLink>
+                <MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign In</MudLink>
+                <MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Headers</MudLink>
+                <MudLink OnClick="@SimulateRequestSignData" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Data</MudLink>
+                <MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Data (customized)</MudLink>
+                <MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Request Create Credential</MudLink>
+                <MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Request Connection</MudLink>
+                <MudLink OnClick="@SimulateRequestUnknown" Disabled="@(!appCache.IsConnectedToKeria)">Request Unknown</MudLink>
             </div>
             <MudText Typo="Typo.h6">Parameterized Pages</MudText>
             <div class="bt-link-list">
-                <MudLink Href="@(Routes.PathFor<KeriaConfigPage>() + "x")" Target="_self">KERIA Config</MudLink>
-                <MudLink Href="@(Routes.PathFor<ProfilePage>() + "x")" Target="_self">Profile</MudLink>
-                <MudLink Href="@(Routes.PathFor<WebsitePage>() + "x")" Target="_self">Website</MudLink>
+                <MudLink OnClick="@NavigateToKeriaConfig">KERIA Config</MudLink>
+                <MudLink OnClick="@NavigateToProfile">Profile</MudLink>
+                <MudLink OnClick="@NavigateToWebsite">Website</MudLink>
             </div>
             <MudText Typo="Typo.h6">Dialogs</MudText>
             <div class="bt-link-list">
