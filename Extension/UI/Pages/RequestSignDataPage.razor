@@ -32,6 +32,10 @@
     /// </summary>
     string[] DataItems { get; set; } = [];
 
+    string RequestTitleText { get; set; } = "Sign Data";
+    string ItemsLabel { get; set; } = "Data items to sign";
+    string ButtonText { get; set; } = "Sign Data";
+
     // Computed properties
     bool IsSignDisabled => SelectedPrefix is null;
 
@@ -48,8 +52,19 @@
         }
 
         // Extract page-specific values from the payload
-        RequestMessage = payload.Message;
         DataItems = payload.Items;
+
+        if (!string.IsNullOrEmpty(payload.Message))
+        {
+            if (TryParseUiCustomization(payload.Message))
+            {
+                logger.LogInformation("OnInitializedAsync: using JSON-customized UI");
+            }
+            else
+            {
+                RequestMessage = payload.Message;
+            }
+        }
 
         logger.LogInformation("OnInitializedAsync: itemCount={ItemCount}", DataItems.Length);
 
@@ -157,6 +172,46 @@
             await SignDataHandler();
         }
     }
+
+    bool TryParseUiCustomization(string message)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return false;
+
+            var root = doc.RootElement;
+            bool hasRecognizedField = false;
+
+            if (root.TryGetProperty("requestTitleText", out var titleEl) && titleEl.ValueKind == JsonValueKind.String)
+            {
+                RequestTitleText = titleEl.GetString()!;
+                hasRecognizedField = true;
+            }
+            if (root.TryGetProperty("requestText", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+            {
+                RequestMessage = textEl.GetString();
+                hasRecognizedField = true;
+            }
+            if (root.TryGetProperty("itemsLabel", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.String)
+            {
+                ItemsLabel = itemsEl.GetString()!;
+                hasRecognizedField = true;
+            }
+            if (root.TryGetProperty("buttonText", out var buttonEl) && buttonEl.ValueKind == JsonValueKind.String)
+            {
+                ButtonText = buttonEl.GetString()!;
+                hasRecognizedField = true;
+            }
+
+            return hasRecognizedField;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 }
 
 @if (IsInitialized)
@@ -164,7 +219,7 @@
     <div id="@this.GetType().Name" class="bt-body-page">
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
-                <PageHeading Title="Request to Sign Data" />
+                <PageHeading Title="@($"Request to {RequestTitleText}")" />
 
                 @if (ActiveTab is not null)
                 {
@@ -184,7 +239,7 @@
                 }
                 <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
 
-                <MudText Class="bt-section-title">Data items to sign (@DataItems.Length):</MudText>
+                <MudText Class="bt-section-title">@ItemsLabel (@DataItems.Length):</MudText>
                 <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 150px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
                     @foreach (var item in DataItems)
                     {
@@ -204,7 +259,7 @@
                        Color="Color.Primary"
                        OnClick="SignDataHandler"
                        @onkeydown="HandleKeyDown">
-                Sign Data
+                @ButtonText
             </MudButton>
         </MudStack>
     </div>

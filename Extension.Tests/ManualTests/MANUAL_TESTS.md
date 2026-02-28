@@ -86,8 +86,19 @@ window.postMessage({type: '/signify/sign-request', requestId: crypto.randomUUID(
 ```
 
 ## Sign Data
+### Simple
 ```js
 window.postMessage({type: '/signify/sign-data', requestId: crypto.randomUUID(), payload: {message: 'Please sign this data', items: ['item-to-sign-1', 'item-to-sign-2']}}, window.location.origin);
+```
+
+### Customized
+```js
+window.postMessage({type: '/signify/sign-data', requestId: crypto.randomUUID(), payload: {message: '{"requestTitleText":"Authorize Credential Issuance", "requestText":"Review and approve the set of credential fields below", "itemsLabel":"Credential fields", "buttonText":"Authorize"}', items: ['item-to-sign-1', 'item-to-sign-2']}}, window.location.origin);
+```
+
+### Customized, partial override
+```js
+window.postMessage({type: '/signify/sign-data', requestId: crypto.randomUUID(), payload: {message: '{"requestTitleText":"Approve Document"}', items: ['document-hash-abc123']}}, window.location.origin);
 ```
 
 ## Create Data Attestation Credential
