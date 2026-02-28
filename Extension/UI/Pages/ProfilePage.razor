@@ -584,6 +584,7 @@
                 </MudStack>
 
                 <!-- TODO P3 intentionally not displayed until features are implemented -->
+                <LoadingDiv IsLoading="@IsWaiting">
                 <div>
                     <MudExpansionPanels Elevation="0" MultiExpansion>
                         <MudExpansionPanel Class="my-3">
@@ -786,13 +787,7 @@
                         </MudExpansionPanel>
                     </MudExpansionPanels>
                 </div>
-
-                @if (IsWaiting)
-                {
-                    <div style="display:flex; align-items: center; justify-content:center; position:absolute; z-index:999; top:50%; left:50%; transform: translate(-50%, -50%); width:300px; height:200px;  ">
-                        <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-                    </div>
-                }
+                </LoadingDiv>
             }
         </div>
     </div>

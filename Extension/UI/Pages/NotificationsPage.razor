@@ -422,25 +422,20 @@
                     {
                         <MudDivider />
                         <div style="padding: 8px 12px;">
-                            @if (IsLoadingExchange)
-                            {
-                                <div style="display:flex; align-items:center; padding: 8px 0;">
-                                    <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" />
-                                    <MudText Typo="Typo.caption" Class="ml-2">Loading exchange details...</MudText>
-                                </div>
-                            }
-                            else if (ExchangeLoadError is not null)
-                            {
-                                <MudAlert Severity="Severity.Warning" Dense="true">@ExchangeLoadError</MudAlert>
-                            }
-                            else if (ExpandedExchangeData is not null)
-                            {
-                                <NotificationExchangeDetail Exchange="@ExpandedExchangeData.Value"
-                                                            Route="@n.Route"
-                                                            OnAdmit="@(() => AdmitCredential(n))"
-                                                            IsAdmitting="@IsAdmitting"
-                                                            IsAlreadyAdmitted="@IsAlreadyAdmitted" />
-                            }
+                            <LoadingDiv IsLoading="@IsLoadingExchange">
+                                @if (ExchangeLoadError is not null)
+                                {
+                                    <MudAlert Severity="Severity.Warning" Dense="true">@ExchangeLoadError</MudAlert>
+                                }
+                                else if (ExpandedExchangeData is not null)
+                                {
+                                    <NotificationExchangeDetail Exchange="@ExpandedExchangeData.Value"
+                                                                Route="@n.Route"
+                                                                OnAdmit="@(() => AdmitCredential(n))"
+                                                                IsAdmitting="@IsAdmitting"
+                                                                IsAlreadyAdmitted="@IsAlreadyAdmitted" />
+                                }
+                            </LoadingDiv>
                         </div>
                     }
                 </MudCard>

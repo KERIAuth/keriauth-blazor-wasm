@@ -221,12 +221,7 @@
                 </MudCard>
             }
 
-            @if (IsProcessing)
-            {
-                <div style="display:flex; align-items: center; justify-content:center; padding: 24px;">
-                    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-                </div>
-            }
+            <LoadingDiv IsLoading="@IsProcessing" />
         </div>
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
