@@ -1,12 +1,15 @@
 @page "/Notifications.html"
+@using Extension.Models
 @using Extension.Models.Messages.AppBw
 @using Extension.Services.SignifyService.Models
+@using Extension.Services.Storage
 @using Extension.Services.Port
 @using Extension.UI.Components
 @inherits AuthenticatedPageBase
 @implements IDisposable
 
 @inject ILogger<NotificationsPage> logger
+@inject IStorageService storageService
 @inject IJSRuntime js
 @inject ISnackbar snackbar
 @inject AppCache appCache
@@ -143,15 +146,11 @@
                     var credSaid = ExpandedExchangeData.Value.E?.GetValueByPath("acdc.d")?.Value?.ToString();
                     if (credSaid is not null) {
                         try {
-                            var credResponse = await appBwPortService.SendRpcRequestAsync(
-                                AppBwMessageType.Values.RequestGetCredentials,
-                                new { });
-                            if (credResponse.Ok) {
-                                var credResult = credResponse.Result is JsonElement credJsonEl
-                                    ? JsonSerializer.Deserialize<GetCredentialsResponsePayload>(credJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                                    : null;
-                                IsAlreadyAdmitted = credResult?.Credentials?.Any(c =>
-                                    c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid) ?? false;
+                            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
+                            if (cached.IsSuccess && cached.Value?.RawJson is not null) {
+                                var credentials = Helper.CredentialHelper.DeserializeCredentialsRawJson(cached.Value.RawJson);
+                                IsAlreadyAdmitted = credentials.Any(c =>
+                                    c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid);
                             }
                         }
                         catch (Exception credEx) {

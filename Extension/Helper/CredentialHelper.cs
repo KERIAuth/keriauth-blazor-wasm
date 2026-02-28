@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Extension.Helper;
 
 /// <summary>
@@ -5,6 +7,25 @@ namespace Extension.Helper;
 /// </summary>
 public static class CredentialHelper
 {
+    private static readonly JsonSerializerOptions DeserializeOptions = new() {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new DictionaryConverter() }
+    };
+
+    /// <summary>
+    /// Deserializes raw JSON from signify-ts getCredentialsList() into List of RecursiveDictionary.
+    /// Uses DictionaryConverter to preserve field ordering for CESR/SAID integrity.
+    /// </summary>
+    public static List<RecursiveDictionary> DeserializeCredentialsRawJson(string rawJson)
+    {
+        var credentialsDict = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(rawJson, DeserializeOptions);
+        if (credentialsDict is null)
+        {
+            return [];
+        }
+        return credentialsDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
+    }
+
     /// <summary>
     /// Known vLEI credential types mapped by their schema SAID.
     /// </summary>

@@ -112,6 +112,7 @@
         private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
         private StorageObserver<Connections>? connectionsObserver;
         private StorageObserver<Notifications>? notificationsObserver;
+        private StorageObserver<CachedCredentials>? cachedCredentialsObserver;
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = AppConfig.DefaultPreferences;
@@ -477,6 +478,7 @@
             pendingBwAppRequestsObserver?.Dispose();
             connectionsObserver?.Dispose();
             notificationsObserver?.Dispose();
+            cachedCredentialsObserver?.Dispose();
             _initLock?.Dispose();
             GC.SuppressFinalize(this);
         }
@@ -608,6 +610,18 @@
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing notifications storage"),
+                    null,
+                    _logger
+                );
+                cachedCredentialsObserver = new StorageObserver<CachedCredentials>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (_) => {
+                        // Notification relay only — credential data is read directly from session storage by components
+                        _logger.LogInformation(nameof(AppCache) + ": CachedCredentials changed in session storage");
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing CachedCredentials storage"),
                     null,
                     _logger
                 );

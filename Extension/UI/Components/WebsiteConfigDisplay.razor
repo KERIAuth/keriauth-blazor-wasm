@@ -1,4 +1,5 @@
 ﻿@using Newtonsoft.Json
+@using Extension.Models
 @using Extension.Services.Storage
 @using Extension.Models.Messages.AppBw
 @using Extension.Models.Messages.Port
@@ -55,6 +56,9 @@
         // Subscribe to port disconnect to track when we need to refresh on reconnect
         appBwPortService.Disconnected += OnPortDisconnected;
         appBwPortService.MessageReceived += OnPortMessageReceived;
+
+        // Subscribe to AppCache changes so credentials refresh reactively when BackgroundWorker updates session storage
+        await this.SubscribeToAppCache(appCache, onChanged: async () => await getCredentials());
 
         await getCredentials();
         // Load website config after credentials so auto-select has data to work with
@@ -304,48 +308,23 @@
 
     async Task getCredentials()
     {
-        // Fetch credentials from BackgroundWorker via RPC
-        if (!appCache.IsConnectedToKeria)
-        {
-            logger.LogDebug("Not connected to KERIA, skipping credentials fetch");
-            CredentialsDict = [];
-            StateHasChanged();
-            return;
-        }
-
+        // Read credentials from session storage (cached by BackgroundWorker)
         try
         {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestGetCredentials,
-                new { });
-
-            if (!response.Ok)
+            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
+            if (cached.IsSuccess && cached.Value?.RawJson is not null)
             {
-                logger.LogWarning("Failed to fetch credentials via RPC: {Error}", response.Error);
-                CredentialsDict = [];
-                StateHasChanged();
-                return;
-            }
-
-            // Parse the response payload (use PortMessaging for RecursiveDictionary support)
-            var credentialsResult = response.Result is System.Text.Json.JsonElement jsonEl
-                ? System.Text.Json.JsonSerializer.Deserialize<GetCredentialsResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                : null;
-
-            if (credentialsResult is not null && credentialsResult.Success && credentialsResult.Credentials is not null)
-            {
-                CredentialsDict = credentialsResult.Credentials;
-                logger.LogInformation("Fetched {Count} credentials via RPC", CredentialsDict.Count);
+                CredentialsDict = Helper.CredentialHelper.DeserializeCredentialsRawJson(cached.Value.RawJson);
+                logger.LogInformation("Loaded {Count} credentials from session storage", CredentialsDict.Count);
             }
             else
             {
-                logger.LogWarning("Failed to fetch credentials: {Error}", credentialsResult?.Error ?? "Unknown error");
                 CredentialsDict = [];
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching credentials via RPC");
+            logger.LogError(ex, "Error reading credentials from session storage");
             CredentialsDict = [];
         }
         StateHasChanged();
@@ -389,6 +368,7 @@
     {
         appBwPortService.Disconnected -= OnPortDisconnected;
         appBwPortService.MessageReceived -= OnPortMessageReceived;
+        this.UnsubscribeFromAppCache();
     }
 }
 
@@ -398,9 +378,9 @@
         <MudText Typo="Typo.body1"><em>@OriginStr</em></MudText>
     }
 
-    @if (Identifiers is not null && Identifiers.Any() && CredentialsDict is not null)
+    @if (Identifiers is not null && Identifiers.Any())
     {
-        <!-- Select Identifier -->
+        <!-- Select Identifier — available immediately from AppCache -->
         <MudStack Style="gap:0;">
             <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">@Heading</MudText>
             <MudStack Class="ml-0" Style="gap:0;">
@@ -415,61 +395,75 @@
             </MudStack>
         </MudStack>
 
-        @if (IsCredentialShown && CredentialsDict.Any() && SelectedPrefix is not null)
+        @if (IsCredentialShown && SelectedPrefix is not null)
         {
-            <!-- Select Credential --->
-            <MudStack Class="gap-0">
-                <MudText Class="bt-section-title">Credential</MudText>
-                <MudStack Class="ml-0" Style="gap:0;">
-                    <!-- Display Selected Credential or Selection List -->
-                    @if (IssueeCredentials.Count == 0)
-                    {
-                        <MudText Class="ml-3">No credentials held.</MudText>
-                    }
-                    else if (!IsCredListExpanded)
-                    {
-                        <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded" Style="cursor: pointer;">
-                            @if (SelectedCredentialOrNothing is null)
-                            {
-                                <div style="width:100%; align-content:center;">
-                                    <MudText Class="ml-3">Select@(IsCredentialRequired ? "" : " (optional)")</MudText>
-                                </div>
-                            }
-                            else
-                            {
-                                <CredentialPanelCompact Credential="@SelectedCredentialOrNothing" IsSelected="true" />
-                            }
-                            <MudSpacer />
-                            <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
-                        </MudPaper>
-                    }
-                    else
-                    {
-                        <MudStack Spacing="1">
-                            @if (!IsCredentialRequired)
-                            {
-                                var isNoneSelected = SelectedCredentialOrNothing is null;
-                                <div @onclick="async () => await clearSelectedCredential()" style="cursor: pointer;">
-                                    <MudPaper Elevation="0" Class="@(isNoneSelected ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1")">
-                                        <MudText Class="ml-2" Style="font-style: italic;">None</MudText>
-                                    </MudPaper>
-                                </div>
-                            }
-                            @foreach (RecursiveDictionary credential in IssueeCredentials)
-                            {
-                                var isSelected = credential.GetValueByPath("sad.d")?.Value as string == SelectedCredSaidOrNothing;
-                                <div @onclick="async () => await updateSelectedCredential(credential)" style="cursor: pointer;">
-                                    <CredentialPanelCompact Credential="@credential" IsSelected="@isSelected" />
-                                </div>
-                            }
-                        </MudStack>
-                    }
-                    @if (IsAutoSignShown)
-                    {
-                        <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
-                    }
+            @if (CredentialsDict is null)
+            {
+                <!-- Credentials loading from session storage -->
+                <MudStack Class="gap-0">
+                    <MudText Class="bt-section-title">Credential</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="ml-2" Style="min-height: 48px;">
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                        <MudText Typo="Typo.body2">Loading...</MudText>
+                    </MudStack>
                 </MudStack>
-            </MudStack>
+            }
+            else if (CredentialsDict.Any())
+            {
+                <!-- Select Credential --->
+                <MudStack Class="gap-0">
+                    <MudText Class="bt-section-title">Credential</MudText>
+                    <MudStack Class="ml-0" Style="gap:0;">
+                        <!-- Display Selected Credential or Selection List -->
+                        @if (IssueeCredentials.Count == 0)
+                        {
+                            <MudText Class="ml-3">No credentials held.</MudText>
+                        }
+                        else if (!IsCredListExpanded)
+                        {
+                            <MudPaper Elevation="0" Class="d-flex align-items-center" @onclick="() => IsCredListExpanded = !IsCredListExpanded" Style="cursor: pointer;">
+                                @if (SelectedCredentialOrNothing is null)
+                                {
+                                    <div style="width:100%; align-content:center;">
+                                        <MudText Class="ml-3">Select@(IsCredentialRequired ? "" : " (optional)")</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <CredentialPanelCompact Credential="@SelectedCredentialOrNothing" IsSelected="true" />
+                                }
+                                <MudSpacer />
+                                <MudIconButton Style="padding: 0;" Icon="@ExpandIcon" OnClick="() => IsCredListExpanded = !IsCredListExpanded" />
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1">
+                                @if (!IsCredentialRequired)
+                                {
+                                    var isNoneSelected = SelectedCredentialOrNothing is null;
+                                    <div @onclick="async () => await clearSelectedCredential()" style="cursor: pointer;">
+                                        <MudPaper Elevation="0" Class="@(isNoneSelected ? "selected-item pa-1 ml-1 mr-1" : "pa-1 ml-2 mr-1")">
+                                            <MudText Class="ml-2" Style="font-style: italic;">None</MudText>
+                                        </MudPaper>
+                                    </div>
+                                }
+                                @foreach (RecursiveDictionary credential in IssueeCredentials)
+                                {
+                                    var isSelected = credential.GetValueByPath("sad.d")?.Value as string == SelectedCredSaidOrNothing;
+                                    <div @onclick="async () => await updateSelectedCredential(credential)" style="cursor: pointer;">
+                                        <CredentialPanelCompact Credential="@credential" IsSelected="@isSelected" />
+                                    </div>
+                                }
+                            </MudStack>
+                        }
+                        @if (IsAutoSignShown)
+                        {
+                            <MudCheckBox Label="Auto-sign Http Request Headers that have no side effects" Disabled="@(SelectedCredentialOrNothing is null)" style="height: 28px;" Value="IsAutoSignSafeHeaders" ValueChanged="async (bool b) => await updateIsAutoSign(b)" />
+                        }
+                    </MudStack>
+                </MudStack>
+            }
         }
     }
     else

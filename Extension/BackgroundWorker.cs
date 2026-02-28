@@ -1958,8 +1958,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 _ = _notificationPollingService.StartPollingAsync(_notificationPollingCts.Token);
 
                 // Fetch identifiers and store in session for App to read
-                // TODO P1: Consider caching credentials in session storage as well, fetching on-demand for now
                 var identifiersResult = await _signifyClientService.GetIdentifiers();
+
+                // Proactively cache credentials in session storage for App components to read directly
+                await RefreshCachedCredentialsAsync();
 
                 logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Connect succeeded. identifiersResult.IsSuccess={Success}, hasValue={HasValue}",
                     identifiersResult.IsSuccess, identifiersResult.Value is not null);
@@ -2084,7 +2086,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <summary>
     /// Handles get credentials request from App.
     /// Fetches credentials from KERIA via signify-ts and returns them.
-    /// TODO P1: Consider caching credentials in session storage instead of fetching on-demand.
     /// </summary>
     private async Task HandleAppRequestGetCredentialsRpcAsync(string portId, RpcRequest request) {
         logger.LogInformation(nameof(HandleAppRequestGetCredentialsRpcAsync) + ": called");
@@ -2110,6 +2111,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestGetCredentialsRpcAsync) + ": Error during get credentials");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new GetCredentialsResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Fetches credentials from KERIA and writes raw JSON to session storage for App components to read directly.
+    /// </summary>
+    private async Task RefreshCachedCredentialsAsync() {
+        try {
+            var rawJsonResult = await _signifyClientService.GetCredentialsRaw();
+            if (rawJsonResult.IsSuccess) {
+                await _storageService.SetItem(new CachedCredentials(rawJsonResult.Value), StorageArea.Session);
+                logger.LogInformation(nameof(RefreshCachedCredentialsAsync) + ": Updated credentials in session storage");
+            }
+            else {
+                logger.LogWarning(nameof(RefreshCachedCredentialsAsync) + ": Failed to fetch credentials: {Error}",
+                    rawJsonResult.Errors.Count > 0 ? rawJsonResult.Errors[0].Message : "Unknown error");
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(RefreshCachedCredentialsAsync) + ": Error refreshing cached credentials");
         }
     }
 
@@ -2550,6 +2571,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (admitResult.IsSuccess) {
                 await _notificationPollingService.PollOnDemandAsync();
+                await RefreshCachedCredentialsAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexAdmitResponsePayload(true));
             }
@@ -3524,6 +3546,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             var credential = issueResult.Value;
             logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": successfully created credential");
+            await RefreshCachedCredentialsAsync();
 
             // Transform IssueCredentialResult to polaris-web CreateCredentialResult format
             // Convert Serder.Ked (OrderedDictionary) to RecursiveDictionary for proper serialization

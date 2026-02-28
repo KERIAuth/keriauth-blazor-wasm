@@ -1,7 +1,6 @@
 ﻿@page "/Dashboard.html"
+@using Extension.Models
 @using Extension.Services.Storage
-@using Extension.Services.Port
-@using Extension.Models.Messages.AppBw
 @inherits AuthenticatedPageBase
 @inject NavigationManager navManager
 @inject IStorageService storageService
@@ -9,7 +8,6 @@
 @inject ILogger<DashboardPage> logger
 @inject IWebsiteConfigService websiteConfigService
 @inject AppCache appCache
-@inject IAppBwPortService appBwPortService
 
 @implements IDisposable
 
@@ -54,7 +52,8 @@
         InitializeAppCache(appCache);
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
-        await this.SubscribeToAppCache(appCache);
+        // Re-read credentials from session storage when AppCache notifies of changes
+        await this.SubscribeToAppCache(appCache, onChanged: async () => await FetchCredentialsAsync());
     }
 
     protected override async Task OnParametersSetAsync()
@@ -77,47 +76,22 @@
     private async Task FetchCredentialsAsync()
     {
         _credentialsLoading = true;
-
-        if (!appCache.IsConnectedToKeria)
-        {
-            logger.LogDebug("Not connected to KERIA, skipping credentials fetch");
-            Credentials = [];
-            _credentialsLoading = false;
-            return;
-        }
-
         try
         {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestGetCredentials,
-                new { });
-
-            if (!response.Ok)
+            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
+            if (cached.IsSuccess && cached.Value?.RawJson is not null)
             {
-                logger.LogWarning("Failed to fetch credentials via RPC: {Error}", response.Error);
-                Credentials = [];
-                return;
-            }
-
-            // Parse the response payload (use PortMessaging for RecursiveDictionary support)
-            var credentialsResult = response.Result is System.Text.Json.JsonElement jsonEl
-                ? System.Text.Json.JsonSerializer.Deserialize<GetCredentialsResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                : null;
-
-            if (credentialsResult is not null && credentialsResult.Success && credentialsResult.Credentials is not null)
-            {
-                Credentials = credentialsResult.Credentials;
-                logger.LogInformation("Fetched {Count} credentials via RPC", Credentials.Count);
+                Credentials = Helper.CredentialHelper.DeserializeCredentialsRawJson(cached.Value.RawJson);
+                logger.LogInformation("Loaded {Count} credentials from session storage", Credentials.Count);
             }
             else
             {
-                logger.LogWarning("Failed to fetch credentials: {Error}", credentialsResult?.Error ?? "Unknown error");
                 Credentials = [];
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching credentials via RPC");
+            logger.LogError(ex, "Error reading credentials from session storage");
             Credentials = [];
         }
         finally

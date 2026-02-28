@@ -28,6 +28,7 @@ namespace Extension.Services.SignifyService {
         Task<Result<IList<KeyEvent>>> GetKeyEvents();
         Task<Result<IList<KeyState>>> GetKeyStates();
         Task<Result<List<RecursiveDictionary>>> GetCredentials();
+        Task<Result<string>> GetCredentialsRaw();
 
         Task<Result<RecursiveDictionary>> GetCredential(string said);
         Task<Result<IList<Ipex>>> GetIpex();

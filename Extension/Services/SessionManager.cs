@@ -285,7 +285,7 @@ public class SessionManager : IDisposable {
     /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
     /// </summary>
     public async Task ClearKeriaSessionRecordsAsync() {
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing PasscodeModel and KeriaConnectionInfo");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
 
         var removePasscodeRes = await _storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
         if (removePasscodeRes.IsFailed) {
@@ -297,6 +297,18 @@ public class SessionManager : IDisposable {
         if (removeConnectionRes.IsFailed) {
             throw new InvalidOperationException(
                 $"Failed to remove KeriaConnectionInfo: {removeConnectionRes.Errors[0].Message}");
+        }
+
+        var removeCredentialsRes = await _storageService.RemoveItem<CachedCredentials>(StorageArea.Session);
+        if (removeCredentialsRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove CachedCredentials: {removeCredentialsRes.Errors[0].Message}");
+        }
+
+        var removeNotificationsRes = await _storageService.RemoveItem<Notifications>(StorageArea.Session);
+        if (removeNotificationsRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove Notifications: {removeNotificationsRes.Errors[0].Message}");
         }
 
         _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": KERIA session records cleared");

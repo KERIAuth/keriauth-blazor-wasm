@@ -385,6 +385,24 @@ namespace Extension.Services.SignifyService {
             }
         }
 
+        public async Task<Result<string>> GetCredentialsRaw() {
+            try {
+                var jsonString = await _binding.GetCredentialsListAsync();
+                if (jsonString is null) {
+                    return Result.Fail("GetCredentialsRaw returned null");
+                }
+                return Result.Ok(jsonString);
+            }
+            catch (JSException e) {
+                logger.LogWarning(nameof(GetCredentialsRaw) + ": JSException: {e}", e);
+                return Result.Fail("SignifyClientService: GetCredentialsRaw: Exception: " + e);
+            }
+            catch (Exception e) {
+                logger.LogWarning(nameof(GetCredentialsRaw) + ": Exception: {e}", e);
+                return Result.Fail("SignifyClientService: GetCredentialsRaw: Exception: " + e);
+            }
+        }
+
         Task<Result<IList<Models.Registry>>> ISignifyClientService.GetRegistries() {
             throw new NotImplementedException();
         }
