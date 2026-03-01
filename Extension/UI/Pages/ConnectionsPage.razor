@@ -23,13 +23,24 @@
 
 @code {
     bool IsProcessing { get; set; }
+    string selectedViewDefId = "conn-active";
 
-    List<Connection> MyConnections => appCache?.MyConnections?.Items?
-        .Where(c => c.SenderPrefix == appCache.SelectedPrefix)
-        .OrderBy(c => c.Name)
-        .ToList() ?? [];
+    List<Connection> AllConnections => appCache?.MyConnections?.Items ?? [];
 
-    string CountLabel => "(" + MyConnections.Count + ")";
+    // ViewDef
+    List<ViewDef<Connection>> ConnectionViewDefs =>
+    [
+        new("conn-active", "Active profile",
+            FilterSets: [new("ActiveProfile", [(Connection c) => c.SenderPrefix == appCache.SelectedPrefix])],
+            CountStyle: CountStyle.ForProfile,
+            SortSets: [new("Name", [new SortExpression<Connection>(c => c.Name)])]),
+        new("conn-all", "All profiles",
+            CountStyle: CountStyle.Total,
+            SortSets: [new("Name", [new SortExpression<Connection>(c => c.Name)])])
+    ];
+
+    ViewDef<Connection>? SelectedViewDef => ConnectionViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
+    List<Connection> FilteredConnections => ViewDefHelper.Apply(AllConnections, SelectedViewDef);
 
     int UnreadNotificationCount(string remotePrefix) =>
         appCache?.MyNotifications?.Items?
@@ -44,6 +55,23 @@
         logger.LogInformation("OnInitializedAsync");
         InitializeAppCache(appCache);
         await this.SubscribeToAppCache(appCache);
+
+        // Restore persisted ViewDef selection
+        var pageKey = GetType().Name;
+        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
+            && ConnectionViewDefs.Any(v => v.Id == savedId))
+        {
+            selectedViewDefId = savedId;
+        }
+    }
+
+    async Task OnViewDefChanged(string newId) {
+        selectedViewDefId = newId;
+        var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
+        {
+            [GetType().Name] = newId
+        };
+        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     async Task AddConnection() {
@@ -196,11 +224,15 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Outbound Connections" InfoTooltip="">
-                <CountContent>@CountLabel</CountContent>
-            </PageHeading>
+            <PageHeading Title="Outbound Connections" InfoTooltip="" />
+            <ViewSelector T="Connection"
+                          ViewDefs="@ConnectionViewDefs"
+                          SelectedViewDefId="@selectedViewDefId"
+                          SelectedViewDefIdChanged="@OnViewDefChanged"
+                          FilteredCount="@FilteredConnections.Count"
+                          TotalCount="@AllConnections.Count" />
 
-            @foreach (var conn in MyConnections)
+            @foreach (var conn in FilteredConnections)
             {
                 <MudCard Elevation="0" Class="py-0 my-1">
                     <div class="d-flex" style="align-items: center; padding: 8px 4px;">
