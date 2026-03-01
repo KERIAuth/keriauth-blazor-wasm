@@ -167,10 +167,10 @@
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
                 <MudText Typo="Typo.body1" Class="bt-help-text">
-                    This website is requesting you to establish a mutual KERI connection:<br/>
-                    1) Select one of your profiles to share with the them; <br/>
-                    2) Name your connection to them, which you can later see from the Websites menu; and<br/>
-                    3) Suggest a name for their connection to you that is unambiguous, such as your full name.
+                    This website is requesting you to establish a mutual KERI connection.<br/>
+                    ① Select one of your profiles to share with the them; <br/>
+                    ② Name your connection to them, which you can later see from the Websites menu; and<br/>
+                    ③ Suggest a name for their connection to you that is unambiguous, such as your full name.
                 </MudText>
 
                 <style>
@@ -187,14 +187,14 @@
 
                 <div style="max-width: 600px;">
                     <MudPaper id="paper1" Class="pa-2" Elevation="2" Outlined="true">
-                        <WebsiteConfigDisplay OriginStr="@OriginStr" Heading="Your Profile" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
+                        <WebsiteConfigDisplay OriginStr="@OriginStr" Heading="① Your Profile" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleAidChanged(v)" />
                     </MudPaper>
                     <div style="position: relative;">
                         <!-- Background boxes -->
                         <div style="display: flex; flex-direction: column; padding: 0 10%;">
                             <MudPaper id="paper2" Class="pa-2 flex-grow-1 d-flex justify-end" Elevation="0" Style="background:transparent;">
                                 <MudStack Style="gap:0;">
-                                    <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Your connection</MudText>
+                                    <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">② Your connection</MudText>
                                     <MudTextField @bind-Value="ConnectionName"
                                                   Label="Name"
                                                   Variant="Variant.Outlined"
@@ -212,7 +212,7 @@
                                         else
                                         {
                                             <MudTextField @bind-Value="FriendlyName"
-                                                          Label="Name"
+                                                          Label="③ Name"
                                                           Variant="Variant.Outlined"
                                                           Immediate="true" />
                                         }

@@ -75,7 +75,6 @@
             TabUrl = "https://example.com/test"
         };
         await pendingBwAppRequestService.AddRequestAsync(pendingRequest);
-        navManager.NavigateTo(targetRoute);
     }
 
     async Task SimulateRequestSignIn() => await SimulateDialogRequestAsync(
@@ -277,7 +276,8 @@
                 <MudLink Href="@(Routes.PathFor<OfferPasskeyPage>())" Target="_self">Offer Passkey</MudLink>
                 <MudLink Href="@(Routes.PathFor<ReleaseHistoryPage>())" Target="_self">Release History</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Dialog Pages (simulated)</MudText>
+            <MudText Typo="Typo.h6">Dialog Pages</MudText>
+            <MudText>These simulated pages will appear in the SidePanel when open.</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign In</MudLink>
                 <MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Headers</MudLink>

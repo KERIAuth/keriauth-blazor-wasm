@@ -1,8 +1,22 @@
 ﻿@using WebExtensions.Net.Tabs
 @using BrowserTab = WebExtensions.Net.Tabs.Tab
 
+
+@if (ActiveTab?.Url is null)
+{
+    // TODO P1: for testing only
+    ActiveTab = new BrowserTab() 
+    {
+        Url = "https://example.com/test?a=hello%20world&ref=asdfasdfasdf_e234asdf3",
+        Title = "!!! Example Domain Website Title That Is Quite Long To Test Overflow Handling",
+        FavIconUrl = "images/logo192.png",
+        Id = 1234567
+    };
+    StateHasChanged();
+}
 @if (ActiveTab?.Url is not null)
 {
+    
     <MudStack Row>
         <MudText Class="mt-2">from</MudText>
         <MudPaper Elevation="0" Class="my-2" Style="width:100%; background:transparent; border-radius: 0.5rem; border:1px solid darkslategray; overflow:hidden;">
@@ -29,6 +43,7 @@
 }
 
 @code {
+    // TODO P2: This new() BrowserTab is helpful for development and testing, but we should consider how to handle this in production. We might want to make this a required parameter or handle the null case more gracefully.
     [Parameter]
     public BrowserTab? ActiveTab { get; set; }
 }
