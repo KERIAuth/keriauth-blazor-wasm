@@ -14,8 +14,8 @@ public class NotificationPollingService : INotificationPollingService {
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
-    // Track which notification IDs we've already logged exchange details for, to avoid repeated KERIA fetches
-    private readonly HashSet<string> _loggedExchangeIds = [];
+    // Cache exchange prefix data (issuer/recipient) to avoid repeated KERIA fetches
+    private readonly Dictionary<string, (string? Issuer, string? Recipient)> _exchangePrefixCache = [];
 
     private static readonly HashSet<string> CredentialAffectingRoutes = ["/exn/ipex/grant", "/exn/ipex/admit"];
 
@@ -73,20 +73,40 @@ public class NotificationPollingService : INotificationPollingService {
             }
         }
 
+        // Fetch and cache exchange prefix data for all notifications
+        foreach (var n in notifications) {
+            await FetchAndCacheExchangePrefixesAsync(n);
+        }
+
+        // Enrich notifications with cached prefix data
+        notifications = notifications.Select(n => {
+            if (n.ExchangeSaid is not null && _exchangePrefixCache.TryGetValue(n.ExchangeSaid, out var prefixes)) {
+                return new Notification {
+                    Id = n.Id,
+                    DateTime = n.DateTime,
+                    IsRead = n.IsRead,
+                    Route = n.Route,
+                    ExchangeSaid = n.ExchangeSaid,
+                    SenderPrefix = prefixes.Issuer,
+                    TargetPrefix = prefixes.Recipient
+                };
+            }
+            return n;
+        }).ToList();
+
         var unreadCount = notifications.Count(n => !n.IsRead);
         if (unreadCount > 0) {
             _logger.LogInformation(nameof(PollOnDemandAsync) + ": {Total} notifications ({Unread} unread)",
                 notifications.Count, unreadCount);
             foreach (var n in notifications.Where(n => !n.IsRead)) {
-                _logger.LogInformation(nameof(PollOnDemandAsync) + ": Unread: id={Id} dt={DateTime} route={Route} exchangeSaid={ExchangeSaid}",
-                    n.Id, n.DateTime, n.Route, n.ExchangeSaid);
-                await LogExchangeDetailsOnceAsync(n);
+                _logger.LogInformation(nameof(PollOnDemandAsync) + ": Unread: id={Id} dt={DateTime} route={Route} sender={Sender} target={Target}",
+                    n.Id, n.DateTime, n.Route, n.SenderPrefix, n.TargetPrefix);
             }
         }
 
         // Only write to storage when notifications actually changed, to avoid triggering
         // chrome.storage.onChanged → appCache subscription → StateHasChanged on every poll cycle
-        var fingerprint = string.Join("|", notifications.Select(n => $"{n.Id}:{n.IsRead}"));
+        var fingerprint = string.Join("|", notifications.Select(n => $"{n.Id}:{n.IsRead}:{n.SenderPrefix}:{n.TargetPrefix}"));
         if (fingerprint == _lastNotificationFingerprint) return;
         _lastNotificationFingerprint = fingerprint;
 
@@ -111,18 +131,17 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     /// <summary>
-    /// Fetches and logs the exchange message details for a notification, but only once per exchangeSaid.
+    /// Fetches exchange data and caches the issuer/recipient prefixes, once per exchangeSaid.
     /// </summary>
-    private async Task LogExchangeDetailsOnceAsync(Notification notification) {
-        if (notification.ExchangeSaid is null || !_loggedExchangeIds.Add(notification.ExchangeSaid)) {
+    private async Task FetchAndCacheExchangePrefixesAsync(Notification notification) {
+        if (notification.ExchangeSaid is null || _exchangePrefixCache.ContainsKey(notification.ExchangeSaid)) {
             return;
         }
         try {
             var exnResult = await _signifyClient.GetExchange(notification.ExchangeSaid);
             if (exnResult.IsFailed) {
-                _logger.LogWarning(nameof(LogExchangeDetailsOnceAsync) + ": GetExchange failed for {Said}: {Error}",
+                _logger.LogWarning(nameof(FetchAndCacheExchangePrefixesAsync) + ": GetExchange failed for {Said}: {Error}",
                     notification.ExchangeSaid, exnResult.Errors.Count > 0 ? exnResult.Errors[0].Message : "unknown");
-                _loggedExchangeIds.Remove(notification.ExchangeSaid);
                 return;
             }
             // KERI exchange (exn) message fields — see KERIpy serdering.py (search Ilks.exn):
@@ -133,12 +152,12 @@ public class NotificationPollingService : INotificationPollingService {
             //   d=SAID, i=sender AID prefix, rp=recipient prefix, dt=datetime,
             //   r=route (e.g. /ipex/grant), a=attributes, e=embedded data
             var view = ExchangeView.FromRecursiveDictionary(exnResult.Value);
-            _logger.LogInformation(nameof(LogExchangeDetailsOnceAsync) + ": Exchange {Said}: sender={Sender} recipient={Recipient} route={Route}",
+            _exchangePrefixCache[notification.ExchangeSaid] = (view.I, view.Rp);
+            _logger.LogInformation(nameof(FetchAndCacheExchangePrefixesAsync) + ": Exchange {Said}: sender={Sender} recipient={Recipient} route={Route}",
                 notification.ExchangeSaid, view.I, view.Rp, notification.Route);
         }
         catch (Exception ex) {
-            _logger.LogWarning(ex, nameof(LogExchangeDetailsOnceAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);
-            _loggedExchangeIds.Remove(notification.ExchangeSaid);
+            _logger.LogWarning(ex, nameof(FetchAndCacheExchangePrefixesAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);
         }
     }
 

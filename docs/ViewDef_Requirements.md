@@ -51,8 +51,8 @@ The user's selected view on each page is remembered across page navigations and 
 - **All profiles**: All websites. Count: "(N)".
 
 #### Notifications (3 views)
-- **Recipient (active profile)**: Notifications where the active profile is the recipient. Count: "(N of M in profile)".
-- **Issuer (active profile)**: Notifications where the active profile is the issuer/sender. Count: "(N of M in profile)".
+- **Target (active profile)**: Notifications where the active profile is the target. Count: "(N of M in profile)".
+- **Sender (active profile)**: Notifications where the active profile is the sender. Count: "(N of M in profile)".
 - **All** *(default)*: All notifications. Count: "(N)".
 
 Existing notification filters (by route type and read/unread status) remain available and compose with the view selection.

@@ -17,18 +17,50 @@
 
 @code {
     bool IsProcessing { get; set; }
+    string selectedViewDefId = "notif-all";
 
-    List<Notification> AllNotifications => appCache?.MyNotifications?.Items?
-        .OrderByDescending(n => n.DateTime)
-        .ToList() ?? [];
+    List<Notification> AllNotifications => appCache?.MyNotifications?.Items ?? [];
 
     int UnreadCount => AllNotifications.Count(n => !n.IsRead);
 
-    // Filtering state
+    // ViewDef
+    List<FilterSet<Notification>> ProfileSubtotalFilterSets =>
+    [
+        new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix]),
+        new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])
+    ];
+
+    List<ViewDef<Notification>> NotificationViewDefs =>
+    [
+        new("notif-target", "Target (active profile)",
+            FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix])],
+            SubtotalFilterSets: ProfileSubtotalFilterSets,
+            CountStyle: CountStyle.OfSubTotal,
+            SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+        new("notif-sender", "Sender (active profile)",
+            FilterSets: [new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
+            SubtotalFilterSets: ProfileSubtotalFilterSets,
+            CountStyle: CountStyle.OfSubTotal,
+            SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+        new("notif-all", "All",
+            CountStyle: CountStyle.Total,
+            SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])])
+    ];
+
+    ViewDef<Notification>? SelectedViewDef => NotificationViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
+
+    // ViewDef-filtered list (profile-based filtering + sorting)
+    List<Notification> ViewDefFilteredNotifications => ViewDefHelper.Apply(AllNotifications, SelectedViewDef);
+
+    int? SubtotalCount => SelectedViewDef?.SubtotalFilterSets is { Count: > 0 }
+        ? ViewDefHelper.ApplySubtotalCount(AllNotifications, SelectedViewDef)
+        : (int?)null;
+
+    // Route/ReadStatus filtering state (composes on top of ViewDef)
     string? FilterRoute { get; set; }
     bool? FilterReadStatus { get; set; }
 
-    List<string> AvailableRoutes => AllNotifications
+    List<string> AvailableRoutes => ViewDefFilteredNotifications
         .Select(n => n.Route)
         .Where(r => !string.IsNullOrEmpty(r))
         .Distinct()
@@ -37,19 +69,18 @@
 
     List<Notification> FilteredNotifications {
         get {
-            IEnumerable<Notification> filtered = AllNotifications;
-            if (FilterRoute is not null)
+            IEnumerable<Notification> filtered = ViewDefFilteredNotifications;
+            if (FilterRoute is not null) {
                 filtered = filtered.Where(n => n.Route == FilterRoute);
-            if (FilterReadStatus is not null)
+            }
+            if (FilterReadStatus is not null) {
                 filtered = filtered.Where(n => n.IsRead == FilterReadStatus.Value);
+            }
             return filtered.ToList();
         }
     }
 
     bool IsFiltering => FilterRoute is not null || FilterReadStatus is not null;
-    string CountLabel => IsFiltering
-        ? $"({FilteredNotifications.Count} of {AllNotifications.Count})"
-        : $"({AllNotifications.Count})";
 
     static string ElideId(string id) =>
         id.Length > 12
@@ -99,6 +130,23 @@
         logger.LogInformation("OnInitializedAsync");
         InitializeAppCache(appCache);
         await this.SubscribeToAppCache(appCache);
+
+        // Restore persisted ViewDef selection
+        var pageKey = GetType().Name;
+        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
+            && NotificationViewDefs.Any(v => v.Id == savedId))
+        {
+            selectedViewDefId = savedId;
+        }
+    }
+
+    async Task OnViewDefChanged(string newId) {
+        selectedViewDefId = newId;
+        var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
+        {
+            [GetType().Name] = newId
+        };
+        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     async Task ToggleNotificationDetail(Notification notification) {
@@ -341,10 +389,15 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
+            <PageHeading Title="Notifications" InfoTooltip="Notifications from KERIA" />
             <MudStack Row="true" AlignItems="AlignItems.Center">
-                <PageHeading Title="Notifications" InfoTooltip="Notifications from KERIA">
-                    <CountContent>@CountLabel</CountContent>
-                </PageHeading>
+                <ViewSelector T="Notification"
+                              ViewDefs="@NotificationViewDefs"
+                              SelectedViewDefId="@selectedViewDefId"
+                              SelectedViewDefIdChanged="@OnViewDefChanged"
+                              FilteredCount="@ViewDefFilteredNotifications.Count"
+                              SubtotalCount="@SubtotalCount"
+                              TotalCount="@AllNotifications.Count" />
                 <MudSpacer />
                 @if (UnreadCount > 0 && !IsMarkingAll)
                 {
@@ -363,7 +416,7 @@
                 <MudProgressLinear Value="@MarkAllProgress" Max="@MarkAllTotal" Color="Color.Primary" Class="my-1" />
             }
 
-            @if (AllNotifications.Count > 0)
+            @if (ViewDefFilteredNotifications.Count > 0)
             {
                 <MudStack Row="true" Spacing="2" Class="mt-1">
                     <MudSelect T="string" Label="Route" Value="@FilterRoute" ValueChanged="@(v => FilterRoute = v)"
