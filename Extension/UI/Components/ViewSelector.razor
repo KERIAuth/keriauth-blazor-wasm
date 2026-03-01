@@ -1,6 +1,6 @@
 @typeparam T
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="width: fit-content;">
     @if (ViewDefs.Count > 1)
     {
         <MudSelect T="string"
@@ -10,14 +10,14 @@
                    Dense="true"
                    Margin="Margin.Dense"
                    Variant="Variant.Outlined"
-                   Style="max-width: 18rem;">
+                   Style="min-width: 250px; flex-grow: 0;">
             @foreach (var vd in ViewDefs)
             {
                 <MudSelectItem T="string" Value="@vd.Id">@vd.Name</MudSelectItem>
             }
         </MudSelect>
     }
-    <MudText Color="Color.Secondary">@CountLabel</MudText>
+    <MudText Style="opacity: 0.6;">@CountLabel</MudText>
 </MudStack>
 
 @code {

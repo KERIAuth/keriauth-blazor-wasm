@@ -26,6 +26,31 @@ public record ViewDef<T>(
     List<SortSet<T>>? SortSets = null
 );
 
+public static class ViewDefIds {
+    // CredentialsPage
+    public const string CredHeld = "cred-held";
+    public const string CredIssued = "cred-issued";
+    public const string CredHeldOrIssued = "cred-held-or-issued";
+    public const string CredAll = "cred-all";
+    // ConnectionsPage
+    public const string ConnActive = "conn-active";
+    public const string ConnAll = "conn-all";
+    // WebsitesPage
+    public const string WebActive = "web-active";
+    public const string WebAll = "web-all";
+    // NotificationsPage
+    public const string NotifTarget = "notif-target";
+    public const string NotifSender = "notif-sender";
+    public const string NotifAll = "notif-all";
+    // ProfilesPage
+    public const string ProfilesAll = "profiles-all";
+    // KeriaConfigsPage
+    public const string KeriaAll = "keria-all";
+    // Passkeys
+    public const string PasskeyCurrent = "passkey-current";
+    public const string PasskeyAll = "passkey-all";
+}
+
 public static class ViewDefHelper
 {
     public static IEnumerable<T> ApplyFilters<T>(IEnumerable<T> items, ViewDef<T>? viewDef)

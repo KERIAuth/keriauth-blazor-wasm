@@ -17,7 +17,7 @@
 
 @code {
     bool IsProcessing { get; set; }
-    string selectedViewDefId = "notif-all";
+    string selectedViewDefId = ViewDefIds.NotifAll;
 
     List<Notification> AllNotifications => appCache?.MyNotifications?.Items ?? [];
 
@@ -32,17 +32,17 @@
 
     List<ViewDef<Notification>> NotificationViewDefs =>
     [
-        new("notif-target", "Target (active profile)",
+        new(ViewDefIds.NotifTarget, "Target (active profile)",
             FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
-        new("notif-sender", "Sender (active profile)",
+        new(ViewDefIds.NotifSender, "Sender (active profile)",
             FilterSets: [new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
-        new("notif-all", "All",
+        new(ViewDefIds.NotifAll, "All",
             CountStyle: CountStyle.Total,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])])
     ];
@@ -154,7 +154,6 @@
             ExpandedNotificationId = null;
             ExpandedExchangeData = null;
             ExchangeLoadError = null;
-            StateHasChanged();
             return;
         }
 
@@ -165,12 +164,10 @@
 
         if (notification.ExchangeSaid is null) {
             ExchangeLoadError = "No exchange SAID available";
-            StateHasChanged();
             return;
         }
 
         IsLoadingExchange = true;
-        StateHasChanged();
 
         try {
             var response = await appBwPortService.SendRpcRequestAsync(
@@ -221,7 +218,6 @@
         }
         finally {
             IsLoadingExchange = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -244,7 +240,6 @@
         }
 
         IsAdmitting = true;
-        StateHasChanged();
 
         try {
             var response = await appBwPortService.SendRpcRequestAsync(
@@ -281,14 +276,12 @@
         }
         finally {
             IsAdmitting = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
     async Task MarkAsRead(Notification notification) {
         if (IsProcessing) return;
         IsProcessing = true;
-        StateHasChanged();
 
         try {
             var response = await appBwPortService.SendRpcRequestAsync(
@@ -312,14 +305,12 @@
         }
         finally {
             IsProcessing = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
     async Task DeleteNotification(Notification notification) {
         if (IsProcessing) return;
         IsProcessing = true;
-        StateHasChanged();
 
         try {
             var response = await appBwPortService.SendRpcRequestAsync(
@@ -343,7 +334,6 @@
         }
         finally {
             IsProcessing = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -354,7 +344,6 @@
         IsMarkingAll = true;
         MarkAllProgress = 0;
         MarkAllTotal = unread.Count;
-        StateHasChanged();
 
         try {
             foreach (var n in unread) {
@@ -376,7 +365,6 @@
         }
         finally {
             IsMarkingAll = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 

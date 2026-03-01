@@ -40,15 +40,15 @@
     // ViewDef
     List<ViewDef<StoredPasskey>> PasskeyViewDefs =>
     [
-        new("passkey-current", "Current KERIA connection",
+        new(ViewDefIds.PasskeyCurrent, "Current KERIA connection",
             FilterSets: [new("CurrentConfig", [p => p.KeriaConnectionDigest == CurrentKeriaConnectionDigest])],
             CountStyle: CountStyle.ForProfile,
             SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])]),
-        new("passkey-all", "All",
+        new(ViewDefIds.PasskeyAll, "All",
             CountStyle: CountStyle.Total,
             SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])])
     ];
-    string selectedViewDefId = "passkey-current";
+    string selectedViewDefId = ViewDefIds.PasskeyCurrent;
     ViewDef<StoredPasskey>? SelectedViewDef => PasskeyViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
     List<StoredPasskey> DisplayedPasskeys => ViewDefHelper.Apply(MyStoredPasskeys.Passkeys, SelectedViewDef);
 
@@ -93,7 +93,6 @@
         {
             MyStoredPasskeys = result.Value;
         }
-        StateHasChanged();
     }
 
     bool IsConsistentWithCurrentKeriaConnection(StoredPasskey passkey) =>

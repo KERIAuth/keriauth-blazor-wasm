@@ -34,10 +34,10 @@
     // ViewDef
     List<ViewDef<Aid>> ViewDefs =>
     [
-        new("profiles-all", "All profiles",
+        new(ViewDefIds.ProfilesAll, "All profiles",
             SortSets: [new("Name", [new SortExpression<Aid>(a => a.Name)])])
     ];
-    string selectedViewDefId = "profiles-all";
+    string selectedViewDefId = ViewDefIds.ProfilesAll;
     ViewDef<Aid>? SelectedViewDef => ViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
     List<Aid> DisplayedIdentifiers => ViewDefHelper.Apply(AllIdentifiers, SelectedViewDef);
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";

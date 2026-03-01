@@ -27,10 +27,10 @@
     // ViewDef
     List<ViewDef<KeyValuePair<string, KeriaConnectConfig>>> ViewDefs =>
     [
-        new("keria-all", "All configs",
+        new(ViewDefIds.KeriaAll, "All configs",
             SortSets: [new("Alias", [new SortExpression<KeyValuePair<string, KeriaConnectConfig>>(kvp => kvp.Value.Alias ?? "")])])
     ];
-    string selectedViewDefId = "keria-all";
+    string selectedViewDefId = ViewDefIds.KeriaAll;
     ViewDef<KeyValuePair<string, KeriaConnectConfig>>? SelectedViewDef => ViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
     List<KeyValuePair<string, KeriaConnectConfig>> ConfigsList => ViewDefHelper.Apply(AllConfigs, SelectedViewDef);
 
