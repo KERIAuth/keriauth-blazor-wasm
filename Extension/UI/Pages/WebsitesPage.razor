@@ -1,5 +1,7 @@
 ﻿@page "/Websites.html"
 @layout Layouts.MainLayout
+@inherits AuthenticatedPageBase
+@implements IDisposable
 @using Extension.Services.Storage
 @using System.Text.Json.Serialization
 @using System;
@@ -17,22 +19,58 @@
 @inject IAppBwPortService appBwPortService
 @using Extension.Services.Port
 @inject IJSRuntime jsRuntime
+@inject AppCache appCache
 
 @code {
     // fields
-
-    // TODO P2 make the websites list reactive (e.g. subscribe to storage changes) so it updates without requiring a page navigation
-    // properties
-    List<WebsiteConfig>? WWebsites { get; set; }
+    List<WebsiteConfig>? allWebsites;
+    string selectedViewDefId = "web-active";
     string? SelectedWebsiteOrigin { get; set; }
 
-    // reactive properties
-    string CountLabel => (WWebsites is not null) ? "(" + WWebsites.Count() + ")" : "...";
+    // ViewDef
+    List<ViewDef<WebsiteConfig>> WebsiteViewDefs =>
+    [
+        new("web-active", "Active profile",
+            FilterSets: [new("ActiveProfile", [(WebsiteConfig w) => w.RememberedPrefixOrNothing == appCache.SelectedPrefix])],
+            CountStyle: CountStyle.ForProfile),
+        new("web-all", "All profiles",
+            CountStyle: CountStyle.Total)
+    ];
+
+    ViewDef<WebsiteConfig>? SelectedViewDef => WebsiteViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
+    List<WebsiteConfig> FilteredWebsites => allWebsites is not null
+        ? ViewDefHelper.Apply(allWebsites, SelectedViewDef)
+        : [];
+
+    bool IsLoaded => allWebsites is not null;
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        return;
+
+        // Initialize base class for authentication-based render suppression
+        InitializeAppCache(appCache);
+
+        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
+        await this.SubscribeToAppCache(appCache);
+
+        // Restore persisted ViewDef selection
+        var pageKey = GetType().Name;
+        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
+            && WebsiteViewDefs.Any(v => v.Id == savedId))
+        {
+            selectedViewDefId = savedId;
+        }
+    }
+
+    async Task OnViewDefChanged(string newId)
+    {
+        selectedViewDefId = newId;
+        var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
+        {
+            [GetType().Name] = newId
+        };
+        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     protected override async Task OnParametersSetAsync()
@@ -41,12 +79,12 @@
         var websitesRes = await websiteConfigService.GetList();
         if (websitesRes is not null && websitesRes.IsSuccess && websitesRes.Value is not null && websitesRes.Value.WebsiteList.Any())
         {
-            WWebsites = websitesRes.Value.WebsiteList;
-            SelectedWebsiteOrigin = WWebsites.First().Origin.OriginalString;
+            allWebsites = websitesRes.Value.WebsiteList;
+            SelectedWebsiteOrigin = allWebsites.First().Origin.OriginalString;
         }
         else
         {
-            WWebsites = [];
+            allWebsites = [];
             SelectedWebsiteOrigin = null;
         }
         StateHasChanged();
@@ -70,18 +108,27 @@
     {
         navManager.NavigateTo(Routes.PathFor<WebsitePage>() + HttpUtility.UrlEncode(origin.ToString()));
     }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Websites">
-                <CountContent>@CountLabel</CountContent>
-            </PageHeading>
-            @if (WWebsites is not null && WWebsites.Any())
+            <PageHeading Title="Websites" />
+            <ViewSelector T="WebsiteConfig"
+                          ViewDefs="@WebsiteViewDefs"
+                          SelectedViewDefId="@selectedViewDefId"
+                          SelectedViewDefIdChanged="@OnViewDefChanged"
+                          FilteredCount="@(IsLoaded ? FilteredWebsites.Count : (int?)null)"
+                          TotalCount="@(IsLoaded ? allWebsites!.Count : (int?)null)" />
+            @if (IsLoaded && FilteredWebsites.Any())
             {
                 <MudPaper Elevation="0">
-                    <MudTable Elevation="0" Items="WWebsites" Hover="false" Striped="true">
+                    <MudTable Elevation="0" Items="FilteredWebsites" Hover="false" Striped="true">
                         <HeaderContent>
                             <MudTh Style="width: 65%; white-space: normal; font-weight:600;">Website</MudTh>
                             <MudTh Style="width: 10%; white-space: normal; font-weight:600;">Profile</MudTh>
@@ -97,6 +144,7 @@
                                     <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Class="bt-identicon" />
                                 }
                             </MudTd>
+                            <!-- // TODO P1 show selected Credential ? -->
                             <!--
                             <MudTd DataLabel="AutoSign">@(context.IsAutoSignSafeHeaders ? "Yes" : "No")</MudTd>
                             -->
