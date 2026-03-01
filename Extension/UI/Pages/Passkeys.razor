@@ -37,14 +37,44 @@
     StoredPasskeys MyStoredPasskeys = new();
     string? CurrentKeriaConnectionDigest = null;
 
-    // reactive properties
-    string CountLabel => "(" + MyStoredPasskeys.Passkeys.Count.ToString() + ")";
+    // ViewDef
+    List<ViewDef<StoredPasskey>> PasskeyViewDefs =>
+    [
+        new("passkey-current", "Current KERIA connection",
+            FilterSets: [new("CurrentConfig", [p => p.KeriaConnectionDigest == CurrentKeriaConnectionDigest])],
+            CountStyle: CountStyle.ForProfile,
+            SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])]),
+        new("passkey-all", "All",
+            CountStyle: CountStyle.Total,
+            SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])])
+    ];
+    string selectedViewDefId = "passkey-current";
+    ViewDef<StoredPasskey>? SelectedViewDef => PasskeyViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
+    List<StoredPasskey> DisplayedPasskeys => ViewDefHelper.Apply(MyStoredPasskeys.Passkeys, SelectedViewDef);
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
         // TODO P2 does this need to be recreated here?
         webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
+
+        // Restore persisted ViewDef selection
+        var pageKey = GetType().Name;
+        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
+            && PasskeyViewDefs.Any(v => v.Id == savedId))
+        {
+            selectedViewDefId = savedId;
+        }
+    }
+
+    async Task OnViewDefChanged(string newId)
+    {
+        selectedViewDefId = newId;
+        var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
+        {
+            [GetType().Name] = newId
+        };
+        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     protected override async Task OnParametersSetAsync()
@@ -227,13 +257,17 @@
     <MudStack Class="bt-main">
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
-                <PageHeading Title="Passkeys">
-                    <CountContent>@CountLabel</CountContent>
-                </PageHeading>
+                <PageHeading Title="Passkeys" />
+                <ViewSelector T="StoredPasskey"
+                              ViewDefs="@PasskeyViewDefs"
+                              SelectedViewDefId="@selectedViewDefId"
+                              SelectedViewDefIdChanged="@OnViewDefChanged"
+                              FilteredCount="@DisplayedPasskeys.Count"
+                              TotalCount="@MyStoredPasskeys.Passkeys.Count" />
                 <MudStack Class="pt-4">
-                    @if (MyStoredPasskeys.Passkeys.Any())
+                    @if (DisplayedPasskeys.Any())
                     {
-                        @foreach (var pk in MyStoredPasskeys.Passkeys)
+                        @foreach (var pk in DisplayedPasskeys)
                         {
                             <MudCard Elevation="0">
                                 <MudCardContent Class="pb-0 mb-0">

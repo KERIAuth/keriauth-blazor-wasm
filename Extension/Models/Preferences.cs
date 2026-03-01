@@ -61,5 +61,8 @@
 
         [JsonPropertyName("InactivityTimeoutMinutes")]
         public float InactivityTimeoutMinutes { get; init; } = AppConfig.DefaultInactivityTimeoutMins;
+
+        [JsonPropertyName("SelectedViewDefIds")]
+        public Dictionary<string, string> SelectedViewDefIds { get; init; } = [];
     }
 }

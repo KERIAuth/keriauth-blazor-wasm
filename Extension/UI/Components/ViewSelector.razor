@@ -1,0 +1,57 @@
+@typeparam T
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+    @if (ViewDefs.Count > 1)
+    {
+        <MudSelect T="string"
+                   Label="View"
+                   Value="@SelectedViewDefId"
+                   ValueChanged="@SelectedViewDefIdChanged"
+                   Dense="true"
+                   Margin="Margin.Dense"
+                   Variant="Variant.Outlined"
+                   Style="max-width: 18rem;">
+            @foreach (var vd in ViewDefs)
+            {
+                <MudSelectItem T="string" Value="@vd.Id">@vd.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+    <MudText Color="Color.Secondary">@CountLabel</MudText>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired]
+    public required List<ViewDef<T>> ViewDefs { get; set; }
+
+    [Parameter, EditorRequired]
+    public required string SelectedViewDefId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> SelectedViewDefIdChanged { get; set; }
+
+    [Parameter]
+    public int? FilteredCount { get; set; }
+
+    [Parameter]
+    public int? SubtotalCount { get; set; }
+
+    [Parameter]
+    public int? TotalCount { get; set; }
+
+    ViewDef<T>? SelectedViewDef =>
+        ViewDefs.FirstOrDefault(v => v.Id == SelectedViewDefId);
+
+    string CountLabel => (FilteredCount, SubtotalCount, TotalCount,
+                          SelectedViewDef?.CountStyle) switch
+    {
+        (null, _, _, _) => "...",
+        (int f, _, _, CountStyle.Total) => $"({f})",
+        (int f, _, _, CountStyle.ForProfile) => $"({f} for profile)",
+        (int f, _, int t, CountStyle.OfTotal) => $"({f} of {t})",
+        (int f, int s, _, CountStyle.OfSubTotal) => $"({f} of {s} in profile)",
+        (int f, null, _, CountStyle.OfSubTotal) => $"({f} in profile)",
+        (int f, null, _, CountStyle.OfTotal) => $"({f})",
+        _ => $"({FilteredCount})"
+    };
+}

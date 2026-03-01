@@ -19,14 +19,20 @@
     private StoredPasskeys _storedPasskeys = new();
 
     // Computed properties (reactive via appCache subscription)
-    List<KeyValuePair<string, KeriaConnectConfig>> ConfigsList =>
-        appCache.MyKeriaConnectConfigs.Configs
-            .OrderBy(kvp => kvp.Value.Alias)
-            .ToList();
+    List<KeyValuePair<string, KeriaConnectConfig>> AllConfigs =>
+        [.. appCache.MyKeriaConnectConfigs.Configs];
 
     string? SelectedDigest => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
 
-    string CountLabel => $"({ConfigsList.Count})";
+    // ViewDef
+    List<ViewDef<KeyValuePair<string, KeriaConnectConfig>>> ViewDefs =>
+    [
+        new("keria-all", "All configs",
+            SortSets: [new("Alias", [new SortExpression<KeyValuePair<string, KeriaConnectConfig>>(kvp => kvp.Value.Alias ?? "")])])
+    ];
+    string selectedViewDefId = "keria-all";
+    ViewDef<KeyValuePair<string, KeriaConnectConfig>>? SelectedViewDef => ViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
+    List<KeyValuePair<string, KeriaConnectConfig>> ConfigsList => ViewDefHelper.Apply(AllConfigs, SelectedViewDef);
 
     bool IsMultiKeriaConfigEnabled => appCache.MyPreferences.IsMultiKeriaConfigEnabled;
 
@@ -81,9 +87,12 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="KERIA Cloud Service Connections" InfoTooltip="Manage connections to KERIA Cloud Services">
-                <CountContent>@CountLabel</CountContent>
-            </PageHeading>
+            <PageHeading Title="KERIA Cloud Service Connections" InfoTooltip="Manage connections to KERIA Cloud Services" />
+            <ViewSelector T="KeyValuePair<string, KeriaConnectConfig>"
+                          ViewDefs="@ViewDefs"
+                          SelectedViewDefId="@selectedViewDefId"
+                          FilteredCount="@ConfigsList.Count"
+                          TotalCount="@AllConfigs.Count" />
 
             @if (ConfigsList.Count == 0)
             {

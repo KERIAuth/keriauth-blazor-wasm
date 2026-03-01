@@ -27,10 +27,19 @@
     bool IsAddingAid { get; set; }
    
     // computed properties
-     List<Aid> MyIdentifiers => appCache?.MyKeriaConnectionInfo?.IdentifiersList is { Count: > 0 } list && list[0].Aids is not null
-        ? list[0].Aids.OrderBy(a => a.Name).ToList()
+    List<Aid> AllIdentifiers => appCache?.MyKeriaConnectionInfo?.IdentifiersList is { Count: > 0 } list && list[0].Aids is not null
+        ? list[0].Aids
         : [];
-    string CountLabel => "(" + MyIdentifiers.Count + ")";
+
+    // ViewDef
+    List<ViewDef<Aid>> ViewDefs =>
+    [
+        new("profiles-all", "All profiles",
+            SortSets: [new("Name", [new SortExpression<Aid>(a => a.Name)])])
+    ];
+    string selectedViewDefId = "profiles-all";
+    ViewDef<Aid>? SelectedViewDef => ViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
+    List<Aid> DisplayedIdentifiers => ViewDefHelper.Apply(AllIdentifiers, SelectedViewDef);
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
 
     protected override async Task OnInitializedAsync()
@@ -149,11 +158,14 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Profiles" InfoTooltip="">
-                <CountContent>@CountLabel</CountContent>
-            </PageHeading>
+            <PageHeading Title="Profiles" InfoTooltip="" />
+            <ViewSelector T="Aid"
+                          ViewDefs="@ViewDefs"
+                          SelectedViewDefId="@selectedViewDefId"
+                          FilteredCount="@DisplayedIdentifiers.Count"
+                          TotalCount="@AllIdentifiers.Count" />
 
-            @foreach (Aid aid in MyIdentifiers)
+            @foreach (Aid aid in DisplayedIdentifiers)
             {
                 <MudLink OnClick="() => navManager.NavigateTo(Routes.PathFor<ProfilePage>() + aid.Prefix)">
                     <MudCard Elevation="0" Class="py-0 my-1">
