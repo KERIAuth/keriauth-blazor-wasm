@@ -65,17 +65,13 @@
 
     RenderFragment TextBlock => __builder =>
     {
-        if (Name is not null)
+        <div class="@TextBlockClass">
+        @if (Name is not null)
         {
-            <div class="@TextBlockClass">
-                <MudText Typo="Typo.caption" Class="bt-aid-name">@Name</MudText>
-                <span style="font-family: monospace; font-size: 0.75rem;">@Abbreviated</span>
-            </div>
+            <MudText Typo="Typo.caption" Class="bt-aid-name">@Name</MudText>
         }
-        else
-        {
-            <span style="font-family: monospace; font-size: 1.0rem;">@Abbreviated</span>
-        }
+            <span class="bt-aid-prefix-span">@Abbreviated</span>
+        </div>
     };
 
     async Task CopyToClipboard()
@@ -89,6 +85,11 @@
         display: flex;
         align-items: center;
         gap: 0.25rem;
+    }
+
+     .bt-aid-prefix-span {
+        font-family: monospace;
+        font-size: 0.75rem;
     }
 
     .bt-aid-text {
