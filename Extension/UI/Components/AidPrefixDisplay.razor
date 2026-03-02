@@ -3,23 +3,20 @@
 
 @* Displays an AID prefix with identicon, abbreviated text, full-prefix tooltip, and optional name/alias. *@
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-    <MudTooltip Text="@Prefix" Delay="500" Arrow="true">
+<div class="bt-aid-prefix-display">
+    <MudTooltip Text="@Prefix" Delay="500" Arrow="true" Style="display:flex; align-items:center;">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            @if (TextPosition == TextSide.Left)
+            {
+                @TextBlock
+            }
             @if (ShowIdenticon)
             {
                 <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(Prefix)" Class="bt-identicon" Style="@IdenticonStyle" />
             }
-            @if (Name is not null)
+            @if (TextPosition == TextSide.Right)
             {
-                <MudStack Style="gap:0; padding-left:0.5rem;">
-                    <span style="font-family: monospace; font-size: 1.0rem;">@Abbreviated</span>
-                    <MudText Color="Color.Primary">@Name</MudText>
-                </MudStack>
-            }
-            else
-            {
-                <span style="font-family: monospace; font-size: 1.0rem;">@Abbreviated</span>
+                @TextBlock
             }
         </MudStack>
     </MudTooltip>
@@ -31,9 +28,11 @@
                        Style="padding: 0px !important;"
                        aria-label="Copy prefix" />
     }
-</MudStack>
+</div>
 
 @code {
+    public enum TextSide { Right, Left }
+
     [Parameter, EditorRequired]
     public string Prefix { get; set; } = "";
 
@@ -55,12 +54,62 @@
     [Parameter]
     public string IdenticonStyle { get; set; } = "width: 2.5rem; height: 2.5rem;";
 
+    [Parameter]
+    public TextSide TextPosition { get; set; } = TextSide.Right;
+
     string Abbreviated => string.IsNullOrEmpty(Prefix) || Prefix.Length <= HeadChars + TailChars + 3
         ? Prefix ?? ""
         : $"{Prefix[..HeadChars]}\u2026{Prefix[^TailChars..]}";
+
+    string TextBlockClass => TextPosition == TextSide.Left ? "bt-aid-text bt-aid-text-left" : "bt-aid-text bt-aid-text-right";
+
+    RenderFragment TextBlock => __builder =>
+    {
+        if (Name is not null)
+        {
+            <div class="@TextBlockClass">
+                <MudText Typo="Typo.caption" Class="bt-aid-name">@Name</MudText>
+                <span style="font-family: monospace; font-size: 0.75rem;">@Abbreviated</span>
+            </div>
+        }
+        else
+        {
+            <span style="font-family: monospace; font-size: 1.0rem;">@Abbreviated</span>
+        }
+    };
 
     async Task CopyToClipboard()
     {
         await js.InvokeVoidAsync("navigator.clipboard.writeText", Prefix);
     }
 }
+
+<style>
+    .bt-aid-prefix-display {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .bt-aid-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        width: 9rem;
+    }
+
+    .bt-aid-text-left {
+        text-align: right;
+    }
+
+    .bt-aid-text-right {
+        text-align: left;
+    }
+
+    .bt-aid-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 600;
+    }
+</style>

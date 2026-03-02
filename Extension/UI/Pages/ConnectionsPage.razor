@@ -46,10 +46,14 @@
         appCache?.MyNotifications?.Items?
             .Count(n => !n.IsRead) ?? 0;
 
-    static string ElidePrefix(string prefix) =>
+    static string ElidePrefix(string? prefix) =>
+        prefix is null ? "" :
         prefix.Length > 8
             ? $"{prefix[..4]}...{prefix[^4..]}"
             : prefix;
+
+    string? ProfileNameForPrefix(string? prefix) =>
+        prefix is null ? null : appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix)?.Name;
 
     protected override async Task OnInitializedAsync() {
         logger.LogInformation("OnInitializedAsync");
@@ -231,12 +235,15 @@
             {
                 <MudCard Elevation="0" Class="py-0 my-1">
                     <div class="d-flex" style="align-items: center; padding: 8px 4px;">
-                        <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(conn.ReceiverPrefix)" Class="bt-identicon" Style="margin-right: 8px;" />
+                        <AidPrefixDisplay Prefix="@conn.SenderPrefix"
+                                          Name="@(ProfileNameForPrefix(conn.SenderPrefix))"
+                                          TextPosition="AidPrefixDisplay.TextSide.Left"
+                                          ShowCopyButton="false" />
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="margin: 0 4px; opacity: 0.5;" />
+                        <AidPrefixDisplay Prefix="@conn.ReceiverPrefix"
+                                          Name="@conn.Name"
+                                          ShowCopyButton="false" />
                         <div style="flex:1; min-width:0;">
-                            <MudText Typo="Typo.h6">@conn.Name</MudText>
-                            <MudTooltip Text="@conn.ReceiverPrefix" Delay="300">
-                                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(conn.ReceiverPrefix)</MudText>
-                            </MudTooltip>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
                         </div>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">

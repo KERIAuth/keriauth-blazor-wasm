@@ -87,6 +87,23 @@
             ? $"{id[..6]}...{id[^4..]}"
             : id;
 
+    static string ElidePrefix(string? prefix) =>
+        prefix is null ? "" :
+        prefix.Length > 8
+            ? $"{prefix[..4]}...{prefix[^4..]}"
+            : prefix;
+
+    List<Connection> AllConnections => appCache?.MyConnections?.Items ?? [];
+
+    string ResolveName(string? prefix) {
+        if (prefix is null) return "(unknown)";
+        var profile = appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix);
+        if (profile is not null) return profile.Name;
+        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
+        if (conn is not null) return $"{conn.Name} (connection)";
+        return "(unknown)";
+    }
+
     static string RouteLabel(string route) => route switch {
         "/exn/ipex/grant" => "Credential Grant",
         "/exn/ipex/admit" => "Credential Admit",
@@ -436,9 +453,14 @@
                 <MudCard Elevation="0" Class="py-0 my-1" Style="@(n.IsRead ? "opacity: 0.6;" : "")">
                     <div class="d-flex" style="align-items: center; padding: 8px 4px; cursor: pointer;"
                          @onclick="@(() => ToggleNotificationDetail(n))">
-                        <MudIcon Icon="@RouteIcon(n.Route)"
-                                 Color="@(n.IsRead ? Color.Default : Color.Primary)"
-                                 Style="margin-right: 8px;" />
+                        <AidPrefixDisplay Prefix="@(n.SenderPrefix ?? "")"
+                                          Name="@ResolveName(n.SenderPrefix)"
+                                          TextPosition="AidPrefixDisplay.TextSide.Left"
+                                          ShowCopyButton="false" />
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="margin: 0 4px; opacity: 0.5;" />
+                        <AidPrefixDisplay Prefix="@(n.TargetPrefix ?? "")"
+                                          Name="@ResolveName(n.TargetPrefix)"
+                                          ShowCopyButton="false" />
                         <div style="flex:1; min-width:0;">
                             <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route)</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@n.DateTime</MudText>
