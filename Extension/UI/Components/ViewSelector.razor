@@ -47,9 +47,9 @@
     {
         (null, _, _, _) => "...",
         (int f, _, _, CountStyle.Total) => $"({f})",
-        (int f, _, _, CountStyle.ForProfile) => $"({f} for profile)",
+        (int f, _, _, CountStyle.ForProfile) => $"({f})", //" for profile)",
         (int f, _, int t, CountStyle.OfTotal) => $"({f} of {t})",
-        (int f, int s, _, CountStyle.OfSubTotal) => $"({f} of {s} in profile)",
+        (int f, int s, _, CountStyle.OfSubTotal) => $"({f} of {s})", //" in profile)",
         (int f, null, _, CountStyle.OfSubTotal) => $"({f} in profile)",
         (int f, null, _, CountStyle.OfTotal) => $"({f})",
         _ => $"({FilteredCount})"
