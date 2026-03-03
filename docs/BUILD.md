@@ -196,4 +196,4 @@ make test
 
 The CI pipeline runs on `ubuntu-latest` and uses Makefile targets for common build steps. CI-specific steps (version stamping, artifact packaging) remain in the workflow YAML.
 
-See [.github/workflows/dotnet.yml](.github/workflows/dotnet.yml).
+See [.github/workflows/dotnet.yml](../.github/workflows/dotnet.yml).

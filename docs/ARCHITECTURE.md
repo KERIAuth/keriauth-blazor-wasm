@@ -1,6 +1,6 @@
 # Architecture
 
-High-level system architecture for the KERI Auth browser extension. For operational directives, see [CLAUDE.md](CLAUDE.md). For build instructions, see [BUILD.md](BUILD.md). For coding standards, see [CODING.md](CODING.md).
+High-level system architecture for the KERI Auth browser extension. For operational directives, see [CLAUDE.md](../CLAUDE.md). For build instructions, see [BUILD.md](BUILD.md). For coding standards, see [CODING.md](CODING.md).
 
 ## Overview
 
@@ -11,8 +11,6 @@ KERI Auth is a browser extension built with:
 - **signify-ts** for KERI/ACDC operations via JS interop
 - **polaris-web** for web page communication protocol
 
-![KERI Auth Architecture](KERIAuthArchitecture.jpg)
-[Source](https://docs.google.com/drawings/d/1xICKkvaJkS4IrOGcj_3GidkKHu1VcIrzGCN_vJSvAv4)
 
 ## Runtime Contexts
 

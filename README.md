@@ -37,10 +37,20 @@ The most recent stable version is available from the [Chrome Web Store](https://
 
 ## For Developers
 
-* [ARCHITECTURE.md](ARCHITECTURE.md) — system structure and component overview
-* [BUILD.md](BUILD.md) — build instructions, prerequisites, and troubleshooting
-* [CODING.md](CODING.md) — C#, TypeScript, and interop coding standards
+* [ARCHITECTURE.md](docs/ARCHITECTURE.md) — system structure and component overview
+* [BUILD.md](docs/BUILD.md) — build instructions, prerequisites, and troubleshooting
+* [CODING.md](docs/CODING.md) — C#, TypeScript, and interop coding standards
 * [CLAUDE.md](CLAUDE.md) — directives for Claude Code AI assistant
+
+## License
+
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
+
+## Trademark Notice
+
+"KERI Auth" and associated logos are trademarks of LivelyGig LLC.
+Use of these trademarks is subject to the [Trademark Policy](branding/trademark-policy.md).
+Forked or modified versions must not use the "KERI Auth" name or logo without permission.
 
 ## Acknowledgments and References
 * Components and Libraries
@@ -52,11 +62,11 @@ The most recent stable version is available from the [Chrome Web Store](https://
   * [keria](https://github.com/WebOfTrust/keria) by WebOfTrust
 
 * Technical Training
+  * [vlei-hackathon-2025-workshop](https://github.com/GLEIF-IT/vlei-hackathon-2025-workshop)
   * [vlei-trainings](https://github.com/gleif-IT/vlei-trainings) by GLEIF
 
-* Other Notable Open Source Identity Wallets
+* Other Notable KERI Open Source Identity Wallets
   * [Veridian Wallet](https://veridian.id/)
-  * [Signify Browser Extension](https://github.com/WebOfTrust/signify-browser-extension) by WebOfTrust
 * Legal Entity Roots of Trust and Credential Verification
   * [Verifiable Legal Entity Identifier (vLEI)](https://www.gleif.org/en/organizational-identity/introducing-the-verifiable-lei-vlei) by Global Legal Entity Identifier Foundation (GLEIF)
   * [Qualified vLEI Issuers (QVIs)](https://www.gleif.org/en/organizational-identity/get-a-vlei-list-of-qualified-vlei-issuing-organizations) by GLEIF

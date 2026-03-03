@@ -1,6 +1,6 @@
 # Coding Standards
 
-For architecture overview, see [ARCHITECTURE.md](ARCHITECTURE.md). For build instructions, see [BUILD.md](BUILD.md). For operational directives, see [CLAUDE.md](CLAUDE.md).
+For architecture overview, see [ARCHITECTURE.md](ARCHITECTURE.md). For build instructions, see [BUILD.md](BUILD.md). For operational directives, see [CLAUDE.md](../CLAUDE.md).
 
 ## General Principles
 
@@ -16,7 +16,6 @@ For architecture overview, see [ARCHITECTURE.md](ARCHITECTURE.md). For build ins
 ### Style
 - .NET 9.0 SDK
 - 4-space indentation
-- Opening braces on same line
 - Braces for all control structures, even single-line
 - Expression-bodied members for simple methods
 - EnforceCodeStyleInBuild enabled
@@ -34,7 +33,6 @@ For architecture overview, see [ARCHITECTURE.md](ARCHITECTURE.md). For build ins
 - Nullable reference types enabled — default to non-nullable, use `?` for nullable
 - Use explicit types; `var` only when type is obvious
 - Prefer Records for: JSON models, API types, configuration, state representations
-- Use Classes only for service implementations with mutable behavior
 - Comment and justify where there is use of `object`
 
 ### Async
@@ -53,6 +51,10 @@ For architecture overview, see [ARCHITECTURE.md](ARCHITECTURE.md). For build ins
 - System namespaces first, then project namespaces
 - Sorted alphabetically within groups
 - At top of file, outside namespace declarations
+
+### Blazor
+- Favor reactive programming style vs imperitive. For example, use computed properties where helpful.
+- Minimize use of StateHasChanged.
 
 ### Other
 - Use UTC for all date/time values
@@ -140,7 +142,7 @@ Data type rules for credentials:
 - Some objects have dynamic/optional properties — use nullable types
 
 ### Signify-ts Shim
-- Location: `Extension/Services/SignifyService/Signify-ts-shim.cs`
+- Locations: `Extension/Services/JsBindings/SignifyClientBinding.cs` and scripts/bundles/src/signifyClient.ts
 - Wraps all signify-ts interop with timeouts, cancellation, and error handling
 - 30-second default timeout for network operations
 - All JS interop calls in try-catch with specific error messages

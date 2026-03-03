@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Operational directives for Claude Code working in this repository. For architectural context, see [ARCHITECTURE.md](ARCHITECTURE.md). For build instructions, see [BUILD.md](BUILD.md). For coding standards, see [CODING.md](CODING.md).
+Operational directives for Claude Code working in this repository. For architectural context, see [ARCHITECTURE.md](docs/ARCHITECTURE.md). For build instructions, see [BUILD.md](docs/BUILD.md). For coding standards, see [CODING.md](docs/CODING.md).
 
 ## Invariants
 
@@ -62,7 +62,7 @@ These are firm constraints. Do not change or work around them without explicit a
 
 ## Building This Project
 
-See [BUILD.md](BUILD.md) for full instructions. Builds exclusively in WSL (Ubuntu).
+See [BUILD.md](docs/BUILD.md) for full instructions. Builds exclusively in WSL (Ubuntu).
 
 **Quick reference for Claude Code**:
 - Incremental build: `make build`
@@ -118,8 +118,8 @@ See [BUILD.md](BUILD.md) for full instructions. Builds exclusively in WSL (Ubunt
 
 ## Reference Documents
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — system structure, components, flows
-- [BUILD.md](BUILD.md) — build commands, troubleshooting, environment setup
-- [CODING.md](CODING.md) — C#, TypeScript, and interop coding standards
-- [PAGE-CS-MESSAGES.md](PAGE-CS-MESSAGES.md) — web page / content script message protocol
-- [POLARIS_WEB_COMPLIANCE.md](POLARIS_WEB_COMPLIANCE.md) — supported polaris-web capabilities
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — system structure, components, flows
+- [BUILD.md](docs/BUILD.md) — build commands, troubleshooting, environment setup
+- [CODING.md](docs/CODING.md) — C#, TypeScript, and interop coding standards
+- [PAGE-CS-MESSAGES.md](docs/PAGE-CS-MESSAGES.md) — web page / content script message protocol
+- [POLARIS_WEB_COMPLIANCE.md](docs/POLARIS_WEB_COMPLIANCE.md) — supported polaris-web capabilities
