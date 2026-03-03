@@ -17,5 +17,7 @@ For build simplicity, branded assets remain in their original locations within t
 - **Privacy Policy**: `Extension/wwwroot/content/privacy.html`
 
 ## Runtime Source of Truth
-
-The runtime brand constant is `AppConfig.ProductName` in `Extension/AppConfig.cs`.
+The primary brand constants are defined in:
+- **C#**: `AppConfig.ProductName` in `Extension/AppConfig.cs`
+- **TypeScript**: `PRODUCT_NAME` in `scripts/types/src/brand.ts` (exported from `@keriauth/types`)
+- **Manifest**: `Extension/wwwroot/manifest.json` (`name`, `short_name`, `default_title`)

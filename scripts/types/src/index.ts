@@ -1,6 +1,7 @@
 // Re-export all types from the types package
 // Note: .js extensions required for browser ES module resolution
 
+export * from './brand.js';
 export * from './ExCsInterfaces.js';
 export * from './storage-models.js';
 export * from './PortMessages.js';

@@ -27,10 +27,9 @@ import {
     isReadyMessage,
     isRpcResponse,
     isEventMessage,
-    CsBwPortMessageTypes
+    CsBwPortMessageTypes,
+    PRODUCT_NAME
 } from '@keriauth/types';
-
-const PRODUCT_NAME = 'KERI Auth';
 
 // CONTEXT GUARD: ContentScript should only run in web page context, not in service worker.
 // BackgroundWorker.js imports all scripts in wwwroot/scripts/, so we must bail out early
@@ -44,7 +43,7 @@ const PRODUCT_NAME = 'KERI Auth';
     if ('ServiceWorkerGlobalScope' in globalThis) {
         // We're in a service worker - do not initialize
         // This is expected when BackgroundWorker.js imports this file
-        console.log('KeriAuthCs Running in ServiceWorker context, skipping initialization');
+        console.log(`ContentScript running in ServiceWorker context, skipping initialization`);
         return;
     }
 
@@ -67,6 +66,7 @@ const PRODUCT_NAME = 'KERI Auth';
     let port: chrome.runtime.Port | null = null;
     let portSessionId: string | null = null;
     let isPortReady = false;
+    const csAbbr = PRODUCT_NAME.replace(/\s/g, '') + 'Cs';
     const instanceId = crypto.randomUUID();
     const messageQueue: Array<{ method: string; params?: unknown }> = [];
     const pendingRpcCallbacks = new Map<string, {
@@ -83,6 +83,7 @@ const PRODUCT_NAME = 'KERI Auth';
     let heartbeatWatchdog: ReturnType<typeof setInterval> | null = null;
     const HEARTBEAT_TIMEOUT_MS = 45000; // 3 missed heartbeats at 15s
     const HEARTBEAT_WATCHDOG_MS = 10000;
+    const logPrefix = `${csAbbr}:`;
 
     /*
      * This section is evaluated on document-start, as specified in the extension manifest (or app.ts ?).
@@ -90,17 +91,17 @@ const PRODUCT_NAME = 'KERI Auth';
      */
 
     // Sentinel pattern to prevent double-injection
-    const KEY = '__KERIAUTH_CS_INJECTED__';
+    const KEY = '__8675309_CS_INJECTED__';
     if ((globalThis as unknown as Record<string, boolean>)[KEY]) {
-        console.log('KeriAuthCs: Already injected, skipping initialization');
+        console.log(`${logPrefix} Already injected, skipping initialization`);
         return; // already active, do nothing
     }
     (globalThis as unknown as Record<string, boolean>)[KEY] = true;
 
-    console.log('KeriAuthCs: initializing');
+    console.log(`${logPrefix} initializing`);
     const currentOrigin = window.location.origin;
-    console.log('KeriAuthCs: currentOrigin:', currentOrigin);
-    console.log('KeriAuthCs: ', chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
+    console.log(`${logPrefix} currentOrigin:`, currentOrigin);
+    console.log(`${logPrefix} `, chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
     // Add a listener for messages from the web page
     window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
@@ -121,12 +122,12 @@ const PRODUCT_NAME = 'KERI Auth';
 
     // Observe and log URL changes in any SPA page. May be helpful for debugging potential issues.
     window.addEventListener('popstate', (event) => {
-        console.info(`KeriAuthCs ${event.type} ${window.location.href}`);
+        console.info(`${logPrefix} ${event.type} ${window.location.href}`);
     });
 
     // Add listener for when DOMContentLoaded. Logging if helpful for debugging issues.
     document.addEventListener('DOMContentLoaded', (event) => {
-        console.info(`KeriAuthCs ${event.type}`);
+        console.info(`${logPrefix} ${event.type}`);
     });
 
     // Connect to BackgroundWorker using port-based messaging
@@ -145,20 +146,20 @@ const PRODUCT_NAME = 'KERI Auth';
         try {
             // Step 1: Poll until BW is ready. Each sendMessage gets an immediate
             // synchronous response with { t, ready }. No deferred sendResponse.
-            console.log('KeriAuthCs: Polling for BW readiness...');
+            console.log(`${logPrefix} Polling for BW readiness...`);
             let attempt = 0;
             while (Date.now() < deadline) {
                 attempt++;
                 try {
                     const response = await chrome.runtime.sendMessage({ t: SendMessageTypes.ClientHello });
                     if (response?.t === SendMessageTypes.SwHello && response?.ready === true) {
-                        console.log(`KeriAuthCs: BW ready (poll attempt ${attempt})`);
+                        console.log(`${logPrefix} BW ready (poll attempt ${attempt})`);
                         break;
                     }
-                    console.log(`KeriAuthCs: BW not ready (attempt ${attempt}, ready=${response?.ready})`);
+                    console.log(`${logPrefix} BW not ready (attempt ${attempt}, ready=${response?.ready})`);
                 } catch (e) {
                     // SW may still be loading modules (no listener yet)
-                    console.log(`KeriAuthCs: Poll ${attempt} failed:`, e);
+                    console.log(`${logPrefix} Poll ${attempt} failed:`, e);
                 }
 
                 if (Date.now() + POLL_INTERVAL_MS > deadline) {
@@ -167,7 +168,7 @@ const PRODUCT_NAME = 'KERI Auth';
                 await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
             }
 
-            console.log('KeriAuthCs: BW ready, creating port...');
+            console.log(`${logPrefix} BW ready, creating port...`);
 
             // Step 2: Create port (BW confirmed ready)
             port = chrome.runtime.connect(undefined, {name: 'content-script'});
@@ -176,20 +177,20 @@ const PRODUCT_NAME = 'KERI Auth';
 
             // Step 3: Send HELLO on port for session establishment
             const helloMessage = createCsHelloMessage(instanceId);
-            console.log('KeriAuthCs→BW: HELLO', helloMessage);
+            console.log(`${csAbbr}→BW: HELLO`, helloMessage);
             port.postMessage(helloMessage);
 
             // Step 4: Wait for port READY (timeout handled by watchdog)
             pendingReadyTimeout = setTimeout(() => {
                 if (!isPortReady) {
-                    console.log('KeriAuthCs: Port READY timeout');
+                    console.log(`${logPrefix} Port READY timeout`);
                     pendingReadyTimeout = null;
                     if (port) port.disconnect();
                 }
             }, READY_TIMEOUT_MS);
 
         } catch (error) {
-            console.log('KeriAuthCs: Failed to connect:', error);
+            console.log(`${logPrefix} Failed to connect:`, error);
             // Don't auto-reconnect — will reconnect lazily when page message arrives
         }
     }
@@ -204,7 +205,7 @@ const PRODUCT_NAME = 'KERI Auth';
             return;
         }
 
-        console.log('BW→KeriAuthCs: ', message.t, message);
+        console.log(`BW→${logPrefix} `, message.t, message);
 
         if (isReadyMessage(message)) {
             handleReadyMessage(message);
@@ -213,7 +214,7 @@ const PRODUCT_NAME = 'KERI Auth';
         } else if (isEventMessage(message)) {
             handleEventMessage(message);
         } else {
-            console.warn('KeriAuthCs: Unknown port message type:', message);
+            console.warn(`${logPrefix} Unknown port message type:`, message);
         }
     }
 
@@ -230,7 +231,7 @@ const PRODUCT_NAME = 'KERI Auth';
         portSessionId = message.portSessionId;
         isPortReady = true;
 
-        console.log('KeriAuthCs: Port ready, portSessionId:', portSessionId);
+        console.log(`${logPrefix} Port ready, portSessionId:`, portSessionId);
 
         // Start heartbeat watchdog
         startHeartbeatWatchdog();
@@ -278,7 +279,7 @@ const PRODUCT_NAME = 'KERI Auth';
         } else {
             // Route as a regular BW message for backward compatibility
             // TODO P2: if none of these are seen, can remove this "else"
-            console.warn("Unexpected message type received. Handling legacy message from BW. Should refactor.");
+            console.warn(`${logPrefix} Unexpected message type received. Handling legacy message from BW. Should refactor.`);
             
             const legacyMessage = {
                 type: message.error ? BwCsMsgEnum.REPLY : BwCsMsgEnum.REPLY,
@@ -315,7 +316,7 @@ const PRODUCT_NAME = 'KERI Auth';
 
         // chrome.runtime.lastError exists at runtime but may not be in type definitions
         const error = (chrome.runtime as { lastError?: { message?: string } }).lastError;
-        console.log('KeriAuthCs: Port disconnected', error?.message || '');
+        console.log(`${logPrefix} Port disconnected`, error?.message || '');
 
         port = null;
         portSessionId = null;
@@ -324,7 +325,7 @@ const PRODUCT_NAME = 'KERI Auth';
 
         // Check if extension was invalidated
         if (error?.message?.includes('Extension context invalidated')) {
-            console.log('KeriAuthCs: Extension context invalidated - prompting reload');
+            console.log(`${logPrefix} Extension context invalidated - prompting reload`);
             promptAndReloadPage(
                 `The ${PRODUCT_NAME} extension has been updated or reloaded.\n` +
                 "Actions needed:\n" +
@@ -348,7 +349,7 @@ const PRODUCT_NAME = 'KERI Auth';
         lastHeartbeatTime = Date.now(); // Initialize so watchdog doesn't fire immediately
         heartbeatWatchdog = setInterval(() => {
             if (isPortReady && lastHeartbeatTime > 0 && Date.now() - lastHeartbeatTime > HEARTBEAT_TIMEOUT_MS) {
-                console.log('KeriAuthCs: Heartbeat timeout — marking port as disconnected');
+                console.log(`${logPrefix} Heartbeat timeout — marking port as disconnected`);
                 port = null;
                 portSessionId = null;
                 isPortReady = false;
@@ -371,14 +372,14 @@ const PRODUCT_NAME = 'KERI Auth';
     async function sendRpcRequest(method: string, params?: unknown): Promise<unknown> {
         if (!isPortReady || !port || !portSessionId) {
             // Lazy reconnect: attempt to reconnect when a message needs sending
-            console.log('KeriAuthCs: Port not ready, attempting reconnect...');
+            console.log(`${logPrefix} Port not ready, attempting reconnect...`);
             try {
                 await connectPort();
             } catch (e) {
-                console.log('KeriAuthCs: Reconnect failed:', e);
+                console.log(`${logPrefix} Reconnect failed:`, e);
             }
             if (!isPortReady || !port || !portSessionId) {
-                console.log('KeriAuthCs: Still not ready after reconnect, queueing message:', method);
+                console.log(`${logPrefix} Still not ready after reconnect, queueing message:`, method);
                 messageQueue.push({ method, params });
                 return undefined;
             }
@@ -393,7 +394,7 @@ const PRODUCT_NAME = 'KERI Auth';
 
             // Send via port
             port!.postMessage(request);
-            console.log('KeriAuthCs→BW: ', request);
+            console.log(`${csAbbr}→BW: `, request);
         });
     }
 
@@ -402,7 +403,7 @@ const PRODUCT_NAME = 'KERI Auth';
      * @param msg The message to send to the page, must have a 'type' property
      */
     function postMessageToPage<T>(msg: T): void {
-        console.log(`KeriAuthCs→Page: ${(msg as ICsPageMsgData<T>).type}`, { msg });
+        console.log(`${csAbbr}→Page: ${(msg as ICsPageMsgData<T>).type}`, { msg });
         window.postMessage(msg, currentOrigin);
     }
 
@@ -413,11 +414,11 @@ const PRODUCT_NAME = 'KERI Auth';
      */
     function handleMsgFromBW(message: BwMessage): void {
         if (!message.type) {
-            console.error('BW→KeriAuthCs: type not found in message:', message);
+            console.error(`BW→${csAbbr} type not found in message:`, message);
             return;
         }
 
-        console.log(`BW→KeriAuthCs: ${message.type}`, { message });
+        console.log(`BW→${csAbbr}: ${message.type}`, { message });
         switch (message.type) {
             case BwCsMsgEnum.READY:
                 // In the case the user has just clicked on Action Button and provided CS inject permission for first time,
@@ -426,7 +427,7 @@ const PRODUCT_NAME = 'KERI Auth';
                 break;
 
             case BwCsMsgEnum.REPLY:
-                console.log('BW→KeriAuthCs: reply:', message);
+                console.log(`BW→${csAbbr}: reply`, { message });
                 if (message.error) {
                     const errorMsg: ICsPageMsgData<null> = {
                         source: CsPageMsgTag,
@@ -449,7 +450,7 @@ const PRODUCT_NAME = 'KERI Auth';
                             };
                             delete data.credentialJson;
                         } catch (parseError) {
-                            console.error('KeriAuthCs: Failed to parse credentialJson', parseError);
+                            console.error(`${logPrefix} Failed to parse credentialJson`, parseError);
                         }
                     }
 
@@ -488,7 +489,7 @@ const PRODUCT_NAME = 'KERI Auth';
                 break;
 
             default:
-                console.info(`KeriAuthCs unrecognized message type ${message.type}`);
+                console.info(`${logPrefix}: unrecognized message type ${message.type}`);
                 break;
         }
     }
@@ -502,15 +503,15 @@ const PRODUCT_NAME = 'KERI Auth';
         try {
             const userAccepted = confirm(message);
             if (userAccepted) {
-                console.log('KeriAuthCs: User accepted reload prompt - reloading page');
+                console.log(`${logPrefix} User accepted reload prompt - reloading page`);
                 window.location.reload();
                 return true;
             } else {
-                console.log('KeriAuthCs: User declined reload prompt');
+                console.log(`${logPrefix} User declined reload prompt`);
                 return false;
             }
         } catch (error) {
-            console.error('KeriAuthCs: ERROR in promptAndReloadPage:', error);
+            console.error(`${logPrefix} ERROR in promptAndReloadPage:`, error);
             return false;
         }
     }
@@ -521,18 +522,18 @@ const PRODUCT_NAME = 'KERI Auth';
      * @param msg Message to send, either polaris-web protocol or internal CS-BW message
      */
     async function sendMessageToBW(msg: Polaris.MessageData<unknown>): Promise<void> {
-        console.info('KeriAuthCs→BW: ', msg);
+        console.info(`${csAbbr}→BW: `, msg);
 
         // Lazy reconnect if port is not ready
         if (!isPortReady || !port || !portSessionId) {
-            console.log('KeriAuthCs→BW: Port not connected, attempting reconnect...');
+            console.log(`${csAbbr}→BW: Port not connected, attempting reconnect...`);
             try {
                 await connectPort();
             } catch (e) {
-                console.log('KeriAuthCs→BW: Reconnect failed:', e);
+                console.log(`${csAbbr}→BW: Reconnect failed:`, e);
             }
             if (!isPortReady || !port || !portSessionId) {
-                console.error('KeriAuthCs→BW: Still not connected after reconnect attempt');
+                console.error(`${csAbbr}→BW: Still not connected after reconnect attempt`);
                 throw new Error('Port not connected to BackgroundWorker');
             }
         }
@@ -550,9 +551,9 @@ const PRODUCT_NAME = 'KERI Auth';
         try {
             // Send the RPC request and get the RPC ID
             const rpcId = sendRpcRequestForPage(method, params, originalRequestId);
-            console.log('KeriAuthCs→BW: RPC sent, rpcId=', rpcId, 'originalRequestId=', originalRequestId);
+            console.log(`${csAbbr}→BW: RPC sent, rpcId=`, rpcId, 'originalRequestId=', originalRequestId);
         } catch (error) {
-            console.error('KeriAuthCs→BW: Port send failed:', error);
+            console.error(`${csAbbr}→BW: Port send failed:`, error);
             throw error;
         }
     }
@@ -575,7 +576,7 @@ const PRODUCT_NAME = 'KERI Auth';
 
         // Send via port (no callback - response routed via handleRpcResponse)
         port.postMessage(request);
-        console.log('KeriAuthCs→BW (port):', request);
+        console.log(`${csAbbr}→BW (port):`, request);
 
         return request.id;
     }
@@ -613,7 +614,7 @@ const PRODUCT_NAME = 'KERI Auth';
         }
 
         // handle messages from current page
-        console.log(`Page→KeriAuthCs: ${event.data.type}`, {event});
+        console.log(`Page→${logPrefix} ${event.data.type}`, {event});
         try {
             const requestId = event.data.requestId;
             switch (event.data.type) {
@@ -629,19 +630,19 @@ const PRODUCT_NAME = 'KERI Auth';
                         source: CsPageMsgTag,
                         type: BwCsMsgEnum.REPLY,
                         requestId,
-                        error: 'KERIAuthCs: sessions not supported'
+                        error: `${logPrefix}: sessions not supported`
                     };
                     postMessageToPage<ICsPageMsgData<null>>(sessionInfoMsg);
                     break;
                 }
                 case CsBwMsgEnum.POLARIS_CONFIGURE_VENDOR: {
                     const configureVendorArgsMessage = event.data.payload as Polaris.MessageData<Polaris.ConfigureVendorArgs>;
-                    console.info(`KeriAuthCs ${event.data.type} not implemented`, configureVendorArgsMessage);
+                    console.info(`${logPrefix}: ${event.data.type} not implemented`, configureVendorArgsMessage);
                     const configVendorMsg: ICsPageMsgData<null> = {
                         source: CsPageMsgTag,
                         type: BwCsMsgEnum.REPLY,
                         requestId,
-                        error: 'KERIAuthCs: configure-vendor not supported'
+                        error: `${logPrefix}: configure-vendor not supported`
                     };
                     postMessageToPage<ICsPageMsgData<null>>(configVendorMsg);
                     break;
@@ -650,35 +651,35 @@ const PRODUCT_NAME = 'KERI Auth';
                 case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_CREDENTIAL:
                 case CsBwMsgEnum.POLARIS_SELECT_AUTHORIZE_AID:
                     try {
-                        console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                        console.info(`${logPrefix} ${event.data.type}:`, event.data);
                         const authorizeRequestMessage = event.data as Polaris.MessageData<Polaris.AuthorizeArgs>;
-                        console.info("KeriAuthCs: Authorize request payload:", JSON.stringify(authorizeRequestMessage.payload));
+                        console.info(`${logPrefix}: Authorize request payload:`, JSON.stringify(authorizeRequestMessage.payload));
                         await sendMessageToBW(authorizeRequestMessage);
                     } catch (error) {
-                        console.error(`KeriAuthCs ${event.data.type} error:`, error);
+                        console.error(`${logPrefix} ${event.data.type} error:`, error);
                     }
                     break;
                 case CsBwMsgEnum.POLARIS_SIGN_REQUEST:
                     try {
-                        console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                        console.info(`${logPrefix} ${event.data.type}:`, event.data);
 
                         // Log headers for POLARIS_SIGN_REQUEST
                         const signRequestMessage = event.data as Polaris.MessageData<Polaris.SignRequestArgs>;
                         if (event.data.type === CsBwMsgEnum.POLARIS_SIGN_REQUEST) {
-                            console.log('KeriAuthCs: SIGN_REQUEST payload:', JSON.stringify(signRequestMessage.payload));
+                            console.log(`${logPrefix}: SIGN_REQUEST payload:`, JSON.stringify(signRequestMessage.payload));
                             if (signRequestMessage.payload?.headers) {
-                                console.log('KeriAuthCs: SIGN_REQUEST headers ', JSON.stringify(signRequestMessage.payload.headers));
+                                console.log(`${logPrefix}: SIGN_REQUEST headers `, JSON.stringify(signRequestMessage.payload.headers));
                                 const headers = signRequestMessage.payload.headers;
                                 for (const key of Object.keys(headers)) {
-                                    console.log(`  KeriAuthCs header: ${key} = ${headers[key]}`);
+                                    console.log(`${logPrefix} header: ${key} = ${headers[key]}`);
                                 }
                             } else {
-                                console.log('KeriAuthCs: SIGN_REQUEST: no headers in payload');
+                                console.log(`${logPrefix}: SIGN_REQUEST: no headers in payload`);
                             }
                         }
                         await sendMessageToBW(signRequestMessage);
                     } catch (error) {
-                        console.error('KeriAuthCs→BW: error sending message {event.data} {e}:', event.data, error);
+                        console.error(`${logPrefix}→BW: error sending message {event.data} {e}:`, event.data, error);
                         return;
                     }
                     break;
@@ -702,34 +703,34 @@ const PRODUCT_NAME = 'KERI Auth';
                     break;
                 }
                 case CsBwMsgEnum.POLARIS_GET_CREDENTIAL:
-                    console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
+                    console.info(`${logPrefix} handler not implemented for ${event.data.type}`, event.data);
                     break;
 
                 case CsBwMsgEnum.POLARIS_SIGN_DATA: {
                     const signDataArgsMsg = event.data as Polaris.MessageData<Polaris.SignDataArgs>;
                     await sendMessageToBW(signDataArgsMsg);
-                    // console.info(`KeriAuthCs handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
+                    // console.info(`${logPrefix} handler not implemented for ${signDataArgsMsg.type}`, signDataArgsMsg);
                     break;
                 }
                 case CsBwMsgEnum.KERIAUTH_CONNECTION_INVITE: {
                     const connectionInviteMsg = event.data as Polaris.MessageData<unknown>;
-                    console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                    console.info(`${logPrefix} ${event.data.type}:`, event.data);
                     await sendMessageToBW(connectionInviteMsg);
                     break;
                 }
                 case CsBwMsgEnum.KERIAUTH_CONNECTION_CONFIRM: {
                     const connectionConfirmMsg = event.data as Polaris.MessageData<unknown>;
-                    console.info(`KeriAuthCs ${event.data.type}:`, event.data);
+                    console.info(`${logPrefix} ${event.data.type}:`, event.data);
                     await sendMessageToBW(connectionConfirmMsg);
                     break;
                 }
                 default:
-                    console.info(`KeriAuthCs handler not implemented for ${event.data.type}`, event.data);
+                    console.info(`${logPrefix} handler not implemented for ${event.data.type}`, event.data);
                     break;
             }
         } catch (error) {
             // set at info level because its not unusal for the ContentScript to be injected into an unsupported page
-            console.info('KeriAuthCs error in handling event: ', event.data, 'Extension may have been reloaded. Try reloading page.', 'Error:', error);
+            console.info(`${logPrefix} error in handling event: `, event.data, 'Extension may have been reloaded. Try reloading page.', 'Error:', error);
         }
     }
 })();

@@ -5,9 +5,10 @@
 
 /// <reference types="chrome-types" />
 
+import { PRODUCT_NAME } from '@keriauth/types';
+
 // Constants matching the C# WebauthnService expectations
-const KERI_AUTH_EXTENSION_NAME = 'KERI Auth';
-const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: KERI_AUTH_EXTENSION_NAME };
+const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: PRODUCT_NAME };
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -8, type: 'public-key' },   // EdDSA
     { alg: -7, type: 'public-key' },   // ES256
