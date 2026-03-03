@@ -161,6 +161,7 @@ export type BwCsGetCredentialPayload = Polaris.CredentialResult;
  */
 export interface BwCsExtensionIdPayload {
     extensionId: string;
+    name: string;
 }
 
 // ============================================================================

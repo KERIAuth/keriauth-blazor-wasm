@@ -216,9 +216,11 @@ describe('Port Message Contract Tests', () => {
             const fixture = loadFixture<RpcResponse>('RpcResponse_ExtensionId.json');
 
             expect(fixture.ok).toBe(true);
-            const result = fixture.result as { extensionId?: string };
+            const result = fixture.result as { extensionId?: string; name?: string };
             expect(result.extensionId).toBeDefined();
             expect(typeof result.extensionId).toBe('string');
+            expect(result.name).toBeDefined();
+            expect(typeof result.name).toBe('string');
         });
     });
 });

@@ -4,6 +4,7 @@
   "id": "rpc-request-id-005",
   "ok": true,
   "result": {
-    "extensionId": "abcdefghijklmnopqrstuvwxyz123456"
+    "extensionId": "abcdefghijklmnopqrstuvwxyz123456",
+    "name": "PRODUCT NAME"
   }
 }

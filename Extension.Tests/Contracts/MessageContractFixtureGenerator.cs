@@ -289,7 +289,8 @@ public class MessageContractFixtureGenerator {
             Id = "rpc-request-id-005",
             Ok = true,
             Result = new {
-                extensionId = "abcdefghijklmnopqrstuvwxyz123456"
+                extensionId = "abcdefghijklmnopqrstuvwxyz123456",
+                name = "PRODUCT NAME"
             }
         };
         WriteFixture("RpcResponse_ExtensionId.json", extensionIdResponse);

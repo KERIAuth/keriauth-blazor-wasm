@@ -582,13 +582,13 @@ import {
     }
 
     function postMessageToPageSignifyExtension(): void {
-        const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string }> = {
+        const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string; name: string }> = {
             source: CsPageMsgTag,
             type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
-            data: { extensionId: chrome.runtime.id },
+            data: { extensionId: chrome.runtime.id, name: PRODUCT_NAME },
             requestId: '' // may be unsolicited message or with no requestId, so no requestId set in this response
         };
-        postMessageToPage<ICsPageMsgDataData<{ extensionId: string }>>(extensionClientMsg);
+        postMessageToPage<ICsPageMsgDataData<{ extensionId: string; name: string }>>(extensionClientMsg);
     }
 
     /**

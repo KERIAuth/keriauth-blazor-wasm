@@ -126,6 +126,7 @@ export type CsBwGetCredentialResult = Polaris.CredentialResult;
  */
 export interface CsBwSignifyExtensionResult {
     extensionId: string;
+    name: string;
 }
 
 /**

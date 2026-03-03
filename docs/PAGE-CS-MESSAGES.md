@@ -6,7 +6,7 @@ Summary of requests from web page to content script, and expected replies back
 | Page -> Content Script Request | Request Arg Type          | Content Script -> Page Reply | Reply Type                                | Comments |
 | :----------------------------- | :------------------------ | :--------------------------- | :---------------------------------------- | :------- |
 |                                |                           | signify/reply                | MessageData\<T>                           |          |
-|                                |                           | signify-extension            | {type: 'signify-extension', data: {string: extensionId}} |          |
+|                                |                           | signify-extension            | {type: 'signify-extension', data: {extensionId: string, name: string}} |          |
 | signify/configure-vendor        | ConfigureVendorArgs       | n/a                          | void                                      |          |
 | signify/sign-request            | SignRequestArgs           | signify/reply                | MessageData\<SignDataResult>              |          |
 | signify/authorize               | AuthorizeArgs             | signify/reply                | MessageData\<AuthorizeResult>             |          |

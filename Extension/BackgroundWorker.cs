@@ -1196,9 +1196,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case CsBwMessageTypes.SIGNIFY_EXTENSION:
                 case CsBwMessageTypes.SIGNIFY_EXTENSION_CLIENT:
-                    // Return extension ID directly
+                    // Return extension ID and name directly
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                        result: new { extensionId = WebExtensions.Runtime.Id });
+                        result: new { extensionId = WebExtensions.Runtime.Id, name = AppConfig.ProductName });
                     return;
 
                 case CsBwMessageTypes.CLEAR_SESSION:
