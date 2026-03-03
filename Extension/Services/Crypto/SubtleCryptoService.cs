@@ -8,17 +8,13 @@ namespace Extension.Services.Crypto;
 /// Implementation of ICryptoService using native .NET crypto for SHA-256
 /// and browser SubtleCrypto (via IJSRuntime) for AES-GCM.
 /// </summary>
-public class SubtleCryptoService : ICryptoService {
-    private readonly IJSRuntime _jsRuntime;
-    private readonly ILogger<SubtleCryptoService> _logger;
+public class SubtleCryptoService(IJSRuntime jsRuntime, ILogger<SubtleCryptoService> logger) : ICryptoService {
+    private readonly IJSRuntime _jsRuntime = jsRuntime;
+    private readonly ILogger<SubtleCryptoService> _logger = logger;
     private IJSObjectReference? _cryptoModule;
 
-    private const string KeriAuthLabel = "KERI Auth";
-
-    public SubtleCryptoService(IJSRuntime jsRuntime, ILogger<SubtleCryptoService> logger) {
-        _jsRuntime = jsRuntime;
-        _logger = logger;
-    }
+    // TODO P3: Move this fixed string to a constant or configuration if it needs to be reused or changed in the future with rebranding.
+    private static readonly byte[] labelBytes = [0x4B, 0x45, 0x52, 0x49, 0x20, 0x41, 0x75, 0x74, 0x68];
 
     /// <inheritdoc />
     public byte[] Sha256(byte[] data) {
@@ -26,17 +22,14 @@ public class SubtleCryptoService : ICryptoService {
     }
 
     /// <inheritdoc />
+    // TODO P2: Consider using a more robust key derivation function (e.g., HKDF) instead of a simple hash-based approach.
     public byte[] DeriveKeyFromPrf(string profileId, byte[] prfOutput) {
-        // Formula: SHA256(profileId || prfOutput || "KERI Auth")
         var profileIdBytes = Encoding.UTF8.GetBytes(profileId);
-        var labelBytes = Encoding.UTF8.GetBytes(KeriAuthLabel);
-
-        // Concatenate: profileId || prfOutput || "KERI Auth"
+        // Concatenate: profileId || prfOutput || labelBytes
         var combined = new byte[profileIdBytes.Length + prfOutput.Length + labelBytes.Length];
         Buffer.BlockCopy(profileIdBytes, 0, combined, 0, profileIdBytes.Length);
         Buffer.BlockCopy(prfOutput, 0, combined, profileIdBytes.Length, prfOutput.Length);
         Buffer.BlockCopy(labelBytes, 0, combined, profileIdBytes.Length + prfOutput.Length, labelBytes.Length);
-
         return Sha256(combined);
     }
 
