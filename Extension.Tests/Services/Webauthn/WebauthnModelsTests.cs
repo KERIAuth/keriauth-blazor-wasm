@@ -159,6 +159,7 @@ public class WebauthnModelsTests {
     public void CreateCredentialOptions_Serialization_RoundTrip() {
         // Arrange
         var original = new CreateCredentialOptions {
+            RpName = "RP_NAME",
             ExcludeCredentialIds = ["cred1", "cred2"],
             ResidentKey = "required",
             AuthenticatorAttachment = "platform",
@@ -166,7 +167,7 @@ public class WebauthnModelsTests {
             Attestation = "none",
             Hints = ["client-device"],
             UserIdBase64 = "dXNlci1pZA==",
-            UserName = "KERI Auth (123456)",
+            UserName = "USER_NAME (123456)",
             PrfSaltBase64 = "c2FsdC12YWx1ZQ=="
         };
 
@@ -191,6 +192,7 @@ public class WebauthnModelsTests {
     public void CreateCredentialOptions_AuthenticatorAttachment_CanBeNull() {
         // Arrange
         var options = new CreateCredentialOptions {
+            RpName = "RP_NAME",
             ExcludeCredentialIds = [],
             ResidentKey = "preferred",
             AuthenticatorAttachment = null,
@@ -215,6 +217,7 @@ public class WebauthnModelsTests {
     public void CreateCredentialOptions_UsesCorrectPropertyNames() {
         // Arrange
         var options = new CreateCredentialOptions {
+            RpName = "RP_NAME",
             ExcludeCredentialIds = [],
             ResidentKey = "required",
             UserVerification = "required",

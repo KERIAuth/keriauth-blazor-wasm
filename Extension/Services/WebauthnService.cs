@@ -93,6 +93,7 @@ public class WebauthnService : IWebauthnService {
 
             // Step 1: Create credential
             var createOptions = new CreateCredentialOptions {
+                RpName = AppConfig.ProductName,
                 ExcludeCredentialIds = excludeCredentialIds,
                 ResidentKey = residentKey,
                 AuthenticatorAttachment = normalizedAttachment,

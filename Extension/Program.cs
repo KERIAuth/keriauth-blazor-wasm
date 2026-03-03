@@ -10,7 +10,6 @@ using Extension.Services.SignifyService;
 using Extension.Services.Storage;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.JSInterop;
 using MudBlazor.Services;
 
 // Program and Main are implicit and static
@@ -53,6 +52,13 @@ using MudBlazor.Services;
 // message instead of silent failure. Would require error handling in beforeStart().
 //
 // ==================================================================================
+
+// ==================================================================================
+// KNOWN ISSUE: Error when deserializing JSON for chrome_update
+// ==================================================================================
+// SYMPTOM: When the extension receives the chrome_update message, it attempts to deserialize the JSON payload into a ChromeUpdateInfo object. If the JSON structure has changed
+// (e.g., new fields added) and the deserialization code is not updated accordingly, it can throw a JsonException. This error would occur in the BackgroundWorker when processing the message.
+// Uncaught (in promise) Error: Error when deserializing JSON: {"__jsBindAccessPath":"#5eb4e011-80c5-4c1f-9533-6d82b11ceac8","__jsBindJsRuntime":0,"reason":"chrome_update"}
 
 // STARTUP DIAGNOSTIC: Log to console before any builder initialization
 // This helps identify if SRI integrity errors prevent WASM from loading

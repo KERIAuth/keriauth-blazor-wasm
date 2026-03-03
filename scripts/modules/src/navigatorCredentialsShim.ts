@@ -5,10 +5,7 @@
 
 /// <reference types="chrome-types" />
 
-import { PRODUCT_NAME } from '@keriauth/types';
-
 // Constants matching the C# WebauthnService expectations
-const CREDS_CREATE_RP: PublicKeyCredentialRpEntity = { name: PRODUCT_NAME };
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -8, type: 'public-key' },   // EdDSA
     { alg: -7, type: 'public-key' },   // ES256
@@ -47,6 +44,8 @@ export interface CredentialAssertionResult {
  * Options for credential creation, passed from C#.
  */
 export interface CreateCredentialOptions {
+    /** Relying party name for WebAuthn credential (e.g., product name) */
+    rpName: string;
     /** Existing credential IDs to exclude (Base64URL) */
     excludeCredentialIds: string[];
     /** Resident key requirement: "required" | "preferred" | "discouraged" */
@@ -237,7 +236,7 @@ export async function createCredential(
 
     // Build creation options
     const publicKeyOptions: PublicKeyCredentialCreationOptions & { hints?: string[] } = {
-        rp: CREDS_CREATE_RP,
+        rp: { name: options.rpName },
         user,
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         pubKeyCredParams: CREDS_PUBKEY_PARAMS,

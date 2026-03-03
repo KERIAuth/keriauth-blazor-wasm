@@ -49,6 +49,10 @@ public record CredentialAssertionResult {
 /// Options for WebAuthn credential creation, serialized to JSON for TypeScript.
 /// </summary>
 public record CreateCredentialOptions {
+    /// <summary>Relying party name for WebAuthn credential (e.g., product name)</summary>
+    [JsonPropertyName("rpName")]
+    public required string RpName { get; init; }
+
     /// <summary>Existing credential IDs to exclude (Base64URL)</summary>
     [JsonPropertyName("excludeCredentialIds")]
     public required List<string> ExcludeCredentialIds { get; init; }
