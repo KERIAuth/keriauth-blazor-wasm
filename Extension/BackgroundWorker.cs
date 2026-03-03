@@ -13,8 +13,8 @@ using Extension.Models.Messages.Port;
 using Extension.Models.Storage;
 using Extension.Services;
 using Extension.Services.JsBindings;
-using Extension.Services.Port;
 using Extension.Services.NotificationPollingService;
+using Extension.Services.Port;
 using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
@@ -777,7 +777,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             WebExtensions.ContextMenus.Create(new() {
                 Id = "launchTab",
-                Title = "Open in tab",
+                Title = "🌐 Open in Tab",
                 Contexts = [MenusContextType.Action]
             });
 
@@ -947,6 +947,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// The App will read the pending request from storage and route to the appropriate page.
     /// </summary>
     /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
+
+    // TODO P1: See https://chatgpt.com/c/69a724de-ad10-832b-b727-fc4ecf6b5bcf for discussion on refactor to separate the storage of the pending request from the UI logic of choosing SidePanel vs Action popup. This will simplify the logic and make it more reusable.
     private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest) {
         try {
             logger.LogInformation(nameof(UseSidePanelOrActionPopupAsync) + ": type={Type}, requestId={RequestId}, tabId={TabId}",
