@@ -758,6 +758,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case "launchTab":
                     await OpenOrFocusOptionsTabAsync();
                     break;
+                case "openSidePanel":
+                    // Side panel open is handled by JS listener in app.ts for user gesture preservation
+                    break;
                 default:
                     logger.LogWarning(nameof(OnContextMenuClickedAsync) + ": Unknown menu item clicked: {MenuItemId}", info.MenuItemId);
                     break;
@@ -776,7 +779,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             WebExtensions.ContextMenus.Create(new() {
                 Id = "launchTab",
-                Title = "🌐 Open in Tab",
+                Title = "🌐 Open in tab",
+                Contexts = [MenusContextType.Action]
+            });
+
+            WebExtensions.ContextMenus.Create(new() {
+                Id = "openSidePanel",
+                Title = $"📌 Open in side panel",
                 Contexts = [MenusContextType.Action]
             });
 

@@ -650,6 +650,19 @@ export async function beforeStart(
             });
 
             // ==================================================================================
+            // CONTEXT MENU: OPEN SIDE PANEL
+            // ==================================================================================
+            // Must call chrome.sidePanel.open() immediately (no async work before it)
+            // to preserve the user gesture. See https://groups.google.com/a/chromium.org/g/chromium-extensions/c/d5ky9SiZlqQ
+            chrome.contextMenus.onClicked.addListener((info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) => {
+                if (info.menuItemId !== 'openSidePanel') return;
+                if (!tab?.id) return;
+                chrome.sidePanel.open({ tabId: tab.id }).catch((err: unknown) => {
+                    console.warn(`app.ts: ${_logTag} sidePanel.open failed:`, err);
+                });
+            });
+
+            // ==================================================================================
             // CONTEXT MENU PERMISSION CHANGE HANDLERS
             // ==================================================================================
             //
