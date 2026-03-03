@@ -40,7 +40,7 @@ public record StoredPasskey {
 
     /// <summary>
     /// Passcode encrypted with AES-GCM using key derived from PRF output.
-    /// Key derivation: SHA256(keriaConnectionDigest || prfOutput || "KERI Auth").
+    /// Key derivation: See DeriveKeyFromPrf() in SubtleCryptoService.cs
     /// </summary>
     [JsonPropertyName("EncryptedPasscodeBase64")]
     public required string EncryptedPasscodeBase64 { get; init; }

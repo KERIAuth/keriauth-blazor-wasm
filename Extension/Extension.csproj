@@ -225,9 +225,9 @@
     </PropertyGroup>
 
     <!-- Only show guidance for local builds, not CI -->
-    <Message Importance="high" Text="Building KERI Auth Browser Extension in WSL. If build fails with NuGet package errors, ensure Visual Studio and Windows Explorer are closed." Condition="'$(IsWSL)' == 'true' AND '$(IsCI)' != 'true'" />
-    <Message Importance="high" Text="Building KERI Auth Browser Extension on Windows. If npm commands fail, ensure no WSL processes are accessing the project directory." Condition="'$(IsWindows)' == 'true' AND '$(IsCI)' != 'true'" />
-    <Message Importance="normal" Text="Building KERI Auth Browser Extension in CI environment." Condition="'$(IsCI)' == 'true'" />
+    <Message Importance="high" Text="Building browser extension in WSL. If build fails with NuGet package errors, ensure Visual Studio and Windows Explorer are closed." Condition="'$(IsWSL)' == 'true' AND '$(IsCI)' != 'true'" />
+    <Message Importance="high" Text="Building browser extension on Windows. If npm commands fail, ensure no WSL processes are accessing the project directory." Condition="'$(IsWindows)' == 'true' AND '$(IsCI)' != 'true'" />
+    <Message Importance="normal" Text="Building browser extension in CI environment." Condition="'$(IsCI)' == 'true'" />
   </Target>
 
   <Target Name="RemoveTypeScriptSourceFiles" AfterTargets="Build">

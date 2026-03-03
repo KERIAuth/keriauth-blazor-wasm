@@ -25,28 +25,14 @@
 @implements IAsyncDisposable
 
 @code {
-    // TODO P2 restructure as a record?
-    struct Preset
-    {
-        public string ProviderName { get; init; }
-        public string AgentUrl { get; init; }
-        public string BootUrl { get; init; }
-        public Preset(string provider, string adminUrl, string bootUrl)
-        {
-            ProviderName = provider;
-            AgentUrl = adminUrl;
-            BootUrl = bootUrl;
-        }
-    }
-
     class UrlModel
     {
         // TODO P2 add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
         [Required]
         [Url(ErrorMessage = "Enter KERIA Agent Admin URL")]
-        public string AdminUrl { get; set; } = presetAgents[0].AgentUrl;
+        public string AdminUrl { get; set; } = AppConfig.PresetAgents[0].AgentUrl;
 
-        public string? BootUrl { get; set; } = presetAgents[0].BootUrl;
+        public string? BootUrl { get; set; } = AppConfig.PresetAgents[0].BootUrl;
     }
 
     // TODO P3 DRY with UnlockView
@@ -68,21 +54,10 @@
     OperationDisplay Ops4ListAids { get; } = new OperationDisplay("Retrieving your profiles", "Retrieved profiles");
     OperationDisplay Ops5CreatePersonalAid { get; } = new OperationDisplay("Creating personal profile", "Created new profile");
     OperationDisplay Ops6AllDone { get; } = new OperationDisplay("Press Next to continue", "Press Next to continue →");
-    // TODO P2 load presets from AppConfig or external source
-    static List<Preset> presetAgents = new List<Preset>
-    {
-        new Preset("KERI Auth Test Cloud", "https://keria.cloud.keriauth.com", "https://keria-boot.cloud.keriauth.com"),
-        // TODO P2: add basic auth for agent Boot
-        // Note: GLEIF Test Cloud boot is :3903; however, that requires a HTTP Basic Auth request, and we don't yet support sending a Base64-encoded username (empty) and password, e.g. "Authorization: Basic dXNlcjpwYXNzd29yZA=="
-        new Preset("GLEIF Test Cloud", "https://keria.testnet.gleif.org:3901", ""),
-        new Preset("Veridian Testnet", "https://keria.veridian.dandelion.link", "https://keria-boot.veridian.dandelion.link"),
-        new Preset("Veridian Dev Testnet", "https://keria.dev.idw-sandboxes.cf-deployments.org", "https://keria-boot.dev.idw-sandboxes.cf-deployments.org"),
-        new Preset("localhost", AppConfig.LocalhostKeriaAdminUrl, AppConfig.LocalhostKeriaBootUrl),
-        new Preset("Custom", "", "")
-    };
+    static List<AppConfig.KeriaPreset> presetAgents = AppConfig.PresetAgents;
     private MudTextField<string>? _newPasscodeTextField;
     WebExtensionsApi? webExtensionsApi;
-    Preset _presetChoice = presetAgents[0];
+    AppConfig.KeriaPreset _presetChoice = presetAgents[0];
     UrlModel urlModel = new UrlModel()
     {
         AdminUrl = presetAgents[0].AgentUrl,
@@ -115,7 +90,7 @@
     FlowStep _currentStep = FlowStep.NotStarted;
     int? _failedAtStep = null; // Track which step failed for error display
     string? _errorMessage = null; // Error message for failed step
-    Preset PresetChoice
+    AppConfig.KeriaPreset PresetChoice
     {
         get
         {
@@ -130,7 +105,7 @@
     }
 
     // reactive properties
-    Preset defaultPreset => presetAgents[0];
+    AppConfig.KeriaPreset defaultPreset => presetAgents[0];
     bool IsValidAdminURL =>
         !string.IsNullOrWhiteSpace(urlModel.AdminUrl) &&
         Uri.IsWellFormedUriString(urlModel.AdminUrl, UriKind.Absolute);
@@ -922,7 +897,7 @@
             <MudStack Class="ml-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudText Style="min-width: 8.571rem;">Provider</MudText>
-                    <MudSelect T="Preset" @bind-Value="@PresetChoice" Disabled="@IsFlowStarted" Style="flex-grow: 1;">
+                    <MudSelect T="AppConfig.KeriaPreset" @bind-Value="@PresetChoice" Disabled="@IsFlowStarted" Style="flex-grow: 1;">
                         @foreach (var preset in presetAgents)
                         {
                             <MudSelectItem Value="@preset">@preset.ProviderName</MudSelectItem>

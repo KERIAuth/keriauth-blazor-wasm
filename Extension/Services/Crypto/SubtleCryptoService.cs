@@ -13,7 +13,8 @@ public class SubtleCryptoService(IJSRuntime jsRuntime, ILogger<SubtleCryptoServi
     private readonly ILogger<SubtleCryptoService> _logger = logger;
     private IJSObjectReference? _cryptoModule;
 
-    // TODO P3: Move this fixed string to a constant or configuration if it needs to be reused or changed in the future with rebranding.
+    // Note: This is a cryptographic domain separator. Changing this value will invalidate
+    // all existing passkeys registrations. It may be changed in the future if that's desireable, such as when rebranding.
     private static readonly byte[] labelBytes = [0x4B, 0x45, 0x52, 0x49, 0x20, 0x41, 0x75, 0x74, 0x68];
 
     /// <inheritdoc />

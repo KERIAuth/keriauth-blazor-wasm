@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Pre-build check script for KERI Auth Browser Extension
+ * Pre-build check script for browser extension
  * Verifies that TypeScript has been compiled before dotnet build packages the extension
  *
  * Usage: node check-build-ready.js

@@ -416,13 +416,13 @@
                                 </MudListItem>
                             </MudList>
                             <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
-                                <b>Note:</b> Windows Hello and Apple Touch ID/Face ID do not currently support the PRF extension required by KERI Auth.
+                                <b>Note:</b> Windows Hello and Apple Touch ID/Face ID do not currently support the PRF extension required by @AppConfig.ProductName.
                             </MudAlert>
                         </MudStack>
                         <MudStack Class="mt-4">
                             <MudText Style="font-weight:bold;">How does this work?</MudText>
                             <MudText>
-                                During creation, you'll follow your browser's prompts. Once created, you can use this passkey on this computer to unlock KERI Auth without typing your passcode.
+                                During creation, you'll follow your browser's prompts. Once created, you can use this passkey on this computer to unlock @AppConfig.ProductName without typing your passcode.
                             </MudText>
                             <MudText Class="mt-2">
                                 Each passkey uses the authenticator's Pseudo-random Function (PRF) to derive a unique encryption key. Your passcode is encrypted with this key and stored in your browser profile - the passcode itself is not stored when the extension is inactive.

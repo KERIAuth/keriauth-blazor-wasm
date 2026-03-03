@@ -1,4 +1,4 @@
-# Makefile for KERI Auth browser extension
+# Makefile for browser extension
 # Builds exclusively in WSL (Ubuntu). Windows builds are not supported.
 #
 # Targets:

@@ -1,4 +1,4 @@
-# KERI Auth Browser Extension
+# Browser Extension
 # Page <-> Content Script Messages
 
 Summary of requests from web page to content script, and expected replies back
@@ -17,6 +17,6 @@ Summary of requests from web page to content script, and expected replies back
 
 
 ## References
-- [KERI Auth Content Script](https://github.com/KERIAuth/keriauth-blazor-wasm/blob/main/Extension/wwwroot/scripts/esbuild/ContentScript.ts)
+- [Content Script](https://github.com/KERIAuth/keriauth-blazor-wasm/blob/main/Extension/wwwroot/scripts/esbuild/ContentScript.ts)
 - [Signify-browser-extension event-types](https://github.com/WebOfTrust/signify-browser-extension/blob/main/src/config/event-types.ts)
 - [Polaris-web Page Messages](https://github.com/WebOfTrust/polaris-web/src/client.ts)

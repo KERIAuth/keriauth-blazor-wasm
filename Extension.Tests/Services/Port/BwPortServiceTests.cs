@@ -1,5 +1,6 @@
 namespace Extension.Tests.Services.Port;
 
+using Extension;
 using Extension.Models;
 using Extension.Models.Storage;
 using Extension.Services;
@@ -261,7 +262,7 @@ public class BwPortServiceTests : IAsyncLifetime {
             .ReturnsAsync(Result.Ok());
 
         // Act
-        await _sut.CleanupAllPendingRequestsAsync("KERI Auth locked due to inactivity");
+        await _sut.CleanupAllPendingRequestsAsync($"{AppConfig.ProductName} locked due to inactivity");
 
         // Assert - Both requests should be removed
         _mockPendingRequestService.Verify(

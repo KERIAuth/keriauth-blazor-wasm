@@ -15,7 +15,7 @@ public interface ICryptoService {
 
     /// <summary>
     /// Derives a 256-bit AES encryption key from PRF output using SHA-256.
-    /// Formula: SHA256(profileId || prfOutput || "KERI Auth")
+    /// Formula: SHA256(profileId || prfOutput || AppConfig.ProductName)
     /// </summary>
     /// <param name="profileId">The browser profile identifier (UUID string).</param>
     /// <param name="prfOutput">The PRF output from WebAuthn authenticator (32 bytes).</param>

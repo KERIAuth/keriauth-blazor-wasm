@@ -24,6 +24,24 @@ namespace Extension {
         public const string LocalhostKeriaAdminUrl = "http://localhost:3901";
         public const string LocalhostKeriaBootUrl = "http://localhost:3903";
 
+        public readonly struct KeriaPreset(string provider, string adminUrl, string bootUrl) {
+            public string ProviderName { get; } = provider;
+            public string AgentUrl { get; } = adminUrl;
+            public string BootUrl { get; } = bootUrl;
+        }
+
+        // TODO P2 load presets from external source
+        public static readonly List<KeriaPreset> PresetAgents = [
+            new KeriaPreset($"{ProductName} Test Cloud", "https://keria.cloud.keriauth.com", "https://keria-boot.cloud.keriauth.com"),
+            // TODO P2: add basic auth for agent Boot
+            // Note: GLEIF Test Cloud boot is :3903; however, that requires a HTTP Basic Auth request, and we don't yet support sending a Base64-encoded username (empty) and password, e.g. "Authorization: Basic dXNlcjpwYXNzd29yZA=="
+            new KeriaPreset("GLEIF Test Cloud", "https://keria.testnet.gleif.org:3901", ""),
+            new KeriaPreset("Veridian Testnet", "https://keria.veridian.dandelion.link", "https://keria-boot.veridian.dandelion.link"),
+            new KeriaPreset("Veridian Dev Testnet", "https://keria.dev.idw-sandboxes.cf-deployments.org", "https://keria-boot.dev.idw-sandboxes.cf-deployments.org"),
+            new KeriaPreset("localhost", LocalhostKeriaAdminUrl, LocalhostKeriaBootUrl),
+            new KeriaPreset("Custom", "", "")
+        ];
+
         // default Preferences
         public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
         public const float MaxInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
@@ -61,9 +79,15 @@ namespace Extension {
         public const int ExpectedTermsDigest = -497501087;
         public const int ExpectedPrivacyDigest = -680234369;
 
-        // Branding and localization
-        public const string ExampleAlias = "e.g., NewCredentialApprover";
+        // Branding
         public const string ProductName = "KERI Auth";
+        public const string FullProductName = "KERI Auth Identity Wallet";
+        public const string LogPrefix = "KERIAuth";
+        public const string WebsiteUrl = "https://keriauth.com";
+        public const string UninstallUrl = "https://keriauth.com/uninstall.html";
+
+        // localization
+        public const string ExampleAlias = "e.g., NewCredentialApprover";
 
         public static readonly MudTheme MyCustomTheme = new() {
             // See also https://mudblazor.com/customization/default-theme

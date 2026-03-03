@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Extension;
 using Extension.Services.Crypto;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -154,13 +155,13 @@ public class SubtleCryptoServiceTests {
 
     [Fact]
     public void DeriveKeyFromPrf_ShouldMatchExpectedFormula() {
-        // Arrange - test that the formula is SHA256(profileId || prfOutput || "KERI Auth")
+        // Arrange - test that the formula is SHA256(profileId || prfOutput || AppConfig.ProductName)
         var profileId = "test-profile";
         var prfOutput = Encoding.UTF8.GetBytes("12345678901234567890123456789012"); // 32 bytes
 
         // Manually compute expected result
         var profileIdBytes = Encoding.UTF8.GetBytes(profileId);
-        var labelBytes = Encoding.UTF8.GetBytes("KERI Auth");
+        var labelBytes = Encoding.UTF8.GetBytes(AppConfig.ProductName);
         var combined = new byte[profileIdBytes.Length + prfOutput.Length + labelBytes.Length];
         Buffer.BlockCopy(profileIdBytes, 0, combined, 0, profileIdBytes.Length);
         Buffer.BlockCopy(prfOutput, 0, combined, profileIdBytes.Length, prfOutput.Length);

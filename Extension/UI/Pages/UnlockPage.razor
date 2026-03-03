@@ -342,7 +342,7 @@
     {
         if (!appCache.IsConfigured)
         {
-            throw new InvalidOperationException("KERI Auth is not configured");
+            throw new InvalidOperationException("The extension is not configured");
         }
     }
 
@@ -354,7 +354,7 @@
         // precondition: the app must be in expected config state to unlock
         if (!appCache.IsKeriaConfigValidated)
         {
-            throw new InvalidOperationException("KERI Auth configuration is not validated");
+            throw new InvalidOperationException("The extension configuration is not validated");
         }
         // clear anything left over in session storage from previous session (but preserve BwReadyState)
         await sessionManager.ClearKeriaSessionRecordsAsync();
@@ -400,7 +400,7 @@
         }
         else
         {
-            openWalletError = "KERI Auth was not configured with this passcode on this browser profile.";
+            openWalletError = $"{AppConfig.ProductName} was not configured with this passcode on this browser profile.";
             snackbar.Add(openWalletError, Severity.Error);
             await passcodeField!.Clear();
             await passcodeField!.SelectAsync();
@@ -677,7 +677,7 @@
                     <MudImage Style="align-self:center;" Fluid="true" Width="190" Class="mx-11" Src="/images/humans_1.png">
                     </MudImage>
                     <MudText Typo="Typo.h5">
-                        <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">Keri Auth</span>
+                        <span style="font-weight:bold; font-variant: small-caps; font-size:larger;">@AppConfig.ProductName</span>
                         <br />
                         <span style="font-style:italic; font-size:initial;">@taglineText</span>
                     </MudText>

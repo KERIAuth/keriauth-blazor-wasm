@@ -452,7 +452,7 @@ namespace Extension.Tests.Models {
         [Fact]
         public void ConnectionInviteResponse_RoundTrip() {
             // Arrange: BW returns reciprocal OOBI to CS
-            var response = new ConnectionInviteResponse("http://keriauth.example/oobi/EAbc123");
+            var response = new ConnectionInviteResponse("http://extension.example/oobi/EAbc123");
 
             // Act
             var json = JsonSerializer.Serialize(response, _jsonOptions);
@@ -460,7 +460,7 @@ namespace Extension.Tests.Models {
 
             // Assert
             Assert.NotNull(deserialized);
-            Assert.Equal("http://keriauth.example/oobi/EAbc123", deserialized.Oobi);
+            Assert.Equal("http://extension.example/oobi/EAbc123", deserialized.Oobi);
         }
 
         [Fact]

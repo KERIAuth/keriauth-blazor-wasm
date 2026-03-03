@@ -1,4 +1,4 @@
-# KERI Auth Manual Test Case Outline
+# Extension Manual Test Case Outline
 
 ## Test Environment Setup
 ### OS
@@ -12,7 +12,7 @@
 - [ ] Profile authenticated with Google account
 - [ ] Anonymouse profile
 - [ ] Incognito
-### KERI Auth Install Source / Variant
+### Extension Install Source / Variant
 - [ ] Developer Load via Extension page
 	- [ ] Debug
 	- [ ] Release

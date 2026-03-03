@@ -1,4 +1,4 @@
-# Passkey Support in KERI Auth
+# Passkey Support
 
 ## What do I need?
 
@@ -11,7 +11,7 @@ You'll need an authenticator that supports the CTAP 2.1 standard with the PRF (P
 
 ### Unsupported Authenticators
 
-The following authenticators do **not** currently support the PRF extension required by KERI Auth:
+The following authenticators do **not** currently support the PRF extension required by the extension:
 
 - **Windows Hello** - Does not support PRF extension
 - **Apple Touch ID / Face ID** - Does not support PRF extension
@@ -19,30 +19,30 @@ The following authenticators do **not** currently support the PRF extension requ
 
 ## How does this work?
 
-When you register an authenticator with KERI Auth:
+When you register an authenticator with the extension:
 
-1. **KERI Auth interacts with the authenticator**, sending it data unique to your browser profile (a deterministic salt derived from your profile ID).
+1. **The extension interacts with the authenticator**, sending it data unique to your browser profile (a deterministic salt derived from your profile ID).
 
 2. **The authenticator uses its Pseudo-random Function (PRF)** to generate a unique cryptographic output. This output is derived from:
    - The unique salt data it received
    - Hardware-specific key material internal to the authenticator
 
-3. **KERI Auth derives an encryption key** from the PRF output. This key is:
+3. **The extension derives an encryption key** from the PRF output. This key is:
    - Never stored anywhere
-   - Unique to the combination of: browser profile + KERI Auth + the specific registered authenticator
+   - Unique to the combination of: browser profile + the extension + the specific registered authenticator
 
 4. **Your passcode is encrypted** using this derived key and stored securely in your browser profile, accessible only to the extension.
 
-5. **On subsequent unlocks**, the same PRF process is repeated to derive the same encryption key, allowing KERI Auth to decrypt your passcode.
+5. **On subsequent unlocks**, the same PRF process is repeated to derive the same encryption key, allowing the extension to decrypt your passcode.
 
 ## Important Security Note
 
-Your passcode is **never stored directly** by KERI Auth or any authenticator. Only the encrypted version is kept in your browser profile.
+Your passcode is **never stored directly** by the extension or any authenticator. Only the encrypted version is kept in your browser profile.
 
 **You must continue to keep your passcode safely stored** in the event:
 - An authenticator becomes unavailable or is lost
 - The browser profile is reset or deleted
-- The KERI Auth extension is reinstalled
+- The extension is reinstalled
 
 Without your passcode, you cannot recover access if all registered authenticators become unavailable.
 

@@ -49,7 +49,7 @@
             <MudText Class="bt-page-title">Welcome</MudText>
             <MudStack>
                 <MudText Typo="Typo.body1">
-                    Thank you for installing the KERI Auth Identity Wallet
+                    Thank you for installing the @AppConfig.FullProductName
                 </MudText>
                 <MudText Class="bt-terms-markup mud-typography mud-typography-body1">
                     Features Include:
@@ -63,7 +63,7 @@
                             Interact with websites that support the polaris-web protocol:
                             <ul>
                                 <li>
-                                    Allow KERI Auth to interact:
+                                    Allow @AppConfig.ProductName to interact:
                                     <ul>
                                         <li>Manually, by pressing the extension's action icon (in top-right corner of browser's window, or click extension puzzle-piece icon)</li>
                                         <li>Automatically, on website load if previously allowed</li>
@@ -83,7 +83,7 @@
                     </ol>
                 </MudText>
                 <!-- 
-                <MudText Typo="Typo.body1">For more information, see <a href="https://keriauth.com" target="blank">keriauth.com</a>.</MudText>
+                <MudText Typo="Typo.body1">For more information, see <a href="@AppConfig.WebsiteUrl" target="blank">@(new Uri(AppConfig.WebsiteUrl).Host)</a>.</MudText>
                 -->
             </MudStack>
         </div>

@@ -322,7 +322,7 @@
                                            OnClick="StartEditConnectionName" />
                         }
                     </MudStack>
-                    <MudText>KERI Auth used your passcode to generate your Client AID and its Prefix, which upon initial connection with the configured KERIA service, delegated signing authority to your Agent AID there.</MudText>
+                    <MudText>@AppConfig.ProductName used your passcode to generate your Client AID and its Prefix, which upon initial connection with the configured KERIA service, delegated signing authority to your Agent AID there.</MudText>
                     @if (!string.IsNullOrEmpty(_config.ClientAidPrefix) && !string.IsNullOrEmpty(_config.AgentAidPrefix))
                     {
                         <MudStack Row="true" Style="align-items: center;">

@@ -45,8 +45,7 @@ namespace Extension;
 public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     // Constants
-    // TODO P2 move to AppConfig.cs and set a real URL that Chrome will open when the extension is uninstalled, to be used for survey or cleanup instructions.
-    private const string UninstallUrl = "https://keriauth.com/uninstall.html";
+    private static readonly string UninstallUrl = AppConfig.UninstallUrl;
     private const string DefaultVersion = "unknown";
 
     // private static bool isInitialized;
@@ -425,7 +424,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // 1) Compute per-origin match patterns from the clicked tab
             var matchPatterns = BuildMatchPatternsFromTabUrl(tab.Url);
             if (matchPatterns.Count == 0) {
-                logger.LogInformation("KERIAuth BW: Unsupported or restricted URL scheme; not registering persistence. URL: {Url}", tab.Url);
+                logger.LogInformation(AppConfig.LogPrefix + " BW: Unsupported or restricted URL scheme; not registering persistence. URL: {Url}", tab.Url);
                 return;
             }
 
@@ -440,20 +439,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             try {
                 granted = await WebExtensions.Permissions.Contains(anyPermissions);
                 if (granted) {
-                    logger.LogInformation("KERIAuth BW: Persistent host permission already granted for {Patterns}", string.Join(", ", matchPatterns));
+                    logger.LogInformation(AppConfig.LogPrefix + " BW: Persistent host permission already granted for {Patterns}", string.Join(", ", matchPatterns));
                 }
                 else {
-                    logger.LogInformation("KERIAuth BW: Persistent host permission not granted for {Patterns}. Will inject for current tab only using activeTab.", string.Join(", ", matchPatterns));
+                    logger.LogInformation(AppConfig.LogPrefix + " BW: Persistent host permission not granted for {Patterns}. Will inject for current tab only using activeTab.", string.Join(", ", matchPatterns));
                 }
             }
             catch (Exception ex) {
-                logger.LogWarning(ex, "KERIAuth BW: Could not check persistent host permissions - will use activeTab");
+                logger.LogWarning(ex, AppConfig.LogPrefix + " BW: Could not check persistent host permissions - will use activeTab");
             }
             */
             // NOTE: Content script injection is now handled in app.js beforeStart() hook
             // This preserves the user gesture required for permission requests
             // The JavaScript handler runs before this C# handler and handles all injection logic
-            logger.LogInformation("KERIAuth BW: Content script injection handled by app.js - no action needed in C# handler");
+            logger.LogInformation(AppConfig.LogPrefix + " BW: Content script injection handled by app.js - no action needed in C# handler");
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(OnActionClickedAsync) + ": Error handling action click");
