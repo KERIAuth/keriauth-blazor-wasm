@@ -3,6 +3,7 @@
     "default_title": "KERI Auth",
     "default_icon": {
       "16": "images/logob016.png",
+      "24": "images/logob024.png",
       "32": "images/logob032.png",
       "48": "images/logob048.png",
       "128": "images/logob128.png"
@@ -21,6 +22,7 @@
   "host_permissions": [],
   "icons": {
     "16": "images/logo016.png",
+    "32": "images/logo032.png",
     "48": "images/logo048.png",
     "128": "images/logo128.png",
     "512": "images/logo512.png"

@@ -12,7 +12,7 @@ This directory contains trademark and brand identity documentation for KERI Auth
 
 For build simplicity, branded assets remain in their original locations within the Extension project:
 
-- **Logos**: `Extension/wwwroot/images/` (logo.svg, logoB.svg, and sized PNGs)
+- **Logos**: `Extension/wwwroot/images/` (sized PNGs)
 - **Terms of Use**: `Extension/wwwroot/content/terms.html`
 - **Privacy Policy**: `Extension/wwwroot/content/privacy.html`
 

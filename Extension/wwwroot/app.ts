@@ -232,6 +232,7 @@ export async function beforeStart(
                     await chrome.action.setIcon({
                         path: {
                             16: chrome.runtime.getURL(`images/${iconPrefix}016.png`),
+                            24: chrome.runtime.getURL(`images/${iconPrefix}024.png`),
                             32: chrome.runtime.getURL(`images/${iconPrefix}032.png`),
                             48: chrome.runtime.getURL(`images/${iconPrefix}048.png`),
                             128: chrome.runtime.getURL(`images/${iconPrefix}128.png`)
