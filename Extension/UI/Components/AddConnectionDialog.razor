@@ -1,4 +1,5 @@
 @using Extension.Services.SignifyService
+@using Extension.Helper
 @inject IJSRuntime js
 
 @code {
@@ -99,7 +100,7 @@
     <DialogContent>
         @if (Mode == "invite")
         {
-            <MudText Typo="Typo.body1" Class="mb-3">Copy this OOBI and share it with the other party. They will need to resolve it on their side. For a mutual connection, you will also need to resolve their OOBI.</MudText>
+            <MudText Typo="Typo.body1" Class="mb-3">Share this (via clipboard or QR) with the other party. They will need to resolve it on their side. For a mutual connection, you will also need to resolve their OOBI.</MudText>
             <MudTextField @ref="_nameField"
                           @bind-Value="ConnectionName"
                           Label="Connection Name"
@@ -115,6 +116,9 @@
                               Lines="3"
                               Class="mt-3"
                               Style="font-family: monospace; font-size: 0.8rem;" />
+                <div style="display: flex; justify-content: center; margin-top: 12px; max-height: calc(30vh);">
+                    @((MarkupString)QrCodeHelper.ToSvgString(DisplayOobi!))
+                </div>
                 <MudButton StartIcon="@(IsCopied ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)"
                            OnClick="CopyOobi"
                            Variant="Variant.Text"
