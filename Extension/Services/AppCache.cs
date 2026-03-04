@@ -410,12 +410,12 @@
             IsTosAgreedUtc &&
             IsTosHashExpected;
         public bool IsTosAgreedUtc => MyOnboardState.TosAgreedUtc is not null;
-        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsDigest && AppConfig.ExpectedTermsDigest == App.CurrentTermsDigest;
+        public bool IsTosHashExpected => MyOnboardState.TosAgreedHash == AppConfig.ExpectedTermsDigest;
         public bool IsCurrentPrivacyAgreed =>
             IsPrivacyAgreedUtc &&
             IsPrivacyHashExpected;
         public bool IsPrivacyAgreedUtc => MyOnboardState.PrivacyAgreedUtc is not null;
-        public bool IsPrivacyHashExpected =>  MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyDigest && AppConfig.ExpectedPrivacyDigest == App.CurrentPrivacyDigest;
+        public bool IsPrivacyHashExpected => MyOnboardState.PrivacyAgreedHash == AppConfig.ExpectedPrivacyDigest;
         public bool IsTermsAndPrivacyAgreed => IsCurrentTosAgreed && IsCurrentPrivacyAgreed;
         public bool IsInstallAcknowledged =>
             MyOnboardState.IsWelcomed &&
@@ -647,64 +647,65 @@
         /// This ensures components don't see default values when storage has real data.
         /// </summary>
         private async Task FetchInitialStorageValuesAsync() {
-            await WaitForBwReadyOrThrowAsync();
+            // BW readiness already confirmed by EnsureInitializedAsync() before Initialize() is called.
+            // No need to wait again here.
 
-            // Fetch essential records
-            // These should "must" exist after BackgroundWorker.InitializeStorageDefaultsAsync() runs
+            // Fetch all storage records in parallel — each is an independent JS interop round-trip.
+            // Overlapping them reduces wall-clock time from 8 sequential calls to ~1 round-trip.
+            var prefsTask = storageService.GetItem<Preferences>();
+            var onboardTask = storageService.GetItem<OnboardState>();
+            var configsTask = storageService.GetItem<KeriaConnectConfigs>();
+            var connectionsTask = storageService.GetItem<Connections>();
+            var passcodeTask = storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            var connectionInfoTask = storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+            var pendingTask = storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            var notificationsTask = storageService.GetItem<Notifications>(StorageArea.Session);
 
-            // 1. Preferences
-            var prefsResult = await storageService.GetItem<Preferences>();
+            await Task.WhenAll(prefsTask, onboardTask, configsTask, connectionsTask,
+                passcodeTask, connectionInfoTask, pendingTask, notificationsTask);
+
+            // Apply results — Local storage records
+            var prefsResult = prefsTask.Result;
             if (prefsResult.IsSuccess && prefsResult.Value is not null) {
                 MyPreferences = prefsResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Preferences loaded (IsStored={IsStored})", prefsResult.Value.IsStored);
             }
             else {
-                // leaving default (without IsStored = true)
                 _logger.LogWarning(nameof(AppCache) + ": Initial fetch - Preferences not found or failed, using default");
             }
 
-            // 2. OnboardState
-            var onboardResult = await storageService.GetItem<OnboardState>();
+            var onboardResult = onboardTask.Result;
             if (onboardResult.IsSuccess && onboardResult.Value is not null) {
                 MyOnboardState = onboardResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - OnboardState loaded (IsStored={IsStored}, IsWelcomed={IsWelcomed})",
                     onboardResult.Value.IsStored, onboardResult.Value.IsWelcomed);
             }
             else {
-                // leaving default (without IsStored = true)
                 _logger.LogWarning(nameof(AppCache) + ": Initial fetch - OnboardState not found or failed, using default");
             }
 
-            // 3. KeriaConnectConfigs (may not exist on first run - created by ConfigurePage)
-            var configsResult = await storageService.GetItem<KeriaConnectConfigs>();
+            var configsResult = configsTask.Result;
             if (configsResult.IsSuccess && configsResult.Value is not null) {
                 MyKeriaConnectConfigs = configsResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectConfigs loaded (count={Count})",
                     configsResult.Value.Configs.Count);
             }
             else {
-                // leaving default (empty configs)
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectConfigs not found (expected on first run)");
             }
 
-            /*
-            // 3b. Legacy KeriaConnectConfig (for backward compatibility during transition)
-            var legacyConfigResult = await storageService.GetItem<KeriaConnectConfig>();
-            if (legacyConfigResult.IsSuccess && legacyConfigResult.Value is not null) {
-                _logger.LogDebug("AppCache: Initial fetch - Legacy KeriaConnectConfig found (AdminUrl={AdminUrl})",
-                    legacyConfigResult.Value.AdminUrl ?? "(null)");
-                // Note: MyKeriaConnectConfig is now computed from KeriaConnectConfigs
+            var connectionsResult = connectionsTask.Result;
+            if (connectionsResult.IsSuccess && connectionsResult.Value is not null) {
+                MyConnections = connectionsResult.Value;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections loaded (count={Count})",
+                    connectionsResult.Value.Items.Count);
             }
             else {
-                _logger.LogDebug("AppCache: Initial fetch - Legacy KeriaConnectConfig not found");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections not found (none stored)");
             }
-            */
 
-            // Fetch session-scoped records (Session storage - cleared on browser close)
-            // These may not exist if session is locked or browser was restarted
-
-            // 4. PasscodeModel (only exists when session is unlocked)
-            var passcodeResult = await storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            // Apply results — Session storage records (may not exist if session is locked or browser was restarted)
+            var passcodeResult = passcodeTask.Result;
             if (passcodeResult.IsSuccess && passcodeResult.Value is not null) {
                 MyPasscodeModel = passcodeResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PasscodeModel loaded (Passcode length={Length})",
@@ -714,8 +715,7 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PasscodeModel not found (session locked or new)");
             }
 
-            // 5. KeriaConnectionInfo (only exists when connected to KERIA)
-            var connectionResult = await storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+            var connectionResult = connectionInfoTask.Result;
             if (connectionResult.IsSuccess && connectionResult.Value is not null) {
                 MyKeriaConnectionInfo = connectionResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectionInfo loaded");
@@ -724,8 +724,7 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectionInfo not found (not connected)");
             }
 
-            // 6. PendingBwAppRequests (pending requests from BackgroundWorker)
-            var pendingRequestsResult = await storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            var pendingRequestsResult = pendingTask.Result;
             if (pendingRequestsResult.IsSuccess && pendingRequestsResult.Value is not null) {
                 MyPendingBwAppRequests = pendingRequestsResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PendingBwAppRequests loaded (count={Count})",
@@ -735,8 +734,7 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PendingBwAppRequests not found (none pending)");
             }
 
-            // 7. Notifications (session-scoped, cleared on browser close)
-            var notificationsResult = await storageService.GetItem<Notifications>(StorageArea.Session);
+            var notificationsResult = notificationsTask.Result;
             if (notificationsResult.IsSuccess && notificationsResult.Value is not null) {
                 MyNotifications = notificationsResult.Value;
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Notifications loaded (count={Count})",
@@ -744,17 +742,6 @@
             }
             else {
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Notifications not found (none stored)");
-            }
-
-            // 8. Connections (persistent in Local storage)
-            var connectionsResult = await storageService.GetItem<Connections>();
-            if (connectionsResult.IsSuccess && connectionsResult.Value is not null) {
-                MyConnections = connectionsResult.Value;
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections loaded (count={Count})",
-                    connectionsResult.Value.Items.Count);
-            }
-            else {
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections not found (none stored)");
             }
 
             _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete");

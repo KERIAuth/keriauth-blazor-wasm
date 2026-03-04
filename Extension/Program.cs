@@ -3,11 +3,12 @@ using Extension;
 using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
-using Extension.Services.Port;
 using Extension.Services.NotificationPollingService;
+using Extension.Services.Port;
 using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyService;
 using Extension.Services.Storage;
+using Extension.Utilities;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
@@ -144,15 +145,32 @@ catch (Exception ex) {
 
 // logger.LogInformation("All modules loaded successfully");
 
-// Signal to app.ts that the BackgroundWorker is ready to handle port connections.
-// This sets _wasmReady=true in the CLIENT_SW_HELLO handler so polling clients
-// get ready=true. Called after DI is configured and modules are loaded.
-// The slight delay before BackgroundWorker.Main() creates the component is handled
-// by the App's Phase 2 port handshake retry mechanism.
+// Verify terms and privacy digests at startup (BackgroundWorker only, runs once).
+// Moved here from App.razor to avoid blocking every App instance startup.
 if (extensionMode == BrowserExtensionMode.Background) {
-    // var jsRuntimeForSignal = host.Services.GetRequiredService<IJSRuntime>();
-    // await jsRuntimeForSignal.InvokeVoidAsync("__keriauth_setBwReady");
-    // logger.LogInformation("BW readiness signaled to app.ts");
+    try {
+        using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
+        var termsTask = http.GetStringAsync("content/terms.html");
+        var privacyTask = http.GetStringAsync("content/privacy.html");
+        await Task.WhenAll(termsTask, privacyTask);
+
+        static string Normalize(string s) => string.IsNullOrEmpty(s) ? s : s.TrimStart('\uFEFF').Replace("\r\n", "\n");
+        var termsDigest = DeterministicHash.ComputeHash(Normalize(termsTask.Result));
+        var privacyDigest = DeterministicHash.ComputeHash(Normalize(privacyTask.Result));
+
+        if (termsDigest != AppConfig.ExpectedTermsDigest) {
+            logger.LogError("CurrentTermsDigest {Current} does not match expected {Expected}. Needs updating!",
+                termsDigest, AppConfig.ExpectedTermsDigest);
+        }
+
+        if (privacyDigest != AppConfig.ExpectedPrivacyDigest) {
+            logger.LogError("CurrentPrivacyDigest {Current} does not match expected {Expected}. Needs updating!",
+                privacyDigest, AppConfig.ExpectedPrivacyDigest);
+        }
+    }
+    catch (Exception ex) {
+        logger.LogError(ex, "Failed to verify terms/privacy digests");
+    }
 }
 
 logger.LogInformation("{Ctx} Running WASM Host...", ctx);
