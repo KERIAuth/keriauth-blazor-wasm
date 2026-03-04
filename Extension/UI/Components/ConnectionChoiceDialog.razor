@@ -8,22 +8,26 @@
 
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.body1" Class="mb-3">Establishing a mutual connection with another party requires each to a) share an introduction (string or QR code) called an OOBI, and also to b) resolve an introduction from the other.
-The later action causes the new outbound connection to appear in your Connections list.</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">Establishing a mutual connection with another party requires each to<br/>
+        a) share an introduction (as a string or QR code) called an OOBI, and<br/>
+        b) get and resolve the other's introduction.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+        Once you get and resolve their introduction, a new outbound connection will appear in your Connections list.</MudText>
         <MudStack Spacing="2">
             <MudButton OnClick="SelectInvite"
                        Variant="Variant.Outlined"
                        Color="Color.Primary"
                        FullWidth="true"
                        StartIcon="@Icons.Material.Filled.Share">
-                Share my OOBI
+                Share my Introduction
             </MudButton>
             <MudButton OnClick="SelectReceive"
                        Variant="Variant.Outlined"
                        Color="Color.Primary"
                        FullWidth="true"
                        StartIcon="@Icons.Material.Filled.ContentPaste">
-                Resolve their OOBI
+                Get and Resolve their Introduction
             </MudButton>
         </MudStack>
     </DialogContent>

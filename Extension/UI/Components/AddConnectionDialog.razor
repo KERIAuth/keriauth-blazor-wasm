@@ -1,6 +1,10 @@
 @using Extension.Services.SignifyService
+@using Extension.Services.Storage
+@using Extension.Services
 @using Extension.Helper
 @inject IJSRuntime js
+@inject IStorageService storageService
+@inject AppCache appCache
 
 @code {
     [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
@@ -94,31 +98,40 @@
             _copiedAt = DateTime.UtcNow;
         }
     }
+
+    private bool _isScannerVisible;
+
+    private void OnQrScanned(string scannedText) {
+        OobiInput = scannedText;
+        TryExtractNameFromOobi(scannedText);
+        _isScannerVisible = false;
+    }
+
+    private async Task OnCameraDeviceChanged(string deviceId) {
+        var currentPrefs = appCache.MyPreferences;
+        if (currentPrefs.PreferredCameraDeviceId != deviceId) {
+            await storageService.SetItem(
+                currentPrefs with { PreferredCameraDeviceId = deviceId });
+        }
+    }
 }
 
-<MudDialog>
+<MudDialog Style="min-height: calc(60vh);">
     <DialogContent>
         @if (Mode == "invite")
         {
-            <MudText Typo="Typo.body1" Class="mb-3">Share this (via clipboard or QR) with the other party. They will need to resolve it on their side. For a mutual connection, you will also need to resolve their OOBI.</MudText>
+            <MudText Typo="Typo.body1" Class="mb-3">Provide an unambiguous connection name for the other party, such as your full name.<br/>Then, share your Introduction (OOBI) with them, either via your clipboard or by asking them to scan your QR Code.</MudText>
             <MudTextField @ref="_nameField"
                           @bind-Value="ConnectionName"
-                          Label="Connection Name"
+                          Label="Connection name"
                           Variant="Variant.Outlined"
                           Immediate="true"
                           OnKeyDown="OnKeyDown" />
             @if (!string.IsNullOrEmpty(DisplayOobi))
             {
-                <MudTextField Value="@DisplayOobi"
-                              Label="Your OOBI"
-                              Variant="Variant.Outlined"
-                              ReadOnly="true"
-                              Lines="3"
-                              Class="mt-3"
-                              Style="font-family: monospace; font-size: 0.8rem;" />
-                <div style="display: flex; justify-content: center; margin-top: 12px; max-height: calc(30vh);">
-                    @((MarkupString)QrCodeHelper.ToSvgString(DisplayOobi!))
-                </div>
+                <MudField Label="Your introduction URL" Variant="Variant.Outlined" Class="mt-3">
+                    <MudText Style="font-family: monospace; font-size: 0.8rem; word-break: break-all;">@DisplayOobi</MudText>
+                </MudField>
                 <MudButton StartIcon="@(IsCopied ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)"
                            OnClick="CopyOobi"
                            Variant="Variant.Text"
@@ -126,11 +139,23 @@
                            Class="mt-1">
                     @(IsCopied ? "Copied" : "Copy to clipboard")
                 </MudButton>
+
+                <div style="display: flex; justify-content: center; margin-top: 12px; max-height: calc(30vh);">
+                    @((MarkupString)QrCodeHelper.ToSvgString(DisplayOobi!))
+                </div>
             }
         }
         else
         {
-            <MudText Typo="Typo.body1" Class="mb-3">Paste the other party's OOBI to resolve their identifier. For a mutual connection, they will also need to resolve your OOBI.</MudText>
+            <MudText Typo="Typo.body1" Class="mb-3">Scan or paste the introduction (OOBI) provided by the other party. You can then edit the name of this new connection.</MudText>
+            <MudButton StartIcon="@Icons.Material.Filled.QrCodeScanner"
+                       OnClick="@(() => _isScannerVisible = true)"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Class="mt-2"
+                       FullWidth="true">
+                Scan QR Code
+            </MudButton>
             <MudTextField @ref="_oobiField"
                           Value="@OobiInput"
                           ValueChanged="@((string v) => OnOobiChanged(v))"
@@ -146,6 +171,10 @@
                           Immediate="true"
                           OnKeyDown="OnKeyDown"
                           Class="mt-3" />
+            <QrScanOverlay @bind-IsVisible="_isScannerVisible"
+                           OnScanned="OnQrScanned"
+                           PreferredCameraDeviceId="@(appCache.MyPreferences.PreferredCameraDeviceId)"
+                           OnCameraDeviceChanged="OnCameraDeviceChanged" />
         }
     </DialogContent>
     <DialogActions>

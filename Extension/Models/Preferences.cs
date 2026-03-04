@@ -64,5 +64,8 @@
 
         [JsonPropertyName("SelectedViewDefIds")]
         public Dictionary<string, string> SelectedViewDefIds { get; init; } = [];
+
+        [JsonPropertyName("PreferredCameraDeviceId")]
+        public string? PreferredCameraDeviceId { get; init; }
     }
 }

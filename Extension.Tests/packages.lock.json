@@ -196,6 +196,15 @@
           "Microsoft.JSInterop": "9.0.4"
         }
       },
+      "BlazorBarcodeScanner.ZXing.JS": {
+        "type": "Transitive",
+        "resolved": "1.0.4",
+        "contentHash": "HDUWxG45FaaWDiDX4R4c9CQHzp06/6Rae6E1oHqxcePKqQoKmB/vfrZizecJcjRATP+C91lwEbfGoMfaoDDUJw==",
+        "dependencies": {
+          "Microsoft.AspNetCore.Components": "7.0.14",
+          "Microsoft.AspNetCore.Components.Web": "7.0.14"
+        }
+      },
       "Castle.Core": {
         "type": "Transitive",
         "resolved": "5.2.1",
@@ -566,6 +575,7 @@
         "dependencies": {
           "Blazor.BrowserExtension": "[3.2.4, )",
           "Blazor.SubtleCrypto": "[9.0.0, )",
+          "BlazorBarcodeScanner.ZXing.JS": "[1.0.4, )",
           "Castle.Core": "[5.2.1, )",
           "Ensure.That": "[10.1.0, )",
           "FluentResults": "[4.0.0, )",

@@ -1,0 +1,147 @@
+@using BlazorBarcodeScanner.ZXing.JS
+@inject IJSRuntime js
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public EventCallback<string> OnScanned { get; set; }
+    [Parameter] public string? PreferredCameraDeviceId { get; set; }
+    [Parameter] public EventCallback<string> OnCameraDeviceChanged { get; set; }
+
+    private BarcodeReader? _reader;
+    private List<VideoInputDevice> _devices = [];
+    private bool _hasMultipleCameras;
+    private int _currentDeviceIdx;
+    private IJSObjectReference? _audioModule;
+    private IJSObjectReference? _cameraModule;
+
+    private async Task OnBarcodeReceived(BarcodeReceivedEventArgs args) {
+        if (string.IsNullOrEmpty(args.BarcodeText)) return;
+
+        await PlayBeepAsync();
+        await StopAndClose();
+        await OnScanned.InvokeAsync(args.BarcodeText);
+    }
+
+    private void OnVideoInputDevicesChanged() {
+        if (_reader?.VideoInputDevices is null) return;
+
+        _devices = _reader.VideoInputDevices.ToList();
+        _hasMultipleCameras = _devices.Count > 1;
+
+        // If we have a preferred camera, find and select it
+        if (!string.IsNullOrEmpty(PreferredCameraDeviceId)) {
+            var idx = _devices.FindIndex(d => d.DeviceId == PreferredCameraDeviceId);
+            if (idx >= 0) {
+                _currentDeviceIdx = idx;
+                _ = _reader.SelectVideoInput(_devices[idx]);
+            }
+        }
+
+        // Apply close-focus hint after camera stream is active
+        _ = ApplyCloseFocusAsync();
+
+        StateHasChanged();
+    }
+
+    private async Task OnNextCamera() {
+        if (_reader is null || _devices.Count < 2) return;
+
+        _currentDeviceIdx = (_currentDeviceIdx + 1) % _devices.Count;
+
+        try {
+            await _reader.SelectVideoInput(_devices[_currentDeviceIdx]);
+            await ApplyCloseFocusAsync();
+            var deviceId = _reader.SelectedVideoInputId;
+            if (!string.IsNullOrEmpty(deviceId)) {
+                await OnCameraDeviceChanged.InvokeAsync(deviceId);
+            }
+        }
+        catch {
+            // Camera may have been unplugged since enumeration
+        }
+    }
+
+    private async Task ApplyCloseFocusAsync() {
+        try {
+            // Brief delay to let the camera stream initialize
+            await Task.Delay(500);
+            _cameraModule ??= await js.InvokeAsync<IJSObjectReference>(
+                "import", "./scripts/es6/cameraHelper.js");
+            await _cameraModule.InvokeAsync<bool>("applyCloseFocusHint", "#qr-scan-overlay");
+        }
+        catch {
+            // Focus hints are best-effort — not all cameras support them
+        }
+    }
+
+    private async Task PlayBeepAsync() {
+        try {
+            _audioModule ??= await js.InvokeAsync<IJSObjectReference>(
+                "import", "./scripts/es6/audioHelper.js");
+            await _audioModule.InvokeVoidAsync("playBeep", 800, 200);
+        }
+        catch {
+            // Audio not critical — ignore failures
+        }
+    }
+
+    private async Task StopAndClose() {
+        if (_reader is not null) {
+            await _reader.StopDecoding();
+        }
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private void OnErrorReceived(ErrorReceivedEventArgs args) {
+        // Camera errors are non-fatal — user can try another camera or close
+    }
+}
+
+@if (IsVisible)
+{
+    <MudOverlay Visible="true" DarkBackground="true" ZIndex="9999" OnClick="StopAndClose">
+        <MudPaper id="qr-scan-overlay" Class="pa-4" Style="max-width: 400px; width: 90vw; max-height: calc(100vh - 24px); position: relative;" @onclick:stopPropagation="true">
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           OnClick="StopAndClose"
+                           Style="position: absolute; top: 4px; right: 4px; z-index: 1;" />
+            <MudStack>
+                <MudText Typo="Typo.h6">Scan QR Code</MudText>
+
+                <div style="display: flex; justify-content: center;">
+                    <BarcodeReader @ref="_reader"
+                                   Title=""
+                                   StartCameraAutomatically="true"
+                                   ShowStart="false"
+                                   ShowStop="false"
+                                   ShowReset="false"
+                                   ShowToggleTorch="false"
+                                   ShowVideoDeviceList="false"
+                                   ShowResult="false"
+                                   VideoWidth="260"
+                                   VideoHeight="260"
+                                   StreamWidth="1080"
+                                   StreamHeight="1080"
+                                   OnBarcodeReceived="OnBarcodeReceived"
+                                   OnErrorReceived="OnErrorReceived"
+                                   VideoInputDevicesChanged="OnVideoInputDevicesChanged" />
+                </div>
+
+                @if (_hasMultipleCameras)
+                {
+                    <MudButton StartIcon="@Icons.Material.Filled.CameraAlt"
+                               OnClick="OnNextCamera"
+                               Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               FullWidth="true">
+                        Next Camera
+                    </MudButton>
+                }
+
+                <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                    Point camera at a QR code
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    </MudOverlay>
+}
