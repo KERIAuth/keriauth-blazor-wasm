@@ -1,25 +1,25 @@
-# KERI Auth Trademark Policy
+# DIGN Trademark Policy
 
 ## Overview
 
-"KERI Auth" and associated logos (including the customized triquetra logo in the style of the Funbo Runestone, and a logo with two 3/4 hollow circles and pointed star in the center) are trademarks of LivelyGig LLC, a Washington State corporation. The KERI Auth source code is licensed under the Apache License 2.0, but the trademarks are **not** covered by that license.
+"DIGN" and associated logos (including the customized triquetra logo in the style of the Funbo Runestone) are trademarks of LivelyGig LLC, a Washington State corporation. The DIGN source code is licensed under the Apache License 2.0, but the trademarks are **not** covered by that license.
 
-This policy explains how you may and may not use the KERI Auth trademarks.
+This policy explains how you may and may not use the DIGN trademarks.
 
 ## Permitted Uses
 
-You may use the "KERI Auth" name without prior permission in the following ways:
+You may use the "DIGN" name without prior permission in the following ways:
 
-- **Attribution**: stating that your project is built on, derived from, or compatible with KERI Auth
-- **Factual reference**: describing KERI Auth in articles, documentation, or presentations
-- **Linking**: linking to the official KERI Auth website or GitHub repository
+- **Attribution**: stating that your project is built on, derived from, or compatible with DIGN
+- **Factual reference**: describing DIGN in articles, documentation, or presentations
+- **Linking**: linking to the official DIGN website or GitHub repository
 
 Example of acceptable use:
-> "This project is a fork of KERI Auth, originally developed by LivelyGig LLC."
+> "This project is a fork of DIGN, originally developed by LivelyGig LLC."
 
 ## Prohibited Uses
 
-You may **not** use the "KERI Auth" name, logos, or other trademarks in ways that:
+You may **not** use the "DIGN" name, logos, or other trademarks in ways that:
 
 - Imply endorsement, sponsorship, or affiliation with LivelyGig LLC without written permission
 - Use the name or logos for a modified or forked version of the software as if it were the official product

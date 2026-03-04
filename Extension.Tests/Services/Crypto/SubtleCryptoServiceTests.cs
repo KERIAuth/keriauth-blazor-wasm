@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using Extension;
 using Extension.Services.Crypto;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -161,7 +160,7 @@ public class SubtleCryptoServiceTests {
 
         // Manually compute expected result
         var profileIdBytes = Encoding.UTF8.GetBytes(profileId);
-        var labelBytes = Encoding.UTF8.GetBytes(AppConfig.ProductName);
+        byte[] labelBytes = [0x4B, 0x45, 0x52, 0x49, 0x20, 0x41, 0x75, 0x74, 0x68];
         var combined = new byte[profileIdBytes.Length + prfOutput.Length + labelBytes.Length];
         Buffer.BlockCopy(profileIdBytes, 0, combined, 0, profileIdBytes.Length);
         Buffer.BlockCopy(prfOutput, 0, combined, profileIdBytes.Length, prfOutput.Length);

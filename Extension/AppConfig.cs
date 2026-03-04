@@ -76,18 +76,15 @@ namespace Extension {
         // Other settings
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
-        public const int ExpectedTermsDigest = -497501087;
-        public const int ExpectedPrivacyDigest = -680234369;
+        public const int ExpectedTermsDigest = -1875963352;
+        public const int ExpectedPrivacyDigest = -791277871;
 
         // Branding
-        public const string ProductName = "KERI Auth";
-        public const string FullProductName = "KERI Auth Identity Wallet";
-        public const string LogPrefix = "KERIAuth";
-        public const string WebsiteUrl = "https://keriauth.com";
-        public const string UninstallUrl = "https://keriauth.com/uninstall.html";
-
-        // localization
-        public const string ExampleAlias = "e.g., NewCredentialApprover";
+        public const string ProductName = "DIGN";
+        public const string FullProductName = "DIGN Identity Wallet";
+        public const string LogPrefix = "dign";
+        public const string WebsiteUrl = "https://dign.id";
+        public const string UninstallUrl = "https://dign.id/uninstall.html";
 
         public static readonly MudTheme MyCustomTheme = new() {
             // See also https://mudblazor.com/customization/default-theme

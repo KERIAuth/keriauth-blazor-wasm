@@ -1,6 +1,6 @@
 {
-  "name": "KERI Auth Identity Wallet",
-  "short_name": "KERI Auth",
+  "name": "DIGN Identity Wallet",
+  "short_name": "DIGN",
   "start_url": ".",
   "id": "./",
   "display": "standalone",

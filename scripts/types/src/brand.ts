@@ -1,1 +1,1 @@
-export const PRODUCT_NAME = 'KERI Auth';
+export const PRODUCT_NAME = 'DIGN';

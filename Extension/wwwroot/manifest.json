@@ -1,6 +1,6 @@
 {
   "action": {
-    "default_title": "KERI Auth",
+    "default_title": "DIGN",
     "default_icon": {
       "16": "images/logob016.png",
       "24": "images/logob024.png",
@@ -9,7 +9,7 @@
       "128": "images/logob128.png"
     }
   },
-  "author": "https://keriauth.com",
+  "author": "https://dign.id",
   "background": {
     "service_worker": "content/BackgroundWorker.js",
     "type": "module"
@@ -29,7 +29,7 @@
   },
   "manifest_version": 3,
   "minimum_chrome_version": "127",
-  "name": "KERI Auth",
+  "name": "DIGN",
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*/*"
@@ -42,7 +42,7 @@
     "storage",
     "sidePanel"
   ],
-  "short_name": "KERI Auth",
+  "short_name": "DIGN",
   "side_panel": {
     "default_path": "indexInSidePanel.html"
   },
