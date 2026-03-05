@@ -11,7 +11,7 @@ export async function playBeep(frequency, durationMs) {
 
     oscillator.type = "sine";
     oscillator.frequency.value = frequency;
-    gain.gain.value = 0.3;
+    gain.gain.value = 0.2;
 
     oscillator.connect(gain);
     gain.connect(ctx.destination);

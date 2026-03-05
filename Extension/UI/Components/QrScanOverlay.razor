@@ -92,7 +92,7 @@
         try {
             _audioModule ??= await js.InvokeAsync<IJSObjectReference>(
                 "import", "./scripts/helpers/audioHelper.js");
-            await _audioModule.InvokeVoidAsync("playBeep", 800, 200);
+            await _audioModule.InvokeVoidAsync("playBeep", 800, 100);
         }
         catch (Exception ex) {
             logger.LogWarning("PlayBeepAsync failed: {Error}", ex.Message);
