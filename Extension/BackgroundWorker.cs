@@ -972,8 +972,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Notify any already-running App instances to reconnect and check pending work
             logger.LogInformation(nameof(UseSidePanelOrActionPopupAsync) + ": Broadcasting SW_APP_WAKE for requestId={RequestId}", pendingRequest.RequestId);
-            await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
+            try {
+                await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage",
                 new { t = SendMessageTypes.SwAppWake, requestId = pendingRequest.RequestId });
+            }
+            catch (Exception ex) {
+                // Since it's expected that there may not be any apps connected, can ignore
+                logger.LogDebug(ex, nameof(UseSidePanelOrActionPopupAsync) + ": Could not broadcast SW_APP_WAKE event (expected if no apps connected)");
+            }
 
             // Determine if SidePanel is currently open, and if not use Action popup
             var contextFilter = new ContextFilter() { ContextTypes = [ContextType.SIDEPANEL] };
