@@ -73,7 +73,6 @@
   <ItemGroup>
     <Content Update="wwwroot\content\privacy.html" CopyToOutputDirectory="Always" />
     <Content Update="wwwroot\content\terms.html" CopyToOutputDirectory="Always" />
-    <Content Update="wwwroot\sounds\beep.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Embedded Resources -->
@@ -145,6 +144,7 @@
 	  <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="9.0.9" />
 	  <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
 	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
+	  <PackageReference Include="BlazorBarcodeScanner.ZXing.JS" Version="1.0.4" />
 	  <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.7" />
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 	  <PackageReference Include="Polly" Version="8.6.5" />
