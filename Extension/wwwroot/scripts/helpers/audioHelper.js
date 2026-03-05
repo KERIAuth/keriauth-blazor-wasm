@@ -1,6 +1,11 @@
 // Play a short beep tone using the Web Audio API.
-export function playBeep(frequency, durationMs) {
+export async function playBeep(frequency, durationMs) {
     const ctx = new AudioContext();
+    // Chrome suspends AudioContext when not created from a direct user gesture
+    if (ctx.state === "suspended") {
+        await ctx.resume();
+    }
+
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
 
