@@ -20,4 +20,4 @@ const contextType = url.searchParams.get('ctx') ?? 'UNKNOWN';
     type: contextType
 };
 
-console.log(`setExtContext: Set globalThis.__EXT_CONTEXT__.type = "${contextType}"`);
+console.debug(`setExtContext: Set globalThis.__EXT_CONTEXT__.type = "${contextType}"`);

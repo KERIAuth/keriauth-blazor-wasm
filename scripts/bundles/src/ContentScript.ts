@@ -43,7 +43,7 @@ import {
     if ('ServiceWorkerGlobalScope' in globalThis) {
         // We're in a service worker - do not initialize
         // This is expected when BackgroundWorker.js imports this file
-        console.log(`ContentScript running in ServiceWorker context, skipping initialization`);
+        console.debug(`ContentScript running in ServiceWorker context, skipping initialization`);
         return;
     }
 
@@ -93,15 +93,15 @@ import {
     // Sentinel pattern to prevent double-injection
     const KEY = '__8675309_CS_INJECTED__';
     if ((globalThis as unknown as Record<string, boolean>)[KEY]) {
-        console.log(`${logPrefix} Already injected, skipping initialization`);
+        console.debug(`${logPrefix} Already injected, skipping initialization`);
         return; // already active, do nothing
     }
     (globalThis as unknown as Record<string, boolean>)[KEY] = true;
 
-    console.log(`${logPrefix} initializing`);
+    console.debug(`${logPrefix} initializing`);
     const currentOrigin = window.location.origin;
-    console.log(`${logPrefix} currentOrigin:`, currentOrigin);
-    console.log(`${logPrefix} `, chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
+    console.debug(`${logPrefix} currentOrigin:`, currentOrigin);
+    console.debug(`${logPrefix} `, chrome.runtime.getManifest().name, chrome.runtime.getManifest().version_name, chrome.runtime.id);
 
     // Add a listener for messages from the web page
     window.addEventListener('message', (event: MessageEvent<IPageMessageData>) => handleWindowMessage(event));
@@ -146,20 +146,20 @@ import {
         try {
             // Step 1: Poll until BW is ready. Each sendMessage gets an immediate
             // synchronous response with { t, ready }. No deferred sendResponse.
-            console.log(`${logPrefix} Polling for BW readiness...`);
+            console.debug(`${logPrefix} Polling for BW readiness...`);
             let attempt = 0;
             while (Date.now() < deadline) {
                 attempt++;
                 try {
                     const response = await chrome.runtime.sendMessage({ t: SendMessageTypes.ClientHello });
                     if (response?.t === SendMessageTypes.SwHello && response?.ready === true) {
-                        console.log(`${logPrefix} BW ready (poll attempt ${attempt})`);
+                        console.debug(`${logPrefix} BW ready (poll attempt ${attempt})`);
                         break;
                     }
-                    console.log(`${logPrefix} BW not ready (attempt ${attempt}, ready=${response?.ready})`);
+                    console.debug(`${logPrefix} BW not ready (attempt ${attempt}, ready=${response?.ready})`);
                 } catch (e) {
                     // SW may still be loading modules (no listener yet)
-                    console.log(`${logPrefix} Poll ${attempt} failed:`, e);
+                    console.debug(`${logPrefix} Poll ${attempt} failed:`, e);
                 }
 
                 if (Date.now() + POLL_INTERVAL_MS > deadline) {
@@ -168,7 +168,7 @@ import {
                 await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
             }
 
-            console.log(`${logPrefix} BW ready, creating port...`);
+            console.debug(`${logPrefix} BW ready, creating port...`);
 
             // Step 2: Create port (BW confirmed ready)
             port = chrome.runtime.connect(undefined, {name: 'content-script'});
@@ -177,20 +177,20 @@ import {
 
             // Step 3: Send HELLO on port for session establishment
             const helloMessage = createCsHelloMessage(instanceId);
-            console.log(`${csAbbr}→BW: HELLO`, helloMessage);
+            console.debug(`${csAbbr}→BW: HELLO`, helloMessage);
             port.postMessage(helloMessage);
 
             // Step 4: Wait for port READY (timeout handled by watchdog)
             pendingReadyTimeout = setTimeout(() => {
                 if (!isPortReady) {
-                    console.log(`${logPrefix} Port READY timeout`);
+                    console.debug(`${logPrefix} Port READY timeout`);
                     pendingReadyTimeout = null;
                     if (port) port.disconnect();
                 }
             }, READY_TIMEOUT_MS);
 
         } catch (error) {
-            console.log(`${logPrefix} Failed to connect:`, error);
+            console.debug(`${logPrefix} Failed to connect:`, error);
             // Don't auto-reconnect — will reconnect lazily when page message arrives
         }
     }
@@ -205,7 +205,7 @@ import {
             return;
         }
 
-        console.log(`BW→${logPrefix} `, message.t, message);
+        console.debug(`BW→${logPrefix} `, message.t, message);
 
         if (isReadyMessage(message)) {
             handleReadyMessage(message);
@@ -231,7 +231,7 @@ import {
         portSessionId = message.portSessionId;
         isPortReady = true;
 
-        console.log(`${logPrefix} Port ready, portSessionId:`, portSessionId);
+        console.debug(`${logPrefix} Port ready, portSessionId:`, portSessionId);
 
         // Start heartbeat watchdog
         startHeartbeatWatchdog();
@@ -347,7 +347,7 @@ import {
         lastHeartbeatTime = Date.now(); // Initialize so watchdog doesn't fire immediately
         heartbeatWatchdog = setInterval(() => {
             if (isPortReady && lastHeartbeatTime > 0 && Date.now() - lastHeartbeatTime > HEARTBEAT_TIMEOUT_MS) {
-                console.log(`${logPrefix} Heartbeat timeout — marking port as disconnected`);
+                console.debug(`${logPrefix} Heartbeat timeout — marking port as disconnected`);
                 port = null;
                 portSessionId = null;
                 isPortReady = false;
@@ -380,14 +380,14 @@ import {
     async function sendRpcRequest(method: string, params?: unknown): Promise<unknown> {
         if (!isPortReady || !port || !portSessionId) {
             // Lazy reconnect: attempt to reconnect when a message needs sending
-            console.log(`${logPrefix} Port not ready, attempting reconnect...`);
+            console.debug(`${logPrefix} Port not ready, attempting reconnect...`);
             try {
                 await connectPort();
             } catch (e) {
-                console.log(`${logPrefix} Reconnect failed:`, e);
+                console.debug(`${logPrefix} Reconnect failed:`, e);
             }
             if (!isPortReady || !port || !portSessionId) {
-                console.log(`${logPrefix} Still not ready after reconnect, queueing message:`, method);
+                console.debug(`${logPrefix} Still not ready after reconnect, queueing message:`, method);
                 messageQueue.push({ method, params });
                 return undefined;
             }
@@ -402,7 +402,7 @@ import {
 
             // Send via port
             port!.postMessage(request);
-            console.log(`${csAbbr}→BW: `, request);
+            console.debug(`${csAbbr}→BW: `, request);
         });
     }
 
@@ -411,7 +411,7 @@ import {
      * @param msg The message to send to the page, must have a 'type' property
      */
     function postMessageToPage<T>(msg: T): void {
-        console.log(`${csAbbr}→Page: ${(msg as ICsPageMsgData<T>).type}`, { msg });
+        console.debug(`${csAbbr}→Page: ${(msg as ICsPageMsgData<T>).type}`, { msg });
         window.postMessage(msg, currentOrigin);
     }
 
@@ -426,7 +426,7 @@ import {
             return;
         }
 
-        console.log(`BW→${csAbbr}: ${message.type}`, { message });
+        console.debug(`BW→${csAbbr}: ${message.type}`, { message });
         switch (message.type) {
             case BwCsMsgEnum.READY:
                 // In the case the user has just clicked on Action Button and provided CS inject permission for first time,
@@ -435,7 +435,7 @@ import {
                 break;
 
             case BwCsMsgEnum.REPLY:
-                console.log(`BW→${csAbbr}: reply`, { message });
+                console.debug(`BW→${csAbbr}: reply`, { message });
                 if (message.error) {
                     const errorMsg: ICsPageMsgData<null> = {
                         source: CsPageMsgTag,
@@ -515,7 +515,7 @@ import {
                 window.location.reload();
                 return true;
             } else {
-                console.log(`${logPrefix} User declined reload prompt`);
+                console.debug(`${logPrefix} User declined reload prompt`);
                 return false;
             }
         } catch (error) {
@@ -534,11 +534,11 @@ import {
 
         // Lazy reconnect if port is not ready
         if (!isPortReady || !port || !portSessionId) {
-            console.log(`${csAbbr}→BW: Port not connected, attempting reconnect...`);
+            console.debug(`${csAbbr}→BW: Port not connected, attempting reconnect...`);
             try {
                 await connectPort();
             } catch (e) {
-                console.log(`${csAbbr}→BW: Reconnect failed:`, e);
+                console.debug(`${csAbbr}→BW: Reconnect failed:`, e);
             }
             if (!isPortReady || !port || !portSessionId) {
                 console.error(`${csAbbr}→BW: Still not connected after reconnect attempt`);
@@ -559,7 +559,7 @@ import {
         try {
             // Send the RPC request and get the RPC ID
             const rpcId = sendRpcRequestForPage(method, params, originalRequestId);
-            console.log(`${csAbbr}→BW: RPC sent, rpcId=`, rpcId, 'originalRequestId=', originalRequestId);
+            console.debug(`${csAbbr}→BW: RPC sent, rpcId=`, rpcId, 'originalRequestId=', originalRequestId);
         } catch (error) {
             console.error(`${csAbbr}→BW: Port send failed:`, error);
             throw error;
@@ -584,7 +584,7 @@ import {
 
         // Send via port (no callback - response routed via handleRpcResponse)
         port.postMessage(request);
-        console.log(`${csAbbr}→BW (port):`, request);
+        console.debug(`${csAbbr}→BW (port):`, request);
 
         return request.id;
     }
@@ -622,7 +622,7 @@ import {
         }
 
         // handle messages from current page
-        console.log(`Page→${logPrefix} ${event.data.type}`, {event});
+        console.debug(`Page→${logPrefix} ${event.data.type}`, {event});
         try {
             const requestId = event.data.requestId;
             switch (event.data.type) {
@@ -674,15 +674,15 @@ import {
                         // Log headers for POLARIS_SIGN_REQUEST
                         const signRequestMessage = event.data as Polaris.MessageData<Polaris.SignRequestArgs>;
                         if (event.data.type === CsBwMsgEnum.POLARIS_SIGN_REQUEST) {
-                            console.log(`${logPrefix}: SIGN_REQUEST payload:`, JSON.stringify(signRequestMessage.payload));
+                            console.debug(`${logPrefix}: SIGN_REQUEST payload:`, JSON.stringify(signRequestMessage.payload));
                             if (signRequestMessage.payload?.headers) {
-                                console.log(`${logPrefix}: SIGN_REQUEST headers `, JSON.stringify(signRequestMessage.payload.headers));
+                                console.debug(`${logPrefix}: SIGN_REQUEST headers `, JSON.stringify(signRequestMessage.payload.headers));
                                 const headers = signRequestMessage.payload.headers;
                                 for (const key of Object.keys(headers)) {
-                                    console.log(`${logPrefix} header: ${key} = ${headers[key]}`);
+                                    console.debug(`${logPrefix} header: ${key} = ${headers[key]}`);
                                 }
                             } else {
-                                console.log(`${logPrefix}: SIGN_REQUEST: no headers in payload`);
+                                console.debug(`${logPrefix}: SIGN_REQUEST: no headers in payload`);
                             }
                         }
                         await sendMessageToBW(signRequestMessage);

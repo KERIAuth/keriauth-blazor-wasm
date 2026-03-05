@@ -45,7 +45,7 @@ if (typeof window !== 'undefined' && typeof self !== 'undefined' && self.crypto)
             writable: false,
             configurable: true
         });
-        console.log('[libsodium-polyfill] Fixed window.crypto to use self.crypto');
+        console.debug('[libsodium-polyfill] Fixed window.crypto to use self.crypto');
     } catch (e) {
         console.error('[libsodium-polyfill] Failed to fix window.crypto:', e);
     }
@@ -65,7 +65,7 @@ if (typeof self !== 'undefined' && self.crypto && !(self.crypto as CryptoWithRan
             writable: false,
             configurable: true
         });
-        console.log('[libsodium-polyfill] Added crypto.randomBytes()');
+        console.debug('[libsodium-polyfill] Added crypto.randomBytes()');
     } catch (e) {
         console.error('[libsodium-polyfill] Failed to add crypto.randomBytes:', e);
     }
@@ -105,7 +105,7 @@ if (typeof self !== 'undefined' && !(globalThis as GlobalThis).Module) {
         // Let libsodium use its default base64 embedded WASM
         instantiateWasm: undefined
     };
-    console.log('[libsodium-polyfill] Configured Module.getRandomValue');
+    console.debug('[libsodium-polyfill] Configured Module.getRandomValue');
 }
 
-console.log('[libsodium-polyfill] All polyfills initialized for service worker context');
+console.debug('[libsodium-polyfill] All polyfills initialized for service worker context');
