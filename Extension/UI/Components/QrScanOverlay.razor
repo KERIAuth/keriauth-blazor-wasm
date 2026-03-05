@@ -29,8 +29,11 @@
         _devices = _reader.VideoInputDevices.ToList();
         _hasMultipleCameras = _devices.Count > 1;
 
-        // If we have a preferred camera, find and select it
-        if (!string.IsNullOrEmpty(PreferredCameraDeviceId)) {
+        // If we have a preferred camera and it differs from the auto-started one, switch to it.
+        // SelectedVideoInputId is null while auto-start is still in progress — skip in that case.
+        if (!string.IsNullOrEmpty(PreferredCameraDeviceId)
+            && !string.IsNullOrEmpty(_reader.SelectedVideoInputId)
+            && PreferredCameraDeviceId != _reader.SelectedVideoInputId) {
             var idx = _devices.FindIndex(d => d.DeviceId == PreferredCameraDeviceId);
             if (idx >= 0) {
                 _currentDeviceIdx = idx;
@@ -109,6 +112,11 @@
                 <MudText Typo="Typo.h6">Scan QR Code</MudText>
 
                 <div style="display: flex; justify-content: center;">
+                    @* Known console warnings from BlazorBarcodeScanner.ZXing.JS and its bundled zxingjs:
+                       - "Trying to play video that is already playing."
+                       - "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true."
+                       - "Reset camera stream." and "undefined"
+                       These originate inside the NuGet package's JS and cannot be fixed without changing the package. *@
                     <BarcodeReader @ref="_reader"
                                    Title=""
                                    StartCameraAutomatically="true"
@@ -120,11 +128,11 @@
                                    ShowResult="false"
                                    VideoWidth="260"
                                    VideoHeight="260"
-                                   StreamWidth="1080"
-                                   StreamHeight="1080"
+                                   StreamWidth="480"
+                                   StreamHeight="480"
                                    OnBarcodeReceived="OnBarcodeReceived"
                                    OnErrorReceived="OnErrorReceived"
-                                   VideoInputDevicesChanged="OnVideoInputDevicesChanged" />
+                                   VideoInputDevicesChanged="OnVideoInputDevicesChanged"/>
                 </div>
 
                 @if (_hasMultipleCameras)
