@@ -276,11 +276,12 @@ import {
             } else {
                 callback.resolve(message.result);
             }
-        } else {
-            // Route as a regular BW message for backward compatibility
-            // TODO P2: if none of these are seen, can remove this "else"
-            console.warn(`${logPrefix} Unexpected message type received. Handling legacy message from BW. Should refactor.`);
-            
+            return;
+        }        
+        
+        // Here, we've received message not in response to a known RPC request
+        // It may be an unsolicited message from BW (e.g. app-closed ?)
+            console.warn(`${logPrefix} Unanticipated message type received that wasn't in response to a known RPC request. message: `, message);
             const legacyMessage = {
                 type: message.error ? BwCsMsgEnum.REPLY : BwCsMsgEnum.REPLY,
                 requestId: message.id,
@@ -288,7 +289,6 @@ import {
                 error: message.error
             };
             handleMsgFromBW(legacyMessage as BwMessage);
-        }
     }
 
     /**
