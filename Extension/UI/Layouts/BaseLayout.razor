@@ -175,7 +175,7 @@
         // Index.razor's RedirectIfNeeded() centralizes all routing decisions, preventing race conditions
         // between multiple navigation sources (BaseLayout, ConnectingPage, etc.).
 
-        // TODO P1: Handle active tab change for SidePanel. When user switches tabs while SidePanel shows
+        // TODO P2: Handle active tab change for SidePanel. When user switches tabs while SidePanel shows
         // a tab-specific request (e.g., RequestSignInPage for Tab A), detect the tab change by subscribing
         // directly to chrome.tabs.onActivated via WebExtensions.Net and dismiss/update the UI that's no
         // longer relevant. This prevents showing stale request UI for a different tab.

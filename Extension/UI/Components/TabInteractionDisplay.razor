@@ -4,7 +4,7 @@
 
 @if (ActiveTab?.Url is null)
 {
-    // TODO P1: for testing only
+    // TODO P2: for testing only
     ActiveTab = new BrowserTab() 
     {
         Url = "https://example.com/test?a=hello%20world&ref=asdfasdfasdf_e234asdf3",
@@ -16,7 +16,6 @@
 }
 @if (ActiveTab?.Url is not null)
 {
-    
     <MudStack Row>
         <MudText Class="mt-2">from</MudText>
         <MudPaper Elevation="0" Class="my-2" Style="width:100%; background:transparent; border-radius: 0.5rem; border:1px solid darkslategray; overflow:hidden;">

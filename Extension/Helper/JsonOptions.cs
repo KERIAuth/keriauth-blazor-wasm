@@ -8,7 +8,7 @@ namespace Extension.Helper;
 /// Use these shared instances instead of creating new JsonSerializerOptions objects.
 /// </summary>
 /// <remarks>
-/// <para><b>TODO P1: Inconsistencies found during consolidation (investigate later):</b></para>
+/// <para><b>TODO P2: Inconsistencies found during consolidation (investigate later):</b></para>
 /// <list type="number">
 /// <item>
 /// <term>AppBwPortService vs BwPortService naming mismatch</term>

@@ -59,7 +59,7 @@ public class NotificationPollingService : INotificationPollingService {
     public async Task PollOnDemandAsync() {
         var result = await _signifyClient.ListNotifications();
         if (result.IsFailed) {
-            // TODO P1: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.
+            // TODO P3: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.
             _logger.LogWarning(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
                 result.Errors.Count > 0 ? result.Errors[0].Message : "unknown");
             return;
