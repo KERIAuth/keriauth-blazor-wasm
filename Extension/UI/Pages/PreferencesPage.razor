@@ -160,6 +160,7 @@
     // Reset preferences to default, preserving selected prefix, KERIA preferences, and drawer open states
     private async Task ResetToDefault()
     {
+        // TODO P2 too many with copies here?  Need to wait for appCache update after each setItem?  Can we batch update or is that against how the reactive AppCache is designed?
         await Persist(AppConfig.DefaultPreferences with
         {
             KeriaPreference = Prefs.KeriaPreference, // Preserve KERIA selection
@@ -167,6 +168,7 @@
             IsPersistentDrawerOpenInTab = Prefs.IsPersistentDrawerOpenInTab,
             IsMultiKeriaConfigEnabled = Prefs.IsMultiKeriaConfigEnabled,
             IsMultiKeriaOnUnlock = Prefs.IsMultiKeriaOnUnlock,
+            BeepOnScanSuccess = Prefs.BeepOnScanSuccess,
             PreferredCameraDeviceId = Prefs.PreferredCameraDeviceId,
             IsStored = true
         });

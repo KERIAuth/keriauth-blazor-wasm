@@ -8,6 +8,8 @@
     [Parameter] public EventCallback<string> OnScanned { get; set; }
     [Parameter] public string? PreferredCameraDeviceId { get; set; }
     [Parameter] public EventCallback<string> OnCameraDeviceChanged { get; set; }
+    [Parameter] public bool BeepOnScanSuccess { get; set; } = AppConfig.DefaultBeepOnScanSuccess;
+    [Parameter] public EventCallback<bool> BeepOnScanSuccessChanged { get; set; }
 
     private BarcodeReader? _reader;
     private List<VideoInputDevice> _devices = [];
@@ -19,7 +21,7 @@
     private async Task OnBarcodeReceived(BarcodeReceivedEventArgs args) {
         if (string.IsNullOrEmpty(args.BarcodeText)) return;
 
-        await PlayBeepAsync();
+        if (BeepOnScanSuccess) await PlayBeepAsync();
         await StopAndClose();
         await OnScanned.InvokeAsync(args.BarcodeText);
     }
@@ -103,6 +105,11 @@
         await IsVisibleChanged.InvokeAsync(false);
     }
 
+    private async Task OnBeepToggled(bool value) {
+        BeepOnScanSuccess = value;
+        await BeepOnScanSuccessChanged.InvokeAsync(value);
+    }
+
     private void OnErrorReceived(ErrorReceivedEventArgs args) {
         // Camera errors are non-fatal — user can try another camera or close
     }
@@ -152,11 +159,12 @@
                         Next Camera
                     </MudButton>
                 }
-                @*
-                <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
-                    Point camera at a QR code
-                </MudText>
-                *@
+                <MudCheckBox T="bool"
+                             Value="BeepOnScanSuccess"
+                             ValueChanged="OnBeepToggled"
+                             Label="Beep on success"
+                             Dense="true"
+                             Size="Size.Small" />
             </MudStack>
         </MudPaper>
     </MudOverlay>

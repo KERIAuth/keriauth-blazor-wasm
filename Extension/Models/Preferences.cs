@@ -65,6 +65,9 @@
         [JsonPropertyName("SelectedViewDefIds")]
         public Dictionary<string, string> SelectedViewDefIds { get; init; } = [];
 
+        [JsonPropertyName("BeepOnScanSuccess")]
+        public bool BeepOnScanSuccess { get; init; } = AppConfig.DefaultBeepOnScanSuccess;
+
         [JsonPropertyName("PreferredCameraDeviceId")]
         public string? PreferredCameraDeviceId { get; init; }
     }

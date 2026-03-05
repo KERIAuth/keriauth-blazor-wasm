@@ -108,6 +108,15 @@
         _isScannerVisible = false;
     }
 
+    private async Task OnBeepOnScanSuccessChanged(bool value) {
+        var currentPrefs = appCache.MyPreferences;
+        if (currentPrefs.BeepOnScanSuccess != value) {
+            await storageService.SetItem(
+                currentPrefs with { BeepOnScanSuccess = value });
+            await appCache.WaitForAppCache([() => appCache.MyPreferences.BeepOnScanSuccess == value]);
+        }
+    }
+
     private async Task OnCameraDeviceChanged(string deviceId) {
         var currentPrefs = appCache.MyPreferences;
         logger.LogWarning("OnCameraDeviceChanged: received deviceId={DeviceId}, current PreferredCameraDeviceId={CurrentPref}",
@@ -183,7 +192,9 @@
             <QrScanOverlay @bind-IsVisible="_isScannerVisible"
                            OnScanned="OnQrScanned"
                            PreferredCameraDeviceId="@(appCache.MyPreferences.PreferredCameraDeviceId)"
-                           OnCameraDeviceChanged="OnCameraDeviceChanged" />
+                           OnCameraDeviceChanged="OnCameraDeviceChanged"
+                           BeepOnScanSuccess="@(appCache.MyPreferences.BeepOnScanSuccess)"
+                           BeepOnScanSuccessChanged="OnBeepOnScanSuccessChanged" />
         }
     </DialogContent>
     <DialogActions>
