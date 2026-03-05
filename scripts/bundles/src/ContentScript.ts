@@ -336,9 +336,7 @@ import {
             return;
         }
 
-        // Don't auto-reconnect. Port will be re-established lazily when
-        // a page message needs forwarding.
-        // TODO P1: Inform the page the extension isn't ready by clearing its value for extensionId
+        // Don't auto-reconnect. Port will be re-established lazily when a page message needs forwarding.
     }
 
     /**
