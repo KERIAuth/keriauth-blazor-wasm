@@ -45,8 +45,8 @@
             }
         }
 
-        // Apply close-focus hint after camera stream is active
-        _ = ApplyCloseFocusAsync();
+        // Apply continuous autofocus after camera stream is active
+        _ = ApplyAutoFocusAsync();
 
         StateHasChanged();
     }
@@ -60,7 +60,7 @@
             var device = _devices[_currentDeviceIdx];
             // logger.LogWarning("OnNextCamera: switching to device index={Idx}, DeviceId={DeviceId}", _currentDeviceIdx, device.DeviceId ?? "(null)");
             await _reader.SelectVideoInput(device);
-            await ApplyCloseFocusAsync();
+            await ApplyAutoFocusAsync();
             if (!string.IsNullOrEmpty(device.DeviceId)) {
                 // logger.LogWarning("OnNextCamera: invoking OnCameraDeviceChanged with DeviceId={DeviceId}", device.DeviceId);
                 await OnCameraDeviceChanged.InvokeAsync(device.DeviceId);
@@ -74,16 +74,17 @@
         }
     }
 
-    private async Task ApplyCloseFocusAsync() {
+    private async Task ApplyAutoFocusAsync() {
         try {
             // Brief delay to let the camera stream initialize
             await Task.Delay(500);
             _cameraModule ??= await js.InvokeAsync<IJSObjectReference>(
                 "import", "./scripts/helpers/cameraHelper.js");
-            await _cameraModule.InvokeAsync<bool>("applyCloseFocusHint", "#qr-scan-overlay");
+            var applied = await _cameraModule.InvokeAsync<bool>("applyAutoFocus", "#qr-scan-overlay");
+            logger.LogWarning("ApplyAutoFocusAsync: applied={Applied}", applied);
         }
-        catch {
-            // Focus hints are best-effort — not all cameras support them
+        catch (Exception ex) {
+            logger.LogWarning("ApplyAutoFocusAsync failed: {Error}", ex.Message);
         }
     }
 
@@ -142,8 +143,8 @@
                                    ShowResult="false"
                                    VideoWidth="260"
                                    VideoHeight="260"
-                                   StreamWidth="480"
-                                   StreamHeight="480"
+                                   StreamWidth="720"
+                                   StreamHeight="720"
                                    OnBarcodeReceived="OnBarcodeReceived"
                                    OnErrorReceived="OnErrorReceived"
                                    VideoInputDevicesChanged="OnVideoInputDevicesChanged"/>
