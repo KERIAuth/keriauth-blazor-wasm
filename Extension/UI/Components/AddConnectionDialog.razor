@@ -5,6 +5,7 @@
 @inject IJSRuntime js
 @inject IStorageService storageService
 @inject AppCache appCache
+@inject ILogger<AddConnectionDialog> logger
 
 @code {
     [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
@@ -109,9 +110,17 @@
 
     private async Task OnCameraDeviceChanged(string deviceId) {
         var currentPrefs = appCache.MyPreferences;
+        logger.LogWarning("OnCameraDeviceChanged: received deviceId={DeviceId}, current PreferredCameraDeviceId={CurrentPref}",
+            deviceId, currentPrefs.PreferredCameraDeviceId ?? "(null)");
         if (currentPrefs.PreferredCameraDeviceId != deviceId) {
+            // logger.LogWarning("OnCameraDeviceChanged: storing new preference");
             await storageService.SetItem(
                 currentPrefs with { PreferredCameraDeviceId = deviceId });
+            await appCache.WaitForAppCache([() => appCache.MyPreferences.PreferredCameraDeviceId == deviceId]);
+            // logger.LogWarning("OnCameraDeviceChanged: appCache updated, verified={Verified}", appCache.MyPreferences.PreferredCameraDeviceId == deviceId);
+        }
+        else {
+            logger.LogWarning("OnCameraDeviceChanged: preference already matches, no update needed");
         }
     }
 }

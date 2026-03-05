@@ -1,5 +1,6 @@
 @using BlazorBarcodeScanner.ZXing.JS
 @inject IJSRuntime js
+@inject ILogger<QrScanOverlay> logger
 
 @code {
     [Parameter] public bool IsVisible { get; set; }
@@ -29,10 +30,11 @@
         _devices = _reader.VideoInputDevices.ToList();
         _hasMultipleCameras = _devices.Count > 1;
 
+        // logger.LogWarning("OnVideoInputDevicesChanged: {Count} devices, SelectedVideoInputId={SelectedId}, PreferredCameraDeviceId={PreferredId}", _devices.Count, _reader.SelectedVideoInputId ?? "(null)", PreferredCameraDeviceId ?? "(null)");
+
         // If we have a preferred camera and it differs from the auto-started one, switch to it.
-        // SelectedVideoInputId is null while auto-start is still in progress — skip in that case.
+        // SelectedVideoInputId may be empty during auto-start — still switch if we have a preference.
         if (!string.IsNullOrEmpty(PreferredCameraDeviceId)
-            && !string.IsNullOrEmpty(_reader.SelectedVideoInputId)
             && PreferredCameraDeviceId != _reader.SelectedVideoInputId) {
             var idx = _devices.FindIndex(d => d.DeviceId == PreferredCameraDeviceId);
             if (idx >= 0) {
@@ -53,11 +55,16 @@
         _currentDeviceIdx = (_currentDeviceIdx + 1) % _devices.Count;
 
         try {
-            await _reader.SelectVideoInput(_devices[_currentDeviceIdx]);
+            var device = _devices[_currentDeviceIdx];
+            // logger.LogWarning("OnNextCamera: switching to device index={Idx}, DeviceId={DeviceId}", _currentDeviceIdx, device.DeviceId ?? "(null)");
+            await _reader.SelectVideoInput(device);
             await ApplyCloseFocusAsync();
-            var deviceId = _reader.SelectedVideoInputId;
-            if (!string.IsNullOrEmpty(deviceId)) {
-                await OnCameraDeviceChanged.InvokeAsync(deviceId);
+            if (!string.IsNullOrEmpty(device.DeviceId)) {
+                // logger.LogWarning("OnNextCamera: invoking OnCameraDeviceChanged with DeviceId={DeviceId}", device.DeviceId);
+                await OnCameraDeviceChanged.InvokeAsync(device.DeviceId);
+            }
+            else {
+                // logger.LogWarning("OnNextCamera: device.DeviceId is null/empty, skipping OnCameraDeviceChanged");
             }
         }
         catch {
@@ -70,7 +77,7 @@
             // Brief delay to let the camera stream initialize
             await Task.Delay(500);
             _cameraModule ??= await js.InvokeAsync<IJSObjectReference>(
-                "import", "./scripts/es6/cameraHelper.js");
+                "import", "./scripts/helpers/cameraHelper.js");
             await _cameraModule.InvokeAsync<bool>("applyCloseFocusHint", "#qr-scan-overlay");
         }
         catch {
@@ -81,7 +88,7 @@
     private async Task PlayBeepAsync() {
         try {
             _audioModule ??= await js.InvokeAsync<IJSObjectReference>(
-                "import", "./scripts/es6/audioHelper.js");
+                "import", "./scripts/helpers/audioHelper.js");
             await _audioModule.InvokeVoidAsync("playBeep", 800, 200);
         }
         catch {
@@ -145,10 +152,11 @@
                         Next Camera
                     </MudButton>
                 }
-
+                @*
                 <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
                     Point camera at a QR code
                 </MudText>
+                *@
             </MudStack>
         </MudPaper>
     </MudOverlay>
