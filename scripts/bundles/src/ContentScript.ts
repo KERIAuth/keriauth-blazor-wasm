@@ -374,7 +374,7 @@ import {
         const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string; name: string }> = {
             source: CsPageMsgTag,
             type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
-            data: { extensionId: "", name: "${PRODUCT_NAME} (disconnected)" },
+            data: { extensionId: "", name: `${PRODUCT_NAME} (disconnected)` },
             requestId: '' // may be unsolicited message or with no requestId, so no requestId set in this response
         };
         postMessageToPage<ICsPageMsgDataData<{ extensionId: string; name: string }>>(extensionClientMsg);
