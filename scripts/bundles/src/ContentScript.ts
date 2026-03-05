@@ -353,7 +353,6 @@ import {
                 port = null;
                 portSessionId = null;
                 isPortReady = false;
-                // TODO P1: Inform the page the extension isn't ready by clearing its value for extensionId
                 stopHeartbeatWatchdog();
             }
         }, HEARTBEAT_WATCHDOG_MS);
@@ -364,6 +363,17 @@ import {
             clearInterval(heartbeatWatchdog);
             heartbeatWatchdog = null;
         }
+        postMessageToPageSignifyExtensionDisconnected();
+    }
+
+    function postMessageToPageSignifyExtensionDisconnected(): void {
+        const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string; name: string }> = {
+            source: CsPageMsgTag,
+            type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
+            data: { extensionId: "", name: "${PRODUCT_NAME} (disconnected)" },
+            requestId: '' // may be unsolicited message or with no requestId, so no requestId set in this response
+        };
+        postMessageToPage<ICsPageMsgDataData<{ extensionId: string; name: string }>>(extensionClientMsg);
     }
 
     /**
