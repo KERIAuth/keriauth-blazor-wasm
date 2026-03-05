@@ -380,6 +380,12 @@ export async function beforeStart(
             });
 
             chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+                // Chrome resets per-tab icons on navigation, so invalidate our cache
+                if (changeInfo.status === 'loading') {
+                    tabIconState.delete(tabId);
+                    return;
+                }
+
                 // Only check when page finishes loading
                 if (changeInfo.status !== 'complete') return;
 

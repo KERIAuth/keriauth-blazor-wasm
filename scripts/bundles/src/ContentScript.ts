@@ -130,6 +130,12 @@ import {
         console.info(`${logPrefix} ${event.type}`);
     });
 
+    // Notify service worker that content script is ready (for icon state updates).
+    // Must be after onMessage listener (ping handler) is registered.
+    chrome.runtime.sendMessage({ type: 'cs-ready' }).catch(() => {
+        // Service worker may not be ready yet — connectPort handles BW readiness independently
+    });
+
     // Connect to BackgroundWorker using port-based messaging
     connectPort();
 
