@@ -66,10 +66,11 @@
 
     private void Cancel() => MudDialog?.Cancel();
 
-    private void OnOobiChanged(string? value) {
+    private async Task OnOobiChanged(string? value) {
         OobiInput = value;
         if (!string.IsNullOrEmpty(value)) {
             TryExtractNameFromOobi(value);
+            await FocusAndSelectNameFieldAsync();
         }
     }
 
@@ -102,10 +103,18 @@
 
     private bool _isScannerVisible;
 
-    private void OnQrScanned(string scannedText) {
+    private async Task OnQrScanned(string scannedText) {
         OobiInput = scannedText;
         TryExtractNameFromOobi(scannedText);
         _isScannerVisible = false;
+        await FocusAndSelectNameFieldAsync();
+    }
+
+    private async Task FocusAndSelectNameFieldAsync() {
+        if (_nameField is null) return;
+        await Task.Delay(100);
+        await _nameField.FocusAsync();
+        await _nameField.SelectAsync();
     }
 
     private async Task OnBeepOnScanSuccessChanged(bool value) {
