@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
 using Extension.Helper;
+using Extension.Models;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService.Models;
 using FluentResults;
@@ -301,8 +302,6 @@ namespace Extension.Services.SignifyService {
             return Task.FromResult(Result.Fail<IList<Schema>>("Not implemented"));
         }
 
-        // TODO P1: Return Result<StateResult> where StateResult includes a NotConnected state,
-        // allowing callers to distinguish connection errors from other failures without brittle string matching.
         public async Task<Result<State>> GetState() {
             try {
                 var jsonString = await _binding.GetStateAsync();
@@ -317,11 +316,17 @@ namespace Extension.Services.SignifyService {
             }
             catch (JSException e) {
                 logger.LogWarning(nameof(GetState) + ": JSException: {e}", e);
-                return Result.Fail<State>("SignifyClientService: GetState: Exception: " + e);
+                var msg = e.Message;
+                if (msg.Contains("Missing agentUrl or passcode") ||
+                    msg.Contains("validateClient") ||
+                    msg.Contains("not connected", StringComparison.OrdinalIgnoreCase)) {
+                    return Result.Fail<State>(new NotConnectedError(msg, e));
+                }
+                return Result.Fail<State>(new JavaScriptInteropError(nameof(GetState), msg, e));
             }
             catch (Exception e) {
                 logger.LogWarning(nameof(GetState) + ": Exception: {e}", e);
-                return Result.Fail<State>("SignifyClientService: GetState: Exception: " + e);
+                return Result.Fail<State>(new JavaScriptInteropError(nameof(GetState), e.Message, e));
             }
         }
 

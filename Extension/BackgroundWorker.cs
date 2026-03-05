@@ -3684,11 +3684,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
 
         // Check if it's a recoverable connection error
-        // TODO P1: Use typed error from GetState instead of brittle string matching
-        var errorMsg = stateResult.Errors.Count > 0 ? stateResult.Errors[0].Message : "";
-        if (errorMsg.Contains("Missing agentUrl or passcode") ||
-            errorMsg.Contains("validateClient") ||
-            errorMsg.Contains("not connected", StringComparison.OrdinalIgnoreCase)) {
+        if (stateResult.Errors.OfType<NotConnectedError>().Any()) {
             logger.LogInformation(nameof(EnsureSignifyConnectedAsync) + ": SignifyClient not connected - attempting reconnect");
             return await TryConnectSignifyClientAsync();
         }

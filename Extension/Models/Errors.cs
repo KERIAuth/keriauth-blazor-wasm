@@ -42,6 +42,12 @@ public record ConfigurationError(string Component, string Issue) : IError {
     public Dictionary<string, object> Metadata => new() { ["Component"] = Component };
 }
 
+public record NotConnectedError(string Reason, Exception? InnerException = null) : IError {
+    public string Message => $"SignifyClient not connected: {Reason}";
+    public List<IError> Reasons => InnerException != null ? [new ExceptionalError(InnerException)] : [];
+    public Dictionary<string, object> Metadata => [];
+}
+
 public record OperationTimeoutError(string Operation, int TimeoutSeconds) : IError {
     public string Message => $"Operation '{Operation}' timed out after {TimeoutSeconds} seconds";
     public List<IError> Reasons => [];
