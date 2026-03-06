@@ -4,6 +4,24 @@
     --bt-buttontray-height: 4.3rem;
 }
 
+/* Splash screen: fade-in for logo and product name on index.html during WASM load */
+@keyframes splash-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.splash-fade-in {
+    animation: splash-fade-in 2.5s ease-out forwards;
+}
+
+/* App.razor: fade-out logo and product name as Blazor initializes */
+@keyframes splash-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+.splash-fade-out {
+    animation: splash-fade-out 3s ease-in forwards;
+}
+
 .mud-appbar .mud-toolbar-appbar {
     /* Fixed height. We don't want Mudblazor default of changing height depending on media width */
     height: var(--bt-appbar-height);
