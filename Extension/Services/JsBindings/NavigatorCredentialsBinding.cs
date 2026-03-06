@@ -217,7 +217,7 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
             return Result.Ok(result);
         }
         catch (JSException jsEx) {
-            _logger.LogError(jsEx, nameof(GetCredentialAsync) + ": JavaScript error during WebAuthn assertion");
+            _logger.LogInformation(jsEx, nameof(GetCredentialAsync) + ": JavaScript error during WebAuthn assertion");
             return Result.Fail<CredentialAssertionResult>(
                 new Error("WebAuthn assertion failed")
                     .CausedBy(jsEx)
