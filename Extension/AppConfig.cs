@@ -133,6 +133,7 @@ namespace Extension {
                 // DarkDarken
                 // DarkContrastText
 
+                // Sync: hex equivalent #f5f5f5 is used in index*.html splash theme script
                 Background = new MudColor(0, 0.0, 0.96, 1.0),
                 BackgroundGray = new MudColor(0, 0.0, 0.76, 1.0),
 
@@ -200,6 +201,7 @@ namespace Extension {
                 ActionDisabled = Colors.Gray.Darken1,
                 ActionDisabledBackground = Colors.Gray.Default,
 
+                // Sync: hex equivalent #182126 is used in index*.html splash theme script
                 Background = new MudColor(201, 0.23, 0.12, 1.0),
                 BackgroundGray = new MudColor(0, 0.0, 0.13, 1.0),
                 Success = new MudColor(123, 0.41, 0.45, 1.0),

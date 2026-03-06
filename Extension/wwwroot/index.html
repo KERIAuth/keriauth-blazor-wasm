@@ -13,17 +13,20 @@
     <link rel="apple-touch-icon" sizes="180x180" href="images/logo180.png" />
     <link href="content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="css/site.css" rel="stylesheet" />
-    <script type="module" src="scripts/es6/setExtContext.js?ctx=TAB"></script>
+    <!-- Apply theme background before first paint (colors synced with AppConfig.cs) -->
+    <script src="scripts/es6/splashTheme.js"></script>
+    <!-- Auto-detects extension context (TAB/POPUP/SIDEPANEL) from HTML filename -->
+    <script type="module" src="scripts/es6/setExtContext.js"></script>
 </head>
 
-<body style="min-width:420px; width:100vw; min-height:600px; height:100vh; margin:0px; padding:0px; box-sizing:border-box; overflow-y:hidden; display:flex; align-items:center;">
+<body style="min-width:420px; width:100vw; min-height:600px; height:100vh; margin:0px; padding:0px; box-sizing:border-box; overflow-y:hidden; display:flex; align-items:center; background-color: var(--splash-bg, #f5f5f5);">
     <div id="app" style="min-height:inherit; width:inherit; margin:0px; padding:0px; box-sizing:border-box; overflow-y:hidden; display:flex;">
         <div class="justify-center align-center"
-             style="margin-left:auto; margin-right:auto; width:420px; height:600px; background-image: url('images/example_bg.png'); background-size: contain; background-repeat:no-repeat; background-position:bottom; align-self:center;">
+             style="margin-left:auto; margin-right:auto; width:420px; height:600px; background-image: url('images/example_bg.png'); background-size: contain; background-repeat:no-repeat; background-position:bottom; align-self:center; background-color: var(--splash-bg, #f5f5f5);">
             <div style="width:400px; display:flex; justify-content:center; padding-top:37px; padding-bottom:10px; margin-left:auto; margin-right:auto;">
                 <img style="display:block; margin:auto;" src="images/logo180.png" alt="logo" />
             </div>
-            <div style="position: relative; font-family: 'Segoe UI'; text-align: center; font-size: 18px; top: 10px;">
+            <div style="position: relative; font-family: 'Segoe UI'; text-align: center; font-size: 18px; top: 10px; color: var(--splash-fg, #212121);">
                 <p style="font-variant: small-caps;"><strong>DIGN</strong></p>
             </div>
             <div style="position: relative; font-family: 'Segoe UI'; text-align: center; font-size: 18px; top: 30px;">
