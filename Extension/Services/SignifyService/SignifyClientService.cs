@@ -131,41 +131,6 @@ namespace Extension.Services.SignifyService {
             // return Task.FromResult(Result.Fail<bool>("Not implemented"));
         }
 
-        public async Task<Result<string>> RunCreateAid(string aliasStr, TimeSpan? timeout = null) {
-            TimeSpan timeout2;
-            if (timeout is null) {
-                timeout2 = (TimeSpan)TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
-            }
-            else {
-                timeout2 = (TimeSpan)timeout;
-            }
-            try {
-                var res = await TimeoutHelper.WithTimeout<string>(ct => _binding.CreateAIDAsync(aliasStr, ct), timeout2);
-                if (res.IsSuccess) {
-                    logger.LogInformation(nameof(RunCreateAid) + ": {res}", res.Value);
-                    var jsonString = res.Value;
-                    if (jsonString is null) {
-                        return Result.Fail<string>("CreateAID returned null");
-                    }
-                    else {
-                        return Result.Ok(jsonString);
-                    }
-                }
-                else {
-                    logger.LogWarning(nameof(RunCreateAid) + ": {res}", res.Errors);
-                    return Result.Fail<string>(res.Errors[0].Message);
-                }
-            }
-            catch (JSException e) {
-                logger.LogWarning(nameof(RunCreateAid) + ": JSException: {e}", e);
-                return Result.Fail<string>("SignifyClientService: CreatePersonAid: Exception: " + e);
-            }
-            catch (Exception e) {
-                logger.LogWarning(nameof(RunCreateAid) + ": Exception: {e}", e);
-                return Result.Fail<string>("SignifyClientService: CreatePersonAid: Exception: " + e);
-            }
-        }
-
         public async Task<Result<RecursiveDictionary>> RenameAid(string currentName, string newName, TimeSpan? timeout = null) {
             var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
             try {

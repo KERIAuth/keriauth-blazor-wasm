@@ -112,10 +112,6 @@ namespace Extension.Models.Messages.AppBw {
             /// </summary>
             public const string RequestConnect = "AppBw.RequestConnect";
             /// <summary>
-            /// Request to create a new AID.
-            /// </summary>
-            public const string RequestCreateAid = "AppBw.RequestCreateAid";
-            /// <summary>
             /// Request to get credentials from KERIA.
             /// </summary>
             public const string RequestGetCredentials = "AppBw.RequestGetCredentials";
@@ -177,7 +173,6 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType ResponseToBwRequest { get; } = new(Values.ResponseToBwRequest);
         public static AppBwMessageType RequestHealthCheck { get; } = new(Values.RequestHealthCheck);
         public static AppBwMessageType RequestConnect { get; } = new(Values.RequestConnect);
-        public static AppBwMessageType RequestCreateAid { get; } = new(Values.RequestCreateAid);
         public static AppBwMessageType RequestGetCredentials { get; } = new(Values.RequestGetCredentials);
         public static AppBwMessageType ReplyAidApproval { get; } = new(Values.ReplyAidApproval);
         public static AppBwMessageType ReplySignDataApproval { get; } = new(Values.ReplySignDataApproval);
@@ -255,9 +250,6 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestConnect:
                     result = RequestConnect;
-                    return true;
-                case Values.RequestCreateAid:
-                    result = RequestCreateAid;
                     return true;
                 case Values.RequestGetCredentials:
                     result = RequestGetCredentials;
@@ -504,22 +496,6 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("clientAidPrefix")] string? ClientAidPrefix = null,
         [property: JsonPropertyName("agentAidPrefix")] string? AgentAidPrefix = null,
-        [property: JsonPropertyName("error")] string? Error = null
-    );
-
-    /// <summary>
-    /// Payload for create AID request from App to BackgroundWorker.
-    /// </summary>
-    public record CreateAidRequestPayload(
-        [property: JsonPropertyName("alias")] string Alias
-    );
-
-    /// <summary>
-    /// Response payload for create AID request.
-    /// </summary>
-    public record CreateAidResponsePayload(
-        [property: JsonPropertyName("success")] bool Success,
-        [property: JsonPropertyName("prefix")] string? Prefix = null,
         [property: JsonPropertyName("error")] string? Error = null
     );
 

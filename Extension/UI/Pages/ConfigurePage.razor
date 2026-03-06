@@ -7,6 +7,8 @@
 
 @using Extension.Services.Port
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.AppBw.Requests
+@using Extension.Models.Messages.AppBw.Responses
 
 @inject IStorageService storageService
 @inject ILogger<ConfigurePage> logger
@@ -547,8 +549,8 @@
 
             // Send create AID request to BackgroundWorker via RPC
             var createAidResponse = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestCreateAid,
-                new { payload = new CreateAidRequestPayload("Alias1") });
+                AppBwMessageType.Values.RequestAddIdentifier,
+                new { payload = new RequestAddIdentifierPayload("Alias1") });
 
             if (!createAidResponse.Ok)
             {
@@ -558,7 +560,7 @@
 
             // Parse the response payload
             var createAidResult = createAidResponse.Result is System.Text.Json.JsonElement createAidJsonEl
-                ? System.Text.Json.JsonSerializer.Deserialize<CreateAidResponsePayload>(createAidJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+                ? System.Text.Json.JsonSerializer.Deserialize<AddIdentifierResponse>(createAidJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
                 : null;
 
             if (createAidResult is null || !createAidResult.Success)

@@ -1333,7 +1333,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // See HandlePortEventAsync for the event handler
 
                 case AppBwMessageType.Values.RequestAddIdentifier:
-                    await HandleAppRequestAddIdentifierRpcAsync(portId, request, tabId, tabUrl, payload);
+                    await HandleRequestAddIdentifierRpcAsync(portId, request, payload);
                     return;
 
                 case AppBwMessageType.Values.ResponseToBwRequest:
@@ -1348,10 +1348,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case AppBwMessageType.Values.RequestConnect:
                     await HandleAppRequestConnectRpcAsync(portId, request, payload);
-                    return;
-
-                case AppBwMessageType.Values.RequestCreateAid:
-                    await HandleAppRequestCreateAidRpcAsync(portId, request, payload);
                     return;
 
                 case AppBwMessageType.Values.RequestGetCredentials:
@@ -1904,38 +1900,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Handles RequestAddIdentifier RPC from App.
-    /// Creates a new identifier via signify-ts and returns the result.
-    /// </summary>
-    private async Task HandleAppRequestAddIdentifierRpcAsync(string portId, RpcRequest request, int tabId, string? tabUrl, JsonElement? payload) {
-        logger.LogInformation(nameof(HandleAppRequestAddIdentifierRpcAsync) + ": called");
-
-        try {
-            // Reconstruct AppBwMessage for existing handler
-            var appMsg = new AppBwMessage<object>(
-                type: AppBwMessageType.Values.RequestAddIdentifier,
-                tabId: tabId,
-                tabUrl: tabUrl,
-                requestId: request.Id,
-                payload: payload.HasValue
-                    ? JsonSerializer.Deserialize<object>(payload.Value.GetRawText(), JsonOptions.RecursiveDictionary)
-                    : null
-            );
-
-            // Delegate to existing handler
-            var result = await HandleRequestAddIdentifierAsync(appMsg);
-
-            // Return result via RPC response
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: result);
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestAddIdentifierRpcAsync) + ": Error creating identifier");
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                errorMessage: $"Error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
     /// Handles health check request from App.
     /// Calls KERIA health endpoint and returns the result.
     /// </summary>
@@ -2083,63 +2047,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestConnectRpcAsync) + ": Error during connect");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new ConnectResponsePayload(false, Error: ex.Message));
-        }
-    }
-
-    /// <summary>
-    /// Handles create AID request from App.
-    /// Creates a new identifier via signify-ts and returns the prefix.
-    /// </summary>
-    private async Task HandleAppRequestCreateAidRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
-        logger.LogInformation(nameof(HandleAppRequestCreateAidRpcAsync) + ": called");
-
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
-            return;
-        }
-
-        try {
-            if (!payload.HasValue) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new CreateAidResponsePayload(false, Error: "Missing payload"));
-                return;
-            }
-
-            var createAidRequest = JsonSerializer.Deserialize<CreateAidRequestPayload>(
-                payload.Value.GetRawText(), JsonOptions.CamelCase);
-
-            if (createAidRequest is null || string.IsNullOrEmpty(createAidRequest.Alias)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new CreateAidResponsePayload(false, Error: "Invalid alias"));
-                return;
-            }
-
-            var createResult = await _signifyClientService.RunCreateAid(createAidRequest.Alias);
-
-            if (createResult.IsSuccess && createResult.Value is not null) {
-                // Refresh identifiers from KERIA and update storage
-                var identifiersResult = await _signifyClientService.GetIdentifiers();
-                if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
-                    var connectionInfo = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-                    if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
-                        await _storageService.SetItem(
-                            connectionInfo.Value with { IdentifiersList = [identifiersResult.Value] },
-                            StorageArea.Session);
-                    }
-                }
-
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new CreateAidResponsePayload(true, createResult.Value));
-            }
-            else {
-                var errorMsg = createResult.Errors.Count > 0 ? createResult.Errors[0].Message : "Create AID failed";
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new CreateAidResponsePayload(false, Error: errorMsg));
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestCreateAidRpcAsync) + ": Error during create AID");
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                result: new CreateAidResponsePayload(false, Error: ex.Message));
         }
     }
 
@@ -3262,54 +3169,62 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Handles RequestAddIdentifier message from App to create a new identifier.
-    /// On success, refreshes identifiers cache and updates storage.
+    /// Handles RequestAddIdentifier RPC from App to create a new identifier.
+    /// Creates AID with end role via signify-ts, refreshes identifiers cache, and updates storage.
     /// </summary>
-    /// <returns>AddIdentifierResponse indicating success/failure</returns>
-    private async Task<object?> HandleRequestAddIdentifierAsync(AppBwMessage<object> msg) {
+    private async Task HandleRequestAddIdentifierRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleRequestAddIdentifierRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
         try {
-            logger.LogInformation(nameof(HandleRequestAddIdentifierAsync) + ": Processing request");
-
-            // Deserialize payload to RequestAddIdentifierPayload
-            if (msg.Payload is null) {
-                logger.LogWarning(nameof(HandleRequestAddIdentifierAsync) + ": Payload is null");
-                return new AddIdentifierResponse(Success: false, Error: "Payload is null");
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new AddIdentifierResponse(Success: false, Error: "Missing payload"));
+                return;
             }
 
-            var payloadJson = JsonSerializer.Serialize(msg.Payload, JsonOptions.RecursiveDictionary);
-            var payload = JsonSerializer.Deserialize<RequestAddIdentifierPayload>(payloadJson, JsonOptions.RecursiveDictionary);
+            var addRequest = JsonSerializer.Deserialize<RequestAddIdentifierPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (payload is null || string.IsNullOrEmpty(payload.Alias)) {
-                logger.LogWarning(nameof(HandleRequestAddIdentifierAsync) + ": Invalid payload or empty alias");
-                return new AddIdentifierResponse(Success: false, Error: "Invalid payload or empty alias");
+            if (addRequest is null || string.IsNullOrEmpty(addRequest.Alias)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new AddIdentifierResponse(Success: false, Error: "Invalid payload or empty alias"));
+                return;
             }
 
-            logger.LogInformation(nameof(HandleRequestAddIdentifierAsync) + ": Creating identifier with alias '{Alias}'", payload.Alias);
-
-            // Create the identifier
-            var createResult = await _signifyClientService.RunCreateAid(payload.Alias);
+            // Create the identifier with end role
+            var createResult = await _signifyClientService.CreateAidWithEndRole(addRequest.Alias);
             if (createResult.IsFailed || createResult.Value is null) {
                 var errorMsg = string.Join("; ", createResult.Errors.Select(e => e.Message));
-                logger.LogWarning(nameof(HandleRequestAddIdentifierAsync) + ": Failed to create identifier: {Errors}", errorMsg);
-                return new AddIdentifierResponse(Success: false, Error: $"Failed to create identifier: {errorMsg}");
+                logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to create identifier: {Errors}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new AddIdentifierResponse(Success: false, Error: $"Failed to create identifier: {errorMsg}"));
+                return;
             }
 
-            // createResult.Value is a JSON string containing the created AID info
-            logger.LogInformation(nameof(HandleRequestAddIdentifierAsync) + ": Successfully created identifier '{Alias}', result: {Result}", payload.Alias, createResult.Value);
+            logger.LogInformation(nameof(HandleRequestAddIdentifierRpcAsync) + ": Created identifier '{Alias}' with prefix {Prefix}",
+                addRequest.Alias, createResult.Value.Prefix);
 
             // Refresh identifiers from KERIA
             var identifiersResult = await _signifyClientService.GetIdentifiers();
             if (identifiersResult.IsFailed) {
                 var errorMsg = string.Join("; ", identifiersResult.Errors.Select(e => e.Message));
-                logger.LogWarning(nameof(HandleRequestAddIdentifierAsync) + ": Failed to refresh identifiers: {Errors}", errorMsg);
-                return new AddIdentifierResponse(Success: false, Error: $"Identifier created but failed to refresh list: {errorMsg}");
+                logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to refresh identifiers: {Errors}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new AddIdentifierResponse(Success: false, Error: $"Identifier created but failed to refresh list: {errorMsg}"));
+                return;
             }
 
             // Update storage with new identifiers list
             var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             if (connectionInfoResult.IsFailed || connectionInfoResult.Value is null) {
-                logger.LogWarning(nameof(HandleRequestAddIdentifierAsync) + ": Failed to get KeriaConnectionInfo from storage");
-                return new AddIdentifierResponse(Success: false, Error: "Failed to get connection info from storage");
+                logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to get KeriaConnectionInfo from storage");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new AddIdentifierResponse(Success: false, Error: "Failed to get connection info from storage"));
+                return;
             }
 
             var updatedConnectionInfo = connectionInfoResult.Value with {
@@ -3319,16 +3234,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var setResult = await _storageService.SetItem<KeriaConnectionInfo>(updatedConnectionInfo, StorageArea.Session);
             if (setResult.IsFailed) {
                 var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
-                logger.LogWarning(nameof(HandleRequestAddIdentifierAsync) + ": Failed to update KeriaConnectionInfo in storage: {Errors}", errorMsg);
-                return new AddIdentifierResponse(Success: false, Error: $"Failed to update storage: {errorMsg}");
+                logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to update storage: {Errors}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new AddIdentifierResponse(Success: false, Error: $"Failed to update storage: {errorMsg}"));
+                return;
             }
 
-            logger.LogInformation(nameof(HandleRequestAddIdentifierAsync) + ": Successfully updated identifiers in storage");
-            return new AddIdentifierResponse(Success: true);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new AddIdentifierResponse(Success: true, Prefix: createResult.Value.Prefix));
         }
         catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleRequestAddIdentifierAsync) + ": Exception occurred");
-            return new AddIdentifierResponse(Success: false, Error: $"Exception: {ex.Message}");
+            logger.LogError(ex, nameof(HandleRequestAddIdentifierRpcAsync) + ": Exception occurred");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new AddIdentifierResponse(Success: false, Error: ex.Message));
         }
     }
 
