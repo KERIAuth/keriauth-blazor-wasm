@@ -29,7 +29,6 @@
 
     // properties...
     bool IsProfilePanelOpen { get; set; }
-    bool IsPersistentDrawerOpenInPopup { get; set; }
 
     // computed properties ...
     Object ActiveAidObject => (object?)ActivePrefix ?? "";
@@ -66,38 +65,8 @@
     };
     bool IsMenuDrawerOpen
     {
-        get
-        {
-            if (App.IsInTab)
-            {
-                return appCache.MyPreferences.IsPersistentDrawerOpenInTab;
-            }
-            else if (App.IsInSidePanel)
-            {
-                return appCache.MyPreferences.IsPersistentDrawerOpenInSidePanel;
-            }
-            else
-            {
-                return IsPersistentDrawerOpenInPopup;
-            }
-        }
-        set
-        {
-            // This setter is called by MudDrawer when the overlay is clicked (for Temporary variant).
-            // Update the appropriate state based on the context.
-            if (App.IsInTab)
-            {
-                _ = storageService.SetItem<Preferences>(appCache.MyPreferences with { IsPersistentDrawerOpenInTab = value });
-            }
-            else if (App.IsInSidePanel)
-            {
-                _ = storageService.SetItem<Preferences>(appCache.MyPreferences with { IsPersistentDrawerOpenInSidePanel = value });
-            }
-            else
-            {
-                IsPersistentDrawerOpenInPopup = value;
-            }
-        }
+        get => appCache.IsMenuOpen;
+        set => appCache.IsMenuOpen = value;
     }
 
 
@@ -106,6 +75,14 @@
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
+
+        // Initialize menu open state from startup preference
+        appCache.IsMenuOpen = (App.IsInTab, App.IsInSidePanel) switch
+        {
+            (true, _) => appCache.MyPreferences.IsMenuOpenInTabOnStartup,
+            (_, true) => appCache.MyPreferences.IsMenuOpenInSidePanelOnStartup,
+            _ => false
+        };
 
         // Initialize the currentExtensionContext
         var currentTab = await webExtensionsApi.Tabs.GetCurrent();
@@ -188,26 +165,9 @@
         IsProfilePanelOpen = !IsProfilePanelOpen;
     }
 
-    async Task ToggleMenuDrawer()
+    void ToggleMenuDrawer()
     {
-        if (App.IsInTab)
-        {
-            var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInTab = !IsMenuDrawerOpen };
-            await storageService.SetItem<Preferences>(newPrefs);
-        }
-        else if (App.IsInSidePanel)
-        {
-            var newPrefs = appCache.MyPreferences with { IsPersistentDrawerOpenInSidePanel = !IsMenuDrawerOpen };
-            await storageService.SetItem<Preferences>(newPrefs);
-        }
-        else if (App.IsInPopup)
-        {
-            IsPersistentDrawerOpenInPopup = !IsPersistentDrawerOpenInPopup;
-        }
-        else
-        {
-            logger.LogError("ToggleMenuDrawer: Unknown App context");
-        }
+        appCache.IsMenuOpen = !appCache.IsMenuOpen;
     }
 
     public override async ValueTask DisposeAsync()

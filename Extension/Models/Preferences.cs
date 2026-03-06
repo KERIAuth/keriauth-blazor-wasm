@@ -47,11 +47,11 @@
         [JsonPropertyName("DrawerVariantInSidePanel")]
         public MudBlazor.DrawerVariant DrawerVariantInSidePanel { get; init; } = AppConfig.DefaultDrawerVariantInSidePanel;
 
-        [JsonPropertyName("IsPersistentDrawerOpenInTab")]
-        public bool IsPersistentDrawerOpenInTab { get; init; }
+        [JsonPropertyName("IsMenuOpenInTabOnStartup")]
+        public bool IsMenuOpenInTabOnStartup { get; init; } = AppConfig.DefaultIsMenuOpenInTabOnStartup;
 
-        [JsonPropertyName("IsPersistentDrawerOpenInSidePanel")]
-        public bool IsPersistentDrawerOpenInSidePanel { get; init; }
+        [JsonPropertyName("IsMenuOpenInSidePanelOnStartup")]
+        public bool IsMenuOpenInSidePanelOnStartup { get; init; } = AppConfig.DefaultIsMenuOpenInSidePanelOnStartup;
 
         [JsonPropertyName("IsPasskeyUsePreferred")]
         public bool IsPasskeyUsePreferred { get; init; } = AppConfig.DefaultIsPasskeyUsePreferred;

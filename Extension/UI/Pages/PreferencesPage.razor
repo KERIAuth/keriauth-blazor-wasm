@@ -51,6 +51,8 @@
     bool IsDarkTheme => Prefs.IsDarkTheme;
     MudBlazor.DrawerVariant DrawerVariantInTab => Prefs.DrawerVariantInTab;
     MudBlazor.DrawerVariant DrawerVariantInSidePanel => Prefs.DrawerVariantInSidePanel;
+    bool IsMenuOpenInTabOnStartup => Prefs.IsMenuOpenInTabOnStartup;
+    bool IsMenuOpenInSidePanelOnStartup => Prefs.IsMenuOpenInSidePanelOnStartup;
     bool IsMultiKeriaConfigEnabled => Prefs.IsMultiKeriaConfigEnabled;
     bool IsMultiKeriaOnUnlock => Prefs.IsMultiKeriaOnUnlock;
 
@@ -112,6 +114,16 @@
         await Persist(Prefs with { DrawerVariantInSidePanel = dv });
     }
 
+    async Task SetAndPersistIsMenuOpenInTabOnStartup(bool value)
+    {
+        await Persist(Prefs with { IsMenuOpenInTabOnStartup = value });
+    }
+
+    async Task SetAndPersistIsMenuOpenInSidePanelOnStartup(bool value)
+    {
+        await Persist(Prefs with { IsMenuOpenInSidePanelOnStartup = value });
+    }
+
     async Task SetAndPersistInactivityTimeout(float inactivityTimeout)
     {
         await Persist(Prefs with { InactivityTimeoutMinutes = inactivityTimeout });
@@ -164,8 +176,8 @@
         await Persist(AppConfig.DefaultPreferences with
         {
             KeriaPreference = Prefs.KeriaPreference, // Preserve KERIA selection
-            IsPersistentDrawerOpenInSidePanel = Prefs.IsPersistentDrawerOpenInSidePanel,
-            IsPersistentDrawerOpenInTab = Prefs.IsPersistentDrawerOpenInTab,
+            IsMenuOpenInSidePanelOnStartup = Prefs.IsMenuOpenInSidePanelOnStartup,
+            IsMenuOpenInTabOnStartup = Prefs.IsMenuOpenInTabOnStartup,
             IsMultiKeriaConfigEnabled = Prefs.IsMultiKeriaConfigEnabled,
             IsMultiKeriaOnUnlock = Prefs.IsMultiKeriaOnUnlock,
             BeepOnScanSuccess = Prefs.BeepOnScanSuccess,
@@ -194,21 +206,23 @@
                 <MudText Class="bt-pref-group-label0">
                     Menu Mode
                 </MudText>
-                <MudStack Row="false" Class="ml-5" Style="width:14.286rem;">
-                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                <MudStack Row="true" Class="ml-5" AlignItems="AlignItems.Center">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Style="width:14.286rem;">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
                         {
                             <MudSelectItem Value="item">@item</MudSelectItem>
                         }
                     </MudSelect>
+                    <MudCheckBox T="bool" Value="IsMenuOpenInTabOnStartup" ValueChanged="async (bool v) => await SetAndPersistIsMenuOpenInTabOnStartup(v)" Label="Expand on initial open" Color="Color.Primary" />
                 </MudStack>
-                <MudStack Row="false" Class="ml-5" Style="width:14.286rem;">
-                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInSidePanel" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVISP(a)" Label="In SidePanel" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                <MudStack Row="true" Class="ml-5" AlignItems="AlignItems.Center">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInSidePanel" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVISP(a)" Label="In SidePanel" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Style="width:14.286rem;">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInSidePanel)))
                         {
                             <MudSelectItem Value="item">@item</MudSelectItem>
                         }
                     </MudSelect>
+                    <MudCheckBox T="bool" Value="IsMenuOpenInSidePanelOnStartup" ValueChanged="async (bool v) => await SetAndPersistIsMenuOpenInSidePanelOnStartup(v)" Label="Expand on initial open" Color="Color.Primary" />
                 </MudStack>
             </MudStack>
 

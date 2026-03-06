@@ -186,6 +186,12 @@
 
         public Notifications MyNotifications { get; private set; } = new Notifications();
 
+        /// <summary>
+        /// In-memory menu open/collapse state, not persisted to storage.
+        /// Initialized from IsMenuOpenInTabOnStartup / IsMenuOpenInSidePanelOnStartup preference.
+        /// </summary>
+        public bool IsMenuOpen { get; set; }
+
         // Derived properties ("reactive selectors")
         /// <summary>
         /// Gets the selected AID prefix from the current KERIA configuration.
