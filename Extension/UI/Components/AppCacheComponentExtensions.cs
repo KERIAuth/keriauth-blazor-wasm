@@ -87,6 +87,7 @@ namespace Extension.UI.Components {
 
             private void OnAppCacheChanged() {
                 if (_invokeAsyncMethod == null) {
+                    _appCache.Logger.LogError(nameof(OnAppCacheChanged) + ": _invokeAsyncMethod is null for {Component}", _component.GetType().Name);
                     return;
                 }
 
@@ -97,8 +98,15 @@ namespace Extension.UI.Components {
                     }
                 };
 
-                // Invoke protected InvokeAsync method via reflection
-                _ = _invokeAsyncMethod.Invoke(_component, [action]);
+                // Invoke protected InvokeAsync method via reflection.
+                // Observe the Task to surface exceptions from HandleAppCacheChanged callbacks.
+                var task = _invokeAsyncMethod.Invoke(_component, [action]) as Task;
+                if (task != null) {
+                    task.ContinueWith(t => {
+                        _appCache.Logger.LogError(t.Exception,
+                            nameof(OnAppCacheChanged) + ": Error in callback for {Component}", _component.GetType().Name);
+                    }, TaskContinuationOptions.OnlyOnFaulted);
+                }
             }
 
             public void Dispose() {

@@ -5,7 +5,9 @@
     public record Preferences : IStorageModel {
 
         [JsonPropertyName("IsDarkTheme")]
-        public bool IsDarkTheme { get; set; } = AppConfig.DefaultIsDarkTheme;
+        public bool IsDarkTheme { get; init; } = AppConfig.DefaultIsDarkTheme;
+        // Note: IsDarkTheme default should only be used here when initializing Preferences for the first time.
+        // It may be randomly set by AppConfig for feature discoverability.
 
         /// <summary>
         /// When true, enables multi-KERIA configuration features throughout the app.

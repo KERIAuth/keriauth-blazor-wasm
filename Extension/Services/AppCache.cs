@@ -73,6 +73,7 @@
     public class AppCache(IStorageService storageService, ILogger<AppCache> logger, IWebExtensionsApi webExtensionsApi) : IDisposable {
         private readonly IStorageService storageService = storageService;
         private readonly ILogger<AppCache> _logger = logger;
+        internal ILogger Logger => _logger;
         private bool _isInitialized;
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private readonly IWebExtensionsApi webExtensionsApi = webExtensionsApi;
