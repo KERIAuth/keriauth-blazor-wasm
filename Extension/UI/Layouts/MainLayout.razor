@@ -218,14 +218,13 @@
                                     KeriaAlias="@KeriaAlias"
                                     IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
 
-            <!-- Active Identifier Identicon -->
-            <div style="align-self:center; height: 2.5rem; padding-right:0.5rem;">
-                @if (IsIdenticonShown)
-                {
-                    <MudTooltip Text=@ActiveAlias Arrow="true" Placement="Placement.Left" Delay="500">
-                        <MudIcon @onclick="async (a) => await ClickToggleProfilePanel(a)" ViewBox="0 0 100 100" Icon=@ActivePrefixIdenticon Class="bt-identicon" />
-                    </MudTooltip>
-                }
+            <!-- Active Profile Display -->
+            <div id="activeProfileDisplay" style="align-self:center; height: 2.5rem;">
+                @if (IsIdenticonShown) {
+                    <div @onclick="async (a) => await ClickToggleProfilePanel(a)" style="cursor:pointer;">
+                        <AidPrefixDisplay Prefix="@ActivePrefix" Name="@ActiveAlias" ShowCopyButton="false" TextPosition="AidPrefixDisplay.TextSide.Left" />
+                    </div>
+            }
             </div>
         </MudStack>
 
@@ -237,10 +236,7 @@
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @ProfilesPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">
-                                <MudIcon Icon=@Helper.Identicon.MakeIdenticon(aid.Prefix) ViewBox="0 0 100 100" Class="bt-identicon" Style="margin-top: 0.214rem;" />
-                                <div class="bt-sad-2" style="display:contents;">
-                                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">@aid.Name</MudText>
-                                </div>
+                                <AidPrefixDisplay Prefix="@aid.Prefix" Name="@aid.Name" ShowCopyButton="false" TextPosition="AidPrefixDisplay.TextSide.Right" />
                             </MudStack>
                         </MudListItem>
                         <MudDivider DividerType="DividerType.Inset" />

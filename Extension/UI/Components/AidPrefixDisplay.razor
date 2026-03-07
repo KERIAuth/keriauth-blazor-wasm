@@ -4,6 +4,7 @@
 @* Displays an AID prefix with identicon, abbreviated text, full-prefix tooltip, and optional name/alias. *@
 
 <div class="bt-aid-prefix-display">
+@if( !string.IsNullOrEmpty(Prefix)) {
     <MudTooltip Text="@Prefix" Delay="500" Arrow="true" Style="display:flex; align-items:center;">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
             @if (TextPosition == TextSide.Left)
@@ -20,13 +21,14 @@
             }
         </MudStack>
     </MudTooltip>
-    @if (ShowCopyButton)
-    {
+    if (ShowCopyButton)
+        {
         <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                        Size="Size.Small"
                        OnClick="CopyToClipboard"
                        Style="padding: 0px !important;"
                        aria-label="Copy prefix" />
+        }
     }
 </div>
 
