@@ -222,7 +222,7 @@
             <div id="activeProfileDisplay" style="align-self:center; height: 2.5rem;">
                 @if (IsIdenticonShown) {
                     <div @onclick="async (a) => await ClickToggleProfilePanel(a)" style="cursor:pointer;">
-                        <AidPrefixDisplay Prefix="@ActivePrefix" Name="@ActiveAlias" ShowCopyButton="false" TextPosition="AidPrefixDisplay.TextSide.Left" />
+                        <AidPrefixDisplay Prefix="@ActivePrefix" Name="@ActiveAlias" ShowCopyButton="false" ShowPrefix="false" TextClass="bt-aid-prefix-name-only" TextPosition="AidPrefixDisplay.TextSide.Left" />
                     </div>
             }
             </div>
@@ -236,7 +236,7 @@
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @ProfilesPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
                             <MudStack Row="true" Style="display:inline-flex !important; align-items:center;">
-                                <AidPrefixDisplay Prefix="@aid.Prefix" Name="@aid.Name" ShowCopyButton="false" TextPosition="AidPrefixDisplay.TextSide.Right" />
+                                <AidPrefixDisplay Prefix="@aid.Prefix" Name="@aid.Name" ShowCopyButton="false" ShowPrefix="false" TextClass="bt-aid-prefix-name-only" TextPosition="AidPrefixDisplay.TextSide.Right" />
                             </MudStack>
                         </MudListItem>
                         <MudDivider DividerType="DividerType.Inset" />

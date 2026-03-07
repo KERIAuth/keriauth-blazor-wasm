@@ -4,6 +4,11 @@
     --bt-buttontray-height: 4.3rem;
 }
 
+.bt-aid-prefix-name-only {
+    font-size: 0.8rem;
+    white-space: normal;
+}
+
 /* Splash screen: fade-in for logo and product name on index.html during WASM load */
 @keyframes splash-fade-in {
     from { opacity: 0; }
