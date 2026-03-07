@@ -111,5 +111,5 @@ public class SchemaService : ISchemaService {
         return entry?.OobiUrls ?? [];
     }
 
-    public IEnumerable<SchemaEntry> GetAllSchemas() => _schemas.Values;
+    public IEnumerable<SchemaEntry> GetAllSchemas() => _schemas.Values.ToList();
 }

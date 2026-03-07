@@ -232,34 +232,38 @@ public static class Routes {
     /// <summary>
     /// Get all pages that require authentication.
     /// </summary>
-    public static IEnumerable<PageRoute> PagesRequiringAuth() =>
+    public static List<PageRoute> PagesRequiringAuth() =>
         Pages
             .Where(p => p.Value.RequiresAuth)
-            .Select(p => p.Value);
+            .Select(p => p.Value)
+            .ToList();
 
     /// <summary>
     /// Get all pages that do not require authentication.
     /// </summary>
-    public static IEnumerable<PageRoute> PagesNotRequiringAuth() =>
+    public static List<PageRoute> PagesNotRequiringAuth() =>
         Pages
             .Where(p => !p.Value.RequiresAuth)
-            .Select(p => p.Value);
+            .Select(p => p.Value)
+            .ToList();
 
     /// <summary>
     /// Get all pages that have menu icons (for menu rendering).
     /// </summary>
-    public static IEnumerable<PageRoute> MenuPages() =>
+    public static List<PageRoute> MenuPages() =>
         Pages
             .Where(p => p.Value.MenuIcon is not null)
-            .Select(p => p.Value);
+            .Select(p => p.Value)
+            .ToList();
 
     /// <summary>
     /// Get all menu pages filtered by auth requirement.
     /// </summary>
-    public static IEnumerable<PageRoute> MenuPages(bool requiresAuth) =>
+    public static List<PageRoute> MenuPages(bool requiresAuth) =>
         Pages
             .Where(p => p.Value.MenuIcon is not null && p.Value.RequiresAuth == requiresAuth)
-            .Select(p => p.Value);
+            .Select(p => p.Value)
+            .ToList();
 
     #endregion
 
@@ -287,10 +291,11 @@ public static class Routes {
     /// <summary>
     /// Get all content pages that have menu icons (for menu rendering).
     /// </summary>
-    public static IEnumerable<ContentRoute> MenuContent() =>
+    public static List<ContentRoute> MenuContent() =>
         Content
             .Where(c => c.Value.MenuIcon is not null)
-            .Select(c => c.Value);
+            .Select(c => c.Value)
+            .ToList();
 
     #endregion
 }

@@ -516,10 +516,14 @@ public class AppBwPortService(
         StopHeartbeatWatchdog();
 
         // Notify observers of completion
-        foreach (var observer in _observers.ToArray()) {
+        IObserver<BwAppMessage>[] snapshot;
+        lock (_observers) {
+            snapshot = [.. _observers];
+            _observers.Clear();
+        }
+        foreach (var observer in snapshot) {
             observer.OnCompleted();
         }
-        _observers.Clear();
 
         ClearPort();
         await Task.CompletedTask; // Satisfy async requirement
@@ -558,8 +562,10 @@ public class AppBwPortService(
     /// Subscribe to receive BwAppMessage notifications from BackgroundWorker.
     /// </summary>
     public IDisposable Subscribe(IObserver<BwAppMessage> observer) {
-        if (!_observers.Contains(observer)) {
-            _observers.Add(observer);
+        lock (_observers) {
+            if (!_observers.Contains(observer)) {
+                _observers.Add(observer);
+            }
         }
         return new Unsubscriber(this, observer);
     }
@@ -569,8 +575,12 @@ public class AppBwPortService(
     /// Snapshots the list with .ToArray() so that unsubscribe during OnNext is safe.
     /// </summary>
     private void NotifyObservers(BwAppMessage message) {
-        _logger.LogDebug(nameof(NotifyObservers) + ": Notifying {Count} observers of message type: {Type}", _observers.Count, message.Type);
-        foreach (var observer in _observers.ToArray()) {
+        IObserver<BwAppMessage>[] snapshot;
+        lock (_observers) {
+            _logger.LogDebug(nameof(NotifyObservers) + ": Notifying {Count} observers of message type: {Type}", _observers.Count, message.Type);
+            snapshot = [.. _observers];
+        }
+        foreach (var observer in snapshot) {
             observer.OnNext(message);
         }
     }
@@ -580,7 +590,9 @@ public class AppBwPortService(
     /// Called by Unsubscriber.Dispose to avoid leaking the raw _observers list.
     /// </summary>
     private void RemoveObserver(IObserver<BwAppMessage> observer) {
-        _observers.Remove(observer);
+        lock (_observers) {
+            _observers.Remove(observer);
+        }
     }
 
     /// <summary>
