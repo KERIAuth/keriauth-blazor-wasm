@@ -76,7 +76,9 @@ import {
     // Map RPC request ID -> original page requestId for response routing
     const rpcIdToPageRequestId = new Map<string, string>();
     let pendingReadyTimeout: ReturnType<typeof setTimeout> | null = null;
-    const READY_TIMEOUT_MS = 5000;
+    let pendingReadyResolve: (() => void) | null = null;
+    let pendingReadyReject: ((reason: unknown) => void) | null = null;
+    const READY_TIMEOUT_MS = 30000; // WASM cold start can take 2-5s after BW reports ready
 
     // Heartbeat tracking
     let lastHeartbeatTime = 0;
@@ -186,14 +188,21 @@ import {
             console.debug(`${csAbbr}→BW: HELLO`, helloMessage);
             port.postMessage(helloMessage);
 
-            // Step 4: Wait for port READY (timeout handled by watchdog)
-            pendingReadyTimeout = setTimeout(() => {
-                if (!isPortReady) {
-                    console.debug(`${logPrefix} Port READY timeout`);
-                    pendingReadyTimeout = null;
-                    if (port) port.disconnect();
-                }
-            }, READY_TIMEOUT_MS);
+            // Step 4: Await READY response (or timeout)
+            return new Promise<void>((resolve, reject) => {
+                pendingReadyResolve = resolve;
+                pendingReadyReject = reject;
+                pendingReadyTimeout = setTimeout(() => {
+                    if (!isPortReady) {
+                        console.debug(`${logPrefix} Port READY timeout`);
+                        pendingReadyTimeout = null;
+                        pendingReadyResolve = null;
+                        pendingReadyReject = null;
+                        if (port) port.disconnect();
+                        reject(new Error('Port READY timeout'));
+                    }
+                }, READY_TIMEOUT_MS);
+            });
 
         } catch (error) {
             console.debug(`${logPrefix} Failed to connect:`, error);
@@ -236,6 +245,13 @@ import {
 
         portSessionId = message.portSessionId;
         isPortReady = true;
+
+        // Resolve the connectPort() Promise so callers know the port is ready
+        if (pendingReadyResolve) {
+            pendingReadyResolve();
+            pendingReadyResolve = null;
+            pendingReadyReject = null;
+        }
 
         console.debug(`${logPrefix} Port ready, portSessionId:`, portSessionId);
 
@@ -318,6 +334,13 @@ import {
         if (pendingReadyTimeout !== null) {
             clearTimeout(pendingReadyTimeout);
             pendingReadyTimeout = null;
+        }
+
+        // Reject the connectPort() Promise if still pending
+        if (pendingReadyReject) {
+            pendingReadyReject(new Error('Port disconnected before READY'));
+            pendingReadyResolve = null;
+            pendingReadyReject = null;
         }
 
         // chrome.runtime.lastError exists at runtime but may not be in type definitions
