@@ -399,10 +399,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // NOTE: Action click permission handling is now done in app.js beforeStart() hook to preserve user gesture.
-    // See app.js for chrome.action.onClicked listener that handles permission requests and script registration.
+    // NOTE: Action click permission handling is done in app.js at module level (not in beforeStart())
+    // to preserve user gesture AND catch cold-start wake events. See the module-level
+    // chrome.action.onClicked.addListener in app.ts for the handler that handles permission
+    // requests and script registration.
     //
-    // This OnActionClickedAsync method will be invoked before after the handler above, since this one is registered after it.
+    // This OnActionClickedAsync method is invoked via the generated BackgroundWorker.js
+    // fromReference() queueing mechanism, after the module-level handler above.
     // Typical use: Open popup, toggle feature, 
     [JSInvokable]
     public async Task OnActionClickedAsync(BrowserTab tab) {
