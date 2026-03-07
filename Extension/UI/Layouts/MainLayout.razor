@@ -38,7 +38,9 @@
         ? ""
         : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";
     bool IsIdenticonShown => appCache.IsConnectedToKeria && !string.IsNullOrEmpty(ActivePrefix);
+    bool IsNotificationIconShown => appCache.IsAuthenticated;
     string? KeriaAlias => appCache.GetSelectedKeriaConnectConfig()?.Alias;
+    bool HasUnreadNotifications => appCache.MyNotifications.Items.Any(n => !n.IsRead);
     bool IsMultiKeriaConfigEnabled => appCache.MyPreferences.IsMultiKeriaConfigEnabled;
     static ContextFilter contextFilterPopup => new ContextFilter() { ContextTypes = [ContextType.POPUP] };
     string MainContentStyle => (IsMenuDrawerOpen, ActiveDrawerVariant) switch
@@ -190,14 +192,17 @@
 
             <LogoButton />
 
-            @* // For debugging: Uncomment to confirm AppContext is correctly setting e.g. in popup, sidepanel, tab contexts
-            <MudText>
-                AppContext: @App.AppContext.ToString()
-            </MudText>
-            *@
-
             <MudSpacer />
 
+            <!-- Notifications -->
+            @if (IsNotificationIconShown) {
+            <MudIconButton 
+                Icon="@Icons.Material.Filled.Message" 
+                OnClick="() => navManager.NavigateTo(Routes.PathFor<NotificationsPage>())"
+                Disabled="@(!appCache.IsAuthenticated)"
+                Style="@($"background-color:transparent; opacity:{(HasUnreadNotifications ? 1 : 0.5)}; color:{(HasUnreadNotifications ? "var(--mud-palette-warning)" : "inherit")};")"
+            />
+            }
 
             <SessionStatusIndicator IsAuthenticated="@appCache.IsAuthenticated"
                                     IsIdentifierFetched="@appCache.IsIdentifierFetched"
@@ -258,9 +263,9 @@
                 <MudNavLink Href="@(Routes.PathFor<CredentialsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<WebsitesPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                 <MudNavLink Href="@(Routes.PathFor<ConnectionsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.People" IconColor="Color.Surface">Connections</MudNavLink>
-                <MudNavLink Href="@(Routes.PathFor<NotificationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Notifications" IconColor="Color.Surface">
+                <MudNavLink Href="@(Routes.PathFor<NotificationsPage>())" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Message" IconColor="Color.Surface">
                     <MudBadge Content="@(appCache.MyNotifications.Items.Count(n => !n.IsRead))"
-                              Visible="@(appCache.MyNotifications.Items.Any(n => !n.IsRead))"
+                              Visible="@HasUnreadNotifications"
                               Color="Color.Error"
                               Overlap=false
                               Origin=Origin.CenterRight>
