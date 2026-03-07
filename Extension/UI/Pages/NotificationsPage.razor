@@ -37,11 +37,20 @@
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+
         new(ViewDefIds.NotifSender, "Sender (active profile)",
             FilterSets: [new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+
+        new(ViewDefIds.NotifProfile, "All (active profile)",
+            FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix]),
+                         new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
+            SubtotalFilterSets: ProfileSubtotalFilterSets,
+            CountStyle: CountStyle.OfSubTotal,
+            SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+        
         new(ViewDefIds.NotifAll, "All",
             CountStyle: CountStyle.Total,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])])

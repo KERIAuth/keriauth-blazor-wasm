@@ -34,11 +34,11 @@
     // ViewDef
     List<ViewDef<WebsiteConfig>> WebsiteViewDefs =>
     [
-        new(ViewDefIds.WebActive, "Active profile",
+        new(ViewDefIds.WebActive, "All (active profile)",
             FilterSets: [new("ActiveProfile", [(WebsiteConfig w) => w.RememberedPrefixOrNothing == appCache.SelectedPrefix])],
             CountStyle: CountStyle.ForProfile,
             SortSets: websiteSortSets),
-        new(ViewDefIds.WebAll, "All profiles",
+        new(ViewDefIds.WebAll, "All",
             CountStyle: CountStyle.Total,
             SortSets: websiteSortSets)
     ];

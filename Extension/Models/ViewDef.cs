@@ -42,6 +42,7 @@ public static class ViewDefIds {
     // NotificationsPage
     public const string NotifTarget = "notif-target";
     public const string NotifSender = "notif-sender";
+    public const string NotifProfile = "notif-profile";
     public const string NotifAll = "notif-all";
     // ProfilesPage
     public const string ProfilesAll = "profiles-all";
