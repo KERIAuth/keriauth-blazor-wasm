@@ -228,9 +228,12 @@
             </div>
         </MudStack>
 
-        <!-- Identifier Selector overlay, which covers entire page -->
-        <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="display: block; width:100vw; min-height:100vh; height:fit-content; overflow-y:auto; color:var(--mud-palette-primary);">
-            <div style="background:var(--mud-palette-background); position:absolute; height: auto; right: 0; display:block; width:21.429rem; margin-top: var(--bt-appbar-height); border-style: solid; border-top-style:none; border-width: 1px; border-color: #CACACA;">
+    </MudAppBar>
+
+    <!-- Identifier Selector overlay, which covers entire page -->
+    <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:5; color:var(--mud-palette-primary);">
+        <div @onclick:stopPropagation style="position:fixed; top:var(--bt-appbar-height); right:0; bottom:0; width:21.429rem; display:flex; flex-direction:column; background:var(--mud-palette-background); border-style:solid; border-top-style:none; border-width:1px; border-color:#CACACA;">
+            <div style="flex:1; overflow-y:auto; min-height:0;">
                 <MudList SelectedValue="ActiveAidObject" Class="bt-sad-4 pa-0">
                     @foreach (var aid in appCache.Aids)
                     {
@@ -242,13 +245,13 @@
                         <MudDivider DividerType="DividerType.Inset" />
                     }
                 </MudList>
-                <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end pr-2">
-                    <MudSpacer></MudSpacer>
-                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@(Routes.PathFor<ProfilesPage>())">Manage Profiles</MudButton>
-                </MudStack>
             </div>
-        </MudOverlay>
-    </MudAppBar>
+            <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end pr-2" Style="flex-shrink:0;">
+                <MudSpacer></MudSpacer>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@(Routes.PathFor<ProfilesPage>())" OnClick="() => IsProfilePanelOpen = false">Manage Profiles</MudButton>
+            </MudStack>
+        </div>
+    </MudOverlay>
 
     <!-- MENU DRAWER AND MAIN CONTENT -->
     <MudDrawerContainer id="MudDrawerContainer" Style="height:calc(100vh - var(--mud-appbar-height)); top:calc(var(--mud-appbar-height) + 0.5rem); position:absolute; width:inherit; display:flex;">
