@@ -68,6 +68,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // Track the "Open in tab" tab ID so we can reuse it (lost on service worker restart, which is fine)
     private int? _optionsTabId;
 
+    // In-memory flag: resets to false on each SW restart (new BackgroundWorker instance).
+    // Prevents EnsureInitializedAsync from being fooled by stale BwReadyState in session storage
+    // that persists across SW hibernation cycles.
+    private bool _initializedThisLifetime;
+
     // In-memory correlation for connection invite flow: keyed by page's OOBI
     // Stored after App approval, consumed by the confirm handler
     private record PendingConnectionInfo(string AidName, string AidPrefix, string? ResolvedAlias);
@@ -269,12 +274,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task EnsureInitializedAsync() {
         try {
-            // Check if BwReadyState is already set in session storage
-            var result = await _storageService.GetItem<BwReadyState>(StorageArea.Session);
-
-            if (result.IsSuccess && result.Value?.IsInitialized == true) {
-                // Already initialized - nothing to do
-                logger.LogDebug(nameof(EnsureInitializedAsync) + ": BwReadyState already set, skipping initialization");
+            // In-memory guard: resets on each SW restart (new instance).
+            // Session storage BwReadyState persists across SW hibernation cycles,
+            // so it alone cannot detect that we need to re-initialize after a wake.
+            if (_initializedThisLifetime) {
+                logger.LogDebug(nameof(EnsureInitializedAsync) + ": Already initialized this lifetime, skipping");
                 return;
             }
 
@@ -315,10 +319,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Notify ContentScripts to reconnect their ports after service worker restart
             // await _portService.NotifyContentScriptsOfRestartAsync();
 
+            _initializedThisLifetime = true;
             logger.LogInformation(nameof(EnsureInitializedAsync) + ": Initialization complete");
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(EnsureInitializedAsync) + ": Error during initialization - attempting to set BwReadyState anyway");
+            _initializedThisLifetime = true; // Prevent retry loops even on failure
             // Still try to set BwReadyState so App doesn't timeout
             await SetBwReadyStateAsync();
         }
@@ -1163,6 +1169,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         logger.LogInformation(nameof(HandleContentScriptRpcAsync) + ": method={Method}, id={Id}, portId={PortId}",
             request.Method, request.Id, portId);
 
+        await EnsureInitializedAsync();
+
         if (portSession is null) {
             logger.LogWarning(nameof(HandleContentScriptRpcAsync) + ": No PortSession for portId={PortId}", portId);
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -1275,6 +1283,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task HandleAppRpcAsync(string portId, PortSession? portSession, RpcRequest request) {
         logger.LogInformation(nameof(HandleAppRpcAsync) + ": method={Method}, id={Id}, portId={PortId}",
             request.Method, request.Id, portId);
+
+        await EnsureInitializedAsync();
 
         try {
             // Parse the RPC params to extract AppBwMessage fields
