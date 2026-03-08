@@ -510,18 +510,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    // webNavigation.onComplete event fires when tabs navigate.
-    // Typical use: Inject scripts, block/redirect, monitor
-    public static async Task OnWebNavCompletedAsync() {
-        await Task.Delay(0);
-    }
-
-    // webRequest.onCompleted event fires when webRequests are made and finish.
-    // Typical use: Inject scripts, block/redirect, monitor
-    public static async Task OnWebReqCompletedAsync() {
-        await Task.Delay(0);
-    }
-
     // Runtime.onSuspend event fires just before the background worker is unloaded (idle ~30s).
     // Typical use: Save in-memory state, cleanup, flush logs. ... quickly (though you get very little time).
     // Parameters: none

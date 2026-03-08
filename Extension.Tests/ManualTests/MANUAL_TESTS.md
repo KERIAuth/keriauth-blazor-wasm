@@ -425,6 +425,30 @@ Tests are ordered by causality - earlier test failures help identify root causes
     - [ ] Log shows "Initializing state for active tab"
     - [ ] Icon shows correct state (active if CS responding, inactive otherwise)
 
+## P. Service Worker Cold-Start Wake via Tab Switch
+**Purpose**: Verify module-level listeners catch events that wake the service worker from idle.
+
+1. Prerequisite: Two tabs open — Tab A with active content script, Tab B without
+2. Wait for service worker to go idle (~30s inactivity, or force stop via chrome://serviceworker-internals)
+3. Switch from Tab B to Tab A (this wakes the service worker via chrome.tabs.onActivated)
+
+    Expected:
+    - [ ] Service worker wakes up
+    - [ ] Icon updates to active (colored) state for Tab A
+    - [ ] No missed events, no stale icon state
+
+## Q. Service Worker Cold-Start Wake via Permission Grant
+**Purpose**: Verify permission listeners catch events that wake the service worker from idle.
+
+1. Wait for service worker to go idle (~30s, or force stop)
+2. Right-click extension icon on a new site → grant permission via context menu
+
+    Expected:
+    - [ ] Service worker wakes up
+    - [ ] Content script registered for the site
+    - [ ] Reload prompt appears
+    - [ ] After reload, icon shows active state
+
 # Webauthn Authenticator ("Passkey") Tests
 
 ## A. Register and Test Webauthn Authenticator
@@ -440,12 +464,5 @@ Tests are ordered by causality - earlier test failures help identify root causes
 ## F. Multiple Webauthn Authenticators
 
 ## G. Webauthn Authenticator on Different Browsers/Devices
-
-# See also
-ManualTest.md in this folder for detailed step-by-step happy-path test cases.
-
-
-
-
 
 

@@ -518,6 +518,391 @@ if (_isSW) {
             console.warn(`app.ts: ${_logTag} sidePanel.open failed:`, err);
         });
     });
+
+    // ==================================================================================
+    // HELPER FUNCTIONS FOR MODULE-LEVEL LISTENERS
+    // ==================================================================================
+
+    /**
+     * Unregisters content script for a given match pattern.
+     * @param matchPattern Pattern like "http://foo.example.com:8080/*"
+     */
+    const unregisterForPattern = async (matchPattern: string): Promise<void> => {
+        const hostWithPort = hostWithPortFromPattern(matchPattern);
+        if (!hostWithPort) {
+            console.error(`app.ts: ${_logTag} Cannot unregister - invalid pattern: ${matchPattern}`);
+            return;
+        }
+        const scriptId = scriptIdFromHostWithPort(hostWithPort);
+        try {
+            await chrome.scripting.unregisterContentScripts({ ids: [scriptId] });
+            console.debug(`app.ts: ${_logTag} Unregistered content script: ${scriptId}`);
+        } catch (e) {
+            // Script may not exist, ignore error
+            console.debug(`app.ts: ${_logTag} Script ${scriptId} not found for unregistration (may not exist)`);
+        }
+    };
+
+    /**
+     * Initialize icon state for a specific tab.
+     * Checks for registered content script and pings to determine active state.
+     * @param tabId The tab ID to initialize
+     * @param tabUrl The tab URL
+     */
+    const initializeTabIconState = async (tabId: number, tabUrl: string): Promise<void> => {
+        // Skip unsupported URL schemes (chrome://, about:, etc.)
+        if (!isSupportedUrlScheme(tabUrl)) {
+            await updateIconForTab(tabId, false);
+            return;
+        }
+
+        // Check if we have a registered content script for this origin
+        const hasScript = await hasRegisteredContentScript(tabUrl);
+        if (!hasScript) {
+            await updateIconForTab(tabId, false);
+            return;
+        }
+
+        // Try to ping the content script
+        try {
+            const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+            const isActive = pingResponse?.ok === true;
+            await updateIconForTab(tabId, isActive);
+        } catch (error) {
+            // Content script registered but not responding
+            // This is expected after extension reload - CS context is invalidated
+            console.debug(`app.ts: ${_logTag} initializeTabIconState - Content script registered but not responding for tab ${tabId} (may need page reload), error:`, error);
+            await updateIconForTab(tabId, false);
+        }
+    };
+
+    /**
+     * Initialize icon state for the current active tab on service worker startup.
+     * Queries registered content scripts and pings them to determine active state.
+     */
+    const initializeActiveTabState = async (): Promise<void> => {
+        try {
+            // Get the currently active tab in the focused window
+            // Note: lastFocusedWindow handles cases where currentWindow may not be set
+            // (e.g., during browser startup before a window is focused)
+            const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+
+            if (!activeTab?.id || !activeTab.url) {
+                return;
+            }
+
+            await initializeTabIconState(activeTab.id, activeTab.url);
+        } catch (error) {
+            console.error(`app.ts: ${_logTag} initializeActiveTabState - Error during active tab initialization:`, error);
+        }
+    };
+
+    // ==================================================================================
+    // TAB EVENT LISTENERS FOR ICON UPDATES
+    // ==================================================================================
+
+    chrome.tabs.onActivated.addListener(async (activeInfo) => {
+        // Get tab info to check URL before attempting to ping
+        let tab: chrome.tabs.Tab | undefined;
+        try {
+            tab = await chrome.tabs.get(activeInfo.tabId);
+        } catch {
+            // Tab may have been closed
+            return;
+        }
+
+        // Skip unsupported URL schemes (chrome://, about:, etc.) - no content script possible
+        if (!isSupportedUrlScheme(tab.url)) {
+            await updateIconForTab(activeInfo.tabId, false);
+            return;
+        }
+
+        // Only ping if we have a registered content script for this origin
+        const hasScript = await hasRegisteredContentScript(tab.url!);
+        if (!hasScript) {
+            await updateIconForTab(activeInfo.tabId, false);
+            return;
+        }
+
+        try {
+            const pingResponse = await chrome.tabs.sendMessage(activeInfo.tabId, { type: 'ping' });
+            await updateIconForTab(activeInfo.tabId, pingResponse?.ok === true);
+        } catch {
+            // Content script registered but not responding (page may need reload)
+            await updateIconForTab(activeInfo.tabId, false);
+        }
+    });
+
+    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+        // Chrome resets per-tab icons on navigation, so invalidate our cache
+        if (changeInfo.status === 'loading') {
+            tabIconState.delete(tabId);
+            return;
+        }
+
+        // Only check when page finishes loading
+        if (changeInfo.status !== 'complete') return;
+
+        // Skip unsupported URL schemes (chrome://, about:, etc.) - no content script possible
+        if (!isSupportedUrlScheme(tab.url)) {
+            await updateIconForTab(tabId, false);
+            return;
+        }
+
+        // Only ping if we have a registered content script for this origin
+        const hasScript = await hasRegisteredContentScript(tab.url!);
+        if (!hasScript) {
+            await updateIconForTab(tabId, false);
+            return;
+        }
+
+        try {
+            const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+            await updateIconForTab(tabId, pingResponse?.ok === true);
+        } catch {
+            // Content script registered but not responding (page may need reload)
+            await updateIconForTab(tabId, false);
+        }
+    });
+
+    // ==================================================================================
+    // CONTEXT MENU PERMISSION CHANGE HANDLERS
+    // ==================================================================================
+    //
+    // REQUIREMENT SCENARIOS (Permission Added via Context Menu):
+    //
+    // Scenario #7: Grant permission via context menu (No Script, No Active CS)
+    //   User Action: Right-click extension -> "When you click the extension" or "On this site"
+    //   Expected: 1) onAdded listener fires
+    //             2) Register persistent script
+    //             3) Find all matching tabs
+    //             4) Prompt each tab to reload
+    //
+    // Scenario #8: Grant permission via context menu (Script Already Registered, No Active CS)
+    //   User Action: Right-click extension -> Grant permission
+    //   Expected: 1) onAdded fires
+    //             2) Detect script already registered - skip registration
+    //             3) Find matching tabs without active CS
+    //             4) Prompt those tabs to reload
+    //
+    // Scenario #9: Grant permission via context menu (Script Registered, Active CS Exists)
+    //   User Action: Right-click extension -> Grant permission
+    //   Expected: 1) onAdded fires
+    //             2) Detect script already registered - skip
+    //             3) Ping tabs - content script responds
+    //             4) No reload prompt needed (already active)
+    //
+    // Scenario #10: Remove permission via context menu
+    //   User Action: Right-click extension -> Remove permission
+    //   Expected: 1) onRemoved listener fires
+    //             2) Unregister persistent script
+    //             3) Find all matching tabs
+    //             4) Prompt each tab to reload (cleanup)
+    //
+    // ==================================================================================
+
+    chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
+        console.debug(`app.ts: ${_logTag} onAdded event - permissions added:`, perm.origins);
+        const origins = perm?.origins || [];
+
+        for (const matchPattern of origins) {
+            try {
+                // matchPattern looks like "https://example.com/*" or "http://localhost:8080/*"
+                console.debug(`app.ts: ${_logTag} Processing added permission for: ${matchPattern}`);
+
+                // Extract host-with-port for script ID (includes port for granular tracking)
+                const hostWithPort = hostWithPortFromPattern(matchPattern);
+                if (!hostWithPort) {
+                    console.error(`app.ts: ${_logTag} Invalid match pattern: ${matchPattern}`);
+                    continue;
+                }
+
+                const scriptId = scriptIdFromHostWithPort(hostWithPort);
+
+                // Check if persistent content script is already registered
+                // Branch point: Scenario #7 vs #8/#9
+                const alreadyRegistered = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
+                if (alreadyRegistered.length > 0) {
+                    // Scenario #8 or #9: Script already registered
+                    console.debug(`app.ts: ${_logTag} Persistent content script already registered for ${hostWithPort}`);
+                    // Continue to check tabs - may need reload if CS not active
+                } else {
+                    // Scenario #7: Need to register the script
+                    await chrome.scripting.registerContentScripts([{
+                        id: scriptId,
+                        js: ["scripts/esbuild/ContentScript.js"],
+                        matches: [matchPattern],
+                        runAt: "document_idle",
+                        allFrames: true,
+                        world: "ISOLATED",
+                        persistAcrossSessions: true,
+                    }]);
+                    console.debug(`app.ts: ${_logTag} Registered persistent content script for ${hostWithPort}`);
+                }
+
+                // Find all tabs matching this origin and check if they need reload
+                // Implements: Scenario #7, #8, #9 - determine if reload prompt needed per tab
+                const tabs = await chrome.tabs.query({ url: matchPattern });
+                console.debug(`app.ts: ${_logTag} Found ${tabs.length} tabs matching ${matchPattern}`);
+
+                for (const tab of tabs) {
+                    if (!tab.id) continue;
+
+                    try {
+                        // Check if content script is already active in this tab
+                        const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
+                        if (pingResponse?.ok) {
+                            // Scenario #9: Content script already active - no reload needed
+                            console.debug(`app.ts: ${_logTag} Content script already active in tab ${tab.id}`);
+                            await updateIconForTab(tab.id, true);
+                            continue;
+                        }
+                    } catch (error) {
+                        // Scenario #7 or #8: No content script active - prompt user to reload
+                        console.debug(`app.ts: ${_logTag} No content script in tab ${tab.id}, prompting for reload...`);
+                        await updateIconForTab(tab.id, false);
+
+                        try {
+                            await promptAndReloadTab(
+                                tab.id,
+                                `${PRODUCT_NAME} is now enabled for this site.\n\nReload the page to activate?`,
+                                'onAdded'
+                            );
+                        } catch (promptError) {
+                            console.error(`app.ts: ${_logTag} Error prompting for reload in tab ${tab.id}:`, promptError);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`app.ts: ${_logTag} Error processing added permission for ${matchPattern}:`, error);
+            }
+        }
+    });
+
+    chrome.permissions.onRemoved.addListener(async (perm: chrome.permissions.Permissions) => {
+        // Implements: Scenario #10 - Remove permission and clean up
+        console.debug(`app.ts: ${_logTag} onRemoved event - permissions removed:`, perm.origins);
+        const origins = perm?.origins || [];
+
+        for (const matchPattern of origins) {
+            console.debug(`app.ts: ${_logTag} Processing removed permission for: ${matchPattern}`);
+
+            // Scenario #10: Unregister the content script for this match pattern
+            await unregisterForPattern(matchPattern);
+
+            // Find all tabs that match the removed origin and prompt for reload
+            // This ensures previously injected content scripts are removed from pages
+            try {
+                const tabs = await chrome.tabs.query({ url: matchPattern });
+                console.debug(`app.ts: ${_logTag} Found ${tabs.length} tabs matching ${matchPattern} for removal`);
+
+                for (const tab of tabs) {
+                    if (tab.id) {
+                        await updateIconForTab(tab.id, false);
+
+                        // Inject a prompt to reload the page (content script needs to be removed)
+                        try {
+                            await promptAndReloadTab(
+                                tab.id,
+                                `${PRODUCT_NAME} permissions were removed for this site.\n\nReload the page to complete the removal?`,
+                                'onRemoved'
+                            );
+                        } catch (error) {
+                            // Tab may have already been closed or navigated away
+                            console.debug(`app.ts: ${_logTag} Could not prompt tab ${tab.id} for reload:`, error);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`app.ts: ${_logTag} Error querying tabs for removed origin:`, matchPattern, error);
+            }
+        }
+    });
+
+    // ==================================================================================
+    // CONTENT SCRIPT READY HANDLER
+    // ==================================================================================
+    //
+    // Content scripts send a 'cs-ready' message when they initialize.
+    // This handles the race condition where the service worker starts before
+    // content scripts are ready (e.g., after browser restart with restored tabs).
+    // The content script announces itself, and we update the icon accordingly.
+    //
+    // ==================================================================================
+
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        console.debug(`app.ts: ${_logTag} onMessage received:`, message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
+
+        // Handle CLIENT_SW_HELLO: App/CS is probing BW readiness.
+        // WASM is ready if this JS listener fires (it runs in the BW context).
+        if (message?.t === 'CLIENT_SW_HELLO') {
+            const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
+            const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
+            console.debug(`app.ts: ${_logTag} CLIENT_SW_HELLO from ${source}, replying ready=true`);
+
+            const reply = { t: 'SW_CLIENT_HELLO', ready: true };
+            // sendResponse delivers the reply to the sender's sendMessage() Promise
+            // (used by ContentScript which awaits the response directly).
+            sendResponse(reply);
+            // Broadcast to all extension pages so App's onMessage listener
+            // sets __keriauth_bwReady = true (App uses InvokeVoidAsync and
+            // ignores the sendResponse value).
+            chrome.runtime.sendMessage(reply);
+            return false;
+        }
+
+        // Note: 'cs-ready' is defined in CsInternalMsgEnum.CS_READY (@keriauth/types)
+        // We use the literal here to avoid adding build dependencies to app.ts
+        if (message?.type === 'cs-ready') {
+            const tabId = sender.tab?.id;
+            if (tabId) {
+                console.log(`app.ts: ${_logTag} Content script ready in tab ${tabId}`);
+                updateIconForTab(tabId, true);
+            }
+            return false; // No async response needed
+        }
+        // Let other listeners handle other message types
+        return false;
+    });
+
+    // ==================================================================================
+    // EXTENSION INSTALL/UPDATE/RELOAD HANDLER
+    // ==================================================================================
+
+    chrome.runtime.onInstalled.addListener(async (details) => {
+        console.debug(`app.ts: ${_logTag} onInstalled event:`, details.reason);
+
+        // On extension install, update, or reload, initialize the active tab's icon state.
+        // We intentionally only handle the active tab to maintain minimal permissions.
+        // Other tabs will have their icons updated when the user switches to them
+        // (via onActivated) or when they navigate (via onUpdated).
+        await initializeActiveTabState();
+    });
+
+    // ==================================================================================
+    // SERVICE WORKER STARTUP INITIALIZATION
+    // ==================================================================================
+    //
+    // When the service worker starts, we need to initialize icon state for the active tab.
+    // This handles cases where:
+    // - Extension was reloaded/reinstalled (content script context invalidated)
+    // - Browser was restarted or resumed from suspend
+    // - Service worker was awakened from idle
+    //
+    // Without this initialization, the icon would remain in default state until
+    // the user switches tabs or navigates, which is confusing UX.
+    //
+    // ==================================================================================
+
+    // Log registered content scripts at startup for debugging
+    chrome.scripting.getRegisteredContentScripts().then(scripts => {
+        console.debug(`app.ts: ${_logTag} Registered content scripts at startup:`, scripts.length, scripts.map(s => s.id));
+    }).catch(err => {
+        console.error(`app.ts: ${_logTag} Error getting registered content scripts at startup:`, err);
+    });
+
+    // Run initialization asynchronously (don't block module evaluation)
+    initializeActiveTabState();
 }
 
 /**
@@ -560,404 +945,9 @@ export async function beforeStart(
 
     switch (mode) {
         case 'Background':
-            console.debug(`app.ts: ${_logTag} Setting up Background mode event handlers`);
-
-            /**
-             * Note that JS imports for backgroundWorker requires static module loading via import statements at the top of the js files or declaration in the .csproj file. See https://mingyaulee.github.io/Blazor.BrowserExtension/background-worker
-            */
-
-            /**
-             * Unregisters content script for a given match pattern.
-             * @param matchPattern Pattern like "http://foo.example.com:8080/*"
-             */
-            const unregisterForPattern = async (matchPattern: string): Promise<void> => {
-                const hostWithPort = hostWithPortFromPattern(matchPattern);
-                if (!hostWithPort) {
-                    console.error(`app.ts: ${_logTag} Cannot unregister - invalid pattern: ${matchPattern}`);
-                    return;
-                }
-                const scriptId = scriptIdFromHostWithPort(hostWithPort);
-                try {
-                    await chrome.scripting.unregisterContentScripts({ ids: [scriptId] });
-                    console.debug(`app.ts: ${_logTag} Unregistered content script: ${scriptId}`);
-                } catch (e) {
-                    // Script may not exist, ignore error
-                    console.debug(`app.ts: ${_logTag} Script ${scriptId} not found for unregistration (may not exist)`);
-                }
-            };
-
-            // ==================================================================================
-            // TAB EVENT LISTENERS FOR ICON UPDATES
-            // ==================================================================================
-            // TODO P2 hoist remaining Background listeners to module level for cold-start resilience
-
-            chrome.tabs.onActivated.addListener(async (activeInfo) => {
-                // Get tab info to check URL before attempting to ping
-                let tab: chrome.tabs.Tab | undefined;
-                try {
-                    tab = await chrome.tabs.get(activeInfo.tabId);
-                } catch {
-                    // Tab may have been closed
-                    return;
-                }
-
-                // Skip unsupported URL schemes (chrome://, about:, etc.) - no content script possible
-                if (!isSupportedUrlScheme(tab.url)) {
-                    await updateIconForTab(activeInfo.tabId, false);
-                    return;
-                }
-
-                // Only ping if we have a registered content script for this origin
-                const hasScript = await hasRegisteredContentScript(tab.url!);
-                if (!hasScript) {
-                    await updateIconForTab(activeInfo.tabId, false);
-                    return;
-                }
-
-                try {
-                    const pingResponse = await chrome.tabs.sendMessage(activeInfo.tabId, { type: 'ping' });
-                    await updateIconForTab(activeInfo.tabId, pingResponse?.ok === true);
-                } catch {
-                    // Content script registered but not responding (page may need reload)
-                    await updateIconForTab(activeInfo.tabId, false);
-                }
-            });
-
-            chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-                // Chrome resets per-tab icons on navigation, so invalidate our cache
-                if (changeInfo.status === 'loading') {
-                    tabIconState.delete(tabId);
-                    return;
-                }
-
-                // Only check when page finishes loading
-                if (changeInfo.status !== 'complete') return;
-
-                // Skip unsupported URL schemes (chrome://, about:, etc.) - no content script possible
-                if (!isSupportedUrlScheme(tab.url)) {
-                    await updateIconForTab(tabId, false);
-                    return;
-                }
-
-                // Only ping if we have a registered content script for this origin
-                const hasScript = await hasRegisteredContentScript(tab.url!);
-                if (!hasScript) {
-                    await updateIconForTab(tabId, false);
-                    return;
-                }
-
-                try {
-                    const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
-                    await updateIconForTab(tabId, pingResponse?.ok === true);
-                } catch {
-                    // Content script registered but not responding (page may need reload)
-                    await updateIconForTab(tabId, false);
-                }
-            });
-
-            // ==================================================================================
-            // CONTEXT MENU PERMISSION CHANGE HANDLERS
-            // ==================================================================================
-            //
-            // REQUIREMENT SCENARIOS (Permission Added via Context Menu):
-            //
-            // Scenario #7: Grant permission via context menu (No Script, No Active CS)
-            //   User Action: Right-click extension → "When you click the extension" or "On this site"
-            //   Expected: 1) onAdded listener fires
-            //             2) Register persistent script
-            //             3) Find all matching tabs
-            //             4) Prompt each tab to reload
-            //
-            // Scenario #8: Grant permission via context menu (Script Already Registered, No Active CS)
-            //   User Action: Right-click extension → Grant permission
-            //   Expected: 1) onAdded fires
-            //             2) Detect script already registered - skip registration
-            //             3) Find matching tabs without active CS
-            //             4) Prompt those tabs to reload
-            //
-            // Scenario #9: Grant permission via context menu (Script Registered, Active CS Exists)
-            //   User Action: Right-click extension → Grant permission
-            //   Expected: 1) onAdded fires
-            //             2) Detect script already registered - skip
-            //             3) Ping tabs - content script responds
-            //             4) No reload prompt needed (already active)
-            //
-            // Scenario #10: Remove permission via context menu
-            //   User Action: Right-click extension → Remove permission
-            //   Expected: 1) onRemoved listener fires
-            //             2) Unregister persistent script
-            //             3) Find all matching tabs
-            //             4) Prompt each tab to reload (cleanup)
-            //
-            // ==================================================================================
-
-            chrome.permissions.onAdded.addListener(async (perm: chrome.permissions.Permissions) => {
-                console.debug(`app.ts: ${_logTag} onAdded event - permissions added:`, perm.origins);
-                const origins = perm?.origins || [];
-
-                for (const matchPattern of origins) {
-                    try {
-                        // matchPattern looks like "https://example.com/*" or "http://localhost:8080/*"
-                        console.debug(`app.ts: ${_logTag} Processing added permission for: ${matchPattern}`);
-
-                        // Extract host-with-port for script ID (includes port for granular tracking)
-                        const hostWithPort = hostWithPortFromPattern(matchPattern);
-                        if (!hostWithPort) {
-                            console.error(`app.ts: ${_logTag} Invalid match pattern: ${matchPattern}`);
-                            continue;
-                        }
-
-                        const scriptId = scriptIdFromHostWithPort(hostWithPort);
-
-                        // Check if persistent content script is already registered
-                        // Branch point: Scenario #7 vs #8/#9
-                        const alreadyRegistered = await chrome.scripting.getRegisteredContentScripts({ ids: [scriptId] });
-                        if (alreadyRegistered.length > 0) {
-                            // Scenario #8 or #9: Script already registered
-                            console.debug(`app.ts: ${_logTag} Persistent content script already registered for ${hostWithPort}`);
-                            // Continue to check tabs - may need reload if CS not active
-                        } else {
-                            // Scenario #7: Need to register the script
-                            await chrome.scripting.registerContentScripts([{
-                                id: scriptId,
-                                js: ["scripts/esbuild/ContentScript.js"],
-                                matches: [matchPattern],
-                                runAt: "document_idle",
-                                allFrames: true,
-                                world: "ISOLATED",
-                                persistAcrossSessions: true,
-                            }]);
-                            console.debug(`app.ts: ${_logTag} Registered persistent content script for ${hostWithPort}`);
-                        }
-
-                        // Find all tabs matching this origin and check if they need reload
-                        // Implements: Scenario #7, #8, #9 - determine if reload prompt needed per tab
-                        const tabs = await chrome.tabs.query({ url: matchPattern });
-                        console.debug(`app.ts: ${_logTag} Found ${tabs.length} tabs matching ${matchPattern}`);
-
-                        for (const tab of tabs) {
-                            if (!tab.id) continue;
-
-                            try {
-                                // Check if content script is already active in this tab
-                                const pingResponse = await chrome.tabs.sendMessage(tab.id, { type: 'ping' });
-                                if (pingResponse?.ok) {
-                                    // Scenario #9: Content script already active - no reload needed
-                                    console.debug(`app.ts: ${_logTag} Content script already active in tab ${tab.id}`);
-                                    await updateIconForTab(tab.id, true);
-                                    continue;
-                                }
-                            } catch (error) {
-                                // Scenario #7 or #8: No content script active - prompt user to reload
-                                console.debug(`app.ts: ${_logTag} No content script in tab ${tab.id}, prompting for reload...`);
-                                await updateIconForTab(tab.id, false);
-
-                                try {
-                                    await promptAndReloadTab(
-                                        tab.id,
-                                        `${PRODUCT_NAME} is now enabled for this site.\n\nReload the page to activate?`,
-                                        'onAdded'
-                                    );
-                                } catch (promptError) {
-                                    console.error(`app.ts: ${_logTag} Error prompting for reload in tab ${tab.id}:`, promptError);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`app.ts: ${_logTag} Error processing added permission for ${matchPattern}:`, error);
-                    }
-                }
-            });
-
-            chrome.permissions.onRemoved.addListener(async (perm: chrome.permissions.Permissions) => {
-                // Implements: Scenario #10 - Remove permission and clean up
-                console.debug(`app.ts: ${_logTag} onRemoved event - permissions removed:`, perm.origins);
-                const origins = perm?.origins || [];
-
-                for (const matchPattern of origins) {
-                    console.debug(`app.ts: ${_logTag} Processing removed permission for: ${matchPattern}`);
-
-                    // Scenario #10: Unregister the content script for this match pattern
-                    await unregisterForPattern(matchPattern);
-
-                    // Find all tabs that match the removed origin and prompt for reload
-                    // This ensures previously injected content scripts are removed from pages
-                    try {
-                        const tabs = await chrome.tabs.query({ url: matchPattern });
-                        console.debug(`app.ts: ${_logTag} Found ${tabs.length} tabs matching ${matchPattern} for removal`);
-
-                        for (const tab of tabs) {
-                            if (tab.id) {
-                                await updateIconForTab(tab.id, false);
-
-                                // Inject a prompt to reload the page (content script needs to be removed)
-                                try {
-                                    await promptAndReloadTab(
-                                        tab.id,
-                                        `${PRODUCT_NAME} permissions were removed for this site.\n\nReload the page to complete the removal?`,
-                                        'onRemoved'
-                                    );
-                                } catch (error) {
-                                    // Tab may have already been closed or navigated away
-                                    console.debug(`app.ts: ${_logTag} Could not prompt tab ${tab.id} for reload:`, error);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`app.ts: ${_logTag} Error querying tabs for removed origin:`, matchPattern, error);
-                    }
-                }
-            });
-
-            // ==================================================================================
-            // SERVICE WORKER STARTUP INITIALIZATION
-            // ==================================================================================
-            //
-            // When the service worker starts, we need to initialize icon state for the active tab.
-            // This handles cases where:
-            // - Extension was reloaded/reinstalled (content script context invalidated)
-            // - Browser was restarted or resumed from suspend
-            // - Service worker was awakened from idle
-            //
-            // Without this initialization, the icon would remain in default state until
-            // the user switches tabs or navigates, which is confusing UX.
-            //
-            // ==================================================================================
-
-            /**
-             * Initialize icon state for a specific tab.
-             * Checks for registered content script and pings to determine active state.
-             * @param tabId The tab ID to initialize
-             * @param tabUrl The tab URL
-             */
-            const initializeTabIconState = async (tabId: number, tabUrl: string): Promise<void> => {
-                // console.debug(`app.ts: initializeTabIconState - tab ${tabId}, url: ${tabUrl?.substring(0, 60)}`);
-                // Skip unsupported URL schemes (chrome://, about:, etc.)
-                if (!isSupportedUrlScheme(tabUrl)) {
-                    // console.debug(`app.ts: initializeTabIconState - unsupported URL scheme for tab ${tabId}`);
-                    await updateIconForTab(tabId, false);
-                    return;
-                }
-
-                // Check if we have a registered content script for this origin
-                const hasScript = await hasRegisteredContentScript(tabUrl);
-                // console.debug(`app.ts: initializeTabIconState - hasRegisteredContentScript for tab ${tabId}: ${hasScript}`);
-                if (!hasScript) {
-                    // console.debug(`app.ts: initializeTabIconState - No registered content script for ${tabUrl}`);
-                    await updateIconForTab(tabId, false);
-                    return;
-                }
-
-                // console.debug(`app.ts: initializeTabIconState - Found registered content script for ${tabUrl}, pinging...`);
-
-                // Try to ping the content script
-                try {
-                    const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
-                    const isActive = pingResponse?.ok === true;
-                    // console.debug(`app.ts: initializeTabIconState - ping result for tab ${tabId}: ${isActive ? 'active' : 'not responding'}`, pingResponse);
-                    await updateIconForTab(tabId, isActive);
-                } catch (error) {
-                    // Content script registered but not responding
-                    // This is expected after extension reload - CS context is invalidated
-                    console.debug(`app.ts: ${_logTag} initializeTabIconState - Content script registered but not responding for tab ${tabId} (may need page reload), error:`, error);
-                    await updateIconForTab(tabId, false);
-                }
-            };
-
-            /**
-             * Initialize icon state for the current active tab on service worker startup.
-             * Queries registered content scripts and pings them to determine active state.
-             */
-            const initializeActiveTabState = async (): Promise<void> => {
-                // console.debug('app.ts: initializeActiveTabState - starting');
-                try {
-                    // Get the currently active tab in the focused window
-                    // Note: lastFocusedWindow handles cases where currentWindow may not be set
-                    // (e.g., during browser startup before a window is focused)
-                    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-
-                    if (!activeTab?.id || !activeTab.url) {
-                        // console.debug('app.ts: initializeActiveTabState - No active tab found during initialization');
-                        return;
-                    }
-
-                    // console.debug(`app.ts: initializeActiveTabState - Initializing state for active tab ${activeTab.id}: ${activeTab.url}`);
-                    await initializeTabIconState(activeTab.id, activeTab.url);
-                    // console.debug('app.ts: initializeActiveTabState - completed');
-                } catch (error) {
-                    console.error(`app.ts: ${_logTag} initializeActiveTabState - Error during active tab initialization:`, error);
-                }
-            };
-
-            // Log registered content scripts at startup for debugging
-            chrome.scripting.getRegisteredContentScripts().then(scripts => {
-                console.debug(`app.ts: ${_logTag} Registered content scripts at startup:`, scripts.length, scripts.map(s => s.id));
-            }).catch(err => {
-                console.error(`app.ts: ${_logTag} Error getting registered content scripts at startup:`, err);
-            });
-
-            // Run initialization asynchronously (don't block beforeStart completion)
-            initializeActiveTabState();
-
-            // ==================================================================================
-            // CONTENT SCRIPT READY HANDLER
-            // ==================================================================================
-            //
-            // Content scripts send a 'cs-ready' message when they initialize.
-            // This handles the race condition where the service worker starts before
-            // content scripts are ready (e.g., after browser restart with restored tabs).
-            // The content script announces itself, and we update the icon accordingly.
-            //
-            // ==================================================================================
-
-            chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-                console.debug(`app.ts: ${_logTag} onMessage received:`, message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
-
-                // Handle CLIENT_SW_HELLO: App/CS is probing BW readiness.
-                // WASM is ready if this JS listener fires (it runs in the BW context).
-                if (message?.t === 'CLIENT_SW_HELLO') {
-                    const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
-                    const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-                    console.debug(`app.ts: ${_logTag} CLIENT_SW_HELLO from ${source}, replying ready=true`);
-
-                    const reply = { t: 'SW_CLIENT_HELLO', ready: true };
-                    // sendResponse delivers the reply to the sender's sendMessage() Promise
-                    // (used by ContentScript which awaits the response directly).
-                    sendResponse(reply);
-                    // Broadcast to all extension pages so App's onMessage listener
-                    // sets __keriauth_bwReady = true (App uses InvokeVoidAsync and
-                    // ignores the sendResponse value).
-                    chrome.runtime.sendMessage(reply);
-                    return false;
-                }
-
-                // Note: 'cs-ready' is defined in CsInternalMsgEnum.CS_READY (@keriauth/types)
-                // We use the literal here to avoid adding build dependencies to app.ts
-                if (message?.type === 'cs-ready') {
-                    const tabId = sender.tab?.id;
-                    if (tabId) {
-                        console.log(`app.ts: ${_logTag} Content script ready in tab ${tabId}`);
-                        updateIconForTab(tabId, true);
-                    }
-                    return false; // No async response needed
-                }
-                // Let other listeners handle other message types
-                return false;
-            });
-
-            // ==================================================================================
-            // EXTENSION INSTALL/UPDATE/RELOAD HANDLER
-            // ==================================================================================
-
-            chrome.runtime.onInstalled.addListener(async (details) => {
-                console.debug(`app.ts: ${_logTag} onInstalled event:`, details.reason);
-
-                // On extension install, update, or reload, initialize the active tab's icon state.
-                // We intentionally only handle the active tab to maintain minimal permissions.
-                // Other tabs will have their icons updated when the user switches to them
-                // (via onActivated) or when they navigate (via onUpdated).
-                await initializeActiveTabState();
-            });
+            // All Background-mode chrome.* event listeners are registered at module level
+            // (above beforeStart) for cold-start resilience. See the if (_isSW) block.
+            console.debug(`app.ts: ${_logTag} Background mode — listeners already registered at module level`);
             break;
         case 'Standard':
         case 'Debug':
