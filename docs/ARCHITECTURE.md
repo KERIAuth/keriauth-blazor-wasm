@@ -37,20 +37,99 @@ The extension runs as **multiple separate Blazor WASM runtime instances**, each 
 ## Project Layout
 
 ```
-Extension/                    Main browser extension project (Blazor WASM)
-  Services/                   Core services (SignifyService, Port services, Storage, etc.)
-  UI/                         Blazor pages and components
-  Models/                     Data models and message types
-  wwwroot/                    Static web assets
-    scripts/es6/              ES6 modules compiled from scripts/types and scripts/modules
-    scripts/esbuild/          Bundled scripts compiled from scripts/bundles
-    app.ts                    Blazor startup hooks (beforeStart/afterStarted)
-  Schemas/                    vLEI credential schema definitions (local copies)
-Extension.Tests/              xUnit test project
-scripts/                      TypeScript source code (npm workspaces monorepo)
-  types/                      Shared type definitions (@keriauth/types)
-  modules/                    Simple ES6 modules compiled by tsc (@keriauth/modules)
-  bundles/                    esbuild-bundled scripts with signify-ts (@keriauth/bundles)
+Extension/                        # Main Blazor WASM project (App + BackgroundWorker runtimes)
+  Program.cs                      # WASM entry point; DI registration, runtime mode selection
+  BackgroundWorker.cs             # Service worker Blazor component (after generated backgroundWorker.js)
+  AppConfig.cs                    # App configuration and feature flags
+  Routes.cs                       # Blazor route definitions
+  Services/                       # Core application services
+    AppCache.cs                   # In-memory state cache (many app states live here)
+    SessionManager.cs             # Session timeout and lifecycle
+    IdentifierService.cs          # KERI identifier CRUD
+    SchemaService.cs              # credential schemas registry for vLEI and others
+    WebsiteConfigService.cs       # Per-website configuration
+    WebauthnService.cs            # WebAuthn/passkey operations
+    Port/                         # Port-based messaging between runtimes
+      BwPortService.cs            # BackgroundWorker-side port handler
+      AppBwPortService.cs         # App-side port handler
+    SignifyService/               # signify-ts client integration (JS interop)
+      SignifyClientService.cs     # Main KERI/ACDC operations (~100KB)
+      Models/                     # Signify response/request models
+    JsBindings/                   # C#→JS interop bindings
+      SignifyClientBinding.cs     # Binds to signifyClient.js
+      NavigatorCredentialsBinding.cs  # WebAuthn binding
+    Crypto/                       # Web Crypto API wrappers
+    Storage/                      # chrome.storage abstraction
+      StorageService.cs           # Typed get/set with IObservable change notifications
+      StorageConstants.cs         # Storage key constants
+    NotificationPollingService/   # KERIA notification polling
+    PrimeDataService/             # Bootstrap data initialization
+  Models/                         # Data models and message types
+    Identifier.cs                 # KERI identifier model
+    Website.cs                    # Website metadata
+    CachedCredential.cs           # Cached credential wrapper
+    PortSession.cs                # Port session state
+    OnboardState.cs               # Onboarding state machine
+    Storage/                      # Persistent storage models (IStorageModel)
+  UI/                             # Blazor UI (MudBlazor)
+    Layouts/                      # Layout components
+    Pages/                        # Page components (~36 .razor files)
+      Index.razor                 # Entry/routing page
+      DashboardPage.razor         # Main dashboard
+      CredentialsPage.razor       # Credential list
+      ProfilesPage.razor          # KERI identifier profiles
+      ConnectionsPage.razor       # Connection management
+      PreferencesPage.razor       # User settings
+      Request*.razor              # Pages UX to handle requests from page
+    Components/                   # Reusable components (~21 .razor files)
+      CredentialPanel.razor       # Credential display (compact + detail variants)
+      SessionStatusIndicator.razor  # Session status badge
+      ProfileSelectors.razor      # Profile/identifier selector overlay
+  Helper/                         # Utility helpers
+    RecursiveDictionary.cs        # CESR/SAID-safe ordered dictionary (critical)
+    DictionaryConverter.cs        # Dictionary conversion utilities
+    Bip39MnemonicConverter.cs     # BIP39 mnemonic handling
+    JsonOptions.cs                # JSON serialization configuration
+  Utilities/                      # Additional utilities
+  Schemas/                        # vLEI and other credential schema JSON files (local copies)
+  wwwroot/                        # Static web assets
+    manifest.json                 # Chrome extension manifest (MV3)
+    app.ts                        # Blazor startup hooks (beforeStart/afterStarted)
+    index*.html                   # Entry points (Tab, Popup, SidePanel variants)
+    scripts/
+      es6/                        # Compiled TypeScript modules (from scripts/types + modules)
+      esbuild/                    # Bundled scripts (from scripts/bundles)
+        ContentScript.js          # Content script bundle (injected into web pages)
+        signifyClient.js          # signify-ts client wrapper bundle
+      helpers/                    # JS helpers (audio, camera/QR)
+
+scripts/                          # TypeScript source (npm workspaces monorepo)
+  types/src/                      # Shared type definitions (@keriauth/types)
+    PortMessages.ts               # Port messaging protocol types
+    BwCsPayloads.ts               # BackgroundWorker→ContentScript payloads
+    CsBwRpcMethods.ts             # ContentScript→BackgroundWorker RPC methods
+    ExCsInterfaces.ts             # Extension↔ContentScript interfaces
+    storage-models.ts             # Storage type definitions
+  modules/src/                    # ES6 modules compiled by tsc (@keriauth/modules)
+    aesGcmCrypto.ts               # AES-GCM encryption utilities
+    userActivityListener.ts       # User activity tracking
+    navigatorCredentialsShim.ts   # WebAuthn shim for content script
+  bundles/src/                    # esbuild-bundled scripts (@keriauth/bundles)
+    ContentScript.ts              # Content script (thin bridge to web pages)
+    signifyClient.ts              # signify-ts client wrapper
+
+Extension.Tests/                  # xUnit + Moq test project
+  Helper/                         # Helper class tests (RecursiveDictionary, etc.)
+  Models/                         # Model serialization/roundtrip tests
+  Services/                       # Service tests (SessionManager, etc.)
+  Utilities/                      # Utility tests
+
+docs/                             # Project documentation
+  ARCHITECTURE.md                 # This file — system structure and flows
+  BUILD.md                        # Build commands, troubleshooting, environment
+  CODING.md                       # C#, TypeScript, and interop coding standards
+  PAGE-CS-MESSAGES.md             # Web page ↔ content script message protocol
+  POLARIS_WEB_COMPLIANCE.md       # Supported polaris-web capabilities
 ```
 
 ## Messaging Architecture
