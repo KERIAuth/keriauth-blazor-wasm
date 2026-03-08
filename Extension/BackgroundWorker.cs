@@ -186,7 +186,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     break;
                 case OnInstalledReason.BrowserUpdate:
                 default:
-                    // TODO P2 more carefully handle these other Installed reasons
+                    // TODO P3 more carefully handle these other Installed reasons
                     // BwReadyState already set by EnsureInitializedAsync above
                     logger.LogInformation(nameof(OnInstalledAsync) + ": Unhandled install reason: {Reason}", details.Reason);
                     break;
@@ -516,9 +516,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnSuspendAsync() {
         try {
-            await EnsureInitializedAsync();
-            // TODO P2 needs implementation
-            ;
+            logger.LogDebug(nameof(OnSuspendAsync) + ": Service worker suspending, cleaning up");
+
+            // Cancel background polling — KERIA calls would fail after unload
+            CancelNotificationPolling();
+
+            // Clear in-flight connection correlations — stale after wake
+            _pendingConnections.Clear();
+
+            // Reset tab tracking — tab may not exist after wake
+            _optionsTabId = null;
+
+            // Mark uninitialized so EnsureInitializedAsync runs fresh on wake
+            _initializedThisLifetime = false;
+
+            await Task.CompletedTask;
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(OnSuspendAsync) + ": Error handling onSuspend");
@@ -530,9 +542,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnSuspendCanceledAsync() {
         try {
-            await EnsureInitializedAsync();
-            // TODO P2 needs implementation
-            ;
+            logger.LogDebug(nameof(OnSuspendCanceledAsync) + ": Suspend canceled, worker staying alive");
+            await Task.CompletedTask;
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(OnSuspendCanceledAsync) + ": Error handling onSuspendCanceled");
@@ -953,7 +964,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     /// <param name="pendingRequest">The pending BW→App request to store for App retrieval.</param>
 
-    // TODO P2: See https://chatgpt.com/c/69a724de-ad10-832b-b727-fc4ecf6b5bcf for discussion on refactor to separate the storage of the pending request from the UI logic of choosing SidePanel vs Action popup. This will simplify the logic and make it more reusable.
+    // TODO P3: See https://chatgpt.com/c/69a724de-ad10-832b-b727-fc4ecf6b5bcf for discussion on refactor to separate the storage of the pending request from the UI logic of choosing SidePanel vs Action popup. This will simplify the logic and make it more reusable.
     private async Task UseSidePanelOrActionPopupAsync(PendingBwAppRequest pendingRequest) {
         try {
             logger.LogInformation(nameof(UseSidePanelOrActionPopupAsync) + ": type={Type}, requestId={RequestId}, tabId={TabId}",
@@ -2993,7 +3004,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             rememberedPrefix ??= string.Empty;
         }
 
-        // TODO P2: don't auto-approve sign headers when cross-origin request
+        // TODO P3: don't auto-approve sign headers when cross-origin request
 
         // Create pending request for sign headers
         var signPayload = new RequestSignHeadersPayload(
