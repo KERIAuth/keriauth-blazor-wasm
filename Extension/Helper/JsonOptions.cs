@@ -8,7 +8,7 @@ namespace Extension.Helper;
 /// Use these shared instances instead of creating new JsonSerializerOptions objects.
 /// </summary>
 /// <remarks>
-/// <para><b>TODO P2: Inconsistencies found during consolidation (investigate later):</b></para>
+/// <para><b>TODO P3: Inconsistencies found during consolidation (investigate later):</b></para>
 /// <list type="number">
 /// <item>
 /// <term>AppBwPortService vs BwPortService naming mismatch</term>
@@ -16,7 +16,7 @@ namespace Extension.Helper;
 /// AppBwPortService used CamelCase for port messages but NOT for credential payloads.
 /// BwPortService used CamelCase for everything including credentials.
 /// Now both use PortMessaging (with CamelCase) for consistency.
-/// TODO P2: Verify credentials serialize correctly with CamelCase naming policy.
+/// TODO P3: Verify credentials serialize correctly with CamelCase naming policy.
 /// </description>
 /// </item>
 /// <item>

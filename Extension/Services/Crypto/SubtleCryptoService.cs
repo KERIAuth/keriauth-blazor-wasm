@@ -23,7 +23,7 @@ public class SubtleCryptoService(IJSRuntime jsRuntime, ILogger<SubtleCryptoServi
     }
 
     /// <inheritdoc />
-    // TODO P2: Consider using a more robust key derivation function (e.g., HKDF) instead of a simple hash-based approach.
+    // TODO P3: Consider using a more robust key derivation function (e.g., HKDF) instead of a simple hash-based approach.
     public byte[] DeriveKeyFromPrf(string profileId, byte[] prfOutput) {
         var profileIdBytes = Encoding.UTF8.GetBytes(profileId);
         // Concatenate: profileId || prfOutput || labelBytes

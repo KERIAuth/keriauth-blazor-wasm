@@ -35,7 +35,7 @@ namespace Extension {
             public string BootUrl { get; } = bootUrl;
         }
 
-        // TODO P2 load presets from external source
+        // TODO P3 load presets from external source for enterprise deployment
         public static readonly List<KeriaPreset> PresetAgents = [
             new KeriaPreset($"{ProductName} Test Cloud", "https://keria.cloud.keriauth.com", "https://keria-boot.cloud.keriauth.com"),
             // TODO P2: add basic auth for agent Boot

@@ -88,14 +88,12 @@ public class SessionManager : IDisposable {
 
             if (passcodeModelRes.IsFailed) {
                 _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": No PasscodeModel found on startup - session is locked");
-                await SetLockIconAsync();
                 return;
             }
 
             var passcodeModel = passcodeModelRes.Value;
             if (passcodeModel is null) {
                 _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel is null on startup - session is locked");
-                await SetLockIconAsync();
                 return;
             }
 
@@ -104,7 +102,6 @@ public class SessionManager : IDisposable {
             // Check for invalid expiration (DateTime.MinValue or past)
             if (expirationUtc == DateTime.MinValue) {
                 _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel has default expiration (MinValue) on startup - session is locked");
-                await SetLockIconAsync();
                 return;
             }
 
@@ -119,7 +116,6 @@ public class SessionManager : IDisposable {
                 // Session is still valid - reschedule alarm
                 _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
                     expirationUtc);
-                await SetLockIconAsync();
                 await ScheduleExpirationAlarmAsync(expirationUtc);
                 return;
             }
@@ -272,7 +268,6 @@ public class SessionManager : IDisposable {
     public async Task LockSessionAsync() {
         _logger.LogInformation(nameof(LockSessionAsync) + ": Locking session (clearing KERIA session records)");
         await ClearKeriaSessionRecordsAsync();
-        await SetLockIconAsync();
     }
 
     /// <summary>
@@ -339,7 +334,6 @@ public class SessionManager : IDisposable {
                 $"Failed to clear session storage: {clearResult.Errors[0].Message}");
         }
 
-        await SetLockIconAsync();
         _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Session storage cleared (BwReadyState will self-heal)");
     }
 
@@ -422,23 +416,6 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// TODO P2: TBD Sets the extension action icon to locked variant using pre-created locked icon files.
-    /// Icon files to be created: logob016-locked.png, logob032-locked.png, logob048-locked.png, logob128-locked.png
-    /// </summary>
-    private async Task SetLockIconAsync() {
-        _logger.LogInformation(nameof(SetLockIconAsync) + ": Not setting lock icon for now");
-        /*
-        try {
-            await _webExtensionsApi.Action.SetBadgeText(new WebExtensions.Net.ActionNs.SetBadgeTextDetails() { Text = unicodeLockIcon });
-            _logger.LogInformation("Lock icon set");
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Failed to set lock icon");
-        }
-        */
-    }
-
-    /// <summary>
     /// Restores the extension action icon to the default (unlocked) state.
     /// Uses the original logob icon files specified in manifest.json.
     /// </summary>
@@ -461,7 +438,6 @@ public class SessionManager : IDisposable {
         if (passcodeModel is null || string.IsNullOrEmpty(passcodeModel.Passcode)) {
             // PasscodeModel is null or empty - session locked
             _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel is null/empty - session locked");
-            await SetLockIconAsync();
             return;
         }
 
@@ -472,7 +448,6 @@ public class SessionManager : IDisposable {
         if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
             _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
                 expirationUtc);
-            await SetLockIconAsync();
             return;
         }
 

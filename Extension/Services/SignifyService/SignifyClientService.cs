@@ -91,8 +91,8 @@ namespace Extension.Services.SignifyService {
                         if (res.IsFailed) {
                             return Result.Fail("Connect failed #1: " + res.Errors[0].Message);
                         }
-                        // TODO P2 remove log, since it exposes sensitive info!
-                        logger.LogInformation(nameof(Connect) + ": BootAndConnect succeeded res: {res}", res.Value);
+                        // Note: Do not log, since it exposes sensitive info!
+                        // logger.LogWarning(nameof(Connect) + ": BootAndConnect succeeded res: {res}", res.Value);
                     }
                     else {
                         logger.LogInformation(nameof(Connect) + ": Connecting to {url}...", url);
@@ -186,7 +186,6 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<Identifiers>> GetIdentifiers() {
-            // TODO P2 test this path
             var readyRes = await Ready();
             if (readyRes.IsFailed) {
                 logger.LogError(nameof(GetIdentifiers) + ": Not ready: {reasons}", readyRes.Reasons);

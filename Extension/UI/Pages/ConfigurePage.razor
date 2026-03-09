@@ -29,7 +29,7 @@
 @code {
     class UrlModel
     {
-        // TODO P2 add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
+        // TODO P3 add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
         [Required]
         [Url(ErrorMessage = "Enter KERIA Agent Admin URL")]
         public string AdminUrl { get; set; } = AppConfig.PresetAgents[0].AgentUrl;
@@ -734,7 +734,7 @@
 
         // Reset local page state to defaults
         ResetLocalState();
-        StateHasChanged(); // TODO P2 code smell
+        StateHasChanged(); // this is needed here
         logger.LogInformation("ResetConfiguration: Complete");
         // snackbar.Add("KERIA Connection Reset", Severity.Info);
     }

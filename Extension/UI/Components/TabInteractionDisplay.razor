@@ -4,7 +4,7 @@
 
 @if (ActiveTab?.Url is null)
 {
-    // TODO P2: for testing only
+    // TODO P3: for testing only
     ActiveTab = new BrowserTab() 
     {
         Url = "https://example.com/test?a=hello%20world&ref=asdfasdfasdf_e234asdf3",
@@ -42,7 +42,7 @@
 }
 
 @code {
-    // TODO P2: This new() BrowserTab is helpful for development and testing, but we should consider how to handle this in production. We might want to make this a required parameter or handle the null case more gracefully.
+    // TODO P3: This new() BrowserTab is helpful for development and testing, but we should consider how to handle this in production. We might want to make this a required parameter or handle the null case more gracefully.
     [Parameter]
     public BrowserTab? ActiveTab { get; set; }
 }

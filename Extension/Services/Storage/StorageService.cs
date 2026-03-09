@@ -49,7 +49,7 @@ public class StorageService : IStorageService, IDisposable {
         _logger.Log(ServiceLogLevel, nameof(StorageService) + ": constructor");
         Initialize(StorageArea.Local);
         Initialize(StorageArea.Session);
-        // TODO P2: Enable Sync and Managed areas as needed
+        // TODO P3: Enable Sync and Managed areas as needed
         // Initialize(StorageArea.Sync);
         Initialize(StorageArea.Managed);
     }

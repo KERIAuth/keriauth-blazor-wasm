@@ -337,23 +337,23 @@
 
         public bool IsReadyToTransact => IsNotWaiting && IsConnectedToKeria;
 
-        // TODO P2 Could distinguish IsConnectedToKeria (with seeing KeriaConnectionInfo.PasscodeHash exists) versus IsIdentifierFetched
         public bool IsConnectedToKeria => IsIdentifierFetched && IsAuthenticated;
 
-        // TODO P2 fix squirelly structure of IdentifiersList and Aids. Not intuitive here, with structured as aids, end, start, total.
-        // plus, name "IsIdentifierFetched" is more like IsConnectedToKeria, but that conflicts with the above property name that's perhaps unn
         public bool IsIdentifierFetched =>
             MyKeriaConnectConfig.AgentAidPrefix is not null &&
             MyKeriaConnectionInfo.IdentifiersList?.FirstOrDefault()?.Aids.Count > 0;
         public bool IsAuthenticated => IsSessionUnlocked && IsInitialized;
+
         public bool ShowedGettingStarted => MyOnboardState.ShowedGettingStarted;
+
         public bool IsNotWaiting =>
             IsNotWaitingOnKeria &&
             IsNotWaitingOnUser &&
             IsNotWaitingOnPendingRequests &&
             IsBwNotWaitingOnApp &&
             IsAppNotWaitingOnBw;
-        // TODO P2: implement real user NotWaiting... tracking. Example: outstanding Request from CS.  Dialog open. OOBI in progress, etc.
+        // TODO P3: implement real user NotWaiting... tracking. Example: outstanding Request from CS.  Dialog open. OOBI in progress, etc.
+
         public bool IsNotWaitingOnKeria { get; private set; }
         public bool IsNotWaitingOnUser { get; private set; }
         public bool IsBwNotWaitingOnApp { get; private set; }
@@ -440,7 +440,7 @@
         /// <param name="maxWaitMs">Maximum time to wait in milliseconds. Default: 5000ms (5 seconds).</param>
         /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
         /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
-        // TODO P2: adjust default timeouts as needed based on real-world performance
+        // TODO P3: adjust default timeouts as needed based on real-world performance
         public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
             if (assertions is null || assertions.Count == 0) {
                 _logger.LogWarning(nameof(WaitForAppCache) + ": called with no assertions");

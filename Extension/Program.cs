@@ -72,10 +72,6 @@ builder.Logging.AddConfiguration(
     builder.Configuration.GetSection("Logging")
 );
 
-// Console.WriteLine("Program.cs: Configuring browser extension mode...");
-
-// TODO P2: add consistent browserExtension.Mode string to logging context for better diagnostics
-
 var extensionMode = BrowserExtensionMode.Standard;
 builder.UseBrowserExtension(browserExtension => {
     extensionMode = browserExtension.Mode;

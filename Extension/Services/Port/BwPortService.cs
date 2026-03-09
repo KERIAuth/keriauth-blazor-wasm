@@ -535,7 +535,7 @@ public class BwPortService : IBwPortService, IAsyncDisposable {
                 else if (!portSession.TabId.HasValue) {
                     // App's PortSession has no TabId (popup that didn't attach to a tab).
                     // Since only one pending request exists at a time, treat it as orphaned.
-                    // TODO P2: If multiple Apps can be connected simultaneously (e.g., sidepanel + popup),
+                    // TODO P3: If multiple Apps can be connected simultaneously (e.g., sidepanel + popup),
                     // this could incorrectly cancel a request being handled by another App. Consider tracking
                     // which pending request is actively being handled by which App instance.
                     isOrphaned = true;

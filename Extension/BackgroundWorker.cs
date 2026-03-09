@@ -863,7 +863,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Clear BwReadyState first to force fresh initialization after update
             await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
 
-            // TODO P2: EnsureInitializedAsync handles: storage defaults (may need migration), session manager, and BwReadyState
+            // TODO P3: EnsureInitializedAsync handles: storage defaults (may need migration), session manager, and BwReadyState
 
             await EnsureInitializedAsync();
 
@@ -961,7 +961,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var tabUrl = _webExtensionsApi.Runtime.GetURL(Routes.IndexPaths.InTab);
             var cp = new WebExtensions.Net.Tabs.CreateProperties {
                 Url = tabUrl
-                // TODO P2 use the same tab identifier, so we don't get multiple tabs
+                // TODO P3 use the same tab identifier, so we don't get multiple tabs
             };
             var res = await WebExtensions.Tabs.Create(cp) ?? throw new AggregateException("could not create tab");
         }

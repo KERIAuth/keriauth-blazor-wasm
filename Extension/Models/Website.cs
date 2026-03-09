@@ -52,7 +52,7 @@ namespace Extension.Models {
     //}
 
     public record WebsiteInteraction {
-        // TODO P2 Implement this record WebsiteInteraction
+        // TODO P3 Implement this record WebsiteInteraction
         // RequestingTabId
         // RequestingOrigin
         // RequestedAt

@@ -78,15 +78,6 @@ public class StorageObserver<T> : IObserver<T>, IDisposable where T : class, ISt
         _onCompleted?.Invoke();
     }
 
-    /// <summary>
-    /// Gets the current value of the observed model from storage.
-    /// </summary>
-    /// <returns>Result containing the current value, or null if not found</returns>
-    public async Task<Result<T?>> Get() {
-        // TODO P2 this is now an anti-pattern, as consumers should directly use IStorageService, or rely on OnNext(). Consider deleting.
-        return await _storageService.GetItem<T>(_storageArea);
-    }
-
     public void Dispose() {
         if (_disposed) return;
 
