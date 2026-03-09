@@ -42,66 +42,105 @@ public enum ContentPage {
 /// Centralized route definitions.
 /// </summary>
 public static class Routes {
+    public static class Paths {
+        public const string Dashboard = "/Dashboard.html";
+        public const string Profiles = "/Profiles.html";
+        public const string Connections = "/Connections.html";
+        public const string Presentations = "/Presentations.html";
+        public const string Credentials = "/Credentials.html";
+        public const string Websites = "/Websites.html";
+        public const string Notifications = "/Notifications.html";
+        public const string Passkeys = "/Passkeys.html";
+        public const string Mnemonic = "/Mnemonic.html";
+        public const string Profile = "/Profile.html/";
+        public const string Website = "/Website.html/";
+        public const string Connecting = "/Connecting.html";
+        public const string RequestSignIn = "/RequestSignIn.html";
+        public const string RequestSignHeaders = "/RequestSignHeaders.html";
+        public const string RequestSignData = "/RequestSignData.html";
+        public const string RequestUnknown = "/RequestUnknown.html";
+        public const string RequestCreateCredential = "/RequestCreateCredential.html";
+        public const string RequestConnect = "/RequestConnect.html";
+        public const string AddPasskey = "/AddPasskey.html";
+        public const string Index = "/index.html";
+        public const string Welcome = "/Welcome.html";
+        public const string NewRelease = "/NewRelease.html";
+        public const string Configure = "/Configure.html";
+        public const string OfferPasskey = "/OfferPasskey.html";
+        public const string GettingStarted = "/GettingStarted.html";
+        public const string Unlock = "/Unlock.html";
+        public const string Preferences = "/ManagePreferences.html";
+        public const string KeriaConfigs = "/KeriaConfigs.html";
+        public const string KeriaConfig = "/KeriaConfig.html/";
+        public const string Delete = "/Delete.html";
+        public const string Terms = "/Terms.html";
+        public const string SidePanel = "/sidepanel.html";
+        public const string DeveloperTest = "/DeveloperTest.html";
+        public const string PrimeData = "/PrimeData.html";
+        public const string DeveloperState = "/DeveloperState.html";
+        public const string ReleaseHistory = "/ReleaseHistory.html";
+    }
+
     public static readonly Dictionary<Type, PageRoute> Pages = new() {
         // Primary navigation (auth required)
-        [typeof(DashboardPage)] = new("Dashboard", "/Dashboard.html", RequiresAuth: true,
+        [typeof(DashboardPage)] = new("Dashboard", Paths.Dashboard, RequiresAuth: true,
             Icons.Material.Filled.Dashboard, Color.Surface),
-        [typeof(ProfilesPage)] = new("Profiles", "/Profiles.html", RequiresAuth: true,
+        [typeof(ProfilesPage)] = new("Profiles", Paths.Profiles, RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
-        [typeof(ConnectionsPage)] = new("Connections", "/Connections.html", RequiresAuth: true,
+        [typeof(ConnectionsPage)] = new("Connections", Paths.Connections, RequiresAuth: true,
             Icons.Material.Filled.People, Color.Surface),
-        [typeof(PresentationsPage)] = new("Presentations", "/Presentations.html", RequiresAuth: true,
+        [typeof(PresentationsPage)] = new("Presentations", Paths.Presentations, RequiresAuth: true,
             Icons.Material.Filled.PresentToAll, Color.Surface),
-        [typeof(CredentialsPage)] = new("Credentials", "/Credentials.html", RequiresAuth: true,
+        [typeof(CredentialsPage)] = new("Credentials", Paths.Credentials, RequiresAuth: true,
             Icons.Material.Filled.Badge, Color.Surface),
-        [typeof(WebsitesPage)] = new("Websites", "/Websites.html", RequiresAuth: true,
+        [typeof(WebsitesPage)] = new("Websites", Paths.Websites, RequiresAuth: true,
             Icons.Material.Filled.Web, Color.Surface),
-        [typeof(NotificationsPage)] = new("Notifications", "/Notifications.html", RequiresAuth: true,
+        [typeof(NotificationsPage)] = new("Notifications", Paths.Notifications, RequiresAuth: true,
             Icons.Material.Filled.Notifications, Color.Surface),
-        [typeof(Passkeys)] = new("Passkeys", "/Passkeys.html", RequiresAuth: true,
+        [typeof(Passkeys)] = new("Passkeys", Paths.Passkeys, RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
-        [typeof(MnemonicPage)] = new("Mnemonic", "/Mnemonic.html", RequiresAuth: true,
+        [typeof(MnemonicPage)] = new("Mnemonic", Paths.Mnemonic, RequiresAuth: true,
             Icons.Material.Filled.Key, Color.Surface),
 
         // Detail pages (auth required, no menu). Trailing / if route has parameter
-        [typeof(ProfilePage)] = new("Profile", "/Profile.html/", RequiresAuth: true),
-        [typeof(WebsitePage)] = new("Website", "/Website.html/", RequiresAuth: true),
-        [typeof(ConnectingPage)] = new("Connecting", "/Connecting.html", RequiresAuth: true),
-        [typeof(RequestSignInPage)] = new("Request Sign In", "/RequestSignIn.html", RequiresAuth: true),
-        [typeof(RequestSignHeadersPage)] = new("Request Sign Headers", "/RequestSignHeaders.html", RequiresAuth: true),
-        [typeof(RequestSignDataPage)] = new("Request Sign Data", "/RequestSignData.html", RequiresAuth: true),
-        [typeof(RequestUnknownPage)] = new("Request Unknown", "/RequestUnknown.html", RequiresAuth: true),
-        [typeof(RequestCreateCredentialPage)] = new("Request Create Credential", "/RequestCreateCredential.html", RequiresAuth: true),
-        [typeof(RequestConnectPage)] = new("Request Connect", "/RequestConnect.html", RequiresAuth: true),
-        [typeof(AddPasskeyPage)] = new("Add Passkey", "/AddPasskey.html", RequiresAuth: true),
+        [typeof(ProfilePage)] = new("Profile", Paths.Profile, RequiresAuth: true),
+        [typeof(WebsitePage)] = new("Website", Paths.Website, RequiresAuth: true),
+        [typeof(ConnectingPage)] = new("Connecting", Paths.Connecting, RequiresAuth: true),
+        [typeof(RequestSignInPage)] = new("Request Sign In", Paths.RequestSignIn, RequiresAuth: true),
+        [typeof(RequestSignHeadersPage)] = new("Request Sign Headers", Paths.RequestSignHeaders, RequiresAuth: true),
+        [typeof(RequestSignDataPage)] = new("Request Sign Data", Paths.RequestSignData, RequiresAuth: true),
+        [typeof(RequestUnknownPage)] = new("Request Unknown", Paths.RequestUnknown, RequiresAuth: true),
+        [typeof(RequestCreateCredentialPage)] = new("Request Create Credential", Paths.RequestCreateCredential, RequiresAuth: true),
+        [typeof(RequestConnectPage)] = new("Request Connect", Paths.RequestConnect, RequiresAuth: true),
+        [typeof(AddPasskeyPage)] = new("Add Passkey", Paths.AddPasskey, RequiresAuth: true),
 
         // Index pages (no auth) - Index.razor handles multiple routes
-        [typeof(Index)] = new("Index", "/index.html", RequiresAuth: false),
+        [typeof(Index)] = new("Index", Paths.Index, RequiresAuth: false),
 
         // Setup/config pages (no auth)
-        [typeof(WelcomePage)] = new("Welcome", "/Welcome.html", RequiresAuth: false),
-        [typeof(NewReleasePage)] = new("New Release", "/NewRelease.html", RequiresAuth: false),
-        [typeof(ConfigurePage)] = new("Configure", "/Configure.html", RequiresAuth: false),
-        [typeof(OfferPasskeyPage)] = new("Offer Passkey", "/OfferPasskey.html", RequiresAuth: false),
-        [typeof(GettingStartedPage)] = new("Getting Started", "/GettingStarted.html", RequiresAuth: false),
-        [typeof(UnlockPage)] = new("Unlock", "/Unlock.html", RequiresAuth: false,
+        [typeof(WelcomePage)] = new("Welcome", Paths.Welcome, RequiresAuth: false),
+        [typeof(NewReleasePage)] = new("New Release", Paths.NewRelease, RequiresAuth: false),
+        [typeof(ConfigurePage)] = new("Configure", Paths.Configure, RequiresAuth: false),
+        [typeof(OfferPasskeyPage)] = new("Offer Passkey", Paths.OfferPasskey, RequiresAuth: false),
+        [typeof(GettingStartedPage)] = new("Getting Started", Paths.GettingStarted, RequiresAuth: false),
+        [typeof(UnlockPage)] = new("Unlock", Paths.Unlock, RequiresAuth: false,
             Icons.Material.Filled.LockOpen, Color.Surface),
-        [typeof(PreferencesPage)] = new("Preferences", "/ManagePreferences.html", RequiresAuth: false,
+        [typeof(PreferencesPage)] = new("Preferences", Paths.Preferences, RequiresAuth: false,
             Icons.Material.Filled.SettingsApplications, Color.Surface),
-        [typeof(KeriaConfigsPage)] = new("KERIA Connections", "/KeriaConfigs.html", RequiresAuth: false,
+        [typeof(KeriaConfigsPage)] = new("KERIA Connections", Paths.KeriaConfigs, RequiresAuth: false,
             Icons.Material.Filled.Cloud, Color.Surface),
-        [typeof(KeriaConfigPage)] = new("KERIA Connection", "/KeriaConfig.html/", RequiresAuth: false),
-        [typeof(DeletePage)] = new("Delete", "/Delete.html", RequiresAuth: false,
+        [typeof(KeriaConfigPage)] = new("KERIA Connection", Paths.KeriaConfig, RequiresAuth: false),
+        [typeof(DeletePage)] = new("Delete", Paths.Delete, RequiresAuth: false,
             Icons.Material.Filled.DeleteForever, Color.Surface),
-        [typeof(TermsPage)] = new("Terms", "/Terms.html", RequiresAuth: false),
-        [typeof(SidePanel)] = new("SidePanel", "/sidepanel.html", RequiresAuth: false),
-        [typeof(DeveloperTestPage)] = new("DeveloperTest", "/DeveloperTest.html", RequiresAuth: false,
+        [typeof(TermsPage)] = new("Terms", Paths.Terms, RequiresAuth: false),
+        [typeof(SidePanel)] = new("SidePanel", Paths.SidePanel, RequiresAuth: false),
+        [typeof(DeveloperTestPage)] = new("DeveloperTest", Paths.DeveloperTest, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
-        [typeof(PrimeDataPage)] = new("PrimeData", "/PrimeData.html", RequiresAuth: true,
+        [typeof(PrimeDataPage)] = new("PrimeData", Paths.PrimeData, RequiresAuth: true,
             Icons.Material.Filled.DataObject, Color.Surface),
-        [typeof(DeveloperStatePage)] = new("DeveloperState", "/DeveloperState.html", RequiresAuth: false,
+        [typeof(DeveloperStatePage)] = new("DeveloperState", Paths.DeveloperState, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
-        [typeof(ReleaseHistoryPage)] = new("Release History", "/ReleaseHistory.html", RequiresAuth: false),
+        [typeof(ReleaseHistoryPage)] = new("Release History", Paths.ReleaseHistory, RequiresAuth: false),
     };
 
     /// <summary>
@@ -161,19 +200,13 @@ public static class Routes {
     /// Check if a page type requires authentication.
     /// </summary>
     public static bool PageRequiresAuth<TPage>() where TPage : ComponentBase =>
-        Pages
-            .Where(p => p.Key == typeof(TPage))
-            .Select(p => p.Value.RequiresAuth)
-            .FirstOrDefault();
+        Pages.TryGetValue(typeof(TPage), out var route) && route.RequiresAuth;
 
     /// <summary>
     /// Check if a page type requires authentication.
     /// </summary>
     public static bool PageRequiresAuth(Type pageType) =>
-        Pages
-            .Where(p => p.Key == pageType)
-            .Select(p => p.Value.RequiresAuth)
-            .FirstOrDefault();
+        Pages.TryGetValue(pageType, out var route) && route.RequiresAuth;
 
     /// <summary>
     /// Check if a path is a dialog page (handles pending BW→App requests).
@@ -195,39 +228,29 @@ public static class Routes {
     /// Get the path for a page type.
     /// </summary>
     public static string PathFor<TPage>() where TPage : ComponentBase =>
-        Pages
-            .Where(p => p.Key == typeof(TPage))
-            .Select(p => p.Value.Path)
-            .FirstOrDefault()
-        ?? throw new ArgumentException($"No route defined for {typeof(TPage).Name}");
+        Pages.TryGetValue(typeof(TPage), out var route)
+            ? route.Path
+            : throw new ArgumentException($"No route defined for {typeof(TPage).Name}");
 
     /// <summary>
     /// Get the path for a page type.
     /// </summary>
     public static string PathFor(Type pageType) =>
-        Pages
-            .Where(p => p.Key == pageType)
-            .Select(p => p.Value.Path)
-            .FirstOrDefault()
-        ?? throw new ArgumentException($"No route defined for {pageType.Name}");
+        Pages.TryGetValue(pageType, out var route)
+            ? route.Path
+            : throw new ArgumentException($"No route defined for {pageType.Name}");
 
     /// <summary>
     /// Get the PageRoute for a page type.
     /// </summary>
     public static PageRoute For<TPage>() where TPage : ComponentBase =>
-        Pages
-            .Where(p => p.Key == typeof(TPage))
-            .Select(p => p.Value)
-            .FirstOrDefault();
+        Pages.TryGetValue(typeof(TPage), out var route) ? route : default;
 
     /// <summary>
     /// Get the PageRoute for a page type.
     /// </summary>
     public static PageRoute For(Type pageType) =>
-        Pages
-            .Where(p => p.Key == pageType)
-            .Select(p => p.Value)
-            .FirstOrDefault();
+        Pages.TryGetValue(pageType, out var route) ? route : default;
 
     /// <summary>
     /// Get all pages that require authentication.
@@ -273,20 +296,15 @@ public static class Routes {
     /// Get the path for a content page.
     /// </summary>
     public static string PathFor(ContentPage contentPage) =>
-        Content
-            .Where(c => c.Key == contentPage)
-            .Select(c => c.Value.Path)
-            .FirstOrDefault()
-        ?? throw new ArgumentException($"No route defined for {contentPage}");
+        Content.TryGetValue(contentPage, out var route)
+            ? route.Path
+            : throw new ArgumentException($"No route defined for {contentPage}");
 
     /// <summary>
     /// Get the ContentRoute for a content page.
     /// </summary>
     public static ContentRoute For(ContentPage contentPage) =>
-        Content
-            .Where(c => c.Key == contentPage)
-            .Select(c => c.Value)
-            .FirstOrDefault();
+        Content.TryGetValue(contentPage, out var route) ? route : default;
 
     /// <summary>
     /// Get all content pages that have menu icons (for menu rendering).

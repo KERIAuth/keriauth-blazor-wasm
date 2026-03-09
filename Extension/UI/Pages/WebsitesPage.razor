@@ -104,7 +104,7 @@
 
     void navigateToWebsitePage(string origin)
     {
-        navManager.NavigateTo(Routes.PathFor<WebsitePage>() + HttpUtility.UrlEncode(origin.ToString()));
+        navManager.NavigateTo(Routes.Paths.Website + HttpUtility.UrlEncode(origin.ToString()));
     }
 
     public void Dispose()

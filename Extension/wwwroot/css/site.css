@@ -62,10 +62,6 @@
     background: transparent;
 }
 
-/* Suppress MudBlazor v9 ripple flash on nav link clicks */
-.mud-nav-link {
-    --mud-ripple-opacity: 0;
-}
 
 @media (min-width: 960px) {
     .mud-drawer-open-responsive-md-left.mud-drawer-left-clipped-never .mud-appbar {

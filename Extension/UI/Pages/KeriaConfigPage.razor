@@ -58,7 +58,7 @@
         if (_config is null) {
             logger.LogWarning("Config not found for digest {Digest}, redirecting to list", Digest);
             snackbar.Add("Configuration not found", Severity.Warning);
-            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
+            navManager.NavigateTo(Routes.Paths.KeriaConfigs);
         }
 
         logger.LogInformation("KeriaConfigPage OnInitializedAsync for digest {Digest}", Digest);
@@ -223,7 +223,7 @@
             });
 
             snackbar.Add("Configuration deleted", Severity.Success);
-            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
+            navManager.NavigateTo(Routes.Paths.KeriaConfigs);
         }
         finally {
             _isDeleting = false;
@@ -339,7 +339,7 @@
                 <!-- Passkeys Section -->
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="pt-4">
                     <MudText Typo="Typo.h6"><b>Passkeys</b></MudText>
-                    <MudLink Href="@(Routes.PathFor<Passkeys>())" Typo="Typo.body2" Class="ml-2">manage</MudLink>
+                    <MudLink Href="@Routes.Paths.Passkeys" Typo="Typo.body2" Class="ml-2">manage</MudLink>
                 </MudStack>
                 <MudStack Class="d-flex justify-center ml-3">
                     <MudText>@PasskeyLabel registered for this configuration.</MudText>

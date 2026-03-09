@@ -114,7 +114,7 @@
         _ = await storageService.SetItem<OnboardState>(newOnboardState);
         logger.LogInformation("Terms and Privacy agreement recorded at {Timestamp}", now);
 
-        navManager.NavigateTo(Routes.PathFor<Index>());
+        navManager.NavigateTo(Routes.Paths.Index);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

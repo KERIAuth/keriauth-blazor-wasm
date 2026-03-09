@@ -147,7 +147,7 @@
             if (Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
             {
                 logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
-                navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>());
+                navManager.NavigateTo(Routes.Paths.Index);
                 return;
             }
         }
@@ -206,7 +206,7 @@
 
         logger.LogInformation("HandleBwRequests: Navigating to Index for routing, pendingRequest Type={type}, RequestId={requestId}",
             pendingRequest.Type, pendingRequest.RequestId);
-        navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>());
+        navManager.NavigateTo(Routes.Paths.Index);
     }
 
     private async Task AssertHydratedCache()

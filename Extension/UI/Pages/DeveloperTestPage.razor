@@ -86,7 +86,7 @@
             OriginalRequestId: Guid.NewGuid().ToString(),
             OriginalType: "/signify/authorize"
         ),
-        Routes.PathFor<RequestSignInPage>()
+        Routes.Paths.RequestSignIn
     );
 
     async Task SimulateRequestSignHeaders() => await SimulateDialogRequestAsync(
@@ -101,7 +101,7 @@
             OriginalRequestId: Guid.NewGuid().ToString(),
             OriginalType: "/signify/sign-request"
         ),
-        Routes.PathFor<RequestSignHeadersPage>()
+        Routes.Paths.RequestSignHeaders
     );
 
     async Task SimulateRequestSignData() => await SimulateDialogRequestAsync(
@@ -115,7 +115,7 @@
             OriginalRequestId: Guid.NewGuid().ToString(),
             OriginalType: "/signify/sign-data"
         ),
-        Routes.PathFor<RequestSignDataPage>()
+        Routes.Paths.RequestSignData
     );
 
     async Task SimulateRequestSignDataCustomized() => await SimulateDialogRequestAsync(
@@ -129,7 +129,7 @@
             OriginalRequestId: Guid.NewGuid().ToString(),
             OriginalType: "/signify/sign-data"
         ),
-        Routes.PathFor<RequestSignDataPage>()
+        Routes.Paths.RequestSignData
     );
 
     async Task SimulateRequestCreateCredential() => await SimulateDialogRequestAsync(
@@ -143,7 +143,7 @@
             OriginalRequestId: Guid.NewGuid().ToString(),
             OriginalType: "/signify/credential/create/data-attestation"
         ),
-        Routes.PathFor<RequestCreateCredentialPage>()
+        Routes.Paths.RequestCreateCredential
     );
 
     async Task SimulateRequestConnect() => await SimulateDialogRequestAsync(
@@ -154,13 +154,13 @@
             ResolvedAlias: "CF Credential Issuance4",
             TabUrl: "https://example.com/test"
         ),
-        Routes.PathFor<RequestConnectPage>()
+        Routes.Paths.RequestConnect
     );
 
     async Task SimulateRequestUnknown() => await SimulateDialogRequestAsync(
         "BwApp.UnknownType",
         _ => new { foo = "bar" } as object,
-        Routes.PathFor<RequestUnknownPage>()
+        Routes.Paths.RequestUnknown
     );
 
     void NavigateToKeriaConfig()
@@ -171,7 +171,7 @@
             snackbar.Add("No KERIA configurations found in storage");
             return;
         }
-        navManager.NavigateTo(Routes.PathFor<KeriaConfigPage>() + digest);
+        navManager.NavigateTo(Routes.Paths.KeriaConfig + digest);
     }
 
     void NavigateToProfile()
@@ -182,7 +182,7 @@
             snackbar.Add("No identifiers found in storage");
             return;
         }
-        navManager.NavigateTo(Routes.PathFor<ProfilePage>() + prefix);
+        navManager.NavigateTo(Routes.Paths.Profile + prefix);
     }
 
     async Task NavigateToWebsite()
@@ -194,7 +194,7 @@
             snackbar.Add("No websites found in storage");
             return;
         }
-        navManager.NavigateTo(Routes.PathFor<WebsitePage>() + HttpUtility.UrlEncode(origin.OriginalString));
+        navManager.NavigateTo(Routes.Paths.Website + HttpUtility.UrlEncode(origin.OriginalString));
     }
 
     async Task ShowMessageBoxExample()
@@ -264,17 +264,17 @@
 
             <MudText Typo="Typo.h6">Pages not on main menu</MudText>
             <div class="bt-link-list">
-                <MudLink Href="@(Routes.PathFor<WelcomePage>())" Target="_self">Welcome</MudLink>
-                <MudLink Href="@(Routes.PathFor<NewReleasePage>())" Target="_self">Release</MudLink>
-                <MudLink Href="@(Routes.PathFor<TermsPage>())" Target="_self">Terms</MudLink>
-                <MudLink Href="@(Routes.PathFor<ConfigurePage>())" Target="_self">Configure</MudLink>
-                <MudLink Href="@(Routes.PathFor<UnlockPage>())" Target="_self">Unlock</MudLink>
-                <MudLink Href="@(Routes.PathFor<ConnectingPage>())" Target="_self">Connecting</MudLink>
-                <MudLink Href="@(Routes.PathFor<AddPasskeyPage>())" Target="_self">Add Passkey</MudLink>
-                <MudLink Href="@(Routes.PathFor<DeletePage>())" Target="_self">Delete Local Config</MudLink>
-                <MudLink Href="@(Routes.PathFor<GettingStartedPage>())" Target="_self">Getting Started</MudLink>
-                <MudLink Href="@(Routes.PathFor<OfferPasskeyPage>())" Target="_self">Offer Passkey</MudLink>
-                <MudLink Href="@(Routes.PathFor<ReleaseHistoryPage>())" Target="_self">Release History</MudLink>
+                <MudLink Href="@Routes.Paths.Welcome" Target="_self">Welcome</MudLink>
+                <MudLink Href="@Routes.Paths.NewRelease" Target="_self">Release</MudLink>
+                <MudLink Href="@Routes.Paths.Terms" Target="_self">Terms</MudLink>
+                <MudLink Href="@Routes.Paths.Configure" Target="_self">Configure</MudLink>
+                <MudLink Href="@Routes.Paths.Unlock" Target="_self">Unlock</MudLink>
+                <MudLink Href="@Routes.Paths.Connecting" Target="_self">Connecting</MudLink>
+                <MudLink Href="@Routes.Paths.AddPasskey" Target="_self">Add Passkey</MudLink>
+                <MudLink Href="@Routes.Paths.Delete" Target="_self">Delete Local Config</MudLink>
+                <MudLink Href="@Routes.Paths.GettingStarted" Target="_self">Getting Started</MudLink>
+                <MudLink Href="@Routes.Paths.OfferPasskey" Target="_self">Offer Passkey</MudLink>
+                <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_self">Release History</MudLink>
             </div>
             <MudText Typo="Typo.h6">Dialog Pages</MudText>
             <MudText>These simulated pages will appear in the SidePanel when open.</MudText>

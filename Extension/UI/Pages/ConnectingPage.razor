@@ -63,9 +63,9 @@
         {
             await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.IdentifiersList is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0]);
             // Only navigate if we're still on ConnectingPage (another handler may have navigated away, e.g., to handle a pending request)
-            if ("/" + navManager.ToBaseRelativePath(navManager.Uri) == Routes.PathFor<ConnectingPage>())
+            if ("/" + navManager.ToBaseRelativePath(navManager.Uri) == Routes.Paths.Connecting)
             {
-                navManager.NavigateTo(Routes.PathFor<Index>());
+                navManager.NavigateTo(Routes.Paths.Index);
             }
         }
         else

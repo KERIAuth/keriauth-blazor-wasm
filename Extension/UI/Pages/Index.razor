@@ -65,7 +65,7 @@
 
         if (!appCache.MyOnboardState.IsWelcomed)
         {
-            NavigateIfNeeded(Routes.PathFor<WelcomePage>());
+            NavigateIfNeeded(Routes.Paths.Welcome);
             return;
         }
 
@@ -79,19 +79,19 @@
                 pendingRequest.RequestId,
                 updatePayload?.CurrentVersion ?? "unknown");
 
-            NavigateIfNeeded(Routes.PathFor<NewReleasePage>());
+            NavigateIfNeeded(Routes.Paths.NewRelease);
             return;
         }
 
         // TODO P3 consider this check with the one above for RequestNotifyUserOfUpdate
         if (!appCache.IsInstallAcknowledged)
         {
-            NavigateIfNeeded(Routes.PathFor<NewReleasePage>());
+            NavigateIfNeeded(Routes.Paths.NewRelease);
             return;
         }
         if (!appCache.IsCurrentTosAndPrivacyAgreed)
         {
-            NavigateIfNeeded(Routes.PathFor<TermsPage>());
+            NavigateIfNeeded(Routes.Paths.Terms);
             return;
         }
         // Passing above conditions must equate to IsProductOnboarded
@@ -102,7 +102,7 @@
         }
         if (!appCache.IsConfigured)
         {
-            NavigateIfNeeded(Routes.PathFor<ConfigurePage>());
+            NavigateIfNeeded(Routes.Paths.Configure);
             return;
         }
         // Passing the above conditions must equate to IsInitialized
@@ -113,7 +113,7 @@
         }
         if (!appCache.IsSessionUnlocked)
         {
-            NavigateIfNeeded(Routes.PathFor<UnlockPage>());
+            NavigateIfNeeded(Routes.Paths.Unlock);
             return;
         }
         if (!appCache.IsAuthenticated)
@@ -123,7 +123,7 @@
         }
         if (!appCache.IsIdentifierFetched)
         {
-            NavigateIfNeeded(Routes.PathFor<ConnectingPage>());
+            NavigateIfNeeded(Routes.Paths.Connecting);
             return;
         }
         // Passing the above conditions must equate to IsConnectedToKeria
@@ -149,14 +149,14 @@
                     if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.NotOffered)
                     {
                         logger.LogInformation("RedirectIfNeeded: No passkey exists, navigating to OfferPasskeyPage");
-                        NavigateIfNeeded(Routes.PathFor<OfferPasskeyPage>());
+                        NavigateIfNeeded(Routes.Paths.OfferPasskey);
                         return;
                     }
                     else // Yes
                     {
                         logger.LogInformation("RedirectIfNeeded: User accepted passkey offer and no passkey exists, navigating to AddPasskey");
                         App.OfferCreatePasskeyState = OfferCreatePasskeyState.InProcess;
-                        NavigateIfNeeded(Routes.PathFor<AddPasskeyPage>());
+                        NavigateIfNeeded(Routes.Paths.AddPasskey);
                         return;
                     }
                 }
@@ -176,7 +176,7 @@
 
         if (!appCache.ShowedGettingStarted)
         {
-            NavigateIfNeeded(Routes.PathFor<GettingStartedPage>());
+            NavigateIfNeeded(Routes.Paths.GettingStarted);
             return;
         }
 
@@ -190,29 +190,29 @@
             switch (pendingRequest.Type, willRedirectToDialog)
             {
                 case (BwAppMessageType.Values.RequestNotifyUserOfUpdate, _):
-                    route = Routes.PathFor<Index>();
+                    route = Routes.Paths.Index;
                     break;
                 case (BwAppMessageType.Values.RequestSelectAuthorize, true):
-                    route = Routes.PathFor<RequestSignInPage>();
+                    route = Routes.Paths.RequestSignIn;
                     break;
                 case (BwAppMessageType.Values.RequestSignHeaders, true):
-                    route = Routes.PathFor<RequestSignHeadersPage>();
+                    route = Routes.Paths.RequestSignHeaders;
                     break;
                 case (BwAppMessageType.Values.RequestSignData, true):
-                    route = Routes.PathFor<RequestSignDataPage>();
+                    route = Routes.Paths.RequestSignData;
                     break;
                 case (BwAppMessageType.Values.RequestCreateCredential, true):
-                    route = Routes.PathFor<RequestCreateCredentialPage>();
+                    route = Routes.Paths.RequestCreateCredential;
                     break;
                 case (BwAppMessageType.Values.RequestConnectionInvite, true):
-                    route = Routes.PathFor<RequestConnectPage>();
+                    route = Routes.Paths.RequestConnect;
                     break;
 
 
 
                 default:
                     logger.LogInformation("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
-                    route = Routes.PathFor<RequestUnknownPage>();
+                    route = Routes.Paths.RequestUnknown;
                     break;
             }
 
@@ -227,7 +227,7 @@
         }
 
         // Fully authenticated and connected - navigate to Dashboard
-        NavigateIfNeeded(Routes.PathFor<DashboardPage>());
+        NavigateIfNeeded(Routes.Paths.Dashboard);
     }
 
     public void Dispose()

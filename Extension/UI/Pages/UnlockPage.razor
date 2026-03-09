@@ -171,7 +171,7 @@
 
         if (digest == ManageKeriaConfigsValue)
         {
-            navManager.NavigateTo(Routes.PathFor<KeriaConfigsPage>());
+            navManager.NavigateTo(Routes.Paths.KeriaConfigs);
             return;
         }
 
@@ -395,7 +395,7 @@
                 throw new IndexOutOfRangeException("KERIA AdminUrl is not configured");
             }
             // expect navigation to ConnectingPage via Index
-            navManager.NavigateTo(Routes.PathFor<Index>());
+            navManager.NavigateTo(Routes.Paths.Index);
             return;
         }
         else

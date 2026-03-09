@@ -34,7 +34,7 @@
                                         SessionPercentageRemaining="@SessionPercentageRemaining"
                                         SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
                                         OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
-                                        OnLockClick="@(() => navManager.NavigateTo(Routes.PathFor<UnlockPage>()))"
+                                        OnLockClick="@(() => navManager.NavigateTo(Routes.Paths.Unlock))"
                                         KeriaAlias="@KeriaAlias"
                                         IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
 
@@ -153,10 +153,10 @@
                 await ClosePopupAsync();
                 break;
             case ContextType.SIDEPANEL:
-                navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>());
+                navManager.NavigateTo(Routes.Paths.Index);
                 break;
             case ContextType.TAB:
-                navManager.NavigateTo(Routes.PathFor<Extension.UI.Pages.Index>());
+                navManager.NavigateTo(Routes.Paths.Index);
                 break;
             default:
                 logger.LogWarning("ReturnToPriorUI: Unknown AppContextType {AppContextType}", App.AppContext);
