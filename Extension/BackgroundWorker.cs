@@ -20,6 +20,7 @@ using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
 using Extension.Utilities;
+using WebExtensions.Net.Alarms;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
@@ -395,6 +396,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // Clean up any pending requests with inactivity message
                     await _portService.CleanupAllPendingRequestsAsync($"{AppConfig.ProductName} locked due to inactivity");
                     return;
+                case AppConfig.NotificationPollAlarmName:
+                    try {
+                        await _notificationPollingService.PollOnDemandAsync();
+                    }
+                    catch (Exception ex) {
+                        logger.LogWarning(ex, nameof(OnAlarmAsync) + ": Notification poll alarm failed");
+                    }
+                    return;
                 default:
                     logger.LogWarning(nameof(OnAlarmAsync) + ": Unknown alarm name: {AlarmName}", alarm.Name);
                     return;
@@ -518,8 +527,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogDebug(nameof(OnSuspendAsync) + ": Service worker suspending, cleaning up");
 
-            // Cancel background polling — KERIA calls would fail after unload
-            CancelNotificationPolling();
+            // Cancel active burst — KERIA calls would fail after unload.
+            // Do NOT clear the alarm — it should survive SW restarts to wake for periodic polls.
+            _notificationPollingCts?.Cancel();
+            _notificationPollingCts?.Dispose();
+            _notificationPollingCts = null;
 
             // Clear in-flight connection correlations — stale after wake
             _pendingConnections.Clear();
@@ -744,7 +756,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         public void OnNext(PasscodeModel? value) {
             if (value is null || string.IsNullOrEmpty(value.Passcode)) {
                 backgroundWorker.logger.LogInformation(nameof(PasscodeModelPollingObserver) + ": PasscodeModel cleared — cancelling notification polling");
-                backgroundWorker.CancelNotificationPolling();
+                _ = backgroundWorker.CancelNotificationPollingAsync();
             }
         }
 
@@ -1410,6 +1422,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIpexAdmitRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestPollNotifications:
+                    // Start burst only if not already active
+                    if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
+                        RestartNotificationBurst();
+                    }
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new { success = true });
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -1988,10 +2009,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 var clientAidPrefix = connectResult.Value.Controller?.State?.I;
                 var agentAidPrefix = connectResult.Value.Agent?.I;
 
-                // Start notification polling (cancel any previous polling first)
-                _notificationPollingCts?.Cancel();
-                _notificationPollingCts = new CancellationTokenSource();
-                _ = _notificationPollingService.StartPollingAsync(_notificationPollingCts.Token);
+                // Start notification burst polling (cancel any previous burst first)
+                RestartNotificationBurst();
 
                 // Fetch identifiers and store in session for App to read
                 var identifiersResult = await _signifyClientService.GetIdentifiers();
@@ -2841,6 +2860,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 logger.LogError(storageEx, nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Failed to persist connection");
             }
 
+            // Connection shared — start burst polling for expected reciprocal notifications
+            RestartNotificationBurst();
+
             // Append friendly name to outbound OOBI as ?name= parameter
             if (!string.IsNullOrWhiteSpace(replyPayload.FriendlyName)) {
                 var encodedName = Uri.EscapeDataString(replyPayload.FriendlyName);
@@ -2884,6 +2906,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Extend session on user activity
                 logger.LogDebug(nameof(HandlePortEventAsync) + ": User activity event received, extending session");
                 await _sessionManager.ExtendIfUnlockedAsync();
+                // Only start burst if not already active — avoid polling when signify client isn't connected (e.g., after SW restart)
+                if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
+                    RestartNotificationBurst();
+                }
                 break;
 
             case AppBwMessageType.Values.AppClosed:
@@ -3704,10 +3730,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
             logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": connected successfully");
 
-            // Start notification polling (cancel any previous polling first)
-            _notificationPollingCts?.Cancel();
-            _notificationPollingCts = new CancellationTokenSource();
-            _ = _notificationPollingService.StartPollingAsync(_notificationPollingCts.Token);
+            // Start notification burst polling (cancel any previous burst first)
+            RestartNotificationBurst();
 
             // Proactively cache credentials in session storage for App components to read directly
             await RefreshCachedCredentialsAsync();
@@ -3721,15 +3745,52 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
+    /// Cancels any active notification burst and starts a new one.
+    /// Creates/replaces the recurring notification poll alarm.
+    /// </summary>
+    private void RestartNotificationBurst() {
+        _notificationPollingCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _notificationPollingCts = cts;
+        _ = RunBurstAsync(cts);
+        _ = EnsureNotificationPollAlarmAsync();
+    }
+
+    private async Task RunBurstAsync(CancellationTokenSource cts) {
+        await _notificationPollingService.StartPollingAsync(cts.Token);
+        // Null out CTS when burst completes naturally so "is active" checks work correctly
+        if (_notificationPollingCts == cts) {
+            _notificationPollingCts = null;
+        }
+    }
+
+    private async Task EnsureNotificationPollAlarmAsync() {
+        try {
+            await WebExtensions.Alarms.Create(AppConfig.NotificationPollAlarmName, new AlarmInfo {
+                PeriodInMinutes = AppConfig.NotificationPollAlarmPeriodMinutes
+            });
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, nameof(EnsureNotificationPollAlarmAsync) + ": Failed to create notification poll alarm");
+        }
+    }
+
+    /// <summary>
     /// Cancels notification polling if running.
     /// Called when session locks to stop polling against a disconnected signify client.
     /// </summary>
-    private void CancelNotificationPolling() {
+    private async Task CancelNotificationPollingAsync() {
         if (_notificationPollingCts is not null) {
-            logger.LogInformation(nameof(CancelNotificationPolling) + ": Cancelling notification polling");
+            logger.LogInformation(nameof(CancelNotificationPollingAsync) + ": Cancelling notification polling and clearing alarm");
             _notificationPollingCts.Cancel();
             _notificationPollingCts.Dispose();
             _notificationPollingCts = null;
+        }
+        try {
+            await WebExtensions.Alarms.Clear(AppConfig.NotificationPollAlarmName);
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, nameof(CancelNotificationPollingAsync) + ": Failed to clear notification poll alarm");
         }
     }
 

@@ -169,6 +169,24 @@ Three messaging boundaries:
 - Use `chrome.storage.session` for state that must survive restarts but not browser close
 - Use `chrome.storage.local` for long-term persistence
 
+### Notification Polling
+
+KERIA notifications are fetched via two mechanisms that allow the service worker to become inactive between polls:
+
+**Burst polling** — Polls every 5 seconds for 120 seconds, then stops. Triggered by:
+- Successful KERIA connect or reconnect
+- User activity events (throttled at 10s intervals)
+- Connection invite reply (OOBI shared)
+- Opening the Notifications page (only if no burst is already active)
+
+**Recurring Chrome Alarm** — Fires every 5 minutes while session is active. Wakes the service worker for a single poll, then the SW goes inactive again. Chrome manages alarm persistence across SW restarts. Cleared when session locks.
+
+Implementation: `NotificationPollingService` handles the actual KERIA fetch, enrichment, and fingerprint-based deduplication. `BackgroundWorker` manages burst lifecycle (`CancellationTokenSource`) and alarm creation/clearing.
+
+### Chrome Extension APIs
+- C# bindings via [WebExtensions.Net](https://github.com/mingyaulee/WebExtensions.Net) NuGet package
+- Listeners registered in `BackgroundWorker.Main()` are auto-generated as module-level JavaScript by `Blazor.BrowserExtension.Analyzer`, ensuring they run before WASM boots and can wake the service worker on cold start
+
 ## Session Lifecycle
 
 - Session state stored in `StorageArea.Session` via `PasscodeModel` (passcode + expiration)

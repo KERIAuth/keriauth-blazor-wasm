@@ -12,8 +12,6 @@ public class NotificationPollingService : INotificationPollingService {
     private readonly IStorageService _storageService;
     private readonly ILogger<NotificationPollingService> _logger;
 
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
-
     // Cache exchange prefix data (issuer/recipient) to avoid repeated KERIA fetches
     private readonly Dictionary<string, (string? Issuer, string? Recipient)> _exchangePrefixCache = [];
 
@@ -35,13 +33,12 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     public async Task StartPollingAsync(CancellationToken ct) {
-        _logger.LogWarning("StartPollingAsync temporarily disabled");
-        // TODO P1: refactor timing of initial poll vs. delay to avoid long wait on extension load, while also avoiding immediate poll before token is available. Potentially:
-        /* 
         _lastNotificationFingerprint = null;
         _lastCredentialFingerprint = null;
-        _logger.LogInformation(nameof(StartPollingAsync) + ": Starting notification polling (interval={Interval}s)", PollInterval.TotalSeconds);
-        while (!ct.IsCancellationRequested) {
+        var deadline = DateTime.UtcNow + AppConfig.NotificationBurstDuration;
+        _logger.LogInformation(nameof(StartPollingAsync) + ": Starting burst polling (interval={Interval}s, duration={Duration}s)",
+            AppConfig.NotificationPollInterval.TotalSeconds, AppConfig.NotificationBurstDuration.TotalSeconds);
+        while (!ct.IsCancellationRequested && DateTime.UtcNow < deadline) {
             try {
                 await PollOnDemandAsync();
             }
@@ -50,14 +47,13 @@ public class NotificationPollingService : INotificationPollingService {
             }
 
             try {
-                await Task.Delay(PollInterval, ct);
+                await Task.Delay(AppConfig.NotificationPollInterval, ct);
             }
             catch (OperationCanceledException) {
                 break;
             }
         }
-        _logger.LogInformation(nameof(StartPollingAsync) + ": Notification polling stopped");
-        */
+        _logger.LogInformation(nameof(StartPollingAsync) + ": Burst polling stopped");
     }
 
     public async Task PollOnDemandAsync() {

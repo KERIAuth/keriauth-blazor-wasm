@@ -152,6 +152,7 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestDeleteNotification = "AppBw.RequestDeleteNotification";
             public const string RequestGetExchange = "AppBw.RequestGetExchange";
             public const string RequestIpexAdmit = "AppBw.RequestIpexAdmit";
+            public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
         }
 
         public string Value { get; }
@@ -187,6 +188,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestDeleteNotification { get; } = new(Values.RequestDeleteNotification);
         public static AppBwMessageType RequestGetExchange { get; } = new(Values.RequestGetExchange);
         public static AppBwMessageType RequestIpexAdmit { get; } = new(Values.RequestIpexAdmit);
+        public static AppBwMessageType RequestPollNotifications { get; } = new(Values.RequestPollNotifications);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -292,6 +294,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestIpexAdmit:
                     result = RequestIpexAdmit;
+                    return true;
+                case Values.RequestPollNotifications:
+                    result = RequestPollNotifications;
                     return true;
                 default:
                     return false;

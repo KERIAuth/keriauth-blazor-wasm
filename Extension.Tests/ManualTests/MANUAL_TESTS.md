@@ -1,5 +1,7 @@
 # Extension Manual Test Case Outline
 
+**Note**: Log messages generated from WASM code (including BackgroundWorker.cs and all C# services) depend on the log levels configured in `Extension/wwwroot/appsettings.json`. For manual testing, set relevant categories (e.g., `Extension.BackgroundWorker`, `Extension.Services`) to `"Debug"` or `"Information"` to see detailed log output in the service worker console.
+
 ## Test Environment Setup
 ### OS
 - [ ] Windows 11
@@ -13,9 +15,7 @@
 - [ ] Anonymouse profile
 - [ ] Incognito
 ### Extension Install Source / Variant
-- [ ] Developer Load via Extension page
-	- [ ] Debug
-	- [ ] Release
+- [ ] Developer Load via Extension page (Release build type)
 - [ ] Chrome Web Store
 - [ ] GitHub Action Build
 - [ ] Version: __________
@@ -224,6 +224,101 @@ window.postMessage({type: '/signify/some-future-method', requestId: crypto.rando
 	Expected: 
 	- [ ] Countdown timer appears after 30 seconds
 	- [ ] After 60 seconds, app navigates to the Unlock page
+
+# Notification Polling Tests
+
+These tests verify the burst polling and recurring alarm mechanisms for KERIA notification fetching. The service worker must be able to become inactive between polls.
+
+**Important**: For tests that check service worker inactivity (B, C, G), all DevTools panels must be closed — not just the SW DevTools, but also DevTools on any App page (e.g. extension tab, popup), since service worker log messages are surfaced there too and the connection prevents the SW from going inactive. Use `chrome://serviceworker-internals` to check SW status instead.
+
+## A. Burst Polling on Connect
+1. Prerequisite: Onboard and configure KERIA connection
+2. Open DevTools on the service worker, enable "Preserve log"
+3. Unlock and connect to KERIA
+
+    Expected:
+	- [ ] Service worker logs show "Starting burst polling (interval=5s, duration=120s)"
+	- [ ] Logs show periodic `PollOnDemandAsync` calls every ~5 seconds
+	- [ ] After ~120 seconds, logs show "Burst polling stopped"
+
+## B. Service Worker Goes Inactive After Burst
+**Note**: Any open DevTools panel (SW DevTools or App page DevTools) prevents the service worker from going inactive. Close all DevTools before this test and use `chrome://serviceworker-internals` to check status instead.
+
+1. Prerequisite: Complete test A (burst polling finished)
+2. Close all DevTools panels (SW and App pages)
+4. Wait ~30 seconds after burst stops (no user interaction)
+5. Open `chrome://serviceworker-internals` and find the extension's service worker
+
+    Expected:
+	- [ ] Service worker status shows "stopped" (inactive)
+
+## C. Recurring Alarm Wakes Service Worker
+**Note**: Close all DevTools panels before waiting, otherwise the SW stays alive and the test is inconclusive. Re-open DevTools after the alarm fires to check logs from the new SW lifetime.
+
+1. Prerequisite: Connected to KERIA, burst polling completed, SW went inactive (test B)
+2. Wait 5+ minutes (with SW DevTools closed)
+3. Re-open DevTools on the service worker and check logs
+
+    Expected:
+	- [ ] Log shows `OnAlarmAsync: 'NotificationPollAlarm' fired`
+	- [ ] A single `PollOnDemandAsync` executes
+	- [ ] Service worker goes inactive again after the poll (close DevTools and verify via `chrome://serviceworker-internals`)
+
+4. Verify alarm exists: in SW DevTools console, run `chrome.alarms.getAll(a => console.log(a))`
+
+    Expected:
+	- [ ] Array contains an alarm with name "NotificationPollAlarm" and periodInMinutes = 5
+
+## D. User Activity Restarts Burst
+1. Prerequisite: Connected to KERIA, burst polling has stopped
+2. Click or press a key in the extension popup/tab
+3. Check service worker logs
+
+    Expected:
+	- [ ] Logs show "Starting burst polling" again (new burst started)
+	- [ ] Burst runs for ~120 seconds then stops
+
+## E. NotificationsPage Opens Triggers Burst (If Not Active)
+1. Prerequisite: Connected to KERIA, no active burst (wait for previous burst to finish)
+2. Navigate to the Notifications page in the extension
+
+    Expected:
+	- [ ] Service worker logs show "Starting burst polling" (new burst started)
+
+3. Navigate away and back to the Notifications page while burst is still active
+
+    Expected:
+	- [ ] No new "Starting burst polling" log (existing burst continues)
+
+## F. Session Lock Clears Alarm
+1. Prerequisite: Connected to KERIA, alarm exists
+2. Lock the session (wait for inactivity timeout or manually lock)
+3. In SW DevTools console, run `chrome.alarms.getAll(a => console.log(a))`
+
+    Expected:
+	- [ ] Logs show "Cancelling notification polling and clearing alarm"
+	- [ ] No "NotificationPollAlarm" in the alarms list
+	- [ ] No further poll attempts after lock
+
+## G. Alarm Survives Service Worker Restart
+1. Prerequisite: Connected to KERIA, alarm exists
+2. Close all DevTools panels
+3. Force stop the service worker via chrome://serviceworker-internals
+4. Wait for the alarm to fire (~5 minutes, or check the next alarm time)
+
+    Expected:
+	- [ ] Service worker wakes up when alarm fires
+	- [ ] Logs show `EnsureInitializedAsync` running (reconnecting)
+	- [ ] Logs show `OnAlarmAsync: 'NotificationPollAlarm' fired`
+	- [ ] Poll executes successfully
+
+## H. Connection Invite Triggers Burst
+1. Prerequisite: Connected to KERIA
+2. From a polaris-web page, initiate a connection invite
+3. Approve the connection in the extension popup
+
+    Expected:
+	- [ ] Service worker logs show "Starting burst polling" after connection approval
 
 # Seed KERIA with test data
 1. Run typescript provided via Jupyter training notebook or script

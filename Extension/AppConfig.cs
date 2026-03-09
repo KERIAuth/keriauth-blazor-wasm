@@ -10,6 +10,12 @@ namespace Extension {
         // SessionManager configuration
         public const string SessionManagerAlarmName = "SessionManagerAlarm";
 
+        // Notification polling configuration
+        public const string NotificationPollAlarmName = "NotificationPollAlarm";
+        public const double NotificationPollAlarmPeriodMinutes = 5.0;
+        public static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(5);
+        public static readonly TimeSpan NotificationBurstDuration = TimeSpan.FromSeconds(120);
+
         // Request/Response messaging configuration
         public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
 

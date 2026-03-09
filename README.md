@@ -55,6 +55,7 @@ Forked or modified versions must not use the "KERI Auth" name or logo without pe
 ## Acknowledgments and References
 * Components and Libraries
   * [BrowserExtension](https://github.com/mingyaulee/Blazor.BrowserExtension) by mingyaulee
+  * [WebExtensions.Net](https://github.com/mingyaulee/WebExtensions.Net)
   * [signify-ts](https://github.com/webOfTrust/signify-ts/) by WebOfTrust
   * [polaris-web](https://github.com/WebOfTrust/polaris-web) by WebOfTrust
 
