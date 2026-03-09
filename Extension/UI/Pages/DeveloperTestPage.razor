@@ -199,7 +199,7 @@
 
     async Task ShowMessageBoxExample()
     {
-        var result = await dialogService.ShowMessageBox(
+        var result = await dialogService.ShowMessageBoxAsync(
                "Auto-approve safe requests?",
                $"Are you sure you want to auto-approve all safe HTTP requests?",
                yesText: "Yes, Auto-approve",

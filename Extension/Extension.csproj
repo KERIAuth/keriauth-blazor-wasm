@@ -136,7 +136,7 @@
     <!-- Microsoft.NET.Sdk.WebAssembly.Pack is included by SDK, don't reference explicitly -->
     <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.9" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.9" />
-	  <PackageReference Include="MudBlazor" Version="8.15.0" />
+	  <PackageReference Include="MudBlazor" Version="9.1.0" />
 	  <PackageReference Include="Blazor.BrowserExtension" Version="3.2.4" />
 	  <PackageReference Include="Ensure.That" Version="10.1.0" />
 	  <PackageReference Include="Jdenticon-net" Version="3.1.2" />
@@ -145,9 +145,9 @@
 	  <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
 	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
 	  <PackageReference Include="BlazorBarcodeScanner.ZXing.JS" Version="1.0.4" />
-	  <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.0.7" />
+	  <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="2.1.0" />
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-	  <PackageReference Include="Polly" Version="8.6.5" />
+	  <PackageReference Include="Polly" Version="8.6.6" />
 	  <PackageReference Include="System.Reactive" Version="6.1.0" />
 	  <PackageReference Include="System.Text.Json" Version="9.0.9" />
 	  <PackageReference Include="WebExtensions.Net" Version="4.4.1" />

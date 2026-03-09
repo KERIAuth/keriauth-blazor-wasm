@@ -36,7 +36,7 @@
         bool isRemoveConfirmed;
 
         // show a dialog to confirm deletion
-        var result = await dialogService.ShowMessageBox(
+        var result = await dialogService.ShowMessageBoxAsync(
             "Delete Configuration",
             $"Are you sure you want to delete your local configuration and reload the extension?",
             yesText: "Yes, Delete",

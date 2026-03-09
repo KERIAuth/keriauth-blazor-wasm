@@ -151,7 +151,7 @@ namespace Extension {
 
                 TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
 
-                DrawerBackground = new MudColor(0, 100, 10, 1.0),
+                DrawerBackground = new MudColor(0.0, 1.0, 0.10, 1.0),
                 DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
                 DrawerText = new MudColor(0, 1.0, 1.0, 1.0),
 

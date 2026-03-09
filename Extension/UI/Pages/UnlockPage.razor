@@ -276,7 +276,7 @@
                 await unlockWithPasskeyButton.FocusAsync();
             }
         }
-        else if (passcodeField is not null && passcodeField.Text?.Length != 21)
+        else if (passcodeField is not null && unlockPasscodeModel.Passcode?.Length != 21)
         {
             await passcodeField.FocusAsync();
         }
@@ -402,7 +402,8 @@
         {
             openWalletError = $"{AppConfig.ProductName} was not configured with this passcode on this browser profile.";
             snackbar.Add(openWalletError, Severity.Error);
-            await passcodeField!.Clear();
+            unlockPasscodeModel.Passcode = string.Empty;
+            await passcodeField!.ResetAsync();
             await passcodeField!.SelectAsync();
             return;
         }
@@ -693,7 +694,7 @@
                                        Variant="Variant.Outlined"
                                        FullWidth="true"
                                        ValueChanged="OnKeriaConfigDigestChanged"
-                                       OnClose="OnSelectOpenChanged">
+                                       OpenChanged="@(async (bool open) => { if (!open) await OnSelectOpenChanged(); })">
                                 @foreach (var item in _availableKeriaConfigItems)
                                 {
                                     <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
