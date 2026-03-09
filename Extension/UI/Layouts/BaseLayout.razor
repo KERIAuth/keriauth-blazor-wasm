@@ -247,7 +247,7 @@
                 }
             },
             state: null,
-            dueTime: TimeSpan.FromSeconds(20), // TODO P2 calculated, but don't interfere with initialization time
+            dueTime: TimeSpan.FromSeconds(AppConfig.AppBarRefreshTimerDueTimeSeconds),
             period: TimeSpan.FromSeconds(1));
     }
 

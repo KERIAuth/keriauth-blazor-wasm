@@ -83,6 +83,8 @@ namespace Extension {
 
         // Other settings
         public const int DisplaySessionExpirationAtSecondsRemaining = 30;
+        // Display inactivity countdown on AppBar when this many seconds are remaining
+        public const int AppBarRefreshTimerDueTimeSeconds = 20;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
         public const int ExpectedTermsDigest = -1875963352;
         public const int ExpectedPrivacyDigest = -791277871;
