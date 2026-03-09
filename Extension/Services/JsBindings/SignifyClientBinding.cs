@@ -1,5 +1,5 @@
-﻿using Microsoft.JSInterop;
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
+using Microsoft.JSInterop;
 
 namespace Extension.Services.JsBindings;
 
@@ -146,8 +146,6 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
         Module.InvokeAsync<string>("test");
 
     public ValueTask Ready() {
-        // logger.LogWarning("SignifyClientBinding: Ready called. Module type FullName={Module}", Module.GetType().FullName);
-        // TODO P2: consider awaiting this call?
         return Module.InvokeVoidAsync("ready");
     }
     public ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, CancellationToken cancellationToken = default) =>

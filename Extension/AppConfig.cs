@@ -9,6 +9,11 @@ namespace Extension {
 
         // SessionManager configuration
         public const string SessionManagerAlarmName = "SessionManagerAlarm";
+        public const double AlarmRescheduleThresholdSeconds = 15;
+
+        // BackgroundWorker ready-wait configuration
+        public const int BwReadyTimeoutMs = 5000;
+        public const int BwReadyPollIntervalMs = 200;
 
         // Notification polling configuration
         public const string NotificationPollAlarmName = "NotificationPollAlarm";
@@ -43,8 +48,8 @@ namespace Extension {
         ];
 
         // default Preferences
-        public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
-        public const float MaxInactivityTimeoutMins = 20.0f; // TODO P2 should be 10.0f;
+        public const float DefaultInactivityTimeoutMins = 20.0f; // TODO P3 should be 10.0f;
+        public const float MaxInactivityTimeoutMins = 20.0f; // TODO P3 should be 10.0f;
         // Intentionally random initial IsDarkTheme to improve discoverability
         public static bool DefaultIsDarkTheme => Random.Shared.Next(2) == 0; // false;
         public const MudBlazor.DrawerVariant DefaultDrawerVariantInTab = MudBlazor.DrawerVariant.Persistent;

@@ -36,7 +36,7 @@
     string taglineText = taglineAlternatives[0];
     // Cached passkey count and label for selected KERIA config
     PasskeyAvailability _passkeyAvailability;
-    // TODO P2 rename to isFormValid and use field?
+    // TODO P3 rename to isFormValid and use field?
     bool isValid;
 
     // Recovery phrase state
@@ -232,7 +232,7 @@
         }
     }
 
-    // TODO P2 make this a computed property, since performance isn't critical here
+    // TODO P3 make this a computed property, since performance isn't critical here
     /// <summary>
     /// Updates the cached passkey availability for the currently selected KERIA connection.
     /// Called when passkeys are loaded or when the selected KERIA config changes.

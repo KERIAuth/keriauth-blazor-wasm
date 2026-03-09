@@ -574,8 +574,6 @@ export const getAID = async (name: string): Promise<string> => {
  * @returns Name/alias of the identifier
  */
 export const getNameByPrefix = async (prefix: string): Promise<string> => {
-    // TODO P2: Consider using getIdentifierByPrefix and extracting name from JSON in C#
-    // to avoid duplicate calls to _client.identifiers().get()
     const result = await withClientOperation(
         'getNameByPrefix',
         async (client) => {
@@ -736,7 +734,7 @@ export const credentialsIssue = async (name: string, argsJson: string): Promise<
  * Composite: validate registry + build CredentialData + issue + wait + get credential.
  * Source: sig-wallet/src/client/credentials.ts:issueCredential()
  * @param argsJson - JSON string of issue parameters
- * // TODO P2 define ts interface for argsJson: { issuerAidName, registryName, schema, holderPrefix, credData, credEdge?, credRules? }
+ * // TODO P3 define ts interface for argsJson: { issuerAidName, registryName, schema, holderPrefix, credData, credEdge?, credRules? }
  * @returns JSON string of { said, issuer, issuee, acdc, anc, iss }
  */
 export const issueAndGetCredential = async (argsJson: string): Promise<string> => {
@@ -952,7 +950,7 @@ export const ipexSubmitAdmit = createIpexSubmitMethod(
  * Composite: ipex.grant() + ipex.submitGrant() + wait.
  * Source: sig-wallet/src/client/credentials.ts:ipexGrantCredential()
  * @param argsJson - JSON string of grant parameters
- * // TODO P2 define ts interface for argsJson: { senderName, recipient, acdc, anc, iss }
+ * // TODO P3 define ts interface for argsJson: { senderName, recipient, acdc, anc, iss }
  * @returns JSON string of completed operation
  */
 export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
@@ -992,7 +990,7 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
  * Composite: ipex.admit() + ipex.submitAdmit() + wait.
  * Source: sig-wallet/src/client/credentials.ts:ipexAdmitGrant()
  * @param argsJson - JSON string of admit parameters
- * // TODO P2 define ts interface for argsJson: { senderName, recipient, grantSaid, message? }
+ * // TODO P3 define ts interface for argsJson: { senderName, recipient, grantSaid, message? }
  * @returns JSON string of completed operation
  */
 export const ipexAdmitAndSubmit = async (argsJson: string): Promise<string> => {
@@ -1237,7 +1235,7 @@ export const operationsDelete = async (name: string): Promise<string> => {
     );
 };
 
-// TODO P2: consider adding recursive dependent operation cleanup (see waitAndDeleteOperation
+// TODO P3: consider adding recursive dependent operation cleanup (see waitAndDeleteOperation
 // and sig-wallet/src/client/operations.ts:waitOperation for reference)
 export const operationsWait = async <T = unknown>(
     operationJson: string,
@@ -1611,7 +1609,7 @@ export const exchangesSendFromEvents = async (
 
 /**
  * Approve delegation via interaction event
- * // TODO P2: consider typed anchor variant { i, s, d } (see sig-wallet/src/client/identifiers.ts:approveDelegation)
+ * // TODO P3: consider typed anchor variant { i, s, d } (see sig-wallet/src/client/identifiers.ts:approveDelegation)
  * @param name - Name or alias of the identifier
  * @param dataJson - Optional JSON string of anchoring interaction event data (e.g. { i: delegatePrefix, s: '0', d: delegatePrefix })
  * @returns JSON string of approval result with operation

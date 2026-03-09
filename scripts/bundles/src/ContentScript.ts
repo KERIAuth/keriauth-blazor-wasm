@@ -622,7 +622,7 @@ import {
                 case CsBwMsgEnum.POLARIS_GET_SESSION_INFO: {
                     // const authorizeArgsMessage2 = event.data as Polaris.MessageData<Polaris.AuthorizeArgs>;
                     // const authorizeResult: Polaris.AuthorizeResult = {};
-                    // TODO P2 implement sessions?
+                    // TODO P3 implement sessions?
                     const sessionInfoMsg: ICsPageMsgData<null> = {
                         source: CsPageMsgTag,
                         type: BwCsMsgEnum.REPLY,

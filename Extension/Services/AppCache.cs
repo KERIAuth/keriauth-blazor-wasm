@@ -92,17 +92,6 @@
         /// </summary>
         public bool IsBwReady { get; private set; }
 
-        /// <summary>
-        /// Default timeout for waiting for BackgroundWorker to become ready.
-        /// </summary>
-        // TODO P2: move to AppConfig
-        private const int BwReadyTimeoutMs = 5000;
-
-        /// <summary>
-        /// Polling interval when checking for BwReadyState.
-        /// </summary>
-        // TODO P2: move to AppConfig
-        private const int BwReadyPollIntervalMs = 200;
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
@@ -796,11 +785,11 @@
         /// </summary>
         /// <returns>True if BackgroundWorker became ready, false if timeout occurred.</returns>
         private async Task<bool> WaitForBwReadyAsync() {
-            _logger.LogInformation(nameof(AppCache) + ": Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", BwReadyTimeoutMs);
+            _logger.LogInformation(nameof(AppCache) + ": Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", AppConfig.BwReadyTimeoutMs);
 
             var elapsedMs = 0;
 
-            while (elapsedMs < BwReadyTimeoutMs) {
+            while (elapsedMs < AppConfig.BwReadyTimeoutMs) {
                 var result = await storageService.GetItem<BwReadyState>(StorageArea.Session);
 
                 if (result.IsSuccess && result.Value?.IsInitialized == true) {
@@ -811,14 +800,14 @@
                     return true;
                 }
 
-                await Task.Delay(BwReadyPollIntervalMs);
-                elapsedMs += BwReadyPollIntervalMs;
+                await Task.Delay(AppConfig.BwReadyPollIntervalMs);
+                elapsedMs += AppConfig.BwReadyPollIntervalMs;
             }
 
             _logger.LogWarning(
                 nameof(AppCache) + ": Timeout after {TimeoutMs}ms - BackgroundWorker did not become ready. " +
                 "App will proceed but may encounter stale or missing storage data.",
-                BwReadyTimeoutMs);
+                AppConfig.BwReadyTimeoutMs);
             return false;
         }
     }

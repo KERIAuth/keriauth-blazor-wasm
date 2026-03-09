@@ -104,12 +104,12 @@ namespace Extension.Services.SignifyService {
                             return Result.Fail("Connect failed #2: " + res.Errors[0].Message);
                         }
                         // Note that we are not parsing the result here, just logging it. The browser developer console will show the result, but can't display it as a collapsable object
-                        // TODO P2 Don't log the following, since it contains the bran, passcode.
-                        logger.LogInformation(nameof(Connect) + ": {connectResults}", res.Value);
+                        // Note: not logging the following, since it contains the bran, passcode.
+                        // logger.LogWarning(nameof(Connect) + ": {connectResults}", res.Value);
                     }
                     var stateRes = await GetState();
-                    // TODO P2 remove this log...
-                    logger.LogInformation(nameof(Connect) + ": GetState after BootAndConnect: {agent prefix} {controller prefix}", stateRes.Value.Agent!.I, stateRes.Value.Controller!.State!.I);
+                    // Note: not logging the folloowing, since it may contain sensitive info:
+                    // logger.LogWarning(nameof(Connect) + ": GetState after BootAndConnect: {agent prefix} {controller prefix}", stateRes.Value.Agent!.I, stateRes.Value.Controller!.State!.I);
                     return Result.Ok(stateRes.Value);
                 }
                 else {

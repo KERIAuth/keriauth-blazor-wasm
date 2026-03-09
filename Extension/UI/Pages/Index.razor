@@ -19,7 +19,7 @@
 @inject IWebauthnService webauthnService
 
 @* 
-   // TODO P2: remove this loading indicator if it is always quick.
+   // TODO P3: remove this loading indicator if it is always quick.
    Intentionally empty visible content to reduce flickering during navigation.
    This page serves as the routing hub - other pages navigate here when done with their step,
    and RedirectIfNeeded() determines the next appropriate page based on app state.
@@ -39,7 +39,6 @@
         logger.LogInformation("OnInitializedAsync Index.razor");
         await base.OnInitializedAsync();
         // Subscribe to AppCache changes - will trigger RedirectIfNeeded when state updates
-        // TODO P2: perf: adjust optional WaitForAppCache timeout params if needed
         await appCache.WaitForAppCache([() => appCache.IsReady]); 
         await this.SubscribeToAppCache(appCache, RedirectIfNeeded);
         await RedirectIfNeeded();
@@ -84,7 +83,7 @@
             return;
         }
 
-        // TODO P2 consider this check with the one above for RequestNotifyUserOfUpdate
+        // TODO P3 consider this check with the one above for RequestNotifyUserOfUpdate
         if (!appCache.IsInstallAcknowledged)
         {
             NavigateIfNeeded(Routes.PathFor<NewReleasePage>());

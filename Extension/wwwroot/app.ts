@@ -55,7 +55,7 @@ import { PRODUCT_NAME } from './scripts/es6/brand.js';
 
 
 
-// TODO P2 rename to use PRODUCT_NAME-based prefix
+// TODO P3 rename to use PRODUCT_NAME-based prefix
 const CS_ID_PREFIX = 'keriauth-cs';
 
 // True when running inside the BackgroundWorker service worker context.
@@ -953,7 +953,7 @@ export async function beforeStart(
         case 'Debug':
             // Use 'window' (not globalThis) so Blazor's IJSRuntime can resolve identifiers.
 
-            // TODO P2 rename __keriauth_* globals to use PRODUCT_NAME-based prefix
+            // TODO P3 rename __keriauth_* globals to use PRODUCT_NAME-based prefix
             // BW readiness flag: set when SW_CLIENT_HELLO arrives
             (window as any).__keriauth_bwReady = false;
             (window as any).__keriauth_isBwReady = () => (window as any).__keriauth_bwReady === true;

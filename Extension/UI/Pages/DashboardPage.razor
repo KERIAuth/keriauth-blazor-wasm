@@ -26,8 +26,8 @@
 
     // reactive properties
     int? IdentifiersCount => appCache?.MyKeriaConnectionInfo?.IdentifiersList?.Count > 0 ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count : 0;
-    // TODO P2 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
-    // TODO P2 confirm what we want to show
+    // TODO P3 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
+    // TODO P3 confirm what we want to show
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected to" : appCache.IsAuthenticated ? "Not Connected with" : "Locked. Configured to";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
     List<RecursiveDictionary> FilteredCredentials => CredentialHelper.FilterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);

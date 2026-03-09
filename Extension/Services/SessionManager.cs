@@ -161,9 +161,9 @@ public class SessionManager : IDisposable {
             if (existingAlarm is not null) {
                 var existingAlarmTime = DateTimeOffset.FromUnixTimeMilliseconds((long)existingAlarm.ScheduledTime).UtcDateTime;
                 var timeDifference = Math.Abs((newExpirationUtc - existingAlarmTime).TotalSeconds);
-                if (timeDifference < 15) { // TODO P2 put in AppConfig
-                    _logger.LogDebug(nameof(ScheduleExpirationAlarmAsync) + ": skipped alarm rescheduling (existing alarm at {ExistingTime} is within 15s of {NewTime})",
-                        existingAlarmTime, newExpirationUtc);
+                if (timeDifference < AppConfig.AlarmRescheduleThresholdSeconds) {
+                    _logger.LogDebug(nameof(ScheduleExpirationAlarmAsync) + ": skipped alarm rescheduling (existing alarm at {ExistingTime} is within {Threshold}s of {NewTime})",
+                        existingAlarmTime, AppConfig.AlarmRescheduleThresholdSeconds, newExpirationUtc);
                     return;
                 }
             }
