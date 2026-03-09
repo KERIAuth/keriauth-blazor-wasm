@@ -20,7 +20,6 @@ import {
     type ReadyMessage,
     type RpcResponse,
     type EventMessage,
-    PortMessageTypes,
     SendMessageTypes,
     createCsHelloMessage,
     createRpcRequest,
@@ -80,11 +79,6 @@ import {
     let pendingReadyReject: ((reason: unknown) => void) | null = null;
     const READY_TIMEOUT_MS = 30000; // WASM cold start can take 2-5s after BW reports ready
 
-    // Heartbeat tracking
-    let lastHeartbeatTime = 0;
-    let heartbeatWatchdog: ReturnType<typeof setInterval> | null = null;
-    const HEARTBEAT_TIMEOUT_MS = 45000; // 3 missed heartbeats at 15s
-    const HEARTBEAT_WATCHDOG_MS = 10000;
     const logPrefix = `${csAbbr}:`;
 
     /*
@@ -214,12 +208,6 @@ import {
      * Handle messages received from BackgroundWorker via port
      */
     function handlePortMessage(message: PortMessage): void {
-        // Handle heartbeat silently (high frequency, no logging)
-        if ((message as { t: string }).t === PortMessageTypes.Heartbeat) {
-            lastHeartbeatTime = Date.now();
-            return;
-        }
-
         console.debug(`BW→${logPrefix} `, message.t, message);
 
         if (isReadyMessage(message)) {
@@ -254,9 +242,6 @@ import {
         }
 
         console.debug(`${logPrefix} Port ready, portSessionId:`, portSessionId);
-
-        // Start heartbeat watchdog
-        startHeartbeatWatchdog();
 
         // Process any queued messages
         while (messageQueue.length > 0) {
@@ -350,7 +335,7 @@ import {
         port = null;
         portSessionId = null;
         isPortReady = false;
-        stopHeartbeatWatchdog();
+        postMessageToPageSignifyExtensionDisconnected();
 
         // Check if extension was invalidated
         if (error?.message?.includes('Extension context invalidated')) {
@@ -366,31 +351,6 @@ import {
         }
 
         // Don't auto-reconnect. Port will be re-established lazily when a page message needs forwarding.
-    }
-
-    /**
-     * Start heartbeat watchdog — detects when BW stops sending BW_HEARTBEAT.
-     */
-    function startHeartbeatWatchdog(): void {
-        stopHeartbeatWatchdog();
-        lastHeartbeatTime = Date.now(); // Initialize so watchdog doesn't fire immediately
-        heartbeatWatchdog = setInterval(() => {
-            if (isPortReady && lastHeartbeatTime > 0 && Date.now() - lastHeartbeatTime > HEARTBEAT_TIMEOUT_MS) {
-                console.debug(`${logPrefix} Heartbeat timeout — marking port as disconnected`);
-                port = null;
-                portSessionId = null;
-                isPortReady = false;
-                stopHeartbeatWatchdog();
-            }
-        }, HEARTBEAT_WATCHDOG_MS);
-    }
-
-    function stopHeartbeatWatchdog(): void {
-        if (heartbeatWatchdog !== null) {
-            clearInterval(heartbeatWatchdog);
-            heartbeatWatchdog = null;
-        }
-        postMessageToPageSignifyExtensionDisconnected();
     }
 
     function postMessageToPageSignifyExtensionDisconnected(): void {

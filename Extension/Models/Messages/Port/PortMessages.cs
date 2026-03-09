@@ -212,7 +212,6 @@ public static class PortMessageTypes {
     public const string RpcRequest = "RPC_REQ";
     public const string RpcResponse = "RPC_RES";
     public const string Error = "ERROR";
-    public const string Heartbeat = "BW_HEARTBEAT";
 }
 
 /// <summary>

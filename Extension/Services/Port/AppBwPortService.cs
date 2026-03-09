@@ -28,12 +28,6 @@ public class AppBwPortService(
     private readonly List<IObserver<BwAppMessage>> _observers = [];
     private bool _disposed;
 
-    // Heartbeat watchdog
-    private DateTime _lastHeartbeatUtc = DateTime.MinValue;
-    private Timer? _heartbeatWatchdog;
-    private static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(AppConfig.HeartbeatTimeoutSeconds);
-    private static readonly TimeSpan HeartbeatWatchdogInterval = TimeSpan.FromSeconds(10);
-
     // Default timeout for RPC requests
     private static readonly TimeSpan DefaultRpcTimeout = TimeSpan.FromSeconds(30);
 
@@ -169,9 +163,6 @@ public class AppBwPortService(
 
                 PortSessionId = readyMessage.PortSessionId;
                 OriginTabId = readyMessage.TabId;
-
-                // Start heartbeat watchdog now that we're connected
-                StartHeartbeatWatchdog();
 
                 _logger.LogInformation(nameof(ConnectAsync) + ": Connected to BackgroundWorker, portSessionId={PortSessionId}, originTabId={OriginTabId}",
                     PortSessionId, OriginTabId);
@@ -353,10 +344,6 @@ public class AppBwPortService(
                 case PortMessageTypes.Error:
                     HandleErrorMessage(messageJson);
                     break;
-                case PortMessageTypes.Heartbeat:
-                    _lastHeartbeatUtc = DateTime.UtcNow;
-                    _logger.LogDebug(nameof(HandlePortMessageAsync) + ": Heartbeat received");
-                    break;
                 default:
                     _logger.LogWarning(nameof(HandlePortMessageAsync) + ": Unknown port message type: {Type}", messageType);
                     break;
@@ -468,7 +455,6 @@ public class AppBwPortService(
         _logger.LogInformation(nameof(HandleDisconnect) + ": Port disconnected from BackgroundWorker. IsConnected was {WasConnected}, PortSessionId was {PortSessionId}",
             IsConnected, PortSessionId);
 
-        StopHeartbeatWatchdog();
         ClearPort();
 
         // Cancel any pending requests
@@ -513,8 +499,6 @@ public class AppBwPortService(
         }
         _disposed = true;
 
-        StopHeartbeatWatchdog();
-
         // Notify observers of completion
         IObserver<BwAppMessage>[] snapshot;
         lock (_observers) {
@@ -529,32 +513,6 @@ public class AppBwPortService(
         await Task.CompletedTask; // Satisfy async requirement
         GC.SuppressFinalize(this);
     }
-
-    #region Heartbeat Watchdog
-
-    private void StartHeartbeatWatchdog() {
-        StopHeartbeatWatchdog();
-        _lastHeartbeatUtc = DateTime.UtcNow; // Initialize so watchdog doesn't fire immediately
-        _heartbeatWatchdog = new Timer(CheckHeartbeat, null, HeartbeatWatchdogInterval, HeartbeatWatchdogInterval);
-        _logger.LogDebug(nameof(StartHeartbeatWatchdog) + ": Heartbeat watchdog started");
-    }
-
-    private void StopHeartbeatWatchdog() {
-        _heartbeatWatchdog?.Dispose();
-        _heartbeatWatchdog = null;
-    }
-
-    private void CheckHeartbeat(object? state) {
-        if (_lastHeartbeatUtc == DateTime.MinValue) return; // No heartbeat received yet
-        if (!IsConnected) return;
-
-        if (DateTime.UtcNow - _lastHeartbeatUtc > HeartbeatTimeout) {
-            _logger.LogInformation(nameof(CheckHeartbeat) + ": Heartbeat timeout — no heartbeat for {Seconds}s", HeartbeatTimeout.TotalSeconds);
-            HandleDisconnect();
-        }
-    }
-
-    #endregion
 
     #region IObservable<BwAppMessage> Implementation
 

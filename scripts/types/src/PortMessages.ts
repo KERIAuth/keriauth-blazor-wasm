@@ -29,8 +29,7 @@ export const PortMessageTypes = {
     Event: 'EVENT',
     RpcRequest: 'RPC_REQ',
     RpcResponse: 'RPC_RES',
-    Error: 'ERROR',
-    Heartbeat: 'BW_HEARTBEAT'
+    Error: 'ERROR'
 } as const;
 
 /**

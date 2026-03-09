@@ -35,6 +35,9 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     public async Task StartPollingAsync(CancellationToken ct) {
+        _logger.LogWarning("StartPollingAsync temporarily disabled");
+        // TODO P1: refactor timing of initial poll vs. delay to avoid long wait on extension load, while also avoiding immediate poll before token is available. Potentially:
+        /* 
         _lastNotificationFingerprint = null;
         _lastCredentialFingerprint = null;
         _logger.LogInformation(nameof(StartPollingAsync) + ": Starting notification polling (interval={Interval}s)", PollInterval.TotalSeconds);
@@ -54,6 +57,7 @@ public class NotificationPollingService : INotificationPollingService {
             }
         }
         _logger.LogInformation(nameof(StartPollingAsync) + ": Notification polling stopped");
+        */
     }
 
     public async Task PollOnDemandAsync() {
