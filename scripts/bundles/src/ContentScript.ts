@@ -57,8 +57,7 @@ import {
         | (Polaris.MessageData<null> & { source?: string })
         | ICsPageMsgData<unknown>;
 
-    // Extended message type that includes both 'data' (legacy BW format) and 'payload' (Polaris spec)
-    // TODO P3: can remove if not supporting data inner-key
+    // Internal message type for routing BW responses through handleMsgFromBW
     type BwMessage = Polaris.MessageData<unknown> & { data?: unknown };
 
     // Port-based messaging state
@@ -434,28 +433,17 @@ import {
                     };
                     postMessageToPage<ICsPageMsgData<null>>(errorMsg);
                 } else {
-                    // Check if data contains credentialJson string that needs to be parsed
-                    // BW may send 'data' (legacy) or 'payload' (Polaris spec)
-                    // TODO P2 clean up legacy handling
-                    let data = (message.data ?? message.payload) as any;
-                    if (data && data.credentialJson && typeof data.credentialJson === 'string') {
-                        // Parse the credentialJson string to get the actual credential object
-                        try {
-                            data = {
-                                ...data,
-                                credential: JSON.parse(data.credentialJson)
-                            };
-                            delete data.credentialJson;
-                        } catch (parseError) {
-                            console.error(`${logPrefix} Failed to parse credentialJson`, parseError);
-                        }
+                    const data = message.data as Polaris.AuthorizeResult;
+                    if (!data) {
+                        console.error(`BW→${csAbbr}: REPLY missing data`, { message });
+                        return;
                     }
 
                     const msg: ICsPageMsgData<Polaris.AuthorizeResult> = {
                         source: CsPageMsgTag,
                         type: message.type,
                         requestId: message.requestId,
-                        payload: data as Polaris.AuthorizeResult
+                        payload: data
                     };
                     postMessageToPage<ICsPageMsgData<Polaris.AuthorizeResult>>(msg);
                 }
