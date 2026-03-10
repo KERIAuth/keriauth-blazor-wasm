@@ -89,13 +89,9 @@
     {
         await storageService.SetItem<Preferences>(prefs);
         // Note: reactive update of AppCache will trigger this page's StateHasChanged via SubscribeToAppCache()
-
         // Note: timer updates in MainLayout.razor are reactive via AppCache subscription
         // BackgroundWorker timer reset should also be updated because of reactive to this preferences change, or app activity in general
-
-        // TODO P3 Perf BW can be reactive, too...
         // Notify BW so it can reset its inactivity timer with new value?
-        // Or, does BW know to treat any Prefs change as user activity?
         await appBwPortService.SendEventAsync(AppBwMessageType.Values.UserActivity);
     }
 
@@ -172,16 +168,12 @@
     // Reset preferences to default, preserving selected prefix, KERIA preferences, and drawer open states
     private async Task ResetToDefault()
     {
-        // TODO P2 too many with copies here?  Need to wait for appCache update after each setItem?  Can we batch update or is that against how the reactive AppCache is designed?
+        // Reset with to defaults with some exceptions
         await Persist(AppConfig.DefaultPreferences with
         {
             KeriaPreference = Prefs.KeriaPreference, // Preserve KERIA selection
-            IsMenuOpenInSidePanelOnStartup = Prefs.IsMenuOpenInSidePanelOnStartup,
-            IsMenuOpenInTabOnStartup = Prefs.IsMenuOpenInTabOnStartup,
+            // Note: Don't casually disable multi-KERIA config. Might lose configuration access. User can manually disable if they want to reset that too.
             IsMultiKeriaConfigEnabled = Prefs.IsMultiKeriaConfigEnabled,
-            IsMultiKeriaOnUnlock = Prefs.IsMultiKeriaOnUnlock,
-            BeepOnScanSuccess = Prefs.BeepOnScanSuccess,
-            PreferredCameraDeviceId = Prefs.PreferredCameraDeviceId,
             IsStored = true
         });
     }
