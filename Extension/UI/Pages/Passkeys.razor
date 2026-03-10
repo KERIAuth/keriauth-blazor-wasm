@@ -12,9 +12,6 @@
 @using static Extension.Helper.PasskeyHelper
 @using System.Diagnostics
 @using System.Text.Json
-@using WebExtensions.Net
-@using WebExtensions.Net.Runtime
-@using JsBind.Net
 @using System.Linq;
 
 @using System.Net.Http.Json
@@ -25,15 +22,12 @@
 @inject ILogger<Passkeys> logger
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
-@inject IWebExtensionsApi webExtensionsApi
-@inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject IWebauthnService webauthnService
 @inject AppCache appCache
 @inject IFidoMetadataService fidoMetadataService
 
 @code {
     // fields
-    // TODO P2: should MyStoredPasskeys be initialized here or only in OnParametersSetAsync? Should it be cached and retrieved from AppCache as needed with a reactive pattern and subscription to appCache?
     StoredPasskeys MyStoredPasskeys = new();
     string? CurrentKeriaConnectionDigest = null;
 
@@ -55,8 +49,6 @@
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-        // TODO P2 does this need to be recreated here?
-        webExtensionsApi ??= new WebExtensionsApi(jsRuntimeAdapter);
 
         // Restore persisted ViewDef selection
         var pageKey = GetType().Name;
