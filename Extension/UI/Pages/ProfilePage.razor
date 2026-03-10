@@ -78,7 +78,7 @@
 
     // properties
     bool IsWaiting { get; set; }
-    // TODO P2 add IsTransferrable is needed, then add this to Aid and make it reactive
+    // TODO P3 add IsTransferrable is needed, then add this to Aid and make it reactive
     bool IsTransferrable { get; set; }
     bool IsActiveProfile => Prefix == (appCache.SelectedPrefix ?? "");
     string DialogResult { get; set; } = "unknown";
@@ -716,7 +716,7 @@
                                                 <MudTd Class="py-0 my-0">
                                                     @if (nextKeys.Any() && @context.PubKey == nextKeys.First().PubKey)
                                                     {
-                                                        // TODO P2 remove hack that shows action only on first row as an example
+                                                        // TODO P3 remove hack that shows action only on first row as an example
                                                         <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="@(async () => await UpdateKeyState())" Variant="Variant.Filled" Color="Color.Primary">Initiate Update</MudButton>
                                                     }
                                                 </MudTd>
