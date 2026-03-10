@@ -243,13 +243,10 @@
                         </svg>
                     </div>
 
-                    @if (payload?.ResolvedAidPrefix is not null)
-                    {
-                        <MudPaper id="paper4" Class="pa-2" Elevation="2" Outlined="true">
-                            <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Their Profile</MudText>
-                            <AidPrefixDisplay Prefix="@payload.ResolvedAidPrefix" Name="@OobiName" ShowCopyButton="false" />
-                        </MudPaper>
-                    }
+                    <MudPaper id="paper4" Class="pa-2" Elevation="2" Outlined="true">
+                        <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Their Profile</MudText>
+                        <AidPrefixDisplay Prefix="@(payload?.ResolvedAidPrefix ?? string.Empty)" Name="@OobiName" ShowCopyButton="false" />
+                    </MudPaper>
                 </div>
             </div>
         </MudStack>
