@@ -25,7 +25,7 @@ public record ViewDef<T>(
     LayoutKind LayoutKind = LayoutKind.Cards,
     List<SortSet<T>>? SortSets = null
 );
-// TODO P2 consider creating a GroupBy viewDef
+// TODO P3 consider creating a GroupBy viewDef
 
 public static class ViewDefIds {
     // CredentialsPage

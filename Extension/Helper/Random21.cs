@@ -2,7 +2,7 @@
 using System.Text;
 
 namespace Extension.Helper {
-    // TODO P2 this is temporary and must be replaced with a more secure implementation
+    // TODO P3 this is temporary and must be replaced with a more secure implementation
     public class RandomStringGenerator {
         private static readonly char[] _characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".ToCharArray();
 

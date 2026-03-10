@@ -49,7 +49,7 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            // TODO P2: clear StoredPasskeys or preserve them?
+            // TODO P3: clear StoredPasskeys or preserve them?
             // Preserve StoredPasskeys before clearing storage
             var passkeysResult = await storageService.GetItem<StoredPasskeys>(StorageArea.Local);
             var preservedPasskeys = passkeysResult.IsSuccess ? passkeysResult.Value : null;

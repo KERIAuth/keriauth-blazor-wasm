@@ -169,7 +169,6 @@ const validateClient = async (): Promise<SignifyClient> => {
             return Promise.reject(new Error('signifyClient: validateClient - Missing agentUrl or passcode'));
         }
 
-        // TODO P2 wrap in try-catch
         await connect(agentUrl, passcode);
         if (!_client) {
             throw new Error('signifyClient: validateClient - Failed to reconnect SignifyClient');
