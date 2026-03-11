@@ -268,7 +268,6 @@
                 <MudLink Href="@Routes.Paths.NewRelease" Target="_self">Release</MudLink>
                 <MudLink Href="@Routes.Paths.Terms" Target="_self">Terms</MudLink>
                 <MudLink Href="@Routes.Paths.Configure" Target="_self">Configure</MudLink>
-                <MudLink Href="@Routes.Paths.Unlock" Target="_self">Unlock</MudLink>
                 <MudLink Href="@Routes.Paths.Connecting" Target="_self">Connecting</MudLink>
                 <MudLink Href="@Routes.Paths.AddPasskey" Target="_self">Add Passkey</MudLink>
                 <MudLink Href="@Routes.Paths.Delete" Target="_self">Delete Local Config</MudLink>
@@ -277,7 +276,7 @@
                 <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_self">Release History</MudLink>
             </div>
             <MudText Typo="Typo.h6">Dialog Pages</MudText>
-            <MudText>These simulated pages will appear in the SidePanel when open.</MudText>
+            <MudText>These simulated pages will appear in the <em>SidePanel</em> when open.</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign In</MudLink>
                 <MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Headers</MudLink>

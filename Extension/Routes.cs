@@ -78,7 +78,7 @@ public static class Routes {
         public const string DeveloperTest = "/DeveloperTest.html";
         public const string PrimeData = "/PrimeData.html";
         public const string DeveloperState = "/DeveloperState.html";
-        public const string ReleaseHistory = "/ReleaseHistory.html";
+        public const string ReleaseHistory = "/content/release_history.html";
     }
 
     public static readonly Dictionary<Type, PageRoute> Pages = new() {
@@ -189,7 +189,7 @@ public static class Routes {
             Icons.Material.Filled.StickyNote2, Color.Surface),
         [ContentPage.Release] = new("Release Notes", "content/release.html",
             Icons.Material.Filled.StickyNote2, Color.Surface),
-        [ContentPage.ReleaseHistory] = new("Release History", "content/release_history.html",
+        [ContentPage.ReleaseHistory] = new("Release History", Paths.ReleaseHistory,
             Icons.Material.Filled.StickyNote2, Color.Surface),
     };
 
