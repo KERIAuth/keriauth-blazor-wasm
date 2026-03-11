@@ -140,7 +140,6 @@ public static class Routes {
             Icons.Material.Filled.DataObject, Color.Surface),
         [typeof(DeveloperStatePage)] = new("DeveloperState", Paths.DeveloperState, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
-        [typeof(ReleaseHistoryPage)] = new("Release History", Paths.ReleaseHistory, RequiresAuth: false),
     };
 
     /// <summary>
