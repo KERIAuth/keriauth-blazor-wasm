@@ -2,7 +2,7 @@
 
 ## Overview
 
-"DIGN" and associated logos (including the customized triquetra logo in the style of the Funbo Runestone) are trademarks of LivelyGig LLC, a Washington State corporation. The DIGN source code is licensed under the Apache License 2.0, but the trademarks are **not** covered by that license.
+"DIGN" and associated logos (including the customized triquetra logo in the style of Funbo Runestone U 937) are trademarks of LivelyGig LLC, a Washington State corporation. The DIGN source code is licensed under the Apache License 2.0, but the trademarks are **not** covered by that license.
 
 This policy explains how you may and may not use the DIGN trademarks.
 
@@ -14,23 +14,23 @@ You may use the "DIGN" name without prior permission in the following ways:
 - **Factual reference**: describing DIGN in articles, documentation, or presentations
 - **Linking**: linking to the official DIGN website or GitHub repository
 
-Example of acceptable use:
-> "This project is a fork of DIGN, originally developed by LivelyGig LLC."
+Example of acceptable use in GitHub:
+> "This project is a fork of the DIGN project developed by LivelyGig LLC."
+
+If you fork or modify the software, you must choose a different name and logo for your version.
 
 ## Prohibited Uses
 
 You may **not** use the "DIGN" name, logos, or other trademarks in ways that:
 
-- Imply endorsement, sponsorship, or affiliation with LivelyGig LLC without written permission
-- Use the name or logos for a modified or forked version of the software as if it were the official product
+- Imply endorsement, sponsorship, or affiliation with LivelyGig LLC or its brands without written permission
+- Show the name or logos for a modified or forked version of the software as if it were the official product
 - Incorporate the trademarks into your own product names, service names, domain names, or social media accounts
 - Display the trademarks in a manner that is likely to cause confusion about the source or origin of the software
 
-If you fork or modify the software, you must choose a different name and logo for your version.
-
 ## Requesting Permission
 
-For uses not covered above, or if you are unsure whether your use is permitted, contact us at **support@livelygig.com**.
+For uses not covered above, or if you are unsure whether your use is permitted, contact us at **aid@dign.id**.
 
 ## Relationship to the Apache 2.0 License
 

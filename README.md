@@ -25,8 +25,6 @@ From the end user's perspective, the extension enables the user to create and ma
 
 Product roadmap goals will evolve and may include interoperability with other KERI-related extensions and website JavaScript APIs.
 
-For more information, see [https://keriauth.com](https://keriauth.com).
-
 ## Installation
 The most recent stable version is available from the [Chrome Web Store](https://chromewebstore.google.com/search/keri%20auth). Or, you can test the most recent [GitHub build action artifact](https://github.com/KERIAuth/keriauth-blazor-wasm/actions?query=is%3Acompleted+branch%3Amain) or your own local build.
 

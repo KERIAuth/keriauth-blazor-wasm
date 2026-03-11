@@ -9,7 +9,7 @@
       "128": "images/logob128.png"
     }
   },
-  "author": "https://dign.id",
+  "author": "https://keriauth.com",
   "background": {
     "service_worker": "content/BackgroundWorker.js",
     "type": "module"
@@ -18,7 +18,7 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self'"
   },
   "default_locale": "en",
-  "description": "Authenticate with keys you control and credentials issued from verifiable legal entities, leveraging KERI, ACDC, and GLEIF vLEIs.",
+  "description": "Your keys, your credentials. Authenticate, present, and sign with verifiable digital identity. Built on KERI, ACDC, and vLEIs.",
   "host_permissions": [],
   "icons": {
     "16": "images/logo016.png",
@@ -46,8 +46,8 @@
   "side_panel": {
     "default_path": "indexInSidePanel.html"
   },
-  "version": "0.2.10",
-  "version_name": "0.2.10-local",
+  "version": "0.3.0",
+  "version_name": "0.3.0-local",
   "web_accessible_resources": [
     {
       "resources": [
