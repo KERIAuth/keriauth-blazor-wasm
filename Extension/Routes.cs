@@ -72,6 +72,7 @@ public static class Routes {
         public const string Preferences = "/ManagePreferences.html";
         public const string KeriaConfigs = "/KeriaConfigs.html";
         public const string KeriaConfig = "/KeriaConfig.html/";
+        public const string KeriaHelp = "/KeriaHelp.html";
         public const string Delete = "/Delete.html";
         public const string Terms = "/Terms.html";
         public const string SidePanel = "/sidepanel.html";
@@ -130,6 +131,7 @@ public static class Routes {
         [typeof(KeriaConfigsPage)] = new("KERIA Connections", Paths.KeriaConfigs, RequiresAuth: false,
             Icons.Material.Filled.Cloud, Color.Surface),
         [typeof(KeriaConfigPage)] = new("KERIA Connection", Paths.KeriaConfig, RequiresAuth: false),
+        [typeof(KeriaHelpPage)] = new("About KERIA", Paths.KeriaHelp, RequiresAuth: false),
         [typeof(DeletePage)] = new("Delete", Paths.Delete, RequiresAuth: false,
             Icons.Material.Filled.DeleteForever, Color.Surface),
         [typeof(TermsPage)] = new("Terms", Paths.Terms, RequiresAuth: false),

@@ -243,7 +243,7 @@
             {
                 <div style="display:flex;">
                     <MudTooltip Delay="0.5" Placement="Placement.Bottom"
-                                Text="View and manage this KERIA Cloud Service connection.">
+                                Text="View and manage this connection to a KERIA cloud agent service. Your signing keys always remain in the DIGN Identity Wallet.">
                         <MudStack Row="true">
                             <MudText Class="bt-page-title">KERIA Cloud Service Connection</MudText>
                             <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
@@ -322,7 +322,7 @@
                                            OnClick="StartEditConnectionName" />
                         }
                     </MudStack>
-                    <MudText>@AppConfig.ProductName used your passcode to generate your Client AID and its Prefix, which upon initial connection with the configured KERIA service, delegated signing authority to your Agent AID there.</MudText>
+                    <MudText>@AppConfig.ProductName derived your Client AID from your passcode and approved a KERI delegation to an Agent AID provisioned by the KERIA service. Your Client AID remains the delegator and retains full control. Your signing keys never leave @AppConfig.ProductName.</MudText>
                     @if (!string.IsNullOrEmpty(_config.ClientAidPrefix) && !string.IsNullOrEmpty(_config.AgentAidPrefix))
                     {
                         <MudStack Row="true" Style="align-items: center;">

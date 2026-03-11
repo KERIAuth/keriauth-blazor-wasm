@@ -31,7 +31,7 @@ The most recent stable version is available from the [Chrome Web Store](https://
 ### Runtime Dependencies
 * **Chromium-based Browser** minimum version as specified in manifest.json (Chrome, Edge, or Brave)
 * **Web page supporting Polaris-web**, a JavaScript API protocol
-* **Connection to KERIA Cloud Service** — [KERIA](https://github.com/weboftrust/keria) is a multi-tenant service that provides infrastructure for Signify clients. KERIA creates a separate agent instance for each client and partitions storage to isolate agents. The agent does not hold signing keys; signing is performed by the Signify client (KERI Auth). The agent does hold ACDCs and exchanges messages with other agents on behalf of the AID's controller.
+* **Connection to KERIA Cloud Service** — [KERIA](https://github.com/weboftrust/keria) is a multi-tenant service that provides infrastructure for Signify clients. KERIA creates a separate agent instance for each client and partitions storage to isolate agents. The agent does not hold signing keys; signing is performed by the Signify client (KERI Auth). The agent manages KERI event logs, credential (ACDC) storage, and message exchange with other agents on behalf of the controller.
 
 ## For Developers
 

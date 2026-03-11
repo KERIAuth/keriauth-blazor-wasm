@@ -1,0 +1,79 @@
+@page "/KeriaHelp.html"
+@layout Layouts.MainLayout
+@using static Extension.Helper.PreviousPage
+
+@inject IJSRuntime js
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <PageHeading Title="About KERIA Cloud Services" />
+
+            <MudStack Spacing="4" Class="pt-2">
+                <MudText Typo="Typo.body1">
+                    KERIA is a cloud service that acts as your always-on agent in the KERI identity network.
+                    Think of it as an encrypted safe, secure mailbox, and messenger that works on your behalf — even when your browser is closed.
+                    Your agent on KERIA stores signing-related data that is encrypted at rest. Since the key to decrypt it is derived solely from your passcode — which never leaves @AppConfig.ProductName — KERIA cannot decrypt it, even between sessions.
+                </MudText>
+
+                <div>
+                    <MudText Typo="Typo.h6"><b>What KERIA does for you</b></MudText>
+                    <MudList T="string" Dense="true">
+                        <MudListItem Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+                            Keeps your identity reachable 24/7 for incoming messages and credential exchanges
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+                            Stores your ACDC credentials and KERI event logs securely
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+                            Delivers and receives KERI protocol messages with other participants on your behalf
+                        </MudListItem>
+                    </MudList>
+                </div>
+
+                <div>
+                    <MudText Typo="Typo.h6"><b>What KERIA never does</b></MudText>
+                    <MudList T="string" Dense="true">
+                        <MudListItem Icon="@Icons.Material.Filled.Block" IconColor="Color.Error">
+                            KERIA never has access to your signing keys or passcode — these never leave @AppConfig.ProductName
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.Block" IconColor="Color.Error">
+                            KERIA never signs anything in your name — all signing happens here in the extension
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.Block" IconColor="Color.Error">
+                            KERIA cannot impersonate you, even if the service were compromised
+                        </MudListItem>
+                    </MudList>
+                </div>
+
+                <div>
+                    <MudText Typo="Typo.h6"><b>Your role and KERIA's role</b></MudText>
+                    <MudText Typo="Typo.body1" Class="pt-1">
+                        You (via @AppConfig.ProductName) are the controller. KERIA is your delegated agent.
+                        When you first connect, KERIA creates a cloud-side agent identifier that is authorized
+                        by your identity — but your identity always holds the keys and final authority.
+                    </MudText>
+                </div>
+
+                <div>
+                    <MudText Typo="Typo.h6"><b>Choosing a KERIA provider</b></MudText>
+                    <MudList T="string" Dense="true">
+                        <MudListItem Icon="@Icons.Material.Filled.Cloud">
+                            Use a cloud service run by a vendor or ecosystem provider
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.Storage">
+                            Or self-host your own KERIA instance for maximum control
+                        </MudListItem>
+                        <MudListItem Icon="@Icons.Material.Filled.SwapHoriz">
+                            Because your signing keys never leave this extension, you can switch providers (when supported by KERIA) without losing control of your identity
+                        </MudListItem>
+                    </MudList>
+                </div>
+            </MudStack>
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text"
+                       OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+    </MudStack>
+</div>
