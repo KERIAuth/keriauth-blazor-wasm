@@ -121,8 +121,16 @@
         {
             _shouldFocusCreateButton = false;
             // allow time for animation
-            await Task.Delay(100);
-            await _createButton.FocusAsync();
+            await Task.Delay(200);
+            try
+            {
+                await _createButton.FocusAsync();
+            }
+            catch (JSException)
+            {
+                // Element may no longer be in the DOM after the delay
+                // (e.g., component re-rendered or auth state changed)
+            }
         }
     }
 
