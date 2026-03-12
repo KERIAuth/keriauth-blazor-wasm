@@ -12,7 +12,7 @@ public static class TimeoutHelper {
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var operationCts = new CancellationTokenSource();
 
-        // Link them so cancelling timeout also cancels operation
+        // Link them so canceling timeout also cancels operation
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, operationCts.Token);
 
         try {
@@ -43,7 +43,7 @@ public static class TimeoutHelper {
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var operationCts = new CancellationTokenSource();
 
-        // Link them so cancelling timeout also cancels operation
+        // Link them so canceling timeout also cancels operation
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, operationCts.Token);
 
         try {

@@ -9,4 +9,10 @@ public interface INotificationPollingService {
     /// (routes: /exn/ipex/grant, /exn/ipex/admit).
     /// </summary>
     Func<Task>? OnCredentialNotificationsChanged { get; set; }
+
+    /// <summary>
+    /// Gate that returns true when the signify client is ready (passcode available).
+    /// Polling is silently skipped when this returns false.
+    /// </summary>
+    Func<bool>? IsClientReady { get; set; }
 }

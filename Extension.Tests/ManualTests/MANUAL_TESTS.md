@@ -296,7 +296,7 @@ These tests verify the burst polling and recurring alarm mechanisms for KERIA no
 3. In SW DevTools console, run `chrome.alarms.getAll(a => console.log(a))`
 
     Expected:
-	- [ ] Logs show "Cancelling notification polling and clearing alarm"
+	- [ ] Logs show "Canceling notification polling and clearing alarm"
 	- [ ] No "NotificationPollAlarm" in the alarms list
 	- [ ] No further poll attempts after lock
 

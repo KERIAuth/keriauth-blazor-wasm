@@ -22,6 +22,7 @@ public class NotificationPollingService : INotificationPollingService {
     private string? _lastCredentialFingerprint;
 
     public Func<Task>? OnCredentialNotificationsChanged { get; set; }
+    public Func<bool>? IsClientReady { get; set; }
 
     public NotificationPollingService(
         ISignifyClientService signifyClient,
@@ -57,6 +58,11 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     public async Task PollOnDemandAsync() {
+        if (IsClientReady is not null && !IsClientReady()) {
+            _logger.LogDebug(nameof(PollOnDemandAsync) + ": Skipped — signify client not ready (no passcode)");
+            return;
+        }
+
         var result = await _signifyClient.ListNotifications();
         if (result.IsFailed) {
             // TODO P3: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.

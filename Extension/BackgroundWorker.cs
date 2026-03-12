@@ -151,6 +151,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _primeDataService = primeDataService;
         _notificationPollingService = notificationPollingService;
         _notificationPollingService.OnCredentialNotificationsChanged = RefreshCachedCredentialsAsync;
+        _notificationPollingService.IsClientReady = () => _signifyClientService.IsConnected;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);
@@ -757,7 +758,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private sealed class SessionStatePollingObserver(BackgroundWorker backgroundWorker) : IObserver<SessionStateModel> {
         public void OnNext(SessionStateModel? value) {
             if (value is null || value.SessionExpirationUtc == DateTime.MinValue) {
-                backgroundWorker.logger.LogInformation(nameof(SessionStatePollingObserver) + ": SessionStateModel cleared — cancelling notification polling");
+                backgroundWorker.logger.LogInformation(nameof(SessionStatePollingObserver) + ": SessionStateModel cleared — disconnecting signify client and canceling notification polling");
+                _ = backgroundWorker._signifyClientService.Disconnect();
                 _ = backgroundWorker.CancelNotificationPollingAsync();
             }
         }
@@ -3869,7 +3871,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task CancelNotificationPollingAsync() {
         if (_notificationPollingCts is not null) {
-            logger.LogInformation(nameof(CancelNotificationPollingAsync) + ": Cancelling notification polling and clearing alarm");
+            logger.LogInformation(nameof(CancelNotificationPollingAsync) + ": Canceling notification polling and clearing alarm");
             _notificationPollingCts.Cancel();
             _notificationPollingCts.Dispose();
             _notificationPollingCts = null;

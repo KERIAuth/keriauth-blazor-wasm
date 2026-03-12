@@ -12,6 +12,19 @@ using State = Extension.Services.SignifyService.Models.State;
 namespace Extension.Services.SignifyService {
     public class SignifyClientService(ILogger<SignifyClientService> logger, ISignifyClientBinding signifyClientBinding) : ISignifyClientService {
         private readonly ISignifyClientBinding _binding = signifyClientBinding;
+
+        public bool IsConnected { get; private set; }
+
+        public async Task Disconnect() {
+            IsConnected = false;
+            try {
+                await _binding.DisconnectAsync();
+            }
+            catch (Exception ex) {
+                logger.LogWarning(ex, nameof(Disconnect) + ": Error disconnecting signify-ts client");
+            }
+        }
+
         public Task<Result<HttpResponseMessage>> ApproveDelegation() {
             return Task.FromResult(Result.Fail<HttpResponseMessage>("Not implemented"));
         }
@@ -110,6 +123,7 @@ namespace Extension.Services.SignifyService {
                     var stateRes = await GetState();
                     // Note: not logging the folloowing, since it may contain sensitive info:
                     // logger.LogWarning(nameof(Connect) + ": GetState after BootAndConnect: {agent prefix} {controller prefix}", stateRes.Value.Agent!.I, stateRes.Value.Controller!.State!.I);
+                    IsConnected = true;
                     return Result.Ok(stateRes.Value);
                 }
                 else {

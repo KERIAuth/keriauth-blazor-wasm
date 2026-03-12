@@ -6,6 +6,17 @@ using Notification = Extension.Services.SignifyService.Models.Notification;
 
 namespace Extension.Services.SignifyService {
     public interface ISignifyClientService {
+        /// <summary>
+        /// True after a successful Connect() call. False on SW restart or after Disconnect().
+        /// </summary>
+        bool IsConnected { get; }
+
+        /// <summary>
+        /// Clears connection state and resets the signify-ts client.
+        /// Called when session locks or passcode is cleared.
+        /// </summary>
+        Task Disconnect();
+
         Task<Result> HealthCheck(Uri fullUrl);
 
         Task<Result<string>> TestAsync();
