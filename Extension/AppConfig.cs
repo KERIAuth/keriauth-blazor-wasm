@@ -10,6 +10,7 @@ namespace Extension {
         // SessionManager configuration
         public const string SessionManagerAlarmName = "SessionManagerAlarm";
         public const double AlarmRescheduleThresholdSeconds = 15;
+        public const double SessionKeepAliveAlarmPeriodMinutes = 1.0;
 
         // BackgroundWorker ready-wait configuration
         public const int BwReadyTimeoutMs = 5000;

@@ -32,10 +32,10 @@ public class SessionManagerTests {
     }
 
     private void SetupDefaultStorageMocks() {
-        // Mock GetItem<PasscodeModel> to return not found (session locked state)
+        // Mock GetItem<SessionStateModel> to return not found (session locked state)
         _mockStorageService
-            .Setup(s => s.GetItem<PasscodeModel>(StorageArea.Session))
-            .ReturnsAsync(Result.Fail<PasscodeModel?>("Not found"));
+            .Setup(s => s.GetItem<SessionStateModel>(StorageArea.Session))
+            .ReturnsAsync(Result.Fail<SessionStateModel?>("Not found"));
 
         // Mock GetItem<Preferences> to return default preferences
         _mockStorageService
@@ -49,7 +49,7 @@ public class SessionManagerTests {
 
         // Mock Subscribe to return a disposable
         _mockStorageService
-            .Setup(s => s.Subscribe(It.IsAny<IObserver<PasscodeModel>>(), StorageArea.Session))
+            .Setup(s => s.Subscribe(It.IsAny<IObserver<SessionStateModel>>(), StorageArea.Session))
             .Returns(Mock.Of<IDisposable>());
 
         _mockStorageService

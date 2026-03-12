@@ -97,7 +97,7 @@ public interface IStorageService {
     /// Call Initialize(area) first to enable change notifications.
     /// Works for ALL storage areas including Managed (IT policies can change).
     /// </summary>
-    /// <typeparam name="T">Type to monitor for changes (e.g., Preferences, PasscodeModel)</typeparam>
+    /// <typeparam name="T">Type to monitor for changes (e.g., Preferences, SessionStateModel)</typeparam>
     /// <param name="observer">Observer to notify of changes</param>
     /// <param name="area">Storage area to monitor (default: Local)</param>
     /// <returns>Disposable subscription - dispose to unsubscribe</returns>

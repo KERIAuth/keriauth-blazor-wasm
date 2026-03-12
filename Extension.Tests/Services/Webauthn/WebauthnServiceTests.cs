@@ -2,6 +2,7 @@
 using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
+using Extension.Services.Port;
 using Extension.Services.Storage;
 using FluentResults;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,7 @@ public class WebauthnServiceTests {
     private readonly Mock<IFidoMetadataService> _mockFidoMetadataService;
     private readonly Mock<IJSRuntime> _mockJsRuntime;
     private readonly Mock<ILogger<WebauthnService>> _mockLogger;
+    private readonly Mock<IAppBwPortService> _mockAppBwPortService;
 
     public WebauthnServiceTests() {
         _mockStorageService = new Mock<IStorageService>();
@@ -29,6 +31,7 @@ public class WebauthnServiceTests {
         _mockFidoMetadataService = new Mock<IFidoMetadataService>();
         _mockJsRuntime = new Mock<IJSRuntime>();
         _mockLogger = new Mock<ILogger<WebauthnService>>();
+        _mockAppBwPortService = new Mock<IAppBwPortService>();
     }
 
     private WebauthnService CreateService() {
@@ -38,7 +41,8 @@ public class WebauthnServiceTests {
             _mockCryptoService.Object,
             _mockFidoMetadataService.Object,
             _mockJsRuntime.Object,
-            _mockLogger.Object
+            _mockLogger.Object,
+            _mockAppBwPortService.Object
         );
     }
 

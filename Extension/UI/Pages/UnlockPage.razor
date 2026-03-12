@@ -3,7 +3,9 @@
 @using Extension.Models
 @using Extension.Services
 @using Extension.Services.Storage
+@using Extension.Services.Port
 @using Extension.Models.Storage
+@using Extension.Models.Messages.AppBw
 @using Extension.Utilities
 @using Extension.Helper
 @using static Extension.Helper.PasskeyHelper
@@ -22,6 +24,7 @@
 @inject IWebauthnService webauthnService
 @inject AppCache appCache
 @inject SessionManager sessionManager
+@inject IAppBwPortService appBwPortService
 
 @code {
     // fields
@@ -372,46 +375,28 @@
             return;
         }
 
-        if (DeterministicHash.ComputeHash(password) == appCache.MyKeriaConnectConfig.PasscodeHash)
-        {
-            // Store passcode and session expiry time in session storage atomically
-            {
-                var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
-                var storeResult = await storageService.SetItem<PasscodeModel>(
-                new PasscodeModel
-                {
-                    Passcode = password,
-                    SessionExpirationUtc = sessionExpiry
-                },
-                StorageArea.Session
-                );
-                if (storeResult.IsFailed)
-                {
-                    logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storeResult.Errors));
-                    snackbar.Add("Failed to store session credentials", Severity.Error);
-                    return;
-                }
-                await appCache.WaitForAppCache([() => appCache.MyPasscodeModel.Passcode == password]);
-                // Note: SessionManager will detect PasscodeModel change and schedule alarm
-            }
+        // Send passcode to BackgroundWorker for validation and in-memory storage
+        // BW validates the hash, stores passcode in memory, writes SessionStateModel, and connects signify-ts
+        var unlockResponse = await appBwPortService.SendRpcRequestAsync(
+            AppBwMessageType.Values.RequestUnlockSession,
+            new { payload = new { passcode = password } }
+        );
 
-            if (appCache.MyKeriaConnectConfig.AdminUrl is null)
-            {
-                throw new IndexOutOfRangeException("KERIA AdminUrl is not configured");
-            }
-            // expect navigation to ConnectingPage via Index
-            navManager.NavigateTo(Routes.Paths.Index);
-            return;
-        }
-        else
+        if (!unlockResponse.Ok)
         {
-            openWalletError = $"{AppConfig.ProductName} was not configured with this passcode on this browser profile.";
+            openWalletError = unlockResponse.Error ?? $"{AppConfig.ProductName} was not configured with this passcode on this browser profile.";
             snackbar.Add(openWalletError, Severity.Error);
             unlockPasscodeModel.Passcode = string.Empty;
             await passcodeField!.ResetAsync();
             await passcodeField!.SelectAsync();
             return;
         }
+
+        // Wait for AppCache to reflect the new session state from storage
+        await appCache.WaitForAppCache([() => appCache.IsSessionUnlocked]);
+
+        // expect navigation to ConnectingPage via Index
+        navManager.NavigateTo(Routes.Paths.Index);
     }
 
     // Recovery phrase methods

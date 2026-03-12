@@ -1,4 +1,4 @@
-﻿using Extension.Models;
+using Extension.Models;
 using Extension.Models.Storage;
 using Extension.Services.Storage;
 using Extension.Utilities;
@@ -10,30 +10,37 @@ namespace Extension.Services;
 
 /// <summary>
 /// Manages session expiration lifecycle using a hybrid approach:
-/// 1. Storage observers for immediate reactivity to PasscodeModel and Preferences changes
-/// 2. One-shot Chrome Alarm scheduled to fire exactly at session expiration time
-/// 3. Startup check to handle browser suspend/resume and service worker restarts
+/// 1. In-memory passcode field (_passcode) — never written to any storage
+/// 2. SessionStateModel in chrome.storage.session — contains only SessionExpirationUtc (not sensitive)
+/// 3. One-shot Chrome Alarm scheduled to fire exactly at session expiration time
+/// 4. Periodic keep-alive alarm to prevent service worker suspension during an active session
 ///
 /// Responsibilities:
-/// - Updates PasscodeModel.SessionExpirationUtc immediately when PasscodeModel is set
-/// - Updates PasscodeModel.SessionExpirationUtc immediately when Preferences.InactivityTimeoutMinutes changes
+/// - Validates and stores passcode in memory via UnlockSessionAsync (called by BackgroundWorker)
+/// - Updates SessionStateModel.SessionExpirationUtc immediately when session is extended or prefs change
 /// - Schedules one-shot alarm to fire at exact expiration time (no polling)
-/// - Clears expired sessions on SessionManager startup
+/// - Schedules periodic keep-alive alarm while session is unlocked
+/// - Clears expired sessions on SessionManager startup (forces lock if SW restarted mid-session)
 /// - Clears session storage when alarm fires or session expires
-/// - Validates session is unlocked: passcode hash matches AND session not expired
-/// - Provides public API for extending or locking sessions
+/// - Validates session is unlocked: _passcode != null AND session not expired
+/// - Provides public API for unlocking, extending, or locking sessions
 ///
-/// ATOMIC STORAGE: PasscodeModel contains both Passcode and SessionExpirationUtc fields,
-/// ensuring reactive listeners never see intermediate state where passcode exists without expiration.
+/// SECURITY: The passcode is kept exclusively in this class's _passcode field.
+/// If the service worker is force-restarted (sleep, crash, Chrome eviction), _passcode becomes null
+/// and the session locks immediately upon the next activity. The user must re-authenticate.
 /// </summary>
 public class SessionManager : IDisposable {
     private readonly ILogger<SessionManager> _logger;
     private readonly IStorageService _storageService;
     private readonly WebExtensionsApi _webExtensionsApi;
     private const string unicodeLockIcon = "\U0001F512"; // Unicode lock icon 🔒
+    public const string SessionKeepAliveAlarmName = "SessionKeepAliveAlarm";
+
+    // In-memory passcode — never persisted to any storage
+    private string? _passcode;
 
     // Storage observers - disposed on cleanup
-    private IDisposable? _passcodeObserver;
+    private IDisposable? _sessionStateObserver;
     private IDisposable? _preferencesObserver;
 
     /// <summary>
@@ -66,11 +73,18 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Starts SessionManager: checks for expired session, subscribes to storage changes.
+    /// Returns the in-memory passcode, or null if the session is locked.
+    /// Used by BackgroundWorker to pass the passcode to signify-ts.
+    /// </summary>
+    public string? GetPasscode() => _passcode;
+
+    /// <summary>
+    /// Starts SessionManager: checks for stale SessionStateModel on startup, subscribes to storage changes.
     /// Throws exception on failure (fail-fast).
     /// </summary>
     private async Task StartAsync() {
-        // 1. Check for expired session on startup (handles browser suspend/resume, service worker restart)
+        // 1. Lock immediately if SessionStateModel exists from a previous SW lifetime
+        //    (_passcode is null after any SW restart, so the session cannot be resumed)
         await CheckAndClearExpiredSessionOnStartupAsync();
 
         // 2. Subscribe to storage changes for immediate reactivity
@@ -78,51 +92,109 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Checks if PasscodeModel exists and is expired on SessionManager startup.
-    /// Clears session if expired, reschedules alarm if not expired.
-    /// Handles cases like: browser suspend/resume, service worker restart, chrome crash.
+    /// Checks if SessionStateModel exists on startup.
+    /// Because _passcode is null after any SW restart, any existing SessionStateModel
+    /// means the session cannot be resumed — lock immediately.
+    /// Handles: browser suspend/resume, service worker restart, chrome crash.
     /// </summary>
     private async Task CheckAndClearExpiredSessionOnStartupAsync() {
         try {
-            var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            var sessionStateRes = await _storageService.GetItem<SessionStateModel>(StorageArea.Session);
 
-            if (passcodeModelRes.IsFailed) {
-                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": No PasscodeModel found on startup - session is locked");
+            if (sessionStateRes.IsFailed) {
+                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": No SessionStateModel found on startup - session is locked");
                 return;
             }
 
-            var passcodeModel = passcodeModelRes.Value;
-            if (passcodeModel is null) {
-                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel is null on startup - session is locked");
+            var sessionState = sessionStateRes.Value;
+            if (sessionState is null) {
+                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": SessionStateModel is null on startup - session is locked");
                 return;
             }
 
-            var expirationUtc = passcodeModel.SessionExpirationUtc;
-
-            // Check for invalid expiration (DateTime.MinValue or past)
-            if (expirationUtc == DateTime.MinValue) {
-                _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel has default expiration (MinValue) on startup - session is locked");
-                return;
-            }
-
-            if (DateTime.UtcNow >= expirationUtc) {
-                // Session is expired - clear it
-                _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel expired on startup ({Expiration}), clearing session",
-                    expirationUtc);
-                await LockSessionAsync();
-                return;
-            }
-            else {
-                // Session is still valid - reschedule alarm
-                _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": PasscodeModel still valid on startup ({Expiration}), rescheduling alarm",
-                    expirationUtc);
-                await ScheduleExpirationAlarmAsync(expirationUtc);
-                return;
-            }
+            // SessionStateModel exists but _passcode is null (SW was restarted).
+            // Lock immediately — user must re-authenticate.
+            _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": SessionStateModel found on startup but passcode lost (SW restarted) — locking session");
+            await LockSessionAsync();
         }
         catch (Exception ex) {
-            _logger.LogError(ex, nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": Error checking expired session on startup");
-            throw new InvalidOperationException("Failed to check expired session on startup", ex);
+            _logger.LogError(ex, nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": Error checking session on startup");
+            throw new InvalidOperationException("Failed to check session on startup", ex);
+        }
+    }
+
+    /// <summary>
+    /// Unlocks the session: validates the passcode hash, stores the passcode in memory,
+    /// writes SessionStateModel to session storage, and starts alarms.
+    /// Called by BackgroundWorker when the App sends an UnlockSession RPC.
+    /// </summary>
+    public async Task<FluentResults.Result> UnlockSessionAsync(string passcode) {
+        try {
+            // Validate passcode length
+            if (string.IsNullOrEmpty(passcode) || passcode.Length != 21) {
+                return FluentResults.Result.Fail("Invalid passcode: must be 21 characters");
+            }
+
+            // Get preferences to find the selected config digest
+            var prefsRes = await _storageService.GetItem<Preferences>();
+            if (prefsRes.IsFailed || prefsRes.Value is null) {
+                return FluentResults.Result.Fail("Preferences not found");
+            }
+
+            var selectedDigest = prefsRes.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+            if (string.IsNullOrEmpty(selectedDigest)) {
+                return FluentResults.Result.Fail("No KERIA configuration selected");
+            }
+
+            // Get the KeriaConnectConfigs dictionary
+            var configsRes = await _storageService.GetItem<KeriaConnectConfigs>();
+            if (configsRes.IsFailed || configsRes.Value is null || !configsRes.Value.IsStored) {
+                return FluentResults.Result.Fail("KERIA configuration not found");
+            }
+
+            if (!configsRes.Value.Configs.TryGetValue(selectedDigest, out var selectedConfig)) {
+                return FluentResults.Result.Fail("Selected KERIA configuration not found");
+            }
+
+            // Validate passcode hash
+            var storedHash = selectedConfig.PasscodeHash;
+            if (storedHash == 0) {
+                return FluentResults.Result.Fail("PasscodeHash not set in configuration");
+            }
+
+            var currentHash = DeterministicHash.ComputeHash(passcode);
+            if (currentHash != storedHash) {
+                _logger.LogWarning(nameof(UnlockSessionAsync) + ": Passcode hash mismatch");
+                return FluentResults.Result.Fail($"{AppConfig.ProductName} was not configured with this passcode on this browser profile.");
+            }
+
+            // Store passcode in memory only
+            _passcode = passcode;
+
+            // Write expiration to session storage (not sensitive)
+            var timeoutMinutes = prefsRes.Value.InactivityTimeoutMinutes;
+            var expirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
+            var setRes = await _storageService.SetItem<SessionStateModel>(
+                new SessionStateModel { SessionExpirationUtc = expirationUtc },
+                StorageArea.Session
+            );
+            if (setRes.IsFailed) {
+                _passcode = null; // rollback
+                return FluentResults.Result.Fail($"Failed to write session state: {setRes.Errors[0].Message}");
+            }
+
+            // Schedule expiration alarm and start keep-alive alarm
+            await ScheduleExpirationAlarmAsync(expirationUtc);
+            await EnsureKeepAliveAlarmAsync();
+            await ClearLockIconAsync();
+
+            _logger.LogInformation(nameof(UnlockSessionAsync) + ": Session unlocked, expiration={Expiration}", expirationUtc);
+            return FluentResults.Result.Ok();
+        }
+        catch (Exception ex) {
+            _passcode = null;
+            _logger.LogError(ex, nameof(UnlockSessionAsync) + ": Exception during unlock");
+            return FluentResults.Result.Fail($"Unlock failed: {ex.Message}");
         }
     }
 
@@ -179,16 +251,52 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Subscribes to storage changes for PasscodeModel and Preferences.
+    /// Creates or ensures the keep-alive periodic alarm is running.
+    /// The alarm fires every minute to prevent the service worker from being suspended during an active session.
+    /// </summary>
+    private async Task EnsureKeepAliveAlarmAsync() {
+        try {
+            var existing = await _webExtensionsApi.Alarms.Get(SessionKeepAliveAlarmName);
+            if (existing is not null) {
+                _logger.LogDebug(nameof(EnsureKeepAliveAlarmAsync) + ": Keep-alive alarm already running");
+                return;
+            }
+            await _webExtensionsApi.Alarms.Create(SessionKeepAliveAlarmName, new AlarmInfo {
+                PeriodInMinutes = AppConfig.SessionKeepAliveAlarmPeriodMinutes
+            });
+            _logger.LogInformation(nameof(EnsureKeepAliveAlarmAsync) + ": Keep-alive alarm created (period={Period}min)", AppConfig.SessionKeepAliveAlarmPeriodMinutes);
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, nameof(EnsureKeepAliveAlarmAsync) + ": Failed to create keep-alive alarm");
+            // Don't throw — keep-alive failure is not fatal
+        }
+    }
+
+    /// <summary>
+    /// Clears the keep-alive alarm. Called when session is locked.
+    /// </summary>
+    private async Task CancelKeepAliveAlarmAsync() {
+        try {
+            await _webExtensionsApi.Alarms.Clear(SessionKeepAliveAlarmName);
+            _logger.LogInformation(nameof(CancelKeepAliveAlarmAsync) + ": Keep-alive alarm cancelled");
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, nameof(CancelKeepAliveAlarmAsync) + ": Failed to cancel keep-alive alarm");
+            // Don't throw — alarm cleanup failure is not fatal
+        }
+    }
+
+    /// <summary>
+    /// Subscribes to storage changes for SessionStateModel and Preferences.
     /// Uses IObserver pattern for immediate reactivity.
     /// </summary>
     private void SubscribeToStorageChanges() {
-        // PasscodeModel changes - reschedule alarm when SessionExpirationUtc changes
-        _passcodeObserver = _storageService.Subscribe(
-            new PasscodeObserver(this),
+        // SessionStateModel changes - reschedule alarm when SessionExpirationUtc changes
+        _sessionStateObserver = _storageService.Subscribe(
+            new SessionStateObserver(this),
             StorageArea.Session
         );
-        _logger.LogDebug(nameof(SubscribeToStorageChanges) + ": Subscribed to PasscodeModel changes");
+        _logger.LogDebug(nameof(SubscribeToStorageChanges) + ": Subscribed to SessionStateModel changes");
 
         // Preferences changes - immediate SessionExpirationUtc update if unlocked
         _preferencesObserver = _storageService.Subscribe(
@@ -214,18 +322,20 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Extends session expiration if unlocked, otherwise locks session.
-    /// Public API called by BackgroundWorker on user activity.
+    /// Handles the keep-alive alarm. No-op: the alarm waking the SW is sufficient.
+    /// </summary>
+    public void HandleKeepAliveAlarm() {
+        _logger.LogDebug(nameof(HandleKeepAliveAlarm) + ": keep-alive alarm fired");
+        // No action needed — waking the SW prevents suspension
+    }
+
+    /// <summary>
+    /// Extends session expiration if unlocked; no-op if session is locked.
+    /// Public API called by BackgroundWorker on user activity or preference change.
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
     public async Task ExtendIfUnlockedAsync() {
         if (await IsUnlockedAsync()) {
-            // Get current PasscodeModel
-            var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeModelRes.IsFailed || passcodeModelRes.Value is null) {
-                throw new InvalidOperationException("PasscodeModel not found when extending session");
-            }
-
             var prefsRes = await _storageService.GetItem<Preferences>();
             if (prefsRes.IsFailed) {
                 throw new InvalidOperationException(
@@ -237,31 +347,27 @@ public class SessionManager : IDisposable {
 
             var newExpirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
 
-            // Update PasscodeModel with new expiration time (atomic update)
-            var updatedPasscodeModel = passcodeModelRes.Value with {
-                SessionExpirationUtc = newExpirationUtc
-            };
-
-            var setRes = await _storageService.SetItem<PasscodeModel>(updatedPasscodeModel, StorageArea.Session);
+            // Update SessionStateModel with new expiration time
+            var setRes = await _storageService.SetItem<SessionStateModel>(
+                new SessionStateModel { SessionExpirationUtc = newExpirationUtc },
+                StorageArea.Session
+            );
             if (setRes.IsFailed) {
                 throw new InvalidOperationException(
-                    $"Failed to update PasscodeModel: {setRes.Errors[0].Message}");
+                    $"Failed to update SessionStateModel: {setRes.Errors[0].Message}");
             }
 
             // Schedule one-shot alarm to fire at expiration time
             await ScheduleExpirationAlarmAsync(newExpirationUtc);
-
-
         }
         else {
-            _logger.LogInformation(nameof(ExtendIfUnlockedAsync) + ": Session not unlocked, locking session");
-            await LockSessionAsync();
+            _logger.LogDebug(nameof(ExtendIfUnlockedAsync) + ": Session not unlocked — nothing to extend");
         }
     }
 
     /// <summary>
-    /// Locks session by clearing KERIA session records (PasscodeModel and KeriaConnectionInfo).
-    /// Public API called by BackgroundWorker or when PasscodeModel is cleared.
+    /// Locks session by clearing KERIA session records (SessionStateModel and KeriaConnectionInfo).
+    /// Public API called by BackgroundWorker or when SessionStateModel is cleared.
     /// NOTE: This does NOT clear BwReadyState - BackgroundWorker is still initialized.
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
@@ -271,7 +377,7 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Clears KERIA session records (PasscodeModel and KeriaConnectionInfo) from session storage.
+    /// Clears KERIA session records from session storage and clears the in-memory passcode.
     /// Does NOT clear BwReadyState - BackgroundWorker initialization state is separate from user session.
     /// Public API for use by App pages that need to clear session state (UnlockPage, MainLayout).
     /// Throws exception on storage operation failure (fail-fast).
@@ -282,10 +388,16 @@ public class SessionManager : IDisposable {
     public async Task ClearKeriaSessionRecordsAsync() {
         _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
 
-        var removePasscodeRes = await _storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
-        if (removePasscodeRes.IsFailed) {
+        // Clear in-memory passcode
+        _passcode = null;
+
+        // Cancel keep-alive alarm
+        await CancelKeepAliveAlarmAsync();
+
+        var removeSessionStateRes = await _storageService.RemoveItem<SessionStateModel>(StorageArea.Session);
+        if (removeSessionStateRes.IsFailed) {
             throw new InvalidOperationException(
-                $"Failed to remove PasscodeModel: {removePasscodeRes.Errors[0].Message}");
+                $"Failed to remove SessionStateModel: {removeSessionStateRes.Errors[0].Message}");
         }
 
         var removeConnectionRes = await _storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
@@ -317,7 +429,7 @@ public class SessionManager : IDisposable {
     /// - User changes KERIA config on UnlockPage (no-op effect since not authenticated)
     /// - User changes KERIA config on PreferencesPage (locks session)
     ///
-    /// Clears: PasscodeModel, KeriaConnectionInfo, BwReadyState, PendingBwAppRequests
+    /// Clears: SessionStateModel, KeriaConnectionInfo, BwReadyState, PendingBwAppRequests
     ///
     /// NOTE: BwReadyState is automatically re-established by BackgroundWorker via its
     /// storage observer (BwReadyStateObserver). This self-healing behavior ensures
@@ -327,6 +439,12 @@ public class SessionManager : IDisposable {
     /// </summary>
     public async Task ClearSessionForConfigChangeAsync() {
         _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Clearing ALL session storage for config change");
+
+        // Clear in-memory passcode
+        _passcode = null;
+
+        // Cancel keep-alive alarm
+        await CancelKeepAliveAlarmAsync();
 
         var clearResult = await _storageService.Clear(StorageArea.Session);
         if (clearResult.IsFailed) {
@@ -338,77 +456,32 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Checks if session is unlocked by verifying (similar to AppCache.IsSessionUnlocked):
-    /// 1. PasscodeModel exists in session storage with non-empty passcode
-    /// 2. Passcode hash matches stored hash in KeriaConnectConfig
-    /// 3. PasscodeModel.SessionExpirationUtc is not expired
+    /// Checks if session is unlocked:
+    /// 1. _passcode is set in memory (not null)
+    /// 2. SessionStateModel.SessionExpirationUtc is not expired
     /// </summary>
     private async Task<bool> IsUnlockedAsync() {
-        // 1. Check PasscodeModel exists and has non-empty passcode
-        var passcodeModelRes = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-        if (passcodeModelRes.IsFailed || passcodeModelRes.Value is null) {
-            _logger.LogInformation(nameof(IsUnlockedAsync) + ": PasscodeModel does not exists");
+        // 1. Check passcode is in memory
+        if (string.IsNullOrEmpty(_passcode)) {
+            _logger.LogInformation(nameof(IsUnlockedAsync) + ": Passcode not in memory — session is locked");
             return false;
         }
 
-        var passcodeModel = passcodeModelRes.Value;
-        var passcode = passcodeModel.Passcode;
-        if (string.IsNullOrEmpty(passcode)) {
-            _logger.LogWarning(nameof(IsUnlockedAsync) + ": Passcode not in PasscodeModel");
+        // 2. Check SessionStateModel.SessionExpirationUtc is not expired
+        var sessionStateRes = await _storageService.GetItem<SessionStateModel>(StorageArea.Session);
+        if (sessionStateRes.IsFailed || sessionStateRes.Value is null) {
+            _logger.LogInformation(nameof(IsUnlockedAsync) + ": SessionStateModel not found — session is locked");
             return false;
         }
 
-        // 2. Verify passcode hash matches stored hash in KeriaConnectConfig
-        // First get preferences to find the selected config digest
-        var prefsRes = await _storageService.GetItem<Preferences>();
-        if (prefsRes.IsFailed || prefsRes.Value is null) {
-            _logger.LogWarning(nameof(IsUnlockedAsync) + ": Preferences not stored");
-            return false;
-        }
-
-        var selectedDigest = prefsRes.Value.KeriaPreference.SelectedKeriaConnectionDigest;
-        if (string.IsNullOrEmpty(selectedDigest)) {
-            _logger.LogWarning(nameof(IsUnlockedAsync) + ": SelectedKeriaConnectionDigest not set in Preferences");
-            return false;
-        }
-
-        // Get the KeriaConnectConfigs dictionary
-        var configsRes = await _storageService.GetItem<KeriaConnectConfigs>();
-        if (configsRes.IsFailed || configsRes.Value is null || !configsRes.Value.IsStored) {
-            _logger.LogWarning(nameof(IsUnlockedAsync) + ": KeriaConnectConfigs not stored");
-            return false;
-        }
-
-        // Look up the selected config by digest
-        if (!configsRes.Value.Configs.TryGetValue(selectedDigest, out var selectedConfig)) {
-            _logger.LogWarning(nameof(IsUnlockedAsync) + ": Selected KeriaConnectConfig not found for digest {Digest}", selectedDigest);
-            return false;
-        }
-
-        var storedHash = selectedConfig.PasscodeHash;
-        if (storedHash == 0) {
-            _logger.LogWarning(nameof(IsUnlockedAsync) + ": PasscodeHash not set in selected KeriaConnectConfig");
-            return false;
-        }
-
-        var currentHash = DeterministicHash.ComputeHash(passcode);
-        if (currentHash != storedHash) {
-            _logger.LogWarning(
-                nameof(IsUnlockedAsync) + ": Passcode hash mismatch - session not authenticated. " +
-                "CurrentHash={CurrentHash}, StoredHash={StoredHash}, PasscodeLength={PasscodeLength}",
-                currentHash, storedHash, passcode.Length);
-            return false;
-        }
-
-        // 3. Check PasscodeModel.SessionExpirationUtc is not expired
-        var expirationUtc = passcodeModel.SessionExpirationUtc;
+        var expirationUtc = sessionStateRes.Value.SessionExpirationUtc;
         if (expirationUtc == DateTime.MinValue) {
-            _logger.LogDebug(nameof(IsUnlockedAsync) + ": PasscodeModel.SessionExpirationUtc not set (MinValue) - session is locked");
+            _logger.LogDebug(nameof(IsUnlockedAsync) + ": SessionExpirationUtc not set (MinValue) — session is locked");
             return false;
         }
 
         if (DateTime.UtcNow >= expirationUtc) {
-            _logger.LogInformation(nameof(IsUnlockedAsync) + ": PasscodeModel.SessionExpirationUtc expired ({Expiration}) - session is locked", expirationUtc);
+            _logger.LogInformation(nameof(IsUnlockedAsync) + ": Session expired ({Expiration}) — session is locked", expirationUtc);
             return false;
         }
 
@@ -430,38 +503,34 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Handles PasscodeModel changes from storage observer.
+    /// Handles SessionStateModel changes from storage observer.
     /// Reschedules alarm when SessionExpirationUtc changes.
-    /// Reacts to current state of PasscodeModel (stateless - works across service worker restarts).
+    /// Reacts to current state of SessionStateModel (stateless - works across service worker restarts).
     /// </summary>
-    private async Task HandlePasscodeChangeAsync(PasscodeModel? passcodeModel) {
-        if (passcodeModel is null || string.IsNullOrEmpty(passcodeModel.Passcode)) {
-            // PasscodeModel is null or empty - session locked
-            _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel is null/empty - session locked");
+    private async Task HandleSessionStateChangeAsync(SessionStateModel? sessionState) {
+        if (sessionState is null) {
+            // SessionStateModel was removed - session locked
+            _logger.LogDebug(nameof(HandleSessionStateChangeAsync) + ": SessionStateModel is null - session locked");
             return;
         }
 
-        var expirationUtc = passcodeModel.SessionExpirationUtc;
+        var expirationUtc = sessionState.SessionExpirationUtc;
 
         // Skip if expiration time is invalid (DateTime.MinValue or in the past)
-        // This can happen during initial PasscodeModel creation or storage clearing
         if (expirationUtc == DateTime.MinValue || expirationUtc <= DateTime.UtcNow) {
-            _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
+            _logger.LogDebug(nameof(HandleSessionStateChangeAsync) + ": SessionStateModel has invalid/expired SessionExpirationUtc {Expiration}, skipping alarm scheduling",
                 expirationUtc);
             return;
         }
 
-        _logger.LogDebug(nameof(HandlePasscodeChangeAsync) + ": PasscodeModel changed with SessionExpirationUtc {Expiration}, rescheduling alarm", expirationUtc);
-
-        // Session is being unlocked - clear lock icon
-        await ClearLockIconAsync();
+        _logger.LogDebug(nameof(HandleSessionStateChangeAsync) + ": SessionStateModel changed with SessionExpirationUtc {Expiration}, rescheduling alarm", expirationUtc);
 
         // Reschedule alarm to fire at expiration time
         try {
             await ScheduleExpirationAlarmAsync(expirationUtc);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, nameof(HandlePasscodeChangeAsync) + ": Failed to reschedule alarm for PasscodeModel change");
+            _logger.LogError(ex, nameof(HandleSessionStateChangeAsync) + ": Failed to reschedule alarm for SessionStateModel change");
             // Don't throw - this is a fire-and-forget observer
         }
     }
@@ -484,20 +553,20 @@ public class SessionManager : IDisposable {
     }
 
     /// <summary>
-    /// Observer for PasscodeModel changes.
+    /// Observer for SessionStateModel changes.
     /// </summary>
-    private sealed class PasscodeObserver(SessionManager sessionManager) : IObserver<PasscodeModel> {
-        public void OnNext(PasscodeModel? value) {
+    private sealed class SessionStateObserver(SessionManager sessionManager) : IObserver<SessionStateModel> {
+        public void OnNext(SessionStateModel? value) {
             // Fire and forget - errors will be logged and thrown by SessionManager
-            _ = sessionManager.HandlePasscodeChangeAsync(value);
+            _ = sessionManager.HandleSessionStateChangeAsync(value);
         }
 
         public void OnError(Exception error) {
-            sessionManager._logger.LogError(error, nameof(PasscodeObserver) + ": Error in PasscodeModel observer");
+            sessionManager._logger.LogError(error, nameof(SessionStateObserver) + ": Error in SessionStateModel observer");
         }
 
         public void OnCompleted() {
-            sessionManager._logger.LogDebug(nameof(PasscodeObserver) + ": PasscodeModel observer completed");
+            sessionManager._logger.LogDebug(nameof(SessionStateObserver) + ": SessionStateModel observer completed");
         }
     }
 
@@ -524,7 +593,7 @@ public class SessionManager : IDisposable {
     /// </summary>
     public void Dispose() {
         _logger.LogDebug(nameof(Dispose) + ": disposing...");
-        _passcodeObserver?.Dispose();
+        _sessionStateObserver?.Dispose();
         _preferencesObserver?.Dispose();
         GC.SuppressFinalize(this);
         _logger.LogDebug(nameof(Dispose) + ": disposed");

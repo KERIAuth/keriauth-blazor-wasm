@@ -11,7 +11,7 @@ namespace Extension.Services;
 /// Architecture:
 /// - TypeScript (userActivityListener.ts): Listens for DOM events with 1s debounce
 /// - C#: Additional 5s throttle before sending to BackgroundWorker
-/// - BackgroundWorker: SessionManager.ExtendIfUnlockedAsync() updates PasscodeModel.SessionExpirationUtc
+/// - BackgroundWorker: SessionManager.ExtendIfUnlockedAsync() updates SessionStateModel.SessionExpirationUtc
 ///
 /// This service runs in the App context (popup/tab/sidepanel), not BackgroundWorker.
 /// </summary>

@@ -1,12 +1,15 @@
 ﻿using FluentResults;
 using Extension.Models;
+using Extension.Models.Messages.AppBw;
 using Extension.Models.Storage;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
+using Extension.Services.Port;
 using Extension.Services.Storage;
 using Extension.Utilities;
 using Microsoft.JSInterop;
 using System.Text;
+using System.Text.Json;
 
 namespace Extension.Services;
 
@@ -21,6 +24,7 @@ public class WebauthnService : IWebauthnService {
     private readonly IFidoMetadataService _fidoMetadataService;
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<WebauthnService> _logger;
+    private readonly IAppBwPortService _appBwPortService;
 
     // Fixed nonce for AES-GCM encryption.
     // This is safe because keys are derived fresh from PRF each time (never reused).
@@ -35,13 +39,15 @@ public class WebauthnService : IWebauthnService {
         ICryptoService cryptoService,
         IFidoMetadataService fidoMetadataService,
         IJSRuntime jsRuntime,
-        ILogger<WebauthnService> logger) {
+        ILogger<WebauthnService> logger,
+        IAppBwPortService appBwPortService) {
         _storageService = storageService;
         _credentialsBinding = credentialsBinding;
         _cryptoService = cryptoService;
         _fidoMetadataService = fidoMetadataService;
         _jsRuntime = jsRuntime;
         _logger = logger;
+        _appBwPortService = appBwPortService;
     }
 
     public async Task<Result<string>> RegisterAttestStoreAuthenticatorAsync(
@@ -140,13 +146,20 @@ public class WebauthnService : IWebauthnService {
             var prfOutput = Convert.FromBase64String(assertionResult.Value.PrfOutputBase64);
             var encryptionKey = _cryptoService.DeriveKeyFromPrf(keriaConnectionDigest, prfOutput);
 
-            // Get passcode from session storage
-            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeResult.IsFailed || passcodeResult.Value?.Passcode is null) {
-                return Result.Fail<string>("No passcode is cached in session storage");
+            // Get passcode from BackgroundWorker memory via RPC
+            var passcodeResponse = await _appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetSessionPasscode, new { });
+            if (!passcodeResponse.Ok) {
+                return Result.Fail<string>($"Could not retrieve session passcode: {passcodeResponse.Error ?? "session locked"}");
+            }
+            var passcodePayload = passcodeResponse.Result is JsonElement passcodeEl
+                ? JsonSerializer.Deserialize<GetSessionPasscodeResponsePayload>(passcodeEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+                : null;
+            if (passcodePayload?.Passcode is null) {
+                return Result.Fail<string>("No passcode available — session may be locked");
             }
 
-            var passcode = passcodeResult.Value.Passcode;
+            var passcode = passcodePayload.Passcode;
 
             // Encrypt passcode
             var passcodeBytes = Encoding.UTF8.GetBytes(passcode);

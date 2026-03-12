@@ -82,8 +82,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     // BwReadyState observer - re-establishes BwReadyState when cleared by App
     private IDisposable? _bwReadyStateObserver;
 
-    // PasscodeModel observer - cancels notification polling when session locks
-    private IDisposable? _passcodeModelObserver;
+    // SessionStateModel observer - cancels notification polling when session locks
+    private IDisposable? _sessionStateObserver;
 
     // NOTE: No in-memory state tracking needed for runtime.sendMessage approach
     // All state is derived from message sender info or retrieved from persistent storage
@@ -314,8 +314,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // (e.g., during config change via ClearSessionForConfigChangeAsync)
             SubscribeToBwReadyStateChanges();
 
-            // Subscribe to PasscodeModel changes to cancel polling when session locks
-            SubscribeToPasscodeModelChanges();
+            // Subscribe to SessionStateModel changes to cancel polling when session locks
+            SubscribeToSessionStateChanges();
 
             // Notify ContentScripts to reconnect their ports after service worker restart
             // await _portService.NotifyContentScriptsOfRestartAsync();
@@ -337,10 +337,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task TryReconnectSignifyClientIfSessionUnlockedAsync() {
         try {
-            // Check if session is unlocked (passcode exists in session storage)
-            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeResult.IsFailed || passcodeResult.Value == null || string.IsNullOrEmpty(passcodeResult.Value.Passcode)) {
-                logger.LogDebug(nameof(TryReconnectSignifyClientIfSessionUnlockedAsync) + ": Session not unlocked, skipping reconnect");
+            // Check if session is unlocked (passcode in memory)
+            if (string.IsNullOrEmpty(_sessionManager.GetPasscode())) {
+                logger.LogDebug(nameof(TryReconnectSignifyClientIfSessionUnlockedAsync) + ": Session not unlocked (passcode not in memory), skipping reconnect");
                 return;
             }
 
@@ -403,6 +402,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     catch (Exception ex) {
                         logger.LogWarning(ex, nameof(OnAlarmAsync) + ": Notification poll alarm failed");
                     }
+                    return;
+                case SessionManager.SessionKeepAliveAlarmName:
+                    _sessionManager.HandleKeepAliveAlarm();
                     return;
                 default:
                     logger.LogWarning(nameof(OnAlarmAsync) + ": Unknown alarm name: {AlarmName}", alarm.Name);
@@ -732,40 +734,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Subscribes to PasscodeModel changes to cancel notification polling when session locks.
-    /// When PasscodeModel is cleared (session lock/expiration), polling is stopped to avoid
+    /// Subscribes to SessionStateModel changes to cancel notification polling when session locks.
+    /// When SessionStateModel is cleared (session lock/expiration), polling is stopped to avoid
     /// futile KERIA calls against a disconnected signify client.
     /// </summary>
-    private void SubscribeToPasscodeModelChanges() {
-        if (_passcodeModelObserver != null) {
-            logger.LogDebug(nameof(SubscribeToPasscodeModelChanges) + ": Already subscribed");
+    private void SubscribeToSessionStateChanges() {
+        if (_sessionStateObserver != null) {
+            logger.LogDebug(nameof(SubscribeToSessionStateChanges) + ": Already subscribed");
             return;
         }
 
-        _passcodeModelObserver = _storageService.Subscribe(
-            new PasscodeModelPollingObserver(this),
+        _sessionStateObserver = _storageService.Subscribe(
+            new SessionStatePollingObserver(this),
             StorageArea.Session
         );
-        logger.LogDebug(nameof(SubscribeToPasscodeModelChanges) + ": Subscribed to PasscodeModel changes");
+        logger.LogDebug(nameof(SubscribeToSessionStateChanges) + ": Subscribed to SessionStateModel changes");
     }
 
     /// <summary>
-    /// Observer for PasscodeModel changes. Cancels notification polling when session locks.
+    /// Observer for SessionStateModel changes. Cancels notification polling when session locks.
     /// </summary>
-    private sealed class PasscodeModelPollingObserver(BackgroundWorker backgroundWorker) : IObserver<PasscodeModel> {
-        public void OnNext(PasscodeModel? value) {
-            if (value is null || string.IsNullOrEmpty(value.Passcode)) {
-                backgroundWorker.logger.LogInformation(nameof(PasscodeModelPollingObserver) + ": PasscodeModel cleared — cancelling notification polling");
+    private sealed class SessionStatePollingObserver(BackgroundWorker backgroundWorker) : IObserver<SessionStateModel> {
+        public void OnNext(SessionStateModel? value) {
+            if (value is null || value.SessionExpirationUtc == DateTime.MinValue) {
+                backgroundWorker.logger.LogInformation(nameof(SessionStatePollingObserver) + ": SessionStateModel cleared — cancelling notification polling");
                 _ = backgroundWorker.CancelNotificationPollingAsync();
             }
         }
 
         public void OnError(Exception error) {
-            backgroundWorker.logger.LogError(error, nameof(PasscodeModelPollingObserver) + ": Error observing PasscodeModel");
+            backgroundWorker.logger.LogError(error, nameof(SessionStatePollingObserver) + ": Error observing SessionStateModel");
         }
 
         public void OnCompleted() {
-            backgroundWorker.logger.LogDebug(nameof(PasscodeModelPollingObserver) + ": Observer completed");
+            backgroundWorker.logger.LogDebug(nameof(SessionStatePollingObserver) + ": Observer completed");
         }
     }
 
@@ -1431,6 +1433,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         result: new { success = true });
                     return;
 
+                case AppBwMessageType.Values.RequestUnlockSession:
+                    await HandleAppRequestUnlockSessionRpcAsync(portId, request, payload);
+                    return;
+
+                // TODO P2: consider deprecating the following session-related RPC
+                case AppBwMessageType.Values.RequestGetSessionPasscode:
+                    await HandleAppRequestGetSessionPasscodeRpcAsync(portId, request);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -1933,6 +1944,79 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
+    /// Handles UnlockSession RPC from App.
+    /// Validates passcode, stores in SessionManager memory, writes SessionStateModel, and connects signify-ts.
+    /// </summary>
+    private async Task HandleAppRequestUnlockSessionRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestUnlockSessionRpcAsync) + ": called");
+
+        try {
+            // Extract passcode from payload
+            if (payload is null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            if (!payload.Value.TryGetProperty("passcode", out var passcodeProp)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing passcode in payload");
+                return;
+            }
+
+            var passcode = passcodeProp.GetString();
+            if (string.IsNullOrEmpty(passcode)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Passcode is empty");
+                return;
+            }
+
+            // Unlock session (validates hash, stores in memory, writes SessionStateModel)
+            var unlockResult = await _sessionManager.UnlockSessionAsync(passcode);
+            if (unlockResult.IsFailed) {
+                var errorMsg = unlockResult.Errors.Count > 0 ? unlockResult.Errors[0].Message : "Unlock failed";
+                logger.LogWarning(nameof(HandleAppRequestUnlockSessionRpcAsync) + ": Unlock failed: {Error}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: errorMsg);
+                return;
+            }
+
+            // Connect signify-ts client now that passcode is in memory
+            var connectResult = await TryConnectSignifyClientAsync();
+            if (connectResult.IsFailed) {
+                var errorMsg = connectResult.Errors.Count > 0 ? connectResult.Errors[0].Message : "KERIA connect failed";
+                logger.LogWarning(nameof(HandleAppRequestUnlockSessionRpcAsync) + ": KERIA connect failed after unlock: {Error}", errorMsg);
+                // Don't fail the unlock — App can still navigate and retry connect separately
+            }
+
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new { success = true });
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestUnlockSessionRpcAsync) + ": Error during unlock");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles GetSessionPasscode RPC from App.
+    /// Returns the in-memory passcode if the session is unlocked, or an error if locked.
+    /// Used by App pages that need the passcode (e.g., MnemonicPage, WebauthnService).
+    /// </summary>
+    private async Task HandleAppRequestGetSessionPasscodeRpcAsync(string portId, RpcRequest request) {
+        var passcode = _sessionManager.GetPasscode();
+        if (string.IsNullOrEmpty(passcode)) {
+            logger.LogWarning(nameof(HandleAppRequestGetSessionPasscodeRpcAsync) + ": Session is locked — passcode not available");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new GetSessionPasscodeResponsePayload(false, Error: "Session is locked"));
+            return;
+        }
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+            result: new GetSessionPasscodeResponsePayload(true, Passcode: passcode));
+    }
+
+    /// <summary>
     /// Handles health check request from App.
     /// Calls KERIA health endpoint and returns the result.
     /// </summary>
@@ -1992,15 +2076,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var connectRequest = JsonSerializer.Deserialize<ConnectRequestPayload>(
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
-            if (connectRequest is null || string.IsNullOrEmpty(connectRequest.AdminUrl) || string.IsNullOrEmpty(connectRequest.Passcode)) {
+            if (connectRequest is null || string.IsNullOrEmpty(connectRequest.AdminUrl)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new ConnectResponsePayload(false, Error: "Invalid connect parameters"));
                 return;
             }
 
+            // Use the provided passcode, or fall back to the in-memory passcode (reconnect path)
+            var passcode = string.IsNullOrEmpty(connectRequest.Passcode)
+                ? _sessionManager.GetPasscode()
+                : connectRequest.Passcode;
+
+            if (string.IsNullOrEmpty(passcode)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ConnectResponsePayload(false, Error: "No passcode available — session may be locked"));
+                return;
+            }
+
             var connectResult = await _signifyClientService.Connect(
                 connectRequest.AdminUrl,
-                connectRequest.Passcode,
+                passcode,
                 connectRequest.BootUrl,
                 connectRequest.IsNewAgent
             );
@@ -3701,17 +3796,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return Result.Fail("Boot URL not configured");
             }
 
-            // Retrieve passcode from session storage
-            var passcodeResult = await _storageService.GetItem<PasscodeModel>(StorageArea.Session);
-            if (passcodeResult.IsFailed) {
-                return Result.Fail($"Failed to retrieve passcode: {passcodeResult.Errors[0].Message}");
-            }
-            if (passcodeResult.Value == null) {
-                return Result.Fail("Passcode not found in session storage");
-            }
-            var passcode = passcodeResult.Value.Passcode;
+            // Retrieve passcode from memory (never from storage)
+            var passcode = _sessionManager.GetPasscode();
             if (string.IsNullOrEmpty(passcode)) {
-                return Result.Fail("Passcode not available");
+                return Result.Fail("Passcode not in memory — session is locked");
             }
             if (passcode.Length != 21) {
                 return Result.Fail("Invalid passcode length");
@@ -3798,7 +3886,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _notificationPollingCts?.Cancel();
         _notificationPollingCts?.Dispose();
         _bwReadyStateObserver?.Dispose();
-        _passcodeModelObserver?.Dispose();
+        _sessionStateObserver?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

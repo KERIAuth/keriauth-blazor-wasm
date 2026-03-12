@@ -3,6 +3,7 @@
 using Extension.Models;
 using Extension.Models.Storage;
 using Extension.Services.Storage;
+using Extension.Tests.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -119,11 +120,11 @@ public class StorageObserverTests {
 
     [Fact]
     public void OnNext_WorksWithDifferentStorageModels() {
-        // Arrange - Test with PasscodeModel
-        PasscodeModel? receivedModel = null;
-        var testModel = new PasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        // Arrange - Test with TestPasscodeModel
+        TestPasscodeModel? receivedModel = null;
+        var testModel = new TestPasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
 
-        var observer = new StorageObserver<PasscodeModel>(
+        var observer = new StorageObserver<TestPasscodeModel>(
             _mockStorageService.Object,
             StorageArea.Session,
             model => receivedModel = model

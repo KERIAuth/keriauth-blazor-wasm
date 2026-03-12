@@ -74,21 +74,21 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Local);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
-        PasscodeModel? receivedValue = null;
-        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
-            .Callback<PasscodeModel>(value => receivedValue = value);
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
+        TestPasscodeModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<TestPasscodeModel>()))
+            .Callback<TestPasscodeModel>(value => receivedValue = value);
 
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Simulate storage.onChanged event from browser
-        var updatedPasscode = new PasscodeModel { Passcode = "updated-passcode-123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
+        var updatedPasscode = new TestPasscodeModel { Passcode = "updated-passcode-123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChange("local", "TestPasscodeModel", updatedPasscode);
 
         // Assert
         Assert.NotNull(receivedValue);
         Assert.Equal("updated-passcode-123", receivedValue!.Passcode);
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Once);
 
         subscription.Dispose();
         return Task.CompletedTask;
@@ -99,20 +99,20 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Local);
 
-        var observer1 = new Mock<IObserver<PasscodeModel>>();
-        var observer2 = new Mock<IObserver<PasscodeModel>>();
+        var observer1 = new Mock<IObserver<TestPasscodeModel>>();
+        var observer2 = new Mock<IObserver<TestPasscodeModel>>();
 
         var subscription1 = _sut.Subscribe(observer1.Object, StorageArea.Local);
         var subscription2 = _sut.Subscribe(observer2.Object, StorageArea.Local);
 
         // Act - Trigger storage change
-        var updatedPasscode = new PasscodeModel { Passcode = "multi-observer-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
+        var updatedPasscode = new TestPasscodeModel { Passcode = "multi-observer-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChange("local", "TestPasscodeModel", updatedPasscode);
 
         // Assert - Both observers should be notified
-        observer1.Verify(x => x.OnNext(It.Is<PasscodeModel>(
+        observer1.Verify(x => x.OnNext(It.Is<TestPasscodeModel>(
             p => p.Passcode == "multi-observer-test")), Times.Once);
-        observer2.Verify(x => x.OnNext(It.Is<PasscodeModel>(
+        observer2.Verify(x => x.OnNext(It.Is<TestPasscodeModel>(
             p => p.Passcode == "multi-observer-test")), Times.Once);
 
         subscription1.Dispose();
@@ -125,17 +125,17 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Local);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Unsubscribe, then trigger change
         subscription.Dispose();
 
-        var updatedPasscode = new PasscodeModel { Passcode = "after-unsubscribe", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
+        var updatedPasscode = new TestPasscodeModel { Passcode = "after-unsubscribe", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChange("local", "TestPasscodeModel", updatedPasscode);
 
         // Assert - Should NOT receive notification
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Never);
         return Task.CompletedTask;
     }
 
@@ -144,18 +144,18 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Session);
 
-        var passcodeObserver = new Mock<IObserver<PasscodeModel>>();
+        var passcodeObserver = new Mock<IObserver<TestPasscodeModel>>();
         var testModelObserver = new Mock<IObserver<TestModel>>();
 
         var subscription1 = _sut.Subscribe(passcodeObserver.Object, StorageArea.Session);
         var subscription2 = _sut.Subscribe(testModelObserver.Object, StorageArea.Session);
 
-        // Act - Trigger change for PasscodeModel only
-        var updatedPasscode = new PasscodeModel { Passcode = "type-specific-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChange("session", "PasscodeModel", updatedPasscode);
+        // Act - Trigger change for TestPasscodeModel only
+        var updatedPasscode = new TestPasscodeModel { Passcode = "type-specific-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChange("session", "TestPasscodeModel", updatedPasscode);
 
-        // Assert - Only PasscodeModel observer should be notified
-        passcodeObserver.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
+        // Assert - Only TestPasscodeModel observer should be notified
+        passcodeObserver.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Once);
         testModelObserver.Verify(x => x.OnNext(It.IsAny<TestModel>()), Times.Never);
 
         subscription1.Dispose();
@@ -169,19 +169,19 @@ public class StorageServiceNotificationTests {
         // await _sut.Initialize(StorageArea.Local);
         // await _sut.Initialize(StorageArea.Session);
 
-        var localObserver = new Mock<IObserver<PasscodeModel>>();
-        var sessionObserver = new Mock<IObserver<PasscodeModel>>();
+        var localObserver = new Mock<IObserver<TestPasscodeModel>>();
+        var sessionObserver = new Mock<IObserver<TestPasscodeModel>>();
 
         var subscription1 = _sut.Subscribe(localObserver.Object, StorageArea.Local);
         var subscription2 = _sut.Subscribe(sessionObserver.Object, StorageArea.Session);
 
         // Act - Trigger change for Local storage only
-        var updatedPasscode = new PasscodeModel { Passcode = "local-only-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChange("local", "PasscodeModel", updatedPasscode);
+        var updatedPasscode = new TestPasscodeModel { Passcode = "local-only-test", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChange("local", "TestPasscodeModel", updatedPasscode);
 
         // Assert - Only Local observer should be notified
-        localObserver.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
-        sessionObserver.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Never);
+        localObserver.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Once);
+        sessionObserver.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Never);
 
         subscription1.Dispose();
         subscription2.Dispose();
@@ -264,16 +264,16 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Local);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
-        PasscodeModel? receivedValue = null;
-        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
-            .Callback<PasscodeModel>(value => receivedValue = value);
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
+        TestPasscodeModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<TestPasscodeModel>()))
+            .Callback<TestPasscodeModel>(value => receivedValue = value);
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Trigger change without newValue (e.g., item was removed)
         var changes = new Dictionary<string, object> {
-            ["PasscodeModel"] = new {
-                oldValue = new PasscodeModel { Passcode = "old", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) }
+            ["TestPasscodeModel"] = new {
+                oldValue = new TestPasscodeModel { Passcode = "old", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) }
                 // No newValue
             }
         };
@@ -283,8 +283,8 @@ public class StorageServiceNotificationTests {
         InvokeGlobalCallback(changesElement, "local");
 
         // Assert - Should notify with default value (deletion triggers notification)
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
-        // The received value should be a default PasscodeModel instance
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Once);
+        // The received value should be a default TestPasscodeModel instance
         // Note: Activator.CreateInstance() bypasses 'required' keyword, resulting in null for reference types
         Assert.NotNull(receivedValue);
         Assert.Null(receivedValue!.Passcode); // Default instance has null for required properties
@@ -302,22 +302,22 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Session);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
-        PasscodeModel? receivedValue = null;
-        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
-            .Callback<PasscodeModel>(value => receivedValue = value);
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
+        TestPasscodeModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<TestPasscodeModel>()))
+            .Callback<TestPasscodeModel>(value => receivedValue = value);
 
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Session);
 
         // Act - Simulate initial creation (none → value)
         // oldValue is null when creating for first time
-        var initialPasscode = new PasscodeModel { Passcode = "first-value", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChangeWithOldValue("session", "PasscodeModel", initialPasscode, oldValue: null);
+        var initialPasscode = new TestPasscodeModel { Passcode = "first-value", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChangeWithOldValue("session", "TestPasscodeModel", initialPasscode, oldValue: null);
 
         // Assert
         Assert.NotNull(receivedValue);
         Assert.Equal("first-value", receivedValue!.Passcode);
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Once);
 
         subscription.Dispose();
         return Task.CompletedTask;
@@ -328,28 +328,28 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Local);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
-        var receivedValues = new List<PasscodeModel>();
-        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
-            .Callback<PasscodeModel>(value => receivedValues.Add(value));
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
+        var receivedValues = new List<TestPasscodeModel>();
+        observer.Setup(x => x.OnNext(It.IsAny<TestPasscodeModel>()))
+            .Callback<TestPasscodeModel>(value => receivedValues.Add(value));
 
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Simulate value1 → value2 → value3
-        var value1 = new PasscodeModel { Passcode = "first", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        var value2 = new PasscodeModel { Passcode = "second", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        var value3 = new PasscodeModel { Passcode = "third", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var value1 = new TestPasscodeModel { Passcode = "first", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var value2 = new TestPasscodeModel { Passcode = "second", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var value3 = new TestPasscodeModel { Passcode = "third", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
 
-        TriggerStorageChange("local", "PasscodeModel", value1);
-        TriggerStorageChange("local", "PasscodeModel", value2);
-        TriggerStorageChange("local", "PasscodeModel", value3);
+        TriggerStorageChange("local", "TestPasscodeModel", value1);
+        TriggerStorageChange("local", "TestPasscodeModel", value2);
+        TriggerStorageChange("local", "TestPasscodeModel", value3);
 
         // Assert - Received all three notifications in order
         Assert.Equal(3, receivedValues.Count);
         Assert.Equal("first", receivedValues[0].Passcode);
         Assert.Equal("second", receivedValues[1].Passcode);
         Assert.Equal("third", receivedValues[2].Passcode);
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Exactly(3));
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Exactly(3));
 
         subscription.Dispose();
         return Task.CompletedTask;
@@ -360,25 +360,25 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Session);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
-        var receivedValues = new List<PasscodeModel?>();
-        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
-            .Callback<PasscodeModel>(value => receivedValues.Add(value));
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
+        var receivedValues = new List<TestPasscodeModel?>();
+        observer.Setup(x => x.OnNext(It.IsAny<TestPasscodeModel>()))
+            .Callback<TestPasscodeModel>(value => receivedValues.Add(value));
 
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Session);
 
         // Act - Full lifecycle: none → value → value2 → deleted
 
         // Step 1: Create initial value (none → value)
-        var initialValue = new PasscodeModel { Passcode = "initial", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChangeWithOldValue("session", "PasscodeModel", initialValue, oldValue: null);
+        var initialValue = new TestPasscodeModel { Passcode = "initial", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChangeWithOldValue("session", "TestPasscodeModel", initialValue, oldValue: null);
 
         // Step 2: Update to new value (value → value2)
-        var updatedValue = new PasscodeModel { Passcode = "updated", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChangeWithOldValue("session", "PasscodeModel", updatedValue, oldValue: initialValue);
+        var updatedValue = new TestPasscodeModel { Passcode = "updated", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChangeWithOldValue("session", "TestPasscodeModel", updatedValue, oldValue: initialValue);
 
         // Step 3: Delete (value2 → none) - only oldValue, no newValue
-        TriggerStorageChangeWithOnlyOldValue("session", "PasscodeModel", oldValue: updatedValue);
+        TriggerStorageChangeWithOnlyOldValue("session", "TestPasscodeModel", oldValue: updatedValue);
 
         // Assert - Received 3 notifications (create, update, and delete with default value)
         Assert.Equal(3, receivedValues.Count);
@@ -387,7 +387,7 @@ public class StorageServiceNotificationTests {
         Assert.Null(receivedValues[2]!.Passcode); // Default instance has null for required properties
 
         // OnNext should be called three times (including deletion with default value)
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Exactly(3));
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Exactly(3));
 
         subscription.Dispose();
         return Task.CompletedTask;
@@ -398,19 +398,19 @@ public class StorageServiceNotificationTests {
         // Arrange
         // await _sut.Initialize(StorageArea.Local);
 
-        var observer = new Mock<IObserver<PasscodeModel>>();
-        PasscodeModel? receivedValue = null;
-        observer.Setup(x => x.OnNext(It.IsAny<PasscodeModel>()))
-            .Callback<PasscodeModel>(value => receivedValue = value);
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
+        TestPasscodeModel? receivedValue = null;
+        observer.Setup(x => x.OnNext(It.IsAny<TestPasscodeModel>()))
+            .Callback<TestPasscodeModel>(value => receivedValue = value);
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Local);
 
         // Act - Simulate deletion (value → none)
         // Only oldValue present, no newValue
-        var oldValue = new PasscodeModel { Passcode = "deleted", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
-        TriggerStorageChangeWithOnlyOldValue("local", "PasscodeModel", oldValue);
+        var oldValue = new TestPasscodeModel { Passcode = "deleted", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        TriggerStorageChangeWithOnlyOldValue("local", "TestPasscodeModel", oldValue);
 
         // Assert - Should call OnNext with default value (deletion triggers notification)
-        observer.Verify(x => x.OnNext(It.IsAny<PasscodeModel>()), Times.Once);
+        observer.Verify(x => x.OnNext(It.IsAny<TestPasscodeModel>()), Times.Once);
         Assert.NotNull(receivedValue);
         Assert.Null(receivedValue!.Passcode); // Default instance has null for required properties
 

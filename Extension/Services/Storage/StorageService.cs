@@ -25,7 +25,7 @@ public class StorageService : IStorageService, IDisposable {
 
     // Observer storage
     // Outer key: StorageArea (e.g., Local, Session)
-    // Inner key: Type name (e.g., "Preferences", "PasscodeModel")
+    // Inner key: Type name (e.g., "Preferences", "SessionStateModel")
     // Inner value: List of observer entries
     private readonly Dictionary<StorageArea, Dictionary<string, List<ObserverEntry>>> _observersByArea = new();
 

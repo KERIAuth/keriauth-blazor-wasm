@@ -95,7 +95,7 @@
 
         private StorageObserver<Preferences>? preferencesStorageObserver;
         private StorageObserver<OnboardState>? onboardStateStorageObserver;
-        private StorageObserver<PasscodeModel>? passcodeModelObserver;
+        private StorageObserver<SessionStateModel>? sessionStateObserver;
         private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
         private StorageObserver<KeriaConnectConfigs>? keriaConnectConfigsObserver;
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
@@ -107,8 +107,7 @@
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = AppConfig.DefaultPreferences;
         public OnboardState MyOnboardState { get; private set; } = new OnboardState();
-        public PasscodeModel MyPasscodeModel { get; private set; } = new PasscodeModel() {
-            Passcode = "",
+        public SessionStateModel MySessionState { get; private set; } = new SessionStateModel() {
             SessionExpirationUtc = DateTime.MinValue // intentionally expired until set
         };
         public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
@@ -361,18 +360,11 @@
         public bool IsNotWaitingOnPendingRequests { get; private set; }
         public bool IsSessionUnlocked =>
             IsPasscodeHashSet &&
-            IsSessionPasscodeLocallyValid &&
-            IsSessionNotExpired &&
-            IsSessionPasscodeSet;
-        public bool IsSessionPasscodeSet =>
-            MyPasscodeModel.Passcode is not null &&
-            MyPasscodeModel.Passcode.Length == 21;
-        public bool IsSessionPasscodeLocallyValid =>
-            MyPasscodeModel.Passcode is not null &&
-            MyPasscodeModel.Passcode.Length == 21 &&
-            MyKeriaConnectConfig.PasscodeHash == DeterministicHash.ComputeHash(MyPasscodeModel.Passcode);
+            IsSessionExpirationSet &&
+            IsSessionNotExpired;
         public bool IsPasscodeHashSet => MyKeriaConnectConfig.PasscodeHash != 0;
-        public bool IsSessionNotExpired => MyPasscodeModel.SessionExpirationUtc > DateTime.UtcNow;
+        public bool IsSessionExpirationSet => MySessionState.SessionExpirationUtc != DateTime.MinValue;
+        public bool IsSessionNotExpired => MySessionState.SessionExpirationUtc > DateTime.UtcNow;
         public bool IsInitialized =>
             IsConfigured;
         public bool IsConfigured =>
@@ -467,7 +459,7 @@
         public void Dispose() {
             preferencesStorageObserver?.Dispose();
             onboardStateStorageObserver?.Dispose();
-            passcodeModelObserver?.Dispose();
+            sessionStateObserver?.Dispose();
             keriaConnectConfigObserver?.Dispose();
             keriaConnectConfigsObserver?.Dispose();
             keriaConnectionInfoObserver?.Dispose();
@@ -520,15 +512,15 @@
                     null,
                     _logger
                 );
-                passcodeModelObserver = new StorageObserver<PasscodeModel>(
+                sessionStateObserver = new StorageObserver<SessionStateModel>(
                     storageService,
                     StorageArea.Session,
                     onNext: (value) => {
-                        MyPasscodeModel = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyPasscodeModel: Passcode length={Length}", value.Passcode?.Length ?? 0);
+                        MySessionState = value;
+                        _logger.LogInformation(nameof(AppCache) + ": updated MySessionState: SessionExpirationUtc={Expiration}", value.SessionExpirationUtc);
                         Changed?.Invoke();
                     },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing user session storage"),
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing session state storage"),
                     null,
                     _logger
                 );
@@ -652,13 +644,13 @@
             var onboardTask = storageService.GetItem<OnboardState>();
             var configsTask = storageService.GetItem<KeriaConnectConfigs>();
             var connectionsTask = storageService.GetItem<Connections>();
-            var passcodeTask = storageService.GetItem<PasscodeModel>(StorageArea.Session);
+            var sessionStateTask = storageService.GetItem<SessionStateModel>(StorageArea.Session);
             var connectionInfoTask = storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             var pendingTask = storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
             var notificationsTask = storageService.GetItem<Notifications>(StorageArea.Session);
 
             await Task.WhenAll(prefsTask, onboardTask, configsTask, connectionsTask,
-                passcodeTask, connectionInfoTask, pendingTask, notificationsTask);
+                sessionStateTask, connectionInfoTask, pendingTask, notificationsTask);
 
             // Apply results — Local storage records
             var prefsResult = prefsTask.Result;
@@ -701,14 +693,14 @@
             }
 
             // Apply results — Session storage records (may not exist if session is locked or browser was restarted)
-            var passcodeResult = passcodeTask.Result;
-            if (passcodeResult.IsSuccess && passcodeResult.Value is not null) {
-                MyPasscodeModel = passcodeResult.Value;
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PasscodeModel loaded (Passcode length={Length})",
-                    passcodeResult.Value.Passcode?.Length ?? 0);
+            var sessionStateResult = sessionStateTask.Result;
+            if (sessionStateResult.IsSuccess && sessionStateResult.Value is not null) {
+                MySessionState = sessionStateResult.Value;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - SessionStateModel loaded (SessionExpirationUtc={Expiration})",
+                    sessionStateResult.Value.SessionExpirationUtc);
             }
             else {
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PasscodeModel not found (session locked or new)");
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - SessionStateModel not found (session locked or new)");
             }
 
             var connectionResult = connectionInfoTask.Result;

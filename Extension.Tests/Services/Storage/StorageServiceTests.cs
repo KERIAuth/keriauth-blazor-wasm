@@ -45,7 +45,7 @@ public class StorageServiceTests {
     [Fact]
     public async Task SetItem_OnManagedStorage_ReturnsValidationError() {
         // Arrange
-        var model = new PasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var model = new TestPasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
 
         // Act
         var result = await _sut.SetItem(model, StorageArea.Managed);
@@ -60,7 +60,7 @@ public class StorageServiceTests {
     [Fact]
     public async Task RemoveItem_OnManagedStorage_ReturnsValidationError() {
         // Act
-        var result = await _sut.RemoveItem<PasscodeModel>(StorageArea.Managed);
+        var result = await _sut.RemoveItem<TestPasscodeModel>(StorageArea.Managed);
 
         // Assert
         Assert.True(result.IsFailed);
@@ -125,7 +125,7 @@ public class StorageServiceTests {
     [InlineData(StorageArea.Managed)]
     public async Task GetBytesInUse_TypeSpecific_OnLocalOrManaged_ReturnsValidationError(StorageArea area) {
         // Act
-        var result = await _sut.GetBytesInUse<PasscodeModel>(area);
+        var result = await _sut.GetBytesInUse<TestPasscodeModel>(area);
 
         // Assert
         Assert.True(result.IsFailed);
@@ -137,12 +137,12 @@ public class StorageServiceTests {
     #region Type Safety Tests
 
     [Fact]
-    public void TypeName_UsedAsStorageKey_PasscodeModel() {
+    public void TypeName_UsedAsStorageKey_TestPasscodeModel() {
         // Arrange - Using reflection to verify the pattern
-        var typeName = typeof(PasscodeModel).Name;
+        var typeName = typeof(TestPasscodeModel).Name;
 
-        // Assert - Storage key should be "PasscodeModel" (not "passcode")
-        Assert.Equal("PasscodeModel", typeName);
+        // Assert - Storage key should be "TestPasscodeModel" (not "passcode")
+        Assert.Equal("TestPasscodeModel", typeName);
     }
 
     [Fact]
@@ -264,9 +264,9 @@ public class StorageServiceTests {
     #region Storage Model Tests
 
     [Fact]
-    public void PasscodeModel_RequiresPasscode() {
+    public void TestPasscodeModel_RequiresPasscode() {
         // Act & Assert - Should compile with required property
-        var model = new PasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
+        var model = new TestPasscodeModel { Passcode = "test123", SessionExpirationUtc = DateTime.UtcNow.AddMinutes(5) };
         Assert.Equal("test123", model.Passcode);
     }
 
@@ -331,7 +331,7 @@ public class StorageServiceTests {
     public Task Subscribe_ReturnsDisposable() {
         // Arrange
         // await _sut.Initialize(StorageArea.Session);
-        var observer = new Mock<IObserver<PasscodeModel>>();
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
 
         // Act
         var subscription = _sut.Subscribe(observer.Object, StorageArea.Session);
@@ -348,7 +348,7 @@ public class StorageServiceTests {
     public Task Subscribe_SameObserverTwice_OnlyAddsOnce() {
         // Arrange
         // await _sut.Initialize(StorageArea.Session);
-        var observer = new Mock<IObserver<PasscodeModel>>();
+        var observer = new Mock<IObserver<TestPasscodeModel>>();
 
         // Act
         var subscription1 = _sut.Subscribe(observer.Object, StorageArea.Session);

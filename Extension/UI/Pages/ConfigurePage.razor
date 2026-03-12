@@ -460,31 +460,6 @@
         string clientAidPrefix = connectResult.ClientAidPrefix!;
         string agentAidPrefix = connectResult.AgentAidPrefix!;
 
-        // Store PasscodeModel to Session storage
-        var sessionExpiry = DateTime.UtcNow.AddMinutes(appCache.MyPreferences.InactivityTimeoutMinutes);
-        var passcodeModel = new PasscodeModel
-        {
-            Passcode = configuredPasscodeModel.Passcode,
-            SessionExpirationUtc = sessionExpiry
-        };
-
-        var storePasscodeResult = await storageService.SetItem<PasscodeModel>(passcodeModel, StorageArea.Session);
-        if (storePasscodeResult.IsFailed)
-        {
-            logger.LogError("Failed to store passcode: {Errors}", string.Join(", ", storePasscodeResult.Errors));
-            SetFlowFailed(3, "Failed to store session passcode");
-            return;
-        }
-
-        // Wait for PasscodeModel to be reflected in AppCache
-        // Waiting for IsSessionPasscodeSet (current: {Value})", appCache.IsSessionPasscodeSet);
-        await appCache.WaitForAppCache([() => appCache.IsSessionPasscodeSet]);
-        // IsSessionPasscodeSet check passed
-
-        // Waiting for IsSessionNotExpired (current: {Value})", appCache.IsSessionNotExpired);
-        await appCache.WaitForAppCache([() => appCache.IsSessionNotExpired]);
-        // IsSessionNotExpired check passed
-
         // Update KeriaConnectConfig with complete information
         var completeConfig = partialConfig with
         {
@@ -524,6 +499,22 @@
         }
         // IsConfigured check passed
         KeriaConnectConfig = completeConfig;
+
+        // Unlock session via BackgroundWorker RPC (stores passcode in BW memory, writes SessionStateModel)
+        var unlockResponse = await appBwPortService.SendRpcRequestAsync(
+            AppBwMessageType.Values.RequestUnlockSession,
+            new { payload = new { passcode = configuredPasscodeModel.Passcode } });
+        if (!unlockResponse.Ok)
+        {
+            var unlockError = unlockResponse.Error ?? "Failed to unlock session";
+            logger.LogError("Failed to unlock session: {Error}", unlockError);
+            SetFlowFailed(3, unlockError);
+            return;
+        }
+
+        // Wait for SessionStateModel to be reflected in AppCache
+        await appCache.WaitForAppCache([() => appCache.IsSessionExpirationSet]);
+        await appCache.WaitForAppCache([() => appCache.IsSessionNotExpired]);
 
         // Step 4: Get Identifiers (from storage - BW stored them after Connect)
         _currentStep = FlowStep.Ops4;
@@ -685,7 +676,7 @@
 
     /// <summary>
     /// Resets the configuration by clearing KeriaConnectConfig from Local storage,
-    /// clearing Session storage (PasscodeModel, KeriaConnectionInfo), and resetting
+    /// clearing Session storage (SessionStateModel, KeriaConnectionInfo), and resetting
     /// all local page state to defaults. This allows the user to start fresh.
     /// </summary>
     async Task RetryResetConfiguration()
@@ -693,11 +684,11 @@
         logger.LogInformation("ResetConfiguration: Clearing storage and resetting page state");
 
         // Note, not clearing all of session, since readiness of BW is tied to session existence.
-        // Clear Session storage (PasscodeModel and KeriaConnectionInfo)
-        var removePasscodeResult = await storageService.RemoveItem<PasscodeModel>(StorageArea.Session);
+        // Clear Session storage (SessionStateModel and KeriaConnectionInfo)
+        var removePasscodeResult = await storageService.RemoveItem<SessionStateModel>(StorageArea.Session);
         if (removePasscodeResult.IsFailed)
         {
-            logger.LogWarning("Failed to remove PasscodeModel: {Errors}", string.Join(", ", removePasscodeResult.Errors));
+            logger.LogWarning("Failed to remove SessionStateModel: {Errors}", string.Join(", ", removePasscodeResult.Errors));
         }
 
         var removeConnectionInfoResult = await storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);

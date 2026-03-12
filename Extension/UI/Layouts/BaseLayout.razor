@@ -51,7 +51,7 @@
     protected bool IsPortConnected => appBwPortService.IsConnected;
 
     // Session timeout properties - available to all layouts
-    protected TimeSpan SessionDurationRemaining => appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow;
+    protected TimeSpan SessionDurationRemaining => appCache.MySessionState.SessionExpirationUtc - DateTime.UtcNow;
     protected int SessionDurationRemainingSeconds => (int)SessionDurationRemaining.TotalSeconds + 1; // round up for display
     protected int SessionPercentageRemaining => (int)((SessionDurationRemaining.TotalSeconds / AppConfig.DisplaySessionExpirationAtSecondsRemaining) * 100);
 
@@ -233,7 +233,7 @@
                 // such as showing a timeout countdown when session is about to expire.
                 // Note: the actual session expiration handling is done elsewhere. Search for various places of storage.clear of session storage.
                 if (appCache.IsSessionNotExpired &&
-                    (appCache.MyPasscodeModel.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
+                    (appCache.MySessionState.SessionExpirationUtc - DateTime.UtcNow).Seconds < AppConfig.DisplaySessionExpirationAtSecondsRemaining)
                 {
                     InvokeAsync(StateHasChanged);
                 }

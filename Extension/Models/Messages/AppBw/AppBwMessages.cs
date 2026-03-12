@@ -153,6 +153,15 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestGetExchange = "AppBw.RequestGetExchange";
             public const string RequestIpexAdmit = "AppBw.RequestIpexAdmit";
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
+            public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
+
+            // TODO P2 consider deprecating the following.
+            /// <summary>
+            /// Request to get the current session passcode from BackgroundWorker memory.
+            /// Used by App pages that need the passcode (e.g., MnemonicPage, WebauthnService).
+            /// Returns null if the session is locked.
+            /// </summary>
+            public const string RequestGetSessionPasscode = "AppBw.RequestGetSessionPasscode";
         }
 
         public string Value { get; }
@@ -189,6 +198,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetExchange { get; } = new(Values.RequestGetExchange);
         public static AppBwMessageType RequestIpexAdmit { get; } = new(Values.RequestIpexAdmit);
         public static AppBwMessageType RequestPollNotifications { get; } = new(Values.RequestPollNotifications);
+        public static AppBwMessageType RequestUnlockSession { get; } = new(Values.RequestUnlockSession);
+        public static AppBwMessageType RequestGetSessionPasscode { get; } = new(Values.RequestGetSessionPasscode);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -297,6 +308,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestPollNotifications:
                     result = RequestPollNotifications;
+                    return true;
+                case Values.RequestUnlockSession:
+                    result = RequestUnlockSession;
+                    return true;
+                case Values.RequestGetSessionPasscode:
+                    result = RequestGetSessionPasscode;
                     return true;
                 default:
                     return false;
@@ -664,6 +681,16 @@ namespace Extension.Models.Messages.AppBw {
 
     public record IpexAdmitResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Response payload for get session passcode request.
+    /// Passcode is null if the session is locked.
+    /// </summary>
+    public record GetSessionPasscodeResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("passcode")] string? Passcode = null,
         [property: JsonPropertyName("error")] string? Error = null
     );
 
