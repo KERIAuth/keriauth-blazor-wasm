@@ -176,11 +176,11 @@ const updateIconForTab = async (tabId: number, isActive: boolean): Promise<void>
     try {
         await chrome.action.setIcon({
             path: {
-                16: chrome.runtime.getURL(`images/${iconPrefix}016.png`),
-                24: chrome.runtime.getURL(`images/${iconPrefix}024.png`),
-                32: chrome.runtime.getURL(`images/${iconPrefix}032.png`),
-                48: chrome.runtime.getURL(`images/${iconPrefix}048.png`),
-                128: chrome.runtime.getURL(`images/${iconPrefix}128.png`)
+                16: `images/${iconPrefix}016.png`,
+                24: `images/${iconPrefix}024.png`,
+                32: `images/${iconPrefix}032.png`,
+                48: `images/${iconPrefix}048.png`,
+                128: `images/${iconPrefix}128.png`
             },
             tabId
         });
