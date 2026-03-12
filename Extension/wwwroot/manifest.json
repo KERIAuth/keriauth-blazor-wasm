@@ -9,7 +9,6 @@
       "128": "images/logob128.png"
     }
   },
-  "author": "https://keriauth.com",
   "background": {
     "service_worker": "content/BackgroundWorker.js",
     "type": "module"
