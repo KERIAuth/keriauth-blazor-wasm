@@ -126,6 +126,12 @@
             KeriaConnectionDigest = "",
             IdentifiersList = []
         };
+        // TODO P2: Add a CurrentAids computed property here (e.g. `public List<Aid> CurrentAids => MyKeriaConnectionInfo?.IdentifiersList is { Count: > 0 } list ? list[0].Aids : [];`)
+        // to centralize the two-level null-safe access pattern. Several call sites in UI pages are inconsistent —
+        // some use ?. throughout, others don't, and a NullReferenceException was caught in WebsiteConfigDisplay.razor.
+        // TODO P2: Investigate why MyKeriaConnectionInfo can be null despite its non-null default initializer above.
+        // The StorageObserver onNext setter (below) assigns `value` directly — if session storage returns null/missing
+        // for the key, deserialization may produce null and set this property to null. Add a null guard or warning log there.
 
         /// <summary>
         /// Gets the KeriaConnectConfig for the current session by looking up MyKeriaConnectionInfo.KeriaConnectionDigest.
