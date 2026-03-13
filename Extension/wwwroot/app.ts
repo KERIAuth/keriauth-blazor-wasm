@@ -168,28 +168,35 @@ const promptAndReloadTab = async (tabId: number, message: string, context: strin
 
 const tabIconState = new Map<number, boolean>();
 
+// chrome.action.setIcon with path fails in service workers on macOS Chrome ("Failed to fetch").
+// Workaround: fetch images ourselves, render to OffscreenCanvas, and pass ImageData directly.
+const loadIconImageData = async (path: string, size: number): Promise<ImageData> => {
+    const url = chrome.runtime.getURL(path);
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(bitmap, 0, 0, size, size);
+    bitmap.close();
+    return ctx.getImageData(0, 0, size, size);
+};
+
 const updateIconForTab = async (tabId: number, isActive: boolean): Promise<void> => {
     if (tabIconState.get(tabId) === isActive) return;
 
     const iconPrefix = isActive ? "logo" : "logob";
+    const sizes = [16, 24, 32, 48, 128] as const;
 
     try {
-        await chrome.action.setIcon({
-            path: {
-                16: `images/${iconPrefix}016.png`,
-                24: `images/${iconPrefix}024.png`,
-                32: `images/${iconPrefix}032.png`,
-                48: `images/${iconPrefix}048.png`,
-                128: `images/${iconPrefix}128.png`
-            },
-            tabId
-        });
-        // await chrome.action.setBadgeBackgroundColor({ color: isActive ? '#0F9D58' : '#808080', tabId });
-        if (isActive) {
-            // await chrome.action.setBadgeText({ text: 'ON', tabId });
-        } else {
-            // await chrome.action.setBadgeText({ text: 'off', tabId });
+        const imageDataEntries = await Promise.all(
+            sizes.map(async (size) => [size, await loadIconImageData(`images/${iconPrefix}${size.toString().padStart(3, '0')}.png`, size)] as const)
+        );
+        const imageData: Record<string, ImageData> = {};
+        for (const [size, data] of imageDataEntries) {
+            imageData[size.toString()] = data;
         }
+        await chrome.action.setIcon({ imageData, tabId });
         tabIconState.set(tabId, isActive);
         console.debug(`app.ts: ${_logTag} Set ${isActive ? 'active' : 'inactive'} icon for tab ${tabId}`);
     } catch (error) {
