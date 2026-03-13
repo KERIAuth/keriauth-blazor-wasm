@@ -55,7 +55,8 @@ public class WebauthnService : IWebauthnService {
         string? authenticatorAttachment,
         string userVerification,
         string attestationConveyancePreference,
-        List<string> hints) {
+        List<string> hints,
+        CancellationToken cancellationToken = default) {
         try {
             // Get KERIA connection digest and compute PRF salt
             var keriaConnectionDigestResult = await GetCurrentKeriaConnectionDigestAsync();
@@ -111,7 +112,7 @@ public class WebauthnService : IWebauthnService {
                 PrfSaltBase64 = prfSaltBase64
             };
 
-            var createResult = await _credentialsBinding.CreateCredentialAsync(createOptions);
+            var createResult = await _credentialsBinding.CreateCredentialAsync(createOptions, cancellationToken);
             if (createResult.IsFailed) {
                 _logger.LogWarning(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to create credential: {Errors}", string.Join(", ", createResult.Errors));
                 return Result.Fail<string>(createResult.Errors);
@@ -132,7 +133,7 @@ public class WebauthnService : IWebauthnService {
                 PrfSaltBase64 = prfSaltBase64
             };
 
-            var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions);
+            var assertionResult = await _credentialsBinding.GetCredentialAsync(getOptions, cancellationToken);
             if (assertionResult.IsFailed) {
                 _logger.LogWarning(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to get assertion: {Errors}", string.Join(", ", assertionResult.Errors));
                 return Result.Fail<string>(assertionResult.Errors);

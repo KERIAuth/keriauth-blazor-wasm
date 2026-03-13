@@ -49,6 +49,9 @@
         Custom
     }
 
+    // Cancelled when the component is disposed, aborting any in-flight WebAuthn browser operation.
+    readonly CancellationTokenSource _cts = new();
+
     // Current selection (default to Hardware Security Key)
     TargetPasskeyType _selectedTarget = TargetPasskeyType.HardwareSecurityKey;
 
@@ -147,7 +150,8 @@
             _authenticatorAttachment == "undefined" ? null : _authenticatorAttachment,
             _userVerification,
             _attestation,
-            _selectedHints);
+            _selectedHints,
+            _cts.Token);
 
         if (res.IsFailed)
         {
@@ -277,6 +281,8 @@
 
     public void Dispose()
     {
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }
 

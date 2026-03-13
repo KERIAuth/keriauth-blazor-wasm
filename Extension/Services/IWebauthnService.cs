@@ -13,13 +13,15 @@ public interface IWebauthnService {
     /// <param name="userVerification">"required" | "preferred" | "discouraged"</param>
     /// <param name="attestationConveyancePreference">"none" | "indirect" | "direct" | "enterprise"</param>
     /// <param name="hints">Authenticator hints for browser UI</param>
+    /// <param name="cancellationToken">Cancels the in-flight WebAuthn browser operation (e.g., on component disposal)</param>
     /// <returns>Name of the newly created passkey, or error</returns>
     Task<Result<string>> RegisterAttestStoreAuthenticatorAsync(
         string residentKey,
         string? authenticatorAttachment,
         string userVerification,
         string attestationConveyancePreference,
-        List<string> hints);
+        List<string> hints,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Authenticates with a stored passkey and returns the decrypted passcode.

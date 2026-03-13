@@ -152,6 +152,14 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
             var optionsJson = JsonSerializer.Serialize(options, JsonOptions.CamelCaseOmitNull);
             _logger.LogDebug(nameof(CreateCredentialAsync) + ": Creating WebAuthn credential with options: {Options}", optionsJson);
 
+            // When cancelled, abort the browser-side navigator.credentials.create() via AbortController in the JS shim.
+            // The JS abort causes the promise to reject, which surfaces as JSException below.
+            var module = Module;
+            using var abortReg = cancellationToken.CanBeCanceled
+                ? cancellationToken.Register(() => _ = module.InvokeVoidAsync("abortPendingCredentialOperation").AsTask()
+                    .ContinueWith(t => { if (t.IsFaulted) _logger.LogWarning(nameof(CreateCredentialAsync) + ": abortPendingCredentialOperation failed: {Error}", t.Exception?.Message); }, TaskScheduler.Default))
+                : default;
+
             var result = await Module.InvokeAsync<CredentialCreationResult>(
                 "createCredential",
                 cancellationToken,
@@ -177,6 +185,10 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
                 options.AuthenticatorAttachment ?? "(none/null)");
             return Result.Ok(result);
         }
+        catch (OperationCanceledException) {
+            _logger.LogInformation(nameof(CreateCredentialAsync) + ": Cancelled");
+            return Result.Fail<CredentialCreationResult>("WebAuthn credential creation cancelled");
+        }
         catch (JSException jsEx) {
             _logger.LogError(jsEx, nameof(CreateCredentialAsync) + ": JavaScript error during WebAuthn credential creation");
             return Result.Fail<CredentialCreationResult>(
@@ -199,6 +211,13 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
             var optionsJson = JsonSerializer.Serialize(options, JsonOptions.CamelCaseOmitNull);
             _logger.LogDebug(nameof(GetCredentialAsync) + ": Getting WebAuthn assertion with options: {Options}", optionsJson);
 
+            // When cancelled, abort the browser-side navigator.credentials.get() via AbortController in the JS shim.
+            var module = Module;
+            using var abortReg = cancellationToken.CanBeCanceled
+                ? cancellationToken.Register(() => _ = module.InvokeVoidAsync("abortPendingCredentialOperation").AsTask()
+                    .ContinueWith(t => { if (t.IsFaulted) _logger.LogWarning(nameof(GetCredentialAsync) + ": abortPendingCredentialOperation failed: {Error}", t.Exception?.Message); }, TaskScheduler.Default))
+                : default;
+
             var result = await Module.InvokeAsync<CredentialAssertionResult>(
                 "getCredential",
                 cancellationToken,
@@ -215,6 +234,10 @@ public class NavigatorCredentialsBinding : INavigatorCredentialsBinding {
                 result.CredentialId,
                 result.PrfOutputBase64 is not null ? Convert.FromBase64String(result.PrfOutputBase64).Length : 0);
             return Result.Ok(result);
+        }
+        catch (OperationCanceledException) {
+            _logger.LogInformation(nameof(GetCredentialAsync) + ": Cancelled");
+            return Result.Fail<CredentialAssertionResult>("WebAuthn assertion cancelled");
         }
         catch (JSException jsEx) {
             _logger.LogInformation(jsEx, nameof(GetCredentialAsync) + ": JavaScript error during WebAuthn assertion");

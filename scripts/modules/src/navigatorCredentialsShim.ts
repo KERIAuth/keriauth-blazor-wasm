@@ -5,6 +5,22 @@
 
 /// <reference types="chrome-types" />
 
+// Module-level AbortController for the in-progress WebAuthn operation (create or get).
+// Only one WebAuthn operation can be in progress at a time in the browser.
+// A new call aborts any previous pending one, and the C# layer can also abort via abortPendingCredentialOperation().
+let _credentialAbortController: AbortController | null = null;
+
+/**
+ * Aborts any in-progress navigator.credentials.create() or navigator.credentials.get() call.
+ * Called from C# when the initiating component is disposed or the operation is cancelled.
+ */
+export function abortPendingCredentialOperation(): void {
+    if (_credentialAbortController) {
+        _credentialAbortController.abort('Cancelled by application');
+        _credentialAbortController = null;
+    }
+}
+
 // Constants matching the C# WebauthnService expectations
 const CREDS_PUBKEY_PARAMS: PublicKeyCredentialParameters[] = [
     { alg: -8, type: 'public-key' },   // EdDSA
@@ -248,10 +264,21 @@ export async function createCredential(
         hints: options.hints
     };
 
+    // Abort any previous in-progress operation and start a new AbortController for this one.
+    _credentialAbortController?.abort('Superseded by new request');
+    _credentialAbortController = new AbortController();
+    const signal = _credentialAbortController.signal;
+
     // Call WebAuthn API
-    const credential = await navigator.credentials.create({
-        publicKey: publicKeyOptions
-    }) as PublicKeyCredential | null;
+    let credential: PublicKeyCredential | null = null;
+    try {
+        credential = await navigator.credentials.create({
+            publicKey: publicKeyOptions,
+            signal
+        }) as PublicKeyCredential | null;
+    } finally {
+        _credentialAbortController = null;
+    }
 
     if (!credential) {
         throw new Error('navigator.credentials.create() returned null');
@@ -414,10 +441,21 @@ export async function getCredential(
         timeout: CREDS_GET_TIMEOUT
     };
 
+    // Abort any previous in-progress operation and start a new AbortController for this one.
+    _credentialAbortController?.abort('Superseded by new request');
+    _credentialAbortController = new AbortController();
+    const signal = _credentialAbortController.signal;
+
     // Call WebAuthn API
-    const assertion = await navigator.credentials.get({
-        publicKey: publicKeyOptions
-    }) as PublicKeyCredential | null;
+    let assertion: PublicKeyCredential | null = null;
+    try {
+        assertion = await navigator.credentials.get({
+            publicKey: publicKeyOptions,
+            signal
+        }) as PublicKeyCredential | null;
+    } finally {
+        _credentialAbortController = null;
+    }
 
     if (!assertion) {
         throw new Error('navigator.credentials.get() returned null');
