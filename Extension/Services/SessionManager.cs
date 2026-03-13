@@ -384,8 +384,7 @@ public class SessionManager : IDisposable {
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
     public async Task LockSessionAsync() {
-        _logger.LogWarning(nameof(LockSessionAsync) + ": LOCKING SESSION (clearing KERIA session records). Stack: {Stack}",
-            Environment.StackTrace);
+        _logger.LogInformation(nameof(LockSessionAsync) + ": Locking session (clearing KERIA session records)");
         await ClearKeriaSessionRecordsAsync();
     }
 
@@ -399,7 +398,7 @@ public class SessionManager : IDisposable {
     /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
     /// </summary>
     public async Task ClearKeriaSessionRecordsAsync() {
-        _logger.LogWarning(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
 
         // Clear in-memory passcode
         _passcode = null;

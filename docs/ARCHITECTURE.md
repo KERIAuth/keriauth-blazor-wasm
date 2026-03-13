@@ -189,11 +189,12 @@ Implementation: `NotificationPollingService` handles the actual KERIA fetch, enr
 
 ## Session Lifecycle
 
-- Session state stored in `StorageArea.Session` via `PasscodeModel` (passcode + expiration)
-- BackgroundWorker is authoritative via Chrome alarms
+- Passcode held only in BackgroundWorker memory (`SessionManager._passcode`) — lost on service worker termination
+- `SessionStateModel` in `StorageArea.Session` tracks expiration; `SessionManagerAlarm` (one-shot Chrome alarm) fires at expiration to lock
+- `SessionKeepAliveAlarm` (periodic, every 30s) prevents Chrome from terminating the service worker during an active session. First fire is scheduled 25s after creation to close the gap before Chrome's ~30s idle timeout
 - App contexts display informational countdown timers (may drift slightly from authoritative alarm)
-- User activity detected via DOM events in App, sent as USER_ACTIVITY message to BackgroundWorker, which extends session if unlocked
-- On expiration: BackgroundWorker clears session storage, locking the session
+- User activity detected via DOM events in App, sent as USER_ACTIVITY event to BackgroundWorker, which extends session if unlocked
+- On expiration or service worker restart (passcode lost): BackgroundWorker clears session storage, locking the session
 
 ## JavaScript Module Loading
 
