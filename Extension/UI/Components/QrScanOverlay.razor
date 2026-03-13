@@ -17,6 +17,21 @@
     private int _currentDeviceIdx;
     private IJSObjectReference? _audioModule;
     private IJSObjectReference? _cameraModule;
+    private bool? _cameraPermissionGranted;
+    private bool _prevIsVisible;
+
+    protected override async Task OnParametersSetAsync() {
+        if (IsVisible && !_prevIsVisible) {
+            _cameraPermissionGranted = null;
+            _cameraModule ??= await js.InvokeAsync<IJSObjectReference>(
+                "import", "./scripts/helpers/cameraHelper.js");
+            _cameraPermissionGranted = await _cameraModule.InvokeAsync<bool>("requestCameraPermission");
+        }
+        else if (!IsVisible) {
+            _cameraPermissionGranted = null;
+        }
+        _prevIsVisible = IsVisible;
+    }
 
     private async Task OnBarcodeReceived(BarcodeReceivedEventArgs args) {
         if (string.IsNullOrEmpty(args.BarcodeText)) return;
@@ -127,27 +142,36 @@
                 <MudText Typo="Typo.h6">Scan QR Code</MudText>
 
                 <div style="display: flex; justify-content: center;">
-                    @* Known console warnings from BlazorBarcodeScanner.ZXing.JS and its bundled zxingjs:
-                       - "Trying to play video that is already playing."
-                       - "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true."
-                       - "Reset camera stream." and "undefined"
-                       These originate inside the NuGet package's JS and cannot be fixed without changing the package. *@
-                    <BarcodeReader @ref="_reader"
-                                   Title=""
-                                   StartCameraAutomatically="true"
-                                   ShowStart="false"
-                                   ShowStop="false"
-                                   ShowReset="false"
-                                   ShowToggleTorch="false"
-                                   ShowVideoDeviceList="false"
-                                   ShowResult="false"
-                                   VideoWidth="260"
-                                   VideoHeight="260"
-                                   StreamWidth="720"
-                                   StreamHeight="720"
-                                   OnBarcodeReceived="OnBarcodeReceived"
-                                   OnErrorReceived="OnErrorReceived"
-                                   VideoInputDevicesChanged="OnVideoInputDevicesChanged"/>
+                    @if (_cameraPermissionGranted == true)
+                    {
+                        @* Known console warnings from BlazorBarcodeScanner.ZXing.JS and its bundled zxingjs:
+                           - "Trying to play video that is already playing."
+                           - "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true."
+                           - "Reset camera stream." and "undefined"
+                           These originate inside the NuGet package's JS and cannot be fixed without changing the package. *@
+                        <BarcodeReader @ref="_reader"
+                                       Title=""
+                                       StartCameraAutomatically="true"
+                                       ShowStart="false"
+                                       ShowStop="false"
+                                       ShowReset="false"
+                                       ShowToggleTorch="false"
+                                       ShowVideoDeviceList="false"
+                                       ShowResult="false"
+                                       VideoWidth="260"
+                                       VideoHeight="260"
+                                       StreamWidth="720"
+                                       StreamHeight="720"
+                                       OnBarcodeReceived="OnBarcodeReceived"
+                                       OnErrorReceived="OnErrorReceived"
+                                       VideoInputDevicesChanged="OnVideoInputDevicesChanged"/>
+                    }
+                    else if (_cameraPermissionGranted == false)
+                    {
+                        <MudText Color="Color.Error" Align="Align.Center">
+                            Camera access was denied. Allow it in Chrome extension settings and try again.
+                        </MudText>
+                    }
                 </div>
 
                 @if (_hasMultipleCameras)
