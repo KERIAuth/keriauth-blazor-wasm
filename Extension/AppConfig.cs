@@ -10,7 +10,7 @@ namespace Extension {
         // SessionManager configuration
         public const string SessionManagerAlarmName = "SessionManagerAlarm";
         public const double AlarmRescheduleThresholdSeconds = 15;
-        public const double SessionKeepAliveAlarmPeriodMinutes = 1.0;
+        public const double SessionKeepAliveAlarmPeriodMinutes = 0.5; // 30 seconds — Chrome 120+ minimum
 
         // BackgroundWorker ready-wait configuration
         public const int BwReadyTimeoutMs = 5000;

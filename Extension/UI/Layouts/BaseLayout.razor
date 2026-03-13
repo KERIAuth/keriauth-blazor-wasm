@@ -146,7 +146,9 @@
         {
             if (Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
             {
-                logger.LogInformation("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated");
+                appCache.LogAuthDiagnostic(logger);
+                logger.LogWarning("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated, currentPath={Path}",
+                    "/" + navManager.ToBaseRelativePath(navManager.Uri));
                 navManager.NavigateTo(Routes.Paths.Index);
                 return;
             }

@@ -400,6 +400,28 @@
             IsTosHashExpected &&
             IsPrivacyHashExpected;
 
+        /// <summary>
+        /// Logs every component of the IsAuthenticated chain for diagnosing unexpected session locks.
+        /// Call when IsAuthenticated transitions to false unexpectedly.
+        /// </summary>
+        public void LogAuthDiagnostic(ILogger logger) {
+            var selectedDigest = MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+            var configFound = !string.IsNullOrEmpty(selectedDigest) && MyKeriaConnectConfigs.Configs.ContainsKey(selectedDigest);
+            logger.LogWarning(
+                "AUTH DIAGNOSTIC: IsAuthenticated={IsAuth}, IsSessionUnlocked={IsUnlocked}, IsInitialized={IsInit}" +
+                " | SessionUnlocked components: IsPasscodeHashSet={PHSet}(hash={PH}), IsSessionExpirationSet={SESet}, IsSessionNotExpired={SNE}(expUtc={Exp})" +
+                " | Initialized components: IsKeriaConfigValidated={KCV}, IsProductOnboarded={PO}, MyPreferences.IsStored={PS}" +
+                " | Config lookup: selectedDigest={Digest}, configFoundInDict={CF}, configCount={CC}" +
+                " | ProductOnboarded: IsWelcomed={IW}, InstallVersionAcknowledged={IVA}, TosHash={TH}=={ETH}, PrivacyHash={PRH}=={EPH}",
+                IsAuthenticated, IsSessionUnlocked, IsInitialized,
+                IsPasscodeHashSet, MyKeriaConnectConfig.PasscodeHash, IsSessionExpirationSet, IsSessionNotExpired, MySessionState.SessionExpirationUtc,
+                IsKeriaConfigValidated, IsProductOnboarded, MyPreferences.IsStored,
+                selectedDigest ?? "(null)", configFound, MyKeriaConnectConfigs.Configs.Count,
+                MyOnboardState.IsWelcomed, MyOnboardState.InstallVersionAcknowledged,
+                MyOnboardState.TosAgreedHash, AppConfig.ExpectedTermsDigest,
+                MyOnboardState.PrivacyAgreedHash, AppConfig.ExpectedPrivacyDigest);
+        }
+
         public bool IsCurrentTosAgreed =>
             IsTosAgreedUtc &&
             IsTosHashExpected;

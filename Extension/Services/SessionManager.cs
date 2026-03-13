@@ -118,7 +118,8 @@ public class SessionManager : IDisposable {
 
             // SessionStateModel exists but _passcode is null (SW was restarted).
             // Lock immediately — user must re-authenticate.
-            _logger.LogInformation(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": SessionStateModel found on startup but passcode lost (SW restarted) — locking session");
+            _logger.LogWarning(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": SessionStateModel found but passcode lost (SW restarted) — LOCKING SESSION. Expiration was {Exp}",
+                sessionState.SessionExpirationUtc);
             await LockSessionAsync();
         }
         catch (Exception ex) {
@@ -256,7 +257,12 @@ public class SessionManager : IDisposable {
 
     /// <summary>
     /// Creates or ensures the keep-alive periodic alarm is running.
-    /// The alarm fires every minute to prevent the service worker from being suspended during an active session.
+    /// The alarm fires every 30 seconds to prevent the service worker from being terminated by Chrome.
+    ///
+    /// CRITICAL: The `When` parameter schedules the FIRST fire ~25 seconds from now. Without it,
+    /// Chrome only fires the alarm after one full `PeriodInMinutes` interval (~30s). During that
+    /// initial gap, Chrome's ~30s idle timeout can terminate the SW, losing the in-memory passcode
+    /// and forcing a session lock. This was the root cause of premature locking on fresh install.
     /// </summary>
     private async Task EnsureKeepAliveAlarmAsync() {
         try {
@@ -265,10 +271,12 @@ public class SessionManager : IDisposable {
                 _logger.LogDebug(nameof(EnsureKeepAliveAlarmAsync) + ": Keep-alive alarm already running");
                 return;
             }
+            var firstFireMs = ((DateTimeOffset)DateTime.UtcNow.AddSeconds(25)).ToUnixTimeMilliseconds();
             await _webExtensionsApi.Alarms.Create(SessionKeepAliveAlarmName, new AlarmInfo {
+                When = firstFireMs,
                 PeriodInMinutes = AppConfig.SessionKeepAliveAlarmPeriodMinutes
             });
-            _logger.LogInformation(nameof(EnsureKeepAliveAlarmAsync) + ": Keep-alive alarm created (period={Period}min)", AppConfig.SessionKeepAliveAlarmPeriodMinutes);
+            _logger.LogInformation(nameof(EnsureKeepAliveAlarmAsync) + ": Keep-alive alarm created (firstFire=25s, period={Period}min)", AppConfig.SessionKeepAliveAlarmPeriodMinutes);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, nameof(EnsureKeepAliveAlarmAsync) + ": Failed to create keep-alive alarm");
@@ -376,7 +384,8 @@ public class SessionManager : IDisposable {
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
     public async Task LockSessionAsync() {
-        _logger.LogInformation(nameof(LockSessionAsync) + ": Locking session (clearing KERIA session records)");
+        _logger.LogWarning(nameof(LockSessionAsync) + ": LOCKING SESSION (clearing KERIA session records). Stack: {Stack}",
+            Environment.StackTrace);
         await ClearKeriaSessionRecordsAsync();
     }
 
@@ -390,7 +399,7 @@ public class SessionManager : IDisposable {
     /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
     /// </summary>
     public async Task ClearKeriaSessionRecordsAsync() {
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
+        _logger.LogWarning(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
 
         // Clear in-memory passcode
         _passcode = null;

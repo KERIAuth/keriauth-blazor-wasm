@@ -27,6 +27,7 @@
         [JsonPropertyName("KeriaPreference")]
         public KeriaPreference KeriaPreference { get; init; } = new();
 
+        // TODO P2 remove this?
         /// <summary>
         /// Backward compatibility - reads SelectedPrefix from KeriaPreference.
         /// Note: SelectedPrefix is now stored per-config in KeriaConnectConfig.

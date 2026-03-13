@@ -285,7 +285,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // BwReadyState not set - this service worker needs to initialize
-            logger.LogInformation(nameof(EnsureInitializedAsync) + ": BwReadyState not found or not initialized - performing initialization");
+            logger.LogWarning(nameof(EnsureInitializedAsync) + ": Re-initializing (_initializedThisLifetime was false)");
 
             // Ensure skeleton storage records exist
             await InitializeStorageDefaultsAsync();
@@ -528,7 +528,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnSuspendAsync() {
         try {
-            logger.LogDebug(nameof(OnSuspendAsync) + ": Service worker suspending, cleaning up");
+            logger.LogWarning(nameof(OnSuspendAsync) + ": Service worker suspending, cleaning up (will reset _initializedThisLifetime)");
 
             // Cancel active burst — KERIA calls would fail after unload.
             // Do NOT clear the alarm — it should survive SW restarts to wake for periodic polls.
