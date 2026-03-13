@@ -1,5 +1,6 @@
 ﻿using Blazor.BrowserExtension;
 using Extension;
+using JsBind.Net;
 using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
@@ -98,7 +99,11 @@ builder.UseBrowserExtension(browserExtension => {
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
             builder.Services.AddSingleton<IUserActivityService, UserActivityService>();
-            builder.Services.AddSingleton<SessionManager>();
+            builder.Services.AddSingleton<SessionManager>(sp => new(
+                sp.GetRequiredService<ILogger<SessionManager>>(),
+                sp.GetRequiredService<IStorageService>(),
+                sp.GetRequiredService<IJsRuntimeAdapter>(),
+                isSessionOwner: false));
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();
             builder.Services.AddSingleton<IAppBwPortService, AppBwPortService>();
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });

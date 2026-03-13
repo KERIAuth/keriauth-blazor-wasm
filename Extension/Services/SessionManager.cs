@@ -51,25 +51,29 @@ public class SessionManager : IDisposable {
     public SessionManager(
         ILogger<SessionManager> logger,
         IStorageService storageService,
-        IJsRuntimeAdapter jsRuntimeAdapter) {
+        IJsRuntimeAdapter jsRuntimeAdapter,
+        bool isSessionOwner = true) {
         _logger = logger;
         _storageService = storageService;
         _webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
-        _logger.LogInformation(nameof(SessionManager) + ": initializing...");
+        _logger.LogInformation(nameof(SessionManager) + ": initializing (isSessionOwner={IsSessionOwner})...", isSessionOwner);
 
-        // Start alarm and observers asynchronously
-        // Use Task.Run to avoid blocking in browser/Blazor WASM context
-        _ = Task.Run(async () => {
-            try {
-                await StartAsync();
-                _logger.LogInformation(nameof(SessionManager) + ": initialized successfully");
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, nameof(SessionManager) + ": initialization failed");
-                // Don't rethrow - nobody awaits this task, so the exception would be lost
-            }
-        });
+        // Only the BW (session owner) runs startup checks and subscribes to storage changes.
+        // The App also injects SessionManager but must not run startup logic — it has no passcode
+        // in memory and would incorrectly clear the BW's valid SessionStateModel on every App open.
+        if (isSessionOwner) {
+            _ = Task.Run(async () => {
+                try {
+                    await StartAsync();
+                    _logger.LogInformation(nameof(SessionManager) + ": initialized successfully");
+                }
+                catch (Exception ex) {
+                    _logger.LogError(ex, nameof(SessionManager) + ": initialization failed");
+                    // Don't rethrow - nobody awaits this task, so the exception would be lost
+                }
+            });
+        }
     }
 
     /// <summary>
