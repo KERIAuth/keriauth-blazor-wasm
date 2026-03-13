@@ -139,7 +139,7 @@ import {
      * Polls via CLIENT_SW_HELLO until BW responds with ready=true,
      * then creates a port and sends HELLO for session establishment.
      */
-    async function connectPort(): Promise<void> {
+    async function connectPort(readyTimeoutMs: number = READY_TIMEOUT_MS): Promise<void> {
         const POLL_INTERVAL_MS = 5000;
         const POLL_TIMEOUT_MS = 120000; // WASM cold start from inactive SW can take 60-90s
         const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -194,7 +194,7 @@ import {
                         if (port) port.disconnect();
                         reject(new Error('Port READY timeout'));
                     }
-                }, READY_TIMEOUT_MS);
+                }, readyTimeoutMs);
             });
 
         } catch (error) {
@@ -509,16 +509,27 @@ import {
     async function sendMessageToBW(msg: Polaris.MessageData<unknown>): Promise<void> {
         console.info(`${csAbbr}→BW: `, msg);
 
-        // Lazy reconnect if port is not ready
+        // Lazy reconnect if port is not ready - retry until connected or deadline
         if (!isPortReady || !port || !portSessionId) {
             console.debug(`${csAbbr}→BW: Port not connected, attempting reconnect...`);
-            try {
-                await connectPort();
-            } catch (e) {
-                console.debug(`${csAbbr}→BW: Reconnect failed:`, e);
+            const RECONNECT_TOTAL_TIMEOUT_MS = 10000;
+            const RECONNECT_RETRY_DELAY_MS = 2000;
+            const deadline = Date.now() + RECONNECT_TOTAL_TIMEOUT_MS;
+            // Use a short READY timeout per attempt: BW reports ready=true before WASM loads,
+            // so the first HELLO is often dropped. Fast timeout + retry lets us succeed once WASM is up.
+            const RECONNECT_READY_TIMEOUT_MS = 3000;
+            while (!isPortReady && Date.now() < deadline) {
+                try {
+                    await connectPort(RECONNECT_READY_TIMEOUT_MS);
+                    if (isPortReady) break;
+                } catch (e) {
+                    console.debug(`${csAbbr}→BW: Reconnect attempt failed:`, e);
+                }
+                if (Date.now() + RECONNECT_RETRY_DELAY_MS > deadline) break;
+                await new Promise(resolve => setTimeout(resolve, RECONNECT_RETRY_DELAY_MS));
             }
             if (!isPortReady || !port || !portSessionId) {
-                console.error(`${csAbbr}→BW: Still not connected after reconnect attempt`);
+                console.error(`${csAbbr}→BW: Still not connected after reconnect attempts`);
                 throw new Error('Port not connected to BackgroundWorker');
             }
         }
