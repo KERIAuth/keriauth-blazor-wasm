@@ -27,7 +27,7 @@
     "512": "images/logo512.png"
   },
   "manifest_version": 3,
-  "minimum_chrome_version": "127",
+  "minimum_chrome_version": "140",
   "name": "DIGN",
   "optional_host_permissions": [
     "https://*/*",
