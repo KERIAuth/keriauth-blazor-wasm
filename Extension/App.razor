@@ -56,12 +56,20 @@
         logger.LogInformation("Connected to BackgroundWorker via port, portSessionId={PortSessionId}, originTabId={OriginTabId}",
             appBwPortService.PortSessionId, appBwPortService.OriginTabId);
 
-        // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to index.html with force reload for redirection, e.g. to UnlockPage
+        // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to the context-appropriate index page for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated && Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
         {
             // This situation may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
-            // Navigate to InitialUri (e.g. index.html, indexInPopup.html, indexInSidePanel ...) with forced reload since we are in an unknown App load state.
-            navManager.NavigateTo(InitialUri.AbsolutePath, true);
+            // Navigate to the index page matching our context (TAB/POPUP/SIDEPANEL) with forced reload.
+            // Must NOT navigate back to InitialUri — that's the current auth-required page, which would cause an infinite reload loop.
+            var indexPath = AppContext switch
+            {
+                ContextType.POPUP => Routes.IndexPaths.InPopup,
+                ContextType.SIDEPANEL => Routes.IndexPaths.InSidePanel,
+                _ => Routes.IndexPaths.InTab
+            };
+            logger.LogInformation("Not authenticated on auth-required page, redirecting to {IndexPath}", indexPath);
+            navManager.NavigateTo(indexPath, true);
             return;
         }
 
