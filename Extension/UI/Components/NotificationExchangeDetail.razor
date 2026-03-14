@@ -19,11 +19,21 @@
     [Parameter]
     public bool IsAlreadyAdmitted { get; set; }
 
+    [Parameter]
+    public IpexFlowType FlowTypeFromRole { get; set; }
+
+    [Parameter]
+    public IpexFlowType FlowTypeFromAcdc { get; set; }
+
+    [Parameter]
+    public IpexFlowType FlowTypeFromPrior { get; set; }
+
+    [Parameter]
+    public bool IsLoadingPrior { get; set; }
+
     string? SenderAid => Exchange.I;
     string? RecipientAid => Exchange.Rp;
     string? ExchangeSaid => Exchange.D;
-
-    bool IsGrantRoute => Route == "/exn/ipex/grant";
 
     string? ExchangeJson => JsonSerializer.Serialize(Exchange.RawExn.ToObjectDictionary(), Helper.JsonOptions.Display);
 
@@ -31,6 +41,18 @@
         prefix is null ? "Unknown"
         : prefix.Length > 12 ? $"{prefix[..6]}...{prefix[^4..]}"
         : prefix;
+
+    static string FlowTypeLabel(IpexFlowType flowType) => flowType switch {
+        IpexFlowType.Issuance => "Issuance",
+        IpexFlowType.Presentation => "Presentation",
+        _ => "Unknown"
+    };
+
+    static Color FlowTypeColor(IpexFlowType flowType) => flowType switch {
+        IpexFlowType.Issuance => Color.Info,
+        IpexFlowType.Presentation => Color.Warning,
+        _ => Color.Default
+    };
 
     async Task CopyJsonToClipboard()
     {
@@ -40,27 +62,37 @@
             snackbar.Add("Exchange JSON copied to clipboard.", Severity.Success);
         }
     }
+
+    // Stub handlers for unimplemented IPEX actions
+    Task HandleOffer() => Task.CompletedTask;
+    Task HandleAgree() => Task.CompletedTask;
+    Task HandleGrant() => Task.CompletedTask;
+    Task HandleSpurn() => Task.CompletedTask;
 }
 
 <MudStack Spacing="1">
-    @*
-    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Sender</MudText>
-        <MudTooltip Text="@SenderAid" Delay="300">
-            <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(SenderAid)</MudText>
-        </MudTooltip>
+    @* Flow type inference display — shows results from multiple approaches for comparison *@
+    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Flow</MudText>
+        <MudChip T="string" Size="Size.Small" Color="@FlowTypeColor(FlowTypeFromRole)" Variant="Variant.Text">
+            Role: @FlowTypeLabel(FlowTypeFromRole)
+        </MudChip>
+        <MudChip T="string" Size="Size.Small" Color="@FlowTypeColor(FlowTypeFromAcdc)" Variant="Variant.Text">
+            ACDC: @FlowTypeLabel(FlowTypeFromAcdc)
+        </MudChip>
+        @if (IsLoadingPrior)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">
+                Prior: <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="width: 12px; height: 12px; margin-left: 4px;" />
+            </MudChip>
+        }
+        else
+        {
+            <MudChip T="string" Size="Size.Small" Color="@FlowTypeColor(FlowTypeFromPrior)" Variant="Variant.Text">
+                Prior: @FlowTypeLabel(FlowTypeFromPrior)
+            </MudChip>
+        }
     </MudStack>
-
-    @if (RecipientAid is not null)
-    {
-        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Recipient</MudText>
-            <MudTooltip Text="@RecipientAid" Delay="300">
-                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(RecipientAid)</MudText>
-            </MudTooltip>
-        </MudStack>
-    }
-    *@
 
     @if (ExchangeSaid is not null)
     {
@@ -80,35 +112,90 @@
         </MudStack>
     }
 
-    @if (IsGrantRoute)
-    {
-        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd">
-            @if (IsAlreadyAdmitted)
-            {
-                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                         Icon="@Icons.Material.Filled.CheckCircle">Already Admitted</MudChip>
-            }
-            else if (OnAdmit.HasDelegate)
-            {
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.CheckCircle"
-                           OnClick="OnAdmit"
-                           Disabled="@IsAdmitting">
-                    @if (IsAdmitting)
-                    {
-                        <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <text>Admitting...</text>
-                    }
-                    else
-                    {
-                        <text>Admit Credential</text>
-                    }
-                </MudButton>
-            }
-        </MudStack>
-    }
+    @* Route-aware IPEX action buttons *@
+    <MudStack Row="true" Class="mt-2 flex-wrap" Spacing="1" Justify="Justify.FlexEnd">
+        @switch (Route)
+        {
+            case "/exn/ipex/apply":
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.LocalOffer" Disabled="true"
+                               OnClick="HandleOffer">Offer</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                               OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
+                break;
+
+            case "/exn/ipex/offer":
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Handshake" Disabled="true"
+                               OnClick="HandleAgree">Agree</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                               OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
+                break;
+
+            case "/exn/ipex/agree":
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.CardGiftcard" Disabled="true"
+                               OnClick="HandleGrant">Grant</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                               OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
+                break;
+
+            case "/exn/ipex/grant":
+                @if (IsAlreadyAdmitted)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                             Icon="@Icons.Material.Filled.CheckCircle">Already Admitted</MudChip>
+                }
+                else if (OnAdmit.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.CheckCircle"
+                               OnClick="OnAdmit"
+                               Disabled="@IsAdmitting">
+                        @if (IsAdmitting)
+                        {
+                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Admitting...</text>
+                        }
+                        else
+                        {
+                            <text>Admit</text>
+                        }
+                    </MudButton>
+                }
+                @if (!IsAlreadyAdmitted)
+                {
+                    <MudTooltip Text="Not yet implemented">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                                   OnClick="HandleSpurn">Reject</MudButton>
+                    </MudTooltip>
+                }
+                break;
+
+            case "/exn/ipex/admit":
+                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text"
+                         Icon="@Icons.Material.Filled.Done">Terminal</MudChip>
+                break;
+        }
+    </MudStack>
 
     <MudExpansionPanels Dense="true">
         <MudExpansionPanel Text="Raw JSON" Dense="true">

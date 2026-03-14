@@ -115,5 +115,36 @@ namespace Extension.Services.SignifyService.Models {
 
         private static RecursiveDictionary? GetDict(RecursiveDictionary dict, string key) =>
             dict.TryGetValue(key, out var val) ? val?.Dictionary : null;
+
+        // Approach A: Infer flow type from the user's role relative to the notification.
+        // Assumption: if the user is the TARGET of a notification, the route implies a specific flow direction.
+        // For example, receiving a "grant" as target means someone is issuing TO the user (Issuance).
+        // Receiving an "apply" as target means someone is requesting FROM the user (Presentation).
+        // This heuristic may be wrong if the user is both issuer and holder, or in edge cases.
+        public static IpexFlowType InferFlowFromRole(string route, string? targetPrefix, IEnumerable<string> userPrefixes) {
+            if (targetPrefix is null) return IpexFlowType.Unknown;
+            var userIsTarget = userPrefixes.Contains(targetPrefix);
+            return route switch {
+                "/exn/ipex/apply" => userIsTarget ? IpexFlowType.Presentation : IpexFlowType.Issuance,
+                "/exn/ipex/offer" => userIsTarget ? IpexFlowType.Issuance : IpexFlowType.Presentation,
+                "/exn/ipex/agree" => userIsTarget ? IpexFlowType.Presentation : IpexFlowType.Issuance,
+                "/exn/ipex/grant" => userIsTarget ? IpexFlowType.Issuance : IpexFlowType.Presentation,
+                "/exn/ipex/admit" => userIsTarget ? IpexFlowType.Presentation : IpexFlowType.Issuance,
+                _ => IpexFlowType.Unknown
+            };
+        }
+
+        // Approach B: Infer flow type by comparing the exchange sender with the ACDC issuer.
+        // Only works when the exchange embeds an ACDC (typically grant messages).
+        // If the sender IS the ACDC issuer, this is an issuance (issuer sending their own credential).
+        // If the sender is NOT the ACDC issuer, this is a presentation (holder presenting someone else's credential).
+        public static IpexFlowType InferFlowFromAcdc(string? senderPrefix, RecursiveDictionary? embeddedData) {
+            if (senderPrefix is null || embeddedData is null) return IpexFlowType.Unknown;
+            var acdcIssuer = embeddedData.GetValueByPath("acdc.i")?.Value?.ToString();
+            if (acdcIssuer is null) return IpexFlowType.Unknown;
+            return senderPrefix == acdcIssuer ? IpexFlowType.Issuance : IpexFlowType.Presentation;
+        }
     }
+
+    public enum IpexFlowType { Unknown, Issuance, Presentation }
 }
