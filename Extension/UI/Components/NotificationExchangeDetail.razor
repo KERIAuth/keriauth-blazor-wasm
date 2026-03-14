@@ -1,4 +1,7 @@
+@using System.Text.Json
 @using Extension.Services.SignifyService.Models
+@inject IJSRuntime js
+@inject ISnackbar snackbar
 
 @code {
     [Parameter, EditorRequired]
@@ -22,13 +25,25 @@
 
     bool IsGrantRoute => Route == "/exn/ipex/grant";
 
+    string? ExchangeJson => JsonSerializer.Serialize(Exchange.RawExn.ToObjectDictionary(), Helper.JsonOptions.Display);
+
     static string ElidePrefix(string? prefix) =>
         prefix is null ? "Unknown"
         : prefix.Length > 12 ? $"{prefix[..6]}...{prefix[^4..]}"
         : prefix;
+
+    async Task CopyJsonToClipboard()
+    {
+        if (ExchangeJson is not null)
+        {
+            await js.InvokeVoidAsync("navigator.clipboard.writeText", ExchangeJson);
+            snackbar.Add("Exchange JSON copied to clipboard.", Severity.Success);
+        }
+    }
 }
 
 <MudStack Spacing="1">
+    @*
     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
         <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Sender</MudText>
         <MudTooltip Text="@SenderAid" Delay="300">
@@ -45,6 +60,7 @@
             </MudTooltip>
         </MudStack>
     }
+    *@
 
     @if (ExchangeSaid is not null)
     {
@@ -93,4 +109,20 @@
             }
         </MudStack>
     }
+
+    <MudExpansionPanels Dense="true">
+        <MudExpansionPanel Text="Raw JSON" Dense="true">
+            <MudPaper Elevation="1" Class="pa-3" Style="overflow-x: auto;">
+                <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem;">
+                    @ExchangeJson
+                </MudText>
+                <MudButton Variant="Variant.Text"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.ContentCopy"
+                           OnClick="CopyJsonToClipboard">
+                    Copy JSON
+                </MudButton>
+            </MudPaper>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
 </MudStack>
