@@ -8,8 +8,6 @@
 // Note: This is a KERI-focused wrapper with no browser session management or alarm features.
 // All functions return JSON strings for C# interop compatibility.
 
-import type { KeriaConnectConfig, PasscodeModel } from '@keriauth/types';
-import { StorageKeys } from '@keriauth/types';
 import type {
     EventResult,
     Operation,
@@ -156,24 +154,11 @@ export const test = async (): Promise<string> => {
 
 const validateClient = async (): Promise<SignifyClient> => {
     if (!_client || !_client.agent) {
-        // Client not connected - reconnect (usually because backgroundWorker hibernated and restarted)
-        const configResult = await chrome.storage.local.get(StorageKeys.KeriaConnectConfig);
-        const config = configResult?.[StorageKeys.KeriaConnectConfig] as KeriaConnectConfig | undefined;
-        const agentUrl = config?.AdminUrl;
-
-        const passcodeResult = await chrome.storage.session.get(StorageKeys.PasscodeModel);
-        const passcodeModel = passcodeResult?.[StorageKeys.PasscodeModel] as PasscodeModel | undefined;
-        const passcode = passcodeModel?.Passcode;
-
-        if (!agentUrl || agentUrl === '' || !passcode || passcode === '') {
-            return Promise.reject(new Error('signifyClient: validateClient - Missing agentUrl or passcode'));
-        }
-
-        await connect(agentUrl, passcode);
-        if (!_client) {
-            throw new Error('signifyClient: validateClient - Failed to reconnect SignifyClient');
-        }
-        return _client;
+        // Client not connected — C# must re-establish the connection via connect().
+        // The passcode is held only in C# memory (SessionManager._passcode) and is never
+        // persisted to chrome.storage.session, so reconnection from TypeScript alone is
+        // not possible. Callers should treat this as a "not connected" error.
+        throw new Error('signifyClient: validateClient - Client not connected');
     }
     return _client;
 };
