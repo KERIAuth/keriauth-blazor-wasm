@@ -74,13 +74,55 @@ type KeyState = Record<string, unknown>;
 // Re-export types for C# interop layer
 export type { HabState, KeyState, Contact, ContactInfo, CredentialResult, CredentialState, Schema, Registry, Challenge, AgentConfig };
 
+// ===================== Result Type for C# Interop =====================
+
+/** Error codes that map to C# IError types (NotConnectedError, ConnectionError, etc.) */
+type ErrorCode =
+    | 'not_connected'
+    | 'network_error'
+    | 'keria_error'
+    | 'operation_error'
+    | 'operation_timeout'
+    | 'validation_error'
+    | 'unknown';
+
+interface ResultOk<T = unknown> { ok: true; value: T }
+interface ResultErr { ok: false; code: ErrorCode; message: string }
+type Result<T = unknown> = ResultOk<T> | ResultErr;
+
+/** Classify a caught error into an ErrorCode + message for C# consumption */
+const classifyError = (error: unknown): { code: ErrorCode; message: string } => {
+    const msg = error instanceof Error ? error.message : String(error);
+
+    if (msg.includes('validateClient') || msg.includes('not connected') || msg.includes('Client not connected')) {
+        return { code: 'not_connected', message: msg };
+    }
+
+    if (msg === 'Failed to fetch' || msg.includes('network connectivity')) {
+        return { code: 'network_error', message: msg };
+    }
+
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+        return { code: 'operation_timeout', message: msg };
+    }
+
+    if (msg.includes('Operation') && msg.includes('failed:')) {
+        return { code: 'operation_error', message: msg };
+    }
+
+    // KERIA HTTP errors (signify-ts includes status codes in error messages)
+    if (/\b(4\d{2}|5\d{2})\b/.test(msg) && (msg.includes('status') || msg.includes(' - '))) {
+        return { code: 'keria_error', message: msg };
+    }
+
+    return { code: 'unknown', message: msg };
+};
+
 // ===================== Module State =====================
 
 let _client: SignifyClient | null = null;
 
 // ===================== Helper Functions =====================
-
-const objectToJson = (obj: object): string => JSON.stringify(obj);
 
 /** Default timeout for KERIA operations (ms) */
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -183,23 +225,23 @@ const withClientOperation = async (
     operation: (client: SignifyClient) => Promise<unknown>,
     logParams?: Record<string, unknown>
 ): Promise<string> => {
+    const paramString = logParams
+        ? ` - ${Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')}`
+        : '';
     try {
         const client = await validateClient();
         const result = await operation(client);
 
-        // Build log message
-        const paramString = logParams
-            ? ` - ${Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')}`
-            : '';
         console.debug(`signifyClient: ${operationName}${paramString}`);
 
-        return objectToJson(result as object);
+        const wrapped: ResultOk = { ok: true, value: result };
+        return JSON.stringify(wrapped);
     } catch (error) {
-        const paramString = logParams
-            ? ` - ${Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')}`
-            : '';
         console.error(`signifyClient: ${operationName} error${paramString}`, error);
-        throw error;
+
+        const classified = classifyError(error);
+        const wrapped: ResultErr = { ok: false, ...classified };
+        return JSON.stringify(wrapped);
     }
 };
 
@@ -315,12 +357,12 @@ export const bootAndConnect = async (
     passcode: string
 ): Promise<string> => {
     _client = null;
-    await ready();
-
-    // TODO P2: Consider raising Tier for production use
-    _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
-
     try {
+        await ready();
+
+        // TODO P2: Consider raising Tier for production use
+        _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
+
         // Boot the agent
         const bootResponse = await _client.boot().catch((e: Error) => {
             console.error('signifyClient: boot error', e);
@@ -343,14 +385,17 @@ export const bootAndConnect = async (
         // Verify the agent is ready for authenticated requests
         await waitForAgentReady(_client, 10, 2000);
 
+        const state = await _getState(_client);
+        console.debug('signifyClient: bootAndConnect');
+        const wrapped: ResultOk = { ok: true, value: { success: true, state } };
+        return JSON.stringify(wrapped);
     } catch (error) {
         console.error('signifyClient: bootAndConnect failed', error);
         _client = null;
-        throw error;
+        const classified = classifyError(error);
+        const wrapped: ResultErr = { ok: false, ...classified };
+        return JSON.stringify(wrapped);
     }
-
-    const state = await getState();
-    return objectToJson({ success: true, state: JSON.parse(state) });
 };
 
 /**
@@ -403,46 +448,55 @@ export const connect = async (
     maxRetries: number = MAX_CONNECT_RETRIES
 ): Promise<string> => {
     _client = null;
-    await ready();
+    try {
+        await ready();
 
-    // TODO P2: Consider raising Tier for production use
-    _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
+        // TODO P2: Consider raising Tier for production use
+        _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
 
-    let lastError: Error | null = null;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            await connectSignifyClient();
-            const state = await getState();
-            return objectToJson({ success: true, state: JSON.parse(state) });
-        } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
-            console.warn(`signifyClient: connect attempt ${attempt}/${maxRetries} failed`, error);
+        let lastError: Error | null = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await connectSignifyClient();
+                const state = await _getState(_client);
+                console.debug('signifyClient: connect');
+                const wrapped: ResultOk = { ok: true, value: { success: true, state } };
+                return JSON.stringify(wrapped);
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+                console.warn(`signifyClient: connect attempt ${attempt}/${maxRetries} failed`, error);
 
-            if (attempt < maxRetries) {
-                await sleep(retryInterval);
+                if (attempt < maxRetries) {
+                    await sleep(retryInterval);
+                }
             }
         }
-    }
 
-    // All retries exhausted
-    console.error('signifyClient: connect failed after all retries', lastError);
-    _client = null;
-    throw lastError ?? new Error('Connect failed after all retries');
+        // All retries exhausted
+        throw lastError ?? new Error('Connect failed after all retries');
+    } catch (error) {
+        console.error('signifyClient: connect failed', error);
+        _client = null;
+        const classified = classifyError(error);
+        const wrapped: ResultErr = { ok: false, ...classified };
+        return JSON.stringify(wrapped);
+    }
+};
+
+/**
+ * Internal: get client state without Result wrapping.
+ * Used by connect/bootAndConnect to embed state in their own Result envelope.
+ */
+const _getState = async (client: SignifyClient): Promise<unknown> => {
+    return client.state();
 };
 
 /**
  * Get the current client state (controller and agent info)
- * @returns JSON string of ClientState
+ * @returns JSON string of ClientState wrapped in Result envelope
  */
 export const getState = async (): Promise<string> => {
-    try {
-        const client = await validateClient();
-        const state = await client.state();
-        return objectToJson(state);
-    } catch (error) {
-        console.error('signifyClient: getState error:', error);
-        throw error;
-    }
+    return withClientOperation('getState', _getState);
 };
 
 // ===================== Identifier (AID) Operations =====================
