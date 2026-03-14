@@ -167,7 +167,7 @@
 
         // Request BW to start notification burst polling (if not already active)
         _ = appBwPortService.SendRpcRequestAsync(
-            AppBwMessageType.Values.RequestPollNotifications, null);
+            AppBwMessageType.Values.RequestPollNotifications, new { });
     }
 
     async Task OnViewDefChanged(string newId) {
