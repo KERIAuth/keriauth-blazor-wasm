@@ -283,10 +283,7 @@
                         @if (Attributes is not null)
                         {
                             <MudText Typo="Typo.body2" Class="mt-2"><strong>Attributes:</strong></MudText>
-                            @foreach (var kvp in Attributes)
-                            {
-                                <MudText Typo="Typo.body2" Style="font-family: monospace; word-break: break-all; padding-left: 8px;">@kvp.Key: @(kvp.Value?.StringValue ?? kvp.Value?.ToString() ?? "(null)")</MudText>
-                            }
+                            <pre style="font-family: monospace; font-size: 0.875rem; word-break: break-all; white-space: pre-wrap; padding-left: 8px; margin: 0;">@(System.Text.Json.JsonSerializer.Serialize(Attributes, Helper.JsonOptions.DisplayIndented))</pre>
                         }
                     }
                     else if (ipexKind == IpexKind.Agree)

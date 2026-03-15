@@ -8,6 +8,7 @@ namespace Extension.Helper {
     /// primitive values (string, bool, int, double), lists, or null values.
     /// This is particularly useful for KERI/ACDC operations where field order matters.
     /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(RecursiveDictionaryConverter))]
     public class RecursiveDictionary : Dictionary<string, RecursiveValue> {
         public RecursiveDictionary() : base() { }
         

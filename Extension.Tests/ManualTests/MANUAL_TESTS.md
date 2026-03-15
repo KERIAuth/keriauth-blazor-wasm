@@ -208,7 +208,21 @@ Expected manual test flow:
 
 ### IPEX Apply (Credential Issuance)
 ```js
-window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID(), payload: {schemaSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: false}}, window.location.origin);
+window.postMessage({
+  type: '/KeriAuth/ipex/apply',
+  requestId: crypto.randomUUID(),
+  payload: {
+    schemaSaid: 'EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw',
+    recipient: 'EFkSnI87zTv7LPOPZdXjoV52wCChfpUqYt7oGp7CjriJ',
+    isPresentation: false,
+    attributes: {
+      "LEI": "5493001KJTIIGC8Y1R17",
+      "personLegalName": "John Smith",
+      "engagementContextRole": "Head of Standards"
+    }
+  }
+}, window.location.origin);
+
 ```
 
 ### IPEX Apply (Credential Presentation)

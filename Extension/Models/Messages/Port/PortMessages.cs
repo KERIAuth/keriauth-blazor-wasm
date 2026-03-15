@@ -136,7 +136,7 @@ public record RpcRequest : PortMessage {
     public T? GetParams<T>() where T : class {
         if (Params is null) return null;
         if (Params is JsonElement el) {
-            return JsonSerializer.Deserialize<T>(el.GetRawText(), JsonOptions.Default);
+            return JsonSerializer.Deserialize<T>(el.GetRawText(), JsonOptions.PortMessaging);
         }
         // If already deserialized to correct type
         if (Params is T typed) return typed;

@@ -103,7 +103,7 @@ export interface CsBwIpexApplyParams {
     recipient: string;
     /** Whether this is a presentation flow (true) or issuance flow (false) */
     isPresentation?: boolean;
-    /** Optional attributes to filter the credential request */
+    /** Optional attributes for either a) credential issuance application, or b) to filter the credential presentation request */
     attributes?: Record<string, unknown>;
 }
 
