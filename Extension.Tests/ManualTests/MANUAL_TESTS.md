@@ -31,7 +31,7 @@
   - [Create Data Attestation Credential](#create-data-attestation-credential)
   - [Connection Invite](#connection-invite)
   - [IPEX](#ipex)
-    - [IPEX Apply (Credential Issuance)](#ipex-apply-credential-issuance)
+    - [IPEX Apply (Credential Issuance) for an ECR](#ipex-apply-credential-issuance-for-an-ecr)
     - [IPEX Apply (Credential Presentation)](#ipex-apply-credential-presentation)
     - [IPEX Agree (Credential Issuance)](#ipex-agree-credential-issuance)
     - [IPEX Agree (Credential Presentation)](#ipex-agree-credential-presentation)
@@ -206,7 +206,7 @@ Expected manual test flow:
 4. Click **Approve** (or **Reject** to test cancellation)
 5. Check the DevTools console for the response (`/signify/reply` with result or error)
 
-### IPEX Apply (Credential Issuance)
+### IPEX Apply (Credential Issuance) for an ECR
 ```js
 window.postMessage({
   type: '/KeriAuth/ipex/apply',
@@ -232,7 +232,7 @@ window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID()
 
 ### IPEX Agree (Credential Issuance)
 ```js
-window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: false}}, window.location.origin);
+window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFkSnI87zTv7LPOPZdXjoV52wCChfpUqYt7oGp7CjriJ', isPresentation: false}}, window.location.origin);
 ```
 
 ### IPEX Agree (Credential Presentation)
