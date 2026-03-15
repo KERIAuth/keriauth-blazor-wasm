@@ -157,6 +157,98 @@
         Routes.Paths.RequestConnect
     );
 
+    // Legal Entity vLEI Credential schema SAID
+    const string LegalEntityVleiSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
+
+    string? GetFirstConnectionReceiverPrefix()
+    {
+        var first = appCache.MyConnections.Items.FirstOrDefault();
+        if (first is null)
+        {
+            logger.LogWarning("SimulateRequestIpex: No connections available");
+            snackbar.Add("No connections available — add a connection first", MudBlazor.Severity.Warning);
+            return null;
+        }
+        return first.ReceiverPrefix;
+    }
+
+    async Task SimulateRequestIpexApply()
+    {
+        var recipient = GetFirstConnectionReceiverPrefix();
+        if (recipient is null) return;
+        await SimulateDialogRequestAsync(
+            BwAppMessageType.Values.RequestIpexApply,
+            tabId => new RequestIpexApplyPayload(
+                Origin: "https://example.com",
+                SchemaSaid: LegalEntityVleiSchemaSaid,
+                RecipientPrefix: recipient,
+                IsPresentation: false,
+                Attributes: null,
+                TabId: tabId,
+                TabUrl: "https://example.com/test",
+                OriginalRequestId: Guid.NewGuid().ToString(),
+                OriginalType: "/KeriAuth/ipex/apply"
+            ),
+            Routes.Paths.RequestApproveIpex
+        );
+    }
+
+    async Task SimulateRequestIpexOffer()
+    {
+        var recipient = GetFirstConnectionReceiverPrefix();
+        if (recipient is null) return;
+        logger.LogWarning("SimulateRequestIpexOffer: Offer is not yet implemented as a webpage-initiated flow");
+        snackbar.Add("IPEX Offer webpage-initiated flow not yet implemented", MudBlazor.Severity.Info);
+    }
+
+    async Task SimulateRequestIpexAgree()
+    {
+        var recipient = GetFirstConnectionReceiverPrefix();
+        if (recipient is null) return;
+        await SimulateDialogRequestAsync(
+            BwAppMessageType.Values.RequestIpexAgree,
+            tabId => new RequestIpexAgreePayload(
+                Origin: "https://example.com",
+                OfferSaid: "placeholder-offer-said",
+                RecipientPrefix: recipient,
+                IsPresentation: false,
+                TabId: tabId,
+                TabUrl: "https://example.com/test",
+                OriginalRequestId: Guid.NewGuid().ToString(),
+                OriginalType: "/KeriAuth/ipex/agree"
+            ),
+            Routes.Paths.RequestApproveIpex
+        );
+    }
+
+    async Task SimulateRequestIpexGrant()
+    {
+        var recipient = GetFirstConnectionReceiverPrefix();
+        if (recipient is null) return;
+        logger.LogWarning("SimulateRequestIpexGrant: Grant is not yet implemented as a webpage-initiated flow");
+        snackbar.Add("IPEX Grant webpage-initiated flow not yet implemented", MudBlazor.Severity.Info);
+    }
+
+    async Task SimulateRequestIpexAdmit()
+    {
+        var recipient = GetFirstConnectionReceiverPrefix();
+        if (recipient is null) return;
+        await SimulateDialogRequestAsync(
+            BwAppMessageType.Values.RequestIpexAdmitFromPage,
+            tabId => new RequestIpexAdmitPayload(
+                Origin: "https://example.com",
+                GrantSaid: "placeholder-grant-said",
+                RecipientPrefix: recipient,
+                IsPresentation: false,
+                TabId: tabId,
+                TabUrl: "https://example.com/test",
+                OriginalRequestId: Guid.NewGuid().ToString(),
+                OriginalType: "/KeriAuth/ipex/admit"
+            ),
+            Routes.Paths.RequestApproveIpex
+        );
+    }
+
     void NavigateToKeriaConfig()
     {
         var digest = appCache.MyKeriaConnectConfigs.Configs.Keys.FirstOrDefault();
@@ -279,6 +371,11 @@
                 <MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Data (customized)</MudLink>
                 <MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Request Create Credential</MudLink>
                 <MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Request Connection</MudLink>
+                <MudLink OnClick="@SimulateRequestIpexApply" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Application</MudLink>
+                <MudLink OnClick="@SimulateRequestIpexOffer" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Offer</MudLink>
+                <MudLink OnClick="@SimulateRequestIpexAgree" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Agreement</MudLink>
+                <MudLink OnClick="@SimulateRequestIpexGrant" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Grant</MudLink>
+                <MudLink OnClick="@SimulateRequestIpexAdmit" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Admission</MudLink>
             </div>
             <MudText Typo="Typo.h6">Parameterized Pages</MudText>
             <div class="bt-link-list">
