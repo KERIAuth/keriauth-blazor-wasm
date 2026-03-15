@@ -36,6 +36,7 @@
     MudButton? unlockWithPasskeyButton;
     MudButton? recoveryUnlockButton;
     string openWalletError = string.Empty;
+    bool _isUnlocking = false;
     string taglineText = taglineAlternatives[0];
     // Cached passkey count and label for selected KERIA config
     PasskeyAvailability _passkeyAvailability;
@@ -323,19 +324,39 @@
     async Task UnlockWithPasskey()
     {
         throwIfNotConfigured();
-        var passcodeRes = await webauthnService.AuthenticateAndDecryptPasscodeAsync();
-        if (passcodeRes.IsFailed)
+
+        try
         {
-            snackbar.Add("Passkey verification unsuccessful or canceled", Severity.Warning);
-            return;
+            var passcodeRes = await webauthnService.AuthenticateAndDecryptPasscodeAsync();
+            if (passcodeRes.IsFailed)
+            {
+                snackbar.Add("Passkey verification unsuccessful or canceled", Severity.Warning);
+                return;
+            }
+            _isUnlocking = true;
+            StateHasChanged();
+            await UnlockWithPasscode(passcodeRes.Value);
         }
-        await UnlockWithPasscode(passcodeRes.Value);
-        return;
+        finally
+        {
+            _isUnlocking = false;
+            StateHasChanged();
+        }
     }
 
     async Task HandleUnlockWithPasscode()
     {
-        await UnlockWithPasscode(unlockPasscodeModel.Passcode);
+        _isUnlocking = true;
+        StateHasChanged();
+        try
+        {
+            await UnlockWithPasscode(unlockPasscodeModel.Passcode);
+        }
+        finally
+        {
+            _isUnlocking = false;
+            StateHasChanged();
+        }
     }
 
     class PasscodeFormModel
@@ -724,9 +745,17 @@
                            OnClick="async () => await SetIsPasskeyUsePreferred(false)">
                     Use Passcode
                 </MudButton>
-                <MudButton @ref="unlockWithPasskeyButton" Disabled="!CanUsePasskey" Class="bt-button-wrap"
+                <MudButton @ref="unlockWithPasskeyButton" Disabled="@(!CanUsePasskey || _isUnlocking)" Class="bt-button-wrap"
                            Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
-                    Unlock with Passkey
+                    @if (_isUnlocking)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Unlocking...</span>
+                    }
+                    else
+                    {
+                        <span>Unlock with Passkey</span>
+                    }
                 </MudButton>
             }
             else
@@ -738,9 +767,17 @@
                         Use Passkey
                     </MudButton>
                 }
-                <MudButton Disabled="@(!isValid || (unlockPasscodeModel.Passcode?.Length ?? 0) != 21)" Class="bt-button-wrap"
+                <MudButton Disabled="@(!isValid || (unlockPasscodeModel.Passcode?.Length ?? 0) != 21 || _isUnlocking)" Class="bt-button-wrap"
                            Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await HandleUnlockWithPasscode()">
-                    Unlock
+                    @if (_isUnlocking)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Unlocking...</span>
+                    }
+                    else
+                    {
+                        <span>Unlock</span>
+                    }
                 </MudButton>
             }
         </MudStack>
