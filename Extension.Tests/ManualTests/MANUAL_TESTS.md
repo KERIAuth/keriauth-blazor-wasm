@@ -111,10 +111,49 @@ window.postMessage({type: '/signify/credential/create/data-attestation', request
 window.postMessage({type: '/KeriAuth/connection/invite', requestId: crypto.randomUUID(), payload: {oobi: 'https://keria-ext.dev.idw-sandboxes.cf-deployments.org/oobi/EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3/agent/EMhtGVe_k0b0NQXqJvJzm5NvhYkggbnLkKNaTtxmOcxe?name=CF%20Credential%20Issuance4'}}, window.location.origin);
 ```
 
-## Unknown / Unimplemented Request
+## IPEX
+
+The sample recipient prefixes below are placeholders. For a successful end-to-end test, replace the `recipient` value with the AID prefix of an established connection of your selected sender AID. Similarly, `schemaSaid`, `offerSaid`, and `grantSaid` must reference real SAIDs known to your KERIA agent.
+
+If the recipient is not a known connection, KERIA will return `400 Bad Request: attempt to send to unknown AID=...`. This confirms the full message flow is working correctly (Page → CS → BW → App dialog → BW → signify-ts → KERIA → error response → CS → Page).
+
+Expected manual test flow:
+1. Paste the `window.postMessage(...)` into the page's DevTools console
+2. The extension dialog should open (popup or side panel) showing the request details
+3. Select a sender AID from the dropdown
+4. Click **Approve** (or **Reject** to test cancellation)
+5. Check the DevTools console for the response (`/signify/reply` with result or error)
+
+### IPEX Apply (Credential Issuance)
 ```js
-window.postMessage({type: '/signify/some-future-method', requestId: crypto.randomUUID(), payload: {foo: 'bar'}}, window.location.origin);
+window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID(), payload: {schemaSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: false}}, window.location.origin);
 ```
+
+### IPEX Apply (Credential Presentation)
+```js
+window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID(), payload: {schemaSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
+```
+
+### IPEX Agree (Credential Issuance)
+```js
+window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: false}}, window.location.origin);
+```
+
+### IPEX Agree (Credential Presentation)
+```js
+window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
+```
+
+### IPEX Admit (Credential Issuance)
+```js
+window.postMessage({type: '/KeriAuth/ipex/admit', requestId: crypto.randomUUID(), payload: {grantSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: false}}, window.location.origin);
+```
+
+### IPEX Admit (Credential Presentation)
+```js
+window.postMessage({type: '/KeriAuth/ipex/admit', requestId: crypto.randomUUID(), payload: {grantSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
+```
+
 
 # Session Expiration Tests
 

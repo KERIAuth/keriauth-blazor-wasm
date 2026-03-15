@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using Extension.Helper;
 using Extension.Models.Messages.Common;
 using Polaris = Extension.Models.Messages.Polaris;
 
@@ -129,6 +130,59 @@ namespace Extension.Models.Messages.CsBw {
         [property: JsonPropertyName("oobi")] string Oobi
     );
 
+
+    /// <summary>
+    /// RPC params wrapper for /KeriAuth/ipex/apply request from web page.
+    /// </summary>
+    public record IpexApplyRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] IpexApplyRpcPayload? Payload
+    );
+
+    /// <summary>
+    /// Payload for IPEX apply request: request a credential by schema.
+    /// </summary>
+    public record IpexApplyRpcPayload(
+        [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("isPresentation")] bool IsPresentation = false,
+        [property: JsonPropertyName("attributes")] RecursiveDictionary? Attributes = null
+    );
+
+    /// <summary>
+    /// RPC params wrapper for /KeriAuth/ipex/agree request from web page.
+    /// </summary>
+    public record IpexAgreeRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] IpexAgreeRpcPayload? Payload
+    );
+
+    /// <summary>
+    /// Payload for IPEX agree request: agree to a credential offer.
+    /// </summary>
+    public record IpexAgreeRpcPayload(
+        [property: JsonPropertyName("offerSaid")] string OfferSaid,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("isPresentation")] bool IsPresentation = false
+    );
+
+    /// <summary>
+    /// RPC params wrapper for /KeriAuth/ipex/admit request from web page.
+    /// </summary>
+    public record IpexAdmitRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] IpexAdmitRpcPayload? Payload
+    );
+
+    /// <summary>
+    /// Payload for IPEX admit request: acknowledge receipt of a granted credential.
+    /// </summary>
+    public record IpexAdmitRpcPayload(
+        [property: JsonPropertyName("grantSaid")] string GrantSaid,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("isPresentation")] bool IsPresentation = false
+    );
+
     /// <summary>
     /// Generic internal extension runtime message structure for chrome.runtime messages.
     /// Used for simple internal communication between extension components.
@@ -165,6 +219,16 @@ namespace Extension.Models.Messages.CsBw {
         // KeriAuth-specific connection messages from web page
         public const string CONNECTION_INVITE = "/KeriAuth/connection/invite";
         public const string CONNECTION_CONFIRM = "/KeriAuth/connection/confirm";
+
+        // KeriAuth-specific IPEX messages from web page
+        public const string IPEX_APPLY = "/KeriAuth/ipex/apply";
+        public const string IPEX_AGREE = "/KeriAuth/ipex/agree";
+
+        // Future IPEX message types (placeholder constants, no handlers yet)
+        public const string IPEX_OFFER = "/KeriAuth/ipex/offer";
+        public const string IPEX_GRANT = "/KeriAuth/ipex/grant";
+        public const string IPEX_ADMIT = "/KeriAuth/ipex/admit";
+
     }
 
     /// <summary>

@@ -71,6 +71,17 @@ export const CsBwRpcMethods = {
     /** Confirm that the page resolved the reciprocal OOBI (fire-and-forget) */
     ConnectionConfirm: '/KeriAuth/connection/confirm',
 
+    /** Request user to send an IPEX apply (request for credential) */
+    IpexApply: '/KeriAuth/ipex/apply',
+
+    /** Request user to send an IPEX agree (agree to an offer) */
+    IpexAgree: '/KeriAuth/ipex/agree',
+
+    // Placeholder constants for future IPEX types
+    IpexOffer: '/KeriAuth/ipex/offer',
+    IpexGrant: '/KeriAuth/ipex/grant',
+    IpexAdmit: '/KeriAuth/ipex/admit',
+
     /** ContentScript initialization (legacy) */
     Init: 'init'
 } as const;

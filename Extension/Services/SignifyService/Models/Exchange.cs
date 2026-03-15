@@ -147,4 +147,9 @@ namespace Extension.Services.SignifyService.Models {
     }
 
     public enum IpexFlowType { Unknown, Issuance, Presentation }
+
+    /// <summary>
+    /// The kinds of IPEX exchange messages.
+    /// </summary>
+    public enum IpexKind { Apply, Offer, Agree, Grant, Admit }
 }

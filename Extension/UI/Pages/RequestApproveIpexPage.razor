@@ -1,0 +1,318 @@
+@page "/RequestApproveIpex.html"
+@layout Layouts.DialogLayout
+@inherits Extension.UI.Components.TabDialogPageBase
+
+@using Extension.Helper
+@using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
+@using Extension.Services
+@using Extension.Services.SignifyService.Models
+@using FluentResults
+@using MudBlazor
+
+@inject ILogger<RequestApproveIpexPage> logger
+@inject ISnackbar snackbar
+
+@code {
+    private MudButton? approveButton;
+
+    // Page-specific properties
+    string? SelectedPrefix { get; set; }
+    string? SelectedAlias { get; set; }
+    RecursiveDictionary? SelectedCredentialOrNothing { get; set; }
+
+    // IPEX request details
+    IpexKind ipexKind;
+    bool isPresentation;
+    string PageTitle = "Unknown IPEX Request";
+    string PageDescription = "Unrecognized request type.";
+
+    // Apply-specific fields
+    string? SchemaSaid { get; set; }
+    string? RecipientPrefix { get; set; }
+    RecursiveDictionary? Attributes { get; set; }
+
+    // Agree-specific fields
+    string? OfferSaid { get; set; }
+
+    // Admit-specific fields
+    string? GrantSaid { get; set; }
+
+    // Computed properties
+    bool IsApproveDisabled => SelectedPrefix is null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+
+        // Try Apply first
+        var applyPayload = await InitializeFromPendingRequestAsync<RequestIpexApplyPayload>(
+            BwAppMessageType.Values.RequestIpexApply);
+        if (applyPayload is not null)
+        {
+            ipexKind = IpexKind.Apply;
+            isPresentation = applyPayload.IsPresentation;
+            SchemaSaid = applyPayload.SchemaSaid;
+            RecipientPrefix = applyPayload.RecipientPrefix;
+            Attributes = applyPayload.Attributes;
+        }
+        else
+        {
+            // Try Agree
+            var agreePayload = await InitializeFromPendingRequestAsync<RequestIpexAgreePayload>(
+                BwAppMessageType.Values.RequestIpexAgree);
+            if (agreePayload is not null)
+            {
+                ipexKind = IpexKind.Agree;
+                isPresentation = agreePayload.IsPresentation;
+                OfferSaid = agreePayload.OfferSaid;
+                RecipientPrefix = agreePayload.RecipientPrefix;
+            }
+            else
+            {
+                // Try Admit
+                var admitPayload = await InitializeFromPendingRequestAsync<RequestIpexAdmitPayload>(
+                    BwAppMessageType.Values.RequestIpexAdmitFromPage);
+                if (admitPayload is null)
+                {
+                    return;
+                }
+
+                ipexKind = IpexKind.Admit;
+                isPresentation = admitPayload.IsPresentation;
+                GrantSaid = admitPayload.GrantSaid;
+                RecipientPrefix = admitPayload.RecipientPrefix;
+            }
+        }
+
+        // Derive page heading and description from (ipexKind, isPresentation) tuple
+        (PageTitle, PageDescription) = (ipexKind, isPresentation) switch
+        {
+            (IpexKind.Apply, false) => (
+                "Approve Credential Issuance Application",
+                "The page is requesting you to apply for a credential from an issuer."),
+            (IpexKind.Apply, true) => (
+                "Approve Credential Presentation Request",
+                "The page is requesting you to request a credential presentation from a holder."),
+            (IpexKind.Agree, false) => (
+                "Approve Credential Issuance Agreement",
+                "The page is requesting you to agree to a credential issuance offer."),
+            (IpexKind.Agree, true) => (
+                "Approve Credential Presentation Agreement",
+                "The page is requesting you to agree to a credential presentation offer."),
+            (IpexKind.Admit, false) => (
+                "Approve Credential Issuance Admission",
+                "The page is requesting you to acknowledge receipt of a granted credential."),
+            (IpexKind.Admit, true) => (
+                "Approve Credential Presentation Admission",
+                "The page is requesting you to acknowledge receipt of a presented credential."),
+            _ => LogUnexpectedKindAndReturn()
+        };
+
+        logger.LogInformation("OnInitializedAsync: ipexKind={IpexKind}, isPresentation={IsPresentation}, recipient={Recipient}",
+            ipexKind, isPresentation, RecipientPrefix);
+
+        await LoadActiveTabAsync();
+
+        IsInitialized = true;
+        StateHasChanged();
+    }
+
+    (string, string) LogUnexpectedKindAndReturn()
+    {
+        logger.LogError("Unexpected IpexKind={Kind}, isPresentation={IsPresentation}", ipexKind, isPresentation);
+        return ("Unknown IPEX Request", "Unrecognized request type.");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && approveButton is not null)
+        {
+            await approveButton.FocusAsync();
+        }
+    }
+
+    async Task<Result> Approve()
+    {
+        await BeginActionAsync();
+
+        if (TabId <= 0)
+        {
+            var error = new ValidationError("TabId", "Invalid tab ID");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
+        }
+
+        if (SelectedPrefix is null || SelectedAlias is null)
+        {
+            var error = new ValidationError("Selection", "Identifier selection is incomplete");
+            snackbar.Add(error.Message, Severity.Error);
+            return Result.Fail(error);
+        }
+
+        try
+        {
+            logger.LogInformation("Approve: ipexKind={IpexKind}, senderPrefix={Prefix}", ipexKind, SelectedPrefix);
+
+            switch (ipexKind)
+            {
+                case IpexKind.Apply:
+                {
+                    var approvalPayload = new IpexApplyApprovalPayload(
+                        SenderPrefix: SelectedPrefix,
+                        RecipientPrefix: RecipientPrefix!,
+                        SchemaSaid: SchemaSaid!,
+                        Attributes: Attributes
+                    );
+                    var message = new AppBwReplyIpexApplyApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
+                    await AppBwPortService.SendToBackgroundWorkerAsync(message);
+                    break;
+                }
+                case IpexKind.Agree:
+                {
+                    var approvalPayload = new IpexAgreeApprovalPayload(
+                        SenderPrefix: SelectedPrefix,
+                        RecipientPrefix: RecipientPrefix!,
+                        OfferSaid: OfferSaid!
+                    );
+                    var message = new AppBwReplyIpexAgreeApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
+                    await AppBwPortService.SendToBackgroundWorkerAsync(message);
+                    break;
+                }
+                case IpexKind.Admit:
+                {
+                    var approvalPayload = new IpexAdmitApprovalPayload(
+                        SenderPrefix: SelectedPrefix,
+                        RecipientPrefix: RecipientPrefix!,
+                        GrantSaid: GrantSaid!
+                    );
+                    var message = new AppBwReplyIpexAdmitApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
+                    await AppBwPortService.SendToBackgroundWorkerAsync(message);
+                    break;
+                }
+                default:
+                    logger.LogError("Approve: Unexpected ipexKind={IpexKind}", ipexKind);
+                    return Result.Fail("Unexpected IPEX kind");
+            }
+
+            MarkAsReplied();
+            await ClearPendingRequestAsync();
+            await WaitForAppCacheClearAsync();
+            await ReturnToPriorUIAsync();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send IPEX approval");
+            snackbar.Add($"Failed to send approval: {ex.Message}", Severity.Error);
+            return Result.Fail(new JavaScriptInteropError("ApproveIpex", ex.Message, ex));
+        }
+    }
+
+    async Task Cancel()
+    {
+        await CancelAndReturnAsync("User canceled IPEX request");
+    }
+
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
+    {
+        logger.LogInformation("HandleIdOrCredChanged: prefix={Prefix}, alias={Alias}", value.selectedPrefix, value.selectedAlias);
+        SelectedPrefix = value.selectedPrefix;
+        SelectedAlias = value.selectedAlias;
+        SelectedCredentialOrNothing = value.selectedCredentialOrNothing;
+        StateHasChanged();
+        if (approveButton is not null)
+        {
+            await approveButton.FocusAsync();
+        }
+    }
+
+    private async Task ApproveHandler()
+    {
+        var result = await Approve();
+        if (result.IsFailed)
+        {
+            logger.LogError("IPEX approval failed: {error}", result.Errors.FirstOrDefault()?.Message);
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Code == "NumpadEnter")
+        {
+            await ApproveHandler();
+        }
+    }
+}
+
+@if (IsInitialized)
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <PageHeading Title="@($"Request to {PageTitle}")" />
+
+                @if (ActiveTab is not null)
+                {
+                    <TabInteractionDisplay ActiveTab=@ActiveTab />
+                }
+                else
+                {
+                    <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
+                }
+
+                <MudAlert Severity="Severity.Info" Class="mb-3">
+                    <MudText Typo="Typo.body2">@PageDescription</MudText>
+                </MudAlert>
+
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+
+                <MudText Class="bt-section-title">Request data:</MudText>
+                <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 200px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
+                    @if (RecipientPrefix is not null)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span style="font-family: monospace; word-break: break-all;">@RecipientPrefix</span></MudText>
+                    }
+
+                    @if (ipexKind == IpexKind.Apply)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span style="font-family: monospace; word-break: break-all;">@SchemaSaid</span></MudText>
+
+                        @if (Attributes is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-2"><strong>Attributes:</strong></MudText>
+                            @foreach (var kvp in Attributes)
+                            {
+                                <MudText Typo="Typo.body2" Style="font-family: monospace; word-break: break-all; padding-left: 8px;">@kvp.Key: @(kvp.Value?.StringValue ?? kvp.Value?.ToString() ?? "(null)")</MudText>
+                            }
+                        }
+                    }
+                    else if (ipexKind == IpexKind.Agree)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span style="font-family: monospace; word-break: break-all;">@OfferSaid</span></MudText>
+                    }
+                    else if (ipexKind == IpexKind.Admit)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span style="font-family: monospace; word-break: break-all;">@GrantSaid</span></MudText>
+                    }
+                </MudPaper>
+
+            </div>
+        </MudStack>
+
+        <MudStack Row="true" class="bt-button-tray">
+            <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Reject</MudButton>
+            <MudButton @ref="approveButton"
+                       StartIcon="@Icons.Material.Filled.CheckCircle"
+                       Disabled="IsApproveDisabled"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="ApproveHandler"
+                       @onkeydown="HandleKeyDown">
+                Approve
+            </MudButton>
+        </MudStack>
+    </div>
+}

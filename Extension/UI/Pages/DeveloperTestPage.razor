@@ -157,12 +157,6 @@
         Routes.Paths.RequestConnect
     );
 
-    async Task SimulateRequestUnknown() => await SimulateDialogRequestAsync(
-        "BwApp.UnknownType",
-        _ => new { foo = "bar" } as object,
-        Routes.Paths.RequestUnknown
-    );
-
     void NavigateToKeriaConfig()
     {
         var digest = appCache.MyKeriaConnectConfigs.Configs.Keys.FirstOrDefault();
@@ -285,7 +279,6 @@
                 <MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Data (customized)</MudLink>
                 <MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Request Create Credential</MudLink>
                 <MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Request Connection</MudLink>
-                <MudLink OnClick="@SimulateRequestUnknown" Disabled="@(!appCache.IsConnectedToKeria)">Request Unknown</MudLink>
             </div>
             <MudText Typo="Typo.h6">Parameterized Pages</MudText>
             <div class="bt-link-list">

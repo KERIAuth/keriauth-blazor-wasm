@@ -570,5 +570,302 @@ namespace Extension.Tests.Models {
         }
 
         #endregion
+
+        #region IPEX Apply/Agree Message Compatibility Tests
+
+        [Fact]
+        public void CsBwMessageTypes_IpexApplyAgree_MatchesTypeScriptConstants() {
+            // These string values must match the TypeScript CsBwRpcMethods constants exactly.
+            Assert.Equal("/KeriAuth/ipex/apply", CsBwMessageTypes.IPEX_APPLY);
+            Assert.Equal("/KeriAuth/ipex/agree", CsBwMessageTypes.IPEX_AGREE);
+            Assert.Equal("/KeriAuth/ipex/offer", CsBwMessageTypes.IPEX_OFFER);
+            Assert.Equal("/KeriAuth/ipex/grant", CsBwMessageTypes.IPEX_GRANT);
+            Assert.Equal("/KeriAuth/ipex/admit", CsBwMessageTypes.IPEX_ADMIT);
+        }
+
+        [Fact]
+        public void BwAppMessageType_RequestIpexApplyAgree_TryParse() {
+            Assert.True(BwAppMessageType.TryParse(BwAppMessageType.Values.RequestIpexApply, out var applyType));
+            Assert.Equal(BwAppMessageType.RequestIpexApply, applyType);
+
+            Assert.True(BwAppMessageType.TryParse(BwAppMessageType.Values.RequestIpexAgree, out var agreeType));
+            Assert.Equal(BwAppMessageType.RequestIpexAgree, agreeType);
+        }
+
+        [Fact]
+        public void AppBwMessageType_ReplyIpexApplyAgreeApproval_TryParse() {
+            Assert.True(AppBwMessageType.TryParse(AppBwMessageType.Values.ReplyIpexApplyApproval, out var applyType));
+            Assert.Equal(AppBwMessageType.ReplyIpexApplyApproval, applyType);
+
+            Assert.True(AppBwMessageType.TryParse(AppBwMessageType.Values.ReplyIpexAgreeApproval, out var agreeType));
+            Assert.Equal(AppBwMessageType.ReplyIpexAgreeApproval, agreeType);
+        }
+
+        [Fact]
+        public void IpexApplyRpcPayload_Serialization_RoundTrip() {
+            var payload = new IpexApplyRpcPayload(
+                SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                IsPresentation: true
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"schemaSaid\":", json);
+            Assert.Contains("\"recipient\":", json);
+            Assert.Contains("\"isPresentation\":true", json);
+
+            var deserialized = JsonSerializer.Deserialize<IpexApplyRpcPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.SchemaSaid);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.True(deserialized.IsPresentation);
+        }
+
+        [Fact]
+        public void IpexAgreeRpcPayload_Serialization_RoundTrip() {
+            var payload = new IpexAgreeRpcPayload(
+                OfferSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                IsPresentation: false
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"offerSaid\":", json);
+            Assert.Contains("\"recipient\":", json);
+            Assert.Contains("\"isPresentation\":false", json);
+
+            var deserialized = JsonSerializer.Deserialize<IpexAgreeRpcPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.OfferSaid);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.False(deserialized.IsPresentation);
+        }
+
+        [Fact]
+        public void RequestIpexApplyPayload_RoundTrip_BwToApp() {
+            var payload = new RequestIpexApplyPayload(
+                Origin: "https://example.com",
+                SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                IsPresentation: false,
+                Attributes: null,
+                TabId: 42,
+                TabUrl: "https://example.com/apply"
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<RequestIpexApplyPayload>(json, _jsonOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.Equal("https://example.com", deserialized.Origin);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.SchemaSaid);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.False(deserialized.IsPresentation);
+            Assert.Null(deserialized.Attributes);
+            Assert.Equal(42, deserialized.TabId);
+        }
+
+        [Fact]
+        public void RequestIpexAgreePayload_RoundTrip_BwToApp() {
+            var payload = new RequestIpexAgreePayload(
+                Origin: "https://example.com",
+                OfferSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                IsPresentation: true,
+                TabId: 42,
+                TabUrl: "https://example.com/agree"
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<RequestIpexAgreePayload>(json, _jsonOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.Equal("https://example.com", deserialized.Origin);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.OfferSaid);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.True(deserialized.IsPresentation);
+            Assert.Equal(42, deserialized.TabId);
+        }
+
+        [Fact]
+        public void IpexApplyApprovalPayload_RoundTrip_AppToBw() {
+            var payload = new IpexApplyApprovalPayload(
+                SenderPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"senderPrefix\":", json);
+            Assert.Contains("\"recipient\":", json);
+            Assert.Contains("\"schemaSaid\":", json);
+
+            var deserialized = JsonSerializer.Deserialize<IpexApplyApprovalPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", deserialized.SenderPrefix);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.SchemaSaid);
+            Assert.Null(deserialized.Attributes);
+        }
+
+        [Fact]
+        public void IpexAgreeApprovalPayload_RoundTrip_AppToBw() {
+            var payload = new IpexAgreeApprovalPayload(
+                SenderPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                OfferSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"senderPrefix\":", json);
+            Assert.Contains("\"recipient\":", json);
+            Assert.Contains("\"offerSaid\":", json);
+
+            var deserialized = JsonSerializer.Deserialize<IpexAgreeApprovalPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", deserialized.SenderPrefix);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.OfferSaid);
+        }
+
+        [Fact]
+        public void AppBwReplyIpexApplyApprovalMessage_RoundTrip() {
+            var payload = new IpexApplyApprovalPayload(
+                SenderPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+            );
+            var message = new AppBwReplyIpexApplyApprovalMessage(42, "https://example.com", "req-123", payload);
+
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
+            Assert.Contains("\"type\":\"AppBw.ReplyIpexApplyApproval\"", json);
+            Assert.Contains("\"tabId\":42", json);
+            Assert.Contains("\"requestId\":\"req-123\"", json);
+
+            // Two-phase deserialization
+            var baseMessage = JsonSerializer.Deserialize<AppBwMessage>(json, _jsonOptions);
+            Assert.NotNull(baseMessage);
+            Assert.Equal(AppBwMessageType.Values.ReplyIpexApplyApproval, baseMessage.Type);
+
+            var typedMessage = baseMessage.ToTyped<IpexApplyApprovalPayload>(_jsonOptions);
+            Assert.NotNull(typedMessage);
+            Assert.NotNull(typedMessage.Payload);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", typedMessage.Payload.SenderPrefix);
+        }
+
+        [Fact]
+        public void RequestApproveIpexPage_RouteRegistered() {
+            var pageType = typeof(Extension.UI.Pages.RequestApproveIpexPage);
+            Assert.True(Extension.Routes.Pages.ContainsKey(pageType),
+                "RequestApproveIpexPage must be registered in Routes.Pages");
+            var route = Extension.Routes.Pages[pageType];
+            Assert.Equal("/RequestApproveIpex.html", route.Path);
+            Assert.True(route.RequiresAuth);
+        }
+
+        #endregion
+
+        #region IPEX Admit (webpage-initiated) Message Compatibility Tests
+
+        [Fact]
+        public void BwAppMessageType_RequestIpexAdmitFromPage_TryParse() {
+            Assert.True(BwAppMessageType.TryParse(BwAppMessageType.Values.RequestIpexAdmitFromPage, out var admitType));
+            Assert.Equal(BwAppMessageType.RequestIpexAdmitFromPage, admitType);
+        }
+
+        [Fact]
+        public void AppBwMessageType_ReplyIpexAdmitApproval_TryParse() {
+            Assert.True(AppBwMessageType.TryParse(AppBwMessageType.Values.ReplyIpexAdmitApproval, out var admitType));
+            Assert.Equal(AppBwMessageType.ReplyIpexAdmitApproval, admitType);
+        }
+
+        [Fact]
+        public void IpexAdmitRpcPayload_Serialization_RoundTrip() {
+            var payload = new IpexAdmitRpcPayload(
+                GrantSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                IsPresentation: false
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"grantSaid\":", json);
+            Assert.Contains("\"recipient\":", json);
+            Assert.Contains("\"isPresentation\":false", json);
+
+            var deserialized = JsonSerializer.Deserialize<IpexAdmitRpcPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.GrantSaid);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.False(deserialized.IsPresentation);
+        }
+
+        [Fact]
+        public void RequestIpexAdmitPayload_RoundTrip_BwToApp() {
+            var payload = new RequestIpexAdmitPayload(
+                Origin: "https://example.com",
+                GrantSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                IsPresentation: false,
+                TabId: 42,
+                TabUrl: "https://example.com/admit"
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<RequestIpexAdmitPayload>(json, _jsonOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.Equal("https://example.com", deserialized.Origin);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.GrantSaid);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.False(deserialized.IsPresentation);
+            Assert.Equal(42, deserialized.TabId);
+        }
+
+        [Fact]
+        public void IpexAdmitApprovalPayload_RoundTrip_AppToBw() {
+            var payload = new IpexAdmitApprovalPayload(
+                SenderPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                GrantSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+            );
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"senderPrefix\":", json);
+            Assert.Contains("\"recipient\":", json);
+            Assert.Contains("\"grantSaid\":", json);
+
+            var deserialized = JsonSerializer.Deserialize<IpexAdmitApprovalPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", deserialized.SenderPrefix);
+            Assert.Equal("EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3", deserialized.RecipientPrefix);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", deserialized.GrantSaid);
+        }
+
+        [Fact]
+        public void AppBwReplyIpexAdmitApprovalMessage_RoundTrip() {
+            var payload = new IpexAdmitApprovalPayload(
+                SenderPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                RecipientPrefix: "EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3",
+                GrantSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+            );
+            var message = new AppBwReplyIpexAdmitApprovalMessage(42, "https://example.com", "req-123", payload);
+
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
+            Assert.Contains("\"type\":\"AppBw.ReplyIpexAdmitApproval\"", json);
+            Assert.Contains("\"tabId\":42", json);
+
+            // Two-phase deserialization
+            var baseMessage = JsonSerializer.Deserialize<AppBwMessage>(json, _jsonOptions);
+            Assert.NotNull(baseMessage);
+            Assert.Equal(AppBwMessageType.Values.ReplyIpexAdmitApproval, baseMessage.Type);
+
+            var typedMessage = baseMessage.ToTyped<IpexAdmitApprovalPayload>(_jsonOptions);
+            Assert.NotNull(typedMessage);
+            Assert.NotNull(typedMessage.Payload);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", typedMessage.Payload.SenderPrefix);
+            Assert.Equal("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", typedMessage.Payload.GrantSaid);
+        }
+
+        #endregion
     }
 }

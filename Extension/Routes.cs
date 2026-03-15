@@ -58,9 +58,9 @@ public static class Routes {
         public const string RequestSignIn = "/RequestSignIn.html";
         public const string RequestSignHeaders = "/RequestSignHeaders.html";
         public const string RequestSignData = "/RequestSignData.html";
-        public const string RequestUnknown = "/RequestUnknown.html";
         public const string RequestCreateCredential = "/RequestCreateCredential.html";
         public const string RequestConnect = "/RequestConnect.html";
+        public const string RequestApproveIpex = "/RequestApproveIpex.html";
         public const string AddPasskey = "/AddPasskey.html";
         public const string Index = "/index.html";
         public const string Welcome = "/Welcome.html";
@@ -110,9 +110,9 @@ public static class Routes {
         [typeof(RequestSignInPage)] = new("Request Sign In", Paths.RequestSignIn, RequiresAuth: true),
         [typeof(RequestSignHeadersPage)] = new("Request Sign Headers", Paths.RequestSignHeaders, RequiresAuth: true),
         [typeof(RequestSignDataPage)] = new("Request Sign Data", Paths.RequestSignData, RequiresAuth: true),
-        [typeof(RequestUnknownPage)] = new("Request Unknown", Paths.RequestUnknown, RequiresAuth: true),
         [typeof(RequestCreateCredentialPage)] = new("Request Create Credential", Paths.RequestCreateCredential, RequiresAuth: true),
         [typeof(RequestConnectPage)] = new("Request Connect", Paths.RequestConnect, RequiresAuth: true),
+        [typeof(RequestApproveIpexPage)] = new("Request Approve IPEX", Paths.RequestApproveIpex, RequiresAuth: true),
         [typeof(AddPasskeyPage)] = new("Add Passkey", Paths.AddPasskey, RequiresAuth: true),
 
         // Index pages (no auth) - Index.razor handles multiple routes
@@ -155,7 +155,7 @@ public static class Routes {
         Pages[typeof(RequestSignDataPage)].Path,
         Pages[typeof(RequestCreateCredentialPage)].Path,
         Pages[typeof(RequestConnectPage)].Path,
-        Pages[typeof(RequestUnknownPage)].Path,
+        Pages[typeof(RequestApproveIpexPage)].Path,
     ];
 
     /// <summary>

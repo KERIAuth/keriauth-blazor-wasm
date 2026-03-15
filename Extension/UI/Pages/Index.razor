@@ -208,11 +208,14 @@
                     route = Routes.Paths.RequestConnect;
                     break;
 
-
+                case (BwAppMessageType.Values.RequestIpexApply, true):
+                case (BwAppMessageType.Values.RequestIpexAgree, true):
+                case (BwAppMessageType.Values.RequestIpexAdmitFromPage, true):
+                    route = Routes.Paths.RequestApproveIpex;
+                    break;
 
                 default:
-                    logger.LogInformation("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
-                    route = Routes.Paths.RequestUnknown;
+                    logger.LogWarning("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
                     break;
             }
 

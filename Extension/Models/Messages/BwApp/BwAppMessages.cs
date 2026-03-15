@@ -68,6 +68,12 @@ namespace Extension.Models.Messages.BwApp {
             public const string RequestConnectionInvite = "BwApp.RequestConnectionInvite";
             /// <summary>Notify App that the page confirmed (or failed) the mutual connection.</summary>
             public const string NotifyConnectionConfirmed = "BwApp.NotifyConnectionConfirmed";
+            /// <summary>Request App to show IPEX Apply UI for user to approve applying for a credential.</summary>
+            public const string RequestIpexApply = "BwApp.RequestIpexApply";
+            /// <summary>Request App to show IPEX Agree UI for user to approve agreeing to an offer.</summary>
+            public const string RequestIpexAgree = "BwApp.RequestIpexAgree";
+            /// <summary>Request App to show IPEX Admit UI for user to approve acknowledging a grant (webpage-initiated).</summary>
+            public const string RequestIpexAdmitFromPage = "BwApp.RequestIpexAdmitFromPage";
         }
 
         public string Value { get; }
@@ -86,6 +92,9 @@ namespace Extension.Models.Messages.BwApp {
         public static BwAppMessageType RequestNotifyUserOfUpdate { get; } = new(Values.RequestNotifyUserOfUpdate);
         public static BwAppMessageType RequestConnectionInvite { get; } = new(Values.RequestConnectionInvite);
         public static BwAppMessageType NotifyConnectionConfirmed { get; } = new(Values.NotifyConnectionConfirmed);
+        public static BwAppMessageType RequestIpexApply { get; } = new(Values.RequestIpexApply);
+        public static BwAppMessageType RequestIpexAgree { get; } = new(Values.RequestIpexAgree);
+        public static BwAppMessageType RequestIpexAdmitFromPage { get; } = new(Values.RequestIpexAdmitFromPage);
 
         /// <summary>
         /// Parse a string value into a BwAppMessageType.
@@ -140,6 +149,15 @@ namespace Extension.Models.Messages.BwApp {
                     return true;
                 case Values.NotifyConnectionConfirmed:
                     result = NotifyConnectionConfirmed;
+                    return true;
+                case Values.RequestIpexApply:
+                    result = RequestIpexApply;
+                    return true;
+                case Values.RequestIpexAgree:
+                    result = RequestIpexAgree;
+                    return true;
+                case Values.RequestIpexAdmitFromPage:
+                    result = RequestIpexAdmitFromPage;
                     return true;
                 default:
                     return false;

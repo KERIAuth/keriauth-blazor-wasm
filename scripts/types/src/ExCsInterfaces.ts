@@ -23,6 +23,11 @@ export enum CsBwMsgEnum {
     POLARIS_GET_CREDENTIAL = '/signify/credential/get',
     KERIAUTH_CONNECTION_INVITE = '/KeriAuth/connection/invite',
     KERIAUTH_CONNECTION_CONFIRM = '/KeriAuth/connection/confirm',
+    KERIAUTH_IPEX_APPLY = '/KeriAuth/ipex/apply',
+    KERIAUTH_IPEX_AGREE = '/KeriAuth/ipex/agree',
+    KERIAUTH_IPEX_OFFER = '/KeriAuth/ipex/offer',
+    KERIAUTH_IPEX_GRANT = '/KeriAuth/ipex/grant',
+    KERIAUTH_IPEX_ADMIT = '/KeriAuth/ipex/admit',
     INIT = 'init'
 }
 

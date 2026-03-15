@@ -92,6 +92,47 @@ export interface CsBwConnectionConfirmParams {
     error?: string;
 }
 
+/**
+ * Params for /KeriAuth/ipex/apply request.
+ * Request user to send an IPEX apply (request for credential by schema).
+ */
+export interface CsBwIpexApplyParams {
+    /** The SAID of the credential schema being requested */
+    schemaSaid: string;
+    /** The AID prefix of the intended recipient (issuer or holder) */
+    recipient: string;
+    /** Whether this is a presentation flow (true) or issuance flow (false) */
+    isPresentation?: boolean;
+    /** Optional attributes to filter the credential request */
+    attributes?: Record<string, unknown>;
+}
+
+/**
+ * Params for /KeriAuth/ipex/agree request.
+ * Request user to send an IPEX agree (agree to a credential offer).
+ */
+export interface CsBwIpexAgreeParams {
+    /** The SAID of the offer being agreed to */
+    offerSaid: string;
+    /** The AID prefix of the intended recipient */
+    recipient: string;
+    /** Whether this is a presentation flow (true) or issuance flow (false) */
+    isPresentation?: boolean;
+}
+
+/**
+ * Params for /KeriAuth/ipex/admit request.
+ * Request user to send an IPEX admit (acknowledge receipt of a granted credential).
+ */
+export interface CsBwIpexAdmitParams {
+    /** The SAID of the grant being admitted */
+    grantSaid: string;
+    /** The AID prefix of the intended recipient (grantor) */
+    recipient: string;
+    /** Whether this is a presentation flow (true) or issuance flow (false) */
+    isPresentation?: boolean;
+}
+
 // ============================================================================
 // Response Result Types (BW→CS via RpcResponse)
 // ============================================================================
@@ -138,6 +179,17 @@ export interface CsBwConnectionInviteResult {
     oobi: string;
 }
 
+/**
+ * Result for /KeriAuth/ipex/apply or /KeriAuth/ipex/agree response.
+ * Returns the SAID of the sent exchange message and the sender's AID prefix.
+ */
+export interface CsBwIpexResult {
+    /** The SAID of the exchange message that was sent */
+    said: string;
+    /** The AID prefix the user selected as sender */
+    senderPrefix: string;
+}
+
 // ============================================================================
 // Method→Params Type Map
 // ============================================================================
@@ -167,6 +219,12 @@ export interface CsBwRpcParamsMap {
     [CsBwRpcMethods.ClearSession]: Polaris.AuthorizeArgs;
     [CsBwRpcMethods.ConnectionInvite]: CsBwConnectionInviteParams;
     [CsBwRpcMethods.ConnectionConfirm]: CsBwConnectionConfirmParams;
+    [CsBwRpcMethods.IpexApply]: CsBwIpexApplyParams;
+    [CsBwRpcMethods.IpexAgree]: CsBwIpexAgreeParams;
+    [CsBwRpcMethods.IpexAdmit]: CsBwIpexAdmitParams;
+    // Placeholder entries for future IPEX types (not yet implemented)
+    [CsBwRpcMethods.IpexOffer]: undefined;
+    [CsBwRpcMethods.IpexGrant]: undefined;
     [CsBwRpcMethods.Init]: CsBwInitParams;
 }
 
@@ -199,6 +257,12 @@ export interface CsBwRpcResultMap {
     [CsBwRpcMethods.ClearSession]: CsBwAuthorizeResult;
     [CsBwRpcMethods.ConnectionInvite]: CsBwConnectionInviteResult;
     [CsBwRpcMethods.ConnectionConfirm]: void;
+    [CsBwRpcMethods.IpexApply]: CsBwIpexResult;
+    [CsBwRpcMethods.IpexAgree]: CsBwIpexResult;
+    [CsBwRpcMethods.IpexAdmit]: CsBwIpexResult;
+    // Placeholder entries for future IPEX types (not yet implemented)
+    [CsBwRpcMethods.IpexOffer]: void;
+    [CsBwRpcMethods.IpexGrant]: void;
     [CsBwRpcMethods.Init]: void;
 }
 

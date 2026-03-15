@@ -1270,6 +1270,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleConnectionConfirmRpcAsync(portId, portSession, request, tabId, tabUrl);
                     return;
 
+                case CsBwMessageTypes.IPEX_APPLY:
+                    await HandleIpexApplyRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
+                    return;
+
+                case CsBwMessageTypes.IPEX_AGREE:
+                    await HandleIpexAgreeRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
+                    return;
+
+                case CsBwMessageTypes.IPEX_ADMIT:
+                    await HandleIpexAdmitFromPageRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
+                    return;
+
                 case CsBwMessageTypes.INIT:
                     // Legacy method - respond with specific error
                     logger.LogWarning(nameof(HandleContentScriptRpcAsync) + ": Init is legacy/not implemented: {Method}", request.Method);
@@ -1349,6 +1361,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case AppBwMessageType.Values.ReplySignDataApproval:
                     await HandleAppReplySignDataApprovalRpcAsync(portId, request, tabId, requestId, payload);
+                    return;
+
+                case AppBwMessageType.Values.ReplyIpexApplyApproval:
+                    await HandleAppReplyIpexApplyApprovalRpcAsync(portId, request, tabId, requestId, payload);
+                    return;
+
+                case AppBwMessageType.Values.ReplyIpexAgreeApproval:
+                    await HandleAppReplyIpexAgreeApprovalRpcAsync(portId, request, tabId, requestId, payload);
+                    return;
+
+                case AppBwMessageType.Values.ReplyIpexAdmitApproval:
+                    await HandleAppReplyIpexAdmitApprovalRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
                 case AppBwMessageType.Values.ReplyCanceled:
@@ -1730,6 +1754,254 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.PortSessionId,
                     pendingRequest.RpcRequestId ?? requestId,
                     errorMessage: $"Error signing data: {ex.Message}");
+            }
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles ReplyIpexApplyApproval RPC from App.
+    /// User approved the IPEX apply request. Sends the apply message via signify-ts
+    /// and routes the result back to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplyIpexApplyApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (requestId is null) {
+            logger.LogWarning(nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": Missing requestId");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing requestId");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess) {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        try {
+            if (payload is null || !payload.HasValue) {
+                logger.LogWarning(nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": Missing payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var approvalPayload = JsonSerializer.Deserialize<IpexApplyApprovalPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (approvalPayload is null || string.IsNullOrEmpty(approvalPayload.SenderPrefix)
+                || string.IsNullOrEmpty(approvalPayload.RecipientPrefix) || string.IsNullOrEmpty(approvalPayload.SchemaSaid)) {
+                logger.LogWarning(nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": Invalid approval payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid or missing IPEX apply approval parameters");
+                return;
+            }
+
+            // Route IPEX response to ContentScript via stored port info
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await ExecuteIpexAndRespondAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    operationName: nameof(HandleAppReplyIpexApplyApprovalRpcAsync),
+                    operation: () => _signifyClientService.IpexApplyAndSubmit(new IpexApplySubmitArgs(
+                        SenderNameOrPrefix: approvalPayload.SenderPrefix,
+                        RecipientPrefix: approvalPayload.RecipientPrefix,
+                        SchemaSaid: approvalPayload.SchemaSaid,
+                        Attributes: approvalPayload.Attributes
+                    )),
+                    saidKey: "applySaid",
+                    senderPrefix: approvalPayload.SenderPrefix
+                );
+            }
+            else {
+                logger.LogWarning(nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": No port info for response routing, requestId={RequestId}", requestId);
+            }
+
+            // Acknowledge the App RPC
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": Error");
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await _portService.SendRpcResponseAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    errorMessage: $"Error sending IPEX apply: {ex.Message}");
+            }
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles ReplyIpexAgreeApproval RPC from App.
+    /// User approved the IPEX agree request. Sends the agree message via signify-ts
+    /// and routes the result back to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplyIpexAgreeApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (requestId is null) {
+            logger.LogWarning(nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": Missing requestId");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing requestId");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess) {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        try {
+            if (payload is null || !payload.HasValue) {
+                logger.LogWarning(nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": Missing payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var approvalPayload = JsonSerializer.Deserialize<IpexAgreeApprovalPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (approvalPayload is null || string.IsNullOrEmpty(approvalPayload.SenderPrefix)
+                || string.IsNullOrEmpty(approvalPayload.RecipientPrefix) || string.IsNullOrEmpty(approvalPayload.OfferSaid)) {
+                logger.LogWarning(nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": Invalid approval payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid or missing IPEX agree approval parameters");
+                return;
+            }
+
+            // Route IPEX response to ContentScript via stored port info
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await ExecuteIpexAndRespondAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    operationName: nameof(HandleAppReplyIpexAgreeApprovalRpcAsync),
+                    operation: () => _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
+                        SenderNameOrPrefix: approvalPayload.SenderPrefix,
+                        RecipientPrefix: approvalPayload.RecipientPrefix,
+                        OfferSaid: approvalPayload.OfferSaid
+                    )),
+                    saidKey: "agreeSaid",
+                    senderPrefix: approvalPayload.SenderPrefix
+                );
+            }
+            else {
+                logger.LogWarning(nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": No port info for response routing, requestId={RequestId}", requestId);
+            }
+
+            // Acknowledge the App RPC
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": Error");
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await _portService.SendRpcResponseAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    errorMessage: $"Error sending IPEX agree: {ex.Message}");
+            }
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles ReplyIpexAdmitApproval RPC from App (webpage-initiated).
+    /// User approved the IPEX admit request. Sends the admit message via signify-ts
+    /// and routes the result back to ContentScript.
+    /// </summary>
+    private async Task HandleAppReplyIpexAdmitApprovalRpcAsync(string portId, RpcRequest request, int tabId, string? requestId, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": tabId={TabId}, requestId={RequestId}", tabId, requestId);
+
+        if (requestId is null) {
+            logger.LogWarning(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": Missing requestId");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Missing requestId");
+            return;
+        }
+
+        // Get pending request to retrieve port routing info
+        PendingBwAppRequest? pendingRequest = null;
+        {
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(requestId);
+            if (pendingResult.IsSuccess) {
+                pendingRequest = pendingResult.Value;
+            }
+        }
+
+        // Clear pending request
+        await _pendingBwAppRequestService.RemoveRequestAsync(requestId);
+
+        try {
+            if (payload is null || !payload.HasValue) {
+                logger.LogWarning(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": Missing payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var approvalPayload = JsonSerializer.Deserialize<IpexAdmitApprovalPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (approvalPayload is null || string.IsNullOrEmpty(approvalPayload.SenderPrefix)
+                || string.IsNullOrEmpty(approvalPayload.RecipientPrefix) || string.IsNullOrEmpty(approvalPayload.GrantSaid)) {
+                logger.LogWarning(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": Invalid approval payload");
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid or missing IPEX admit approval parameters");
+                return;
+            }
+
+            // Route IPEX response to ContentScript via stored port info
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await ExecuteIpexAndRespondAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    operationName: nameof(HandleAppReplyIpexAdmitApprovalRpcAsync),
+                    operation: () => _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
+                        SenderNameOrPrefix: approvalPayload.SenderPrefix,
+                        RecipientPrefix: approvalPayload.RecipientPrefix,
+                        GrantSaid: approvalPayload.GrantSaid
+                    )),
+                    saidKey: "admitSaid",
+                    senderPrefix: approvalPayload.SenderPrefix,
+                    onSuccess: async () => {
+                        await _notificationPollingService.PollOnDemandAsync();
+                        await RefreshCachedCredentialsAsync();
+                    }
+                );
+            }
+            else {
+                logger.LogWarning(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": No port info for response routing, requestId={RequestId}", requestId);
+            }
+
+            // Acknowledge the App RPC
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": Error");
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await _portService.SendRpcResponseAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? requestId,
+                    errorMessage: $"Error sending IPEX admit: {ex.Message}");
             }
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error: {ex.Message}");
@@ -2658,28 +2930,70 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var admitResult = await _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
-                SenderNameOrPrefix: admitRequest.SenderNameOrPrefix,
-                RecipientPrefix: admitRequest.RecipientPrefix,
-                GrantSaid: admitRequest.GrantSaid
-            ));
-
-            if (admitResult.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
-                await RefreshCachedCredentialsAsync();
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexAdmitResponsePayload(true));
-            }
-            else {
-                var errorMsg = admitResult.Errors.Count > 0 ? admitResult.Errors[0].Message : "IPEX admit failed";
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexAdmitResponsePayload(false, Error: errorMsg));
-            }
+            await ExecuteIpexAndRespondAsync(
+                portId, request.PortSessionId, request.Id,
+                operationName: nameof(HandleAppRequestIpexAdmitRpcAsync),
+                operation: () => _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
+                    SenderNameOrPrefix: admitRequest.SenderNameOrPrefix,
+                    RecipientPrefix: admitRequest.RecipientPrefix,
+                    GrantSaid: admitRequest.GrantSaid
+                )),
+                onSuccess: async () => {
+                    await _notificationPollingService.PollOnDemandAsync();
+                    await RefreshCachedCredentialsAsync();
+                }
+            );
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(HandleAppRequestIpexAdmitRpcAsync) + ": Error during IPEX admit");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexAdmitResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Execute an IPEX operation and send the result as an RPC response.
+    /// Handles success (extracts SAID if present), failure, and exceptions uniformly.
+    /// Used by IPEX apply, agree, and admit handlers.
+    /// </summary>
+    private async Task ExecuteIpexAndRespondAsync(
+        string portId,
+        string portSessionId,
+        string rpcRequestId,
+        string operationName,
+        Func<Task<Result<RecursiveDictionary>>> operation,
+        string? saidKey = null,
+        string? senderPrefix = null,
+        Func<Task>? onSuccess = null) {
+        try {
+            var result = await operation();
+
+            if (result.IsSuccess) {
+                if (onSuccess is not null) {
+                    await onSuccess();
+                }
+
+                if (saidKey is not null) {
+                    var said = result.Value[saidKey]?.StringValue;
+                    await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId,
+                        result: new IpexResponsePayload(Said: said, SenderPrefix: senderPrefix));
+                }
+                else {
+                    await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId,
+                        result: new IpexAdmitResponsePayload(true));
+                }
+            }
+            else {
+                var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : $"IPEX {operationName} failed";
+                logger.LogWarning("{Op}: IPEX operation failed: {Error}", operationName, errorMsg);
+                await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId,
+                    errorMessage: errorMsg);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "{Op}: Error during IPEX operation", operationName);
+            await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId,
+                errorMessage: ex.Message);
         }
     }
 
@@ -2743,6 +3057,165 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         await UseSidePanelOrActionPopupAsync(pendingRequest);
         // RPC response to CS will be sent when App replies via HandleAppReplyConnectionInviteRpcAsync
+    }
+
+    /// <summary>
+    /// Handles /KeriAuth/ipex/apply from ContentScript.
+    /// Web page requests the user to send an IPEX apply message (request for credential).
+    /// Creates a pending request for App to show approval UI.
+    /// </summary>
+    private async Task HandleIpexApplyRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin) {
+        logger.LogInformation(nameof(HandleIpexApplyRpcAsync) + ": tabId={TabId}, origin={Origin}", tabId, origin);
+
+        var rpcParams = request.GetParams<IpexApplyRpcParams>();
+        var applyPayload = rpcParams?.Payload;
+        var originalRequestId = rpcParams?.RequestId ?? request.Id;
+
+        if (applyPayload is null || string.IsNullOrEmpty(applyPayload.SchemaSaid) || string.IsNullOrEmpty(applyPayload.RecipientPrefix)) {
+            logger.LogWarning(nameof(HandleIpexApplyRpcAsync) + ": invalid payload - schemaSaid and recipient required");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for ipex/apply: schemaSaid and recipient required");
+            return;
+        }
+
+        // Validate isPresentation consistency with IPEX protocol
+        // Apply in Issuance: requester applies to issuer (sender is NOT the issuer) — valid
+        // Apply in Presentation: requester applies to holder (sender requests credential presentation) — valid
+        // Both are valid combinations for Apply, so just log for observability
+        logger.LogInformation(nameof(HandleIpexApplyRpcAsync) + ": isPresentation={IsPresentation}, schemaSaid={SchemaSaid}, recipient={Recipient}",
+            applyPayload.IsPresentation, applyPayload.SchemaSaid, applyPayload.RecipientPrefix);
+
+        var requestIpexApplyPayload = new RequestIpexApplyPayload(
+            Origin: origin,
+            SchemaSaid: applyPayload.SchemaSaid,
+            RecipientPrefix: applyPayload.RecipientPrefix,
+            IsPresentation: applyPayload.IsPresentation,
+            Attributes: applyPayload.Attributes,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.IPEX_APPLY
+        );
+
+        var pendingRequest = new PendingBwAppRequest {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestIpexApply,
+            Payload = requestIpexApplyPayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+    }
+
+    /// <summary>
+    /// Handles /KeriAuth/ipex/agree from ContentScript.
+    /// Web page requests the user to send an IPEX agree message (agree to an offer).
+    /// Creates a pending request for App to show approval UI.
+    /// </summary>
+    private async Task HandleIpexAgreeRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin) {
+        logger.LogInformation(nameof(HandleIpexAgreeRpcAsync) + ": tabId={TabId}, origin={Origin}", tabId, origin);
+
+        var rpcParams = request.GetParams<IpexAgreeRpcParams>();
+        var agreePayload = rpcParams?.Payload;
+        var originalRequestId = rpcParams?.RequestId ?? request.Id;
+
+        if (agreePayload is null || string.IsNullOrEmpty(agreePayload.OfferSaid) || string.IsNullOrEmpty(agreePayload.RecipientPrefix)) {
+            logger.LogWarning(nameof(HandleIpexAgreeRpcAsync) + ": invalid payload - offerSaid and recipient required");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for ipex/agree: offerSaid and recipient required");
+            return;
+        }
+
+        // Validate isPresentation consistency with IPEX protocol
+        // Agree in Presentation: requester agrees to a holder's offer — expected usage
+        // Agree in Issuance: less common but not necessarily invalid
+        if (!agreePayload.IsPresentation) {
+            logger.LogWarning(nameof(HandleIpexAgreeRpcAsync) + ": isPresentation=false for agree is unusual in standard IPEX flows");
+        }
+
+        logger.LogInformation(nameof(HandleIpexAgreeRpcAsync) + ": isPresentation={IsPresentation}, offerSaid={OfferSaid}, recipient={Recipient}",
+            agreePayload.IsPresentation, agreePayload.OfferSaid, agreePayload.RecipientPrefix);
+
+        var requestIpexAgreePayload = new RequestIpexAgreePayload(
+            Origin: origin,
+            OfferSaid: agreePayload.OfferSaid,
+            RecipientPrefix: agreePayload.RecipientPrefix,
+            IsPresentation: agreePayload.IsPresentation,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.IPEX_AGREE
+        );
+
+        var pendingRequest = new PendingBwAppRequest {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestIpexAgree,
+            Payload = requestIpexAgreePayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+    }
+
+    /// <summary>
+    /// Handles /KeriAuth/ipex/admit from ContentScript (webpage-initiated).
+    /// Web page requests the user to send an IPEX admit message (acknowledge receipt of a grant).
+    /// Creates a pending request for App to show approval UI.
+    /// </summary>
+    private async Task HandleIpexAdmitFromPageRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin) {
+        logger.LogInformation(nameof(HandleIpexAdmitFromPageRpcAsync) + ": tabId={TabId}, origin={Origin}", tabId, origin);
+
+        var rpcParams = request.GetParams<IpexAdmitRpcParams>();
+        var admitPayload = rpcParams?.Payload;
+        var originalRequestId = rpcParams?.RequestId ?? request.Id;
+
+        if (admitPayload is null || string.IsNullOrEmpty(admitPayload.GrantSaid) || string.IsNullOrEmpty(admitPayload.RecipientPrefix)) {
+            logger.LogWarning(nameof(HandleIpexAdmitFromPageRpcAsync) + ": invalid payload - grantSaid and recipient required");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for ipex/admit: grantSaid and recipient required");
+            return;
+        }
+
+        logger.LogInformation(nameof(HandleIpexAdmitFromPageRpcAsync) + ": isPresentation={IsPresentation}, grantSaid={GrantSaid}, recipient={Recipient}",
+            admitPayload.IsPresentation, admitPayload.GrantSaid, admitPayload.RecipientPrefix);
+
+        var requestIpexAdmitPayload = new RequestIpexAdmitPayload(
+            Origin: origin,
+            GrantSaid: admitPayload.GrantSaid,
+            RecipientPrefix: admitPayload.RecipientPrefix,
+            IsPresentation: admitPayload.IsPresentation,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.IPEX_ADMIT
+        );
+
+        var pendingRequest = new PendingBwAppRequest {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestIpexAdmitFromPage,
+            Payload = requestIpexAdmitPayload,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
     }
 
     /// <summary>

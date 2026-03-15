@@ -126,6 +126,21 @@ namespace Extension.Models.Messages.AppBw {
             /// </summary>
             public const string ReplySignDataApproval = "AppBw.ReplySignDataApproval";
             /// <summary>
+            /// App user approved an IPEX apply request.
+            /// BackgroundWorker will send the apply message via signify-ts.
+            /// </summary>
+            public const string ReplyIpexApplyApproval = "AppBw.ReplyIpexApplyApproval";
+            /// <summary>
+            /// App user approved an IPEX agree request.
+            /// BackgroundWorker will send the agree message via signify-ts.
+            /// </summary>
+            public const string ReplyIpexAgreeApproval = "AppBw.ReplyIpexAgreeApproval";
+            /// <summary>
+            /// App user approved a webpage-initiated IPEX admit request.
+            /// BackgroundWorker will send the admit message via signify-ts.
+            /// </summary>
+            public const string ReplyIpexAdmitApproval = "AppBw.ReplyIpexAdmitApproval";
+            /// <summary>
             /// Request to get key state for an identifier.
             /// </summary>
             public const string RequestGetKeyState = "AppBw.RequestGetKeyState";
@@ -186,6 +201,9 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetCredentials { get; } = new(Values.RequestGetCredentials);
         public static AppBwMessageType ReplyAidApproval { get; } = new(Values.ReplyAidApproval);
         public static AppBwMessageType ReplySignDataApproval { get; } = new(Values.ReplySignDataApproval);
+        public static AppBwMessageType ReplyIpexApplyApproval { get; } = new(Values.ReplyIpexApplyApproval);
+        public static AppBwMessageType ReplyIpexAgreeApproval { get; } = new(Values.ReplyIpexAgreeApproval);
+        public static AppBwMessageType ReplyIpexAdmitApproval { get; } = new(Values.ReplyIpexAdmitApproval);
         public static AppBwMessageType RequestGetKeyState { get; } = new(Values.RequestGetKeyState);
         public static AppBwMessageType RequestGetKeyEvents { get; } = new(Values.RequestGetKeyEvents);
         public static AppBwMessageType RequestRenameAid { get; } = new(Values.RequestRenameAid);
@@ -272,6 +290,15 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.ReplySignDataApproval:
                     result = ReplySignDataApproval;
+                    return true;
+                case Values.ReplyIpexApplyApproval:
+                    result = ReplyIpexApplyApproval;
+                    return true;
+                case Values.ReplyIpexAgreeApproval:
+                    result = ReplyIpexAgreeApproval;
+                    return true;
+                case Values.ReplyIpexAdmitApproval:
+                    result = ReplyIpexAdmitApproval;
                     return true;
                 case Values.RequestGetKeyState:
                     result = RequestGetKeyState;
@@ -578,6 +605,76 @@ namespace Extension.Models.Messages.AppBw {
         public AppBwReplySignDataApprovalMessage(int tabId, string? tabUrl, string requestId, SignDataApprovalPayload payload)
             : base(AppBwMessageType.ReplySignDataApproval, tabId, tabUrl, requestId, payload) { }
     }
+
+    /// <summary>
+    /// Payload for IPEX apply approval from App to BackgroundWorker.
+    /// App sends the user's selected sender AID prefix and the original apply request details.
+    /// BackgroundWorker will send the apply message via signify-ts.
+    /// </summary>
+    public record IpexApplyApprovalPayload(
+        [property: JsonPropertyName("senderPrefix")] string SenderPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
+        [property: JsonPropertyName("attributes")] RecursiveDictionary? Attributes = null
+    );
+
+    /// <summary>
+    /// Reply message for IPEX apply approval.
+    /// App sends this when user approves an IPEX apply request; BW handles sending via signify-ts.
+    /// </summary>
+    public record AppBwReplyIpexApplyApprovalMessage : AppBwMessage<IpexApplyApprovalPayload> {
+        public AppBwReplyIpexApplyApprovalMessage(int tabId, string? tabUrl, string requestId, IpexApplyApprovalPayload payload)
+            : base(AppBwMessageType.ReplyIpexApplyApproval, tabId, tabUrl, requestId, payload) { }
+    }
+
+    /// <summary>
+    /// Payload for IPEX agree approval from App to BackgroundWorker.
+    /// App sends the user's selected sender AID prefix and the original agree request details.
+    /// BackgroundWorker will send the agree message via signify-ts.
+    /// </summary>
+    public record IpexAgreeApprovalPayload(
+        [property: JsonPropertyName("senderPrefix")] string SenderPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("offerSaid")] string OfferSaid
+    );
+
+    /// <summary>
+    /// Reply message for IPEX agree approval.
+    /// App sends this when user approves an IPEX agree request; BW handles sending via signify-ts.
+    /// </summary>
+    public record AppBwReplyIpexAgreeApprovalMessage : AppBwMessage<IpexAgreeApprovalPayload> {
+        public AppBwReplyIpexAgreeApprovalMessage(int tabId, string? tabUrl, string requestId, IpexAgreeApprovalPayload payload)
+            : base(AppBwMessageType.ReplyIpexAgreeApproval, tabId, tabUrl, requestId, payload) { }
+    }
+
+    /// <summary>
+    /// Payload for IPEX admit approval from App to BackgroundWorker (webpage-initiated).
+    /// App sends the user's selected sender AID prefix and the original admit request details.
+    /// BackgroundWorker will send the admit message via signify-ts.
+    /// </summary>
+    public record IpexAdmitApprovalPayload(
+        [property: JsonPropertyName("senderPrefix")] string SenderPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("grantSaid")] string GrantSaid
+    );
+
+    /// <summary>
+    /// Reply message for webpage-initiated IPEX admit approval.
+    /// App sends this when user approves an IPEX admit request; BW handles sending via signify-ts.
+    /// </summary>
+    public record AppBwReplyIpexAdmitApprovalMessage : AppBwMessage<IpexAdmitApprovalPayload> {
+        public AppBwReplyIpexAdmitApprovalMessage(int tabId, string? tabUrl, string requestId, IpexAdmitApprovalPayload payload)
+            : base(AppBwMessageType.ReplyIpexAdmitApproval, tabId, tabUrl, requestId, payload) { }
+    }
+
+    /// <summary>
+    /// Response payload for IPEX operations (apply, agree, admit) sent back to ContentScript.
+    /// Contains the SAID of the sent exchange message and the sender's AID prefix.
+    /// </summary>
+    public record IpexResponsePayload(
+        [property: JsonPropertyName("said")] string? Said = null,
+        [property: JsonPropertyName("senderPrefix")] string? SenderPrefix = null
+    );
 
     /// <summary>
     /// Payload for get key state request from App to BackgroundWorker.

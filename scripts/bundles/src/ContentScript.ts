@@ -720,6 +720,14 @@ import {
                     await sendMessageToBW(connectionConfirmMsg);
                     break;
                 }
+                case CsBwMsgEnum.KERIAUTH_IPEX_APPLY:
+                case CsBwMsgEnum.KERIAUTH_IPEX_AGREE:
+                case CsBwMsgEnum.KERIAUTH_IPEX_ADMIT: {
+                    const ipexMsg = event.data as Polaris.MessageData<unknown>;
+                    console.info(`${logPrefix} ${event.data.type}:`, event.data);
+                    await sendMessageToBW(ipexMsg);
+                    break;
+                }
                 default:
                     console.info(`${logPrefix} handler not implemented for ${event.data.type}`, event.data);
                     break;
