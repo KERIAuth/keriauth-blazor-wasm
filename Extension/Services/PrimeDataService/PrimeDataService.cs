@@ -83,23 +83,18 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 12b: Resolve credential schema OOBIs
             _logger.LogInformation("Step 12b: Resolving credential schema OOBIs...");
-            var schemaOobis = new (string schemaSaid, string url)[] {
-                ("EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao", "https://schema.testnet.gleif.org:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"),
-                ("ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY", "https://schema.testnet.gleif.org:7723/oobi/ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY"),
-                ("EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E", "https://schema.testnet.gleif.org:7723/oobi/EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E"),
-                ("EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy", "https://schema.testnet.gleif.org:7723/oobi/EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy"),
-                ("EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g", "https://schema.testnet.gleif.org:7723/oobi/EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g"),
-                ("EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw", "https://schema.testnet.gleif.org:7723/oobi/EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw"),
+            var schemaOobis = new[] {
+                QviSchemaSaid, LeSchemaSaid, OorAuthSchemaSaid, OorSchemaSaid, EcrAuthSchemaSaid, EcrSchemaSaid
             };
-            foreach (var (schemaSaid, url) in schemaOobis) {
-                _logger.LogInformation("  Resolving schema OOBI {SchemaSaid}...", schemaSaid);
-                var schemaResolveResult = await _signifyClient.ResolveOobi(url);
+            foreach (var said in schemaOobis) {
+                _logger.LogInformation("  Resolving schema OOBI {SchemaSaid}...", said);
+                var schemaResolveResult = await _signifyClient.ResolveOobi(SchemaOobiBaseUrl + said);
                 if (schemaResolveResult.IsFailed) {
-                    var err = $"Failed to resolve schema OOBI {schemaSaid}: {schemaResolveResult.Errors[0].Message}";
+                    var err = $"Failed to resolve schema OOBI {said}: {schemaResolveResult.Errors[0].Message}";
                     _logger.LogError("{Error}", err);
                     return FailResponse(err);
                 }
-                _logger.LogInformation("  Schema OOBI resolved: {SchemaSaid}", schemaSaid);
+                _logger.LogInformation("  Schema OOBI resolved: {SchemaSaid}", said);
             }
 
             // Step 13a: GEDA issues QVI credential
@@ -108,7 +103,7 @@ namespace Extension.Services.PrimeDataService {
             var qviCredIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: gedaName,
                 RegistryName: gedaRegistryName,
-                Schema: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                Schema: QviSchemaSaid,
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: qviCredData
             ), "Step 13a", "QVI credential");
@@ -155,7 +150,7 @@ namespace Extension.Services.PrimeDataService {
             var applyResult = await _signifyClient.IpexApplyAndSubmit(new IpexApplySubmitArgs(
                 SenderNameOrPrefix: verifierName,
                 RecipientPrefix: qviResult.Value.Prefix,
-                SchemaSaid: "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+                SchemaSaid: QviSchemaSaid
             ));
             if (applyResult.IsFailed) {
                 var err = $"Failed verifier IPEX apply: {applyResult.Errors[0].Message}";
@@ -212,13 +207,13 @@ namespace Extension.Services.PrimeDataService {
             leCredEdge["d"] = new RecursiveValue { StringValue = "" };
             var qviEdge = new RecursiveDictionary();
             qviEdge["n"] = new RecursiveValue { StringValue = qviCredIssued.Value.Said };
-            qviEdge["s"] = new RecursiveValue { StringValue = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao" };
+            qviEdge["s"] = new RecursiveValue { StringValue = QviSchemaSaid };
             leCredEdge["qvi"] = new RecursiveValue { Dictionary = qviEdge };
 
             var leCredIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: qviName,
                 RegistryName: qviRegistryName,
-                Schema: "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
+                Schema: LeSchemaSaid,
                 HolderPrefix: leResult.Value.Prefix,
                 CredData: leCredData,
                 CredEdge: leCredEdge,
@@ -291,13 +286,13 @@ namespace Extension.Services.PrimeDataService {
             oorAuthEdge["d"] = new RecursiveValue { StringValue = "" };
             var oorAuthLeEdge = new RecursiveDictionary();
             oorAuthLeEdge["n"] = new RecursiveValue { StringValue = leCredIssued.Value.Said };
-            oorAuthLeEdge["s"] = new RecursiveValue { StringValue = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY" };
+            oorAuthLeEdge["s"] = new RecursiveValue { StringValue = LeSchemaSaid };
             oorAuthEdge["le"] = new RecursiveValue { Dictionary = oorAuthLeEdge };
 
             var oorAuthIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: leName,
                 RegistryName: leRegistryName,
-                Schema: "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E",
+                Schema: OorAuthSchemaSaid,
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: oorAuthCredData,
                 CredEdge: oorAuthEdge,
@@ -335,14 +330,14 @@ namespace Extension.Services.PrimeDataService {
             oorEdge["d"] = new RecursiveValue { StringValue = "" };
             var oorAuthRef = new RecursiveDictionary();
             oorAuthRef["n"] = new RecursiveValue { StringValue = oorAuthIssued.Value.Said };
-            oorAuthRef["s"] = new RecursiveValue { StringValue = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E" };
+            oorAuthRef["s"] = new RecursiveValue { StringValue = OorAuthSchemaSaid };
             oorAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
             oorEdge["auth"] = new RecursiveValue { Dictionary = oorAuthRef };
 
             var oorIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: qviName,
                 RegistryName: qviRegistryName,
-                Schema: "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy",
+                Schema: OorSchemaSaid,
                 HolderPrefix: personResult.Value.Prefix,
                 CredData: oorCredData,
                 CredEdge: oorEdge,
@@ -386,13 +381,13 @@ namespace Extension.Services.PrimeDataService {
             ecrAuthEdge["d"] = new RecursiveValue { StringValue = "" };
             var ecrAuthLeEdge = new RecursiveDictionary();
             ecrAuthLeEdge["n"] = new RecursiveValue { StringValue = leCredIssued.Value.Said };
-            ecrAuthLeEdge["s"] = new RecursiveValue { StringValue = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY" };
+            ecrAuthLeEdge["s"] = new RecursiveValue { StringValue = LeSchemaSaid };
             ecrAuthEdge["le"] = new RecursiveValue { Dictionary = ecrAuthLeEdge };
 
             var ecrAuthIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: leName,
                 RegistryName: leRegistryName,
-                Schema: "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",
+                Schema: EcrAuthSchemaSaid,
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: ecrAuthCredData,
                 CredEdge: ecrAuthEdge,
@@ -430,14 +425,14 @@ namespace Extension.Services.PrimeDataService {
             ecrEdge["d"] = new RecursiveValue { StringValue = "" };
             var ecrAuthRef = new RecursiveDictionary();
             ecrAuthRef["n"] = new RecursiveValue { StringValue = ecrAuthIssued.Value.Said };
-            ecrAuthRef["s"] = new RecursiveValue { StringValue = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g" };
+            ecrAuthRef["s"] = new RecursiveValue { StringValue = EcrAuthSchemaSaid };
             ecrAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
             ecrEdge["auth"] = new RecursiveValue { Dictionary = ecrAuthRef };
 
             var ecrIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: qviName,
                 RegistryName: qviRegistryName,
-                Schema: "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw",
+                Schema: EcrSchemaSaid,
                 HolderPrefix: personResult.Value.Prefix,
                 CredData: ecrCredData,
                 CredEdge: ecrEdge,
@@ -473,6 +468,269 @@ namespace Extension.Services.PrimeDataService {
             return Result.Ok(new PrimeDataGoResponse(true));
         }
 
+        private const string SchemaOobiBaseUrl = "https://schema.testnet.gleif.org:7723/oobi/";
+        private const string QviSchemaSaid = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
+        private const string LeSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
+        private const string OorAuthSchemaSaid = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E";
+        private const string OorSchemaSaid = "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy";
+        private const string EcrAuthSchemaSaid = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g";
+        private const string EcrSchemaSaid = "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw";
+
+        /// <summary>
+        /// Returns AID prefixes eligible to be the Discloser for a given IPEX workflow.
+        /// For Apply-only workflows, no credential is required so all AIDs are eligible.
+        /// For issuance workflows with Offer/Grant, the Discloser must hold an ECR Auth credential.
+        /// For presentation workflows with Offer/Grant, the Discloser must hold an ECR credential.
+        /// </summary>
+        public async Task<Result<List<string>>> GetEligibleDiscloserPrefixes(bool isPresentation, IpexWorkflow workflow) {
+            var requiresCredential = workflow != IpexWorkflow.Apply;
+
+            if (!requiresCredential) {
+                // Apply-only: any AID can be the Discloser (they don't act in Apply-only)
+                var idsResult = await _signifyClient.GetIdentifiers();
+                if (idsResult.IsFailed) return Result.Fail<List<string>>(idsResult.Errors[0].Message);
+                return Result.Ok(idsResult.Value.Aids.Select(a => a.Prefix).ToList());
+            }
+
+            var credsResult = await _signifyClient.GetCredentials();
+            if (credsResult.IsFailed) return Result.Fail<List<string>>(credsResult.Errors[0].Message);
+
+            var targetSchema = isPresentation ? EcrSchemaSaid : EcrAuthSchemaSaid;
+            var eligiblePrefixes = credsResult.Value
+                .Where(c => c.GetValueByPath("sad.s")?.Value?.ToString() == targetSchema)
+                .Select(c => isPresentation
+                    ? c.GetValueByPath("sad.a.i")?.Value?.ToString()   // ECR holder (issuee)
+                    : c.GetValueByPath("sad.a.i")?.Value?.ToString())  // ECR Auth holder (issuee)
+                .Where(p => p is not null)
+                .Cast<string>()
+                .Distinct()
+                .ToList();
+
+            return Result.Ok(eligiblePrefixes);
+        }
+
+        public async Task<Result<PrimeDataIpexResponse>> GoIpexAsync(PrimeDataIpexPayload payload) {
+            _logger.LogInformation("PrimeData IPEX starting: workflow={Workflow}, isPresentation={IsPresentation}, discloser={Discloser}, disclosee={Disclosee}, role={Role}",
+                payload.Workflow, payload.IsPresentation, payload.DiscloserPrefix, payload.DiscloseePrefix, payload.EcrRole);
+
+            var generatedExchangeSaids = new HashSet<string>();
+
+            // Resolve ECR schema OOBI
+            _logger.LogInformation("Resolving ECR schema OOBI...");
+            var schemaResolve = await _signifyClient.ResolveOobi(SchemaOobiBaseUrl + EcrSchemaSaid);
+            if (schemaResolve.IsFailed) {
+                return FailIpexResponse($"Failed to resolve ECR schema OOBI: {schemaResolve.Errors[0].Message}");
+            }
+
+            var discloserPrefix = payload.DiscloserPrefix;
+            var discloseePrefix = payload.DiscloseePrefix;
+            var workflow = payload.Workflow;
+
+            // Determine credential SAID for presentation or issue credential for issuance
+            string? credentialSaid = null;
+            IssuedCredential? issuedCred = null;
+
+            var workflowIncludesOfferOrGrant = workflow is not IpexWorkflow.Apply;
+
+            if (workflowIncludesOfferOrGrant) {
+                if (payload.IsPresentation) {
+                    // Presentation: find existing ECR credential held by Discloser
+                    var credsResult = await _signifyClient.GetCredentials();
+                    if (credsResult.IsFailed) return FailIpexResponse($"Failed to get credentials: {credsResult.Errors[0].Message}");
+
+                    var ecrCred = credsResult.Value.FirstOrDefault(c =>
+                        c.GetValueByPath("sad.s")?.Value?.ToString() == EcrSchemaSaid &&
+                        c.GetValueByPath("sad.a.i")?.Value?.ToString() == discloserPrefix);
+
+                    if (ecrCred is null) {
+                        return FailIpexResponse($"Discloser {discloserPrefix} does not hold an ECR credential for presentation");
+                    }
+                    credentialSaid = ecrCred.GetValueByPath("sad.d")?.Value?.ToString();
+                    _logger.LogInformation("Found ECR credential for presentation: said={Said}", credentialSaid);
+                }
+                else {
+                    // Issuance: validate Discloser has ECR Auth, then issue ECR credential
+                    var credsResult = await _signifyClient.GetCredentials();
+                    if (credsResult.IsFailed) return FailIpexResponse($"Failed to get credentials: {credsResult.Errors[0].Message}");
+
+                    var ecrAuthCred = credsResult.Value.FirstOrDefault(c =>
+                        c.GetValueByPath("sad.s")?.Value?.ToString() == EcrAuthSchemaSaid &&
+                        c.GetValueByPath("sad.a.i")?.Value?.ToString() == discloserPrefix);
+
+                    if (ecrAuthCred is null) {
+                        return FailIpexResponse($"Discloser {discloserPrefix} does not hold an ECR Auth credential for issuance");
+                    }
+                    var ecrAuthSaid = ecrAuthCred.GetValueByPath("sad.d")?.Value?.ToString()!;
+                    _logger.LogInformation("Found ECR Auth credential: said={Said}", ecrAuthSaid);
+
+                    // Auto-create registry for Discloser (Issuer)
+                    var discloserName = await GetAidName(discloserPrefix);
+                    if (discloserName is null) return FailIpexResponse($"Could not resolve AID name for prefix {discloserPrefix}");
+
+                    var registryName = $"{discloserName}_ecr_ipex_registry";
+                    var registryResult = await CreateRegistryStep(discloserName, registryName, "IPEX registry");
+                    if (registryResult.IsFailed) return FailIpexResponse(registryResult.Errors[0].Message);
+
+                    // Issue ECR credential with ECR Auth edge
+                    var ecrCredData = new RecursiveDictionary();
+                    ecrCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
+                    ecrCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
+                    ecrCredData["engagementContextRole"] = new RecursiveValue { StringValue = payload.EcrRole };
+
+                    var ecrEdge = new RecursiveDictionary();
+                    ecrEdge["d"] = new RecursiveValue { StringValue = "" };
+                    var ecrAuthRef = new RecursiveDictionary();
+                    ecrAuthRef["n"] = new RecursiveValue { StringValue = ecrAuthSaid };
+                    ecrAuthRef["s"] = new RecursiveValue { StringValue = EcrAuthSchemaSaid };
+                    ecrAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
+                    ecrEdge["auth"] = new RecursiveValue { Dictionary = ecrAuthRef };
+
+                    issuedCred = (await IssueCredentialStep(new IssueAndGetCredentialArgs(
+                        IssuerAidNameOrPrefix: discloserName,
+                        RegistryName: registryName,
+                        Schema: EcrSchemaSaid,
+                        HolderPrefix: discloseePrefix,
+                        CredData: ecrCredData,
+                        CredEdge: ecrEdge,
+                        CredRules: BuildVleiRules("It is the sole responsibility of Holders as Issuees of an ECR vLEI Credential to present that Credential in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification. https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification."),
+                        Private: true
+                    ), "IPEX issue", "ECR credential")).ValueOrDefault;
+
+                    if (issuedCred is null) return FailIpexResponse("Failed to issue ECR credential");
+
+                    credentialSaid = issuedCred.Said;
+                    _logger.LogInformation("ECR credential issued: said={Said}", credentialSaid);
+                }
+            }
+
+            // Execute IPEX workflow steps
+            // Track all generated SAIDs, and separately track which to mark as read.
+            // The last step's notification should remain unread (it represents a pending action).
+            string? applySaid = null;
+            string? offerSaid = null;
+            string? agreeSaid = null;
+            string? grantSaid = null;
+            string? lastStepSaid = null;
+
+            // Apply step (Disclosee sends Apply to Discloser)
+            if (workflow is IpexWorkflow.Apply or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
+
+                var attributes = new RecursiveDictionary();
+                attributes["engagementContextRole"] = new RecursiveValue { StringValue = payload.EcrRole };
+
+                _logger.LogInformation("IPEX Apply: Disclosee {Disclosee} applying to Discloser {Discloser}...", discloseePrefix, discloserPrefix);
+                var applyResult = await _signifyClient.IpexApplyAndSubmit(new IpexApplySubmitArgs(
+                    SenderNameOrPrefix: discloseePrefix,
+                    RecipientPrefix: discloserPrefix,
+                    SchemaSaid: EcrSchemaSaid,
+                    Attributes: attributes
+                ));
+                if (applyResult.IsFailed) return FailIpexResponse($"Apply failed: {applyResult.Errors[0].Message}");
+                applySaid = applyResult.Value["applySaid"].StringValue!;
+                generatedExchangeSaids.Add(applySaid);
+                lastStepSaid = applySaid;
+                _logger.LogInformation("Apply submitted: applySaid={ApplySaid}", applySaid);
+            }
+
+            // Offer step (Discloser sends Offer to Disclosee)
+            if (workflow is IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
+
+                _logger.LogInformation("IPEX Offer: Discloser {Discloser} offering to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);
+                var offerResult = await _signifyClient.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                    SenderNameOrPrefix: discloserPrefix,
+                    RecipientPrefix: discloseePrefix,
+                    CredentialSaid: credentialSaid!,
+                    ApplySaid: applySaid
+                ));
+                if (offerResult.IsFailed) return FailIpexResponse($"Offer failed: {offerResult.Errors[0].Message}");
+                offerSaid = offerResult.Value["offerSaid"].StringValue!;
+                generatedExchangeSaids.Add(offerSaid);
+                lastStepSaid = offerSaid;
+                _logger.LogInformation("Offer submitted: offerSaid={OfferSaid}", offerSaid);
+            }
+
+            // Agree step (Disclosee sends Agree to Discloser)
+            if (workflow is IpexWorkflow.ApplyOfferAgree
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
+
+                _logger.LogInformation("IPEX Agree: Disclosee {Disclosee} agreeing with Discloser {Discloser}...", discloseePrefix, discloserPrefix);
+                var agreeResult = await _signifyClient.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
+                    SenderNameOrPrefix: discloseePrefix,
+                    RecipientPrefix: discloserPrefix,
+                    OfferSaid: offerSaid!
+                ));
+                if (agreeResult.IsFailed) return FailIpexResponse($"Agree failed: {agreeResult.Errors[0].Message}");
+                agreeSaid = agreeResult.Value["agreeSaid"].StringValue!;
+                generatedExchangeSaids.Add(agreeSaid);
+                lastStepSaid = agreeSaid;
+                _logger.LogInformation("Agree submitted: agreeSaid={AgreeSaid}", agreeSaid);
+            }
+
+            // Grant step (Discloser sends Grant to Disclosee)
+            if (workflow is IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.Grant or IpexWorkflow.GrantAdmit) {
+
+                _logger.LogInformation("IPEX Grant: Discloser {Discloser} granting to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);
+
+                if (payload.IsPresentation) {
+                    // Presentation: grant received credential
+                    var grantResult = await _signifyClient.GrantReceivedCredential(discloserPrefix, credentialSaid!, discloseePrefix);
+                    if (grantResult.IsFailed) return FailIpexResponse($"Grant (presentation) failed: {grantResult.Errors[0].Message}");
+                    grantSaid = grantResult.Value["grantSaid"].StringValue!;
+                }
+                else {
+                    // Issuance: grant newly issued credential
+                    var grantResult = await GrantCredentialStep(new IpexGrantSubmitArgs(
+                        SenderNameOrPrefix: discloserPrefix,
+                        RecipientPrefix: discloseePrefix,
+                        Acdc: issuedCred!.Acdc,
+                        Anc: issuedCred.Anc,
+                        Iss: issuedCred.Iss
+                    ), "IPEX grant", "ECR credential");
+                    if (grantResult.IsFailed) return FailIpexResponse(grantResult.Errors[0].Message);
+                    grantSaid = grantResult.Value;
+                }
+                generatedExchangeSaids.Add(grantSaid!);
+                lastStepSaid = grantSaid;
+                _logger.LogInformation("Grant submitted: grantSaid={GrantSaid}", grantSaid);
+            }
+
+            // Admit step (Disclosee sends Admit to Discloser)
+            if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit) {
+
+                _logger.LogInformation("IPEX Admit: Disclosee {Disclosee} admitting from Discloser {Discloser}...", discloseePrefix, discloserPrefix);
+                var admitResult = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+                    SenderNameOrPrefix: discloseePrefix,
+                    RecipientPrefix: discloserPrefix,
+                    GrantSaid: grantSaid!
+                ), "IPEX admit", "ECR credential");
+                if (admitResult.IsFailed) return FailIpexResponse(admitResult.Errors[0].Message);
+                generatedExchangeSaids.Add(admitResult.Value);
+                lastStepSaid = admitResult.Value;
+                _logger.LogInformation("Admit submitted: admitSaid={AdmitSaid}", admitResult.Value);
+            }
+
+            // Mark generated notifications as read, except the last step's notification
+            // (the last step represents a pending action for the recipient to act on).
+            // For complete workflows (ending in Admit), mark everything as read.
+            var isCompleteWorkflow = workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit;
+            var saidsToMarkAsRead = isCompleteWorkflow
+                ? generatedExchangeSaids
+                : new HashSet<string>(generatedExchangeSaids.Where(s => s != lastStepSaid));
+            await WaitForNotificationsAndMarkAsReadStep(saidsToMarkAsRead, "IPEX cleanup");
+
+            _logger.LogInformation("PrimeData IPEX completed successfully: workflow={Workflow}", workflow);
+            return Result.Ok(new PrimeDataIpexResponse(true));
+        }
+
+        private async Task<string?> GetAidName(string prefix) {
+            var idsResult = await _signifyClient.GetIdentifiers();
+            if (idsResult.IsFailed) return null;
+            return idsResult.Value.Aids.FirstOrDefault(a => a.Prefix == prefix)?.Name;
+        }
+
         // ===================== Helper Types =====================
 
         private record IssuedCredential(RecursiveDictionary Acdc, RecursiveDictionary Anc, RecursiveDictionary Iss, string Said);
@@ -481,6 +739,9 @@ namespace Extension.Services.PrimeDataService {
 
         private static Result<PrimeDataGoResponse> FailResponse(string error) =>
             Result.Ok(new PrimeDataGoResponse(false, Error: error));
+
+        private static Result<PrimeDataIpexResponse> FailIpexResponse(string error) =>
+            Result.Ok(new PrimeDataIpexResponse(false, Error: error));
 
         private async Task<Result<AidWithOobi>> CreateAidStep(string name, string stepLabel) {
             _logger.LogInformation("{Step}: Creating AID '{Name}'...", stepLabel, name);

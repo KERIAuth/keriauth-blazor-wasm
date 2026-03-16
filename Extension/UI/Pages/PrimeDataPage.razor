@@ -3,8 +3,10 @@
 @using Extension.Helper
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
+@using Extension.Models.Storage
 @using Extension.Services
 @using Extension.Services.Port
+@using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig;
 @using static Extension.Helper.PreviousPage
 @inject NavigationManager navManager
@@ -18,14 +20,126 @@
 @code
 {
     enum StepStatus { Blank, Running, Success, Error }
+
+    // Section 1: Prime AIDs
     StepStatus goStatus;
     string? goError;
     string prepend = "001";
+
+    // Section 2: IPEX Workflows
+    StepStatus ipexStatus;
+    string? ipexError;
+    bool isPresentation;
+    string? selectedDiscloserPrefix;
+    string? selectedDiscloseePrefix;
+    IpexWorkflow? selectedWorkflow;
+    string ipexRole = "";
+    List<string> eligibleDiscloserPrefixes = [];
+
+    List<Aid> AllAids => appCache.Aids;
+    List<Connection> AllConnections => appCache.MyConnections?.Items ?? [];
+
+    string DiscloserLabel => isPresentation ? "Holder (discloser)" : "Issuer (discloser)";
+    string DiscloseeLabel => isPresentation ? "Verifier (disclosee)" : "Holder (disclosee)";
+
+    bool HasConnectionDiscloseeToDiscloser =>
+        selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null &&
+        AllConnections.Any(c => c.SenderPrefix == selectedDiscloseePrefix && c.ReceiverPrefix == selectedDiscloserPrefix);
+
+    bool HasConnectionDiscloserToDisclosee =>
+        selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null &&
+        AllConnections.Any(c => c.SenderPrefix == selectedDiscloserPrefix && c.ReceiverPrefix == selectedDiscloseePrefix);
+
+    bool HasAnyConnection => HasConnectionDiscloseeToDiscloser || HasConnectionDiscloserToDisclosee;
+    bool HasMutualConnection => HasConnectionDiscloseeToDiscloser && HasConnectionDiscloserToDisclosee;
+
+    bool IpexGoEnabled =>
+        !string.IsNullOrWhiteSpace(ipexRole) &&
+        selectedWorkflow is not null &&
+        selectedDiscloserPrefix is not null &&
+        selectedDiscloseePrefix is not null &&
+        ipexStatus != StepStatus.Running;
+
+    bool IsWorkflowEnabled(IpexWorkflow wf) => wf switch {
+        IpexWorkflow.Apply => HasConnectionDiscloseeToDiscloser,
+        IpexWorkflow.Grant => HasConnectionDiscloserToDisclosee,
+        _ => HasMutualConnection
+    };
+
+    static string WorkflowDisplayName(IpexWorkflow wf) => wf switch {
+        IpexWorkflow.Apply => "Apply",
+        IpexWorkflow.ApplyOffer => "Apply\u279BOffer",
+        IpexWorkflow.ApplyOfferAgree => "Apply\u279BOffer\u279BAgree",
+        IpexWorkflow.ApplyOfferAgreeGrant => "Apply\u279BOffer\u279BAgree\u279BGrant",
+        IpexWorkflow.ApplyOfferAgreeGrantAdmit => "Apply\u279BOffer\u279BAgree\u279BGrant\u279BAdmit",
+        IpexWorkflow.Grant => "Grant",
+        IpexWorkflow.GrantAdmit => "Grant\u279BAdmit",
+        _ => wf.ToString()
+    };
+
+    string? GetAidDisplayName(string prefix) {
+        var aid = AllAids.FirstOrDefault(a => a.Prefix == prefix);
+        return aid is not null ? $"{aid.Name} ({prefix[..8]}...)" : prefix;
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await this.SubscribeToAppCache(appCache);
         logger.LogInformation("OnInitializedAsync");
+        ipexRole = GenerateRandomRole();
+        await FetchEligibleDisclosers();
+    }
+
+    static string GenerateRandomRole() {
+        return Random.Shared.Next(1000, 10000).ToString();
+    }
+
+    async Task FetchEligibleDisclosers() {
+        var workflow = selectedWorkflow ?? IpexWorkflow.Apply;
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexEligibleDisclosers,
+                new { payload = new IpexEligibleDisclosersPayload(isPresentation, workflow) },
+                TimeSpan.FromSeconds(30));
+
+            if (response.Ok && response.Result is JsonElement jsonEl) {
+                var result = JsonSerializer.Deserialize<IpexEligibleDisclosersResponse>(jsonEl.GetRawText(), JsonOptions.PortMessaging);
+                if (result is not null && result.Success) {
+                    eligibleDiscloserPrefixes = result.Prefixes;
+                    if (selectedDiscloserPrefix is not null && !eligibleDiscloserPrefixes.Contains(selectedDiscloserPrefix)) {
+                        selectedDiscloserPrefix = null;
+                    }
+                }
+            }
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "Failed to fetch eligible disclosers");
+        }
+        StateHasChanged();
+    }
+
+    async Task OnIsPresentationChanged(bool value) {
+        isPresentation = value;
+        selectedDiscloserPrefix = null;
+        selectedDiscloseePrefix = null;
+        selectedWorkflow = null;
+        ipexRole = isPresentation ? "" : GenerateRandomRole();
+        await FetchEligibleDisclosers();
+    }
+
+    async Task OnWorkflowChanged(IpexWorkflow? value) {
+        selectedWorkflow = value;
+        await FetchEligibleDisclosers();
+    }
+
+    void OnDiscloserChanged(string? value) {
+        selectedDiscloserPrefix = value;
+        selectedWorkflow = null;
+    }
+
+    void OnDiscloseeChanged(string? value) {
+        selectedDiscloseePrefix = value;
+        selectedWorkflow = null;
     }
 
     async Task OnGo()
@@ -72,10 +186,65 @@
         StateHasChanged();
     }
 
+    async Task OnIpexGo()
+    {
+        if (selectedDiscloserPrefix is null || selectedDiscloseePrefix is null || selectedWorkflow is null) return;
+
+        ipexStatus = StepStatus.Running;
+        ipexError = null;
+        StateHasChanged();
+
+        try
+        {
+            var payload = new PrimeDataIpexPayload(
+                selectedDiscloserPrefix,
+                selectedDiscloseePrefix,
+                selectedWorkflow.Value,
+                ipexRole,
+                isPresentation);
+
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestPrimeDataIpex,
+                new { payload },
+                TimeSpan.FromMinutes(5));
+
+            if (!response.Ok)
+            {
+                ipexStatus = StepStatus.Error;
+                ipexError = response.Error ?? "RPC failed";
+            }
+            else
+            {
+                var result = response.Result is JsonElement jsonEl
+                    ? JsonSerializer.Deserialize<PrimeDataIpexResponse>(jsonEl.GetRawText(), JsonOptions.PortMessaging)
+                    : null;
+
+                if (result is not null && result.Success)
+                {
+                    ipexStatus = StepStatus.Success;
+                }
+                else
+                {
+                    ipexStatus = StepStatus.Error;
+                    ipexError = result?.Error ?? "Unknown error";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ipexStatus = StepStatus.Error;
+            ipexError = ex.Message;
+        }
+
+        StateHasChanged();
+    }
+
     void OnReset()
     {
         goStatus = StepStatus.Blank;
         goError = null;
+        ipexStatus = StepStatus.Blank;
+        ipexError = null;
         StateHasChanged();
     }
 
@@ -92,15 +261,11 @@
             <PageHeading Title="Prime Data" />
 
             <MudText Class="bt-pref-group-label0">
-                Input Fields
+                Prime GEDA&#x2192;QVI&#x2192;LE and Person AIDs and Credentials
             </MudText>
             <MudStack Class="ml-5">
                 <MudTextField T="string" Label="Prepend" @bind-Value="prepend" Variant="Variant.Outlined" />
             </MudStack>
-
-            <MudText Class="bt-pref-group-label0">
-                Execute
-            </MudText>
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="ml-5">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            OnClick="OnGo" Disabled="@(goStatus == StepStatus.Running)">
@@ -121,12 +286,83 @@
                 }
             </MudStack>
 
+            <MudText Class="bt-pref-group-label0">
+                Prime IPEX Credential Issuance Workflows (ECR)
+            </MudText>
+            <MudStack Class="ml-5" Spacing="2">
+                <MudRadioGroup T="bool" Value="isPresentation" ValueChanged="OnIsPresentationChanged">
+                    <MudRadio T="bool" Value="false" Color="Color.Primary">Credential Issuance</MudRadio>
+                    <MudRadio T="bool" Value="true" Color="Color.Primary">Credential Presentation</MudRadio>
+                </MudRadioGroup>
+
+                <MudSelect T="string" Label="@DiscloserLabel" Value="selectedDiscloserPrefix"
+                           ValueChanged="OnDiscloserChanged" Variant="Variant.Outlined" Placeholder="Select AID">
+                    @foreach (var aid in AllAids.Where(a => eligibleDiscloserPrefixes.Contains(a.Prefix)))
+                    {
+                        <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@aid.Prefix[..8]...)</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" Label="@DiscloseeLabel" Value="selectedDiscloseePrefix"
+                           ValueChanged="OnDiscloseeChanged" Variant="Variant.Outlined" Placeholder="Select AID">
+                    @foreach (var aid in AllAids)
+                    {
+                        <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@aid.Prefix[..8]...)</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null)
+                {
+                    @if (!HasAnyConnection)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">
+                            No connection exists in either direction between the selected AIDs.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTextField T="string" Label="Role" @bind-Value="ipexRole" Variant="Variant.Outlined"
+                                      Required="true" RequiredError="Role is required" />
+
+                        <MudSelect T="IpexWorkflow?" Label="Run workflow" Value="selectedWorkflow"
+                                   ValueChanged="OnWorkflowChanged" Variant="Variant.Outlined" Placeholder="Select workflow">
+                            @foreach (var wf in Enum.GetValues<IpexWorkflow>())
+                            {
+                                <MudSelectItem T="IpexWorkflow?" Value="wf" Disabled="@(!IsWorkflowEnabled(wf))">
+                                    @WorkflowDisplayName(wf)
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="OnIpexGo" Disabled="@(!IpexGoEnabled)">
+                                Go
+                            </MudButton>
+                            @if (ipexStatus == StepStatus.Running)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                            }
+                            @if (ipexStatus == StepStatus.Success)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                            }
+                            @if (ipexStatus == StepStatus.Error)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Title="@ipexError" />
+                                <MudText Color="Color.Error" Typo="Typo.body2">@ipexError</MudText>
+                            }
+                        </MudStack>
+                    }
+                }
+            </MudStack>
+
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
-        <MudButton Variant="Variant.Text" OnClick="OnReset" Disabled="@(goStatus == StepStatus.Running)">Reset</MudButton>
+        <MudButton Variant="Variant.Text" OnClick="OnReset" Disabled="@(goStatus == StepStatus.Running || ipexStatus == StepStatus.Running)">Reset</MudButton>
     </MudStack>
 </div>
 

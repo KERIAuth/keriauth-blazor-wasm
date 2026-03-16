@@ -1422,6 +1422,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestPrimeDataGoRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestPrimeDataIpex:
+                    await HandleAppRequestPrimeDataIpexRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestIpexEligibleDisclosers:
+                    await HandleAppRequestIpexEligibleDisclosersRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestGetOobi:
                     await HandleAppRequestGetOobiRpcAsync(portId, request, payload);
                     return;
@@ -2684,6 +2692,91 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestPrimeDataGoRpcAsync) + ": Error during PrimeData Go");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new PrimeDataGoResponse(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestPrimeDataIpexRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestPrimeDataIpexRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new PrimeDataIpexResponse(false, Error: "Missing payload"));
+                return;
+            }
+
+            var ipexPayload = JsonSerializer.Deserialize<PrimeDataIpexPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (ipexPayload is null || string.IsNullOrEmpty(ipexPayload.DiscloserPrefix) || string.IsNullOrEmpty(ipexPayload.DiscloseePrefix)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new PrimeDataIpexResponse(false, Error: "Invalid or missing payload fields"));
+                return;
+            }
+
+            var ipexResult = await _primeDataService.GoIpexAsync(ipexPayload);
+
+            await RefreshIdentifiersCache();
+
+            if (ipexResult.IsSuccess) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: ipexResult.Value);
+            }
+            else {
+                var errorMsg = ipexResult.Errors.Count > 0 ? ipexResult.Errors[0].Message : "PrimeData IPEX failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new PrimeDataIpexResponse(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestPrimeDataIpexRpcAsync) + ": Error during PrimeData IPEX");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new PrimeDataIpexResponse(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestIpexEligibleDisclosersRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexEligibleDisclosersRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexEligibleDisclosersResponse(false, [], Error: "Missing payload"));
+                return;
+            }
+
+            var eligiblePayload = JsonSerializer.Deserialize<IpexEligibleDisclosersPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (eligiblePayload is null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexEligibleDisclosersResponse(false, [], Error: "Invalid payload"));
+                return;
+            }
+
+            var result = await _primeDataService.GetEligibleDiscloserPrefixes(eligiblePayload.IsPresentation, eligiblePayload.Workflow);
+
+            if (result.IsSuccess) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexEligibleDisclosersResponse(true, result.Value));
+            }
+            else {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexEligibleDisclosersResponse(false, [], Error: result.Errors[0].Message));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIpexEligibleDisclosersRpcAsync) + ": Error");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexEligibleDisclosersResponse(false, [], Error: ex.Message));
         }
     }
 

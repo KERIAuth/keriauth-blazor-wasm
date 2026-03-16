@@ -20,15 +20,6 @@
     public bool IsAlreadyAdmitted { get; set; }
 
     [Parameter]
-    public IpexFlowType FlowTypeFromRole { get; set; }
-
-    [Parameter]
-    public IpexFlowType FlowTypeFromAcdc { get; set; }
-
-    [Parameter]
-    public IpexFlowType FlowTypeFromPrior { get; set; }
-
-    [Parameter]
     public bool IsLoadingPrior { get; set; }
 
     string? SenderAid => Exchange.I;
@@ -42,18 +33,6 @@
         : prefix.Length > 12 ? $"{prefix[..6]}...{prefix[^4..]}"
         : prefix;
 
-    static string FlowTypeLabel(IpexFlowType flowType) => flowType switch {
-        IpexFlowType.Issuance => "Issuance",
-        IpexFlowType.Presentation => "Presentation",
-        _ => "Unknown"
-    };
-
-    static Color FlowTypeColor(IpexFlowType flowType) => flowType switch {
-        IpexFlowType.Issuance => Color.Info,
-        IpexFlowType.Presentation => Color.Warning,
-        _ => Color.Default
-    };
-
     async Task CopyJsonToClipboard()
     {
         if (ExchangeJson is not null)
@@ -64,36 +43,14 @@
     }
 
     // Stub handlers for unimplemented IPEX actions
-    Task HandleOffer() => Task.CompletedTask;
+    Task HandleOfferIssuance() => Task.CompletedTask;
+    Task HandleOfferPresentation() => Task.CompletedTask;
     Task HandleAgree() => Task.CompletedTask;
     Task HandleGrant() => Task.CompletedTask;
     Task HandleSpurn() => Task.CompletedTask;
 }
 
 <MudStack Spacing="1">
-    @* Flow type inference display — shows results from multiple approaches for comparison *@
-    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Flow</MudText>
-        <MudChip T="string" Size="Size.Small" Color="@FlowTypeColor(FlowTypeFromRole)" Variant="Variant.Text">
-            Role: @FlowTypeLabel(FlowTypeFromRole)
-        </MudChip>
-        <MudChip T="string" Size="Size.Small" Color="@FlowTypeColor(FlowTypeFromAcdc)" Variant="Variant.Text">
-            ACDC: @FlowTypeLabel(FlowTypeFromAcdc)
-        </MudChip>
-        @if (IsLoadingPrior)
-        {
-            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">
-                Prior: <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="width: 12px; height: 12px; margin-left: 4px;" />
-            </MudChip>
-        }
-        else
-        {
-            <MudChip T="string" Size="Size.Small" Color="@FlowTypeColor(FlowTypeFromPrior)" Variant="Variant.Text">
-                Prior: @FlowTypeLabel(FlowTypeFromPrior)
-            </MudChip>
-        }
-    </MudStack>
-
     @if (ExchangeSaid is not null)
     {
         <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
@@ -101,14 +58,6 @@
             <MudTooltip Text="@ExchangeSaid" Delay="300">
                 <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElidePrefix(ExchangeSaid)</MudText>
             </MudTooltip>
-        </MudStack>
-    }
-
-    @if (!string.IsNullOrEmpty(Route))
-    {
-        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Route</MudText>
-            <MudText Typo="Typo.caption" Style="font-family: monospace;">@Route</MudText>
         </MudStack>
     }
 
@@ -120,7 +69,12 @@
                 <MudTooltip Text="Not yet implemented">
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.LocalOffer" Disabled="true"
-                               OnClick="HandleOffer">Offer</MudButton>
+                               OnClick="HandleOfferIssuance">Offer New Credential</MudButton>
+                </MudTooltip>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Visibility" Disabled="true"
+                               OnClick="HandleOfferPresentation">Offer Presentation</MudButton>
                 </MudTooltip>
                 <MudTooltip Text="Not yet implemented">
                     <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"

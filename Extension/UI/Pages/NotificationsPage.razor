@@ -113,19 +113,101 @@
         return "(unknown)";
     }
 
-    static string RouteLabel(string route) => route switch {
-        "/exn/ipex/apply" => "Credential Apply",
-        "/exn/ipex/offer" => "Credential Offer",
-        "/exn/ipex/agree" => "Credential Agree",
-        "/exn/ipex/grant" => "Credential Grant",
-        "/exn/ipex/admit" => "Credential Admit",
-        //
-        "/multisig/iss" => "Multisig Issuance",
-        "/multisig/icp" => "Multisig Inception",
-        "/multisig/rot" => "Multisig Rotation",
-        "/multisig/exn" => "Multisig Exchange",
-        _ => route
-    };
+    // Lazy flow type cache: maps notification ID -> resolved IpexFlowType
+    // TODO P2 refactor such caching into appCache or even stored, so display is instant
+    Dictionary<string, IpexFlowType> _flowTypeCache = [];
+    HashSet<string> _flowTypeFetching = [];
+
+    string RouteLabel(string route, Notification? notification = null) {
+        if (route == "/exn/ipex/apply") return "Credential Request \u2013 Apply";
+
+        var ipexStep = route switch {
+            "/exn/ipex/offer" => "Offer",
+            "/exn/ipex/agree" => "Agree",
+            "/exn/ipex/grant" => "Grant",
+            "/exn/ipex/admit" => "Admit",
+            _ => null
+        };
+        if (ipexStep is not null) {
+            if (notification is not null && _flowTypeCache.TryGetValue(notification.Id, out var cachedFlow)) {
+                var flowLabel = cachedFlow switch {
+                    IpexFlowType.Issuance => "Credential Issuance",
+                    IpexFlowType.Presentation => "Credential Presentation",
+                    _ => "Credential"
+                };
+                return $"{flowLabel} \u2013 {ipexStep}";
+            }
+            if (notification is not null) {
+                _ = ResolveFlowTypeLazy(notification);
+            }
+            return $"Credential \u2013 {ipexStep}";
+        }
+        return route switch {
+            "/multisig/iss" => "Multisig Issuance",
+            "/multisig/icp" => "Multisig Inception",
+            "/multisig/rot" => "Multisig Rotation",
+            "/multisig/exn" => "Multisig Exchange",
+            _ => route
+        };
+    }
+
+    async Task ResolveFlowTypeLazy(Notification notification) {
+        if (_flowTypeCache.ContainsKey(notification.Id)) return;
+        if (!_flowTypeFetching.Add(notification.Id)) return; // already in flight
+
+        try {
+            if (notification.ExchangeSaid is null) return;
+
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetExchange,
+                new { payload = new { said = notification.ExchangeSaid } });
+
+            if (!response.Ok || response.Result is not JsonElement jsonEl) return;
+
+            var exchangeResult = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
+                jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging);
+            if (exchangeResult?.Success != true || exchangeResult.Exchange is null) return;
+
+            var view = ExchangeView.FromRecursiveDictionary(exchangeResult.Exchange);
+
+            // Approach B: infer from embedded ACDC (works for Offer/Grant)
+            var flowType = ExchangeView.InferFlowFromAcdc(view.I, view.E);
+
+            // If unknown, try prior chain (for Agree/Admit)
+            if (flowType == IpexFlowType.Unknown && view.P is not null) {
+                flowType = await ResolveFlowTypeFromPrior(view.P);
+            }
+
+            _flowTypeCache[notification.Id] = flowType;
+            StateHasChanged();
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "Error resolving flow type for notification {Id}", notification.Id);
+        }
+        finally {
+            _flowTypeFetching.Remove(notification.Id);
+        }
+    }
+
+    async Task<IpexFlowType> ResolveFlowTypeFromPrior(string priorSaid) {
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestGetExchange,
+                new { payload = new { said = priorSaid } });
+
+            if (!response.Ok || response.Result is not JsonElement priorJson) return IpexFlowType.Unknown;
+
+            var priorPayload = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
+                priorJson.GetRawText(), Helper.JsonOptions.PortMessaging);
+            if (priorPayload?.Success != true || priorPayload.Exchange is null) return IpexFlowType.Unknown;
+
+            var priorView = ExchangeView.FromRecursiveDictionary(priorPayload.Exchange);
+            return ExchangeView.InferFlowFromAcdc(priorView.I, priorView.E);
+        }
+        catch {
+            return IpexFlowType.Unknown;
+        }
+    }
 
     static string RouteIcon(string route) => route switch {
         "/exn/ipex/grant" => Icons.Material.Filled.CardGiftcard,
@@ -152,9 +234,6 @@
     string? ExchangeLoadError { get; set; }
     bool IsAdmitting { get; set; }
     bool IsAlreadyAdmitted { get; set; }
-    IpexFlowType FlowTypeFromRole { get; set; }
-    IpexFlowType FlowTypeFromAcdc { get; set; }
-    IpexFlowType FlowTypeFromPrior { get; set; }
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -196,9 +275,6 @@
         ExpandedExchangeData = null;
         ExchangeLoadError = null;
         IsAlreadyAdmitted = false;
-        FlowTypeFromRole = IpexFlowType.Unknown;
-        FlowTypeFromAcdc = IpexFlowType.Unknown;
-        FlowTypeFromPrior = IpexFlowType.Unknown;
         IsLoadingPrior = false;
 
         if (notification.ExchangeSaid is null) {
@@ -225,12 +301,6 @@
             if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
                 ExpandedExchangeData = ExchangeView.FromRecursiveDictionary(exchangeResult.Exchange);
 
-                // Compute flow type inferences (Approaches A and B)
-                FlowTypeFromRole = ExchangeView.InferFlowFromRole(
-                    notification.Route, notification.TargetPrefix, appCache.Aids.Select(a => a.Prefix));
-                FlowTypeFromAcdc = ExchangeView.InferFlowFromAcdc(
-                    ExpandedExchangeData.Value.I, ExpandedExchangeData.Value.E);
-
                 // For grant notifications, check if credential has already been admitted
                 if (notification.Route == "/exn/ipex/grant") {
                     var credSaid = ExpandedExchangeData.Value.E?.GetValueByPath("acdc.d")?.Value?.ToString();
@@ -253,10 +323,6 @@
                     }
                 }
 
-                // Approach C: Chase prior exchange chain to infer flow type
-                if (ExpandedExchangeData.Value.P is not null) {
-                    _ = FetchPriorFlowType(ExpandedExchangeData.Value.P);
-                }
             }
             else {
                 ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
@@ -268,54 +334,6 @@
         }
         finally {
             IsLoadingExchange = false;
-        }
-    }
-
-    // Approach C: Fetch the prior exchange by SAID and infer flow type from its content.
-    // If the prior exchange embeds an ACDC, use Approach B on it.
-    // Otherwise, infer from the prior's route and sender/recipient relationship.
-    async Task FetchPriorFlowType(string priorSaid) {
-        IsLoadingPrior = true;
-        StateHasChanged();
-        try {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestGetExchange,
-                new { payload = new { said = priorSaid } });
-
-            if (!response.Ok || response.Result is not JsonElement priorJson) {
-                FlowTypeFromPrior = IpexFlowType.Unknown;
-                return;
-            }
-
-            var priorPayload = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
-                priorJson.GetRawText(), Helper.JsonOptions.PortMessaging);
-
-            if (priorPayload?.Success != true || priorPayload.Exchange is null) {
-                FlowTypeFromPrior = IpexFlowType.Unknown;
-                return;
-            }
-
-            var priorView = ExchangeView.FromRecursiveDictionary(priorPayload.Exchange);
-
-            // Try Approach B on the prior (works if prior embeds an ACDC, e.g., a grant)
-            var fromAcdc = ExchangeView.InferFlowFromAcdc(priorView.I, priorView.E);
-            if (fromAcdc != IpexFlowType.Unknown) {
-                FlowTypeFromPrior = fromAcdc;
-                return;
-            }
-
-            // Fall back to Approach A on the prior using its recipient
-            var userPrefixes = appCache.Aids.Select(a => a.Prefix);
-            FlowTypeFromPrior = ExchangeView.InferFlowFromRole(
-                priorView.R ?? "", priorView.Rp, userPrefixes);
-        }
-        catch (Exception ex) {
-            logger.LogWarning(ex, "Error fetching prior exchange for flow type inference");
-            FlowTypeFromPrior = IpexFlowType.Unknown;
-        }
-        finally {
-            IsLoadingPrior = false;
-            StateHasChanged();
         }
     }
 
@@ -543,7 +561,7 @@
                                           Name="@ResolveName(n.TargetPrefix)"
                                           ShowCopyButton="false" />
                         <div style="flex:1; min-width:0;">
-                            <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route)</MudText>
+                            <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route, n)</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@n.DateTime</MudText>
                             <MudTooltip Text="@n.Id" Delay="300">
                                 <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElideId(n.Id)</MudText>
@@ -578,9 +596,6 @@
                                                                 OnAdmit="@(() => AdmitCredential(n))"
                                                                 IsAdmitting="@IsAdmitting"
                                                                 IsAlreadyAdmitted="@IsAlreadyAdmitted"
-                                                                FlowTypeFromRole="@FlowTypeFromRole"
-                                                                FlowTypeFromAcdc="@FlowTypeFromAcdc"
-                                                                FlowTypeFromPrior="@FlowTypeFromPrior"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
                                 }
                             </LoadingDiv>

@@ -156,6 +156,8 @@ namespace Extension.Models.Messages.AppBw {
             /// Request to execute PrimeData Go action (create GEDA/QVI/LE/PERSON AIDs).
             /// </summary>
             public const string RequestPrimeDataGo = "AppBw.RequestPrimeDataGo";
+            public const string RequestPrimeDataIpex = "AppBw.RequestPrimeDataIpex";
+            public const string RequestIpexEligibleDisclosers = "AppBw.RequestIpexEligibleDisclosers";
             public const string RequestGetOobi = "AppBw.RequestGetOobi";
             public const string RequestResolveOobi = "AppBw.RequestResolveOobi";
             /// <summary>
@@ -208,6 +210,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetKeyEvents { get; } = new(Values.RequestGetKeyEvents);
         public static AppBwMessageType RequestRenameAid { get; } = new(Values.RequestRenameAid);
         public static AppBwMessageType RequestPrimeDataGo { get; } = new(Values.RequestPrimeDataGo);
+        public static AppBwMessageType RequestPrimeDataIpex { get; } = new(Values.RequestPrimeDataIpex);
+        public static AppBwMessageType RequestIpexEligibleDisclosers { get; } = new(Values.RequestIpexEligibleDisclosers);
         public static AppBwMessageType RequestGetOobi { get; } = new(Values.RequestGetOobi);
         public static AppBwMessageType RequestResolveOobi { get; } = new(Values.RequestResolveOobi);
         public static AppBwMessageType ReplyConnectionInvite { get; } = new(Values.ReplyConnectionInvite);
@@ -311,6 +315,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestPrimeDataGo:
                     result = RequestPrimeDataGo;
+                    return true;
+                case Values.RequestPrimeDataIpex:
+                    result = RequestPrimeDataIpex;
+                    return true;
+                case Values.RequestIpexEligibleDisclosers:
+                    result = RequestIpexEligibleDisclosers;
                     return true;
                 case Values.RequestGetOobi:
                     result = RequestGetOobi;
@@ -788,6 +798,57 @@ namespace Extension.Models.Messages.AppBw {
     public record GetSessionPasscodeResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("passcode")] string? Passcode = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// IPEX workflow options for the PrimeData IPEX testing page.
+    /// Each value represents a sequence of IPEX steps to execute.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum IpexWorkflow {
+        Apply,
+        ApplyOffer,
+        ApplyOfferAgree,
+        ApplyOfferAgreeGrant,
+        ApplyOfferAgreeGrantAdmit,
+        Grant,
+        GrantAdmit
+    }
+
+    /// <summary>
+    /// Payload for PrimeData IPEX workflow request from App to BackgroundWorker.
+    /// </summary>
+    public record PrimeDataIpexPayload(
+        [property: JsonPropertyName("discloserPrefix")] string DiscloserPrefix,
+        [property: JsonPropertyName("discloseePrefix")] string DiscloseePrefix,
+        [property: JsonPropertyName("workflow")] IpexWorkflow Workflow,
+        [property: JsonPropertyName("ecrRole")] string EcrRole,
+        [property: JsonPropertyName("isPresentation")] bool IsPresentation
+    );
+
+    /// <summary>
+    /// Response payload for PrimeData IPEX workflow request.
+    /// </summary>
+    public record PrimeDataIpexResponse(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Payload for requesting the list of AIDs eligible to be the Discloser in an IPEX workflow.
+    /// </summary>
+    public record IpexEligibleDisclosersPayload(
+        [property: JsonPropertyName("isPresentation")] bool IsPresentation,
+        [property: JsonPropertyName("workflow")] IpexWorkflow Workflow
+    );
+
+    /// <summary>
+    /// Response payload with the list of AID prefixes eligible to be the Discloser.
+    /// </summary>
+    public record IpexEligibleDisclosersResponse(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("prefixes")] List<string> Prefixes,
         [property: JsonPropertyName("error")] string? Error = null
     );
 

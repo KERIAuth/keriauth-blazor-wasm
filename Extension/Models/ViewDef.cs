@@ -32,6 +32,8 @@ public static class ViewDefIds {
     public const string CredHeld = "cred-held";
     public const string CredIssued = "cred-issued";
     public const string CredHeldOrIssued = "cred-held-or-issued";
+    public const string CredRevokedProfile = "cred-revoked-profile";
+    public const string CredRevokedAll = "cred-revoked-all";
     public const string CredAll = "cred-all";
     // ConnectionsPage
     public const string ConnActive = "conn-active";
