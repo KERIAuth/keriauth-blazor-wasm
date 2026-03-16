@@ -3097,6 +3097,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            logger.LogInformation(nameof(HandleAppRequestIpexAgreeRpcAsync) +
+                ": sender={Sender}, recipient={Recipient}, offerSaid={OfferSaid}",
+                agreeRequest.SenderNameOrPrefix, agreeRequest.RecipientPrefix, agreeRequest.OfferSaid);
+
             var result = await _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
                 SenderNameOrPrefix: agreeRequest.SenderNameOrPrefix,
                 RecipientPrefix: agreeRequest.RecipientPrefix,
@@ -3104,6 +3108,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             ));
 
             if (result.IsSuccess) {
+                logger.LogInformation(nameof(HandleAppRequestIpexAgreeRpcAsync) + ": agree submitted successfully");
                 await _notificationPollingService.PollOnDemandAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexAgreeResponsePayload(true));

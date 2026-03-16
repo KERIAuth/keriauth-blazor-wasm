@@ -1603,6 +1603,8 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> IpexAgreeAndSubmit(IpexAgreeSubmitArgs args, TimeSpan? timeout = null) {
+            logger.LogInformation("{Op}: sender={Sender}, recipient={Recipient}, offerSaid={OfferSaid}",
+                nameof(IpexAgreeAndSubmit), args.SenderNameOrPrefix, args.RecipientPrefix, args.OfferSaid);
             var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
             try {
                 var argsJson = JsonSerializer.Serialize(args, jsonSerializerOptions);
@@ -1611,6 +1613,8 @@ namespace Extension.Services.SignifyService {
                     timeout2
                 );
                 if (timeoutResult.IsFailed) {
+                    logger.LogWarning("{Op}: timeout or failure: {Errors}", nameof(IpexAgreeAndSubmit),
+                        string.Join("; ", timeoutResult.Errors.Select(e => e.Message)));
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
                 }
                 var unwrapped = UnwrapJsResult(timeoutResult.Value);
@@ -1621,6 +1625,7 @@ namespace Extension.Services.SignifyService {
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexAgreeAndSubmit result");
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                logger.LogInformation("{Op}: succeeded", nameof(IpexAgreeAndSubmit));
                 return Result.Ok(result);
             }
             catch (JSException e) {
