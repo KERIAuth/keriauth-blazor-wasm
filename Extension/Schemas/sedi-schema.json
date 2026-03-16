@@ -1,0 +1,93 @@
+{
+  "$id": "EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_",
+  "title": "State-Endorsed Digital Identity",
+  "credentialType": "SEDICredential",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "v": {
+      "description": "ACDC version string",
+      "type": "string"
+    },
+    "d": {
+      "description": "Credential SAID (self-addressing identifier of this credential)",
+      "type": "string"
+    },
+    "i": {
+      "description": "Issuee AID — the holder's KERI identifier",
+      "type": "string"
+    },
+    "ri": {
+      "description": "Registry SAID — issuer's Transaction Event Log (TEL) registry for revocation",
+      "type": "string"
+    },
+    "s": {
+      "description": "Schema SAID — must equal the $id of this schema",
+      "type": "string"
+    },
+    "a": {
+      "description": "Attribute block — either compact (SAID only) or full attributes",
+      "oneOf": [
+        {
+          "description": "Compact variant — used during transport/chaining; 'd' is the SAID of the full attribute block",
+          "required": ["d"],
+          "additionalProperties": false,
+          "properties": {
+            "d": {
+              "description": "SAID of the full attribute block",
+              "type": "string"
+            }
+          }
+        },
+        {
+          "description": "Full attributes variant — the disclosed credential content",
+          "required": ["d", "i", "dt", "firstName", "lastName", "dateOfBirth", "address"],
+          "additionalProperties": false,
+          "properties": {
+            "d": {
+              "description": "SAID of this attribute block (content-addressed)",
+              "type": "string"
+            },
+            "i": {
+              "description": "Issuee AID — must match the top-level 'i' field",
+              "type": "string"
+            },
+            "dt": {
+              "description": "Issuance datetime (ISO 8601 with timezone)",
+              "type": "string",
+              "format": "date-time"
+            },
+            "firstName": {
+              "description": "Legal first name",
+              "type": "string"
+            },
+            "lastName": {
+              "description": "Legal last name",
+              "type": "string"
+            },
+            "dateOfBirth": {
+              "description": "Date of birth — YYYY-MM-DD",
+              "type": "string",
+              "format": "date"
+            },
+            "address": {
+              "description": "Residential address at time of issuance",
+              "type": "string"
+            },
+            "driversLicense": {
+              "description": "Driver's license number — optional",
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "_notes": {
+    "said": "The $id is the SAID of this schema document. Computed by saidifying the content with $id set to ''. Must match the filename served at /oobi/<said>.",
+    "oobi": "https://cred-issuance.cloud.dign.id/oobi/EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_",
+    "compact_vs_full": "ACDC transports the compact variant (a.d only) during issuance/chaining. The holder discloses the full 'a' block selectively. Both variants must pass oneOf validation — that is why additionalProperties:false is required on the compact variant.",
+    "recompute_said": "If any field in this schema changes, run scripts/compute-sedi-said.ts to get the new SAID, rename this file, and update SEDI_SCHEMA_SAID in consts.ts and sediApiService.ts."
+  }
+}

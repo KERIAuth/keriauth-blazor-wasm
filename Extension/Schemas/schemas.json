@@ -80,6 +80,14 @@
       "oobiUrls": [
         "https://raw.githubusercontent.com/provenant-dev/public-schema/fcbac645b8f2565b04155f43abcecb15f9c69dc0/attestation/attestation.schema.json"
       ]
+    },
+    {
+      "said": "EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_",
+      "name": "Verifiable Credential Schema for State-Endorsed Digital Identity",
+      "file": "verifiable-credential-schema-for-data-attestation.json",
+      "oobiUrls": [
+        "https://raw.githubusercontent.com/KERIAuth/public-schema/refs/heads/main/test/sedi-schema.json"
+      ]
     }
   ],
   "defaultOobiHosts": [
