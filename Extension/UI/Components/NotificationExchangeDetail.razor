@@ -20,6 +20,12 @@
     public bool IsAlreadyAdmitted { get; set; }
 
     [Parameter]
+    public EventCallback OnAgree { get; set; }
+
+    [Parameter]
+    public bool IsAgreeing { get; set; }
+
+    [Parameter]
     public bool IsLoadingPrior { get; set; }
 
     string? SenderAid => Exchange.I;
@@ -45,7 +51,6 @@
     // Stub handlers for unimplemented IPEX actions
     Task HandleOfferIssuance() => Task.CompletedTask;
     Task HandleOfferPresentation() => Task.CompletedTask;
-    Task HandleAgree() => Task.CompletedTask;
     Task HandleGrant() => Task.CompletedTask;
     Task HandleSpurn() => Task.CompletedTask;
 }
@@ -84,11 +89,25 @@
                 break;
 
             case "/exn/ipex/offer":
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Handshake" Disabled="true"
-                               OnClick="HandleAgree">Agree</MudButton>
-                </MudTooltip>
+                @if (OnAgree.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Handshake"
+                               OnClick="OnAgree"
+                               Disabled="@IsAgreeing">
+                        @if (IsAgreeing)
+                        {
+                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Agreeing...</text>
+                        }
+                        else
+                        {
+                            <text>Agree</text>
+                        }
+                    </MudButton>
+                }
                 <MudTooltip Text="Not yet implemented">
                     <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.Block" Disabled="true"

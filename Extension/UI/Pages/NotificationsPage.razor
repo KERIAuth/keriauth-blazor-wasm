@@ -234,6 +234,7 @@
     string? ExchangeLoadError { get; set; }
     bool IsAdmitting { get; set; }
     bool IsAlreadyAdmitted { get; set; }
+    bool IsAgreeing { get; set; }
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -392,6 +393,62 @@
         }
         finally {
             IsAdmitting = false;
+        }
+    }
+
+    async Task AgreeToOffer(Notification notification) {
+        if (IsAgreeing || ExpandedExchangeData is null) return;
+
+        var view = ExpandedExchangeData.Value;
+        var offerSenderPrefix = view.I;
+        var userPrefix = view.Rp;
+
+        if (userPrefix is null || !appCache.Aids.Any(a => a.Prefix == userPrefix)) {
+            snackbar.Add("Could not find matching AID for this offer", Severity.Error);
+            return;
+        }
+
+        if (notification.ExchangeSaid is null || offerSenderPrefix is null) {
+            snackbar.Add("Missing exchange data for agree", Severity.Error);
+            return;
+        }
+
+        IsAgreeing = true;
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexAgree,
+                new { payload = new IpexAgreeRequestPayload(
+                    SenderNameOrPrefix: userPrefix,
+                    RecipientPrefix: offerSenderPrefix,
+                    OfferSaid: notification.ExchangeSaid) },
+                timeout: TimeSpan.FromMinutes(2));
+
+            if (!response.Ok) {
+                snackbar.Add($"Agree failed: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var agreeResult = response.Result is JsonElement agreeJsonEl
+                ? JsonSerializer.Deserialize<IpexAgreeResponsePayload>(agreeJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (agreeResult is not null && agreeResult.Success) {
+                snackbar.Add("Agreed to offer", Severity.Success);
+                if (!notification.IsRead) {
+                    await MarkAsRead(notification);
+                }
+            }
+            else {
+                snackbar.Add($"Agree failed: {agreeResult?.Error ?? "Unknown error"}", Severity.Error);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during IPEX agree");
+            snackbar.Add("Error agreeing to offer", Severity.Error);
+        }
+        finally {
+            IsAgreeing = false;
         }
     }
 
@@ -596,6 +653,8 @@
                                                                 OnAdmit="@(() => AdmitCredential(n))"
                                                                 IsAdmitting="@IsAdmitting"
                                                                 IsAlreadyAdmitted="@IsAlreadyAdmitted"
+                                                                OnAgree="@(() => AgreeToOffer(n))"
+                                                                IsAgreeing="@IsAgreeing"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
                                 }
                             </LoadingDiv>

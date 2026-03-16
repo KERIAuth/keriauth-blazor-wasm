@@ -1458,6 +1458,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIpexAdmitRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestIpexAgree:
+                    await HandleAppRequestIpexAgreeRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestPollNotifications:
                     // Start burst only if not already active
                     if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
@@ -3066,6 +3070,55 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestIpexAdmitRpcAsync) + ": Error during IPEX admit");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexAdmitResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestIpexAgreeRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexAgreeRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAgreeResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var agreeRequest = JsonSerializer.Deserialize<IpexAgreeRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (agreeRequest is null || string.IsNullOrEmpty(agreeRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(agreeRequest.RecipientPrefix) || string.IsNullOrEmpty(agreeRequest.OfferSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAgreeResponsePayload(false, Error: "Invalid or missing agree parameters"));
+                return;
+            }
+
+            var result = await _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
+                SenderNameOrPrefix: agreeRequest.SenderNameOrPrefix,
+                RecipientPrefix: agreeRequest.RecipientPrefix,
+                OfferSaid: agreeRequest.OfferSaid
+            ));
+
+            if (result.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAgreeResponsePayload(true));
+            }
+            else {
+                var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : "IPEX agree failed";
+                logger.LogWarning(nameof(HandleAppRequestIpexAgreeRpcAsync) + ": {Error}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAgreeResponsePayload(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIpexAgreeRpcAsync) + ": Error during IPEX agree");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexAgreeResponsePayload(false, Error: ex.Message));
         }
     }
 

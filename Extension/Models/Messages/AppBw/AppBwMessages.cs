@@ -169,6 +169,7 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestDeleteNotification = "AppBw.RequestDeleteNotification";
             public const string RequestGetExchange = "AppBw.RequestGetExchange";
             public const string RequestIpexAdmit = "AppBw.RequestIpexAdmit";
+            public const string RequestIpexAgree = "AppBw.RequestIpexAgree";
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
             public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
 
@@ -219,6 +220,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestDeleteNotification { get; } = new(Values.RequestDeleteNotification);
         public static AppBwMessageType RequestGetExchange { get; } = new(Values.RequestGetExchange);
         public static AppBwMessageType RequestIpexAdmit { get; } = new(Values.RequestIpexAdmit);
+        public static AppBwMessageType RequestIpexAgree { get; } = new(Values.RequestIpexAgree);
         public static AppBwMessageType RequestPollNotifications { get; } = new(Values.RequestPollNotifications);
         public static AppBwMessageType RequestUnlockSession { get; } = new(Values.RequestUnlockSession);
         public static AppBwMessageType RequestGetSessionPasscode { get; } = new(Values.RequestGetSessionPasscode);
@@ -342,6 +344,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestIpexAdmit:
                     result = RequestIpexAdmit;
+                    return true;
+                case Values.RequestIpexAgree:
+                    result = RequestIpexAgree;
                     return true;
                 case Values.RequestPollNotifications:
                     result = RequestPollNotifications;
@@ -787,6 +792,17 @@ namespace Extension.Models.Messages.AppBw {
     );
 
     public record IpexAdmitResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    public record IpexAgreeRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("offerSaid")] string OfferSaid
+    );
+
+    public record IpexAgreeResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("error")] string? Error = null
     );
