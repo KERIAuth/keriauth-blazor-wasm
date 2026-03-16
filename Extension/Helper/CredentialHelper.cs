@@ -5,8 +5,7 @@ namespace Extension.Helper;
 /// <summary>
 /// Helper methods for credential display and identification.
 /// </summary>
-public static class CredentialHelper
-{
+public static class CredentialHelper {
     private static readonly JsonSerializerOptions DeserializeOptions = new() {
         PropertyNameCaseInsensitive = true,
         Converters = { new DictionaryConverter() }
@@ -16,11 +15,9 @@ public static class CredentialHelper
     /// Deserializes raw JSON from signify-ts getCredentialsList() into List of RecursiveDictionary.
     /// Uses DictionaryConverter to preserve field ordering for CESR/SAID integrity.
     /// </summary>
-    public static List<RecursiveDictionary> DeserializeCredentialsRawJson(string rawJson)
-    {
+    public static List<RecursiveDictionary> DeserializeCredentialsRawJson(string rawJson) {
         var credentialsDict = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(rawJson, DeserializeOptions);
-        if (credentialsDict is null)
-        {
+        if (credentialsDict is null) {
             return [];
         }
         return credentialsDict.Select(RecursiveDictionary.FromObjectDictionary).ToList();
@@ -29,8 +26,7 @@ public static class CredentialHelper
     /// <summary>
     /// Known vLEI credential types mapped by their schema SAID.
     /// </summary>
-    public enum CredentialType
-    {
+    public enum CredentialType {
         OorCredential,
         EcrAuthCredential,
         EcrCredential,
@@ -38,6 +34,7 @@ public static class CredentialHelper
         OorAuthCredential,
         QviCredential,
         IxbrlAttestation,
+        SediCredential,
         Unknown
     }
 
@@ -45,8 +42,7 @@ public static class CredentialHelper
     /// Schema SAIDs for known vLEI credential types.
     /// See Extension/Schemas/ for local copies of these schemas.
     /// </summary>
-    public static class SchemaSaids
-    {
+    public static class SchemaSaids {
         public const string Oor = "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy";
         public const string EcrAuth = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g";
         public const string Ecr = "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw";
@@ -54,13 +50,13 @@ public static class CredentialHelper
         public const string OorAuth = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E";
         public const string Qvi = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
         public const string Ixbrl = "EMhvwOlyEJ9kN4PrwCpr9Jsv7TxPhiYveZ0oP3lJzdEi";
+        public const string Sedi = "EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_";
     }
 
     /// <summary>
     /// Gets the credential type from a schema SAID.
     /// </summary>
-    public static CredentialType GetCredentialType(string? schemaSaid) => schemaSaid switch
-    {
+    public static CredentialType GetCredentialType(string? schemaSaid) => schemaSaid switch {
         SchemaSaids.Oor => CredentialType.OorCredential,
         SchemaSaids.EcrAuth => CredentialType.EcrAuthCredential,
         SchemaSaids.Ecr => CredentialType.EcrCredential,
@@ -68,6 +64,7 @@ public static class CredentialHelper
         SchemaSaids.OorAuth => CredentialType.OorAuthCredential,
         SchemaSaids.Qvi => CredentialType.QviCredential,
         SchemaSaids.Ixbrl => CredentialType.IxbrlAttestation,
+        SchemaSaids.Sedi => CredentialType.SediCredential,
         _ => CredentialType.Unknown
     };
 
@@ -75,8 +72,7 @@ public static class CredentialHelper
     /// Gets the background color for a credential based on its schema SAID.
     /// Colors have transparency to accommodate light/dark modes.
     /// </summary>
-    public static string GetBackgroundColor(string? schemaSaid) => schemaSaid switch
-    {
+    public static string GetBackgroundColor(string? schemaSaid) => schemaSaid switch {
         SchemaSaids.Oor => "hsl(210 30% 82% / 0.3)",      // Soft steel blue – neutral, professional
         SchemaSaids.EcrAuth => "hsl(150 28% 80% / 0.75)", // Muted mint green – calm, positive
         SchemaSaids.Ecr => "hsl(35 35% 82% / 0.35)",      // Warm sand – friendly and readable
@@ -84,15 +80,15 @@ public static class CredentialHelper
         SchemaSaids.OorAuth => "hsl(10 30% 80% / 0.75)",  // Soft clay / muted coral
         SchemaSaids.Qvi => "hsl(195 30% 80% / 0.75)",     // Desaturated teal – modern, balanced
         SchemaSaids.Ixbrl => "hsl(90 28% 82% / 0.75)",    // Pale olive – earthy, understated
-        _ => "hsl(0 0% 85% / 0.75)"                        // Neutral gray – safest baseline
+        SchemaSaids.Sedi => "hsl(213 100% 8% / 0.70)",    // Utah Aggie Blue
+        _ => "hsl(0 0% 85% / 0.75)"                       // Neutral gray – safest baseline
     };
 
     /// <summary>
     /// Gets the background color for a credential from a RecursiveDictionary.
     /// Extracts the schema SAID from the "sad.s" path.
     /// </summary>
-    public static string GetBackgroundColor(RecursiveDictionary? credential)
-    {
+    public static string GetBackgroundColor(RecursiveDictionary? credential) {
         var schemaSaid = credential?.GetValueByPath("sad.s")?.Value?.ToString();
         return GetBackgroundColor(schemaSaid);
     }
@@ -101,20 +97,15 @@ public static class CredentialHelper
     /// Filters a list of credential RecursiveDictionaries by path/value pairs.
     /// Returns credentials where any filter matches (OR logic).
     /// </summary>
-    public static List<RecursiveDictionary> FilterCredentials(List<RecursiveDictionary> credentialDictList, List<(string filterPath, string match)> filters)
-    {
-        if (filters.Count == 0)
-        {
+    public static List<RecursiveDictionary> FilterCredentials(List<RecursiveDictionary> credentialDictList, List<(string filterPath, string match)> filters) {
+        if (filters.Count == 0) {
             throw new ArgumentException("FilterCredentials must have at least one filter");
         }
         List<RecursiveDictionary> filteredCredentials = new();
-        foreach (var credDict in credentialDictList)
-        {
-            foreach (var filter in filters)
-            {
+        foreach (var credDict in credentialDictList) {
+            foreach (var filter in filters) {
                 var value = credDict.GetValueByPath(filter.filterPath)?.Value as string;
-                if (value != null && value == filter.match)
-                {
+                if (value != null && value == filter.match) {
                     filteredCredentials.Add(credDict);
                     break;
                 }
