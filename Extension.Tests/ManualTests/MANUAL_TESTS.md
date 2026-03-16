@@ -35,6 +35,8 @@
     - [IPEX Apply (Credential Presentation)](#ipex-apply-credential-presentation)
     - [IPEX Agree (Credential Issuance)](#ipex-agree-credential-issuance)
     - [IPEX Agree (Credential Presentation)](#ipex-agree-credential-presentation)
+    - [IPEX Grant (Credential Issuance)](#ipex-grant-credential-issuance)
+    - [IPEX Grant (Credential Presentation)](#ipex-grant-credential-presentation)
     - [IPEX Admit (Credential Issuance)](#ipex-admit-credential-issuance)
     - [IPEX Admit (Credential Presentation)](#ipex-admit-credential-presentation)
 - [Session Expiration Tests](#session-expiration-tests)
@@ -225,27 +227,37 @@ window.postMessage({
 
 ```
 
-### IPEX Apply (Credential Presentation)
+### IPEX Apply (Presentation)
 ```js
 window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID(), payload: {schemaSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
 ```
 
-### IPEX Agree (Credential Issuance)
+### IPEX Agree (Issuance)
 ```js
 window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFkSnI87zTv7LPOPZdXjoV52wCChfpUqYt7oGp7CjriJ', isPresentation: false}}, window.location.origin);
 ```
 
-### IPEX Agree (Credential Presentation)
+### IPEX Agree (Presentation)
 ```js
 window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
 ```
 
-### IPEX Admit (Credential Issuance)
+### IPEX Grant (Issuance)
+```js
+window.postMessage({type: '/KeriAuth/ipex/grant', requestId: crypto.randomUUID(), payload: {acdc: {d: '', i: '', s: 'EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw', a: {d: '', i: '', dt: '2025-01-01T00:00:00Z', LEI: '5493001KJTIIGC8Y1R17', personLegalName: 'John Smith', engagementContextRole: 'Head of Standards'}}, recipient: 'EFkSnI87zTv7LPOPZdXjoV52wCChfpUqYt7oGp7CjriJ', isPresentation: false}}, window.location.origin);
+```
+
+### IPEX Grant (Presentation)
+```js
+window.postMessage({type: '/KeriAuth/ipex/grant', requestId: crypto.randomUUID(), payload: {said: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
+```
+
+### IPEX Admit (Issuance)
 ```js
 window.postMessage({type: '/KeriAuth/ipex/admit', requestId: crypto.randomUUID(), payload: {grantSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: false}}, window.location.origin);
 ```
 
-### IPEX Admit (Credential Presentation)
+### IPEX Admit (Presentation)
 ```js
 window.postMessage({type: '/KeriAuth/ipex/admit', requestId: crypto.randomUUID(), payload: {grantSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
 ```
