@@ -80,7 +80,7 @@ public static class CredentialHelper {
         SchemaSaids.OorAuth => "hsl(10 30% 80% / 0.75)",  // Soft clay / muted coral
         SchemaSaids.Qvi => "hsl(195 30% 80% / 0.75)",     // Desaturated teal – modern, balanced
         SchemaSaids.Ixbrl => "hsl(90 28% 82% / 0.75)",    // Pale olive – earthy, understated
-        SchemaSaids.Sedi => "hsl(213 100% 8% / 0.70)",    // Utah Aggie Blue
+        SchemaSaids.Sedi => "hsl(41 71% 57% / 1.00)",     // Orange
         _ => "hsl(0 0% 85% / 0.75)"                       // Neutral gray – safest baseline
     };
 
