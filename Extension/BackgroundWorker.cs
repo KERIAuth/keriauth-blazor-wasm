@@ -1615,12 +1615,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         }
 
                         if (foundCredential is not null) {
-                            // Get CESR representation
-                            var cesr = await _signifyClientBinding.GetCredentialAsync(approvalPayload.CredentialSaid, true);
-                            credential = new BwCsAuthorizeResultCredential(
-                                Raw: foundCredential,
-                                Cesr: cesr
-                            );
+                            // Get CESR representation — unwrap {ok, value} envelope from signifyClient.ts
+                            var cesrResultJson = await _signifyClientBinding.GetCredentialAsync(approvalPayload.CredentialSaid, true);
+                            using var cesrDoc = JsonDocument.Parse(cesrResultJson);
+                            var cesrRoot = cesrDoc.RootElement;
+                            string? cesr = null;
+                            if (cesrRoot.TryGetProperty("ok", out var cesrOk) && cesrOk.GetBoolean() && cesrRoot.TryGetProperty("value", out var cesrValue)) {
+                                cesr = cesrValue.ValueKind == JsonValueKind.String ? cesrValue.GetString() : cesrValue.GetRawText();
+                            }
+                            else {
+                                logger.LogWarning(nameof(HandleAppReplyAidApprovalRpcAsync) + ": Failed to get CESR: {Json}", cesrResultJson);
+                            }
+                            credential = cesr is not null
+                                ? new BwCsAuthorizeResultCredential(Raw: foundCredential, Cesr: cesr)
+                                : null;
                             logger.LogInformation(nameof(HandleAppReplyAidApprovalRpcAsync) + ": Found credential and fetched CESR");
                         }
                         else {
@@ -1716,8 +1724,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             logger.LogDebug(nameof(HandleAppReplySignDataApprovalRpcAsync) + ": signResultJson={Result}", signResultJson);
 
-            // Parse the result
-            var signResult = JsonSerializer.Deserialize<SignDataResult>(signResultJson, JsonOptions.Default);
+            // Parse the result — signifyClient.ts wraps results in {ok, value} envelope
+            using var jsResultDoc = JsonDocument.Parse(signResultJson);
+            var jsRoot = jsResultDoc.RootElement;
+            if (!jsRoot.TryGetProperty("ok", out var okProp) || !okProp.GetBoolean()) {
+                var errMsg = jsRoot.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : "Sign data failed";
+                logger.LogWarning(nameof(HandleAppReplySignDataApprovalRpcAsync) + ": JS error: {Error}", errMsg);
+                if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                    await _portService.SendRpcResponseAsync(
+                        pendingRequest.PortId,
+                        pendingRequest.PortSessionId,
+                        pendingRequest.RpcRequestId ?? requestId,
+                        errorMessage: errMsg);
+                }
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: errMsg);
+                return;
+            }
+            var valueJson = jsRoot.GetProperty("value").GetRawText();
+            var signResult = JsonSerializer.Deserialize<SignDataResult>(valueJson, JsonOptions.Default);
 
             if (signResult is null) {
                 logger.LogWarning(nameof(HandleAppReplySignDataApprovalRpcAsync) + ": Failed to parse sign data result");
