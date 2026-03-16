@@ -86,7 +86,7 @@
       "name": "Verifiable Credential Schema for State-Endorsed Digital Identity",
       "file": "verifiable-credential-schema-for-data-attestation.json",
       "oobiUrls": [
-        "https://raw.githubusercontent.com/KERIAuth/public-schema/refs/heads/main/test/sedi-schema.json"
+        "https://github.com/KERIAuth/public-schema/blob/0ba26179a4a8828ec7ca69f03a40ab9215ad5ede/test/sedi-schema.json"
       ]
     }
   ],
