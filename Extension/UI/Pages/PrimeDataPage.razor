@@ -42,6 +42,43 @@
     string DiscloserLabel => isPresentation ? "Holder (discloser)" : "Issuer (discloser)";
     string DiscloseeLabel => isPresentation ? "Verifier (disclosee)" : "Holder (disclosee)";
 
+    // All unique disclosee prefixes reachable from eligible disclosers via connections
+    List<(string Prefix, string Name)> DiscloseeCandidates {
+        get {
+            var eligibleSet = new HashSet<string>(eligibleDiscloserPrefixes);
+            return AllConnections
+                .Where(c => eligibleSet.Contains(c.SenderPrefix))
+                .GroupBy(c => c.ReceiverPrefix)
+                .Select(g => {
+                    var conn = g.OrderByDescending(c => c.ConnectionDate).First();
+                    var localAid = AllAids.FirstOrDefault(a => a.Prefix == conn.ReceiverPrefix);
+                    var name = localAid?.Name ?? conn.Name;
+                    return (conn.ReceiverPrefix, name);
+                })
+                .ToList();
+        }
+    }
+
+    // Disclosers filtered by selected disclosee (via connections)
+    List<string> FilteredDiscloserPrefixes =>
+        selectedDiscloseePrefix is null
+            ? eligibleDiscloserPrefixes
+            : eligibleDiscloserPrefixes
+                .Where(p => AllConnections.Any(c => c.SenderPrefix == p && c.ReceiverPrefix == selectedDiscloseePrefix))
+                .ToList();
+
+    // Disclosees filtered by selected discloser (via connections)
+    List<(string Prefix, string Name)> FilteredDiscloseeCandidates =>
+        selectedDiscloserPrefix is null
+            ? DiscloseeCandidates
+            : DiscloseeCandidates
+                .Where(d => AllConnections.Any(c => c.SenderPrefix == selectedDiscloserPrefix && c.ReceiverPrefix == d.Prefix))
+                .ToList();
+
+    bool IsDiscloseeExternal =>
+        selectedDiscloseePrefix is not null &&
+        !AllAids.Any(a => a.Prefix == selectedDiscloseePrefix);
+
     bool HasConnectionDiscloseeToDiscloser =>
         selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null &&
         AllConnections.Any(c => c.SenderPrefix == selectedDiscloseePrefix && c.ReceiverPrefix == selectedDiscloserPrefix);
@@ -60,11 +97,14 @@
         selectedDiscloseePrefix is not null &&
         ipexStatus != StepStatus.Running;
 
-    bool IsWorkflowEnabled(IpexWorkflow wf) => wf switch {
-        IpexWorkflow.Apply => HasConnectionDiscloseeToDiscloser,
-        IpexWorkflow.Grant => HasConnectionDiscloserToDisclosee,
-        _ => HasMutualConnection
-    };
+    bool IsWorkflowEnabled(IpexWorkflow wf) {
+        bool needsForward = wf is not IpexWorkflow.Apply;
+        bool needsReverse = wf is not IpexWorkflow.Grant;
+
+        if (needsForward && !HasConnectionDiscloserToDisclosee) return false;
+        if (needsReverse && !HasConnectionDiscloseeToDiscloser && !IsDiscloseeExternal) return false;
+        return true;
+    }
 
     static string WorkflowDisplayName(IpexWorkflow wf) => wf switch {
         IpexWorkflow.Apply => "Apply",
@@ -79,7 +119,10 @@
 
     string? GetAidDisplayName(string prefix) {
         var aid = AllAids.FirstOrDefault(a => a.Prefix == prefix);
-        return aid is not null ? $"{aid.Name} ({prefix[..8]}...)" : prefix;
+        if (aid is not null) return $"{aid.Name} ({prefix[..8]}...)";
+        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
+        if (conn is not null) return $"{conn.Name} ({prefix[..8]}...)";
+        return prefix;
     }
 
     protected override async Task OnInitializedAsync()
@@ -134,11 +177,17 @@
 
     void OnDiscloserChanged(string? value) {
         selectedDiscloserPrefix = value;
+        if (selectedDiscloseePrefix is not null && value is not null &&
+            !AllConnections.Any(c => c.SenderPrefix == value && c.ReceiverPrefix == selectedDiscloseePrefix))
+            selectedDiscloseePrefix = null;
         selectedWorkflow = null;
     }
 
     void OnDiscloseeChanged(string? value) {
         selectedDiscloseePrefix = value;
+        if (selectedDiscloserPrefix is not null && value is not null &&
+            !AllConnections.Any(c => c.SenderPrefix == selectedDiscloserPrefix && c.ReceiverPrefix == value))
+            selectedDiscloserPrefix = null;
         selectedWorkflow = null;
     }
 
@@ -289,6 +338,12 @@
             <MudText Class="bt-pref-group-label0">
                 Prime IPEX Credential Issuance Workflows (ECR)
             </MudText>
+            <MudText Typo="Typo.body2" Class="ml-5">
+                The available disclosers, disclosees, and workflows depend on existing connections.
+                Some workflows require mutual connections between the selected AIDs.
+                For workflows beyond Apply, the discloser must hold the appropriate credential
+                (ECR Auth for issuance, ECR for presentation).
+            </MudText>
             <MudStack Class="ml-5" Spacing="2">
                 <MudRadioGroup T="bool" Value="isPresentation" ValueChanged="OnIsPresentationChanged">
                     <MudRadio T="bool" Value="false" Color="Color.Primary">Credential Issuance</MudRadio>
@@ -297,17 +352,18 @@
 
                 <MudSelect T="string" Label="@DiscloserLabel" Value="selectedDiscloserPrefix"
                            ValueChanged="OnDiscloserChanged" Variant="Variant.Outlined" Placeholder="Select AID">
-                    @foreach (var aid in AllAids.Where(a => eligibleDiscloserPrefixes.Contains(a.Prefix)))
+                    @foreach (var aid in AllAids.Where(a => FilteredDiscloserPrefixes.Contains(a.Prefix)))
                     {
                         <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@aid.Prefix[..8]...)</MudSelectItem>
                     }
                 </MudSelect>
 
                 <MudSelect T="string" Label="@DiscloseeLabel" Value="selectedDiscloseePrefix"
-                           ValueChanged="OnDiscloseeChanged" Variant="Variant.Outlined" Placeholder="Select AID">
-                    @foreach (var aid in AllAids)
+                           ValueChanged="OnDiscloseeChanged" Variant="Variant.Outlined" Placeholder="Select AID"
+                           ToStringFunc="@(p => p is null ? "" : GetAidDisplayName(p) ?? p)">
+                    @foreach (var (prefix, name) in FilteredDiscloseeCandidates)
                     {
-                        <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@aid.Prefix[..8]...)</MudSelectItem>
+                        <MudSelectItem T="string" Value="prefix">@name (@prefix[..8]...)</MudSelectItem>
                     }
                 </MudSelect>
 
