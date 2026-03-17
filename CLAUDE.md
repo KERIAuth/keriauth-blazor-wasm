@@ -41,6 +41,7 @@ These are firm constraints. Do not change or work around them without explicit a
 3. **After completing a phase**: summarize what was done, report test results, ask "Ready for Phase N?"
 4. **If unit tests pass but manual browser testing is needed**: stop and wait for user confirmation
 5. **When a session runs out of context and restarts**: re-read this file. The phased constraint still applies. Check where you left off before continuing.
+6. **When presenting a plan**: summarize the full plan (all phases, what's in/out of scope) in your chat message before calling ExitPlanMode, so the user can review it without needing the plan file open.
 
 ### Change Discipline
 

@@ -709,8 +709,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles BwReadyState being cleared - immediately re-establishes it.
     /// </summary>
     private async Task HandleBwReadyStateClearedAsync() {
-        logger.LogInformation(nameof(HandleBwReadyStateClearedAsync) + ": BwReadyState was cleared, re-establishing...");
-        await SetBwReadyStateAsync();
+        try {
+            logger.LogInformation(nameof(HandleBwReadyStateClearedAsync) + ": BwReadyState was cleared, re-establishing...");
+            await SetBwReadyStateAsync();
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleBwReadyStateClearedAsync) + ": Failed to re-establish BwReadyState");
+        }
     }
 
     /// <summary>
@@ -4516,10 +4521,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     private async Task RunBurstAsync(CancellationTokenSource cts) {
-        await _notificationPollingService.StartPollingAsync(cts.Token);
-        // Null out CTS when burst completes naturally so "is active" checks work correctly
-        if (_notificationPollingCts == cts) {
-            _notificationPollingCts = null;
+        try {
+            await _notificationPollingService.StartPollingAsync(cts.Token);
+        }
+        catch (OperationCanceledException) {
+            // Expected when burst is canceled — not an error
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(RunBurstAsync) + ": Notification polling failed");
+        }
+        finally {
+            // Null out CTS when burst completes (naturally or via error) so "is active" checks work correctly
+            if (_notificationPollingCts == cts) {
+                _notificationPollingCts = null;
+            }
         }
     }
 
