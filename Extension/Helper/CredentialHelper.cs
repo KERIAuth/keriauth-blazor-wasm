@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Extension.Helper;
@@ -92,6 +93,60 @@ public static class CredentialHelper {
         var schemaSaid = credential?.GetValueByPath("sad.s")?.Value?.ToString();
         return GetBackgroundColor(schemaSaid);
     }
+
+    /// <summary>
+    /// Represents a schema-driven field with label, value, and optional format hint.
+    /// </summary>
+    public record SchemaFieldDisplay(string? Label, string? Value, string? Format);
+
+    /// <summary>
+    /// Cached schema metadata (labels and formats) keyed by schema SAID, then by field name.
+    /// Values differ per credential instance, so only labels and formats are cached.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, (string? Label, string? Format)>>
+        SchemaMetadataCache = new();
+
+    /// <summary>
+    /// Extracts a schema-driven field (label from schema, value from credential, format from schema).
+    /// Assumes the common nesting pattern: schema properties in schemaProps at "properties.{fieldName}.*"
+    /// and credential values at "sad.a.{fieldName}".
+    /// Caches schema-level metadata (label, format) by schema SAID for subsequent lookups.
+    /// </summary>
+    public static SchemaFieldDisplay GetSchemaField(
+        RecursiveDictionary credential,
+        RecursiveDictionary? schemaProps,
+        string fieldName)
+    {
+        var schemaSaid = credential.GetValueByPath("sad.s")?.Value?.ToString();
+        var value = credential.GetValueByPath($"sad.a.{fieldName}")?.Value?.ToString();
+
+        if (schemaSaid is not null)
+        {
+            var fieldCache = SchemaMetadataCache.GetOrAdd(schemaSaid, _ => new());
+            var (label, format) = fieldCache.GetOrAdd(fieldName, _ =>
+            {
+                var l = schemaProps?.GetValueByPath($"properties.{fieldName}.description")?.Value?.ToString();
+                var f = schemaProps?.GetValueByPath($"properties.{fieldName}.format")?.Value?.ToString();
+                return (l, f);
+            });
+            return new SchemaFieldDisplay(label, value, format);
+        }
+
+        var labelUncached = schemaProps?.GetValueByPath($"properties.{fieldName}.description")?.Value?.ToString();
+        var formatUncached = schemaProps?.GetValueByPath($"properties.{fieldName}.format")?.Value?.ToString();
+        return new SchemaFieldDisplay(labelUncached, value, formatUncached);
+    }
+
+    /// <summary>
+    /// Formats a field value based on its schema format hint.
+    /// </summary>
+    public static string FormatFieldValue(string? value, string? format) =>
+        (value, format) switch {
+            (null, _) => "",
+            (_, "date") => value.Length >= 10 ? value[..10] : value,
+            (_, "date-time") => value.Length >= 10 ? value[..10] : value,
+            _ => value
+        };
 
     /// <summary>
     /// Filters a list of credential RecursiveDictionaries by path/value pairs.
