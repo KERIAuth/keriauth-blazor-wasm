@@ -12,6 +12,18 @@ namespace Extension.Services.SignifyService {
         bool IsConnected { get; }
 
         /// <summary>
+        /// True while a long-running signify operation is in progress.
+        /// Background callers (notification polling, credential refresh) should skip when true.
+        /// </summary>
+        bool IsLongOperationActive { get; }
+
+        /// <summary>
+        /// Marks the start of a long-running signify operation. Dispose to end.
+        /// Use with 'using' to suppress background KERIA calls during composite operations.
+        /// </summary>
+        IDisposable BeginLongOperation();
+
+        /// <summary>
         /// Clears connection state and resets the signify-ts client.
         /// Called when session locks or passcode is cleared.
         /// </summary>

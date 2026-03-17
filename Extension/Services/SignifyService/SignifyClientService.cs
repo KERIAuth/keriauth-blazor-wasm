@@ -74,6 +74,25 @@ namespace Extension.Services.SignifyService {
 
         public bool IsConnected { get; private set; }
 
+        private int _longOperationCount;
+        public bool IsLongOperationActive => _longOperationCount > 0;
+
+        public IDisposable BeginLongOperation() {
+            Interlocked.Increment(ref _longOperationCount);
+            logger.LogDebug("BeginLongOperation: count={Count}", _longOperationCount);
+            return new LongOperationScope(this, logger);
+        }
+
+        private sealed class LongOperationScope(SignifyClientService owner, ILogger log) : IDisposable {
+            private int _disposed;
+            public void Dispose() {
+                if (Interlocked.Exchange(ref _disposed, 1) == 0) {
+                    Interlocked.Decrement(ref owner._longOperationCount);
+                    log.LogDebug("LongOperationScope.Dispose: count={Count}", owner._longOperationCount);
+                }
+            }
+        }
+
         public async Task Disconnect() {
             IsConnected = false;
             try {
@@ -137,7 +156,7 @@ namespace Extension.Services.SignifyService {
 
             TimeSpan timeout2;
             if (timeout is null) {
-                timeout2 = (TimeSpan)TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+                timeout2 = AppConfig.SignifyTimeout;
                 logger.LogInformation(nameof(Connect) + ": Using default timeout of {timeout} ms", AppConfig.SignifyTimeoutMs);
             }
             else {
@@ -192,7 +211,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> RenameAid(string currentName, string newName, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(ct => _binding.RenameAIDAsync(currentName, newName, ct), timeout2);
                 if (timeoutResult.IsFailed) {
@@ -908,7 +927,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.EscrowsListReplyAsync(route, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<List<RecursiveDictionary>>(timeoutResult.Errors);
@@ -935,7 +954,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.GroupsGetRequestAsync(said, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -962,7 +981,7 @@ namespace Extension.Services.SignifyService {
                 var sigsJson = JsonSerializer.Serialize(sigs, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.GroupsSendRequestAsync(name, exnJson, sigsJson, atc, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -991,7 +1010,7 @@ namespace Extension.Services.SignifyService {
                 var rmidsJson = JsonSerializer.Serialize(rmids, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.GroupsJoinAsync(name, rotJson, sigsJson, gid, smidsJson, rmidsJson, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -1018,7 +1037,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.ExchangesGetAsync(said, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -1047,7 +1066,7 @@ namespace Extension.Services.SignifyService {
                 var recipientsJson = JsonSerializer.Serialize(recipients, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.ExchangesSendAsync(name, topic, senderJson, route, payloadJson, embedsJson, recipientsJson, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -1075,7 +1094,7 @@ namespace Extension.Services.SignifyService {
                 var recipientsJson = JsonSerializer.Serialize(recipients, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.ExchangesSendFromEventsAsync(name, topic, exnJson, sigsJson, atc, recipientsJson, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -1103,7 +1122,7 @@ namespace Extension.Services.SignifyService {
                 var dataJson = data != null ? JsonSerializer.Serialize(data.ToDictionary(), jsonSerializerOptions) : null;
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.DelegationsApproveAsync(name, dataJson, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -1130,7 +1149,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.KeyEventsGetAsync(prefix, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
@@ -1166,7 +1185,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.KeyStatesGetAsync(prefix, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<KeyState>(timeoutResult.Errors);
@@ -1197,7 +1216,7 @@ namespace Extension.Services.SignifyService {
                 var prefixesJson = JsonSerializer.Serialize(prefixes, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.KeyStatesListAsync(prefixesJson, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<List<KeyState>>(timeoutResult.Errors);
@@ -1222,7 +1241,7 @@ namespace Extension.Services.SignifyService {
                 var anchorJson = anchor != null ? JsonSerializer.Serialize(anchor.ToDictionary(), jsonSerializerOptions) : null;
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.KeyStatesQueryAsync(prefix, sn, anchorJson, ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<Operation>(timeoutResult.Errors);
@@ -1248,7 +1267,7 @@ namespace Extension.Services.SignifyService {
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.ConfigGetAsync(ct),
-                    TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs)
+                    AppConfig.SignifyTimeout
                 );
                 if (timeoutResult.IsFailed) {
                     return Result.Fail<AgentConfig>(timeoutResult.Errors);
@@ -1348,7 +1367,7 @@ namespace Extension.Services.SignifyService {
         // ===================== Composite vLEI Operations =====================
 
         public async Task<Result<AidWithOobi>> CreateAidWithEndRole(string name, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.CreateAidWithEndRoleAsync(name, ct),
@@ -1374,7 +1393,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<DelegateAidResult>> CreateDelegateAid(string name, string delegatorPrefix, string delegatorOobi, string delegatorAlias, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.CreateDelegateAidAsync(name, delegatorPrefix, delegatorOobi, delegatorAlias, ct),
@@ -1400,7 +1419,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RegistryCheckResult>> CreateRegistryIfNotExists(string aidName, string registryName, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.CreateRegistryIfNotExistsAsync(aidName, registryName, ct),
@@ -1426,7 +1445,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<string>> GetCredentialsFilteredCesr(string filterJson, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.CredentialsListFilteredCesrAsync(filterJson, ct),
@@ -1447,7 +1466,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<string>> GetCredentialsBySchemaAndIssuerCesr(string schemaSaid, string issuerPrefix, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.CredentialsBySchemaAndIssuerCesrAsync(schemaSaid, issuerPrefix, ct),
@@ -1468,7 +1487,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> IssueAndGetCredential(IssueAndGetCredentialArgs args, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var argsJson = JsonSerializer.Serialize(args, recursiveJsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
@@ -1495,7 +1514,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> IpexGrantAndSubmit(IpexGrantSubmitArgs args, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var argsJson = JsonSerializer.Serialize(args, recursiveJsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
@@ -1522,7 +1541,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> IpexAdmitAndSubmit(IpexAdmitSubmitArgs args, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var argsJson = JsonSerializer.Serialize(args, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
@@ -1549,7 +1568,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> IpexApplyAndSubmit(IpexApplySubmitArgs args, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var argsJson = JsonSerializer.Serialize(args, recursiveJsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
@@ -1576,7 +1595,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> IpexOfferAndSubmit(IpexOfferSubmitArgs args, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var argsJson = JsonSerializer.Serialize(args, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
@@ -1605,7 +1624,7 @@ namespace Extension.Services.SignifyService {
         public async Task<Result<RecursiveDictionary>> IpexAgreeAndSubmit(IpexAgreeSubmitArgs args, TimeSpan? timeout = null) {
             logger.LogInformation("{Op}: sender={Sender}, recipient={Recipient}, offerSaid={OfferSaid}",
                 nameof(IpexAgreeAndSubmit), args.SenderNameOrPrefix, args.RecipientPrefix, args.OfferSaid);
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var argsJson = JsonSerializer.Serialize(args, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
@@ -1635,7 +1654,7 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null) {
-            var timeout2 = timeout ?? TimeSpan.FromMilliseconds(AppConfig.SignifyTimeoutMs);
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.GrantReceivedCredentialAsync(senderAidNameOrPrefix, credentialSaid, recipientPrefix, ct),

@@ -47,44 +47,47 @@
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        // Try Apply first
-        var applyPayload = await InitializeFromPendingRequestAsync<RequestIpexApplyPayload>(
-            BwAppMessageType.Values.RequestIpexApply);
-        if (applyPayload is not null)
+        // Peek at pending request type first to avoid false error logs from cascading attempts
+        var pendingType = AppCache.NextPendingBwAppRequest?.Type;
+        switch (pendingType)
         {
-            ipexKind = IpexKind.Apply;
-            isPresentation = applyPayload.IsPresentation;
-            SchemaSaid = applyPayload.SchemaSaid;
-            RecipientPrefix = applyPayload.RecipientPrefix;
-            Attributes = applyPayload.Attributes;
-        }
-        else
-        {
-            // Try Agree
-            var agreePayload = await InitializeFromPendingRequestAsync<RequestIpexAgreePayload>(
-                BwAppMessageType.Values.RequestIpexAgree);
-            if (agreePayload is not null)
+            case BwAppMessageType.Values.RequestIpexApply:
             {
+                var applyPayload = await InitializeFromPendingRequestAsync<RequestIpexApplyPayload>(
+                    BwAppMessageType.Values.RequestIpexApply);
+                if (applyPayload is null) return;
+                ipexKind = IpexKind.Apply;
+                isPresentation = applyPayload.IsPresentation;
+                SchemaSaid = applyPayload.SchemaSaid;
+                RecipientPrefix = applyPayload.RecipientPrefix;
+                Attributes = applyPayload.Attributes;
+                break;
+            }
+            case BwAppMessageType.Values.RequestIpexAgree:
+            {
+                var agreePayload = await InitializeFromPendingRequestAsync<RequestIpexAgreePayload>(
+                    BwAppMessageType.Values.RequestIpexAgree);
+                if (agreePayload is null) return;
                 ipexKind = IpexKind.Agree;
                 isPresentation = agreePayload.IsPresentation;
                 OfferSaid = agreePayload.OfferSaid;
                 RecipientPrefix = agreePayload.RecipientPrefix;
+                break;
             }
-            else
+            case BwAppMessageType.Values.RequestIpexAdmitFromPage:
             {
-                // Try Admit
                 var admitPayload = await InitializeFromPendingRequestAsync<RequestIpexAdmitPayload>(
                     BwAppMessageType.Values.RequestIpexAdmitFromPage);
-                if (admitPayload is null)
-                {
-                    return;
-                }
-
+                if (admitPayload is null) return;
                 ipexKind = IpexKind.Admit;
                 isPresentation = admitPayload.IsPresentation;
                 GrantSaid = admitPayload.GrantSaid;
                 RecipientPrefix = admitPayload.RecipientPrefix;
+                break;
             }
+            default:
+                logger.LogError("OnInitializedAsync: Unexpected pending request type: {Type}", pendingType ?? "null");
+                return;
         }
 
         // Derive page heading and description from (ipexKind, isPresentation) tuple
@@ -142,6 +145,7 @@
         {
             var error = new ValidationError("TabId", "Invalid tab ID");
             snackbar.Add(error.Message, Severity.Error);
+            Layout?.EndAction();
             return Result.Fail(error);
         }
 
@@ -149,6 +153,7 @@
         {
             var error = new ValidationError("Selection", "Identifier selection is incomplete");
             snackbar.Add(error.Message, Severity.Error);
+            Layout?.EndAction();
             return Result.Fail(error);
         }
 
@@ -207,6 +212,7 @@
         {
             logger.LogError(ex, "Failed to send IPEX approval");
             snackbar.Add($"Failed to send approval: {ex.Message}", Severity.Error);
+            Layout?.EndAction();
             return Result.Fail(new JavaScriptInteropError("ApproveIpex", ex.Message, ex));
         }
     }

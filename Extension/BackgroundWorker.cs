@@ -152,6 +152,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _notificationPollingService = notificationPollingService;
         _notificationPollingService.OnCredentialNotificationsChanged = RefreshCachedCredentialsAsync;
         _notificationPollingService.IsClientReady = () => _signifyClientService.IsConnected;
+        _notificationPollingService.IsLongOperationActive = () => _signifyClientService.IsLongOperationActive;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);
@@ -1843,6 +1844,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            // Acknowledge the App RPC immediately (before long operation)
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+
             // Route IPEX response to ContentScript via stored port info
             if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 await ExecuteIpexAndRespondAsync(
@@ -1862,9 +1866,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             else {
                 logger.LogWarning(nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": No port info for response routing, requestId={RequestId}", requestId);
             }
-
-            // Acknowledge the App RPC
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(HandleAppReplyIpexApplyApprovalRpcAsync) + ": Error");
@@ -1874,8 +1875,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.RpcRequestId ?? requestId,
                     errorMessage: $"Error sending IPEX apply: {ex.Message}");
             }
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                errorMessage: $"Error: {ex.Message}");
         }
     }
 
@@ -1925,6 +1924,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            // Acknowledge the App RPC immediately (before long operation)
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+
             // Route IPEX response to ContentScript via stored port info
             if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 await ExecuteIpexAndRespondAsync(
@@ -1943,9 +1945,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             else {
                 logger.LogWarning(nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": No port info for response routing, requestId={RequestId}", requestId);
             }
-
-            // Acknowledge the App RPC
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(HandleAppReplyIpexAgreeApprovalRpcAsync) + ": Error");
@@ -1955,8 +1954,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.RpcRequestId ?? requestId,
                     errorMessage: $"Error sending IPEX agree: {ex.Message}");
             }
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                errorMessage: $"Error: {ex.Message}");
         }
     }
 
@@ -2006,7 +2003,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Route IPEX response to ContentScript via stored port info
+            // Acknowledge the App RPC immediately (before long operation)
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
+
+            // Route IPEX response to ContentScript via stored port info (may take 60+ seconds for admit)
             if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 await ExecuteIpexAndRespondAsync(
                     pendingRequest.PortId, pendingRequest.PortSessionId,
@@ -2028,9 +2028,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             else {
                 logger.LogWarning(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": No port info for response routing, requestId={RequestId}", requestId);
             }
-
-            // Acknowledge the App RPC
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) + ": Error");
@@ -2040,8 +2037,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.RpcRequestId ?? requestId,
                     errorMessage: $"Error sending IPEX admit: {ex.Message}");
             }
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                errorMessage: $"Error: {ex.Message}");
         }
     }
 
@@ -2404,18 +2399,25 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var connectResult = await _signifyClientService.Connect(
-                connectRequest.AdminUrl,
-                passcode,
-                connectRequest.BootUrl,
-                connectRequest.IsNewAgent
-            );
+            // Cancel any active burst before connecting — Connect() resets the JS client,
+            // and in-flight polling calls would hit "Client not connected"
+            _notificationPollingCts?.Cancel();
+
+            Result<State> connectResult;
+            using (_signifyClientService.BeginLongOperation()) {
+                connectResult = await _signifyClientService.Connect(
+                    connectRequest.AdminUrl,
+                    passcode,
+                    connectRequest.BootUrl,
+                    connectRequest.IsNewAgent
+                );
+            }
 
             if (connectResult.IsSuccess && connectResult.Value is not null) {
                 var clientAidPrefix = connectResult.Value.Controller?.State?.I;
                 var agentAidPrefix = connectResult.Value.Agent?.I;
 
-                // Start notification burst polling (cancel any previous burst first)
+                // Start notification burst polling now that connection is established
                 RestartNotificationBurst();
 
                 // Fetch identifiers and store in session for App to read
@@ -2522,6 +2524,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Fetches credentials from KERIA and writes raw JSON to session storage for App components to read directly.
     /// </summary>
     private async Task RefreshCachedCredentialsAsync() {
+        if (_signifyClientService.IsLongOperationActive) {
+            logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — long operation active");
+            return;
+        }
         try {
             var rawJsonResult = await _signifyClientService.GetCredentialsRaw();
             if (rawJsonResult.IsSuccess) {
@@ -3101,11 +3107,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 ": sender={Sender}, recipient={Recipient}, offerSaid={OfferSaid}",
                 agreeRequest.SenderNameOrPrefix, agreeRequest.RecipientPrefix, agreeRequest.OfferSaid);
 
-            var result = await _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
-                SenderNameOrPrefix: agreeRequest.SenderNameOrPrefix,
-                RecipientPrefix: agreeRequest.RecipientPrefix,
-                OfferSaid: agreeRequest.OfferSaid
-            ));
+            Result<RecursiveDictionary> result;
+            using (_signifyClientService.BeginLongOperation()) {
+                result = await _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
+                    SenderNameOrPrefix: agreeRequest.SenderNameOrPrefix,
+                    RecipientPrefix: agreeRequest.RecipientPrefix,
+                    OfferSaid: agreeRequest.OfferSaid
+                ));
+            }
 
             if (result.IsSuccess) {
                 logger.LogInformation(nameof(HandleAppRequestIpexAgreeRpcAsync) + ": agree submitted successfully");
@@ -3142,7 +3151,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         string? senderPrefix = null,
         Func<Task>? onSuccess = null) {
         try {
-            var result = await operation();
+            Result<RecursiveDictionary> result;
+            using (_signifyClientService.BeginLongOperation()) {
+                result = await operation();
+            }
 
             if (result.IsSuccess) {
                 if (onSuccess is not null) {
@@ -3196,7 +3208,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // Resolve the page's OOBI to validate it and extract identity info
         string? resolvedAidPrefix = null;
         string? resolvedAlias = null;
-        var resolveResult = await _signifyClientService.ResolveOobi(oobi);
+        Result<RecursiveDictionary> resolveResult;
+        using (_signifyClientService.BeginLongOperation()) {
+            resolveResult = await _signifyClientService.ResolveOobi(oobi);
+        }
         if (resolveResult.IsSuccess && resolveResult.Value is not null) {
             // Best-effort extraction of AID prefix from resolved result
             resolvedAidPrefix = resolveResult.Value.GetByPath("response.i")?.StringValue;
@@ -3309,13 +3324,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        // Validate isPresentation consistency with IPEX protocol
-        // Agree in Presentation: requester agrees to a holder's offer — expected usage
-        // Agree in Issuance: less common but not necessarily invalid
-        if (!agreePayload.IsPresentation) {
-            logger.LogWarning(nameof(HandleIpexAgreeRpcAsync) + ": isPresentation=false for agree is unusual in standard IPEX flows");
-        }
-
+        // Agree applies in both issuance (agree to an offer) and presentation flows
         logger.LogInformation(nameof(HandleIpexAgreeRpcAsync) + ": isPresentation={IsPresentation}, offerSaid={OfferSaid}, recipient={Recipient}",
             agreePayload.IsPresentation, agreePayload.OfferSaid, agreePayload.RecipientPrefix);
 
@@ -3980,7 +3989,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Create the identifier with end role
-            var createResult = await _signifyClientService.CreateAidWithEndRole(addRequest.Alias);
+            Result<AidWithOobi> createResult;
+            using (_signifyClientService.BeginLongOperation()) {
+                createResult = await _signifyClientService.CreateAidWithEndRole(addRequest.Alias);
+            }
             if (createResult.IsFailed || createResult.Value is null) {
                 var errorMsg = string.Join("; ", createResult.Errors.Select(e => e.Message));
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to create identifier: {Errors}", errorMsg);
@@ -4138,6 +4150,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
 
         try {
+            using var _ = _signifyClientService.BeginLongOperation();
             logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Processing credential creation approval");
 
             // Deserialize the approval payload
@@ -4456,14 +4469,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return Result.Fail("Invalid passcode length");
             }
 
+            // Cancel any active burst before connecting — Connect() resets the JS client,
+            // and in-flight polling calls would hit "Client not connected"
+            _notificationPollingCts?.Cancel();
+
             // Connect to KERIA
             logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": connecting to {AdminUrl}", config.AdminUrl);
-            var connectResult = await _signifyClientService.Connect(
-                config.AdminUrl,
-                passcode,
-                config.BootUrl,
-                isBootForced: false  // Don't force boot - just connect
-            );
+            Result<State> connectResult;
+            using (_signifyClientService.BeginLongOperation()) {
+                connectResult = await _signifyClientService.Connect(
+                    config.AdminUrl,
+                    passcode,
+                    config.BootUrl,
+                    isBootForced: false  // Don't force boot - just connect
+                );
+            }
             if (connectResult.IsFailed) {
                 return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");
             }

@@ -15,4 +15,10 @@ public interface INotificationPollingService {
     /// Polling is silently skipped when this returns false.
     /// </summary>
     Func<bool>? IsClientReady { get; set; }
+
+    /// <summary>
+    /// Gate that returns true when a long-running signify operation is in progress.
+    /// Polling is silently skipped when this returns true to avoid blocking the operation.
+    /// </summary>
+    Func<bool>? IsLongOperationActive { get; set; }
 }

@@ -235,6 +235,8 @@
     bool IsAdmitting { get; set; }
     bool IsAlreadyAdmitted { get; set; }
     bool IsAgreeing { get; set; }
+    bool IsAlreadyAgreed { get; set; }
+    HashSet<string> _agreedOfferSaids = [];
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -276,6 +278,9 @@
         ExpandedExchangeData = null;
         ExchangeLoadError = null;
         IsAlreadyAdmitted = false;
+        IsAlreadyAgreed = notification.Route == "/exn/ipex/offer"
+            && notification.ExchangeSaid is not null
+            && _agreedOfferSaids.Contains(notification.ExchangeSaid);
         IsLoadingPrior = false;
 
         if (notification.ExchangeSaid is null) {
@@ -434,6 +439,8 @@
                 : null;
 
             if (agreeResult is not null && agreeResult.Success) {
+                if (notification.ExchangeSaid is not null) _agreedOfferSaids.Add(notification.ExchangeSaid);
+                IsAlreadyAgreed = true;
                 snackbar.Add("Agreed to offer", Severity.Success);
                 if (!notification.IsRead) {
                     await MarkAsRead(notification);
@@ -655,6 +662,7 @@
                                                                 IsAlreadyAdmitted="@IsAlreadyAdmitted"
                                                                 OnAgree="@(() => AgreeToOffer(n))"
                                                                 IsAgreeing="@IsAgreeing"
+                                                                IsAlreadyAgreed="@IsAlreadyAgreed"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
                                 }
                             </LoadingDiv>

@@ -4,8 +4,27 @@ using MudBlazor.Utilities;
 
 namespace Extension {
     public static class AppConfig {
-        // Note there is also a default InactivityTimeout in servicw-worker.ts that should be overridden by this during app startup
-        public const int SignifyTimeoutMs = 20000; // Note, had fast retry issues when this was set to 1000, since a KERIA boot with KERIA oobi behinds the scenes take long time.
+        // --- Signify-ts / KERIA timeout hierarchy ---
+        // These C# timeouts wrap JS interop calls that have their own internal timeouts.
+        // The C# timeout must always be longer than the JS-side total to avoid premature cancellation.
+        //
+        // JS-side timeouts (in signifyClient.ts):
+        //   DEFAULT_TIMEOUT_MS = 30000ms — used by waitAndDeleteOperation() and oobiResolve()
+        //   waitForCredential  = 60000ms — polls KERIA credential store after ipexAdmitAndSubmit
+        //
+        // For simple signify calls (get, list, mark, delete):
+        //   SignifyTimeoutMs (20s) > typical KERIA round-trip (~1-5s)
+        //
+        // For composite operations (*AndSubmit, CreateAidWithEndRole, IssueAndGetCredential, etc.):
+        //   SignifyLongOperationTimeoutMs (120s) > JS worst case:
+        //     waitAndDeleteOperation (30s) + waitForCredential (60s) = 90s
+        //     Plus margin for event-loop contention
+        //
+        // Note there is also a default InactivityTimeout in service-worker.ts that should be overridden by this during app startup
+        public const int SignifyTimeoutMs = 20000; // For simple get/list/mark/delete calls
+        public const int SignifyLongOperationTimeoutMs = 120000; // For composite operations involving KERIA coordination
+        public static readonly TimeSpan SignifyTimeout = TimeSpan.FromMilliseconds(SignifyTimeoutMs);
+        public static readonly TimeSpan SignifyLongOperationTimeout = TimeSpan.FromMilliseconds(SignifyLongOperationTimeoutMs);
 
         // SessionManager configuration
         public const string SessionManagerAlarmName = "SessionManagerAlarm";

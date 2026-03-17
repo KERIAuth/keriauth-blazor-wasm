@@ -26,6 +26,9 @@
     public bool IsAgreeing { get; set; }
 
     [Parameter]
+    public bool IsAlreadyAgreed { get; set; }
+
+    [Parameter]
     public bool IsLoadingPrior { get; set; }
 
     string? SenderAid => Exchange.I;
@@ -89,7 +92,12 @@
                 break;
 
             case "/exn/ipex/offer":
-                @if (OnAgree.HasDelegate)
+                @if (IsAlreadyAgreed)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                             Icon="@Icons.Material.Filled.Handshake">Agreed — awaiting grant</MudChip>
+                }
+                else if (OnAgree.HasDelegate)
                 {
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
@@ -107,12 +115,12 @@
                             <text>Agree</text>
                         }
                     </MudButton>
+                    <MudTooltip Text="Not yet implemented">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                                   OnClick="HandleSpurn">Reject</MudButton>
+                    </MudTooltip>
                 }
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                               OnClick="HandleSpurn">Reject</MudButton>
-                </MudTooltip>
                 break;
 
             case "/exn/ipex/agree":

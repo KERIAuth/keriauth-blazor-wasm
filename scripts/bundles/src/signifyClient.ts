@@ -166,7 +166,7 @@ const waitAndDeleteOperation = async <T = unknown>(
 const waitForCredential = async (
     client: SignifyClient,
     credentialSaid: string,
-    timeoutMs: number = 30000, // some operations like an ipexAdmitAndSubmit can take a while, especially if they involve external interactions
+    timeoutMs: number = 60000, // Must be less than C# SignifyLongOperationTimeoutMs (120s) minus DEFAULT_TIMEOUT_MS (30s)
     intervalMs: number = 500
 ): Promise<void> => {
     const deadline = Date.now() + timeoutMs;
@@ -1057,14 +1057,22 @@ export const ipexAdmitAndSubmit = async (argsJson: string): Promise<string> => {
             );
             const result = await waitAndDeleteOperation(client, op);
 
-            // Wait for the admitted credential to be available in KERIA's credential store
+            // Wait for the admitted credential to be available in KERIA's credential store.
+            // Non-fatal: the admit was already submitted successfully above.
+            // If waitForCredential times out, C# RefreshCachedCredentialsAsync will pick it up later.
             const grantExn = await client.exchanges().get(args.grantSaid) as Record<string, any>;
             const credentialSaid = grantExn?.exn?.e?.acdc?.d as string | undefined;
+            let credentialPending = false;
             if (credentialSaid) {
-                await waitForCredential(client, credentialSaid);
+                try {
+                    await waitForCredential(client, credentialSaid);
+                } catch (e) {
+                    console.warn(`signifyClient: ipexAdmitAndSubmit: waitForCredential timed out for ${credentialSaid}, admit was already submitted successfully`);
+                    credentialPending = true;
+                }
             }
 
-            return { ...result, admitSaid, credentialSaid };
+            return { ...result, admitSaid, credentialSaid, credentialPending };
         }
     );
 };
