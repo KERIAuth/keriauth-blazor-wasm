@@ -5,7 +5,6 @@
 @inject ILogger<DialogLayout> logger
 @inject NavigationManager navManager
 
-<MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="@appCache.MyPreferences.IsDarkTheme" />
 
 @* Action spinner overlay - shown after delay when action is in progress *@
 @if (ShowActionSpinner) {
@@ -13,13 +12,14 @@
         <MudProgressCircular Indeterminate="true" Size="Size.Large" />
     </div>
 }
+
 <MudThemeProvider Theme="@AppConfig.MyCustomTheme" IsDarkMode="appCache.MyPreferences.IsDarkTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999; position:absolute;" />
 
 <CascadingValue Value="this">
-    <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw;">
+    <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw; background-color: var(--mud-palette-background);">
         <MudAppBar Class="bt-appbar">
             <MudStack Style="height:inherit; width: 100%; padding:0 0.5rem 0 0.25rem;" Class="d-flex" Row="true">
                 <LogoButton />
@@ -177,7 +177,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(255, 255, 255, 0.7);
+        background: var(--mud-palette-overlay-dark);
         z-index: 10000;
         display: flex;
         align-items: center;
