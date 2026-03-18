@@ -1,13 +1,30 @@
+export function getExtensionId() {
+    return chrome.runtime.id;
+}
+
+// chrome:// URLs cannot be opened via HTML links; must use chrome.tabs.create
+export function openInNewTab(url) {
+    chrome.tabs.create({ url });
+}
+
 // Check/request camera permission using the browser's native media permission system.
-// Triggers the browser's camera prompt if permission has not yet been granted.
-// Returns true if access is granted, false if denied.
+// Returns "granted", "denied" (prompt dismissed), or "blocked" (blocked in site settings).
 export async function requestCameraPermission() {
+    try {
+        const result = await navigator.permissions.query({ name: "camera" });
+        if (result.state === "denied") {
+            return "blocked";
+        }
+    } catch {
+        // permissions.query may not support "camera" in all contexts; fall through to getUserMedia
+    }
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         stream.getTracks().forEach(t => t.stop());
-        return true;
+        return "granted";
     } catch {
-        return false;
+        return "denied";
     }
 }
 

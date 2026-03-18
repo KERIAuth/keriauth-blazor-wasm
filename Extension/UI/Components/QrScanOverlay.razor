@@ -17,20 +17,41 @@
     private int _currentDeviceIdx;
     private IJSObjectReference? _audioModule;
     private IJSObjectReference? _cameraModule;
-    private bool? _cameraPermissionGranted;
+    private string? _cameraPermissionStatus;
     private bool _prevIsVisible;
+
+    // Works on Chrome, Edge, and Brave
+    private string SiteDetailsUrl => $"chrome://settings/content/siteDetails?site=chrome-extension://{_extensionId}";
+    private string _extensionId = "";
 
     protected override async Task OnParametersSetAsync() {
         if (IsVisible && !_prevIsVisible) {
-            _cameraPermissionGranted = null;
+            _cameraPermissionStatus = null;
             _cameraModule ??= await js.InvokeAsync<IJSObjectReference>(
                 "import", "./scripts/helpers/cameraHelper.js");
-            _cameraPermissionGranted = await _cameraModule.InvokeAsync<bool>("requestCameraPermission");
+            if (string.IsNullOrEmpty(_extensionId)) {
+                _extensionId = await _cameraModule.InvokeAsync<string>("getExtensionId");
+            }
+            _cameraPermissionStatus = await _cameraModule.InvokeAsync<string>("requestCameraPermission");
         }
         else if (!IsVisible) {
-            _cameraPermissionGranted = null;
+            _cameraPermissionStatus = null;
         }
         _prevIsVisible = IsVisible;
+    }
+
+    private async Task OpenSiteSettings() {
+        if (_cameraModule is not null) {
+            await _cameraModule.InvokeVoidAsync("openInNewTab", SiteDetailsUrl);
+        }
+    }
+
+    private async Task RetryPermission() {
+        _cameraPermissionStatus = null;
+        StateHasChanged();
+        _cameraModule ??= await js.InvokeAsync<IJSObjectReference>(
+            "import", "./scripts/helpers/cameraHelper.js");
+        _cameraPermissionStatus = await _cameraModule.InvokeAsync<string>("requestCameraPermission");
     }
 
     private async Task OnBarcodeReceived(BarcodeReceivedEventArgs args) {
@@ -142,7 +163,7 @@
                 <MudText Typo="Typo.h6">Scan QR Code</MudText>
 
                 <div style="display: flex; justify-content: center;">
-                    @if (_cameraPermissionGranted == true)
+                    @if (_cameraPermissionStatus == "granted")
                     {
                         @* Known console warnings from BlazorBarcodeScanner.ZXing.JS and its bundled zxingjs:
                            - "Trying to play video that is already playing."
@@ -166,11 +187,45 @@
                                        OnErrorReceived="OnErrorReceived"
                                        VideoInputDevicesChanged="OnVideoInputDevicesChanged"/>
                     }
-                    else if (_cameraPermissionGranted == false)
+                    else if (_cameraPermissionStatus == "blocked")
                     {
-                        <MudText Color="Color.Error" Align="Align.Center">
-                            Camera access was denied. Allow it in Chrome extension settings and try again.
-                        </MudText>
+                        <MudStack Spacing="2" Style="max-width: 320px;">
+                            <MudText Color="Color.Error" Align="Align.Center">
+                                Camera is blocked in your browser settings.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Align="Align.Left">
+                                To fix this, open your extension's site settings and change Camera from "Block" to "Ask" or "Allow":
+                            </MudText>
+                            <MudLink OnClick="OpenSiteSettings" Typo="Typo.body2" Style="cursor: pointer;">
+                                Open site settings
+                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Style="vertical-align: middle; margin-left: 4px;" />
+                            </MudLink>
+                            <MudButton StartIcon="@Icons.Material.Filled.Refresh"
+                                       OnClick="RetryPermission"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       FullWidth="true">
+                                Retry
+                            </MudButton>
+                        </MudStack>
+                    }
+                    else if (_cameraPermissionStatus == "denied")
+                    {
+                        <MudStack Spacing="2" Style="max-width: 320px;">
+                            <MudText Color="Color.Error" Align="Align.Center">
+                                Camera access was denied.
+                            </MudText>
+                            <MudText Typo="Typo.body2" Align="Align.Center">
+                                Click Retry to be prompted again, or check your browser's site settings if the prompt does not appear.
+                            </MudText>
+                            <MudButton StartIcon="@Icons.Material.Filled.Refresh"
+                                       OnClick="RetryPermission"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       FullWidth="true">
+                                Retry
+                            </MudButton>
+                        </MudStack>
                     }
                 </div>
 
