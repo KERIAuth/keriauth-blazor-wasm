@@ -172,13 +172,6 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestIpexAgree = "AppBw.RequestIpexAgree";
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
             public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
-
-            // TODO P2 consider deprecating the following.
-            /// <summary>
-            /// Request to get the current session passcode from BackgroundWorker memory.
-            /// Used by App pages that need the passcode (e.g., MnemonicPage, WebauthnService).
-            /// Returns null if the session is locked.
-            /// </summary>
             public const string RequestGetSessionPasscode = "AppBw.RequestGetSessionPasscode";
         }
 

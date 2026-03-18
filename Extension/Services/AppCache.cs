@@ -460,7 +460,6 @@
         /// <param name="maxWaitMs">Maximum time to wait in milliseconds. Default: 5000ms (5 seconds).</param>
         /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
         /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
-        // TODO P3: adjust default timeouts as needed based on real-world performance
         public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
             if (assertions is null || assertions.Count == 0) {
                 _logger.LogWarning(nameof(WaitForAppCache) + ": called with no assertions");
