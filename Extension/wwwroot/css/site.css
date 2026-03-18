@@ -287,10 +287,12 @@
 
 .credential-compact.selected-credential {
     border-left: 4px solid var(--mud-palette-primary);
+    width:stretch;
 }
 
 .credential-compact {
     border: 1px solid rgba(0,0,0,0.08);
+    width:stretch;
 }
 
 .mud-theme-dark .credential-compact {
