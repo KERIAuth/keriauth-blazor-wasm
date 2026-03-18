@@ -267,27 +267,34 @@
     /// </summary>
     private async Task FocusAppropriateElementAsync()
     {
-        if (_isRecoveryMode)
+        try
         {
-            if (_recoveryPhraseValid && recoveryUnlockButton is not null)
+            if (_isRecoveryMode)
             {
-                await recoveryUnlockButton.FocusAsync();
+                if (_recoveryPhraseValid && recoveryUnlockButton is not null)
+                {
+                    await recoveryUnlockButton.FocusAsync();
+                }
+                else if (recoveryWordField is not null && !IsRecoveryComplete)
+                {
+                    await recoveryWordField.FocusAsync();
+                }
             }
-            else if (recoveryWordField is not null && !IsRecoveryComplete)
+            else if (ShouldUsePasskey)
             {
-                await recoveryWordField.FocusAsync();
+                if (unlockWithPasskeyButton is not null)
+                {
+                    await unlockWithPasskeyButton.FocusAsync();
+                }
+            }
+            else if (passcodeField is not null && unlockPasscodeModel.Passcode?.Length != 21)
+            {
+                await passcodeField.FocusAsync();
             }
         }
-        else if (ShouldUsePasskey)
+        catch (Microsoft.JSInterop.JSException)
         {
-            if (unlockWithPasskeyButton is not null)
-            {
-                await unlockWithPasskeyButton.FocusAsync();
-            }
-        }
-        else if (passcodeField is not null && unlockPasscodeModel.Passcode?.Length != 21)
-        {
-            await passcodeField.FocusAsync();
+            // DOM element may not be ready during rapid navigation; safe to ignore
         }
     }
 

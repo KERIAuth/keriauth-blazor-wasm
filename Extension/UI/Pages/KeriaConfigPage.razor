@@ -80,17 +80,23 @@
     private async Task SetAsActive() {
         if (IsSelected) return;
 
-        // Clear session if currently authenticated
-        if (appCache.IsAuthenticated) {
-            await sessionManager.ClearSessionForConfigChangeAsync();
-        }
-
-        // Update preference
+        // Update preference BEFORE clearing session, because clearing session triggers
+        // BaseLayout to navigate to Index→UnlockPage. The new config digest must already
+        // be in place so UnlockPage finds the correct passkeys.
         var prefs = appCache.MyPreferences;
         var newKeriaPreference = prefs.KeriaPreference with {
             SelectedKeriaConnectionDigest = Digest
         };
         await storageService.SetItem<Preferences>(prefs with { KeriaPreference = newKeriaPreference });
+
+        await appCache.WaitForAppCache([
+            () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == Digest
+        ]);
+
+        // Clear session if currently authenticated — this triggers BaseLayout navigation to UnlockPage
+        if (appCache.IsAuthenticated) {
+            await sessionManager.ClearSessionForConfigChangeAsync();
+        }
 
         snackbar.Add("Configuration set as active", Severity.Success);
     }
