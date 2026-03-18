@@ -27,17 +27,6 @@
         [JsonPropertyName("KeriaPreference")]
         public KeriaPreference KeriaPreference { get; init; } = new();
 
-        // TODO P2 remove this?
-        /// <summary>
-        /// Backward compatibility - reads SelectedPrefix from KeriaPreference.
-        /// Note: SelectedPrefix is now stored per-config in KeriaConnectConfig.
-        /// This property is kept for backward compatibility but should be accessed
-        /// via AppCache.SelectedPrefix (which reads from the current config) instead.
-        /// </summary>
-        [JsonIgnore]
-        [Obsolete("Use AppCache.SelectedPrefix instead, which reads from the current KeriaConnectConfig")]
-        public string SelectedPrefix => KeriaPreference.SelectedPrefix;
-
         [JsonPropertyName("IsStored")]
         public bool IsStored { get; init; }
 

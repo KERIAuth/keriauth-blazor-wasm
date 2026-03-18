@@ -34,7 +34,6 @@ using BrowserTab = WebExtensions.Net.Tabs.Tab;
 using MenusContextType = WebExtensions.Net.Menus.ContextType;
 using MenusOnClickData = WebExtensions.Net.Menus.OnClickData;
 using RemoveInfo = WebExtensions.Net.Tabs.RemoveInfo;
-// using System.Xml;
 
 namespace Extension;
 
@@ -1481,7 +1480,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestUnlockSessionRpcAsync(portId, request, payload);
                     return;
 
-                // TODO P2: consider deprecating the following session-related RPC
                 case AppBwMessageType.Values.RequestGetSessionPasscode:
                     await HandleAppRequestGetSessionPasscodeRpcAsync(portId, request);
                     return;
