@@ -20,12 +20,6 @@
     public static Uri? InitialUri { get; set; }
 
     /// <summary>
-    /// State for the passkey creation offer flow during initial setup.
-    /// Set by ConfigurePage after successful KERIA connection, checked by Index.razor for routing.
-    /// </summary>
-    public static OfferCreatePasskeyState OfferCreatePasskeyState { get; set; } = OfferCreatePasskeyState.NotOffered;
-
-    /// <summary>
     /// The context type from which the app was loaded (e.g., TAB, POPUP, SIDEPANEL).
     /// Set during OnInitializedAsync from globalThis.__EXT_CONTEXT__.type.
     /// Defaults to null if the context is not set or cannot be mapped.

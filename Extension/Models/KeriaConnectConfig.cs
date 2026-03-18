@@ -6,7 +6,7 @@ using FluentResults;
 namespace Extension.Models {
     public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false) {
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false, bool wasPasskeySuggested = false) {
             ProviderName = providerName;  // Agency Alias
             Alias = providerName; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC"; // Connection Alias
             AdminUrl = adminUrl;
@@ -16,6 +16,7 @@ namespace Extension.Models {
             AgentAidPrefix = agentAidPrefix;
             SelectedPrefix = selectedPrefix;
             IsStored = isStored;
+            WasPasskeySuggested = wasPasskeySuggested;
         }
 
         // important to have a parameterless constructor for deserialization or default constructor when storage is deleted
@@ -52,30 +53,33 @@ namespace Extension.Models {
         [JsonPropertyName("SelectedPrefix")]
         public string? SelectedPrefix { get; init; }
 
+        [JsonPropertyName("WasPasskeySuggested")]
+        public bool WasPasskeySuggested { get; init; }
+
         public Result<bool> ValidateConfiguration() {
             var errors = new List<IError>();
-            
+
             if (string.IsNullOrEmpty(Alias)) {
                 errors.Add(new ValidationError("Alias", "Alias is required"));
             }
-            
+
             if (PasscodeHash == 0) {
                 errors.Add(new ValidationError("PasscodeHash", "Passcode hash is missing"));
             }
-            
+
             if (string.IsNullOrEmpty(AdminUrl)) {
                 errors.Add(new ValidationError("AdminUrl", "Admin URL is required"));
             }
             // TODO P3 need to validate this construction is correct
-            else if (!Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult) 
+            else if (!Uri.TryCreate(AdminUrl, UriKind.Absolute, out Uri? adminUriResult)
                      || (adminUriResult.Scheme != Uri.UriSchemeHttp && adminUriResult.Scheme != Uri.UriSchemeHttps)) {
                 errors.Add(new ValidationError("AdminUrl", "Admin URL must be a valid HTTP or HTTPS URL"));
             }
-            
+
             if (errors.Count > 0) {
                 return Result.Fail<bool>(errors);
             }
-            
+
             return Result.Ok(true);
         }
     }

@@ -6,6 +6,8 @@
 @inject NavigationManager navManager
 @inject ILogger<OfferPasskeyPage> logger
 @inject IJSRuntime js
+@inject AppCache appCache
+@inject IStorageService storageService
 
 @code {
     private MudButton? createPasskeyButton;
@@ -27,26 +29,59 @@
         }
     }
 
-    void HandleKeyDown(KeyboardEventArgs e)
+    async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")
         {
-            DeclineOffer();
+            await DeclineOffer();
         }
     }
 
-    void AcceptOffer()
+    async Task AcceptOffer()
     {
         logger.LogInformation("User accepted passkey offer");
-        App.OfferCreatePasskeyState = OfferCreatePasskeyState.Yes;
+        await PersistWasPasskeySuggested();
+        navManager.NavigateTo(Routes.Paths.AddPasskey);
+    }
+
+    async Task DeclineOffer()
+    {
+        logger.LogInformation("User declined passkey offer");
+        await PersistWasPasskeySuggested();
         navManager.NavigateTo(Routes.Paths.Index);
     }
 
-    void DeclineOffer()
+    async Task PersistWasPasskeySuggested()
     {
-        logger.LogInformation("User declined passkey offer");
-        App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
-        navManager.NavigateTo(Routes.Paths.Index);
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest))
+        {
+            logger.LogWarning("PersistWasPasskeySuggested: No selected KERIA connection digest");
+            return;
+        }
+
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (!configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
+        {
+            logger.LogWarning("PersistWasPasskeySuggested: Config not found for digest {Digest}", selectedDigest);
+            return;
+        }
+
+        var updatedConfig = currentConfig with { WasPasskeySuggested = true };
+        var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+            [selectedDigest] = updatedConfig
+        };
+        var storeResult = await storageService.SetItem(new KeriaConnectConfigs {
+            Configs = updatedConfigs,
+            IsStored = true
+        });
+        if (storeResult.IsFailed)
+        {
+            logger.LogError("PersistWasPasskeySuggested: Failed to store config: {Errors}", string.Join(", ", storeResult.Errors));
+            return;
+        }
+
+        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfigs.Configs.TryGetValue(selectedDigest, out var c) && c.WasPasskeySuggested]);
     }
 }
 

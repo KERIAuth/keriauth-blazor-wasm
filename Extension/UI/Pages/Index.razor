@@ -133,10 +133,8 @@
             return;
         }
 
-        // Check for passkey creation offer flow (after first-time KERIA connection)
-        // Handle NotOffered → OfferPasskeyPage, Yes → AddPasskeyPage (only if no passkey exists)
-        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.NotOffered ||
-            App.OfferCreatePasskeyState == OfferCreatePasskeyState.Yes)
+        // Offer passkey creation once per config (after first-time KERIA connection)
+        if (!appCache.MyKeriaConnectConfig.WasPasskeySuggested)
         {
             var digestResult = await webauthnService.GetCurrentKeriaConnectionDigestAsync();
             var storedPasskeysResult = await webauthnService.GetStoredPasskeysAsync();
@@ -146,31 +144,14 @@
                 var availability = GetPasskeysAvailable(storedPasskeysResult.Value, digestResult.Value);
                 if (!availability.HasPasskeys)
                 {
-                    if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.NotOffered)
-                    {
-                        logger.LogInformation("RedirectIfNeeded: No passkey exists, navigating to OfferPasskeyPage");
-                        NavigateIfNeeded(Routes.Paths.OfferPasskey);
-                        return;
-                    }
-                    else // Yes
-                    {
-                        logger.LogInformation("RedirectIfNeeded: User accepted passkey offer and no passkey exists, navigating to AddPasskey");
-                        App.OfferCreatePasskeyState = OfferCreatePasskeyState.InProcess;
-                        NavigateIfNeeded(Routes.Paths.AddPasskey);
-                        return;
-                    }
-                }
-                else
-                {
-                    logger.LogInformation("RedirectIfNeeded: Passkey already exists for config, skipping passkey offer flow");
-                    App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
+                    logger.LogInformation("RedirectIfNeeded: No passkey exists and offer not yet shown, navigating to OfferPasskeyPage");
+                    NavigateIfNeeded(Routes.Paths.OfferPasskey);
+                    return;
                 }
             }
             else
             {
-                // If we can't determine passkey status, skip the offer to avoid potential issues
                 logger.LogWarning("RedirectIfNeeded: Could not determine passkey availability, skipping offer");
-                App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
             }
         }
 

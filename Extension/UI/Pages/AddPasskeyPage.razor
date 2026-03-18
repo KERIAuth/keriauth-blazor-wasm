@@ -163,12 +163,12 @@
 
         snackbar.Add("Passkey successfully created.", Severity.Success);
 
-        // If we came from the passkey offer flow, complete it and go to Index (which routes to Dashboard)
-        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
+        // If we came from the passkey offer flow during onboarding, go to Index (which routes to GettingStarted/Dashboard)
+        if (!appCache.ShowedGettingStarted)
         {
-            App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
             navManager.NavigateTo(Routes.Paths.Index);
         }
+        // TODO P3 what if the user got here by adding a new Config. How do we detect that and route to the appropriate page, probably KeriaConfigsPage?  Pass a parameter in on navigation?
         else
         {
             // Normal flow - go to Passkeys page
@@ -265,11 +265,10 @@
 
     async Task CancelOrGoBack()
     {
-        // If we came from the passkey offer flow, cancel it and go to Index (which routes to Dashboard)
-        if (App.OfferCreatePasskeyState == OfferCreatePasskeyState.InProcess)
+        // If we came from the passkey offer flow during onboarding, cancel and go to Index (which routes to GettingStarted/Dashboard)
+        if (!appCache.ShowedGettingStarted)
         {
             logger.LogInformation("User cancelled passkey creation from offer flow");
-            App.OfferCreatePasskeyState = OfferCreatePasskeyState.No;
             navManager.NavigateTo(Routes.Paths.Index);
         }
         else
