@@ -216,8 +216,8 @@
         // Ensure that AppCache is fully initialized before proceeding
         // helping assure critical records are loaded (and usually stored) before UI interaction
         bool isAppCacheReady;
-        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyPreferences.IsStored], 10000, 100);
-        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyOnboardState.IsStored], 10000, 100);
+        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyPreferences.IsStored], 10000);
+        isAppCacheReady = await appCache.WaitForAppCache([() => appCache.MyOnboardState.IsStored], 10000);
         if (!isAppCacheReady)
         {
             logger.LogError("AssertHydratedCache: AppCache not ready after waiting.");

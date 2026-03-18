@@ -458,9 +458,9 @@
         /// </summary>
         /// <param name="assertions">List of boolean functions to evaluate. All must return true for success.</param>
         /// <param name="maxWaitMs">Maximum time to wait in milliseconds. Default: 5000ms (5 seconds).</param>
-        /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 50ms.</param>
+        /// <param name="pollIntervalMs">Polling interval in milliseconds. Default: 200ms.</param>
         /// <returns>True if all assertions passed within timeout, false otherwise.</returns>
-        public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
+        public async Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = AppConfig.WaitForAppCacheTimeoutMs, int pollIntervalMs = AppConfig.WaitForAppCachePollIntervalMs) {
             if (assertions is null || assertions.Count == 0) {
                 _logger.LogWarning(nameof(WaitForAppCache) + ": called with no assertions");
                 return true; // No assertions means nothing to wait for

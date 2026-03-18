@@ -35,6 +35,14 @@ namespace Extension {
         public const int BwReadyTimeoutMs = 5000;
         public const int BwReadyPollIntervalMs = 200;
 
+        // AppCache WaitForAppCache polling configuration
+        // Used by ~35 call sites that poll for storage observer state to propagate.
+        // Most waits resolve in <1s; timeout is a safety net.
+        // Compare: BwReadyPollIntervalMs (200ms) polls for service worker readiness,
+        // which involves cross-runtime messaging and is similarly fast to resolve.
+        public const int WaitForAppCacheTimeoutMs = 5000;
+        public const int WaitForAppCachePollIntervalMs = 200;
+
         // Notification polling configuration
         public const string NotificationPollAlarmName = "NotificationPollAlarm";
         public const double NotificationPollAlarmPeriodMinutes = 5.0;

@@ -361,7 +361,7 @@ public class TabDialogPageBaseTests {
         public PendingBwAppRequest? NextPendingBwAppRequest => NextPendingBwAppRequestValue;
         public bool HasPendingBwAppRequests => HasPendingBwAppRequestsValue;
 
-        public Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = 5000, int pollIntervalMs = 500) {
+        public Task<bool> WaitForAppCache(List<Func<bool>> assertions, int maxWaitMs = AppConfig.WaitForAppCacheTimeoutMs, int pollIntervalMs = AppConfig.WaitForAppCachePollIntervalMs) {
             return Task.FromResult(WaitForAppCacheResult);
         }
     }
@@ -410,7 +410,7 @@ public class TabDialogPageBaseTests {
         public async Task<bool> TestWaitForAppCacheClearAsync(int timeoutMs = 3000) {
             // Use stub instead of base implementation
             if (_stubAppCache is not null) {
-                return await _stubAppCache.WaitForAppCache([], timeoutMs, 100);
+                return await _stubAppCache.WaitForAppCache([], timeoutMs);
             }
             return await WaitForAppCacheClearAsync(timeoutMs);
         }
