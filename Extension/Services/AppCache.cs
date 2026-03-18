@@ -5,7 +5,6 @@
     using Extension.Services.SignifyService.Models;
 
     using Extension.Services.Storage;
-    using Extension.Utilities;
     using WebExtensions.Net;
 
 
