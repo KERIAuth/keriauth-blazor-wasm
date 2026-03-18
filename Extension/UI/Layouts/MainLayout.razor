@@ -258,7 +258,6 @@
                 <MudNavLink Ripple="false" Href="@Routes.Paths.Dashboard" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Surface">Dashboard</MudNavLink>
                 <MudNavLink Ripple="false" Href="@Routes.Paths.Profiles" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Key" IconColor="Color.Surface">Profiles</MudNavLink>
                 <MudNavLink Ripple="false" Href="@Routes.Paths.Credentials" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Badge" IconColor="Color.Surface">Credentials</MudNavLink>
-                <MudNavLink Ripple="false" Href="@Routes.Paths.Presentations" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                 <MudNavLink Ripple="false" Href="@Routes.Paths.Websites" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Web" IconColor="Color.Surface" data-testid="menuWebsites">Websites</MudNavLink>
                 <MudNavLink Ripple="false" Href="@Routes.Paths.Connections" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.People" IconColor="Color.Surface">Connections</MudNavLink>
                 <MudNavLink Ripple="false" Href="@Routes.Paths.Notifications" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Message" IconColor="Color.Surface">
@@ -282,15 +281,16 @@
                     <MudNavLink Ripple="false" Href="@Routes.Paths.Preferences" Icon="@Icons.Material.Filled.SettingsApplications" IconColor="Color.Surface">Preferences</MudNavLink>
                     <MudNavLink Ripple="false" Href="@Routes.Paths.Passkeys" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Ripple="false" Href="@Routes.Paths.KeriaConfigs" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA</MudNavLink>
-                    <MudNavLink Ripple="false" Href="@Routes.Paths.Delete" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset All...</MudNavLink>
                     <MudNavGroup Ripple="false" Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
                         <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperState" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTest" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.PrimeData" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime Data</MudNavLink>
                         <MudNavGroup Ripple="false" Title="Draft Pages" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
+                            <MudNavLink Ripple="false" Href="@Routes.Paths.Presentations" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                             <MudNavLink Ripple="false" Href="@Routes.Paths.Mnemonic" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
                         </MudNavGroup>
                     </MudNavGroup>
+                    <MudNavLink Ripple="false" Href="@Routes.Paths.Delete" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset All...</MudNavLink>
                 </MudNavGroup>
 
                 <MudNavGroup Ripple="false" Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
@@ -301,8 +301,9 @@
                     <!-- TODO P4 provide licenses -->
 
                     <MudNavLink Ripple="false" Style="display:none !important;" Href="@Routes.PathFor(ContentPage.Licenses)" Target="licenses" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
-                    <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.Release)" Target="releaseNotes" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release Notes<br /><i>version @version_name</i></MudNavLink>
+                    <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.Release)" Target="releaseNotes" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release Notes</MudNavLink>
                     <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.ReleaseHistory)" Target="releaseHistory" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release History<br /></MudNavLink>
+                    <MudText Typo="Typo.body2" Style="font-style:italic; opacity:0.4;" Class="ml-9">version @version_name</MudText>
                 </MudNavGroup>
             </MudNavMenu>
         </MudDrawer>
